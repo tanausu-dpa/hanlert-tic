@@ -1,0 +1,26 @@
+! Molecule
+  LIH
+
+! Mass
+  7.9489400
+
+! Charge
+  0
+
+! Atoms
+  Li, H
+
+! Dissociation energy [cm^-1]
+  19588.787
+
+! Type of partition function fit
+  SAUVAL_TATUM_84
+
+! Minimum and Maximum temperatures
+  1.0E+3  9.0E+3
+
+! pf coefficients
+  4   3.2564  -2.1799   0.7236  -0.1052
+
+! eqc coefficients
+  5   9.9506  -0.5163   0.1833  -1.7211   1.2805

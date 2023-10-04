@@ -1,0 +1,81 @@
+! Input file to run an easy example for th Sr I line at 460.7 nm
+
+! Running 1.5D synthesis
+RUN_MODE = 15DS
+
+! Include a Sr I model atom
+ATOM_INPUT = ../../../data/Atoms/SrI/SrI.atom
+
+! Include some background contributions, but explicitly without lines
+ATOM_BACK = ../../../data/Atoms/Background/He_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/C_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/N_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/O_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/Na_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/Al_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/Si_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/S_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/Fe_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/Ni_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/Ca_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/Mg_nobb.atom
+
+! Include some molecules for chemical equilibrium and background contributions
+MOLECULE_INPUT  = ../../../data/Molecules/C2.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/CH.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/CN.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/CO.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/H2.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/H2+.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/H2O.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/N2.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/NH.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/NO.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/O2.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/OH.molecule
+
+! Model atom
+ATMO_INPUT = ../../../data/Atmos/FALC93_3x3x35.hrt
+
+! Opacity fudge file
+OPACITY_FUDGE = ../../../Resources/fudge.dat
+
+! Direct the output to elsewhere
+OUT_FOLDER = ../../../Outputs/examples/15D/strontium_I_4607_FALC_3x3
+
+! Solve from scratch
+MODE = Solve
+
+! Angular quadrature
+POLAR_NODES = 4
+AXIAL_NODES = -1
+
+! LOS for the emergent Stokes parameters
+POLAR_LOS = 0.1
+AXIAL_LOS = 0.0
+
+! Keep Voigt profiles and redistribution functions in RAM
+VOI_PRAM = Yes
+RED_PRAM = Yes
+
+! Set a easy but small convergence criteria
+ITER_MRC_I = 1.0d-3
+ITER_MRC_P = 1.0d-3
+
+! Avoid most of the outputs
+SOLUTION_KEEPS = N
+KEEP_POP = N
+KEEP_DEP = N
+KEEP_RHOKQ = N
+KEEP_JKQ = N
+KEEP_STOKES_QUAD = N
+KEEP_JKQNU = N
+SKIP_SFILE = Y
+
+! Direct the verbosity to the output folder
+VERBOSE = No
+
+! Allow NG acceleration for intensity
+NGI_ACC = Yes
+NGI_ORD = 3
+NGI_DELAY = 20

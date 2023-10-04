@@ -1,0 +1,26 @@
+! Molecule
+  TiO
+
+! Mass
+  63.879400
+
+! Charge
+  0
+
+! Atoms
+  TI, O
+
+! Dissociation energy [cm^-1]
+  55410.287
+
+! Type of partition function fit
+  SAUVAL_TATUM_84
+
+! Minimum and Maximum temperatures
+  1.0E+3  9.0E+3
+
+! pf coefficients
+  4    5.3051  -2.3739   0.8940  -0.3641
+
+! eqc coefficients
+  4   11.4047  -1.1484   0.6478  -0.6737

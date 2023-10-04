@@ -1,0 +1,98 @@
+! Input file to run an easy example for the Ca II H-K, and IR triplet lines, and the Fe I line at 617.5 in LTE
+
+! Running 1D synthesis
+RUN_MODE = 1DS
+
+! Include a two-term Mg II atomic model
+ATOM_INPUT = ../../../data/Atoms/CaII/CaII_5L_IRCRD.atom
+
+! Include Fe I line in LTE with HanleRT-TIC format
+LTE_LINE = Fe I 17927.382 1.0 2.499 34121.603  0.0  0.0 2.31e5 barklem p 63737.704 s 63737.704 0.0 1.0 8.31 51 41 10.0 5. e1
+
+! Include some background contributions, but explicitly without lines
+ATOM_BACK = ../../../data/Atoms/Background/He_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/C_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/N_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/O_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/Na_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/Al_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/Si_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/S_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/Fe_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/Ni_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/Mg_nobb.atom
+
+! Include some molecules for chemical equilibrium and background contributions
+MOLECULE_INPUT  = ../../../data/Molecules/C2.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/CH.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/CN.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/CO.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/H2.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/H2+.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/H2O.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/N2.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/NH.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/NO.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/O2.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/OH.molecule
+
+! Model atom
+ATMO_INPUT = ../../../data/Atmos/FALC93_70.atmos
+BFIELD_INPUT = 300 45 45
+
+! Opacity fudge file
+OPACITY_FUDGE = ../../../Resources/fudge.dat
+
+! Direct the output to elsewhere
+OUT_FOLDER = ../../../Outputs/examples/1D/calcium_8542_iron_6175_FALC_B
+
+! Activate PRD in general
+ITER_2ORD = Yes
+
+! Solve from B0 solution
+MODE = Both
+OUT_FOLDER = ../../../Outputs/examples/1D/calcium_8542_iron_6175_FALC_B/Solution
+
+! Correct randiation field tensors when going to multi-term
+P_CORR = Yes
+
+! Angular quadrature
+POLAR_NODES = 4
+AXIAL_NODES = 2
+
+! LOS for the emergent Stokes parameters
+POLAR_LOS = 0.8
+AXIAL_LOS = 0.0
+
+! Keep Voigt profiles and redistribution functions in RAM
+VOI_PRAM = Yes
+RED_PRAM = Yes
+
+! Set a easy but small convergence criteria
+ITER_MRC_I = 1.0d-3
+ITER_MRC_P = 1.0d-3
+
+! Avoid most of the outputs
+SOLUTION_KEEPS = N
+KEEP_POP = N
+KEEP_DEP = N
+KEEP_RHOKQ = N
+KEEP_JKQ = N
+KEEP_STOKES_QUAD = N
+KEEP_JKQNU = N
+SKIP_SFILE = Y
+
+! Direct the verbosity to the output folder
+VERBOSE = No
+
+! Allow NG acceleration for intensity
+NGI_ACC = Yes
+NGI_ORD = 3
+NGI_DELAY = 20
+
+! The PRD in Ca II H-K needs a bit better resolution for the integral
+! We did not put this in the B0 INPUT because it is just an
+! initialization
+RED_CORE = 2.5
+RED_FSTP_CORE = 0.15
+RED_MSTP_CORE = 13.33

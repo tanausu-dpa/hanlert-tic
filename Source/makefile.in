@@ -1,0 +1,481 @@
+#####################################################################
+#####################################################################
+#
+#  Last version:
+#     09/18/2023 V3.0.12
+#
+#####################################################################
+#####################################################################
+#####################################################################
+#####################################################################
+
+# Define folders and target for fortran modules
+src_dir=Source/
+obj_dirns=objects
+obj_dir=$(obj_dirns)/
+MFLAG=$(mods)$(obj_dirns)
+
+# Executable name
+EXE = $(PREFIX)hanlert
+
+# Exceptions
+.PHONY: all clean
+
+# Objects
+OBJ = $(obj_dir)hanlert.o $(obj_dir)aborted_mod.o \
+	  $(obj_dir)background_mod.o $(obj_dir)backgroundaux_mod.o \
+	  $(obj_dir)boundary_mod.o $(obj_dir)bounds_mod.o \
+	  $(obj_dir)broad_mod.o $(obj_dir)broadaux_mod.o \
+	  $(obj_dir)btens_mod.o $(obj_dir)chemic_mod.o \
+	  $(obj_dir)chemicaux_mod.o $(obj_dir)chianti_mod.o \
+	  $(obj_dir)cle_mod.o $(obj_dir)commons_mod.o \
+	  $(obj_dir)diagon_mod.o $(obj_dir)fctsg_mod.o \
+	  $(obj_dir)fieldb_mod.o $(obj_dir)free_mod.o \
+	  $(obj_dir)funnj_mod.o $(obj_dir)gauss_mod.o \
+	  $(obj_dir)gaussaux_mod.o $(obj_dir)geometry_mod.o \
+	  $(obj_dir)getrtcle_mod.o $(obj_dir)getztau_mod.o \
+	  $(obj_dir)hanle_mod.o $(obj_dir)hanlert_mod.o \
+	  $(obj_dir)hydrostatic_mod.o $(obj_dir)initialize_mod.o \
+	  $(obj_dir)initmemoj_mod.o $(obj_dir)initphotoion_mod.o \
+	  $(obj_dir)initcols_mod.o $(obj_dir)initinv_mod.o \
+	  $(obj_dir)initmodel_mod.o $(obj_dir)initpopu_mod.o \
+	  $(obj_dir)initpopuaux_mod.o $(obj_dir)inspect_mod.o \
+	  $(obj_dir)inter_mod.o $(obj_dir)inversion_mod.o \
+	  $(obj_dir)io_mod.o $(obj_dir)iosolution_mod.o \
+	  $(obj_dir)iotic_mod.o $(obj_dir)jacobian_mod.o \
+	  $(obj_dir)jcalc_mod.o $(obj_dir)jcalccle_mod.o \
+	  $(obj_dir)jcalci_mod.o $(obj_dir)kurucz_mod.o \
+	  $(obj_dir)lmfit_mod.o $(obj_dir)math_mod.o \
+	  $(obj_dir)model_mod.o $(obj_dir)mrc_mod.o $(obj_dir)ng_mod.o \
+	  $(obj_dir)normalizer_mod.o $(obj_dir)omp_mod.o \
+	  $(obj_dir)parameters_mod.o $(obj_dir)pb_mod.o \
+	  $(obj_dir)planck_mod.o $(obj_dir)profile_mod.o \
+	  $(obj_dir)psf_mod.o $(obj_dir)qsort_mod.o \
+	  $(obj_dir)ratmo_mod.o $(obj_dir)ratom_mod.o \
+	  $(obj_dir)rbarklem_mod.o $(obj_dir)rbfield_mod.o \
+	  $(obj_dir)rdmat_mod.o $(obj_dir)rfudge_mod.o \
+	  $(obj_dir)rf_mod.o $(obj_dir)regul_mod.o \
+	  $(obj_dir)rinput_mod.o $(obj_dir)rmol_mod.o \
+	  $(obj_dir)rpfa_mod.o $(obj_dir)rtcoeff_mod.o \
+	  $(obj_dir)rtcoeffi_mod.o $(obj_dir)rtcoeffiaux_mod.o \
+	  $(obj_dir)rtstep_mod.o $(obj_dir)rtstepi_mod.o \
+	  $(obj_dir)rtstepaux_mod.o $(obj_dir)see_mod.o \
+	  $(obj_dir)seeaux_mod.o $(obj_dir)seei_mod.o \
+	  $(obj_dir)seeiaux_mod.o $(obj_dir)setmpi_mod.o \
+	  $(obj_dir)solver_mod.o $(obj_dir)solveri_mod.o \
+	  $(obj_dir)stens_mod.o $(obj_dir)strength_mod.o \
+	  $(obj_dir)svd_mod.o $(obj_dir)tic_mod.o \
+	  $(obj_dir)types_mod.o $(obj_dir)w2freq_mod.o
+LOWOBJ = $(obj_dir)omegabuild_mod.o $(obj_dir)memoization_mod.o
+HIOBJ  = $(obj_dir)rtcoeffaux_mod.o
+COBJ = $(obj_dir)fgetpid.o
+
+# Dependences
+Abort = $(obj_dir)hanlert.o $(obj_dir)background_mod.o \
+		$(obj_dir)backgroundaux_mod.o $(obj_dir)broad_mod.o \
+		$(obj_dir)broadaux_mod.o $(obj_dir)chemic_mod.o \
+		$(obj_dir)chemicaux_mod.o $(obj_dir)chianti_mod.o \
+		$(obj_dir)fctsg_mod.o $(obj_dir)gauss_mod.o \
+		$(obj_dir)getrtcle_mod.o $(obj_dir)getztau_mod.o \
+		$(obj_dir)hanlert_mod.o $(obj_dir)initialize_mod.o \
+		$(obj_dir)initinv_mod.o $(obj_dir)initphotoion_mod.o \
+		$(obj_dir)initpopu_mod.o $(obj_dir)initpopuaux_mod.o \
+		$(obj_dir)inspect_mod.o $(obj_dir)inversion_mod.o \
+		$(obj_dir)io_mod.o $(obj_dir)iosolution_mod.o \
+		$(obj_dir)iotic_mod.o $(obj_dir)jcalccle_mod.o \
+		$(obj_dir)kurucz_mod.o $(obj_dir)lmfit_mod.o \
+		$(obj_dir)model_mod.o $(obj_dir)normalizer_mod.o \
+		$(obj_dir)omegabuild_mod.o $(obj_dir)psf_mod.o \
+		$(obj_dir)rinput_mod.o $(obj_dir)ratmo_mod.o \
+		$(obj_dir)ratom_mod.o $(obj_dir)rbarklem_mod.o \
+		$(obj_dir)rbfield_mod.o $(obj_dir)regul_mod.o \
+		$(obj_dir)rf_mod.o $(obj_dir)rmol_mod.o \
+		$(obj_dir)rpfa_mod.o $(obj_dir)rtcoeff_mod.o \
+		$(obj_dir)rtcoeffi_mod.o $(obj_dir)rtcoeffiaux_mod.o \
+		$(obj_dir)rtstep_mod.o $(obj_dir)rtstepi_mod.o \
+		$(obj_dir)see_mod.o $(obj_dir)seei_mod.o \
+		$(obj_dir)setmpi_mod.o $(obj_dir)solver_mod.o \
+		$(obj_dir)solveri_mod.o $(obj_dir)strength_mod.o \
+		$(obj_dir)svd_mod.o $(obj_dir)tic_mod.o \
+		$(obj_dir)w2freq_mod.o
+Atmo = $(obj_dir)cle_mod.o getrtcle_mod.o $(obj_dir)hanlert_mod.o \
+	   $(obj_dir)initmodel_mod.o $(obj_dir)lmfit_mod.o \
+	   $(obj_dir)rf_mod.o $(obj_dir)tic_mod.o
+Atom = $(obj_dir)getrtcle_mod.o $(obj_dir)hanlert.o \
+	   $(obj_dir)hanlert_mod.o $(obj_dir)initmodel_mod.o \
+	   $(obj_dir)tic_mod.o
+Back = $(obj_dir)getrtcle_mod.o $(obj_dir)hanle_mod.o \
+	   $(obj_dir)hydrostatic_mod.o $(obj_dir)initmodel_mod.o \
+	   $(obj_dir)tic_mod.o
+Backa = $(obj_dir)background_mod.o $(obj_dir)initphotoion_mod.o
+Bark = $(obj_dir)hanlert_mod.o $(obj_dir)tic_mod.o
+Bfield = $(obj_dir)hanlert_mod.o
+Bound = $(obj_dir)getrtcle_mod.o $(obj_dir)solver_mod.o \
+		$(obj_dir)solveri_mod.o
+Bounds = $(obj_dir)initinv_mod.o $(obj_dir)inversion_mod.o \
+		 $(obj_dir)lmfit_mod.o
+Broad = $(obj_dir)getrtcle_mod.o $(obj_dir)hanle_mod.o
+Broada = $(obj_dir)broad_mod.o
+Btens = $(obj_dir)gauss_mod.o $(obj_dir)getrtcle_mod.o \
+		$(obj_dir)jcalccle_mod.o
+Chemic = $(obj_dir)getrtcle_mod.o $(obj_dir)hydrostatic_mod.o \
+		 $(obj_dir)initmodel_mod.o
+Chemica = $(obj_dir)chemic_mod.o $(obj_dir)hanlert.o \
+		  $(obj_dir)initpopu_mod.o $(obj_dir)initpopuaux_mod.o \
+		  $(obj_dir)kurucz_mod.o $(obj_dir)ratom_mod.o \
+		  $(obj_dir)rinput_mod.o $(obj_dir)rpfa_mod.o
+CHI = $(obj_dir)hanlert_mod.o
+CLE = $(obj_dir)hanlert_mod.o
+Common = $(obj_dir)hanlert.o $(obj_dir)aborted_mod.o \
+		 $(obj_dir)background_mod.o $(obj_dir)backgroundaux_mod.o \
+		 $(obj_dir)boundary_mod.o $(obj_dir)broad_mod.o \
+		 $(obj_dir)broadaux_mod.o $(obj_dir)chemic_mod.o \
+		 $(obj_dir)chemicaux_mod.o $(obj_dir)chianti_mod.o \
+		 $(obj_dir)diagon_mod.o $(obj_dir)fieldb_mod.o \
+		 $(obj_dir)fctsg_mod.o $(obj_dir)free_mod.o \
+		 $(obj_dir)gauss_mod.o $(obj_dir)getztau_mod.o \
+		 $(obj_dir)hanle_mod.o $(obj_dir)hanlert_mod.o \
+		 $(obj_dir)hydrostatic_mod.o $(obj_dir)initialize_mod.o \
+		 $(obj_dir)initinv_mod.o $(obj_dir)initmemoj_mod.o \
+		 $(obj_dir)initmodel_mod.o $(obj_dir)initphotoion_mod.o \
+		 $(obj_dir)initpopu_mod.o $(obj_dir)initpopuaux_mod.o \
+		 $(obj_dir)inspect_mod.o $(obj_dir)inter_mod.o \
+		 $(obj_dir)io_mod.o $(obj_dir)iosolution_mod.o \
+		 $(obj_dir)iotic_mod.o $(obj_dir)jacobian_mod.o \
+		 $(obj_dir)jcalc_mod.o $(obj_dir)jcalccle_mod.o \
+		 $(obj_dir)jcalci_mod.o $(obj_dir)kurucz_mod.o \
+		 $(obj_dir)lmfit_mod.o $(obj_dir)model_mod.o \
+		 $(obj_dir)mrc_mod.o $(obj_dir)normalizer_mod.o \
+		 $(obj_dir)omegabuild_mod.o $(obj_dir)profile_mod.o \
+		 $(obj_dir)ratmo_mod.o $(obj_dir)ratom_mod.o \
+		 $(obj_dir)rbarklem_mod.o $(obj_dir)rbfield_mod.o \
+		 $(obj_dir)rinput_mod.o $(obj_dir)rmol_mod.o \
+		 $(obj_dir)rpfa_mod.o $(obj_dir)rtcoeff_mod.o \
+		 $(obj_dir)rtcoeffaux_mod.o $(obj_dir)rtcoeffi_mod.o \
+		 $(obj_dir)rtcoeffiaux_mod.o $(obj_dir)rtstep_mod.o \
+		 $(obj_dir)rtstepi_mod.o $(obj_dir)see_mod.o \
+		 $(obj_dir)seei_mod.o $(obj_dir)setmpi_mod.o \
+		 $(obj_dir)solver_mod.o $(obj_dir)solveri_mod.o \
+		 $(obj_dir)tic_mod.o $(obj_dir)types_mod.o \
+		 $(obj_dir)w2freq_mod.o
+Diag = $(obj_dir)cle_mod.o $(obj_dir)hanle_mod.o
+FB = $(obj_dir)iosolution_mod.o $(obj_dir)jcalc_mod.o \
+	 $(obj_dir)jcalccle_mod.o $(obj_dir)omegabuild_mod.o \
+	 $(obj_dir)rtcoeffaux_mod.o $(obj_dir)rtcoeffiaux_mod.o
+Fctsg = $(obj_dir)hanlert.o
+Free = $(obj_dir)cle_mod.o $(obj_dir)getrtcle_mod.o \
+	   $(obj_dir)hanle_mod.o $(obj_dir)hydrostatic_mod.o \
+	   $(obj_dir)initmodel_mod.o $(obj_dir)lmfit_mod.o \
+	   $(obj_dir)rf_mod.o $(obj_dir)tic_mod.o
+Fudge = $(obj_dir)hanlert.o
+Funnj = $(obj_dir)backgroundaux_mod.o $(obj_dir)initcols_mod.o \
+		$(obj_dir)initmemoj_mod.o $(obj_dir)normalizer_mod.o \
+		$(obj_dir)pb_mod.o $(obj_dir)ratom_mod.o \
+		$(obj_dir)rtcoeffaux_mod.o $(obj_dir)strength_mod.o \
+		$(obj_dir)seeaux_mod.o $(obj_dir)seeiaux_mod.o \
+		$(obj_dir)setmpi_mod.o
+Gauss = $(obj_dir)hanlert.o $(obj_dir)hanle_mod.o \
+		$(obj_dir)solver_mod.o $(obj_dir)tic_mod.o
+Gaussa = $(obj_dir)gauss_mod.o
+Geom = $(obj_dir)getrtcle_mod.o
+GRT = $(obj_dir)cle_mod.o
+Gztau = $(obj_dir)hanle_mod.o $(obj_dir)initmode_mod.o
+Hanle = $(obj_dir)hanlert_mod.o
+HRT = $(obj_dir)hanlert.o $(obj_dir)lmfit_mod.o $(obj_dir)rf_mod.o
+Hydro = $(obj_dir)model_mod.o $(obj_dir)rf_mod.o
+Init = $(obj_dir)hanle_mod.o
+Initcols = $(obj_dir)getrtcle_mod.o $(obj_dir)init_model.o
+Initinv = $(obj_dir)inversion_mod.o $(obj_dir)tic_mod.o
+InitmJ = $(obj_dir)hanle_mod.o
+Initmod = $(obj_dir)hanlert_mod.o $(obj_dir)hydrostatic_mod.o \
+		  $(obj_dir)lmfit_mod.o $(obj_dir)rf_mod.o
+Initpopu = $(obj_dir)getrtcle_mod.o $(obj_dir)hanle_mod.o \
+		   $(obj_dir)hydrostatic_mod.o $(obj_dir)initmodel_mod.o
+Initpopua = $(obj_dir)chemic_mod.o $(obj_dir)initpopu_mod.o
+Input = $(obj_dir)hanlert.o
+Inter = $(obj_dir)background_mod.o $(obj_dir)backgroundaux_mod.o \
+		$(obj_dir)chemicaux_mod.o $(obj_dir)chianti_mod.o \
+		$(obj_dir)initcols_mod.o $(obj_dir)initinv_mod.o \
+		$(obj_dir)initphotoion_mod.o $(obj_dir)jcalccle_mod.o \
+		$(obj_dir)model_mod.o $(obj_dir)pdf_mod.o \
+		$(obj_dir)rbarklem_mod.o $(obj_dir)tic_mod.o
+Inv = $(obj_dir)tic_mod.o
+IO = $(obj_dir)hanlert_mod.o $(obj_dir)iotic_mod.o $(obj_dir)tic_mod.o
+IOSol = $(obj_dir)cle_mod.o $(obj_dir)hanle_mod.o \
+		$(obj_dir)initmodel_mod.o $(obj_dir)lmfit_mod.o \
+		$(obj_dir)solver_mod.o $(obj_dir)solveri_mod.o
+IOTIC = $(obj_dir)lmfit_mod.o $(obj_dir)tic_mod.o
+Jac = $(obj_dir)lmfit_mod.o
+Jcalc = $(obj_dir)solver_mod.o
+Jcalccle = $(obj_dir)getrtcle_mod.o
+JcalcI = $(obj_dir)solveri_mod.o
+Kur = $(obj_dir)background_mod.o $(obj_dir)hanlert_mod.o
+LM = $(obj_dir)inversion_mod.o
+Math = $(obj_dir)backgroundaux_mod.o $(obj_dir)chemicaux_mod.o \
+	   $(obj_dir)initphotoion_mod.o $(obj_dir)initpopuaux_mod.o \
+	   $(obj_dir)jcalc_mod.o $(obj_dir)jcalccle_mod.o \
+	   $(obj_dir)jcalci_mod.o $(obj_dir)kurucz_mod.o \
+	   $(obj_dir)planck_mod.o $(obj_dir)rtcoeff_mod.o \
+	   $(obj_dir)rtcoeffaux_mod.o $(obj_dir)rtcoeffiaux_mod.o \
+	   $(obj_dir)rtstep_mod.o $(obj_dir)rtstepi_mod.o
+Memo = $(obj_dir)funnj_mod.o
+Mol = $(obj_dir)chemic_mod.o $(obj_dir)getrtcle_mod.o \
+	  $(obj_dir)hanlert.o $(obj_dir)initmodel_mod.o
+Mod = $(obj_dir)initinv_mod.o $(obj_dir)inversion_mod.o \
+	  $(obj_dir)iotic_mod.o $(obj_dir)lmfit_mod.o \
+	  $(obj_dir)rf_mod.o
+MPI = $(obj_dir)hanle_mod.o $(obj_dir) hanlert_mod.o \
+	  $(obj_dir)normalizer_mod.o $(obj_dir)solver_mod.o \
+	  $(obj_dir)solveri_mod.o
+MRC = $(obj_dir)solver_mod.o $(obj_dir)solveri_mod.o
+NG = $(obj_dir)solver_mod.o $(obj_dir)solveri_mod.o
+Nor = $(obj_dir)hanle_mod.o $(obj_dir)hanlert_mod.o
+Omega = $(obj_dir)hanle_mod.o $(obj_dir)hanlert_mod.o \
+		$(obj_dir)tic_mod.o
+OMP = $(obj_dir)aborted_mod.o $(obj_dir)hanlert.o \
+	  $(obj_dir)jcalc_mod.o $(obj_dir)jcalci_mod.o \
+	  $(obj_dir)omegabuild_mod.o $(obj_dir)rtcoeffi_mod.o \
+	  $(obj_dir)rtcoeffiaux_mod.o $(obj_dir)rtstep_mod.o \
+	  $(obj_dir)rtstepi_mod.o $(obj_dir)setmpi_mod.o \
+	  $(obj_dir)solver_mod.o $(obj_dir)solveri_mod.o
+Param = $(obj_dir)background_mod.o $(obj_dir)backgroundaux_mod.o \
+		$(obj_dir)bounds_mod.o $(obj_dir)broad_mod.o \
+		$(obj_dir)broadaux_mod.o $(obj_dir)btens_mod.o \
+		$(obj_dir)chemic_mod.o $(obj_dir)chemicaux_mod.o \
+		$(obj_dir)cle_mod.o $(obj_dir)diagon_mod.o \
+		$(obj_dir)fieldb_mod.o $(obj_dir)gauss_mod.o \
+		$(obj_dir)gaussaux_mod.o $(obj_dir)geometry_mod.o \
+		$(obj_dir)getrtcle_mod.o $(obj_dir)hanlert_mod.o \
+		$(obj_dir)hydrostatic_mod.o $(obj_dir)initialize_mod.o \
+		$(obj_dir)initinv_mod.o $(obj_dir)initmemoj_mod.o \
+		$(obj_dir)initphotoion_mod.o $(obj_dir)initpopu_mod.o \
+		$(obj_dir)initpopuaux_mod.o $(obj_dir)inspect_mod.o \
+		$(obj_dir)inversion_mod.o $(obj_dir)io_mod.o \
+		$(obj_dir)iosolution_mod.o $(obj_dir)iotic_mod.o \
+		$(obj_dir)kurucz_mod.o $(obj_dir)jcalc_mod.o \
+		$(obj_dir)jcalccle_mod.o $(obj_dir)jcalci_mod.o \
+		$(obj_dir)lmfit_mod.o $(obj_dir)math_mod.o \
+		$(obj_dir)model_mod.o $(obj_dir)mrc_mod.o \
+		$(obj_dir)normalizer.o $(obj_dir)omegabuild_mod.o \
+		$(obj_dir)planck_mod.o $(obj_dir)profile_mod.o \
+		$(obj_dir)psf_mod.o $(obj_dir)ratmo_mod.o \
+		$(obj_dir)ratom_mod.o $(obj_dir)rbarklem_mod.o \
+		$(obj_dir)rbfield_mod.o $(obj_dir)rdmat_mod.o \
+		$(obj_dir)rmol_mod.o $(obj_dir)rtcoeff_mod.o \
+		$(obj_dir)rtcoeffaux_mod.o $(obj_dir)rtcoeffi_mod.o \
+		$(obj_dir)rtcoeffiaux_mod.o $(obj_dir)rtstep_mod.o \
+		$(obj_dir)rtstepi_mod.o $(obj_dir)rtstepaux_mod.o \
+		$(obj_dir)see_mod.o $(obj_dir)seeaux_mod.o \
+		$(obj_dir)seei_mod.o $(obj_dir)setmpi_mod.o \
+		$(obj_dir)solver_mod.o $(obj_dir)solveri_mod.o \
+		$(obj_dir)stens_mod.o $(obj_dir)svd_mod.o \
+		$(obj_dir)tic_mod.o $(obj_dir)w2freq_mod.o
+PB = $(obj_dir)diagon_mod.o
+Pfa = $(obj_dir)hanlert_mod.o $(obj_dir)tic_mod.o
+Phot = $(obj_dir)getrtcle_mod.o $(obj_dir)hanle_mod.o
+Planck = $(obj_dir)background_mod.o $(obj_dir)boundary_mod.o \
+		 $(obj_dir)initialize_mod.o $(obj_dir)jcalccle_mod.o
+Prof = $(obj_dir)backgroundaux_mod.o $(obj_dir)jcalccle_mod.o \
+	   $(obj_dir)kurucz_mod.o $(obj_dir)normalizer_mod.o \
+	   $(obj_dir)rtcoeffaux_mod.o $(obj_dir)rtcoeffiaux_mod.o
+PSF = $(obj_dir)hanlert_mod.o $(obj_dir)tic_mod.o
+Qsort = $(obj_dir)omegabuild_mod.o
+Rdmat = $(obj_dir)btens_mod.o $(obj_dir)fieldb_mod.o
+Reg = $(obj_dir)inversion_mod.o $(obj_dir)lmfit_mod.o
+RF = $(obj_dir)jacobian_mod.o
+RTC = $(obj_dir)getrtcle_mod.o $(obj_dir)solver_mod.o
+RTCa = $(obj_dir)rtcoeff_mod.o $(obj_dir)rtcoeffi_mod.o
+RTCI = $(obj_dir)solveri_mod.o
+RTCaI = $(obj_dir)rtcoeff_mod.o $(obj_dir)rtcoeffi_mod.o
+RTS = $(obj_dir)cle_mod.o $(obj_dir)solver_mod.o
+RTSI = $(obj_dir)solveri_mod.o
+RTSa = $(obj_dir)rtstep_mod.o $(obj_dir)rtstepi_mod.o
+SEE = $(obj_dir)getrtcle_mod.o $(obj_dir)solver_mod.o
+SEEaux = $(obj_dir)see_mod.o
+SEEI = $(obj_dir)solveri_mod.o
+SEEIaux = $(obj_dir)seei_mod.o
+Solver = $(obj_dir)hanle_mod.o
+SolverI = $(obj_dir)hanle_mod.o
+Spec = $(obj_dir)hanlert_mod.o
+Stens = $(obj_dir)gauss_mod.o $(obj_dir)getrtcle_mod.o \
+		$(obj_dir)jcalccle_mod.o
+Strength = $(obj_dir)hanlert.o
+SVD = $(obj_dir)lmfit_mod.o
+TIC = $(obj_dir)hanlert.o
+Types = $(obj_dir)hanlert.o $(obj_dir)background_mod.o \
+		$(obj_dir)backgroundaux_mod.o $(obj_dir)boundary_mod.o \
+		$(obj_dir)bounds_mod.o $(obj_dir)broad_mod.o \
+		$(obj_dir)broadaux_mod.o $(obj_dir)btens_mod.o \
+		$(obj_dir)chemic_mod.o $(obj_dir)chemicaux_mod.o \
+		$(obj_dir)chianti_mod.o $(obj_dir)diagon_mod.o \
+		$(obj_dir)fctsg_mod.o $(obj_dir)fieldb_mod.o \
+		$(obj_dir)free_mod.o $(obj_dir)fudge_mod.o \
+		$(obj_dir)funnj_mod.o $(obj_dir)geometry_mod.o \
+		$(obj_dir)getrtcle_mod.o $(obj_dir)getztau_mod.o \
+		$(obj_dir)hanle_mod.o $(obj_dir)hanlert_mod.o \
+		$(obj_dir)hydrostatic_mod.o $(obj_dir)initialize_mod.o \
+		$(obj_dir)initinv_mod.o $(obj_dir)initmemoj_mod.o \
+		$(obj_dir)initmodel_mod.o $(obj_dir)initphotoion_mod.o \
+		$(obj_dir)initpopu_mod.o $(obj_dir)initpopuaux_mod.o \
+		$(obj_dir)inspect_mod.o $(obj_dir)inversion_mod.o \
+		$(obj_dir)io_mod.o $(obj_dir)iosolution_mod.o \
+		$(obj_dir)iotic_mod.o $(obj_dir)jacobian_mod.o \
+		$(obj_dir)jcalc_mod.o $(obj_dir)jcalccle_mod.o \
+		$(obj_dir)jcalci_mod.o $(obj_dir)kurucz_mod.o \
+		$(obj_dir)lmfit_mod.o $(obj_dir)memoization_mod.o \
+		$(obj_dir)model_mod.o $(obj_dir)mrc_mod.o \
+		$(obj_dir)normalizer_mod.o $(obj_dir)omegabuild_mod.o \
+		$(obj_dir)pb_mod.o $(obj_dir)psf_mod.o $(obj_dir)ratmo_mod.o \
+		$(obj_dir)ratom_mod.o $(obj_dir)rbarklem_mod.o \
+		$(obj_dir)rbfield_mod.o $(obj_dir)rdmat_mod.o \
+		$(obj_dir)regul_mod.o $(obj_dir)rfudge_mod.o \
+		$(obj_dir)rinput_mod.o $(obj_dir)rf_mod.o \
+		$(obj_dir)rmol_mod.o $(obj_dir)rpfa_mod.o \
+		$(obj_dir)rtcoeff_mod.o $(obj_dir)rtcoeffaux_mod.o \
+		$(obj_dir)rtcoeffi_mod.o $(obj_dir)rtcoeffiaux_mod.o \
+		$(obj_dir)see_mod.o $(obj_dir)seeaux_mod.o \
+		$(obj_dir)seei_mod.o $(obj_dir)seeiaux_mod.o \
+		$(obj_dir)setmpi_mod.o $(obj_dir)solver_mod.o \
+		$(obj_dir)solveri_mod.o $(obj_dir)stens_mod.o \
+		$(obj_dir)strength_mod.o $(obj_dir)svd_mod.o \
+		$(obj_dir)tic_mod.o $(obj_dir)w2freq_mod.o
+W2 = $(obj_dir)iotic_mod.o $(obj_dir)tic_mod.o
+
+
+# Main
+hanlert:  $(OBJ)
+	   $(CMP) -o $(EXE) $(OBJ) $(LOWOBJ) $(HIOBJ) $(COBJ) $(OMPFLAGS) $(MFLAG) $(LFLAGS)
+
+# Clean
+clean:
+	$(COBJND)
+	$(RM) $(OBJ)
+	$(RM) $(LOWOBJ)
+	$(RM) $(HIOBJ)
+	$(RM) $(COBJ)
+	$(RM) $(obj_dir)*.mod
+	$(RM) $(EXE)
+
+# Clean objects
+clean_obj:
+	$(RM) $(OBJ)
+	$(RM) $(LOWOBJ)
+	$(RM) $(HIOBJ)
+	$(RM) $(COBJ)
+	$(RM) $(obj_dir)*.mod
+
+# Object dependences.
+$(Abort): $(obj_dir)aborted_mod.o
+$(Atmo): $(obj_dir)ratmo_mod.o
+$(Atom): $(obj_dir)ratom_mod.o
+$(Back): $(obj_dir)background_mod.o
+$(Backa): $(obj_dir)backgroundaux_mod.o
+$(Bark): $(obj_dir)rbarklem_mod.o
+$(Bfield): $(obj_dir)rbfield_mod.o
+$(Bound): $(obj_dir)boundary_mod.o
+$(Bounds): $(obj_dir)bounds_mod.o
+$(Broad): $(obj_dir)broad_mod.o
+$(Broada): $(obj_dir)broadaux_mod.o
+$(Btens): $(obj_dir)btens_mod.o
+$(Chemic): $(obj_dir)chemic_mod.o
+$(Chemica): $(obj_dir)chemicaux_mod.o
+$(CHI): $(obj_dir)chianti_mod.o
+$(CLE): $(obj_dir)cle_mod.o
+$(Common): $(obj_dir)commons_mod.o
+$(Diag): $(obj_dir)diagon_mod.o
+$(FB): $(obj_dir)fieldb_mod.o
+$(Fctsg): $(obj_dir)fctsg_mod.o
+$(Free): $(obj_dir)free_mod.o
+$(Fudge): $(obj_dir)rfudge_mod.o
+$(Funnj): $(obj_dir)funnj_mod.o
+$(Gauss): $(obj_dir)gauss_mod.o
+$(Gaussa): $(obj_dir)gaussaux_mod.o
+$(Geom): $(obj_dir)geometry_mod.o
+$(GRT): $(obj_dir)getrtcle_mod.o
+$(Gztau): $(obj_dir)getztau_mod.o
+$(Hanle): $(obj_dir)hanle_mod.o
+$(HRT): $(obj_dir)hanlert_mod.o
+$(Hydro): $(obj_dir)hydrostatic_mod.o
+$(Init): $(obj_dir)initialize_mod.o
+$(Initcols): $(obj_dir)initcols_mod.o
+$(Initinv): $(obj_dir)initinv_mod.o
+$(InitmJ): $(obj_dir)initmemoj_mod.o
+$(Initmod): $(obj_dir)initmodel_mod.o
+$(Initpopu): $(obj_dir)initpopu_mod.o
+$(Initpopua): $(obj_dir)initpopuaux_mod.o
+$(Input): $(obj_dir)rinput_mod.o
+$(Inter): $(obj_dir)inter_mod.o
+$(Inv): $(obj_dir)inversion_mod.o
+$(IO): $(obj_dir)io_mod.o
+$(IOSol): $(obj_dir)iosolution_mod.o
+$(IOTIC): $(obj_dir)iotic_mod.o
+$(Jac): $(obj_dir)jacobian_mod.o
+$(Jcalc): $(obj_dir)jcalc_mod.o
+$(Jcalccle): $(obj_dir)jcalccle_mod.o
+$(JcalcI): $(obj_dir)jcalci_mod.o
+$(Kur): $(obj_dir)kurucz_mod.o
+$(LM): $(obj_dir)lmfit_mod.o
+$(Math): $(obj_dir)math_mod.o
+$(Memo): $(obj_dir)memoization_mod.o
+$(Mol): $(obj_dir)rmol_mod.o
+$(Mod): $(obj_dir)model_mod.o
+$(MPI): $(obj_dir)setmpi_mod.o
+$(MRC): $(obj_dir)mrc_mod.o
+$(NG): $(obj_dir)ng_mod.o
+$(Nor): $(obj_dir)normalizer_mod.o
+$(Omega): $(obj_dir)omegabuild_mod.o
+$(OMP): $(obj_dir)omp_mod.o
+$(Param): $(obj_dir)parameters_mod.o
+$(PB): $(obj_dir)pb_mod.o
+$(Pfa): $(obj_dir)rpfa_mod.o
+$(Phot): $(obj_dir)initphotoion_mod.o
+$(Planck): $(obj_dir)planck_mod.o
+$(Prof): $(obj_dir)profile_mod.o
+$(PSF): $(obj_dir)psf_mod.o
+$(Qsort): $(obj_dir)qsort_mod.o
+$(Rdmat): $(obj_dir)rdmat_mod.o
+$(Reg): $(obj_dir)regul_mod.o
+$(RF): $(obj_dir)rf_mod.o
+$(RTC): $(obj_dir)rtcoeff_mod.o
+$(RTCa): $(obj_dir)rtcoeffaux_mod.o
+$(RTCI): $(obj_dir)rtcoeffi_mod.o
+$(RTCaI): $(obj_dir)rtcoeffiaux_mod.o
+$(RTS): $(obj_dir)rtstep_mod.o
+$(RTSI): $(obj_dir)rtstepi_mod.o
+$(RTSa): $(obj_dir)rtstepaux_mod.o
+$(SEE): $(obj_dir)see_mod.o
+$(SEEaux): $(obj_dir)seeaux_mod.o
+$(SEEI): $(obj_dir)seei_mod.o
+$(SEEIaux): $(obj_dir)seeiaux_mod.o
+$(Solver): $(obj_dir)solver_mod.o
+$(SolverI): $(obj_dir)solveri_mod.o
+$(Spec): $(obj_dir)inspect_mod.o
+$(Stens): $(obj_dir)stens_mod.o
+$(Strength): $(obj_dir)strength_mod.o
+$(SVD): $(obj_dir)svd_mod.o
+$(TIC): $(obj_dir)tic_mod.o
+$(Types): $(obj_dir)types_mod.o
+$(W2): $(obj_dir)w2freq_mod.o
+
+$(obj_dir)hanlert.o: $(obj_dir)aborted_mod.o $(obj_dir)commons_mod.o \
+	                 $(obj_dir)diagon_mod.o $(obj_dir)fctsg_mod.o \
+					 $(obj_dir)fgetpid.o $(obj_dir)gauss_mod.o \
+					 $(obj_dir)hanle_mod.o $(obj_dir)omp_mod.o \
+					 $(obj_dir)ratmo_mod.o $(obj_dir)ratom_mod.o \
+					 $(obj_dir)rbfield_mod.o $(obj_dir)rfudge_mod.o \
+					 $(obj_dir)rinput_mod.o $(obj_dir)rmol_mod.o \
+					 $(obj_dir)strength_mod.o $(obj_dir)tic_mod.o \
+					 $(obj_dir)types_mod.o
+
+$(LOWOBJ): $(obj_dir)%.o: $(src_dir)%.f90
+	$(CMP) $(patsubst %.o,%.f90,$(patsubst $(obj_dir)%,$(src_dir)%,$@)) $(MFLAG) $(OPT_LOW) $@
+
+$(HIOBJ): $(obj_dir)%.o: $(src_dir)%.f90
+	$(CMP) $(patsubst %.o,%.f90,$(patsubst $(obj_dir)%,$(src_dir)%,$@)) $(MFLAG) $(OPT_HI) $@
+
+$(OBJ): $(obj_dir)%.o: $(src_dir)%.f90
+	$(CMP) $(patsubst %.o,%.f90,$(patsubst $(obj_dir)%,$(src_dir)%,$@)) $(MFLAG) $(OPT) $@
+
+# Object compilation
+$(obj_dir)fgetpid.o:
+	$(CC) -c $(src_dir)fgetpid.c -o $@

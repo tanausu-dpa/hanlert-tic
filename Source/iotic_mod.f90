@@ -1,0 +1,3090 @@
+      !> IO for TIC (no fits)
+      module iotic_mod
+!#####################################################################
+!############################# HEADER ################################
+!#####################################################################
+!
+!  Authors:
+!     Hao Li (IAC)
+!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!  Start:
+!     02/22/2023
+!  Last version:
+!     04/10/2023 V3.0.16
+!
+!#####################################################################
+!#####################################################################
+!
+!  Changelog:
+!
+!     04/10/2023:   V3.0.16 - Bugfix: when writing the result, the
+!                             input and output Stokes parameters were
+!                             being de-scaled. This completely breaks
+!                             the sequential inversion mode, as these
+!                             profiles are going to be used in the
+!                             inversion with polarization. Added an
+!                             auxiliar variable which takes the
+!                             de-scaled values in scope (TdPA)
+!
+!     09/08/2023:   V3.0.15 - Verbosity update (TdPA)
+!
+!     08/29/2023:   V3.0.14 - In set_up_atmo_frombuffer the magnetic
+!                             field was pointing to the velocity
+!                             data (TdPA; notified by Hao)
+!
+!     08/11/2023:   V3.0.13 - Bugfix: Verbosity in Profile_Conversion
+!                             directed to the wrong file (TdPA)
+!                           - Changed conflictive variable name and
+!                             initialized a status variable to
+!                             avoid valgrind false positives (TdPA)
+!
+!     08/11/2023:   V3.0.12 - Bugfix: Wrong size of jump when
+!                             initializing the result file with
+!                             response functions (TdPA)
+!
+!     08/08/2023:   V3.0.11 - Restore call to start_cache in
+!                             open_data_and_cache(), but solved the
+!                             issue with that call in io_mod (TdPA)
+!                           - The cache is specific for the chosen
+!                             box, therefore the indexes should not
+!                             be corrected with the box (TdPA)
+!
+!     07/31/2023:   V3.0.10 - Removed Get_LUN and FILE_DEL (HL)
+!                           - Updated the input for fits file (HL)
+!                           - Fixed some typos (HL)
+!
+!     07/05/2023:    V3.0.9 - Bugfix: Wrong identifier set when
+!                             creating the tau file (TdPA)
+!
+!     07/03/2023:    V3.0.8 - Unfortunately, I developed another
+!                             binary format, so I had to overwrite
+!                             HL's change in last patch (TdPA)
+!                           - Removed most of the existing routines
+!                             for the serial code because they
+!                             became obsolete (TdPA)
+!                           - Added a number of routines to manage
+!                             the input for the inversion, see the
+!                             list at the end of the header (TdPA)
+!
+!     06/13/2023:    V3.0.7 - The wavelength in Sol changed to nm (HL)
+!                           - Update IO for fits and binary file (HL)
+!
+!     05/24/2023:    V3.0.6 - Bugfix: Fixed an issue when a path
+!                             had more than one underscore (TdPA)
+!                           - Bugfix: Fixed naming issue for cycles
+!                             nine and beyond (TdPA)
+!
+!     05/16/2023:    V3.0.5 - Bugfix: Fixed an out of bounds in
+!                             Write_RF (TdPA)
+!                           - Output RF with physical units (TdPA)
+!
+!     04/27/2023:    V3.0.4 - Ensure Sigma_W is only allocated once
+!                             with the binary file option (TdPA)
+!
+!     04/26/2023:    V3.0.3 - Bugfix: Missing option for constant
+!                             sigma when reading profiles in binary
+!                             format (TdPA)
+!                           - Added Write_RF subroutine (TdPA)
+!                           - Removed the scaling of sigma in
+!                             Read_Profile for the constant sigma
+!                             case, as it was dividing by a quantity
+!                             set to 0. Also removed the definition
+!                             of Sigma_Scales in the frequency
+!                             dependent sigma case because the
+!                             scales are set to 1 after the case
+!                             statement anyways (TdPA)
+!                           - Removed the ASCII branch in the
+!                             Read_Profile subroutine (TdPA)
+!
+!     04/11/2023:    V3.0.2 - Add: read the keyword ETYPE from the
+!                             header and read profile from a binary
+!                             file (HL)
+!                           - The binary result file changed (HL)
+!                           - Weights for multi-wavelength ranges (HL)
+!                           - Change: mu in the fits file is changed
+!                             to double precision (HL)
+!                           - Compatibility fix: compling with gnu 10+
+!                             report an error of rank mismatch (HL)
+!
+!     03/15/2023:    V3.0.1 - The restore file in Outputname can only
+!                             be INIT or a file path (TdPA)
+!                           - Removed some verbosity-debugging
+!                             routines (TdPA)
+!                           - The Blos variables are in the same
+!                             structure than the polar ones (TdPA)
+!                           - Bugfix: FPIXEL was not correctly
+!                             initialized in Read_Results_fits for
+!                             the LOS/POS magnetic field case (TdPA)
+!                           - Removed some commented lines (TdPA)
+!                           - Changed some redundant reading for
+!                             byte skips in the file (TdPA)
+!
+!     03/08/2023:    V3.0.0 - First working version (TdPA)
+!
+!     02/22/2023:    V0.0.0 - Started from 05/12/2020
+!                             TIC@fits_mod.f90,
+!                             TIC@readresult_mod.f90,
+!                             TIC@output_mod.f90,
+!                             TIC@readprofile_mod.f90, and
+!                             TIC@propose_mod.f90 revisions from
+!                             Hao (TdPA)
+!
+!#####################################################################
+!#####################################################################
+!
+!#####################################################################
+!#####################################################################
+!
+!  Data:
+!
+!  name_check:
+!    Determine if a file is in fits format
+!
+!  Verbose_Model:
+!    Notify about the values in the inversion depending on type
+!
+!  open_data_and_cache:
+!    Open the data file and return the dimensions and information
+!  about its content
+!
+!  get_data_wavelength:
+!    Read the wavelength axis from the input data file
+!
+!  get_data_los:
+!    Read the LOS information (if constant for the whole FoV) from
+!  the input data file
+!
+!  get_data_sigma:
+!    Read the sigma (error) information (if constant for the whole
+!  FoV) from the input data file
+!
+!  get_data_diff:
+!    Read the diffuse light profile (if constant for the whole FoV)
+!  from the input data file
+!
+!  get_data_column:
+!    Read the full data from one pixel in the input data file
+!
+!  set_up_data_frombuffer:
+!    Manage the linear data buffer and store the information in the
+!  relevant arrays
+!
+!  set_up_atmo_frombuffer:
+!    Manage the linear atmosphere buffer and store the information
+!  in the relevant arrays for the initial model atmosphere
+!
+!  set_up_JKQ_frombuffer:
+!    Manage the linear JKQin buffer and store the information
+!  in the relevant arrays for the initial JKQ tensors
+!
+!  set_inv_io_buffers:
+!    Prepare the sizes needed to write later result files
+!
+!  check_io_inv_buffer_exists:
+!    Check if the output files exist already for the inversion
+!
+!  create_io_inv_files:
+!    Initialize the output files for the inversion
+!
+!    Write_Result:
+!      Write the results of the inversion into a file
+!
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      use aborted_mod
+      use commons_mod
+      use io_mod
+      use model_mod
+      use parameters_mod , only : c , TINYB
+      use types_mod
+      use w2freq_mod
+
+      contains
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Check if a file is in fits format\n
+      !!  filename(character(*)): Path to the file\n
+      !!     fits_index(integer): Indicate if fits file
+      subroutine name_check(filename,fits_index)
+
+      ! IO
+      character(len=500), intent(in):: filename
+      integer, intent(out):: fits_index
+
+      ! Local
+      logical:: anynull
+
+      integer:: unitt,stat,rwmode,blocksize,group,bitpix
+      integer:: fpixel,hdutype,hdunum,num,naxis
+      integer, dimension(4):: naxes
+
+      double precision:: nullval
+      double precision, dimension(:), allocatable:: dummy
+
+      ! Look for the string
+      fits_index = index(filename, '.fits', .True.)
+      if (fits_index.gt.0) return
+      fits_index = index(filename, '.FITS', .True.)
+      if (fits_index.gt.0) return
+      fits_index = index(filename, '.fts', .True.)
+      if (fits_index.gt.0) return
+      fits_index = index(filename, '.FTS', .True.)
+      if (fits_index.gt.0) return
+
+      ! Initialize
+      fits_index = 0
+
+      ! Only the master tries this
+      if (pid.eq.0) then
+
+        rwmode = 0
+        group = 1
+        fpixel = 1
+        blocksize = 1
+        nullval = -1d0
+        naxes = 0
+        stat = 0
+
+        ! Do until done
+        do while (.True.)
+
+          !
+          ! Give input unit a number
+          !
+          unitt = 19
+
+          ! Open file as fits
+          call FTOPEN(unitt,trim(filename),rwmode,blocksize,stat)
+          if (stat.ne.0) exit
+
+          ! Read the total number of HDUS in the fits file
+          call FTTHDU(unitt, hdunum, stat)
+          if (stat.ne.0) exit
+          if (hdunum.lt.3) exit
+
+          ! Get the data type
+          ! 8, 16, 32, 64, -32, or -64 corresponding to unsigned byte,
+          ! signed 2-byte integer, signed 4-byte integer, signed
+          ! 8-byte integer, real, and double.
+          call FTGIDT(unitt,  bitpix, stat)
+          if (stat.ne.0) exit
+          if (bitpix.ne.-64) exit
+
+          ! Get the dimension of the image
+          call FTGIDM(unitt, naxis, stat)
+          if (stat.ne.0) exit
+          if (naxis.gt.4) exit
+
+          !Move to hdu1, the wavelength dhu
+          call FTMRHD(unitt, 1, hdutype, stat)
+          if (stat.ne.0) exit
+
+          ! Get the data type
+          call FTGIDT(unitt,  bitpix, stat)
+          if (stat.ne.0) exit
+          if (bitpix.ne.-64) exit
+
+          ! Get the dimension of the image
+          call FTGIDM(unitt, naxis, stat)
+          if (stat.ne.0) exit
+          if (naxis.ne.1) exit
+
+          ! Get the size of all dimensions of the image
+          call FTGISZ(unitt, naxis, naxes, stat)
+          if (stat.ne.0) exit
+          Num = naxes(1)
+          allocate(dummy(naxes(1)))
+
+          ! Read lambda
+          call FTGPVD(unitt, group, fpixel, naxes(1), nullval, &
+                      dummy(1), anynull, stat)
+          deallocate(dummy)
+
+          ! It is a fits, but without extension
+          fits_index = len(trim(filename)) + 1
+          exit
+
+        end do ! Do till done
+
+        ! Close the file
+        call FTCLOS(unitt, stat)
+
+      end if ! Master
+
+      ! Share index
+      CALL MPI_BCAST(fits_index, 1, MPI_INTEGER, 0, &
+                     MPI_COMM_WORLD, ierr)
+
+      return
+
+      end subroutine name_check
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Notify about the values in the inversion\n
+      !!   Inf_Nodes(Nodes_class): Structure with nodes data\n
+      !!           trial(logical): If called from trial
+      subroutine Verbose_Model(Inf_Nodes,trial)
+
+      ! IO
+      type(Nodes_class), intent(in):: Inf_Nodes
+      logical, intent(in):: trial
+
+      ! Local
+      character(3):: length
+      character(30):: fmt
+
+      integer:: i, j
+
+
+      ! Head verbosity of the model
+      if (trial) then
+        umsg = ' - Node parameters for trial'
+        call verboseI(3)
+      else
+        umsg = ' - Current node parameters'
+        call verboseI(3)
+      end if
+
+      ! For each variable
+      do i=1,Inf_Nodes%nvar
+
+        ! If inverting
+        if (Inf_Nodes%Nodes_Flags(i)) then
+
+          ! Write into message
+          write(umsg, '(A,i2)') "   Parameter index = ",i
+          call verboseI(3)
+
+          ! Write number of nodes in string and prepare format
+          write(length, "(i3)") Inf_Nodes%Num_Nodes(i)
+          fmt = '   ('//trim(adjustl(length))//'es15.5)'
+          fmt = trim(adjustl(fmt))
+
+          ! If vertical or microturbulent velocity
+          if (i.eq.Inf_Nodes%index_vx.or. &
+              (i.eq.Inf_Nodes%index_vy.and. &
+               Inf_Nodes%vtype.eq.0).or. &
+              i.eq.Inf_Nodes%index_vz.or. &
+              i.eq.Inf_Nodes%index_vm) then
+
+            ! Write transformed velocity in verbosity file
+            write(umsg, FMT=fmt) &
+              (Inf_Nodes%Node(i)%Var(j)*c*1d6, j = 1, &
+                                               Inf_Nodes%Num_Nodes(i))
+            call verboseI(3)
+
+          ! Other variables
+          else
+
+            ! Write to verbosity file
+            write(umsg, FMT=fmt) &
+              (Inf_Nodes%Node(i)%Var(j), j = 1, &
+                                         Inf_Nodes%Num_Nodes(i))
+            call verboseI(3)
+
+          end if ! If velocity or not
+        end if ! If inverting
+
+      end do ! Variables
+
+      return
+
+      end subroutine Verbose_Model
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Open binary file and cache file if present. Return
+      !! sucess and cache file usage\n
+      !!     Input(Input_class): Structure with settings data\n
+      !!         unitD(integer): Unit to open data file\n
+      !!         unitC(integer): Unit to open cache file\n
+      !!      aborting(logical): Indicate failure at output\n
+      !!       dims(integer(3)): Grid dimensions (X,Y,L)\n
+      !!      finfo(integer(4)): File info, Stokes, LOS, sigma, diff\n
+      !!    cache(logical(:,:)): Data with the info of what columns
+      !!                         are already done\n
+      !!        lcache(logical): Indicate if there is a cache at
+      !!                         output
+      subroutine open_data_and_cache(Input,unitD,unitC, &
+                                     aborting,dims,finfo, &
+                                     cache,lcache)
+
+      ! I/O
+      type(Input_class), intent(in):: Input
+      logical, intent(out):: aborting,lcache
+      logical, dimension(:,:), allocatable, intent(out):: cache
+      integer, intent(out):: unitD,unitC
+      integer, dimension(:), intent(out):: dims,finfo
+
+      ! Local
+      logical:: check
+
+      integer:: stat,rwmode,blocksize,naxis,hdunum,hdutype,bitpix
+      integer, dimension(4):: naxes
+
+
+      !
+      ! Give cache unit a number
+      !
+      unitC = 17
+
+      !
+      ! If FITS file
+      !
+      if (Input%FITSFILE) then
+
+        !
+        ! Give input unit a number
+        !
+        unitD = 19
+        naxes = 0
+        blocksize = 1
+        rwmode = 0
+        stat = 0
+
+        ! Open file
+        call FTOPEN(unitD,Input%Filename_Ob,rwmode,blocksize,stat)
+
+        ! Read the total number of hdus in the fits file
+        call FTTHDU(unitD,hdunum,stat)
+
+        ! Get the data type
+        call FTGIDT(unitD,bitpix,stat)
+
+        ! Get the dimension of the image
+        call FTGIDM(unitD,naxis,stat)
+
+        ! Get the size of all dimensions of the image
+        call FTGISZ(unitD,naxis,naxes,stat)
+
+        dims(3) = naxes(1)
+
+        ! Check the dimension
+        if (naxis.eq.3) then
+
+          ! Only intensity
+          finfo(1) = 0
+          dims(1) = naxes(3)
+          dims(2) = naxes(2)
+          dims(3) = naxes(1)
+
+        else if (naxis.eq.4) then
+
+          ! 4 Stokes
+          finfo(1) = 1
+          dims(1) = naxes(4)
+          dims(2) = naxes(3)
+          dims(3) = naxes(1)
+          if (naxes(2).ne.4) goto 1000
+
+        else
+
+          ! If the dimension of the data is smaller than 3,
+          ! there is a problem
+          goto 1000
+
+        end if
+
+        ! Move to hdu1, the wavelength dhu
+        call FTMRHD(unitD,1,hdutype,stat)
+
+        ! Get the dimension of the image
+        call FTGIDM(unitD,naxis,stat)
+
+        ! Get the size of all dimensions of the image
+        call FTGISZ(unitD,naxis,naxes,stat)
+
+        ! If multi-dimension, leave
+        if (naxis.gt.1) goto 1000
+
+        ! problem with the size of Wavelength
+        if (dims(3).ne.naxes(1)) goto 1000
+
+        ! Move to hdu2 the mu dhu
+        call FTMRHD(unitD,1,hdutype,stat)
+
+        ! Get the dimension of the mu
+        call FTGIDM(unitD,naxis,stat)
+
+        ! Get the size of all dimensions
+        call FTGISZ(unitD,naxis,naxes,stat)
+
+        ! Check the mu size
+        select case(naxis)
+          case(1)
+            if (naxes(1).eq.2) then
+              finfo(2) = 0
+            else
+              goto 1000
+            end if
+
+          case(3)
+            if (naxes(1).eq.2.and.naxes(2).eq.1 &
+                .and.naxes(3).eq.1) then
+              finfo(2) = 0
+            else if (naxes(1).eq.2.and.naxes(2).eq.dims(2) &
+                .and.naxes(3).eq.dims(1)) then
+              finfo(2) = 1
+            else
+              goto 1000
+            end if
+
+          case default
+            goto 1000
+
+        end select ! Type of node
+
+        ! if more than 3 hdu
+        if (hdunum.gt.3) then
+
+          ! Move to hdu3 the sigma dhu
+          call FTMRHD(unitD,1,hdutype,stat)
+
+          ! Get the dimension of the sigma
+          call FTGIDM(unitD,naxis,stat)
+
+          if (naxis.gt.0) then
+
+            ! Get the size of all dimensions
+            call FTGISZ(unitD,naxis,naxes,stat)
+
+            ! Get the date information
+            ! if only intensity
+            if (finfo(1).eq.0) then
+
+              ! Check the size
+              select case(naxis)
+                case(1)
+                  !data(1)
+                  if (naxes(1).eq.1) then
+                    finfo(3) = 1
+                  !data(nl)
+                  else if (naxes(1).eq.dims(3)) then
+                    finfo(3) = 2
+                  else
+                    finfo(3) = 0
+                  end if
+
+                case(2)
+                  !data(1,1)
+                  if (naxes(1).eq.1.and.naxes(2).eq.1) then
+                    finfo(3) = 1
+                  !data(nl,1)
+                  else if (naxes(1).eq.dims(3) &
+                      .and.naxes(2).eq.1) then
+                    finfo(3) = 2
+                  !data(ny,nx)
+                  else if (naxes(1).eq.dims(2) &
+                      .and.naxes(2).eq.dims(1)) then
+                    finfo(3) = 3
+                  else
+                    finfo(3) = 0
+                  end if
+
+                case(3)
+                  !data(1,ny,nx)
+                  if (naxes(1).eq.1.and.naxes(2).eq.dims(2) &
+                      .and.naxes(3).eq.dims(1)) then
+                    finfo(3) = 3
+                  !data(nl,ny,nx)
+                  else if (naxes(1).eq.dims(3).and.naxes(2) &
+                      .eq.dims(2).and.naxes(3).eq.dims(1)) then
+                    finfo(3) = 4
+                  else
+                    finfo(3) = 0
+                  end if
+
+                case(4)
+                  !data(1,1,ny,nx)
+                  if (naxes(1).eq.1.and.naxes(2).eq.1.and.naxes(3) &
+                      .eq.dims(2).and.naxes(4).eq.dims(1)) then
+                    finfo(3) = 3
+                  !data(nl,1,ny,nx)
+                  else if (naxes(1).eq.dims(3).and.naxes(2).eq.1 &
+                      .and.naxes(3).eq.dims(2) &
+                      .and.naxes(4).eq.dims(1)) then
+                    finfo(3) = 4
+                  else
+                    finfo(3) = 0
+                  end if
+
+                case default
+                  finfo(3) = 0
+
+              end select ! Type of node
+
+            ! 4 stokes
+            else
+
+              ! Check the size
+              select case(naxis)
+                case(1)
+                  !data(4)
+                  if (naxes(1).eq.4) then
+                    finfo(3) = 1
+                  else
+                    finfo(3) = 0
+                  end if
+
+                case(2)
+                  !data(1,4)
+                  if (naxes(1).eq.1.and.naxes(2).eq.4) then
+                    finfo(3) = 1
+                  !data(nl,4)
+                  else if (naxes(1).eq.dims(3) &
+                      .and.naxes(2).eq.4) then
+                    finfo(3) = 2
+                  else
+                    finfo(3) = 0
+                  end if
+
+                case(3)
+                  !data(4,ny,nx)
+                  if (naxes(1).eq.4.and.naxes(2).eq.dims(2) &
+                      .and.naxes(3).eq.dims(1)) then
+                    finfo(3) = 3
+                  else
+                    finfo(3) = 0
+                  end if
+
+                case(4)
+                  !data(1,4,ny,nx)
+                  if (naxes(1).eq.1.and.naxes(2).eq.4.and.naxes(3) &
+                      .eq.dims(2).and.naxes(4).eq.dims(1)) then
+                    finfo(3) = 3
+                  !data(nl,4,ny,nx)
+                  else if (naxes(1).eq.dims(3).and.naxes(2).eq.4 &
+                      .and.naxes(3).eq.dims(2) &
+                      .and.naxes(4).eq.dims(1)) then
+                    finfo(3) = 4
+                  else
+                    finfo(3) = 0
+                  end if
+
+              case default
+                finfo(3) = 0
+
+              end select
+            end if
+
+          else
+
+            finfo(3) = 0
+
+          end if
+
+          ! if more than 4 hdu
+          if (hdunum.gt.4) then
+
+          ! Move to hdu4 the diffuse dhu
+            call FTMRHD(unitD,1,hdutype,stat)
+
+            ! Get the dimension of the diffuse
+            call FTGIDM(unitD,naxis,stat)
+
+            if (naxis.gt.0) then
+
+              ! Get the size of all dimensions
+              call FTGISZ(unitD,naxis,naxes,stat)
+
+              ! Get the date information
+              ! Check the size
+              select case(naxis)
+                case(1)
+                  !data(n1)
+                  if (naxes(1).eq.dims(3)) then
+                    finfo(4) = 1
+                  else
+                    finfo(4) = 0
+                  end if
+
+                case(2)
+                  !data(nl,1)
+                  if (naxes(1).eq.dims(3).and.naxes(2).eq.1) then
+                    finfo(4) = 1
+                  !data(nl,4)
+                  else if (naxes(1).eq.dims(3) &
+                      .and.naxes(2).eq.4) then
+                    finfo(4) = 2
+                  else
+                    finfo(4) = 0
+                  end if
+
+                case(3)
+                  !data(nl,ny,nx)
+                  if (naxes(1).eq.dims(3).and.naxes(2).eq.dims(2) &
+                      .and.naxes(3).eq.dims(1)) then
+                    finfo(4) = 3
+                  else
+                    finfo(4) = 0
+                  end if
+
+                case(4)
+                  !data(nl,1,ny,nx)
+                  if (naxes(1).eq.dims(3).and. &
+                      naxes(2).eq.1.and. &
+                      naxes(3).eq.dims(2).and. &
+                      naxes(4).eq.dims(1)) then
+                    finfo(4) = 3
+                  !data(nl,4,ny,nx)
+                  else if (naxes(1).eq.dims(3).and. &
+                      naxes(2).eq.4.and. &
+                      naxes(3).eq.dims(2).and. &
+                      naxes(4).eq.dims(1)) then
+                    finfo(4) = 4
+                  else
+                    finfo(4) = 0
+                  end if
+                case default
+                  finfo(4) = 0
+
+              end select ! Type of node
+            else
+              finfo(4) = 0
+            end if
+
+          else
+            finfo(4) = 0
+          end if
+
+        else
+          finfo(3) = 0
+          finfo(4) = 0
+
+        end if
+
+      ! Binary
+      else
+
+        !
+        ! Give input unit a number
+        !
+        unitD = 19
+
+        !
+        ! Open data file to read
+        !
+        call open_file(unitD,Input%Filename_Ob,0,.False.,check)
+
+        ! Check could open
+        if (.not.check) then
+          aborting = .True.
+          return
+        end if
+
+        ! Get dimensions and info from input file
+        call get_dims_info(unitD,dims,finfo,check)
+        if (.not.check) then
+          aborting = .True.
+          return
+        end if
+
+      end if ! Type of file
+
+      !
+      ! Check if there is a cache
+      !
+
+      ! Check if there is a cache file
+      inquire(file=trim(Input%cache), exist=lcache)
+
+      ! If there is a cache
+      if (lcache) then
+
+        ! Allocate cache data
+        allocate(cache(dims(2),dims(1)))
+
+        ! Read cache
+        call get_cache(unitC,Input%cache,dims(1:2),cache,check)
+
+        ! Could be read?
+        lcache = check
+
+        ! Check if there is something actually done
+        if (lcache) then
+          if (.not.any(cache)) lcache = .False.
+        end if
+
+        ! If there is no cache, no need to allocate it
+        if (.not.lcache) deallocate(cache)
+
+      endif ! If there is cache
+
+      ! Open or initialize cache
+      call start_cache(unitC,Input%cache,dims(1:2),lcache,check)
+      aborting = .not.check
+
+      ! Verbose
+      write(umsg,'(A)') ' - Reading input inversion file '// &
+                        trim(Input%Filename_Ob)
+      call verbosev
+
+      return
+
+1000  call FTCLOS(unitD, stat)
+      aborting = .True.
+      return
+
+      end subroutine open_data_and_cache
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Read the wavelength axis and prepare the arrays to store it\n
+      !!           unitD(integer): Unit to read from\n
+      !!        aborting(logical): Indicate failure at output\n
+      !!      Sol(Solution_class): Structure with the solution data\n
+      !!        fitsfile(logical): If the input is in a fits file
+      subroutine get_data_wavelength(unitD,aborting,Sol,fitsfile)
+
+      ! I/O
+      type(Solution_class), intent(inout):: Sol
+      logical, intent(in):: fitsfile
+      logical, intent(out):: aborting
+      integer, intent(in):: unitD
+
+      ! Local
+      integer:: stat,hdutype,group,fpixel
+      logical:: anynull
+      double precision:: nullval
+
+
+      ! If fits
+      if (fitsfile) then !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! FITS !!
+
+        nullval = -1d0
+        group = 1
+        fpixel = 1
+        stat = 0
+
+        ! move to hdu1 (wavelength hdu)
+        call FTMAHD(unitD,2,hdutype,stat)
+        if(stat.ne.0) goto 1100
+
+        ! read wavelength
+        call FTGPVD(unitD,group,fpixel,Sol%Num_Wavelength,nullval, &
+                    Sol%omega_input(1), anynull, stat)
+        if(stat.ne.0) goto 1100
+        if(anynull) goto 1100
+
+      ! If binary
+      else !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! BINARY !!!!
+
+        ! Read lambda
+        read(unitD,err=1100) Sol%omega_input
+
+      end if !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+      ! Success
+      aborting = .False.
+
+      return
+
+1100  aborting = .True.
+      write(umsg,'(A)') ' # Error getting wavelength '// &
+                        'from the input inversion file'
+      call verbose
+
+      end subroutine get_data_wavelength
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Read the constant LOS\n
+      !!           unitD(integer): Unit to open data file\n
+      !!        aborting(logical): Indicate failure at output\n
+      !! Inf_Stokes(Stokes_class): Structure with Stokes parameters
+      !!                           data
+      !!        fitsfile(logical): If the input is in a fits file
+      subroutine get_data_los(unitD,aborting,Inf_Stokes,fitsfile)
+
+      ! I/O
+      type(Stokes_class), intent(inout):: Inf_Stokes
+      logical, intent(in):: fitsfile
+      logical, intent(out):: aborting
+      integer, intent(in):: unitD
+
+      ! Local
+      integer:: stat, hdutype,group,fpixel
+      logical:: anynull
+      double precision:: nullval
+
+
+      ! If fits
+      if (fitsfile) then !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! FITS !!
+
+        nullval = -1d0
+        group = 1
+        stat = 0
+
+        ! move to hdu2 (mu hdu)
+        call FTMAHD(unitD,3,hdutype,stat)
+        if(stat.ne.0) goto 1100
+
+        ! read mu
+        fpixel = 1
+        call FTGPVD(unitD,group,fpixel,1,nullval, &
+                    Inf_Stokes%mu, anynull, stat)
+        Inf_Stokes%mu = cos(Inf_Stokes%mu)
+        if(stat.ne.0) goto 1100
+
+        ! read azimuth
+        fpixel = 2
+        call FTGPVD(unitD,group,fpixel,1,nullval, &
+                    Inf_Stokes%azimuth, anynull, stat)
+        if(stat.ne.0) goto 1100
+
+      ! If binary
+      else !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! BINARY !!!!
+
+        ! Read LOS
+        read(unitD,err=1100) Inf_Stokes%mu
+        Inf_Stokes%mu = cos(Inf_Stokes%mu)
+        read(unitD,err=1100) Inf_Stokes%azimuth
+
+      end if !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+      ! Success
+      aborting = .False.
+
+      return
+
+1100  aborting = .True.
+      write(umsg,'(A)') ' # Error getting constant LOS '// &
+                        'from the input inversion file'
+      call verbose
+
+      end subroutine get_data_los
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Read the constant sigma\n
+      !!           unitD(integer): Unit to open data file\n
+      !!        aborting(logical): Indicate failure at output\n
+      !!        finfo(integer(4)): File info, Stokes, LOS, sigma,\n
+      !!                           diff\n
+      !! Inf_Stokes(Stokes_class): Structure with Stokes parameters
+      !!                           data
+      !!        fitsfile(logical): If the input is in a fits file
+      subroutine get_data_sigma(unitD,aborting,finfo, &
+                                Inf_Stokes,fitsfile)
+
+      ! I/O
+      type(Stokes_class), intent(inout):: Inf_Stokes
+      logical, intent(in):: fitsfile
+      logical, intent(out):: aborting
+      integer, intent(in):: unitD
+      integer, dimension(3), intent(in):: finfo
+
+      ! Local
+      logical:: anynull
+
+      integer:: stat, hdutype,group,fpixel
+
+      double precision:: nullval,daux
+
+      ! If fits
+      if (fitsfile) then !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! FITS !!
+
+        ! If only intensity
+        if (finfo(1).eq.0) Inf_Stokes%Sigma_in(1:3,:) = 0d0
+
+        nullval = -1d0
+        group = 1
+        fpixel = 1
+        stat = 0
+
+        ! move to hdu3 (mu hdu)
+        call FTMAHD(unitD,4,hdutype,stat)
+        if(stat.ne.0) goto 1100
+
+        ! If constant
+        if (finfo(3).eq.1) then
+
+          ! Read sigmaI
+          call FTGPVD(unitD,group,fpixel,1,nullval, &
+                      daux, anynull, stat)
+          if(stat.ne.0) goto 1100
+          Inf_Stokes%Sigma_in(0,:) = daux
+
+          ! If Polarization
+          if (finfo(1).eq.1) then
+
+            ! Read sigmaQ
+            fpixel = 2
+            call FTGPVD(unitD,group,fpixel,1,nullval, &
+                        daux, anynull, stat)
+            if(stat.ne.0) goto 1100
+            Inf_Stokes%Sigma_in(1,:) = daux
+
+            ! Read sigmaU
+            fpixel = 3
+            call FTGPVD(unitD,group,fpixel,1,nullval, &
+                        daux, anynull, stat)
+            if(stat.ne.0) goto 1100
+            Inf_Stokes%Sigma_in(2,:) = daux
+
+            ! Read sigmaV
+            fpixel = 4
+            call FTGPVD(unitD,group,fpixel,1,nullval, &
+                        daux, anynull, stat)
+            if(stat.ne.0) goto 1100
+            Inf_Stokes%Sigma_in(3,:) = daux
+
+          end if
+
+        ! Variable
+        else
+
+          ! Read sigmaI
+          call FTGPVD(unitD,group,fpixel,Inf_Stokes%Num_Wavelength, &
+                      nullval,Inf_Stokes%Sigma_in(0,1), anynull, stat)
+          if(stat.ne.0) goto 1100
+
+          ! If Polarization
+          if (finfo(1).eq.1) then
+
+            ! Read sigmaQ
+            fpixel = fpixel+Inf_Stokes%Num_Wavelength
+            call FTGPVD(unitD,group,fpixel, &
+                        Inf_Stokes%Num_Wavelength,nullval, &
+                        Inf_Stokes%Sigma_in(1,1), anynull, stat)
+            if(stat.ne.0) goto 1100
+
+            ! Read sigmaU
+            fpixel = fpixel+Inf_Stokes%Num_Wavelength
+            call FTGPVD(unitD,group,fpixel, &
+                        Inf_Stokes%Num_Wavelength,nullval, &
+                        Inf_Stokes%Sigma_in(2,1), anynull, stat)
+            if(stat.ne.0) goto 1100
+
+            ! Read sigmaV
+            fpixel = fpixel+Inf_Stokes%Num_Wavelength
+            call FTGPVD(unitD,group,fpixel, &
+                        Inf_Stokes%Num_Wavelength,nullval, &
+                        Inf_Stokes%Sigma_in(3,1), anynull, stat)
+            if(stat.ne.0) goto 1100
+
+          end if
+
+        end if ! Constant/wavelength dependent
+
+      ! If binary
+      else !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! BINARY !!!!
+
+        ! If only intensity
+        if (finfo(1).eq.0) Inf_Stokes%Sigma_in(1:3,:) = 0d0
+
+        ! If constant
+        if (finfo(3).eq.1) then
+
+          ! Read sigmaI
+          read(unitD,err=1100) daux
+          Inf_Stokes%Sigma_in(0,:) = daux
+
+          ! If Polarization
+          if (finfo(1).eq.1) then
+
+            ! Read sigmaQ
+            read(unitD,err=1100) daux
+            Inf_Stokes%Sigma_in(1,:) = daux
+
+            ! Read sigmaU
+            read(unitD,err=1100) daux
+            Inf_Stokes%Sigma_in(2,:) = daux
+
+            ! Read sigmaV
+            read(unitD,err=1100) daux
+            Inf_Stokes%Sigma_in(3,:) = daux
+
+          end if
+
+        ! Variable
+        else
+
+          ! Read sigmaI
+          read(unitD,err=1100) Inf_Stokes%Sigma_in(0,:)
+
+          ! If Polarization
+          if (finfo(1).eq.1) then
+
+            ! Read sigmaQUV
+            read(unitD,err=1100) Inf_Stokes%Sigma_in(1,:)
+            read(unitD,err=1100) Inf_Stokes%Sigma_in(2,:)
+            read(unitD,err=1100) Inf_Stokes%Sigma_in(3,:)
+
+          end if
+        end if ! Constant/wavelength dependent
+
+      end if !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+      ! Success
+      aborting = .False.
+
+      return
+
+1100  aborting = .True.
+      write(umsg,'(A)') ' # Error getting constant sigma '// &
+                        'from the input inversion file'
+      call verbose
+
+      end subroutine get_data_sigma
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Read the constant diffuse light\n
+      !!           unitD(integer): Unit to open data file\n
+      !!        aborting(logical): Indicate failure at output\n
+      !!        finfo(integer(4)): File info, Stokes, LOS, sigma,\n
+      !!                           diff\n
+      !! Inf_Stokes(Stokes_class): Structure with Stokes parameters
+      !!                           data\n
+      !!        fitsfile(logical): If the input is in a fits file
+      subroutine get_data_diff(unitD,aborting,finfo, \
+                               Inf_Stokes,fitsfile)
+
+      ! I/O
+      type(Stokes_class), intent(inout):: Inf_Stokes
+      logical, intent(in):: fitsfile
+      logical, intent(out):: aborting
+      integer, intent(in):: unitD
+      integer, dimension(4), intent(in):: finfo
+
+      ! Local
+      logical:: anynull
+
+      integer:: stat, hdutype,group,fpixel
+
+      double precision:: nullval
+
+
+      ! If fits
+      if (fitsfile) then !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! FITS !!
+
+        ! If only intensity
+        if (finfo(4).eq.1) Inf_Stokes%Diff_in(1:3,:) = 0d0
+
+        nullval = -1d0
+        group = 1
+        fpixel = 1
+        stat = 0
+
+        ! move to hdu4 (diffuse light hdu)
+        call FTMAHD(unitD,5,hdutype,stat)
+        if(stat.ne.0) goto 1100
+
+        ! read intensity diffuse light
+        call FTGPVD(unitD,group,fpixel,Inf_Stokes%Num_Wavelength, &
+                    nullval,Inf_Stokes%Diff_in(0,1), anynull, stat)
+        if(stat.ne.0) goto 1100
+
+        ! If Polarization
+        if (finfo(4).eq.2) then
+
+          ! Read diffuse Q
+          fpixel = fpixel+Inf_Stokes%Num_Wavelength
+          call FTGPVD(unitD,group,fpixel, &
+                      Inf_Stokes%Num_Wavelength,nullval, &
+                      Inf_Stokes%Diff_in(1,1), anynull, stat)
+          if(stat.ne.0) goto 1100
+
+          ! Read diffuse U
+          fpixel = fpixel+Inf_Stokes%Num_Wavelength
+          call FTGPVD(unitD,group,fpixel, &
+                      Inf_Stokes%Num_Wavelength,nullval, &
+                      Inf_Stokes%Diff_in(2,1), anynull, stat)
+          if(stat.ne.0) goto 1100
+
+          ! Read diffuse V
+          fpixel = fpixel+Inf_Stokes%Num_Wavelength
+          call FTGPVD(unitD,group,fpixel, &
+                      Inf_Stokes%Num_Wavelength,nullval, &
+                      Inf_Stokes%Diff_in(3,1), anynull, stat)
+          if(stat.ne.0) goto 1100
+
+        end if
+
+      ! If binary
+      else !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! BINARY !!!!
+
+        ! If only intensity
+        if (finfo(4).eq.1) Inf_Stokes%Diff_in(1:3,:) = 0d0
+
+        ! Read sigmaI
+        read(unitD,err=1100) Inf_Stokes%Diff_in(0,:)
+
+        ! If Polarization
+        if (finfo(4).eq.2) then
+
+          ! Read sigmaQUV
+          read(unitD,err=1100) Inf_Stokes%Diff_in(1,:)
+          read(unitD,err=1100) Inf_Stokes%Diff_in(2,:)
+          read(unitD,err=1100) Inf_Stokes%Diff_in(3,:)
+
+        end if
+
+      end if !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+      ! Success
+      aborting = .False.
+
+      return
+
+1100  aborting = .True.
+      write(umsg,'(A)') ' # Error getting constant diffuse light '// &
+                        'from the input inversion file'
+      call verbose
+
+      end subroutine get_data_diff
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Get a pixel worth of data to invert\n
+      !!     Input(Input_class): Structure with settings data\n
+      !!         unitD(integer): Unit to open data file\n
+      !!      buffer(double(:)): Package to send data\n
+      !!       dims(integer(:)): X, Y, and wavelength axes dimension\n
+      !!      finfo(integer(4)): File info, Stokes, LOS, sigma,\n
+      !!                         diff\n
+      !!            ix(integer): x index\n
+      !!            iy(integer): y index\n
+      !!         check(logical): Success
+      subroutine get_data_column(Input,unitD,dims,buffer,finfo, &
+                                 ix,iy,check)
+
+      ! I/O
+      type(Input_class), intent(in):: Input
+      logical, intent(out):: check
+      integer, intent(in):: unitD,ix,iy
+      integer, dimension(:), intent(in):: finfo,dims
+      double precision, dimension(:), intent(out):: buffer
+
+      ! Local
+      logical:: anynull
+
+      integer:: stat, hdutype,group,fpixel,i0,i1,nwp
+
+      double precision:: nullval,daux
+
+
+      ! Size of wavelength package
+      if (finfo(1).eq.0) then
+
+        ! Only intensity
+        nwp = dims(3)
+
+      ! Polarization
+      else
+
+        ! Polarization
+        nwp = dims(3)*4
+
+      end if
+
+      !
+      ! If FITS file
+      !
+      if (Input%FITSFILE) then !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! FITS !!
+
+        nullval = -1d0
+        group = 1
+        stat = 0
+
+        ! If LOS
+        if (finfo(2).eq.1) then
+
+          ! move to hdu2 (mu hdu)
+          call FTMAHD(unitD,3,hdutype,stat)
+          if(stat.ne.0) goto 1100
+
+          ! read mu
+          fpixel = 1+2*((ix-1)*dims(2)+(iy-1))
+          call FTGPVD(unitD,group,fpixel,1,nullval, &
+                      daux, anynull, stat)
+          if(stat.ne.0) goto 1100
+          buffer(1) = cos(daux)
+
+          ! read azimuth
+          fpixel = fpixel+1
+          call FTGPVD(unitD,group,fpixel,1,nullval, &
+                      daux, anynull, stat)
+          if(stat.ne.0) goto 1100
+          buffer(2) = daux
+
+          ! Receiving indexes
+          i0 = 3
+          i1 = nwp + i0 - 1
+
+        ! No LOS
+        else
+
+          ! Receiving indexes
+          i0 = 1
+          i1 = nwp
+
+        end if
+
+        ! move to hdu0 (stokes hdu)
+        call FTMAHD(unitD,1,hdutype,stat)
+        if(stat.ne.0) goto 1100
+
+        ! read stokes
+        fpixel = 1+nwp*((ix-1)*dims(2)+(iy-1))
+
+        call FTGPVD(unitD,group,fpixel,nwp,nullval,buffer(i0), &
+                    anynull,stat)
+        if(stat.ne.0) goto 1100
+
+        ! There is sigma here
+        if (finfo(3).ge.3) then
+
+          ! move to hdu3 (stokes hdu)
+          call FTMAHD(unitD,4,hdutype,stat)
+          if(stat.ne.0) goto 1100
+
+          ! Shift initial index
+          i0 = i1 + 1
+
+          ! If constant
+          if (finfo(3).eq.3) then
+
+            ! Intensity
+            if (finfo(1).eq.0) then
+
+              ! Final index
+              i1 = i0
+              fpixel = 1+dims(3)*((ix-1)*dims(2)+(iy-1))
+              call FTGPVD(unitD,group,fpixel,1,nullval,buffer(i0), &
+                          anynull,stat)
+              if(stat.ne.0) goto 1100
+
+            ! Polarization
+            else
+              ! Final index
+              i1 = i0+3
+              fpixel = 1+4*((ix-1)*dims(2)+(iy-1))
+              call FTGPVD(unitD,group,fpixel,4,nullval,buffer(i0), &
+                          anynull,stat)
+              if(stat.ne.0) goto 1100
+
+            end if
+
+          ! Wavelength dependent
+          else
+
+            ! Final index
+            i1 = nwp + i0 - 1
+            fpixel = 1+nwp*((ix-1)*dims(2)+(iy-1))
+
+            ! Read
+            call FTGPVD(unitD,group,fpixel,nwp,nullval,buffer(i0), &
+                        anynull,stat)
+            if(stat.ne.0) goto 1100
+
+          end if ! Type of pixel sigma
+
+        end if
+
+        ! There is diffuse light here
+        if (finfo(4).ge.3) then
+
+          ! Shift initial index
+          i0 = i1 + 1
+
+          ! If only intensity
+          if (finfo(4).eq.3) then
+
+            ! Read
+            fpixel = 1+dims(3)*((ix-1)*dims(2)+(iy-1))
+            call FTGPVD(unitD,group,fpixel,dims(3),nullval, &
+                        buffer(i0),anynull,stat)
+            if(stat.ne.0) goto 1100
+
+          ! Polarized
+          else
+
+            ! Read
+            fpixel = 1+nwp*((ix-1)*dims(2)+(iy-1))
+            call FTGPVD(unitD,group,fpixel,nwp,nullval,buffer(i0), &
+                        anynull,stat)
+            if(stat.ne.0) goto 1100
+
+          end if ! Polarization?
+        end if ! If pixel diffuse light
+
+      ! Binary
+      else !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! BINARY !!!!
+
+        ! If LOS
+        if (finfo(2).eq.1) then
+
+          ! Read mu
+          read(unitD,err=1100) daux
+          buffer(1) = cos(daux)
+          read(unitD,err=1100) daux
+          buffer(2) = daux
+
+          ! Receiving indexes
+          i0 = 3
+          i1 = nwp + i0 - 1
+
+        ! No LOS
+        else
+
+          ! Receiving indexes
+          i0 = 1
+          i1 = nwp
+
+        end if
+
+        ! Read Stokes
+        read(unitD,err=1100) buffer(i0:i1)
+
+        ! There is sigma here
+        if (finfo(3).ge.3) then
+
+          ! Shift initial index
+          i0 = i1 + 1
+
+          ! If constant
+          if (finfo(3).eq.3) then
+
+            ! Only intensity
+            if (finfo(1).eq.0) then
+
+              ! Final index
+              i1 = i0
+
+            ! Polarization
+            else
+
+              ! Final index
+              i1 = i0 + 3
+
+            end if ! Intensity/Polarization
+
+            ! Read sigma
+            read(unitD,err=1100) buffer(i0:i1)
+
+          ! Wavelength dependent
+          else
+
+            ! Final index
+            i1 = nwp + i0 - 1
+
+            ! Read
+            read(unitD,err=1100) buffer(i0:i1)
+
+          end if ! Type of pixel sigma
+        end if ! If pixel sigma
+
+
+        ! There is diffuse light here
+        if (finfo(4).ge.3) then
+
+          ! Shift initial index
+          i0 = i1 + 1
+
+          ! If only intensity
+          if (finfo(4).eq.3) then
+
+            ! Final index
+            i1 = dims(3) + i0 - 1
+
+            ! Read intensity
+            read(unitD,err=1100) buffer(i0:i1)
+
+          ! Polarized
+          else
+
+            ! Final index
+            i1 = nwp + i0 - 1
+
+            ! Read
+            read(unitD,err=1100) buffer(i0:i1)
+
+          end if ! Polarization?
+        end if ! If pixel diffuse light
+      end if !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+      ! Success
+      check = .True.
+
+      return
+
+1100  check = .False.
+      write(umsg,'(A)') ' # Error getting data from pixel '// &
+                        'from the input inversion file'
+      call verbose
+
+      end subroutine get_data_column
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Prepare the information necessary to invert the pixel in the
+      !! buffer\n
+      !!        finfo(integer(3)): File info, Stokes, LOS, sigma\n
+      !! Inf_Stokes(Stokes_class): Structure with Stokes parameters
+      !!                           data\n
+      !!      Sol(Solution_class): Structure with the solution data\n
+      !!        buffer(double(:)): Buffer with all data
+      subroutine set_up_data_frombuffer(finfo,Inf_Stokes,Sol,buffer)
+
+      ! I/O
+      type(Stokes_class), intent(inout):: Inf_Stokes
+      type(Solution_class), intent(inout):: Sol
+      integer, dimension(:), intent(in):: finfo
+      double precision, dimension(:), intent(in):: buffer
+
+      ! Local
+      integer:: i0,i1,istk,nstk
+
+      ! LOS
+      if (finfo(2).eq.1) then
+
+        ! Get LOS from buffer
+        Inf_Stokes%mu = buffer(1)
+        Inf_Stokes%azimuth = buffer(2)
+
+        ! Set final index of this section
+        i1 = 2
+
+      ! Known LOS
+      else
+
+        ! Nothing read from buffer
+        i1 = 0
+
+      end if
+
+      ! If only intensity
+      if (finfo(1).eq.0) then
+
+        ! Last Stokes index
+        nstk = 0
+
+        ! Zero Pol
+        Inf_Stokes%Stokes_Ob(1:3,:) = 0d0
+
+      ! Polarization
+      else
+
+        ! Last Stokes index
+        nstk = 3
+
+      end if
+
+      ! For each stokes parameter
+      do istk=0,nstk
+
+        ! Set indexes
+        i0 = i1 + 1
+        i1 = i0 + Inf_Stokes%Num_Wavelength - 1
+
+        ! Get intensity
+        Inf_Stokes%Stokes_Ob(istk,:) = buffer(i0:i1)
+
+      end do ! Stokes parameters
+
+      !
+      ! Sigma values
+      !
+
+      ! No sigma
+      if (finfo(3).eq.0) then
+
+        ! Flag as false
+        Inf_Stokes%Sigma_Flag = .False.
+
+      ! Yes sigma
+      else
+
+        ! Flag as True
+        Inf_Stokes%Sigma_Flag = .True.
+
+        ! Constant sigma
+        if (finfo(3).eq.1.or.finfo(3).eq.2) then
+
+          ! Copy from the input sigma
+          Inf_Stokes%Sigma_W = Inf_Stokes%Sigma_in
+
+        ! Pixel sigma not wavelength dependent
+        else if (finfo(3).eq.3) then
+
+          ! For each Stokes parameter
+          do istk=0,nstk
+
+            ! Set indexes
+            i0 = i1 + 1
+            i1 = i0
+
+            ! Copy replicating
+            Inf_Stokes%Sigma_W(istk,:) = buffer(i0)
+
+          end do
+
+        ! Pixel sigma wavelength dependent
+        else if (finfo(3).eq.4) then
+
+          ! For each Stokes parameter
+          do istk=0,nstk
+
+            ! Set indexes
+            i0 = i1 + 1
+            i1 = i0 + Inf_Stokes%Num_Wavelength - 1
+
+            ! Copy
+            Inf_Stokes%Sigma_W(istk,:) = buffer(i0:i1)
+
+          end do
+
+        end if ! Type of sigma
+      end if ! If there is sigma at all
+
+
+      !
+      ! Diffuse light values
+      !
+
+      ! No diff
+      if (finfo(4).eq.0) then
+
+        ! Flag as false
+        Inf_Stokes%Diff_Flag = .False.
+        Sol%Diff_Flag = .False.
+
+      ! Yes diff
+      else
+
+        ! Flag as True
+        Inf_Stokes%Diff_Flag = .True.
+        Sol%Diff_Flag = .True.
+
+        ! Constant diff
+        if (finfo(4).eq.1.or.finfo(4).eq.2) then
+
+          ! Copy from the input sigma
+          Sol%Stokes_diff = Inf_Stokes%Diff_in
+
+        ! Pixel diff intensity
+        else if (finfo(4).eq.3) then
+
+          ! Set indexes
+          i0 = i1 + 1
+          i1 = i0 + Inf_Stokes%Num_Wavelength - 1
+
+          ! Copy
+          Sol%Stokes_diff(0,:) = buffer(i0:i1)
+          Sol%Stokes_diff(1:3,:) = 0d0
+
+        ! Pixel diff polarized
+        else if (finfo(4).eq.4) then
+
+          ! For each Stokes parameter
+          do istk=0,nstk
+
+            ! Set indexes
+            i0 = i1 + 1
+            i1 = i0 + Inf_Stokes%Num_Wavelength - 1
+
+            ! Copy
+            Sol%Stokes_diff(istk,:) = buffer(i0:i1)
+
+          end do
+
+        end if ! Type of diffuse light
+      end if ! If there is diffuse light at all
+
+      ! Convert profiles
+      call Profile_Conversion(Inf_Stokes, Sol)
+
+      end subroutine set_up_data_frombuffer
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Prepare the input or initial model atmosphere from buffer\n
+      !!          finv(logical): From inversion file\n
+      !!         jkqin(logical): If there are JKQ\n
+      !!       tauscal(logical): If input is in tau scale\n
+      !!      buffer(double(:)): Pixel atmospheric data\n
+      !!       Atmo(Atmo_class): Structure with atmospheric data (can
+      !!                         be for running or for input)\n
+      !!   Bfield(Bfield_class): Structure with magnetic field data
+      subroutine set_up_atmo_frombuffer(finv,jkqin,tauscal, &
+                                        buffer,Atmo,Bfield)
+
+      ! I/O
+      type(Atmo_class), intent(inout):: Atmo
+      type(Bfield_class), intent(out):: Bfield
+      logical, intent(in):: finv,tauscal,jkqin
+      double precision, dimension(:), target:: buffer
+
+      ! Local
+      integer:: lnz,iz
+
+      double precision:: ikbcgs
+
+      ! nz local
+      lnz = Atmo%nz
+
+      ! Constant
+      ikbcgs = 1d-7/kb
+
+      ! Deallocations
+      if (allocated(Atmo%Pg)) deallocate(Atmo%Pg)
+      if (allocated(Atmo%nH)) deallocate(Atmo%nH)
+      if (allocated(Atmo%nht)) deallocate(Atmo%nht)
+      if (allocated(Atmo%nha)) deallocate(Atmo%nha)
+      if (allocated(Atmo%nhm)) deallocate(Atmo%nhm)
+      if (allocated(Atmo%ne)) deallocate(Atmo%ne)
+
+      ! Initialize zero if not allocated
+      if (.not.associated(Atmo%zeros)) then
+        allocate(Atmo%zeros(lnz))
+        Atmo%zeros = 0d0
+      end if
+
+      ! Allocs
+      Atmo%alloc_a = .False.
+      Atmo%alloc_b = .False.
+
+      ! Allocation
+      allocate(Atmo%nH(lnz,6),Atmo%nht(lnz),Atmo%nha(lnz))
+      allocate(Atmo%nhm(lnz),Atmo%ne(lnz))
+
+      ! Inversion file
+      if (finv) then
+
+        ! Type of scale must be tau
+        ztau = .True.
+
+        ! Tau
+        Atmo%z   => buffer(1:lnz)
+
+        ! Temperature
+        Atmo%T   => buffer(   lnz+1:2*lnz)
+
+        ! Microturbulence
+        Atmo%vmi => buffer( 9*lnz+1:10*lnz)
+
+        ! Velocity
+        Atmo%vx  => buffer( 6*lnz+1: 7*lnz)
+        Atmo%vy  => buffer( 7*lnz+1: 8*lnz)
+        Atmo%vz  => buffer( 8*lnz+1: 9*lnz)
+
+        ! Gas pressure
+        if (allocated(Atmo%Pg)) deallocate(Atmo%Pg)
+        allocate(Atmo%Pg(lnz))
+        Atmo%Pg = buffer( 2*lnz+1: 3*lnz)
+
+        ! Type of atmosphere
+        Atmo%typo = 4
+
+        ! Initialize
+        Atmo%ne = 0d0
+        Atmo%nht = 0d0
+        Atmo%nha = 0d0
+        Atmo%nH = 0d0
+        Atmo%nhm = 0d0
+
+      ! Not inversion file
+      else
+
+        ! height or tau
+        if (tauscal) then
+          Atmo%z   => buffer( 2*lnz+1:3*lnz)
+          ztau = .True.
+        else
+          Atmo%z   => buffer(   lnz+1:2*lnz)
+          ztau = .False.
+        end if
+
+        ! Temperature
+        Atmo%T   => buffer( 3*lnz+1:4*lnz)
+
+        ! Microturbulence
+        Atmo%vmi => buffer(12*lnz+1:13*lnz)
+
+        ! Velocity
+        Atmo%vx  => buffer( 9*lnz+1:10*lnz)
+        Atmo%vy  => buffer(10*lnz+1:11*lnz)
+        Atmo%vz  => buffer(11*lnz+1:12*lnz)
+
+        ! Type of atmosphere
+        if (Atmo%typo.eq.0.or.Atmo%typo.eq.1) then
+
+          ! Point to electron number density
+          Atmo%ne = buffer(14*lnz+1:15*lnz)
+
+          ! Full density
+          if (Atmo%typo.eq.0) &
+            Atmo%nH = reshape(buffer(18*nz+1:24*nz), (/ nz, 6 /))
+
+        ! Electron pressure
+        else if (Atmo%typo.eq.2.or.Atmo%typo.eq.3) then
+
+          Atmo%ne = buffer(13*lnz+1:14*lnz)
+          Atmo%ne = Atmo%ne*ikbcgs/Atmo%T
+          Atmo%typo = 1
+
+        ! Gas pressure
+        else if (Atmo%typo.eq.4) then
+
+          if (allocated(Atmo%Pg)) deallocate(Atmo%Pg)
+          allocate(Atmo%Pg(lnz))
+          Atmo%ne = 0d0
+          Atmo%Pg = buffer( 4*lnz+1:5*lnz)
+
+        ! Density
+        else if (Atmo%typo.eq.5) then
+
+          if (allocated(Atmo%rho)) deallocate(Atmo%rho)
+          allocate(Atmo%rho(lnz))
+          Atmo%ne = 0d0
+          Atmo%rho = buffer(5*lnz+1:6*lnz)
+
+        end if
+
+      end if ! Inversion file?
+
+      ! Just make a flag to know that there is no helium input
+      allocate(Atmo%nhe(1,1))
+      Atmo%nhe(1,1) = -1
+
+      ! Divide velocities by c (1d5*1d-11/cbar)
+      Atmo%vx = Atmo%vx*1d-6/c
+      Atmo%vy = Atmo%vy*1d-6/c
+      Atmo%vz = Atmo%vz*1d-6/c
+      Atmo%vmi = Atmo%vmi*1d-6/c
+
+
+      !
+      ! Magnetic field
+      !
+
+      ! Allocate
+      allocate(Bfield%Bstrength(lnz))
+      allocate(Bfield%Btheta(lnz))
+      allocate(Bfield%Bphi(lnz))
+
+      ! Point to buffer
+      Atmo%Bx => buffer( 3*lnz+1:7*lnz)
+      Atmo%By => buffer( 4*lnz+1:8*lnz)
+      Atmo%Bz => buffer( 5*lnz+1:9*lnz)
+
+      ! Compute module and angles for B at each height
+      do iz=1,lnz
+
+        ! Module
+        Bfield%Bstrength(iz) = sqrt(Atmo%Bx(iz)*Atmo%Bx(iz) + &
+                                    Atmo%By(iz)*Atmo%By(iz) + &
+                                    Atmo%Bz(iz)*Atmo%Bz(iz))
+
+        ! There is a magnetic field
+        if (Bfield%Bstrength(iz).gt.TINYB) then
+          Bfield%Btheta(iz) = acos(Atmo%Bz(iz)/Bfield%Bstrength(iz))
+          Bfield%Bphi(iz) = atan2(Atmo%By(iz),Atmo%Bx(iz))
+        ! There is no field
+        else
+          Bfield%Bstrength(iz) = 0d0
+          Bfield%Btheta(iz) = 0d0
+          Bfield%Bphi(iz) = 0d0
+        end if
+
+      end do ! Heights
+
+      ! JKQ
+      if (jkqin) then
+
+        ! Get from buffer
+        Atmo%JKQin(       1:  lnz) = buffer(19*lnz+1:20*lnz)
+        Atmo%JKQin(   lnz+1:2*lnz) = buffer(20*lnz+1:21*lnz)
+        Atmo%JKQin( 2*lnz+1:3*lnz) = buffer(21*lnz+1:22*lnz)
+        Atmo%JKQin( 3*lnz+1:4*lnz) = buffer(22*lnz+1:23*lnz)
+        Atmo%JKQin( 4*lnz+1:5*lnz) = buffer(23*lnz+1:24*lnz)
+        Atmo%JKQin( 5*lnz+1:6*lnz) = buffer(24*lnz+1:25*lnz)
+        Atmo%JKQin( 6*lnz+1:7*lnz) = buffer(25*lnz+1:26*lnz)
+        Atmo%JKQin( 7*lnz+1:8*lnz) = buffer(26*lnz+1:27*lnz)
+
+      end if
+
+      ! Inversion file
+      if (finv) then
+
+        ! JKQ
+        if (jkqin) then
+
+          ! Diffuse light
+          Atmo%f_diff = buffer(27*lnz+1)
+
+        else
+
+          ! Diffuse light
+          Atmo%f_diff = buffer(19*lnz+1)
+
+        end if
+      end if
+
+      ! Nullify Bx,y, and z
+      nullify(Atmo%Bx,Atmo%By,Atmo%Bz)
+
+      end subroutine set_up_atmo_frombuffer
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Prepare the input JKQ from buffer\n
+      !!      buffer(double(:)): Pixel atmospheric data\n
+      !!       Atmo(Atmo_class): Structure with atmospheric data\n
+      subroutine set_up_JKQ_frombuffer(buffer,Atmo)
+
+      ! I/O
+      type(Atmo_class), intent(inout):: Atmo
+      double precision, dimension(:), target:: buffer
+
+      ! Get from buffer
+      Atmo%JKQin = buffer
+
+      end subroutine set_up_JKQ_frombuffer
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Set sizes for inversion output\n
+      !!       Input(Input_class): Structure with settings data\n
+      !!   Inf_Nodes(Nodes_class): Structure with nodes data\n
+      !!         dims(integer(3)): Dimensions of the problem\n
+      !!              nz(integer): Vertical dimension of the problem
+      subroutine set_inv_io_buffers(Input,Inf_Nodes,dims,nz)
+
+      ! I/O
+      type(Input_class), intent(inout):: Input
+      type(Nodes_class), intent(in):: Inf_Nodes
+      integer, intent(in):: nz
+      integer, dimension(:), intent(in):: dims
+
+      ! Local
+      integer:: ivar
+
+      ! Size of common head
+      Input%s_inv_h= 20
+
+      !
+      ! Size of atmosphere block
+      !
+
+      ! Column per variable
+      Input%s_inv_atmo_c = 4*nz
+
+      ! If output JKQ
+      if (Input%out_jkqa) then
+
+        Input%s_inv_atmo_c = Input%s_inv_atmo_c*27
+
+      ! No output JKQ
+      else
+
+        Input%s_inv_atmo_c = Input%s_inv_atmo_c*19
+
+      end if
+
+      ! Diffuse light
+      Input%s_inv_atmo_c = Input%s_inv_atmo_c + 4*1
+
+
+      ! Total block
+      Input%s_inv_atmo = dims(1)*dims(2)*Input%s_inv_atmo_c
+
+      !
+      ! Sizes Results
+      !
+
+      ! Head (11 number of variables)         v 4 + 4
+      Input%s_inv_res_h = 4 + 4 + 8*dims(3) + 8*Input%nvar
+
+      ! If thermal
+      if (Input%Type_Inversion.eq.0) then
+
+        ! Each pixel
+        Input%s_inv_res_c = 8 + 8*dims(3)
+
+      ! Magnetic
+      else
+
+        ! Each pixel
+        Input%s_inv_res_c = 8 + 32*dims(3)
+
+      end if
+
+      ! Run over variables
+      do ivar=1,Input%nvar
+
+        ! If nodes
+        if (Inf_Nodes%Num_nodes(ivar).gt.0) then
+
+          ! If inverting
+          if (Inf_Nodes%Nodes_Flags(ivar)) then
+
+            ! Add node size
+            Input%s_inv_res_c = Input%s_inv_res_c + &
+                                   12*Inf_Nodes%Num_nodes(ivar)
+
+          ! No inverting
+          else
+
+            ! Add node size
+            Input%s_inv_res_c = Input%s_inv_res_c + &
+                                   8*Inf_Nodes%Num_nodes(ivar)
+
+          end if ! Inverting?
+        end if ! Nodes?
+
+      end do ! Variables
+
+      ! Total
+      Input%s_inv_res = Input%s_inv_res_c*dims(1)*dims(2)
+
+      ! Output RF
+      if (Input%Keep_RF) then
+
+        ! Head (number of variables with RF)
+        Input%s_inv_RF_h = 4
+
+        ! Column
+        Input%s_inv_RF_c = 0
+
+        ! Thermal
+        if (Input%Type_Inversion.eq.0) then
+
+          ! Run over variables
+          do ivar=1,Input%nvar
+
+            ! Skip not inverting
+            if (.not.Inf_Nodes%Nodes_Flags(ivar)) cycle
+
+            ! Add to header index and size
+            Input%s_inv_RF_h = Input%s_inv_RF_h + 4 + 4
+
+            ! If not varying
+            if (Inf_Nodes%Num_vary(ivar).le.0) cycle
+
+            ! Add node size
+            Input%s_inv_RF_c = Input%s_inv_RF_c + &
+                                  (4 + 4*dims(3))* &
+                                  Inf_Nodes%Num_vary(ivar)
+
+          end do
+
+        ! Polarization
+        else
+
+          ! Run over variables
+          do ivar=1,Input%nvar
+
+            ! Skip not inverting
+            if (.not.Inf_Nodes%Nodes_Flags(ivar)) cycle
+
+            ! Add to header index and size
+            Input%s_inv_RF_h = Input%s_inv_RF_h + 4 + 4
+
+            ! If not varying
+            if (Inf_Nodes%Num_vary(ivar).le.0) cycle
+
+            ! Add node size
+            Input%s_inv_RF_c = Input%s_inv_RF_c + &
+                                  (4 + 4*4*dims(3))* &
+                                  Inf_Nodes%Num_vary(ivar)
+          end do
+
+        end if
+
+      end if ! Output RF?
+
+      end subroutine set_inv_io_buffers
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Inquiry existing files\n
+      !!    Input(Input_class): Structure with settings data\n
+      !!     aborting(logical): Signals if something goes wrong
+      subroutine check_io_inv_buffer_exists(Input,aborting)
+
+      ! I/O
+      type(Input_class), intent(inout):: Input
+      logical, intent(out):: aborting
+
+      ! Local
+      integer:: ios
+
+      ! Initialize
+      aborting = .False.
+
+      !
+      ! Stokes, Contribution, Tau
+      !
+
+      ! Try opening Stokes
+      open (200,file=trim(Input%folder)//'/Stokes', &
+            status='old', iostat=ios, access='stream', &
+            action='read', form='unformatted')
+
+      ! If could not open
+      if (ios.ne.0) then
+        umsg = 'There is no existing Stokes files'
+        call verbose
+        aborting = .True.
+        return
+      end if
+
+      ! Close
+      close(200)
+
+      ! If contribution function output
+      if (Input%out_contr) then
+
+        ! Try opening Contribution function
+        open (200,file=trim(Input%folder)//'/Contribution', &
+              status='old', iostat=ios, access='stream', &
+              action='read', form='unformatted')
+
+        ! If could not open
+        if (ios.ne.0) then
+          umsg = 'There is no existing contribution '// &
+                 'function files'
+          call verbose
+          aborting = .True.
+          return
+        end if
+
+        ! Close
+        close(200)
+
+      end if
+
+      ! If tau output
+      if (Input%out_tau1) then
+
+        ! Try opening tau
+        open (200,file=trim(Input%folder)//'/Tau', &
+              status='old', iostat=ios, access='stream', &
+              action='read', form='unformatted')
+
+        ! If could not open
+        if (ios.ne.0) then
+          umsg = 'There is no existing tau_1 files'
+          call verbose
+          aborting = .True.
+          return
+        end if
+
+        ! Close
+        close(200)
+
+      end if
+
+      ! Try opening result
+      open (200,file=trim(Input%folder)//'/Result', &
+            status='old', iostat=ios, access='stream', &
+            action='read', form='unformatted')
+
+      ! If could not open
+      if (ios.ne.0) then
+        umsg = 'There is no existing Result file'
+        call verbose
+        aborting = .True.
+        return
+      end if
+
+      ! Close
+      close(200)
+
+      end subroutine check_io_inv_buffer_exists
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Create the files so the slaves can write later\n
+      !!       Input(Input_class): Structure with settings data\n
+      !!      Sol(Solution_class): Class with the data of the RT
+      !!                           solution
+      !!   Inf_Nodes(Nodes_class): Structure with nodes data\n
+      !!               th(double): angle to put in polar angle\n
+      !!              azi(double): angle to put in azimuth angle\n
+      !!         dims(integer(:)): Dimensions in atmospheric file\n
+      !!              nz(integer): Vertical dimension of the problem
+      !!    Frec(Frequency_class): Structure with frequency data
+      subroutine create_io_inv_files(Input,Sol,Inf_Nodes,th,azi, &
+                                     dims,nz,Frec)
+
+      ! I/O
+      type(Input_class), intent(in):: Input
+      type(Nodes_class), intent(in):: Inf_Nodes
+      type(Frequency_class), intent(in):: Frec
+      type(Solution_class), intent(in):: Sol
+      integer, intent(in):: nz
+      integer, dimension(:), intent(in):: dims
+      double precision, intent(in):: th,azi
+
+      ! Local
+      integer:: i,j,ios,iran
+
+      !
+      ! Stokes, Contribution, Tau
+      !
+
+      ! Open Stokes
+      open (200,file=trim(Input%folder)//'/Stokes', &
+            status='unknown', iostat=ios, access='stream', &
+            action='write', form='unformatted')
+
+      ! Write header
+      write(200) '2Dbe'
+      write(200) Input%lim_stk%nn
+      write(200) dims(1:2)
+      write(200) th
+      write(200) azi
+      if (Input%lim_stk%nran.gt.0) then
+        do iran=1,Input%lim_stk%nran
+          write(200) Frec%omega(Input%lim_stk%indx(1,iran): &
+                                Input%lim_stk%indx(2,iran))
+        end do
+      else
+        write(200) Frec%omega
+      end if
+
+      ! Close
+      close(200)
+
+      ! If contribution function output
+      if (Input%out_contr) then
+
+        ! Open Contribution function
+        open (200,file=trim(Input%folder)//'/Contribution', &
+              status='unknown', iostat=ios, access='stream', &
+              action='write', form='unformatted')
+
+        ! Write header
+        write(200) '2Dbc'
+        write(200) Input%lim_ctr%nn
+        write(200) dims(1:2)
+        write(200) nz
+        write(200) th
+        write(200) azi
+        if (Input%lim_ctr%nran.gt.0) then
+          do iran=1,Input%lim_ctr%nran
+            write(200) Frec%omega(Input%lim_ctr%indx(1,iran): &
+                                  Input%lim_ctr%indx(2,iran))
+          end do
+        else
+          write(200) Frec%omega
+        end if
+
+        ! Close
+        close(200)
+
+      end if
+
+      ! If tau output
+      if (Input%out_tau1) then
+
+        ! Open tau
+        open (200,file=trim(Input%folder)//'/Tau', &
+              status='unknown', iostat=ios, access='stream', &
+              action='write', form='unformatted')
+
+        ! Write header
+        write(200) '2Dbt'
+        write(200) Input%lim_tau%nn
+        write(200) dims(1:2)
+        write(200) th
+        write(200) azi
+        if (Input%lim_tau%nran.gt.0) then
+          do iran=1,Input%lim_tau%nran
+            write(200) Frec%omega(Input%lim_tau%indx(1,iran): &
+                                  Input%lim_tau%indx(2,iran))
+          end do
+        else
+          write(200) Frec%omega
+        end if
+
+        ! Close
+        close(200)
+
+      end if
+
+      !
+      ! Result
+      !
+
+      ! Open result file
+      open (200,file=trim(Input%folder)//'/Result', &
+            status='unknown', iostat=ios, access='stream', &
+            action='write', form='unformatted')
+
+      !
+      ! Write header
+      !
+
+      ! Label
+      write(200) 'invo'
+
+      ! Initialize info index
+      i = 0
+
+      ! If magnetic
+      if (Input%type_inversion.gt.0) i = i + 1
+
+      ! Type of field
+      i = i + Input%btype*2
+
+      ! Type of velocity
+      i = i + Input%vtype*4
+
+      ! JKQ
+      if (Input%out_jkqa) i = i + 8
+
+      ! Write info index
+      write(200) i
+
+      ! Dimensions
+      write(200) dims(1:2)
+      write(200) nz
+
+      ! Skip atmo
+      call fseek(200,Input%s_inv_atmo,1)
+
+      ! Second header
+      write(200) Input%nvar
+      write(200) dims(3)
+      write(200) Sol%omega_input(1:Sol%Num_Wavelength)
+
+      ! For each variable
+      do i=1,Input%nvar
+
+        ! If inverting
+        if (Inf_Nodes%Nodes_Flags(i)) then
+          write(200) int(1)
+        else
+          write(200) int(0)
+        end if
+
+        ! Nodes
+        write(200) Inf_Nodes%Num_Nodes(i)
+
+      end do
+
+      ! Output RF
+      if (Input%Keep_RF) then
+
+        ! Jump result block
+        call fseek(200,Input%s_inv_res,1)
+
+        ! Count number of variables in the inversion
+        j = 0
+        do i=1,Input%nvar
+          if (Inf_Nodes%Nodes_Flags(i)) j = j + 1
+        end do
+
+        ! Write number of variables in inversion
+        write(200) j
+
+        ! Run over variables
+        do i=1,Input%nvar
+
+          ! Skip not inverting
+          if (.not.Inf_Nodes%Nodes_Flags(i)) cycle
+
+          ! Write index
+          write(200) i
+
+          ! Write nodes
+          write(200) Inf_Nodes%Num_vary(i)
+
+        end do
+
+        ! Skip to last four bytes
+        call fseek(200,dims(1)*dims(2)*Input%s_inv_RF_c-4,1)
+
+        ! Write a zero to set the filesize
+        write(200) real(0.0)
+
+      ! Not output of RF
+      else
+
+        ! Jump result block but 1 position
+        call fseek(200,Input%s_inv_res-4,1)
+
+        ! Write a zero to set the filesize
+        write(200) real(0.0)
+
+      end if ! Output RF?
+
+      ! Close file
+      close(200)
+
+      end subroutine create_io_inv_files
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Write the results of the inversion into a file\n
+      !!   Inf_Stokes(Stokes_class): Structure with Stokes
+      !!                             parameters data\n
+      !!        Sol(Solution_class): Structure with the RT solution
+      !!                             data\n
+      !!       LM_Stru(LMFIT_class): Structure with Jacobian and
+      !!                             other LM quantities\n
+      !!     Inf_Nodes(Nodes_class): Structure with node data\n
+      !!           Atmo(Atmo_class): Structure with the model
+      !!                             atmosphere data\n
+      !!       Bfield(Bfield_class): Structure with the vertical
+      !!                              magnetic field data\n
+      !!     Inf_Nodes(Nodes_class): Structure with nodes data\n
+      !!         Input(Input_class): Structure with input data
+      subroutine Write_Result(Inf_Stokes,Sol,LM_Stru, &
+                              Inf_Nodes,Atmo,Bfield,Input)
+
+      ! IO
+      type(Stokes_class), intent(inout):: Inf_Stokes
+      type(Solution_class), intent(inout):: Sol
+      type(LMFIT_class), intent(in):: LM_Stru
+      type(Nodes_class), intent(in):: Inf_Nodes
+      type(Atmo_class), Intent(in):: Atmo
+      type(Bfield_class), intent(in):: Bfield
+      type(Input_class), intent(in):: Input
+
+      ! Local
+      integer:: ii,jj,ir,is
+
+      integer(kind=MPI_OFFSET_KIND):: offset
+
+      real, dimension(:), allocatable:: buffer
+
+      double precision:: loffset
+      double precision, dimension(:,:), allocatable:: RF
+      double precision, dimension(:,:), allocatable:: Stokes_help
+
+
+      ! Routine name
+      urou = 'Write_Result'
+
+      ! Open file
+      call MPI_FILE_OPEN(MPI_COMM_SELF, &
+                         trim(Input%folder)//'/Result', &
+                         MPI_MODE_WRONLY, MPI_INFO_NULL, funit, &
+                         ierr)
+      if (ierr.ne.0) goto 1000
+
+      !
+      ! Atmosphere
+      !
+
+      ! Allocate buffer
+      allocate(buffer(Input%s_inv_atmo_c/4))
+
+      !
+      ! Column offset
+      !
+
+      ! Get offset
+      loffset = dble(icoords(3)-1)*dble(Input%s_inv_atmo_c) + &
+                dble(Input%s_inv_h)
+      do while(loffset.gt.offlimit)
+        offset = int(offlimit)
+        call MPI_FILE_SEEK(funit, offset, MPI_SEEK_CUR, ierr)
+        if (ierr.ne.0) goto 1010
+        loffset = loffset - offlimit
+      end do
+      offset = int(loffset)
+      call MPI_FILE_SEEK(funit, offset, MPI_SEEK_CUR, ierr)
+      if (ierr.ne.0) goto 1010
+
+      !
+      ! Copy into buffer
+
+      ! Initialize
+      ii = 0
+
+      ! Tau
+      buffer(ii+1:ii+Atmo%nz) = real(Atmo%z)
+      ii = ii + Atmo%nz
+
+      ! T
+      buffer(ii+1:ii+Atmo%nz) = real(Atmo%T)
+      ii = ii + Atmo%nz
+
+      ! Pg
+      buffer(ii+1:ii+Atmo%nz) = real(Atmo%Pg)
+      ii = ii + Atmo%nz
+
+      ! Bx
+      buffer(ii+1:ii+Atmo%nz) = real(Bfield%Bstrength* &
+                                     sin(Bfield%Btheta)* &
+                                     cos(Bfield%Bphi))
+      ii = ii + Atmo%nz
+
+      ! By
+      buffer(ii+1:ii+Atmo%nz) = real(Bfield%Bstrength* &
+                                     sin(Bfield%Btheta)* &
+                                     sin(Bfield%Bphi))
+      ii = ii + Atmo%nz
+
+      ! Bz
+      buffer(ii+1:ii+Atmo%nz) = real(Bfield%Bstrength* &
+                                     cos(Bfield%Btheta))
+      ii = ii + Atmo%nz
+
+      ! vx
+      buffer(ii+1:ii+Atmo%nz) = real(Atmo%vx*c*1d6)
+      ii = ii + Atmo%nz
+
+      ! vy
+      buffer(ii+1:ii+Atmo%nz) = real(Atmo%vy*c*1d6)
+      ii = ii + Atmo%nz
+
+      ! vz
+      buffer(ii+1:ii+Atmo%nz) = real(Atmo%vz*c*1d6)
+      ii = ii + Atmo%nz
+
+      ! vmi
+      buffer(ii+1:ii+Atmo%nz) = real(Atmo%vmi*c*1d6)
+      ii = ii + Atmo%nz
+
+      ! ne
+      buffer(ii+1:ii+Atmo%nz) = real(Atmo%ne)
+      ii = ii + Atmo%nz
+
+      ! nHt
+      buffer(ii+1:ii+Atmo%nz) = real(Atmo%nht)
+      ii = ii + Atmo%nz
+
+      ! nHa
+      buffer(ii+1:ii+Atmo%nz) = real(Atmo%nha)
+      ii = ii + Atmo%nz
+
+      ! nH
+      buffer(ii+1:ii+6*Atmo%nz) = real(reshape(Atmo%nh, (/ nz*6 /)))
+      ii = ii + 6*Atmo%nz
+
+      ! JKQ?
+      if (Input%out_jkqa) then
+
+        ! Init
+        jj = 0
+
+        ! J10
+        buffer(ii+1:ii+Atmo%nz) = real(Atmo%JKQin(jj+1:jj+Atmo%nz))
+        ii = ii + Atmo%nz
+        jj = jj + Atmo%nz
+
+        ! J11R
+        buffer(ii+1:ii+Atmo%nz) = real(Atmo%JKQin(jj+1:jj+Atmo%nz))
+        ii = ii + Atmo%nz
+        jj = jj + Atmo%nz
+
+        ! J11I
+        buffer(ii+1:ii+Atmo%nz) = real(Atmo%JKQin(jj+1:jj+Atmo%nz))
+        ii = ii + Atmo%nz
+        jj = jj + Atmo%nz
+
+        ! J20
+        buffer(ii+1:ii+Atmo%nz) = real(Atmo%JKQin(jj+1:jj+Atmo%nz))
+        ii = ii + Atmo%nz
+        jj = jj + Atmo%nz
+
+        ! J21R
+        buffer(ii+1:ii+Atmo%nz) = real(Atmo%JKQin(jj+1:jj+Atmo%nz))
+        ii = ii + Atmo%nz
+        jj = jj + Atmo%nz
+
+        ! J21I
+        buffer(ii+1:ii+Atmo%nz) = real(Atmo%JKQin(jj+1:jj+Atmo%nz))
+        ii = ii + Atmo%nz
+        jj = jj + Atmo%nz
+
+        ! J22R
+        buffer(ii+1:ii+Atmo%nz) = real(Atmo%JKQin(jj+1:jj+Atmo%nz))
+        ii = ii + Atmo%nz
+        jj = jj + Atmo%nz
+
+        ! J22I
+        buffer(ii+1:ii+Atmo%nz) = real(Atmo%JKQin(jj+1:jj+Atmo%nz))
+        ii = ii + Atmo%nz
+
+      end if ! JKQ
+
+      ! Diffuse light
+      buffer(ii+1:ii+1) = real(Atmo%f_diff)
+      ii = ii + 1
+
+      ! Write buffer
+      call MPI_FILE_WRITE(funit,buffer(1),Input%s_inv_atmo_c/4, &
+                          MPI_REAL,MPI_STATUS_IGNORE,ierr)
+      if (ierr.ne.0) goto 1100
+
+
+      !
+      ! Result
+      !
+
+      ! Allocate buffer
+      deallocate(buffer)
+      allocate(buffer(Input%s_inv_res_c/4))
+
+      !
+      ! Column offset
+      !
+
+      ! Reset offset to zero
+      offset = 0
+      call MPI_FILE_SEEK(funit, offset, MPI_SEEK_SET, ierr)
+
+      ! Get offset
+      loffset = dble(icoords(3)-1)*dble(Input%s_inv_res_c) + &
+                dble(Input%s_inv_h) + &
+                dble(Input%s_inv_atmo) + &
+                dble(Input%s_inv_res_h)
+      do while(loffset.gt.offlimit)
+        offset = int(offlimit)
+        call MPI_FILE_SEEK(funit, offset, MPI_SEEK_CUR, ierr)
+        if (ierr.ne.0) goto 1010
+        loffset = loffset - offlimit
+      end do
+      offset = int(loffset)
+      call MPI_FILE_SEEK(funit, offset, MPI_SEEK_CUR, ierr)
+      if (ierr.ne.0) goto 1010
+
+      !
+      ! Copy into buffer
+
+      ! chi2 original
+      buffer(1) = real(LM_Stru%Chisq_0)
+
+      ! chi2 final
+      buffer(2) = real(LM_Stru%Chisq)
+
+      ! Current position of buffer
+      ii = 2
+
+      ! Allocate help
+      if (Inf_Nodes%Nodes_Type.ne.0) then
+        allocate(Stokes_help(0:3,Sol%Num_Wavelength))
+      else
+        allocate(Stokes_help(0:0,Sol%Num_Wavelength))
+      end if
+
+
+      !
+      ! Observation
+      !
+
+      ! Convert the units of I for each range
+      do ir=1,Sol%Num_Range
+
+        ! Observation
+        Stokes_help(0,Sol%Range(ir,1):Sol%Range(ir,2)) = &
+          Inf_Stokes%Stokes_Ob(0,Sol%Range(ir,1):Sol%Range(ir,2))* &
+          Sol%Scal_Stokes(ir)*1d-14/c
+
+      end do
+
+      ! Intensity (obs)
+      buffer(ii+1:ii+Sol%Num_Wavelength) = &
+                             real(Stokes_help(0,1:Sol%Num_Wavelength))
+      ii = ii + Sol%Num_Wavelength
+
+      ! Polarization?
+      if (Inf_Nodes%Nodes_Type.ne.0) then
+
+        ! If fractional polarization
+        if (Sol%Fractional) then
+
+          ! Polarization parameters
+          do is=1,3
+
+            ! Convert to absolute the observation
+            Stokes_help(is,:) = Inf_Stokes%Stokes_Ob(is,:)* &
+                                Stokes_help(0,:)*1d-2
+
+          end do ! Polarization parameters
+
+        ! Non-fractional
+        else
+
+          ! Convert the units of I for each range
+          do ir=1,Sol%Num_Range
+
+            ! The observation
+            Stokes_help(1:3,Sol%Range(ir,1): &
+                            Sol%Range(ir,2)) = &
+                           Inf_Stokes%Stokes_Ob(1:3,Sol%Range(ir,1): &
+                                                   Sol%Range(ir,2))* &
+                                           Sol%Scal_Stokes(ir)*1d-14/c
+
+          end do ! Ranges
+
+        end if ! Fractional
+
+        ! -Q
+        buffer(ii+1:ii+Sol%Num_Wavelength) = &
+                        real(-1d0*Stokes_help(1,1:Sol%Num_Wavelength))
+        ii = ii + Sol%Num_Wavelength
+
+        ! -U
+        buffer(ii+1:ii+Sol%Num_Wavelength) = &
+                        real(-1d0*Stokes_help(2,1:Sol%Num_Wavelength))
+        ii = ii + Sol%Num_Wavelength
+
+        ! V
+        buffer(ii+1:ii+Sol%Num_Wavelength) = &
+                             real(Stokes_help(3,1:Sol%Num_Wavelength))
+        ii = ii + Sol%Num_Wavelength
+
+      end if ! Polarization
+
+
+      !
+      ! Fit
+      !
+
+      ! Convert the units of I for each range
+      do ir=1,Sol%Num_Range
+
+        ! Emergent
+        Stokes_help(0,Sol%Range(ir,1):Sol%Range(ir,2)) = &
+          Sol%Stokes_out(0,Sol%Range(ir,1):Sol%Range(ir,2))* &
+          Sol%Scal_Stokes(ir)*1d-14/c
+
+      end do
+
+      ! Intensity (obs)
+      buffer(ii+1:ii+Sol%Num_Wavelength) = &
+                             real(Stokes_help(0,1:Sol%Num_Wavelength))
+      ii = ii + Sol%Num_Wavelength
+
+      ! Polarization?
+      if (Inf_Nodes%Nodes_Type.ne.0) then
+
+        ! If fractional polarization
+        if (Sol%Fractional) then
+
+          ! Polarization parameters
+          do is=1,3
+
+            ! Convert to absolute the synthesis
+            Stokes_help(is,:) = Sol%Stokes_out(is,:)* &
+                                Stokes_help(0,:)*1d-2
+
+          end do ! Polarization parameters
+
+        ! Non-fractional
+        else
+
+          ! Convert the units of I for each range
+          do ir=1,Sol%Num_Range
+
+            ! The synthesis
+            Stokes_help(1:3,Sol%Range(ir,1): &
+                            Sol%Range(ir,2)) = &
+                                 Sol%Stokes_out(1:3,Sol%Range(ir,1): &
+                                                   Sol%Range(ir,2))* &
+                                           Sol%Scal_Stokes(ir)*1d-14/c
+
+          end do ! Ranges
+
+        end if ! Fractional
+
+        ! -Q
+        buffer(ii+1:ii+Sol%Num_Wavelength) = &
+                        real(-1d0*Stokes_help(1,1:Sol%Num_Wavelength))
+        ii = ii + Sol%Num_Wavelength
+
+        ! -U
+        buffer(ii+1:ii+Sol%Num_Wavelength) = &
+                        real(-1d0*Stokes_help(2,1:Sol%Num_Wavelength))
+        ii = ii + Sol%Num_Wavelength
+
+        ! V
+        buffer(ii+1:ii+Sol%Num_Wavelength) = &
+                             real(Stokes_help(3,1:Sol%Num_Wavelength))
+        ii = ii + Sol%Num_Wavelength
+
+      end if ! Polarization
+
+      ! Deallocate helper
+      deallocate(Stokes_help)
+
+
+      !
+      ! Nodes
+      !
+
+      ! Run over variables
+      do jj=1,Inf_Nodes%nvar
+
+        ! If nodes
+        if (Inf_Nodes%Num_nodes(jj).gt.0) then
+
+          ! Positions
+          buffer(ii+1:ii+Inf_Nodes%Num_nodes(jj)) = &
+                                      real(10**Inf_Nodes%Node(jj)%H)
+          ii = ii + Inf_Nodes%Num_nodes(jj)
+
+          !
+          ! Values
+
+          ! If velocity
+          if (jj.eq.Inf_Nodes%index_vz.or. &
+              jj.eq.Inf_Nodes%index_vx.or. &
+              (jj.eq.Inf_Nodes%index_vy.and. &
+               Inf_Nodes%vtype.eq.1).or. &
+              jj.eq.Inf_Nodes%index_vm) then
+
+            buffer(ii+1:ii+Inf_Nodes%Num_nodes(jj)) = &
+                                  real(Inf_Nodes%Node(jj)%Var*c*1d6)
+            ii = ii + Inf_Nodes%Num_nodes(jj)
+
+            ! If inverting
+            if (Inf_Nodes%Nodes_Flags(jj)) then
+
+              buffer(ii+1:ii+Inf_Nodes%Num_nodes(jj)) = &
+                               real(Inf_Nodes%Node(jj)%Errors*c*1d6)
+              ii = ii + Inf_Nodes%Num_nodes(jj)
+
+            end if
+
+          ! Others
+          else
+
+            buffer(ii+1:ii+Inf_Nodes%Num_nodes(jj)) = &
+                                        real(Inf_Nodes%Node(jj)%Var)
+            ii = ii + Inf_Nodes%Num_nodes(jj)
+
+            ! If inverting
+            if (Inf_Nodes%Nodes_Flags(jj)) then
+
+              buffer(ii+1:ii+Inf_Nodes%Num_nodes(jj)) = &
+                                     real(Inf_Nodes%Node(jj)%Errors)
+              ii = ii + Inf_Nodes%Num_nodes(jj)
+
+            end if
+
+          end if ! Particular variable
+        end if ! Nodes?
+
+      end do
+
+      ! Write buffer
+      call MPI_FILE_WRITE(funit,buffer(1),Input%s_inv_res_c/4, &
+                          MPI_REAL,MPI_STATUS_IGNORE,ierr)
+      if (ierr.ne.0) goto 1100
+
+      !
+      ! If keeping RF
+      !
+      if (Input%Keep_RF) then
+
+        ! Allocate RF
+        allocate(RF(Sol%Num_Wavelength,0:3))
+
+        ! Allocate buffer
+        deallocate(buffer)
+        allocate(buffer(Input%s_inv_RF_c/4))
+
+        !
+        ! Column offset
+        !
+
+        ! Reset offset to zero
+        offset = 0
+        call MPI_FILE_SEEK(funit, offset, MPI_SEEK_SET, ierr)
+
+        ! Get offset
+        loffset = dble(icoords(3)-1)*dble(Input%s_inv_RF_c) + &
+                  dble(Input%s_inv_h) + &
+                  dble(Input%s_inv_atmo) + &
+                  dble(Input%s_inv_res_h) + &
+                  dble(Input%s_inv_res) + &
+                  dble(Input%s_inv_RF_h)
+        do while(loffset.gt.offlimit)
+          offset = int(offlimit)
+          call MPI_FILE_SEEK(funit, offset, MPI_SEEK_CUR, ierr)
+          if (ierr.ne.0) goto 1010
+          loffset = loffset - offlimit
+        end do
+        offset = int(loffset)
+        call MPI_FILE_SEEK(funit, offset, MPI_SEEK_CUR, ierr)
+        if (ierr.ne.0) goto 1010
+
+        ! Initialize buffer offset
+        ii = 0
+
+        ! For each variable
+        do jj=1,11
+
+          ! Skip not inverting
+          if (.not.Inf_Nodes%Nodes_Flags(jj)) cycle
+
+          ! If not varying
+          if (Inf_Nodes%Num_vary(jj).le.0) cycle
+
+          ! Add to buffer
+          buffer(ii+1:ii+Inf_Nodes%Num_vary(jj)) = &
+            real(10d0** &
+                 Inf_Nodes%Node(jj)%H(Inf_Nodes%Node_Vary(1,jj): &
+                                      Inf_Nodes%Node_Vary(2,jj)))
+          ii = ii + Inf_Nodes%Num_vary(jj)
+
+        end do
+
+        ! Thermal
+        if (Inf_Nodes%Nodes_Type.eq.0) then
+
+          ! For each node
+          do jj=1,LM_Stru%Num
+
+            ! Get RF
+            RF(:,0) = LM_Stru%JacobianI(:,jj)
+
+            ! For each range in wavelength
+            do ir=1,Sol%Num_Range
+
+              ! De-scale RF Stokes parameters
+              RF(Sol%Range(ir,1):Sol%Range(ir,2),0) = &
+                            RF(Sol%Range(ir,1):Sol%Range(ir,2),0)* &
+                            Sol%Scal_Stokes(ir)
+
+            end do
+
+            ! De-scale parameter scale
+            RF(:,0) = RF(:,0)*Inf_Nodes%Scal(Inf_Nodes%Inf_Inv(1,jj))
+
+            ! Add to buffer
+            buffer(ii+1:ii+Sol%Num_Wavelength) = real(RF(:,0))
+            ii = ii + Sol%Num_Wavelength
+
+          end do
+
+        ! Mag. or all
+        else
+
+          ! For each node
+          do jj=1,LM_Stru%Num
+
+            ! Get RF
+            do is=0,3
+              RF(:,is) = LM_Stru%Jacobian(is,:,jj)
+            end do
+
+            ! If fractional
+            if (Sol%Fractional) then
+
+              ! For each range in wavelength
+              do ir=1,Sol%Num_Range
+
+                ! De-scale RF Stokes parameters
+                RF(Sol%Range(ir,1):Sol%Range(ir,2),0) = &
+                            RF(Sol%Range(ir,1):Sol%Range(ir,2),0)* &
+                            Sol%Scal_Stokes(ir)
+
+              end do
+
+              ! Factor 1e2 for fractional
+              RF(:,1:3) = RF(:,1:3)*1d-2
+
+            ! If not fractional
+            else
+
+              ! For each Stokes parameter
+              do is=0,3
+                ! For each range in wavelength
+                do ir=1,Sol%Num_Range
+
+                    ! De-scale RF Stokes parameters
+                    RF(Sol%Range(ir,1):Sol%Range(ir,2),is) = &
+                             RF(Sol%Range(ir,1):Sol%Range(ir,2),is)* &
+                             Sol%Scal_Stokes(ir)
+                end do
+              end do
+
+            end if ! Fracional?
+
+            RF = RF*Inf_Nodes%Scal(Inf_Nodes%Inf_Inv(1,jj))
+
+            ! Add to buffer
+            do is=0,3
+              buffer(ii+1:ii+Sol%Num_Wavelength) = real(RF(:,is))
+              ii = ii + Sol%Num_Wavelength
+            end do
+          end do ! Nodes
+
+        end if ! Type of inversion
+
+        ! Write buffer
+        call MPI_FILE_WRITE(funit,buffer(1),Input%s_inv_RF_c/4, &
+                            MPI_REAL,MPI_STATUS_IGNORE,ierr)
+        if (ierr.ne.0) goto 1100
+
+        ! Deallocate RF
+        deallocate(RF)
+
+      end if ! Keep RF
+
+      ! Deallocate buffer
+      deallocate(buffer)
+
+      ! Close file
+      call MPI_FILE_CLOSE(funit, ierr)
+
+      return
+
+1000  umsg = 'Error opening Result file to write'
+      call aborted
+      call control
+      return
+1010  umsg = 'Error seeking Result file'
+      call MPI_FILE_CLOSE(funit, ierr)
+      call aborted
+      call control
+      return
+1100  umsg = 'Error writing Result file'
+      call MPI_FILE_CLOSE(funit, ierr)
+      call aborted
+      call control
+      return
+
+      end subroutine Write_Result
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      end module iotic_mod

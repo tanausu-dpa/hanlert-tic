@@ -1,0 +1,20 @@
+image: python:3.7-alpine
+
+pages:
+  script:
+# Getting Sphinx in the CI environment
+# Modified on 26/09/2023 following example from PORTA
+  - pip install -U sphinx
+  - pip install sphinx_rtd_theme
+  - apk --no-cache add make
+# Make UserManual : make html takes care of creating public directory  
+# 
+  - cd docs/Manual
+  - make html
+
+  artifacts:
+    paths:
+    - public
+  only:
+  - master
+  

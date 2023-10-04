@@ -1,0 +1,123 @@
+! Input file to run an easy example for the Ca II line at 854.2 nm
+
+! Running inversion
+RUN_MODE = Inversion
+
+! Direct the output to elsewhere
+OUT_FOLDER = ../../../Outputs/examples/Inversion/calcium_8542_2x2
+
+! Direct the verbosity to the output folder
+VERBOSE = No
+
+! Redirect almost everything to CPU files
+VERBOSE_INV_LV = 0
+
+!
+! Inversion
+!
+
+! Data file
+DATA_FILE = ../../../data/Data/example.tic
+
+! Invert intensity and polarization, but first non-magnetic and then only magnetic field
+TYPE_INVERSION = sequential-magnetic
+
+! Set weights for Ca (leaving out last wavelength because it behaves weirdly in this data)
+WEIGHT = 800 900 1.0 0.0 0.0 10.0
+
+! PSF (gaussian FWHM) to convolve emerging profiles
+PSF_FWHM = 853 856 0.01073
+
+! Blos
+BTYPE = LOS
+NODES_B_METHOD = val
+NODES_B_NUM = 3
+BOUNDS_B = -1000 1000
+
+! Temperature
+NODES_T_METHOD = val
+NODES_T_NUM = 5
+REGUL_T = secder  0.05
+BOUNDS_T = 3500 200000
+
+! Vertical velocity
+NODES_VZ_METHOD = val
+NODES_VZ_NUM = 3
+REGUL_VZ = secder  0.01
+BOUNDS_VZ = -35 35
+
+! Turbulent velocity
+NODES_VT_METHOD = val
+NODES_VT_NUM = 3
+REGUL_VT = secder 0.1
+BOUNDS_VT = 0 35
+
+! Tau range model atmosphere
+INV_TAU_RANG = -8. 1.5
+
+! Dimension model atmosphere and range multipliers for node location
+ATMO_NODES = 90
+ATMO_STRAT = -6.25 -4.1  5
+
+! Rest of variables
+NODES_BT_NUM = 0
+NODES_BP_NUM = 0
+NODES_VX_NUM = 0
+NODES_VY_NUM = 0
+NODES_PG_NUM = 0
+NODES_F_NUM = 0
+
+!
+! Synthesis (forward engine)
+!
+
+! Include a 5 levels Ca II atom prepared for Doppler shifts
+ATOM_INPUT = ../../../data/Atoms/CaII/CaII_5L_IRCRD_v.atom
+
+! Include some background contributions, but explicitly without lines
+ATOM_BACK = ../../../data/Atoms/Background/He_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/C_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/N_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/O_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/Na_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/Al_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/Si_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/S_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/Fe_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/Ni_nobb.atom
+ATOM_BACK = ../../../data/Atoms/Background/Mg_nobb.atom
+
+
+! Include some molecules for chemical equilibrium and background contributions
+MOLECULE_INPUT  = ../../../data/Molecules/C2.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/CH.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/CN.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/CO.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/H2.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/H2+.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/H2O.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/N2.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/NH.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/NO.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/O2.molecule
+MOLECULE_INPUT  = ../../../data/Molecules/OH.molecule
+
+! Opacity fudge file
+OPACITY_FUDGE = ../../../Resources/fudge.dat
+
+! No atomic polarization or anisotropy
+K_CUT = 0
+K_RAD = 0
+K_CUTAB = Yes
+
+! Angular quadrature
+POLAR_NODES = 4
+AXIAL_NODES = -1
+
+! Keep Voigt profiles and redistribution functions in RAM
+VOI_PRAM = Yes
+RED_PRAM = Yes
+
+! Set a easy but small convergence criteria
+ITER_MRC_I = 1.0d-3
+ITER_MRC_P = 1.0d-3

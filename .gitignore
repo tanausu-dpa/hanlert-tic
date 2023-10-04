@@ -1,0 +1,9 @@
+objects/[^.]*
+Outputs/[^.]*
+/*.DS_Store
+hanlert
+hanlert[^i]*
+/Makefile
+/data-user/[^.]*
+docs/Manual/_build/*
+/configure_private

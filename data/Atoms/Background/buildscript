@@ -1,0 +1,259 @@
+import atombuilder
+atomdata=[{'Z':0, \
+           'ion':{'E':[48278.48],'J':[0.],'L':0.,'S':0.}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Aluminium/AlI-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Aluminium/AlI.tr', \
+           'photoion' : None, \
+           }, \
+          {'Z':1, \
+           'ion':{'E':[151862.5],'J':[0.5],'L':0.,'S':0.5}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Aluminium/AlII-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Aluminium/AlII.tr', \
+           'photoion' : None, \
+           } \
+          ]
+atom=atombuilder.atombuilder(atomdata) ; atom.cleantrans() ; atom.exportML(filename='Al.atom',fillphoto=False,fillcols=False)
+
+
+import atombuilder
+atomdata=[{'Z':0, \
+           'ion':{'E':[90820.348,90883.773],'J':[0.5,1.5],'L':1.,'S':0.5}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Carbon/CI-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Carbon/CI.tr', \
+           'photoion' : None, \
+           }
+          ]
+atom=atombuilder.atombuilder(atomdata) ; atom.cleantrans() ; atom.exportML(filename='C.atom',fillphoto=False,fillcols=False)
+
+
+import atombuilder
+atomdata=[{'Z':0, \
+           'ion':{'E':[49305.9240],'J':[0.5],'L':0.,'S':0.5}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Calcium/CaI-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Calcium/CaI.tr', \
+           'photoion' : None, \
+           }, \
+          {'Z':1, \
+           'ion':{'E':[95751.87],'J':[0.],'L':0.,'S':0.}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Calcium/CaII-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Calcium/CaII.tr', \
+           'photoion' : None, \
+           } \
+          ]
+atom=atombuilder.atombuilder(atomdata) ; atom.cleantrans() ; atom.exportML(filename='Ca.atom',fillphoto=False,fillcols=False)
+
+
+import atombuilder
+atomdata=[{'Z':0, \
+           'ion':{'E':[63737.704,64122.4912,64405.3869,64600.3158,64714.7538],'J':[4.5,3.5,2.5,1.5,0.5],'L':2.,'S':2.5}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Iron/FeI-bc-rhcut.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Iron/FeI.tr', \
+           'photoion' : None, \
+           }, \
+          {'Z':1, \
+           'ion':{'E':[130655.4,131091.6,131394.3,131587.8,131682.7],'J':[4.,3.,2.,1.,0.],'L':2.,'S':2.}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Iron/FeII-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Iron/FeII.tr', \
+           'photoion' : None, \
+           } \
+          ]
+atom=atombuilder.atombuilder(atomdata) ; atom.cleantrans() ; atom.exportML(filename='Fe.atom',fillphoto=False,fillcols=False)
+
+
+import atombuilder
+atomdata=[{'Z':0, \
+           'ion':{'E':[198310.66637],'J':[0.5],'L':0.,'S':0.5}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Helium/HeI-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Helium/HeI.tr', \
+           'photoion' : None, \
+           }, \
+          {'Z':1, \
+           'ion':{'E':[438908.8785],'J':[0.],'L':0.,'S':0.}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Helium/HeII-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Helium/HeII.tr', \
+           'photoion' : None, \
+           } \
+          ]
+atom=atombuilder.atombuilder(atomdata) ; atom.cleantrans() ; atom.exportML(filename='He.atom',fillphoto=False,fillcols=False)
+
+
+import atombuilder
+atomdata=[{'Z':0, \
+           'ion':{'E':[61671.05],'J':[0.5],'L':0.,'S':0.5}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Magnesium/MgI-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Magnesium/MgI.tr', \
+           'photoion' : None, \
+           }, \
+          {'Z':1, \
+           'ion':{'E':[121267.64],'J':[0.],'L':0.,'S':0.}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Magnesium/MgII-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Magnesium/MgII.tr', \
+           'photoion' : None, \
+           } \
+          ]
+atom=atombuilder.atombuilder(atomdata) ; atom.cleantrans() ; atom.exportML(filename='Mg.atom',fillphoto=False,fillcols=False)
+
+
+import atombuilder
+atomdata=[{'Z':0, \
+           'ion':{'E':[117225.7,117274.4,117356.5],'J':[0.,1.,2.],'L':1.,'S':1.}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Nitrogen/NI-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Nitrogen/NI.tr', \
+           'photoion' : None, \
+           }, \
+          {'Z':1, \
+           'ion':{'E':[238750.2,238924.6],'J':[0.5,1.5],'L':1.,'S':0.5}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Nitrogen/NII-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Nitrogen/NII.tr', \
+           'photoion' : None, \
+           } \
+          ]
+atom=atombuilder.atombuilder(atomdata) ; atom.cleantrans() ; atom.exportML(filename='N.atom',fillphoto=False,fillcols=False)
+
+
+import atombuilder
+atomdata=[{'Z':0, \
+           'ion':{'E':[41449.451],'J':[0.],'L':0.,'S':0.}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Sodium/NaI-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Sodium/NaI.tr', \
+           'photoion' : None, \
+           }, \
+          {'Z':1, \
+           'ion':{'E':[381390.2,382756.75],'J':[1.5,0.5],'L':1.,'S':0.5}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Sodium/NaII-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Sodium/NaII.tr', \
+           'photoion' : None, \
+           } \
+          ]
+atom=atombuilder.atombuilder(atomdata) ; atom.cleantrans() ; atom.exportML(filename='Na.atom',fillphoto=False,fillcols=False)
+
+
+
+import atombuilder
+atomdata=[{'Z':0, \
+           'ion':{'E':[61619.77,63126.71],'J':[2.5,1.5],'L':2.,'S':0.5}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Nickel/NiI-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Nickel/NiI.tr', \
+           'photoion' : None, \
+           }, \
+          {'Z':1, \
+           'ion':{'E':[146541.56,147902.26,148811.16],'J':[4.,3.,2.],'L':3.,'S':1.}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Nickel/NiII-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Nickel/NiII.tr', \
+           'photoion' : None, \
+           } \
+          ]
+atom=atombuilder.atombuilder(atomdata) ; atom.cleantrans() ; atom.exportML(filename='Ni.atom',fillphoto=False,fillcols=False)
+
+
+
+
+import atombuilder
+atomdata=[{'Z':0, \
+           'ion':{'E':[109837.02],'J':[1.5],'L':0.,'S':1.5}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Oxygen/OI-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Oxygen/OI.tr', \
+           'photoion' : None, \
+           }, \
+          {'Z':1, \
+           'ion':{'E':[283270.9,283384.078,283577.074],'J':[0.,1.,2.],'L':1.,'S':1.}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Oxygen/OII-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Oxygen/OII.tr', \
+           'photoion' : None, \
+           } \
+          ]
+atom=atombuilder.atombuilder(atomdata) ; atom.cleantrans() ; atom.exportML(filename='O.atom',fillphoto=False,fillcols=False)
+
+
+import atombuilder
+atomdata=[{'Z':0, \
+           'ion':{'E':[83559.1],'J':[1.5],'L':0.,'S':1.5}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Sulfur/SI-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Sulfur/SI.tr', \
+           'photoion' : None, \
+           }, \
+          {'Z':1, \
+           'ion':{'E':[188232.7,188531.39,189065.78],'J':[0.,1.,2.],'L':1.,'S':1.}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Sulfur/SII-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Sulfur/SII.tr', \
+           'photoion' : None, \
+           } \
+          ]
+atom=atombuilder.atombuilder(atomdata) ; atom.cleantrans() ; atom.exportML(filename='S.atom',fillphoto=False,fillcols=False)
+
+
+
+import atombuilder
+atomdata=[{'Z':0, \
+           'ion':{'E':[65747.76,66035.00],'J':[0.5,1.5],'L':1.,'S':0.5}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Silicon/SiI-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Silicon/SiI.tr', \
+           'photoion' : None, \
+           }, \
+          {'Z':1, \
+           'ion':{'E':[131838.14],'J':[0.],'L':0.,'S':0.}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Silicon/SiII-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Silicon/SiII.tr', \
+           'photoion' : None, \
+           } \
+          ]
+atom=atombuilder.atombuilder(atomdata) ; atom.cleantrans() ; atom.exportML(filename='Si.atom',fillphoto=False,fillcols=False)
+
+
+import atombuilder
+atomdata=[{'Z':0, \
+           'ion':{'E':[63737.704,64122.4912,64405.3869,64600.3158,64714.7538],'J':[4.5,3.5,2.5,1.5,0.5],'L':2.,'S':2.5}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Iron/FeI-bc-rhcut.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Iron/FeI.tr', \
+           'photoion' : '/home/tanausu/Documents/Codes/rh_v2/Atoms/Fe-terms.atom', \
+           }, \
+          {'Z':1, \
+           'ion':{'E':[130655.4,131091.6,131394.3,131587.8,131682.7],'J':[4.,3.,2.,1.,0.],'L':2.,'S':2.}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Iron/FeII-bc.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Iron/FeII.tr', \
+           'photoion' : '/home/tanausu/Documents/Codes/rh_v2/Atoms/Fe-terms.atom', \
+           } \
+          ]
+atom=atombuilder.atombuilder(atomdata) ; atom.cleantrans() ; atom.exportML(filename='Fe.atom',fillphoto=False,fillcols=False)
+
+import atombuilder
+atomdata=[{'Z':0, \
+           'ion':{'E':[63737.704,64122.4912,64405.3869,64600.3158,64714.7538],'J':[4.5,3.5,2.5,1.5,0.5],'L':2.,'S':2.5}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Iron/FeI-LSclean.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Iron/FeI.tr', \
+           'photoion' : '/home/tanausu/Documents/Codes/rh_v2/Atoms/Fe-terms.atom', \
+           }, \
+          {'Z':1, \
+           'ion':{'E':[130655.4,131091.6,131394.3,131587.8,131682.7],'J':[4.,3.,2.,1.,0.],'L':2.,'S':2.}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Iron/FeII-LSclean.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Iron/FeII.tr', \
+           'photoion' : '/home/tanausu/Documents/Codes/rh_v2/Atoms/Fe-terms.atom', \
+           } \
+          ]
+atom=atombuilder.atombuilder(atomdata) ; atom.cleantrans() ; atom.exportML(filename='Fe_big.atom',fillphoto=False,fillcols=False)
+
+import atombuilder
+atomdata=[{'Z':0, \
+           'ion':{'E':[63737.704,64122.4912,64405.3869,64600.3158,64714.7538],'J':[4.5,3.5,2.5,1.5,0.5],'L':2.,'S':2.5}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Iron/FeI-LSclean-cut.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Iron/FeI.tr', \
+           'photoion' : '/home/tanausu/Documents/Codes/rh_v2/Atoms/Fe-terms.atom', \
+           }, \
+          {'Z':1, \
+           'ion':{'E':[130655.4,131091.6,131394.3,131587.8,131682.7],'J':[4.,3.,2.,1.,0.],'L':2.,'S':2.}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Iron/FeII-LSclean-cut.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Iron/FeII.tr', \
+           'photoion' : '/home/tanausu/Documents/Codes/rh_v2/Atoms/Fe-terms.atom', \
+           } \
+          ]
+atom=atombuilder.atombuilder(atomdata) ; atom.cleantrans() ; atom.exportML(filename='Fe_med.atom',fillphoto=False,fillcols=False)
+
+import atombuilder
+atomdata=[{'Z':0, \
+           'ion':{'E':[63737.704],'J':[4.5],'L':2.,'S':2.5}, \
+           'level':'/home/tanausu/Documents/Atoms/AtomicData/Iron/FeI-LSclean-cut.lv', \
+           'transition':'/home/tanausu/Documents/Atoms/AtomicData/Iron/FeI.tr', \
+           'photoion' : '/home/tanausu/Documents/Codes/rh_v2/Atoms/Fe-terms.atom', \
+           } \
+          ]
+atom=atombuilder.atombuilder(atomdata) ; atom.cleantrans() ; atom.exportRH(filename='FeI_med.atom',fillphoto=False,fillcols=False)

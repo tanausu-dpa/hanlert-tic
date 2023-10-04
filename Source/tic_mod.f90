@@ -1,0 +1,2077 @@
+      !> Inversion main
+      module tic_mod
+!#####################################################################
+!############################# HEADER ################################
+!#####################################################################
+!
+!  Authors:
+!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Hao Li (IAC)
+!  Start:
+!     02/16/2023
+!  Last version:
+!     09/28/2023 V3.1.10
+!
+!#####################################################################
+!#####################################################################
+!
+!  Changelog:
+!
+!     09/28/2023:   V3.1.10 - Bugfix: The error message for when
+!                             data, output, and input model atmosphere
+!                             have different dimensions had the wrong
+!                             format, producing a crash without the
+!                             actual aborting message (TdPA)
+!
+!     09/21/2023:    V3.1.9 - Ensure that ratmo and rbfield are called
+!                             by the whole WORLD communicator (TdPA)
+!                           - Do not call set_up_limits with global
+!                             master if splitting pixels (TdPA)
+!
+!     09/08/2023:    V3.1.8 - Bugfix: Delay the change of verbosity
+!                             output, some wrong messages were sent
+!                             to synthesis file (TdPA)
+!                           - Removed argument from
+!                             set_up_data_frombuffer call (TdPA)
+!
+!     08/30/2023:    V3.1.7 - Bugfix: The writing of the cache file
+!                             was inconsistent when using a solution
+!                             box (TdPA; pointed out by Hao)
+!
+!     08/24/2023:    V3.1.6 - Added arguments to omegabuild and
+!                             set_psf_ranges (TdPA)
+!
+!     08/11/2023:    V3.1.5 - Bugfix: Verbosity directed to the
+!                             wrong files (TdPA)
+!
+!     08/11/2023:    V3.1.4 - Added call to inversion_weights (TdPA)
+!                           - Bugfix: Missing exit condition in the
+!                             loop for serial mode (TdPA)
+!
+!     08/07/2023:    V3.1.3 - Added arguments for LTE lines (TdPA)
+!
+!     07/31/2023:    V3.1.2 - Bugfix: the size of the output for the
+!                             global master processor should be
+!                             out_dims (HL)
+!                           - Bugfix: cache index is not correct for
+!                             the sulution box  (HL)
+!                           - Updates related to the size of the
+!                             initial model (HL)
+!
+!     07/06/2023:    V3.1.1 - Added call to gAtmo_strat (TdPA)
+!
+!     07/03/2023:    V3.1.0 - Full rewriting to implement
+!                             parallelization in pixels (TdPA)
+!
+!     06/13/2023:    V3.0.7 - the wavelength changed to nm (HL)
+!                           - do not reverse the profiles (HL)
+!                           - remove and update the projection (HL)
+!                           - update for multi waveleng ranges (HL)
+!                           - the wavelength in Sol changed to nm (HL)
+!                           - reduce the calling of erf functions (HL)
+!                           - rename the variable Inf_Input (HL)
+!                           - update the IO (HL)
+!
+!     05/24/2023:    V3.0.6 - Bugfix: Fixed an issue when a path
+!                             had more than one underscore (TdPA)
+!
+!     05/16/2023:    V3.0.5 - Actual restarting options for binary
+!                             files. This is a temporal patch until I
+!                             introduce the actual binary file (TdPA)
+!
+!     04/27/2023:    V3.0.4 - Fixed verbosity typo (TdPA)
+!
+!     04/26/2023:    V3.0.3 - Considering that a problem has
+!                             scattering if either Krad or Kcut is
+!                             not zero (TdPA)
+!                           - Bugfix: Wrong construction of the
+!                             format in the verbosity when more than
+!                             two characters were needed (TdPA)
+!
+!     04/11/2023:    V3.0.2 - Update for multi-wavelength ranges (HL)
+!                           - Remove the keywords Hanle_Effect and
+!                             CRD_RF (HL)
+!                           - Missed call to verbosity (HL)
+!
+!     03/15/2023:    V3.0.1 - The restore file can be only a file or
+!                             INIT (TdPA)
+!                           - Removed branching in index of variable
+!                             when storing H_min in the node (TdPA)
+!                           - Extended setting the H_max and H_min
+!                             limits for the asymmetry parameters
+!                             as well (TdPA)
+!                           - Adjusted transfer to structures and
+!                             verbosity of new or not longer
+!                             present inputs (TdPA)
+!                           - Read input atmosphere and magnetic
+!                             field (TdPA)
+!
+!     03/08/2023:    V3.0.0 - First working version (TdPA)
+!
+!     02/16/2023:    V0.0.0 - Started from 05/12/2020 TIC@tic.f90
+!                             revision from Hao (TdPA)
+!
+!#####################################################################
+!#####################################################################
+!
+!  Known bugs:
+!
+!#####################################################################
+!#####################################################################
+!
+!  Data:
+!
+!    Main program of the inversion module
+!
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      ! Use
+      use aborted_mod
+      use background_mod
+      use commons_mod
+      use free_mod
+      use gauss_mod
+      use initinv_mod
+      use inversion_mod
+      use io_mod
+      use iotic_mod
+      use omegabuild_mod
+      use parameters_mod , only: c , TINYA , TINYSP , TINYB , PI
+      use psf_mod
+      use ratmo_mod
+      use ratom_mod
+      use rbarklem_mod
+      use rpfa_mod
+      use types_mod
+      use w2freq_mod
+
+      contains
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> TIC module main program\n
+      !!        Input(Input): Structure with settings data\n
+      !!    Atom(Atom_class): Structure with the atomic data\n
+      !!   Atomb(Atom_class): Structure with the atomic data for
+      !!                      background opacities\n
+      !!      Mol(Mol_class): Structure with the molecule data\n
+      !!  Flgsg(Fctsg_class): Structure with factorials and signs\n
+      !!  fudge(fudge_class): Structure with fudge data\n
+      !!     MPID(MPI_class): Structure with MPI data
+      subroutine TIC(Input,Atom,Atomb,Mol,Flgsg,fudge,MPID)
+
+      ! I/O
+      type(Atom_class), dimension(:):: Atom
+      type(Atom_class), dimension(:), allocatable:: Atomb
+      type(Mol_class), dimension(:), allocatable:: Mol
+      type(Input_class):: Input
+      type(Fctsg_class):: Flgsg
+      type(fudge_class):: fudge
+      type(MPI_class):: MPID
+
+      ! Local
+      type(Atmo_class):: Atmo_in
+      type(Bfield_class):: Bfield_in
+      type(Frequency_class):: Frec
+      type(Geometry_class):: GeomI, Geom
+      type(kurucz_class):: kurucz
+      type(Stokes_class):: Inf_Stokes
+      type(Nodes_class):: Inf_Nodes
+      type(Solution_class):: Sol
+
+      logical:: aborting,check,lcache,double,restoring
+      logical:: update_tlim,update_vlim,update_blim
+      logical:: double_jkq,receiving,atmojkq
+      logical, dimension(:,:), allocatable:: cache
+
+      integer:: unitD,unitC,unitA,unitJ
+      integer:: ix0,iy0,ix1,iy1,ix2,iy2,ix,iy,inod,ip,iproc
+      integer:: ia,ii,jj,NLOS,NLOSr,aindex,type_atmo_size
+      integer, dimension(3):: dims,out_dims,dims_atmo,int_buff
+      integer, dimension(4):: finfo
+      integer, dimension(:), allocatable:: cpu_free
+
+      double precision:: maxB, DwTa
+
+      ! Pointers
+      integer:: s_data_buffer, s_atmo_buffer
+      integer:: s_jkq_buffer,  s_transfer_buffer
+      double precision, dimension(:), pointer:: p_transfer_buffer
+
+
+      !
+      ! From now on we will distinguish between the inversion
+      ! verbosity and the synthesis verbosity
+      !
+
+      ! Copy the verbosity file name to the inversion
+      verbosefv = verbosef
+
+      ! Set up the inversion structures
+      call set_up_inversion(Input,Inf_Nodes,Inf_Stokes,Sol)
+
+
+      !
+      ! Check if fits file
+      !
+
+      ! Determine if fits file
+      call name_check(Input%Filename_ob, Input%Fits_Index)
+
+      ! If its a fits
+      Input%FITSFILE = Input%Fits_Index.gt.0
+
+
+      !
+      ! Split in groups of tasks
+      !
+      call setmpi15D(MPID,Input)
+      if (gpid.eq.0) then
+        umsg = ' - Tasks distributed'
+        call verbosev
+      end if
+
+      ! Initialize units
+      unitA = -1
+      unitD = -1
+      unitC = -1
+      unitJ = -1
+
+      ! Slaves, add identifiers for verbosity if 1.5D
+      if (gpid.gt.0.and.MPID%mpi15d) &
+        write(verbosefv,'(A,"_",i5.5)') trim(verbosefv),gpid
+
+
+      !
+      ! Get inversion data from file
+      !
+
+      ! Master
+      if (gpid.eq.0) then
+
+        ! Open files (ia and nz are a dummy variable here)
+        call open_data_and_cache(Input,unitD,unitC, &
+                                 aborting,dims,finfo, &
+                                 cache,lcache)
+
+        ! The master does not need the background atoms or
+        ! molecules
+        if (MPID%mpi15d) deallocate(Atomb,Mol)
+
+        ! Check if could read
+        laborted = aborting
+
+      end if ! G. master
+
+      ! Check if aborting
+      call gcontrol
+
+      ! Share dims
+      ! dims(1) = nx (slow axis)
+      ! dims(2) = ny (fast axis)
+      ! dims(3) = number_wavelengths
+      call MPI_BCAST(dims(1),3,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+
+      ! Share file info
+      ! finfo(1) = 0 If only intensity, 1 if full Stokes
+      ! finfo(2) = 0 If only one LOS, 1 if a LOS per position
+      ! finfo(3) = 0 no sigma
+      !            1 constant sigma common for every pix
+      !            2 wavelength dependent sigma common for every pix
+      !            3 constant sigma at each pix
+      !            4 wavelength dependent sigma at each pix
+      ! finfo(4) = 0 no diffuse light
+      !            1 single diffuse light only intensity
+      !            2 single diffuse light polarized
+      !            3 intensity diffuse light at each pixel
+      !            4 polarized diffuse light at each pixel
+      call MPI_BCAST(finfo(1),4,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+
+
+      !
+      ! Get lambda
+      !
+
+      ! Save size in the right structures
+      Sol%Num_Wavelength = dims(3)
+      Inf_Stokes%Num_Wavelength = dims(3)
+
+      ! Allocate Stokes and frequency
+      allocate(Sol%omega_input(Inf_Stokes%Num_Wavelength))
+      allocate(Sol%Stokes_out(0:3,Inf_Stokes%Num_Wavelength))
+      allocate(Inf_Stokes%Stokes_Ob(0:3,Inf_Stokes%Num_Wavelength))
+
+      ! Master
+      if (gpid.eq.0) then
+
+        ! Get wavelength axis
+        call get_data_wavelength(unitD,aborting,Sol,Input%FITSFILE)
+
+        ! Check if could read
+        laborted = aborting
+
+      end if ! Master
+
+      ! Check if aborting
+      call gcontrol
+
+      ! Share lambda
+      call MPI_BCAST(Sol%omega_input(1),Sol%Num_Wavelength, &
+                     MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+
+      ! Convert wavelengths
+      call Range_Check(Sol%omega_input,Inf_Stokes)
+
+      ! Set-up weights if not automatic
+      if (.not.Inf_Stokes%auto_weight) &
+        call inversion_weights(Input,Inf_Stokes,Sol%omega_input)
+
+      ! Check if aborting
+      call gcontrol
+
+      !
+      ! Limit the outputs for Stokes parameters
+      call prepare_lambda_limits(Input,Inf_Stokes,Sol%omega_input)
+
+
+      !
+      ! Calculate expected buffer size
+      !
+
+      ! Basic size
+      s_data_buffer = dims(3)
+
+      ! If LOS included
+      if (finfo(2).eq.1) s_data_buffer = s_data_buffer + 2
+
+      ! Only intensity
+      if (finfo(1).eq.0) then
+
+        ! If sigma constant
+        if (finfo(3).eq.3) then
+
+          s_data_buffer = s_data_buffer + 1
+
+        ! If sigma wavelength dependent
+        else if (finfo(3).eq.4) then
+
+          s_data_buffer = s_data_buffer + dims(3)
+
+        end if
+
+        ! If polarized diffuse light
+        if (finfo(4).eq.2.or.finfo(4).eq.4) then
+
+          ! Error
+          umsg = 'The data file is only intensity, but has '// &
+                 'polarized diffuse light, the file is not '// &
+                 'valid'
+          urou = 'TIC'
+          call gabortedv
+
+        end if
+
+        ! If there is pixel dependent diffuse light
+        if (finfo(4).eq.1) s_data_buffer = s_data_buffer + dims(3)
+
+      ! Polarization
+      else
+
+        ! Add Stokes
+        s_data_buffer = s_data_buffer + 3*dims(3)
+
+        ! If sigma constant
+        if (finfo(3).eq.3) then
+
+          s_data_buffer = s_data_buffer + 4
+
+        ! If sigma wavelength dependent
+        else if (finfo(3).eq.4) then
+
+          s_data_buffer = s_data_buffer + dims(3)*4
+
+        end if
+
+        ! If intensity diffuse light
+        if (finfo(4).eq.3) then
+
+          s_data_buffer = s_data_buffer + dims(3)
+
+        ! If polarized diffuse light
+        else if (finfo(4).eq.4) then
+
+          s_data_buffer = s_data_buffer + dims(3)*4
+
+        end if
+
+      end if ! Intensity/Polarization
+
+
+      !
+      ! Get constant LOS now (TODO FITS)
+      !
+      if (finfo(2).eq.0) then
+
+        ! Master
+        if (gpid.eq.0) then
+
+          call get_data_los(unitD,aborting,Inf_Stokes,Input%FITSFILE)
+
+        endif
+
+        ! Check if aborting
+        call gcontrol
+
+        ! Share LOS
+        call MPI_BCAST(Inf_Stokes%mu,1,MPI_DOUBLE_PRECISION,0, &
+                       MPI_COMM_WORLD,ierr)
+        call MPI_BCAST(Inf_Stokes%azimuth,1,MPI_DOUBLE_PRECISION, &
+                       0,MPI_COMM_WORLD,ierr)
+
+      end if
+
+
+      !
+      ! Get "constant" sigma now (TODO FITS)
+      !
+      if (finfo(3).eq.1.or.finfo(3).eq.2) then
+
+        ! Allocate input sigma
+        allocate(Inf_Stokes%Sigma_in(0:3,Inf_Stokes%Num_Wavelength))
+
+        ! Flag
+        Inf_Stokes%Sigma_ct = .True.
+
+        ! Master
+        if (gpid.eq.0) then
+
+          call get_data_sigma(unitD,aborting,finfo, &
+                              Inf_Stokes,Input%FITSFILE)
+
+        endif
+
+        ! Check if aborting
+        call gcontrol
+
+        ! Share LOS
+        call MPI_BCAST(Inf_Stokes%Sigma_in(0,1), &
+                       Inf_Stokes%Num_Wavelength*4, &
+                       MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+
+        ! Master, forget
+        if (gpid.eq.0.and.MPID%mpi15d) &
+          deallocate(Inf_Stokes%Sigma_in)
+
+      ! Not constant
+      else
+
+        ! Flag
+        Inf_Stokes%Sigma_ct = .False.
+
+      end if
+
+
+      !
+      ! Get "constant" diffuse light now (assuming FITS are going
+      ! to read it pixel by pixel)
+      !
+      if (finfo(4).eq.1.or.finfo(4).eq.2) then
+
+        ! Allocate input sigma
+        allocate(Inf_Stokes%Diff_in(0:3,Inf_Stokes%Num_Wavelength))
+
+        ! Flag
+        Inf_Stokes%Diff_ct = .True.
+
+        ! Master
+        if (gpid.eq.0) then
+
+          call get_data_diff(unitD,aborting,finfo,Inf_Stokes, &
+                             Input%FITSFILE)
+
+        endif
+
+        ! Check if aborting
+        call gcontrol
+
+        ! Share LOS
+        call MPI_BCAST(Inf_Stokes%Diff_in(0,1), &
+                       Inf_Stokes%Num_Wavelength*4, &
+                       MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+
+        ! Master, forget
+        if (gpid.eq.0.and.MPID%mpi15d) &
+          deallocate(Inf_Stokes%Diff_in)
+
+      ! Not constant
+      else
+
+        ! Flag
+        Inf_Stokes%Diff_ct = .False.
+
+      end if
+
+
+      !
+      ! Slaves allocate sigma if needed
+      if ((gpid.gt.0.or..not.MPID%mpi15d).and.finfo(3).gt.0) &
+        allocate(Inf_Stokes%Sigma_W(0:3,Inf_Stokes%Num_wavelength))
+
+
+      !
+      ! Slaves allocate diffuse light if needed
+      !
+      if (gpid.gt.0.or..not.MPID%mpi15d) then
+
+        ! There is diffuse light in the file
+        if (finfo(4).gt.0) then
+
+          ! Allocate
+          allocate(Sol%Stokes_diff(0:3,Inf_Stokes%Num_wavelength))
+
+          ! Flag?
+          if (Inf_Nodes%Nodes_Flags(Inf_Nodes%index_f).or. &
+              Input%f_diff.gt.0d0) then
+
+            Sol%Diff_flag = .True.
+
+          else
+
+            Sol%Diff_flag = .False.
+
+          end if ! Diffuse light?
+
+        ! De-flag diffuse light
+        else
+
+          ! Do not apply
+          Sol%Diff_flag = .False.
+
+          ! If inverting diffuse light
+          if (Inf_Nodes%Nodes_Flags(Inf_Nodes%index_f)) then
+
+            umsg = 'Cannot invert diffuse light if not '// &
+                   'provided in the data file'
+            urou = 'TIC'
+            call aborted
+
+          end if
+        end if
+      end if
+
+      ! Control
+      call gcontrol
+
+
+      !
+      ! Read partition function data and abundances
+      !
+      if (gpid.gt.0.or..not.MPID%mpi15d) &
+        call rParfunAbund(Input,Atmo_in)
+
+
+      !
+      ! Initialize J from atmosphere
+      atmojkq = .False.
+
+      !
+      ! Deal with input model
+      !
+
+      ! Get input Atmosphere from restoring file
+      if (trim(Input%Inv_init).ne.'INIT') then
+
+        ! Flag restoring
+        restoring = .True.
+
+        ! Check label
+        if (gpid.eq.0) &
+          call get_atmo_type(Input%Inv_init, &
+                             Input%atmoin_type)
+
+        ! Share type
+        call MPI_BCAST(Input%atmoin_type,1,MPI_INTEGER,0, &
+                       MPI_COMM_WORLD,ierr)
+
+        ! Overwrite atmo
+        Input%atmo = Input%Inv_init
+
+        ! If not output, abort
+        if (Input%atmoin_type.ne.2) then
+
+          ! Error
+          umsg = 'The restore file '//trim(Input%Inv_init)// &
+                 ' is not a valid output inversion file'
+          urou = 'TIC'
+          call gabortedv
+
+        end if
+
+        ! No automatic gas pressure
+        Inf_Nodes%Pg_auto = .False.
+
+      ! Initialize
+      else
+
+        ! Flag no restoring
+        restoring = .False.
+
+        ! No input Atmosphere
+        if (trim(Input%atmo).eq.'NONE') then
+
+          ! Call hard-coded model
+          call gAtmo(Atmo_in,Input%Init_Thermal)
+
+          ! If no input field, generate one
+          if (trim(Input%bfield).eq.'NONE'.and. &
+              .not.Input%bfieldn) then
+
+            ! Hard-code input
+            Input%bfieldn = .True.
+
+            ! If thermal
+            if (Input%Type_Inversion.eq.0) then
+
+              Input%bfieldv = (/ 0d0, 0d0, 0d0 /)
+
+            ! Magnetic
+            else
+
+              ! Depending on the inverted quantities
+              ii = Inf_Nodes%index_Bt
+              jj = Inf_Nodes%index_Bp
+              if (Inf_Nodes%Nodes_Flags(ii).and. &
+                  Inf_Nodes%Nodes_Flags(jj)) then
+
+                Input%bfieldv = (/ 1d0, PI*0.25d0, 5.7d0 /)
+
+              else if (Inf_Nodes%Nodes_Flags(ii)) then
+
+                Input%bfieldv = (/ 1d0, PI*0.25d0, 0.0d0 /)
+
+              else if (Inf_Nodes%Nodes_Flags(jj)) then
+
+                Input%bfieldv = (/ 1d0,       0d0, 5.7d0 /)
+
+              else
+
+                Input%bfieldv = (/ 1d0,       0d0,   0d0 /)
+
+              end if
+            end if
+
+          end if
+
+          ! Set-up initial field (global master does not care)
+          call rBField(Input%bfield,Input%source, &
+                       Input%ID,Bfield_in,Atmo_in%nz,Input)
+
+          ! Flag input
+          Input%atmoin_type = 0
+
+        ! Get input Atmosphere, if not restoring
+        else
+
+          ! Check label
+          if (gpid.eq.0) &
+            call get_atmo_type(Input%atmo,Input%atmoin_type)
+
+          ! Share
+          call MPI_BCAST(Input%atmoin_type,1,MPI_INTEGER,0, &
+                         MPI_COMM_WORLD,ierr)
+
+          ! If no type, try with 1D
+          if (Input%atmoin_type.lt.0) then
+
+            ! Read input atmosphere
+            call rAtmo(Input%atmo,Input%source, &
+                       Input%ID, Atmo_in)
+
+            ! If no input field, generate one
+            if (trim(Input%bfield).eq.'NONE'.and. &
+                .not.Input%bfieldn) then
+
+              ! Hard-code input
+              Input%bfieldn = .True.
+
+              ! If thermal
+              if (Input%Type_Inversion.eq.0) then
+
+                Input%bfieldv = (/ 0d0, 0d0, 0d0 /)
+
+              ! Magnetic
+              else
+
+                ! Depending on the inverted quantities
+                ii = Inf_Nodes%index_Bt
+                jj = Inf_Nodes%index_Bp
+                if (Inf_Nodes%Nodes_Flags(ii).and. &
+                    Inf_Nodes%Nodes_Flags(jj)) then
+
+                  Input%bfieldv = (/ 1d0, PI*0.25d0, 5.7d0 /)
+
+                else if (Inf_Nodes%Nodes_Flags(ii)) then
+
+                  Input%bfieldv = (/ 1d0, PI*0.25d0, 0.0d0 /)
+
+                else if (Inf_Nodes%Nodes_Flags(jj)) then
+
+                  Input%bfieldv = (/ 1d0,       0d0, 5.7d0 /)
+
+                else
+
+                  Input%bfieldv = (/ 1d0,       0d0,   0d0 /)
+
+                end if
+              end if
+            end if
+
+            ! Set-up initial field
+            call rBField(Input%bfield,Input%source, &
+                         Input%ID,Bfield_in,Atmo_in%nz,Input)
+
+            ! Flag initialized
+            Input%atmoin_type = 0
+
+          end if ! No 3D
+
+          ! send to the global master
+          call MPI_BCAST(Atmo_in%nz,1,MPI_INTEGER,0, &
+                         MPI_COMM_WORLD,ierr)
+
+        end if ! Input atmosphere
+      end if ! Restore
+
+
+      !
+      ! Now fix the real dimensions from solution box
+      !
+
+      ! Fix wildcards in input
+      if (Input%sol_box(1).lt.1) Input%sol_box(1) = 1
+      if (Input%sol_box(2).lt.1) Input%sol_box(2) = dims(1)
+      if (Input%sol_box(3).lt.1) Input%sol_box(3) = 1
+      if (Input%sol_box(4).lt.1) Input%sol_box(4) = dims(2)
+
+      ! Get new dimensions
+      if (gpid.eq.0) then
+
+        ! Get output dimensions
+        out_dims(1) = Input%sol_box(2) - Input%sol_box(1) + 1
+        out_dims(2) = Input%sol_box(4) - Input%sol_box(3) + 1
+        out_dims(3) = dims(3)
+
+      else
+
+        dims(1) = Input%sol_box(2) - Input%sol_box(1) + 1
+        dims(2) = Input%sol_box(4) - Input%sol_box(3) + 1
+
+      end if
+
+
+      !
+      ! If reading from a 3D model, open the file
+      !
+      if (Input%atmoin_type.gt.0) then
+
+        ! Master
+        if (gpid.eq.0) then
+
+          ! Open files (ii is a dummy variable here)
+          call open_atm(Input,1,unitA,aborting,dims_atmo, &
+                        aindex,double,ii)
+
+          ! Check if could read
+          laborted = aborting
+
+          ! Check dimensions
+          if (.not.laborted) then
+
+            ! Check the data sizes
+            if (dims_atmo(1).eq.dims(1).and. &
+                dims_atmo(2).eq.dims(2)) then
+
+              ! Model atmosphere same dimensions original data
+              type_atmo_size = 1
+
+            ! Check the output sizes
+            else if (dims_atmo(1).eq.out_dims(1).and. &
+                     dims_atmo(2).eq.out_dims(2)) then
+
+              ! Model atmosphere same dimensions than output
+              type_atmo_size = 2
+
+            else
+
+              ! Msg
+              write(umsg,'(3(A,i4,",",i4))') &
+                ' # Error: X-Y size in data ', &
+                dims(1:2), &
+                ' and output ',out_dims(1:2), &
+                ' different in model atmosphere ', &
+                dims_atmo(1:2)
+              call verbosev
+              laborted = .True.
+
+            end if ! Right sizes
+          end if ! Success getting dimensions
+        end if ! Master
+
+        ! Check if aborting
+        call gcontrol
+
+        ! Share data
+        call MPI_BCAST(aindex,1,MPI_INTEGER,0, &
+                       MPI_COMM_WORLD,ierr)
+        call MPI_BCAST(dims_atmo(1),3,MPI_INTEGER,0, &
+                       MPI_COMM_WORLD,ierr)
+
+        ! If inversion result, get if JKQ data
+        if (Input%atmoin_type.eq.2) atmojkq = aindex.gt.7
+
+
+        ! Initialize pointers
+        call iAtmo_p(Atmo_in)
+
+        !
+        ! Prepare buffer atmosphere
+        !
+
+        ! If 1.5DS model
+        if (Input%atmoin_type.eq.1) then
+
+          s_atmo_buffer = dims_atmo(3)*24
+
+        ! If inversion model
+        else
+
+          ! Yes JKQ
+          if (atmojkq) then
+
+            s_atmo_buffer = dims_atmo(3)*27 + 1
+
+          ! No JKQ
+          else
+
+            s_atmo_buffer = dims_atmo(3)*19 + 1
+
+          end if
+
+        end if
+
+      ! Just 1D model
+      else
+
+        s_atmo_buffer = 0
+
+      end if ! Reading from a 3D model
+
+
+      !
+      ! JKQ asymmetry file?
+      !
+
+      ! If restoring file with JKQ
+      if (restoring.and.atmojkq) then
+
+        ! Buffer size
+        s_jkq_buffer = 0
+
+        ! Flag restore
+        double_jkq = .False.
+        unitJ = -1
+
+      ! JKQ asymmetry file?
+      else if (Input%nasym.gt.0) then
+
+        ! Master
+        if (gpid.eq.0) then
+
+          ! Open asymmetry file
+          call open_asymm(Input,unitJ,aborting,dims_atmo)
+
+          ! Check if could read
+          laborted = aborting
+
+        end if ! Master
+
+        ! Check if aborting
+        call gcontrol
+
+        ! Buffer size
+        s_jkq_buffer = dims_atmo(3)*8
+
+        ! Flag restore
+        double_jkq = .True.
+
+      else
+
+        ! No buffer size
+        s_jkq_buffer = 0
+        double_jkq = .False.
+        unitJ = -1
+
+      end if ! Asymmetry file
+
+
+      !
+      ! Allocate transfer buffer
+      !
+      s_transfer_buffer = s_data_buffer + s_atmo_buffer + s_jkq_buffer
+      allocate(p_transfer_buffer(s_transfer_buffer))
+
+
+      !
+      ! Set up initial atmospheric model
+      !
+
+      ! If restoring
+      if (restoring) then
+
+        ! Get size from input model
+        Atmo_in%nz = dims_atmo(3)
+        nz = Atmo_in%nz
+
+        ! Initialize
+        Atmo_in%tfreq = Input%omega_ref
+        Atmo_in%scal = 'T'
+        Atmo_in%logg = 4.44d0
+
+      ! If the input was to initialize or no file
+      else if (trim(Input%Inv_init).eq.'INIT') then
+
+        ! If input model atmosphere not 1D
+        if (Input%atmoin_type.gt.0) then
+
+          ! Reference
+          Atmo_in%tfreq = Input%omega_ref
+          Atmo_in%scal = Input%atm_scale
+          Atmo_in%logg = 4.44d0
+
+        end if
+
+        ! If more than 0 nodes in the atmosphere
+        if (Input%Atmo_Input.gt.0) then
+
+          ! Set up height dimension
+          nz = Input%Atmo_Input
+
+          ! Build stratification now
+          call gAtmo_strat(Input%Tau_Range(1), &
+                           Input%Tau_Range(2), &
+                           Input%Atmo_strat, &
+                           Input%Atmo_input, &
+                           Input%Atmo_strat_done)
+
+        ! If 0 nodes, then read the input atmosphere
+        else
+
+          ! If reading a 1D model
+          if (Input%atmoin_type.eq.0) then
+
+            ! Set up height dimension
+            nz = Atmo_in%nz
+
+          ! Copy the stratification
+          else
+
+            ! Set up height dimension
+            nz = dims_atmo(3)
+
+          end if ! 1D or 3D initialization
+        end if ! Number of nodes
+      end if ! File not specified
+
+      ! If nodes in JKQin, allocate
+      if ((Inf_Nodes%Num_Asymmetry.gt.0.or.s_jkq_buffer.gt.0).and. &
+          (gpid.gt.0.or..not.MPID%mpi15d)) then
+        allocate(Atmo_in%JKQin(8*nz))
+        Atmo_in%JKQin = 0d0
+      end if
+
+      !
+      ! Read barklem data
+      !
+      if (.not.MPID%mpi15d.or.gpid.gt.0) &
+        call rBarklem(Input,Atom,Atomb)
+
+      ! Control
+      call gcontrol
+
+
+      !
+      ! Get limits for T, v, and B (global master does not care)
+      if (.not.MPID%mpi15d.or.gpid.gt.0) &
+        call set_up_limits(Input,Inf_Nodes,Atmo_in,Bfield_in, &
+                           maxB,update_Tlim,update_vlim,update_Blim)
+
+
+      !
+      ! Decide if need to keep Stokes
+      !
+      if (.not.MPID%mpi15d.or.(pid.eq.0.and.gpid.ne.0)) then
+        KSTK = KSTK.or.(PRD.and.(dyn.or..not.AV))
+      else
+        KSTK = PRD.and.(dyn.or..not.AV)
+      end if
+
+      !
+      ! Set angular quadrature
+      !
+
+      ! If only thermal inversion
+      if (Input%Type_inversion.eq.0) then
+
+        call gauss(Input,GeomI,Geom,1,.False.,.True.,Flgsg)
+
+      ! Not only thermal inversion
+      else
+
+        call gauss(Input,GeomI,Geom,1,.True.,.True.,Flgsg)
+
+      end if
+      if(gpid.eq.0) then
+        umsg = ' - Angular quadrature initialized'
+        call verbosev
+      end if
+
+
+      !
+      ! Define the output frequency axis
+      !
+      ! If only thermal
+      if (Input%Type_inversion.eq.0) then
+        call omegabuild(Frec, Atom, Input, maxB, .False., &
+                        Sol%omega_input)
+      ! Not only thermal
+      else
+        call omegabuild(Frec, Atom, Input, maxB, .True., &
+                        Sol%omega_input)
+      end if
+      if (gpid.eq.0) then
+        write(umsg,'(" - Frequency axis initialized with",'// &
+                   '1x,i6," frequencies")') nfreq
+        call verbosev
+      end if
+
+
+      !
+      ! Prepare limits for the PSF
+      !
+      if (gpid.gt.0.or..not.MPID%mpi15d) &
+        call set_psf_ranges(Inf_Stokes,Input%lim_fwhm, &
+                            Input%fwhm_fil,Sol%omega_input,Frec%omega)
+
+
+      !
+      ! Organize the tasks splitting
+      !
+      if (.not.MPID%mpi15d.or.gpid.gt.0) then
+
+        !
+        ! Improve the weight determination?
+        !
+        if (nproc.gt.1) call adjust_IW(Input,Frec%IW_freq)
+
+        ! Distribute
+        call setmpi(MPID,Input,Frec%IW_freq)
+
+        ! Allocate atomic MPI arrays
+        call prepareatomMPI(Atom)
+        call omegainitmaster(Atom)
+
+      ! Global master
+      else
+
+        ! Remove fudge
+        if (allocated(fudge%fudge_v)) deallocate(fudge%fudge_v)
+
+        ! Verbose
+        umsg = ' - Tasks within groups distributed'
+        call verbosev
+
+      end if
+
+
+      !
+      ! Get Kurucz lines
+      !
+      if ((.not.MPID%mpi15d.and.(pid.gt.0.or..not.MPID%mpi)).or. &
+          (gpid.gt.0.and.(pid.gt.0.or..not.MPID%mpi))) then
+
+        ! Read Kurucz data
+        if (Input%NK.ge.1) then
+
+          ! Compute Doppler precursor
+          DwTa = Input%dw*1d-9/c
+
+          ! Get Kurucz data
+          call kurucz_get(Atom,Atomb,Atmo_in,Input%LTEline, &
+                          Input%kurucz,Input%NK, &
+                          Frec%omega,MPID,DwTa,.False.,kurucz)
+
+        ! If there are not
+        else
+
+          kurucz%ntran = 0
+
+        end if
+      end if
+
+      ! Control
+      call gcontrol
+
+      !
+      ! Photoionization quantites
+      !
+      if (.not.MPID%mpi15d.or.gpid.gt.0) then
+        do ia=1,nA
+          call setphoto(Atom(ia),Frec%omega,MPID)
+        end do
+      else
+        call gcontrol
+      end if
+
+      ! Verbose
+      if (gpid.eq.0) then
+        umsg = ' - Initialized photoionization quantities '//&
+               '(cross section)'
+        call verbosev
+      end if
+
+
+      ! Not global master
+      if (.not.MPID%mpi15d.or.gpid.gt.0) then
+
+        !
+        ! Resize some frequency quantities if doing MPI
+        !
+        call frecresize(Frec,Atom,Input,MPID)
+
+        !
+        ! Compute size for MPI messages in solvers
+        !
+        if (MPID%mpi) then
+
+          ! If only thermal
+          if (Input%Type_inversion.eq.0) then
+
+            call setmpi_sizes(MPID,GeomI,Geom,Frec,.True.,.False., &
+                              .True.,.False.,.False.)
+
+          ! If full Stokes
+          else
+
+            call setmpi_sizes(MPID,GeomI,Geom,Frec,.True.,.True., &
+                              .True.,.True.,.False.)
+
+          end if ! Intensity/Stokes
+        end if ! Freq. MPI
+      end if ! Global master
+
+      ! Deallocate things not needed
+      if (allocated(Input%atomback)) deallocate(Input%atomback)
+      if (allocated(Input%mol)) deallocate(Input%mol)
+
+      ! Determine if JKQ in the output
+      Input%out_jkqa = s_jkq_buffer.gt.0.or. &
+                       atmojkq.or. &
+                       any(Inf_Nodes% &
+                             Nodes_Flags(Inf_Nodes%index_J21R: &
+                                         Inf_Nodes%index_J22I))
+
+      ! Check if aborting
+      call gcontrol
+
+      !
+      ! If there is input model here, prepare it
+      !
+      if ((.not.MPID%mpi15d.or.gpid.gt.0).and. &
+          Input%atmoin_type.eq.0) then
+
+        ! Set up input model
+        call setup_Atmo_ininv(Atom,Atomb,Mol,Atmo_in,MPID,Input, &
+                              fudge,Atmo_in%zalt,.True.)
+
+        ! Initialize diffuse light
+        if (Input%f_diff.gt.0d0) then
+          Atmo_in%f_diff = Input%f_diff
+        else
+          Atmo_in%f_diff = 0d0
+        end if
+
+      end if ! Input model 1D
+
+      ! Control
+      call gcontrol
+
+      ! Initialize buffer sizes (synthesis)
+      call set_io_buffers(Input,0,Atom,Frec)
+      ! Initialize buffer sizes (inversion)
+      if (gpid.eq.0) then
+        call set_inv_io_buffers(Input,Inf_Nodes,out_dims,nz)
+      else
+        call set_inv_io_buffers(Input,Inf_Nodes,dims,nz)
+      end if
+
+      ! If global master
+      if (gpid.eq.0) then
+
+        ! If existing cache
+        if (lcache) then
+
+          ! Check files exist
+          call check_io_inv_buffer_exists(Input,aborting)
+
+        end if ! Existing cache
+
+        laborted = aborting
+
+      end if ! Master
+
+      ! Check if aborting
+      call gcontrol
+
+      ! Tell verbosity that synthesis is in inversion
+      ninv_mode = .False.
+
+      ! Announce readiness
+      if (gpid.eq.0) then
+        umsg = ' - Ready to begin the inversion'
+        call verbosev
+      end if
+
+      ! From now on, the synthesis output points to a different
+      ! file
+      verbosef = trim(verbosef)//'_syn'
+
+      !
+      ! Carry out inversion
+      !
+
+      !
+      ! MPI version
+      !
+      if (MPID%mpi15d) then
+
+        !
+        ! Master
+        !
+        if (gpid.eq.0) then
+
+          ! Open files so slaves can write later
+          if (.not.lcache) then
+
+            ! If constant mu
+            if (finfo(2).eq.0) then
+
+              ! Create files
+              call create_io_inv_files(Input,Sol,Inf_Nodes, &
+                                       acos(Inf_Stokes%mu)*180d0/PI, &
+                                       Inf_Stokes%azimuth*180d0/PI, &
+                                       out_dims,nz,Frec)
+
+            ! Variable mu
+            else
+
+              ! Create files
+              call create_io_inv_files(Input,Sol,Inf_Nodes, &
+                                       -1d0,-1d0, &
+                                       out_dims,nz,Frec)
+
+            end if ! Type of mu
+          end if ! No cache
+
+          ! Allocate cpu_free with group status
+          allocate(cpu_free(MPID%ngroup))
+          cpu_free = 1
+
+          ! Initialize indexes and sizes
+          ix = 1
+          iy = 0
+          ix1 = -1
+          iy1 = -1
+          ix2 = -1
+          iy2 = -1
+          inod = 0
+          NLOSr = 0
+          NLOS = out_dims(1)*out_dims(2)
+
+          ! Work until exhausted
+          do while (.True.)
+
+            ! If aborting, send stop signal to everyone
+            if (aborting) then
+
+              ! For every CPU still sending
+              do while (minval(cpu_free).lt..5d0)
+
+                ! For every leader
+                do ip=1,MPID%ngroup
+
+                  ! If already free, skip
+                  if (cpu_free(ip).gt..5d0) cycle
+
+                  ! Test if slave in the group is sending something
+                  call MPI_IPROBE(MPID%ltslave(ip), &
+                                  4000000+MPID%ltslave(ip), &
+                                  MPI_COMM_WORLD, receiving, &
+                                  MPI_STATUS_IGNORE, ierr)
+
+                  ! If slave is calling
+                  if (receiving) then
+
+                    ! Receive the ping
+                    call MPI_RECV(int_buff(1), 3, MPI_INTEGER, &
+                                  MPID%ltslave(ip), &
+                                  4000000+MPID%ltslave(ip), &
+                                  MPI_COMM_WORLD, &
+                                  MPI_STATUS_IGNORE, ierr)
+
+                    ! Free the group
+                    cpu_free(ip) = 1
+
+                  end if ! Receiving from a CPU
+
+                end do ! Receive from everyone
+              end do ! While there is someone working
+
+            end if ! Aborting
+
+            ! If there are LOS to do and at least one free CPU
+            if (inod.lt.NLOS.and.maxval(cpu_free).gt..5d0) then
+
+              ! Advance one node
+              ix0 = ix
+              iy0 = iy
+              iy = iy + 1
+              if (iy.gt.dims(2)) then
+                ix = ix + 1
+                iy = 1
+                if (ix.gt.dims(1)) cycle
+              end if
+
+              ! Check if not looping
+              if (ix.ne.ix1.or.iy.ne.iy1) then
+
+                ! Get data
+                call get_data_column(Input,unitD,dims, &
+                              p_transfer_buffer(1:s_data_buffer), &
+                                     finfo,ix,iy,check)
+
+                ! Get column from atmosphere (input size)
+                if (Input%atmoin_type.ge.1.and. &
+                    s_atmo_buffer.gt.0.and.type_atmo_size.eq.1) then
+
+                  ii = s_data_buffer + 1
+                  jj = s_data_buffer + s_atmo_buffer
+                  call get_column(unitA,p_transfer_buffer(ii:jj), &
+                                  double,check)
+
+                end if
+
+                ! If JKQ data
+                if (s_jkq_buffer.gt.0) then
+
+                  ii = s_data_buffer + s_atmo_buffer + 1
+                  jj = s_transfer_buffer
+                  call get_column(unitJ,p_transfer_buffer(ii:jj), &
+                                  double_jkq,check)
+                end if
+
+                ! Store last read
+                ix1 = ix
+                iy1 = iy
+
+              end if ! Loopìng
+
+              ! Check if out of box
+              if (ix.lt.Input%sol_box(1).or. &
+                  ix.gt.Input%sol_box(2).or. &
+                  iy.lt.Input%sol_box(3).or. &
+                  iy.gt.Input%sol_box(4)) cycle
+
+              ! Check if not looping
+              if (ix.ne.ix2.or.iy.ne.iy2) then
+
+                ! Get column from atmosphere (output size)
+                if (Input%atmoin_type.ge.1.and. &
+                    s_atmo_buffer.gt.0.and.type_atmo_size.eq.2) then
+
+                  ii = s_data_buffer + 1
+                  jj = s_data_buffer + s_atmo_buffer
+                  call get_column(unitA,p_transfer_buffer(ii:jj), &
+                                  double,check)
+
+                end if
+
+                ! Store last read
+                ix2 = ix
+                iy2 = iy
+
+              end if
+
+
+              ! Now advance LOS and set slave indexes
+              inod = inod + 1
+              icoords = (/ ix - Input%sol_box(1) + 1 , &
+                           iy - Input%sol_box(3) + 1 , inod /)
+
+              ! If done in cache, skip
+              if (lcache) then
+                if (cache(iy,ix)) then
+                  NLOSr = NLOSr + 1
+                  cycle
+                end if
+              end if
+
+              ! Take a free cpu
+              ip = maxloc(cpu_free, 1)
+
+              ! Send signal to node
+              call MPI_SEND(icoords(1), 3, MPI_INTEGER, &
+                            MPID%ltslave(ip), &
+                            2000000+MPID%ltslave(ip), &
+                            MPI_COMM_WORLD, ierr)
+
+              ! If failed
+              if (ierr.ne.0) then
+                inod = inod - 1
+                ix = ix0
+                iy = iy0
+                cycle
+              end if
+
+              ! Send data to node
+              call MPI_SEND(p_transfer_buffer(1), &
+                            s_transfer_buffer, &
+                            MPI_DOUBLE_PRECISION, &
+                            MPID%ltslave(ip), &
+                            3000000+MPID%ltslave(ip), &
+                            MPI_COMM_WORLD, ierr)
+
+              ! If failed
+              if (ierr.ne.0) then
+                inod = inod - 1
+                ix = ix0
+                iy = iy0
+                cycle
+              end if
+
+              ! That CPU is now busy
+              cpu_free(ip) = 0
+
+            end if ! If there is work to do and free CPUs
+
+            ! For every slave group
+            ip = 1
+            do while (.True.)
+
+              ! Test if slave in the group is sending something
+              call MPI_IPROBE(MPID%ltslave(ip), &
+                              4000000+MPID%ltslave(ip), &
+                              MPI_COMM_WORLD, receiving, &
+                              MPI_STATUS_IGNORE, ierr)
+
+              ! If failing
+              if (ierr.ne.0) cycle
+
+              ! If slave is calling
+              if (receiving) then
+
+                ! Try to receive
+                do while (.True.)
+
+                  ! Receive the ping
+                  call MPI_RECV(int_buff(1), 3, MPI_INTEGER, &
+                                MPID%ltslave(ip), &
+                                4000000+MPID%ltslave(ip), &
+                                MPI_COMM_WORLD, &
+                                MPI_STATUS_IGNORE, ierr)
+
+                  ! If failed, try again
+                  if (ierr.ne.0) cycle
+
+                  exit
+
+                end do
+
+                ! Convert ix coordinate into node coordinate
+                int_buff(1) = &
+                    (int_buff(1) - 2 + Input%sol_box(1))*dims(2) + &
+                    int_buff(2) - 1 + Input%sol_box(3)
+
+                ! Write in cache
+                call write_cache(unitC,Input%cache,int_buff,check)
+                aborting = .not.check
+
+                ! Update NLOS received
+                NLOSr = NLOSr + 1
+
+                ! Free the group
+                cpu_free(ip) = 1
+
+              end if ! Receiving from a CPU group
+
+              ip = ip + 1
+
+              if (ip.gt.MPID%ngroup) exit
+
+            end do ! Slaves
+
+            ! If we went beyond the number of LOS, exit
+            if (NLOSr.ge.NLOS) exit
+
+          end do ! While there is work to do
+
+          ! If we are done, notify to slaves
+          icoords(1) = -1
+          iproc = 1
+          do while (.True.)
+
+            ! send termination signal
+            call MPI_SEND(icoords(1), 3, MPI_INTEGER, &
+                          MPID%ltslave(iproc), &
+                          2000000+MPID%ltslave(iproc), &
+                          MPI_COMM_WORLD, ierr)
+
+            ! If it fails
+            if (ierr.ne.0) cycle
+
+            iproc = iproc + 1
+
+            if (iproc.gt.MPID%ngroup) exit
+
+          end do ! slaves
+
+        !
+        ! Slaves
+        !
+        else
+
+          ! Initialize
+          aborting = .False.
+
+          ! Work until further notice
+          do while (.True.)
+
+            ! If leader
+            if (pid.eq.0) then
+
+              ! Try receiving until success
+              do while (.True.)
+
+                ! Wait for signal
+                call MPI_RECV(icoords(1), 3, MPI_INTEGER, 0, &
+                              2000000+gpid, MPI_COMM_WORLD, &
+                              MPI_STATUS_IGNORE, ierr)
+
+                ! If it fails
+                if (ierr.ne.0) cycle
+
+                ! Check if it is the termination signal
+                if (icoords(1).lt.1) then
+                  aborting = .True.
+                  exit
+                end if
+
+                ! Receive LOS
+                call MPI_RECV(p_transfer_buffer(1), &
+                              s_transfer_buffer, &
+                              MPI_DOUBLE_PRECISION, &
+                              0, 3000000+gpid, MPI_COMM_WORLD, &
+                              MPI_STATUS_IGNORE, ierr)
+
+                ! If it fails
+                if (ierr.ne.0) cycle
+
+                ! Success
+                exit
+
+              end do
+
+            end if
+
+            ! If liutenant has friends
+            if (nproc.gt.1) then
+
+              ! Try until done
+              do while (.True.)
+
+                ! Broadcast
+                call MPI_BCAST(icoords(1), 3, MPI_INTEGER, 0, &
+                               MPI_COMM_RT, ierr)
+
+                ! If it fails
+                if (ierr.ne.0) cycle
+
+                ! If aborting
+                if (icoords(1).lt.1) then
+                  aborting = .True.
+                  exit
+                end if
+
+                ! Broadcast
+                call MPI_BCAST(p_transfer_buffer(1), &
+                               s_transfer_buffer, &
+                               MPI_DOUBLE_PRECISION, 0, &
+                               MPI_COMM_RT, ierr)
+
+                ! If it fails
+                if (ierr.ne.0) cycle
+
+                ! Success
+                exit
+
+              end do ! Try communicating until successfull
+
+            end if ! MPI in RT
+
+            ! Problem
+            if (aborting) exit
+
+            ! Initialize aborting flag
+            laborted = .False.
+
+            ! Get data from buffer
+            call set_up_data_frombuffer(finfo,Inf_Stokes,Sol, &
+                                   p_transfer_buffer(1:s_data_buffer))
+
+            ! If restoring
+            if (restoring) then
+
+              ! Put model in atmo
+              ii = s_data_buffer + 1
+              jj = s_data_buffer + s_atmo_buffer
+              call set_up_atmo_frombuffer(.True.,atmojkq,.True., &
+                                          p_transfer_buffer(ii:jj), &
+                                          Atmo_in,Bfield_in)
+
+            ! Not restoring, but with input model
+            else if (s_atmo_buffer.gt.0.or. &
+                     s_jkq_buffer.gt.0) then
+
+              ! Buffer limits
+              ii = s_data_buffer + 1
+              jj = s_data_buffer + s_atmo_buffer
+
+              ! Standard 1.5DS model input
+              if (Input%atmoin_type.eq.1) then
+
+                ! Update atmospheric type
+                Atmo_in%typo = Input%atmo_char
+
+                ! Put model in atmo
+                call set_up_atmo_frombuffer(.False.,.False., &
+                                            Atmo_in%scal.eq.'T', &
+                                            p_transfer_buffer(ii:jj),&
+                                            Atmo_in,Bfield_in)
+                !
+                ! Set-up input model
+                !
+                call setup_Atmo_ininv(Atom,Atomb,Mol,Atmo_in, &
+                                      MPID,Input,fudge, &
+                                      Atmo_in%zalt,.False.)
+
+              ! Inversion result
+              else if (s_atmo_buffer.gt.0) then
+
+                ! Put model in atmo
+                call set_up_atmo_frombuffer(.True.,atmojkq,.True., &
+                                            p_transfer_buffer(ii:jj),&
+                                            Atmo_in,Bfield_in)
+
+              end if
+
+              ! Initialize diffuse light
+              if (Input%f_diff.gt.0d0) then
+                Atmo_in%f_diff = Input%f_diff
+              else
+                Atmo_in%f_diff = 0d0
+              end if
+
+              ! If input JKQ from file
+              if (s_jkq_buffer.gt.0) then
+
+                ! Buffer limits
+                ii = s_data_buffer + s_atmo_buffer + 1
+                jj = s_transfer_buffer
+
+                ! Put JKQ in model Atmosphere
+                call set_up_JKQ_frombuffer(p_transfer_buffer(ii:jj), &
+                                           Atmo_in)
+
+              end if
+            end if ! Type of input atmosphere
+
+            ! Need to update T
+            if (update_tlim) then
+
+              ! Temperature limits
+              Input%minT = minval(Atmo_in%T)
+              Input%maxT = maxval(Atmo_in%T)
+
+            end if
+
+            ! Need to update v
+            if (update_vlim) then
+
+              ! Velocity limit
+              DwTa = maxval(sqrt(Atmo_in%vx*Atmo_in%vx + &
+                                 Atmo_in%vy*Atmo_in%vy + &
+                                 Atmo_in%vz*Atmo_in%vz))
+
+              ! If maximum velocity
+              if (DwTa.gt.0d0) then
+                dyn = .True.
+                Input%maxV = DwTa
+                Input%static = .False.
+              else
+                dyn = .False.
+                Input%maxV = 0d0
+                Input%static = .True.
+              end if
+            end if
+
+            ! Need to update B
+            if (update_blim) then
+
+              ! Bield limit
+              maxB = maxval(Bfield_in%Bstrength)
+
+              ! Magnetic field?
+              if (maxB.le.TINYB) then
+                Input%unmagnetized = .True.
+              else
+                Input%unmagnetized = .False.
+              end if
+
+            end if
+
+            ! Carry out the inversion
+            call Inversion(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec, &
+                           fudge,kurucz,MPID,Atmo_in, &
+                           Bfield_in,Input,Inf_Stokes, &
+                           Inf_Nodes,Sol)
+
+            ! Clean atmosphere?
+            if (s_atmo_buffer.gt.0.or.restoring) &
+              call free_Atmo(Atmo_in,.False.)
+
+            ! If liutenant, send message to grand master
+            if (pid.eq.0) then
+
+              ! Fail
+              if (laborted) then
+                icoords(3) = -1
+              ! Success
+              else
+                icoords(3) = gpid
+              end if
+
+              ! Try until achieved
+              do while (.True.)
+                call MPI_SEND(icoords(1),3,MPI_INTEGER,0, &
+                              4000000+gpid,MPI_COMM_WORLD,ierr)
+                if (ierr.ne.0) cycle
+                exit
+              end do
+
+            end if ! Send info back to grand master
+
+          end do
+
+        end if ! Master or slave
+
+      ! Serial version
+      else
+
+        ! Open files so slaves can write later
+        if (.not.lcache) then
+
+          ! If constant mu
+          if (finfo(2).eq.0) then
+
+            ! Create files
+            call create_io_inv_files(Input,Sol,Inf_Nodes, &
+                                     acos(Inf_Stokes%mu)*180d0/PI, &
+                                     Inf_Stokes%azimuth*180d0/PI, &
+                                     out_dims,nz,Frec)
+
+          ! Variable mu
+          else
+
+            ! Create files
+            call create_io_inv_files(Input,Sol,Inf_Nodes, &
+                                     -1d0,-1d0, &
+                                     out_dims,nz,Frec)
+
+          end if ! Type of mu
+        end if ! Files must exist
+
+        ! Initialize indexes and sizes
+        ix = 1
+        iy = 0
+        inod = 0
+        NLOSr = 0
+        NLOS = out_dims(1)*out_dims(2)
+
+        ! Work until exhausted
+        do while (.True.)
+
+          ! Initialize
+          aborting = .False.
+
+          ! If aborting, send stop signal to everyone
+          if (aborting) then
+
+            ! Abort
+            call aborted_silent
+
+          end if ! Aborting
+
+          ! If there are no more LOS to do, leave
+          if (inod.ge.NLOS) exit
+
+          ! Advance one node
+          ix0 = ix
+          iy0 = iy
+          iy = iy + 1
+          if (iy.gt.dims(2)) then
+            ix = ix + 1
+            iy = 1
+            if (ix.gt.dims(1)) cycle
+          end if
+
+          ! Check if not looping
+          if (ix.ne.ix1.or.iy.ne.iy1) then
+
+            ! Get data
+            call get_data_column(Input,unitD,dims, &
+                              p_transfer_buffer(1:s_data_buffer), &
+                              finfo,ix,iy,check)
+
+            ! Get column from atmosphere
+            if (Input%atmoin_type.ge.1.and. &
+                s_atmo_buffer.gt.0) then
+
+              ii = s_data_buffer+1
+              jj = s_data_buffer + s_atmo_buffer
+              call get_column(unitA,p_transfer_buffer(ii:jj), &
+                              double,check)
+
+            end if
+
+            ! If JKQ data
+            if (s_jkq_buffer.gt.0) then
+
+              ii = s_data_buffer + s_atmo_buffer + 1
+              jj = s_transfer_buffer
+              call get_column(unitJ,p_transfer_buffer(ii:jj), &
+                              double_jkq,check)
+            end if
+
+            ! Store last read
+            ix1 = ix
+            iy1 = iy
+
+          end if ! Loopìng
+
+          ! Check if out of box
+          if (ix.lt.Input%sol_box(1).or. &
+              ix.gt.Input%sol_box(2).or. &
+              iy.lt.Input%sol_box(3).or. &
+              iy.gt.Input%sol_box(4)) cycle
+
+          ! Now advance LOS and set slave indexes
+          inod = inod + 1
+          icoords = (/ ix - Input%sol_box(1) + 1 , &
+                       iy - Input%sol_box(3) + 1 , inod /)
+
+          ! If done in cache, skip
+          if (lcache) then
+            if (cache(iy,ix)) then
+              NLOSr = NLOSr + 1
+              cycle
+            end if
+          end if
+
+          ! Initialize aborting flag
+          laborted = .False.
+
+          ! Get data from buffer
+          call set_up_data_frombuffer(finfo,Inf_Stokes,Sol, &
+                                   p_transfer_buffer(1:s_data_buffer))
+
+          ! If restoring
+          if (restoring) then
+
+            ! Put model in atmo
+            ii = s_data_buffer + 1
+            jj = s_data_buffer + s_atmo_buffer
+            call set_up_atmo_frombuffer(.True.,atmojkq,.True., &
+                                        p_transfer_buffer(ii:jj), &
+                                        Atmo_in,Bfield_in)
+
+          ! Not restoring, but with input model
+          else if (s_atmo_buffer.gt.0.or. &
+                   s_jkq_buffer.gt.0) then
+
+            ! Buffer limits
+            ii = s_data_buffer + 1
+            jj = s_data_buffer + s_atmo_buffer
+
+            ! Standard 1.5DS model input
+            if (Input%atmoin_type.eq.1) then
+
+              ! Update atmospheric type
+              Atmo_in%typo = Input%atmo_char
+
+              ! Put model in atmo
+              call set_up_atmo_frombuffer(.False.,.False., &
+                                          Atmo_in%scal.eq.'T', &
+                                          p_transfer_buffer(ii:jj), &
+                                          Atmo_in,Bfield_in)
+              !
+              ! Set-up input model
+              !
+              call setup_Atmo_ininv(Atom,Atomb,Mol,Atmo_in, &
+                                    MPID,Input,fudge, &
+                                    Atmo_in%zalt,.False.)
+
+            ! Inversion result
+            else if (s_atmo_buffer.gt.0) then
+
+              ! Put model in atmo
+              call set_up_atmo_frombuffer(.True.,atmojkq,.True., &
+                                          p_transfer_buffer(ii:jj), &
+                                          Atmo_in,Bfield_in)
+
+            end if
+
+            ! Initialize diffuse light
+            if (Input%f_diff.gt.0d0) then
+              Atmo_in%f_diff = Input%f_diff
+            else
+              Atmo_in%f_diff = 0d0
+            end if
+
+            ! If input JKQ from file
+            if (s_jkq_buffer.gt.0) then
+
+              ! Buffer limits
+              ii = s_data_buffer + s_atmo_buffer + 1
+              jj = s_transfer_buffer
+
+              ! Put JKQ in model Atmosphere
+              call set_up_JKQ_frombuffer(p_transfer_buffer(ii:jj), &
+                                         Atmo_in)
+
+            end if
+
+          end if ! Type of input atmosphere
+
+          ! Need to update T
+          if (update_tlim) then
+
+            ! Temperature limits
+            Input%minT = minval(Atmo_in%T)
+            Input%maxT = maxval(Atmo_in%T)
+
+          end if
+
+          ! Need to update v
+          if (update_vlim) then
+
+            ! Velocity limit
+            DwTa = maxval(sqrt(Atmo_in%vx*Atmo_in%vx + &
+                               Atmo_in%vy*Atmo_in%vy + &
+                               Atmo_in%vz*Atmo_in%vz))
+
+            ! If maximum velocity
+            if (DwTa.gt.0d0) then
+              dyn = .True.
+              Input%maxV = DwTa
+              Input%static = .False.
+            else
+              dyn = .False.
+              Input%maxV = 0d0
+              Input%static = .True.
+            end if
+          end if
+
+          ! Need to update B
+          if (update_blim) then
+
+            ! Bield limit
+            maxB = maxval(Bfield_in%Bstrength)
+
+            ! Magnetic field?
+            if (maxB.le.TINYB) then
+              Input%unmagnetized = .True.
+            else
+              Input%unmagnetized = .False.
+            end if
+
+          end if
+
+          ! Carry out the inversion
+          call Inversion(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec, &
+                         fudge,kurucz,MPID,Atmo_in, &
+                         Bfield_in,Input,Inf_Stokes, &
+                         Inf_Nodes,Sol)
+
+          ! Clean Atmo?
+          if (s_atmo_buffer.gt.0.or.restoring) &
+            call free_Atmo(Atmo_in,.False.)
+
+          ! Copy coords
+          int_buff = icoords
+
+          ! Convert ix coordinate into node coordinate
+          int_buff(1) = &
+              (int_buff(1) - 2 + Input%sol_box(1))*dims(2) + &
+              int_buff(2) - 1 + Input%sol_box(3)
+
+          ! Write in cache
+          call write_cache(unitC,Input%cache,int_buff,check)
+          aborting = .not.check
+
+          ! Update NLOS received
+          NLOSr = NLOSr + 1
+
+          ! If we went beyond the number of LOS, exit
+          if (NLOSr.ge.NLOS) exit
+
+        end do ! While there is work to do
+
+      end if ! MPI/serial
+
+      !
+      ! Close files
+      !
+      if (gpid.eq.0.and.unitA.gt.0) call close_file(unitA)
+      if (gpid.eq.0.and.unitD.gt.0) call close_file(unitD)
+      if (gpid.eq.0.and.unitC.gt.0) call close_file(unitC)
+      if (gpid.eq.0.and.unitJ.gt.0) call close_file(unitJ)
+
+
+      !
+      ! Restore verbosity name
+      !
+      verbosef = verbosefv
+
+      ! Switch off inversion mode
+      ninv_mode = .True.
+
+      end subroutine TIC
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      end module tic_mod

@@ -1,0 +1,26 @@
+! Molecule
+  SiO
+
+! Mass
+  44.084900
+
+! Charge
+  0
+
+! Atoms
+  SI, O
+
+! Dissociation energy [cm^-1]
+  66621.393
+
+! Type of partition function fit
+  SAUVAL_TATUM_84
+
+! Minimum and Maximum temperatures
+  1.0E+3  9.0E+3
+
+! pf coefficients
+  5    4.2275  -1.9144   0.7201  -1.3099   1.1657
+
+! eqc coefficients
+  5   11.8772  -0.8349  -0.5248   1.1271  -1.1984

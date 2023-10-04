@@ -1,0 +1,189 @@
+#!/usr/bin/env bash
+
+#####################################################################
+#####################################################################
+#
+#  Create makefile for HanleRT
+#
+#  Authors:
+#    Tanaus\'u del Pino Alem\'an (HAO)
+#  Contributors:
+#    John Dennis (NCAR)
+#
+######################################################################
+######################################################################
+#
+#  Changelog:
+#
+#     09/29/2023:    V1.1.1 - Removed most of flag packages (TdPA)
+#
+#     06/05/2020:    V1.1.0 - Compilation optimization (JD)
+#
+#     xx/xx/2018:    V1.0.0 - Original version, this file has not
+#                             been tracked until V1.1.0 (TdPA)
+#
+#####################################################################
+#####################################################################
+
+# Default values
+compiler="gnu"
+ccompiler="cc"
+prefix=$PWD
+lflags=""
+opt_gnu="-O1"
+opt_low_gnu="-O1"
+opt_hi_gnu="-O2"
+opt_intel="-O1"
+opt_low_intel="-O1"
+opt_hi_intel="-O2"
+opt_report_intel=""
+omp_gnu=""
+omp_intel=""
+old_mpi=""
+
+for arg in "$@"; do
+    case "$arg" in
+    --compiler=*)
+    compiler=`echo $arg | sed 's/--compiler=//'`
+	;;
+
+    --prefix=*)
+    prefix=`echo $arg | sed 's/--prefix=//'`
+	;;
+
+    --ccompiler=*)
+    ccompiler=`echo $arg | sed 's/--ccompiler=//'`
+	;;
+
+    --hard)
+    opt_gnu="-O3 -ffast-math -funroll-loops -funsafe-loop-optimizations -ffinite-math-only -fgcse-sm -fgcse-las -fgcse-after-reload"
+    opt_low_gnu=$opt_gnu
+    opt_hi_gnu=$opt_gnu
+    opt_intel="-O3 -ffast-math -funroll-loops"
+    opt_low_intel=$opt_intel
+    opt_hi_intel=$opt_intel
+	;;
+
+    --medium)
+    opt_gnu="-O2 -funroll-loops -funsafe-loop-optimizations -fgcse-sm -fgcse-las -fgcse-after-reload"
+    opt_low_gnu=$opt_gnu
+    opt_hi_gnu=$opt_gnu
+    opt_intel="-O2 -funroll-loops"
+    opt_low_intel=$opt_intel
+    opt_hi_intel=$opt_intel
+	;;
+
+    --medium3)
+    opt_gnu="-O3 -funroll-loops -funsafe-loop-optimizations -fgcse-sm -fgcse-las -fgcse-after-reload"
+    opt_low_gnu=$opt_gnu
+    opt_hi_gnu=$opt_gnu
+    opt_intel="-O3 -funroll-loops"
+    opt_low_intel=$opt_intel
+    opt_hi_intel=$opt_intel
+	;;
+
+    --soft)
+    opt_gnu="-O2"
+    opt_low_gnu=$opt_gnu
+    opt_hi_gnu=$opt_gnu
+    opt_intel="-O2"
+    opt_low_intel=$opt_intel
+    opt_hi_intel=$opt_intel
+	;;
+
+    --openmp)
+    omp_gnu="-fopenmp"
+    omp_intel="-qopenmp"
+	;;
+
+    --oldmpi)
+    old_mpi="-Doldmpi"
+	;;
+
+    --flags=*)
+	opt_gnu=`echo $arg | sed 's/--flags=//'`
+	opt_low_gnu=`echo $arg | sed 's/--flags=//'`
+	opt_hi_gnu=`echo $arg | sed 's/--flags=//'`
+	opt_intel=`echo $arg | sed 's/--flags=//'`
+	opt_low_intel=`echo $arg | sed 's/--flags=//'`
+	opt_hi_intel=`echo $arg | sed 's/--flags=//'`
+	;;
+
+    --flags_=*)
+	opt_gnu=`echo $arg | sed 's/--flags_=//'`
+	opt_intel=`echo $arg | sed 's/--flags_=//'`
+	;;
+
+    --flags_low=*)
+	opt_low_gnu=`echo $arg | sed 's/--flags_low=//'`
+	opt_low_intel=`echo $arg | sed 's/--flags_low=//'`
+	;;
+
+    --flags=*)
+	opt_hi_gnu=`echo $arg | sed 's/--flags_hi=//'`
+	opt_hi_intel=`echo $arg | sed 's/--flags_hi=//'`
+	;;
+
+    --lflags=*)
+	lflags=`echo $arg | sed 's/--lflags=//'`
+	;;
+
+    --help)
+        echo 'usage: ./configure [options]'
+        echo 'options:'
+        echo '  --prefix=<path>         installation prefix [default = .]'
+        echo '  --compiler=[gnu|intel]  compiler used [default = gnu]'
+        echo '  --ccompiler=[cc]        C compiler used [default = cc]'
+        echo '  --openmp                compile with OpenMP'
+        echo '  --oldmpi                for MPI versions before 3.0'
+        echo '  --lflags=*              customize flags for blas and lapack libraries [default=-openblas]'
+        echo '  --flags=*               customize flags for all files'
+        echo '  --flags_=*              customize flags for normal files'
+        echo '  --flags_low=*           customize flags for low optimization files'
+        echo '  --flags_hi=*            customize flags for high optimization files'
+        echo '  @ Predefined families of compilation flags:'
+        echo '  --hard                  use aggressive optimization:'
+        echo '                             gnu: -O3 -ffast-math -funroll-loops -funsafe-loop-optimizations -ffinite-math-only -fgcse-sm -fgcse-las -fgcse-after-reload'
+        echo '                           intel: -O3 -ffast-math -funroll-loops'
+        echo '  --medium                use conservative optimization:'
+        echo '                             gnu: -O2 -funroll-loops -funsafe-loop-optimizations -fgcse-sm -fgcse-las -fgcse-after-reload'
+        echo '                           intel: -O2 -funroll-loops'
+        echo '  --medium3               use conservative optimization:'
+        echo '                             gnu: -O3 -funroll-loops -funsafe-loop-optimizations -fgcse-sm -fgcse-las -fgcse-after-reload'
+        echo '                           intel: -O3 -funroll-loops'
+        echo '  --soft                  use safe optimization:'
+        echo '                             gnu: -O2'
+        echo '                           intel: -O2'
+        echo ' # Note: the flags -cpp, -fimplicit-none and -o are always included'
+        echo ''
+        exit 0
+        ;;
+    esac
+done
+
+echo 'generating makefile ...' 
+if [ "${prefix: -1}" != "/" ]; then
+  prefix="$prefix/"
+fi
+echo "PREFIX = $prefix" > Makefile
+echo "CC = $ccompiler" >> Makefile
+if [ "$compiler" == "gnu" ]; then
+  echo "CMP = mpif90" >> Makefile
+  echo "OPT = -c $opt_gnu $omp_gnu $old_mpi -cpp -fimplicit-none -o" >> Makefile
+  echo "OPT_LOW = -c $opt_low_gnu $omp_gnu -cpp -fimplicit-none -o" >> Makefile
+  echo "OPT_HI = -c $opt_hi_gnu $omp_gnu -cpp -fimplicit-none -o" >> Makefile
+  echo "mods = -J" >> Makefile
+  echo "OMPFLAGS = $omp_gnu" >> Makefile
+fi
+if [ "$compiler" == "intel" ]; then
+  echo "CMP = ifort" >> Makefile
+  echo "OPT = -c $opt_intel $opt_report_intel $omp_intel $old_mpi -cpp -implicitnone -o" >> Makefile
+  echo "OPT_LOW = -c $opt_low_intel $opt_report_intel $omp_intel -cpp -implicitnone -o" >> Makefile
+  echo "OPT_HI = -c $opt_hi_intel $opt_report_intel $omp_intel -cpp -implicitnone -o" >> Makefile
+  echo "mods = -module " >> Makefile
+  echo "OMPFLAGS = $omp_intel" >> Makefile
+fi
+echo "LFLAGS = $lflags" >> Makefile
+
+cat Source/makefile.in >> Makefile
+echo 'configuration complete, type make to build.'
