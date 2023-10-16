@@ -39,6 +39,9 @@ some broken things inside**.
 
 For this reason, please, if you find any obvious (or subtle) bug, not-self-explained
 warnings, installation/compilation/running errors, or strange behavior in execution
-or in the results, contact *Tanausú del Pino Alemán* (e.g., through gitlab or via
-email, which can be found in papers published later than 2018).
+or in the results, use the
+`issues tracker <https://gitlab.com/TdPA/hanlert-tic/-/issues>`_. Contact by email
+can be fine as well, if you have it. However, take into account that the reproducing,
+debugging, fixing, and testing is performed by just one person, so the response
+and fixing time is undetermined.
 

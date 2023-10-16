@@ -11,12 +11,15 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     10/04/2023 V3.0.6
+!     10/16/2023 V3.0.7
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/16/2023:    V3.0.7 - Made LTElines allocatable to satisfy
+!                             memory warnings (TdPA)
 !
 !     10/04/2023:    V3.0.6 - Bugfix: When not keeping the LTE lines
 !                             profiles, point to a dummy (TdPA)
@@ -271,7 +274,8 @@
       type(Geometry_class), intent(in):: Geom
       type(Atmo_class), intent(in):: Atmo
       type(Atom_class), dimension(:), intent(in):: Atom
-      type(LTEline_class), dimension(:), intent(in):: LTElines
+      type(LTEline_class), dimension(:), intent(in), allocatable:: &
+                                                              LTElines
       integer, intent(in):: iz,ith,iph,cdir,if0,if1
       double precision, dimension(if0:if1,3,cdir):: Cont
       double precision, dimension(nfreq,Geom%nPh,Geom%nTh), &
@@ -981,7 +985,8 @@
       type(Geometry_class), intent(in):: Geom
       type(Atmo_class), intent(in):: Atmo
       type(Atom_class), dimension(:), intent(in):: Atom
-      type(LTEline_class), dimension(:), intent(in):: LTElines
+      type(LTEline_class), dimension(:), intent(in), allocatable:: &
+                                                              LTElines
       integer, intent(in):: iz,ith,iph,cdir,if0,if1
       double precision, dimension(if0:if1,3,cdir):: Cont
       double precision, dimension(nfreq,Geom%nPh,Geom%nTh), &
@@ -1458,7 +1463,8 @@
       type(Geometry_class), intent(in):: Geom
       type(Atmo_class), intent(in):: Atmo
       type(Atom_class), dimension(:), intent(in):: Atom
-      type(LTEline_class), dimension(:), intent(in):: LTElines
+      type(LTEline_class), dimension(:), intent(in), allocatable:: &
+                                                              LTElines
       integer, intent(in):: iz,ith,iph,cdir,if0,if1
       double precision, &
                   dimension(if0:if1,3,cdir):: Cont

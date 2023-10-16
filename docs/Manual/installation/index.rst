@@ -8,13 +8,14 @@ Getting the code
 ================
 
 The code is available on a GitLab hosted repository:
-`<url_repo>`_. In order to clone it, just do:: 
+`https://gitlab.com/TdPA/hanlert-tic <https://gitlab.com/TdPA/hanlert-tic>`_.
+In order to clone it, just do:: 
 
-    git clone url_repo
+    git clone https://gitlab.com/TdPA/hanlert-tic.git
 
 or using SSH::
 
-    git clone url_repo
+    git clone git@gitlab.com:TdPA/hanlert-tic.git
 
 .. _folder_tree:
 
@@ -50,7 +51,8 @@ The directory structure of a clean version of HanleRT-TIC is as follows:
     `-- Tools
 
 * The **data/Atmos** directory contains the C and P models of
-  `Fontela et al. (1993)` [1]_ to be used for 1D synthesis.
+  `Fontela et al. (1993) <https://ui.adsabs.harvard.edu/abs/1993ApJ...406..319F/abstract>`_
+  to be used for 1D synthesis.
 
 * The **data/Atoms** directory contains some sample atomic models.
 
@@ -109,7 +111,7 @@ are required:
 * A fortran compiler.
 * Python 2.7 or Python 3.*.
 * An MPI library with fortran support.
-* The cfitsio library to handle fits files.
+* The cfitsio library to handle fits files (optional, only for fits support).
 * The lapack and blas libraries (or equivalents, such as Intel's mkl or openblas).
 * The OpenMP library if you choose to compile and run the code with OpenMP.
 
@@ -122,7 +124,7 @@ There are several ways to acquire and install all these dependencies.
 
 * In supercomputers, all these libraries are readily available. For example, in
   `LaPalma supercomputer <https://www.iac.es/en/science-and-technology/technology/technical-facilities/lapalma-supercomputer>`_
-  it is enough to load the modules::
+  it is enough to load the modules (assuming that fits support is desired)::
 
     module load gnu openmpi/gnu scalapack/2.0.2 python cfitsio
 
@@ -142,6 +144,11 @@ There are several ways to acquire and install all these dependencies.
   package and environment manager such as `Spack <https://spack.io/>`_.
   A basic guide to install the dependencies using Spack is described in
   :ref:`Spack installation <spack_installation>`
+
+.. note::
+   If should be relatively straightforward to install the dependencies with
+   other managers such as *conda*, but we have not tested such installation
+   and thus we do not include instructions.
 
 .. _spack_installation:
 
@@ -313,6 +320,9 @@ by running ``./configure --help``. The most crucial fields to consider are:
    However, it then becomes necessary to execute the ``ld`` command on the compiled executable
    before running.
 
+.. note::
+   If the fits support is not needed, the *cfitsio* library is not necessary. To be able
+   to compile the code without fits support, add the ``--nofits`` option when running ``./configure``.
 
 .. warning::
    If dealing with an old version of the OpenMPI library (older than version 3.0),
@@ -334,5 +344,3 @@ directory to start the compilation. The objects and modules will be stored in th
    Run ``make clean`` in order to remove the compiled objects, modules, and
    excutable, or run ``make clean_obj`` to remove the compiled objects and
    modules.
-
-.. [1] `Fontenla, J. M., Avrett, E. H., & Loeser, R. 1993, ApJ, 406, 319`

@@ -10,12 +10,16 @@
 !  Start:
 !     04/19/2017
 !  Last version:
-!     11/24/2022 V3.0.4
+!     10/16/2023 V3.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/16/2023:    V3.0.5 - The decision to free the photoionization
+!                             cross-section comes from the argument to
+!                             setphotoTEI, and not the mode (TdPA)
 !
 !     11/24/2022:    V3.0.4 - Added a condition for which the
 !                             photoionization cross-section must not
@@ -320,19 +324,20 @@
       !!  Frec(Frequency_class): Structure with frequency data\n
       !!           T(dfloat(:)): Temperature\n
       !!          ne(dfloat(:)): Electron density\n
-      !!        MPID(MPI_class): Structure with MPI data
-      subroutine setphotoTEI(Atom,Frec,T,ne,MPID)
+      !!        MPID(MPI_class): Structure with MPI data\n
+      !!          free(logical): If allowed to free cross section
+      !!                         data
+      subroutine setphotoTEI(Atom,Frec,T,ne,MPID,free)
 
       ! I/O
 
       type(Atom_class), intent(inout):: Atom
       type(Frequency_class):: Frec
       type(MPI_class), intent(in):: MPID
+      logical, intent(in):: free
       double precision, dimension(:), intent(in):: T,ne
 
       ! Local
-
-      logical:: free
 
       integer:: ifreq,iphot,if0,if1,iz
       integer:: ilevel,ilevel1
@@ -341,11 +346,6 @@
       double precision:: Saha,exu
       double precision, dimension(Rnz):: buffer
 
-
-      !
-      ! Determine if we can free alpha under certain circumstrances
-      !
-      free = run_mode.eq.0
 
       ! 2h/c^2 in k units, convF cancels with the denominator in the
       ! integral and the 1d3 is to take alpha in cm^2

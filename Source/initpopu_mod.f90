@@ -10,12 +10,18 @@
 !  Start:
 !     04/19/2017
 !  Last version:
-!     08/07/2023 V3.0.5
+!     10/16/2023 V3.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/16/2023:    V3.0.6 - The density matrix is allocated for the
+!                             full height index range. The reason is
+!                             that it is now called before restricting
+!                             the vertical axis (TdPA)
+!                           - Added the Initcrho_old subroutine (TdPA)
 !
 !     08/07/2023:    V3.0.5 - Added Initpopu_LTE_line (TdPA)
 !
@@ -124,6 +130,10 @@
 !
 !    Initcrho:
 !      Initializes rhoKQ
+!
+!    Initcrho_old:
+!      Initializes the copy of rhoKQ to track the last iteration
+!    populations
 !
 !    Initpopu_CLE:
 !      Computes LTE populations, initializes the populations,
@@ -497,14 +507,12 @@
 !#####################################################################
 
       !> Initializes the density matrix\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!    Atom0(Atom_class): A copy of Atom
-      subroutine Initcrho(Atom,Atom0)
+      !!     Atom(Atom_class): Structure with the atomic data
+      subroutine Initcrho(Atom)
 
       ! I/O
 
       type(Atom_class), intent(inout):: Atom
-      type(Rhoc_class), intent(inout):: Atom0
 
       ! Local
 
@@ -518,15 +526,12 @@
 
       ! Allocations
       ! Vector with rhoKQ values
-      allocate(Atom%crho(Atom%ndim,Rz0:Rz1))
-      ! Vector with rhoKQ values from the last iteration
-      allocate(Atom0%crho(Atom%ndim,Rz0:Rz1))
+      allocate(Atom%crho(Atom%ndim,nZ))
       ! Flags to ignore rhoKQ in the RT rates
-      allocate(Atom%rhonull(Atom%ndim,Rz0:Rz1))
+      allocate(Atom%rhonull(Atom%ndim,nZ))
 
       ! Initialize the allocated arrays
       Atom%crho = cZero
-      Atom0%crho = cZero
       Atom%rhonull = .True.
 
       !
@@ -534,7 +539,7 @@
       !
 
       ! For each height
-      do iz=Rz0,Rz1
+      do iz=1,nZ
 
         ! For each level running through the term and J indexes
         do it=1,Atom%nMulti
@@ -558,15 +563,45 @@
         end do ! Term
       end do ! Heights
 
-      ! The old populations are the same
-      Atom0%crho = Atom%crho
-
       ! Check if everything is fine
       call control
 
       return
 
       end subroutine Initcrho
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Initializes the density matrix\n
+      !!     Atom(Atom_class): Structure with the atomic data\n
+      !!    Atom0(Atom_class): A copy of Atom
+      subroutine Initcrho_old(Atom,Atom0)
+
+      ! I/O
+
+      type(Atom_class), intent(inout):: Atom
+      type(Rhoc_class), intent(inout):: Atom0
+
+
+      !
+      ! Determine initial rho00
+      !
+
+      ! Allocation
+      ! Vector with rhoKQ values from the last iteration
+      allocate(Atom0%crho(Atom%ndim,Rz0:Rz1))
+
+      ! The old populations are the same
+      Atom0%crho = Atom%crho(:,Rz0:Rz1)
+
+      ! Check if everything is fine
+      call control
+
+      return
+
+      end subroutine Initcrho_old
 
 !#####################################################################
 !#####################################################################

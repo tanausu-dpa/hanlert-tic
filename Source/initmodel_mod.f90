@@ -10,12 +10,25 @@
 !  Start:
 !     06/16/2023
 !  Last version:
-!     09/29/2023 V3.0.3
+!     10/16/2023 V3.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/16/2023:    V3.0.4 - The damping coefficients are now
+!                             calculated in the new broadening
+!                             routines (TdPA)
+!                           - Added broadening and broadening_line
+!                             subroutines (TdPA)
+!                           - The density matrix is initialized
+!                             via calls from the new Initrhoes
+!                             routines (TdPA)
+!                           - Ensure memory deallocation when an
+!                             error happens in prepare_syn (TdPA)
+!                           - Updated arguments of free_local_Atom
+!                             call (TdPA)
 !
 !     09/29/2023:    V3.0.3 - Added arguments to Initcols (TdPA)
 !
@@ -70,9 +83,18 @@
 !  setuppopu:
 !    Initialize populations and density matrices in atoms.
 !
+!  broadening:
+!    Calculate the line broadening damping coefficient.
+!
+!  broadening_line:
+!    Calculate the line broadening damping coefficient for LTE lines.
+!
 !  chemical:
 !    Manage the call to chemical equilibrium and revise model
 !  atmosphere Hydrogen number density.
+!
+!  Initrhoes:
+!    Manage the initialization of the density matrix.
 !
 !  updateatmo:
 !    Recalculate electron number density or write atmospheric model
@@ -94,6 +116,7 @@
 !#####################################################################
 
       use background_mod
+      use broad_mod
       use chemic_mod
       use commons_mod
       use free_mod
@@ -528,6 +551,74 @@
 !#####################################################################
 !#####################################################################
 
+      !> Calculate line broadening\n
+      !!        Atom(Atom_class): Structure with the atomic data\n
+      !!       Atomb(Atom_class): Structure with the atomic data for
+      !!                          background opacities\n
+      !!        Atmo(Atmo_class): Structure with atmospheric data\n
+      !!      Input(Input_class): Structure with settings data
+      subroutine broadening(Atom,Atomb,Atmo,Input)
+
+      ! I/O
+      type(Atom_class), dimension(:):: Atom
+      type(Atom_class), dimension(:), allocatable:: Atomb
+      type(Atmo_class):: Atmo
+      type(Input_class):: Input
+
+      ! Local
+      integer:: ia
+
+      ! For active atoms
+      do ia=1,nA
+        call broad(Atom(ia),Atmo,Input%folder,Input%keep_aparam)
+      end do
+
+      ! Control
+      if (laborted) return
+
+      ! If keeping damping and master, call writer
+      if (Input%keep_damp) call writedamp(Atom,Atmo,Input%folder, &
+                                          Input%lim_damp)
+
+      ! Control
+      if (laborted) return
+
+      ! And for background atoms
+      if (Input%nAb.gt.0) then
+        do ia=1,Input%nAb
+          call broad(Atomb(ia),Atmo,Input%folder,.False.)
+        end do
+      end if
+
+      end subroutine broadening
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Calculate line broadening\n
+      !! LTElines(LTEline_class): Structure with the LTE line data\n
+      !!        Atmo(Atmo_class): Structure with atmospheric data
+      subroutine broadening_line(LTElines,Atmo)
+
+      ! I/O
+      type(LTEline_class), dimension(:), allocatable:: LTElines
+      type(Atmo_class):: Atmo
+
+      ! Local
+      integer:: ia
+
+      ! If LTE lines
+      do ia=1,nLTEl
+        call broad_line(LTElines(ia),Atmo)
+      end do
+
+      end subroutine broadening_line
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
       !> Prepare the model atmosphere dealing with the equation of
       !! state\n
       !!        Atom(Atom_class): Structure with the atomic data\n
@@ -597,6 +688,28 @@
       end do
 
       end subroutine chemical
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Prepare the density matrices\n
+      !!     Atom(Atom_class): Structure with the atomic data
+      subroutine Initrhoes(Atom)
+
+      ! I/O
+      type(Atom_class), dimension(:):: Atom
+
+      ! Local
+      integer:: ia
+
+
+      ! Active atoms
+      do ia=1,nA
+        call Initcrho(Atom(ia))
+      end do
+
+      end subroutine Initrhoes
 
 !#####################################################################
 !#####################################################################
@@ -709,19 +822,19 @@
       call prepareatomol(Atom,Atomb,Mol,Input%nM)
 
       ! If error, skip
-      if (laborted) return
+      if (laborted) goto 1000
 
       ! Check populations from files
       call setpopufiles(Atom,Atomb,Atmo,Input,nlte,depar)
 
       ! If error, skip
-      if (laborted) return
+      if (laborted) goto 1000
 
       ! Revise H population
       call reviseH_init(Atom,Atomb,Atmo)
 
       ! If error, skip
-      if (laborted) return
+      if (laborted) goto 1000
 
       ! Eq of state
       if (Atmo%typo.gt.0.or.Input%keep_atmo.or. &
@@ -731,7 +844,7 @@
         call eqstate(Atmo,Atom,Atomb,nlte,depar)
 
         ! Control
-        if (laborted) return
+        if (laborted) goto 1000
 
         ! Revise H population
         if (Atmo%typo.gt.0) &
@@ -740,7 +853,7 @@
       end if
 
       ! If error, skip
-      if (laborted) return
+      if (laborted) goto 1000
 
       !
       ! Recalculate electron density
@@ -749,19 +862,19 @@
         call redo_ne(Atom,Atomb,nlte,depar,Atmo)
 
       ! If error, skip
-      if (laborted) return
+      if (laborted) goto 1000
 
       ! LTE populations
       call setlte(Atom,Atomb,Atmo,Input)
 
       ! If error, skip
-      if (laborted) return
+      if (laborted) goto 1000
 
       ! Collisions
       call setcols(Atom,Atomb,Atmo,Input,Flgsg)
 
       ! If error, skip
-      if (laborted) return
+      if (laborted) goto 1000
 
       ! LTE lines
       if (nLTEl.gt.0) then
@@ -775,13 +888,33 @@
       call setuppopu(Atom,Atomb,Atmo)
 
       ! If error, skip
-      if (laborted) return
+      if (laborted) goto 1000
+
+      ! Broadening
+      call broadening(Atom,Atomb,Atmo,Input)
+
+      ! If error, skip
+      if (laborted) goto 1000
+
+      ! LTE lines
+      if (nLTEl.gt.0) call broadening_line(LTElines,Atmo)
 
       ! Chemical equilibrium
       call chemical(Atom,Atomb,LTElines,Mol,Atmo,Input)
 
       ! If error, free atom memory
-      if (laborted) call free_local_Atom(Atom,Atomb)
+      if (laborted) goto 1000
+
+      ! Initialize density matrix
+      call Initrhoes(Atom)
+
+      return
+
+      ! Free memory if aborting
+1000  call free_lpop(Atom,Atomb)
+      call free_gpop(Atom,Atomb,Mol)
+
+      return
 
       end subroutine prepare_syn
 
@@ -969,7 +1102,7 @@
       end if ! 0 or negative optical depth
 
       ! Free
-      call free_local_Atom(Atom,Atomb)
+      call free_local_Atom(Atom)
       call free_gpop(Atom,Atomb,Mol)
 
 
@@ -1052,7 +1185,7 @@
       ! Free
       call free_lpop(Atom,Atomb)
       call free_mol(Mol)
-      call free_local_Atom(Atom,Atomb)
+      call free_local_Atom(Atom)
       call free_gpop(Atom,Atomb,Mol)
 
 

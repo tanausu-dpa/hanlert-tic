@@ -10,12 +10,14 @@
 !  Start:
 !     10/xx/2022
 !  Last version:
-!     09/29/2023 V3.0.3
+!     10/16/2023 V3.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/16/2023:    V3.0.4 - Added argument to setphotoTEI (TdPA)
 !
 !     09/29/2023:    V3.0.3 - Added arguments to Initcols (TdPA)
 !
@@ -263,7 +265,7 @@
       !
       do ia=1,nA
         if (Atom(ia)%nphot.lt.1) cycle
-        call setphotoTEI(Atom(ia),Frec,Atmo%T,Atmo%ne,MPID)
+        call setphotoTEI(Atom(ia),Frec,Atmo%T,Atmo%ne,MPID,.False.)
       end do
 
 

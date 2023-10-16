@@ -11,12 +11,15 @@
 !  Start:
 !     04/27/2017
 !  Last version:
-!     10/04/2023 V3.0.9
+!     10/16/2023 V3.0.10
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/16/2023:   V3.0.10 - Made LTElines allocatable to satisfy
+!                             memory warnings (TdPA)
 !
 !     10/04/2023:    V3.0.9 - Bugfix: When not keeping the LTE lines
 !                             profiles, point to a dummy (TdPA)
@@ -240,7 +243,8 @@
 
       type(Atmo_class), intent(in):: Atmo
       type(Atom_class), dimension(:), intent(in):: Atom
-      type(LTEline_class), dimension(:), intent(in):: LTElines
+      type(LTEline_class), dimension(:), intent(in), allocatable:: &
+                                                              LTElines
       type(Frequency_class), intent(inout):: Frec
       type(Red_class), intent(inout):: Red
       type(MPI_class), intent(in):: MPID
@@ -1299,7 +1303,8 @@
 
       type(Atmo_class), intent(in):: Atmo
       type(Atom_class), dimension(:), intent(in):: Atom
-      type(LTEline_class), dimension(:), intent(in):: LTElines
+      type(LTEline_class), dimension(:), intent(in), allocatable:: &
+                                                              LTElines
       type(Frequency_class), intent(inout):: Frec
       type(Red_class), intent(inout):: Red
       type(Fctsg_class), intent(in):: Flgsg
@@ -2246,7 +2251,8 @@
 
       type(Atmo_class), intent(in):: Atmo
       type(Atom_class), dimension(:), intent(in):: Atom
-      type(LTEline_class), dimension(:), intent(in):: LTElines
+      type(LTEline_class), dimension(:), intent(in), allocatable:: &
+                                                              LTElines
       type(Frequency_class), intent(in):: Frec
       type(Fctsg_class), intent(in):: Flgsg
       type(Geometry_class), intent(in):: Geom

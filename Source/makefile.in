@@ -2,7 +2,7 @@
 #####################################################################
 #
 #  Last version:
-#     09/18/2023 V3.0.12
+#     10/16/2023 V3.0.13
 #
 #####################################################################
 #####################################################################
@@ -114,7 +114,7 @@ Bound = $(obj_dir)getrtcle_mod.o $(obj_dir)solver_mod.o \
 		$(obj_dir)solveri_mod.o
 Bounds = $(obj_dir)initinv_mod.o $(obj_dir)inversion_mod.o \
 		 $(obj_dir)lmfit_mod.o
-Broad = $(obj_dir)getrtcle_mod.o $(obj_dir)hanle_mod.o
+Broad = $(obj_dir)getrtcle_mod.o $(obj_dir)initmodel_mod.o
 Broada = $(obj_dir)broad_mod.o
 Btens = $(obj_dir)gauss_mod.o $(obj_dir)getrtcle_mod.o \
 		$(obj_dir)jcalccle_mod.o
@@ -245,31 +245,32 @@ Param = $(obj_dir)background_mod.o $(obj_dir)backgroundaux_mod.o \
 		$(obj_dir)cle_mod.o $(obj_dir)diagon_mod.o \
 		$(obj_dir)fieldb_mod.o $(obj_dir)gauss_mod.o \
 		$(obj_dir)gaussaux_mod.o $(obj_dir)geometry_mod.o \
-		$(obj_dir)getrtcle_mod.o $(obj_dir)hanlert_mod.o \
-		$(obj_dir)hydrostatic_mod.o $(obj_dir)initialize_mod.o \
-		$(obj_dir)initinv_mod.o $(obj_dir)initmemoj_mod.o \
-		$(obj_dir)initphotoion_mod.o $(obj_dir)initpopu_mod.o \
-		$(obj_dir)initpopuaux_mod.o $(obj_dir)inspect_mod.o \
-		$(obj_dir)inversion_mod.o $(obj_dir)io_mod.o \
-		$(obj_dir)iosolution_mod.o $(obj_dir)iotic_mod.o \
-		$(obj_dir)kurucz_mod.o $(obj_dir)jcalc_mod.o \
-		$(obj_dir)jcalccle_mod.o $(obj_dir)jcalci_mod.o \
-		$(obj_dir)lmfit_mod.o $(obj_dir)math_mod.o \
-		$(obj_dir)model_mod.o $(obj_dir)mrc_mod.o \
-		$(obj_dir)normalizer.o $(obj_dir)omegabuild_mod.o \
-		$(obj_dir)planck_mod.o $(obj_dir)profile_mod.o \
-		$(obj_dir)psf_mod.o $(obj_dir)ratmo_mod.o \
-		$(obj_dir)ratom_mod.o $(obj_dir)rbarklem_mod.o \
-		$(obj_dir)rbfield_mod.o $(obj_dir)rdmat_mod.o \
-		$(obj_dir)rmol_mod.o $(obj_dir)rtcoeff_mod.o \
-		$(obj_dir)rtcoeffaux_mod.o $(obj_dir)rtcoeffi_mod.o \
-		$(obj_dir)rtcoeffiaux_mod.o $(obj_dir)rtstep_mod.o \
-		$(obj_dir)rtstepi_mod.o $(obj_dir)rtstepaux_mod.o \
-		$(obj_dir)see_mod.o $(obj_dir)seeaux_mod.o \
-		$(obj_dir)seei_mod.o $(obj_dir)setmpi_mod.o \
-		$(obj_dir)solver_mod.o $(obj_dir)solveri_mod.o \
-		$(obj_dir)stens_mod.o $(obj_dir)svd_mod.o \
-		$(obj_dir)tic_mod.o $(obj_dir)w2freq_mod.o
+		$(obj_dir)getrtcle_mod.o $(obj_dir)hanle_mod.o \
+		$(obj_dir)hanlert_mod.o $(obj_dir)hydrostatic_mod.o \
+		$(obj_dir)initialize_mod.o $(obj_dir)initinv_mod.o \
+		$(obj_dir)initmemoj_mod.o $(obj_dir)initphotoion_mod.o \
+		$(obj_dir)initpopu_mod.o $(obj_dir)initpopuaux_mod.o \
+		$(obj_dir)inspect_mod.o $(obj_dir)inversion_mod.o \
+		$(obj_dir)io_mod.o $(obj_dir)iosolution_mod.o \
+		$(obj_dir)iotic_mod.o $(obj_dir)kurucz_mod.o \
+		$(obj_dir)jcalc_mod.o $(obj_dir)jcalccle_mod.o \
+		$(obj_dir)jcalci_mod.o $(obj_dir)lmfit_mod.o \
+		$(obj_dir)math_mod.o $(obj_dir)model_mod.o \
+		$(obj_dir)mrc_mod.o $(obj_dir)normalizer.o \
+		$(obj_dir)omegabuild_mod.o $(obj_dir)planck_mod.o \
+		$(obj_dir)profile_mod.o $(obj_dir)psf_mod.o \
+		$(obj_dir)ratmo_mod.o $(obj_dir)ratom_mod.o \
+		$(obj_dir)rbarklem_mod.o $(obj_dir)rbfield_mod.o \
+		$(obj_dir)rdmat_mod.o $(obj_dir)rmol_mod.o \
+		$(obj_dir)rtcoeff_mod.o $(obj_dir)rtcoeffaux_mod.o \
+		$(obj_dir)rtcoeffi_mod.o $(obj_dir)rtcoeffiaux_mod.o \
+		$(obj_dir)rtstep_mod.o $(obj_dir)rtstepi_mod.o \
+		$(obj_dir)rtstepaux_mod.o $(obj_dir)see_mod.o \
+		$(obj_dir)seeaux_mod.o $(obj_dir)seei_mod.o \
+		$(obj_dir)setmpi_mod.o $(obj_dir)solver_mod.o \
+		$(obj_dir)solveri_mod.o $(obj_dir)stens_mod.o \
+		$(obj_dir)svd_mod.o $(obj_dir)tic_mod.o \
+		$(obj_dir)w2freq_mod.o
 PB = $(obj_dir)diagon_mod.o
 Pfa = $(obj_dir)hanlert_mod.o $(obj_dir)tic_mod.o
 Phot = $(obj_dir)getrtcle_mod.o $(obj_dir)hanle_mod.o
@@ -344,7 +345,7 @@ W2 = $(obj_dir)iotic_mod.o $(obj_dir)tic_mod.o
 
 # Main
 hanlert:  $(OBJ)
-	   $(CMP) -o $(EXE) $(OBJ) $(LOWOBJ) $(HIOBJ) $(COBJ) $(OMPFLAGS) $(MFLAG) $(LFLAGS)
+	   $(CMP) -o $(EXE) $(OBJ) $(LOWOBJ) $(HIOBJ) $(COBJ) $(OMPFLAGS) $(FITSFLAGS) $(MFLAG) $(LFLAGS)
 
 # Clean
 clean:

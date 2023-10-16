@@ -15,6 +15,8 @@
 #
 #  Changelog:
 #
+#     10/16/2023:    V1.1.2 - Added the nofits option (TdPA)
+#
 #     09/29/2023:    V1.1.1 - Removed most of flag packages (TdPA)
 #
 #     06/05/2020:    V1.1.0 - Compilation optimization (JD)
@@ -39,6 +41,8 @@ opt_hi_intel="-O2"
 opt_report_intel=""
 omp_gnu=""
 omp_intel=""
+fits_gnu="-DFITSSUP"
+fits_intel="-DFITSSUP"
 old_mpi=""
 
 for arg in "$@"; do
@@ -96,6 +100,11 @@ for arg in "$@"; do
     omp_intel="-qopenmp"
 	;;
 
+    --nofits)
+    fits_gnu=""
+    fits_intel=""
+	;;
+
     --oldmpi)
     old_mpi="-Doldmpi"
 	;;
@@ -136,6 +145,7 @@ for arg in "$@"; do
         echo '  --ccompiler=[cc]        C compiler used [default = cc]'
         echo '  --openmp                compile with OpenMP'
         echo '  --oldmpi                for MPI versions before 3.0'
+        echo '  --nofits                do not include support for fits files'
         echo '  --lflags=*              customize flags for blas and lapack libraries [default=-openblas]'
         echo '  --flags=*               customize flags for all files'
         echo '  --flags_=*              customize flags for normal files'
@@ -169,19 +179,21 @@ echo "PREFIX = $prefix" > Makefile
 echo "CC = $ccompiler" >> Makefile
 if [ "$compiler" == "gnu" ]; then
   echo "CMP = mpif90" >> Makefile
-  echo "OPT = -c $opt_gnu $omp_gnu $old_mpi -cpp -fimplicit-none -o" >> Makefile
-  echo "OPT_LOW = -c $opt_low_gnu $omp_gnu -cpp -fimplicit-none -o" >> Makefile
-  echo "OPT_HI = -c $opt_hi_gnu $omp_gnu -cpp -fimplicit-none -o" >> Makefile
+  echo "OPT = -c $opt_gnu $fits_gnu $omp_gnu $old_mpi -cpp -fimplicit-none -o" >> Makefile
+  echo "OPT_LOW = -c $opt_low_gnu $fits_gnu $omp_gnu -cpp -fimplicit-none -o" >> Makefile
+  echo "OPT_HI = -c $opt_hi_gnu $fits_gnu $omp_gnu -cpp -fimplicit-none -o" >> Makefile
   echo "mods = -J" >> Makefile
   echo "OMPFLAGS = $omp_gnu" >> Makefile
+  echo "FITSFLAGS = $fits_gnu" >> Makefile
 fi
 if [ "$compiler" == "intel" ]; then
   echo "CMP = ifort" >> Makefile
-  echo "OPT = -c $opt_intel $opt_report_intel $omp_intel $old_mpi -cpp -implicitnone -o" >> Makefile
-  echo "OPT_LOW = -c $opt_low_intel $opt_report_intel $omp_intel -cpp -implicitnone -o" >> Makefile
-  echo "OPT_HI = -c $opt_hi_intel $opt_report_intel $omp_intel -cpp -implicitnone -o" >> Makefile
+  echo "OPT = -c $opt_intel $opt_report_intel $fits_intel $omp_intel $old_mpi -cpp -implicitnone -o" >> Makefile
+  echo "OPT_LOW = -c $opt_low_intel $opt_report_intel $fits_intel $omp_intel -cpp -implicitnone -o" >> Makefile
+  echo "OPT_HI = -c $opt_hi_intel $opt_report_intel $fits_intel $omp_intel -cpp -implicitnone -o" >> Makefile
   echo "mods = -module " >> Makefile
   echo "OMPFLAGS = $omp_intel" >> Makefile
+  echo "FITSFLAGS = $fits_gnu" >> Makefile
 fi
 echo "LFLAGS = $lflags" >> Makefile
 

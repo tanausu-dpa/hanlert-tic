@@ -10,12 +10,14 @@
 !  Start:
 !     02/16/2023
 !  Last version:
-!     09/28/2023 V3.1.10
+!     10/16/2023 V3.1.11
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/16/2023:   V3.1.11 - Fits support is optional now (TdPA)
 !
 !     09/28/2023:   V3.1.10 - Bugfix: The error message for when
 !                             data, output, and input model atmosphere
@@ -219,11 +221,16 @@
       ! Check if fits file
       !
 
+#ifdef FITSSUP
       ! Determine if fits file
       call name_check(Input%Filename_ob, Input%Fits_Index)
 
       ! If its a fits
       Input%FITSFILE = Input%Fits_Index.gt.0
+#else
+      ! No fits allowed
+      Input%FITSFILE = .False.
+#endif
 
 
       !

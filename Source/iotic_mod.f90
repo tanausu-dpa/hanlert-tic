@@ -10,14 +10,16 @@
 !  Start:
 !     02/22/2023
 !  Last version:
-!     04/10/2023 V3.0.16
+!     10/16/2023 V3.0.17
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     04/10/2023:   V3.0.16 - Bugfix: when writing the result, the
+!     10/16/2023:   V3.0.17 - The fits support is optional (TdPA)
+!
+!     10/04/2023:   V3.0.16 - Bugfix: when writing the result, the
 !                             input and output Stokes parameters were
 !                             being de-scaled. This completely breaks
 !                             the sequential inversion mode, as these
@@ -203,6 +205,8 @@
 
       contains
 
+#ifdef FITSSUP
+
 !#####################################################################
 !#####################################################################
 !#####################################################################
@@ -323,6 +327,7 @@
       return
 
       end subroutine name_check
+#endif
 
 !#####################################################################
 !#####################################################################
@@ -429,14 +434,18 @@
       ! Local
       logical:: check
 
+#ifdef FITSSUP
       integer:: stat,rwmode,blocksize,naxis,hdunum,hdutype,bitpix
       integer, dimension(4):: naxes
+#endif
 
 
       !
       ! Give cache unit a number
       !
       unitC = 17
+
+#ifdef FITSSUP
 
       !
       ! If FITS file
@@ -765,6 +774,7 @@
 
       ! Binary
       else
+#endif
 
         !
         ! Give input unit a number
@@ -789,7 +799,9 @@
           return
         end if
 
+#ifdef FITSSUP
       end if ! Type of file
+#endif
 
       !
       ! Check if there is a cache
@@ -831,9 +843,11 @@
 
       return
 
+#ifdef FITSSUP
 1000  call FTCLOS(unitD, stat)
       aborting = .True.
       return
+#endif
 
       end subroutine open_data_and_cache
 
@@ -854,11 +868,11 @@
       logical, intent(out):: aborting
       integer, intent(in):: unitD
 
+#ifdef FITSSUP
       ! Local
       integer:: stat,hdutype,group,fpixel
       logical:: anynull
       double precision:: nullval
-
 
       ! If fits
       if (fitsfile) then !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! FITS !!
@@ -880,11 +894,14 @@
 
       ! If binary
       else !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! BINARY !!!!
+#endif
 
         ! Read lambda
         read(unitD,err=1100) Sol%omega_input
 
+#ifdef FITSSUP
       end if !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#endif
 
       ! Success
       aborting = .False.
@@ -916,6 +933,7 @@
       logical, intent(out):: aborting
       integer, intent(in):: unitD
 
+#ifdef FITSSUP
       ! Local
       integer:: stat, hdutype,group,fpixel
       logical:: anynull
@@ -948,13 +966,16 @@
 
       ! If binary
       else !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! BINARY !!!!
+#endif
 
         ! Read LOS
         read(unitD,err=1100) Inf_Stokes%mu
         Inf_Stokes%mu = cos(Inf_Stokes%mu)
         read(unitD,err=1100) Inf_Stokes%azimuth
 
+#ifdef FITSSUP
       end if !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#endif
 
       ! Success
       aborting = .False.
@@ -991,11 +1012,15 @@
       integer, dimension(3), intent(in):: finfo
 
       ! Local
+
+      double precision:: daux
+
+#ifdef FITSSUP
       logical:: anynull
 
       integer:: stat, hdutype,group,fpixel
 
-      double precision:: nullval,daux
+      double precision:: nullval
 
       ! If fits
       if (fitsfile) then !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! FITS !!
@@ -1085,6 +1110,7 @@
 
       ! If binary
       else !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! BINARY !!!!
+#endif
 
         ! If only intensity
         if (finfo(1).eq.0) Inf_Stokes%Sigma_in(1:3,:) = 0d0
@@ -1130,7 +1156,9 @@
           end if
         end if ! Constant/wavelength dependent
 
+#ifdef FITSSUP
       end if !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#endif
 
       ! Success
       aborting = .False.
@@ -1166,6 +1194,7 @@
       integer, intent(in):: unitD
       integer, dimension(4), intent(in):: finfo
 
+#ifdef FITSSUP
       ! Local
       logical:: anynull
 
@@ -1222,6 +1251,7 @@
 
       ! If binary
       else !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! BINARY !!!!
+#endif
 
         ! If only intensity
         if (finfo(4).eq.1) Inf_Stokes%Diff_in(1:3,:) = 0d0
@@ -1239,7 +1269,9 @@
 
         end if
 
+#ifdef FITSSUP
       end if !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#endif
 
       ! Success
       aborting = .False.
@@ -1278,11 +1310,17 @@
       double precision, dimension(:), intent(out):: buffer
 
       ! Local
+#ifdef FITSSUP
       logical:: anynull
 
-      integer:: stat, hdutype,group,fpixel,i0,i1,nwp
+      integer:: stat,hdutype,group,fpixel
 
-      double precision:: nullval,daux
+      double precision:: nullval
+#endif
+
+      integer:: i0,i1,nwp
+
+      double precision:: daux
 
 
       ! Size of wavelength package
@@ -1298,6 +1336,8 @@
         nwp = dims(3)*4
 
       end if
+
+#ifdef FITSSUP
 
       !
       ! If FITS file
@@ -1432,6 +1472,7 @@
 
       ! Binary
       else !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! BINARY !!!!
+#endif
 
         ! If LOS
         if (finfo(2).eq.1) then
@@ -1523,7 +1564,9 @@
 
           end if ! Polarization?
         end if ! If pixel diffuse light
+#ifdef FITSSUP
       end if !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#endif
 
       ! Success
       check = .True.

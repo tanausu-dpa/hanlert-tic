@@ -10,12 +10,21 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     10/04/2023 V3.0.8
+!     10/16/2023 V3.0.9
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/16/2023:    V3.0.9 - Made LTElines allocatable to satisfy
+!                             memory warnings (TdPA)
+!                           - The bad normalization files are now
+!                             written in the output directory (TdPA)
+!                           - Use the lower and upper limits of
+!                             Atom%Normp to run the loops (TdPA)
+!                           - Check that %Norm is allocated before
+!                             trying to deallocate (TdPA)
 !
 !     10/04/2023:    V3.0.8 - Bugfix: LTE lines were not working when
 !                             not storing their Voigt profiles. Added
@@ -315,6 +324,7 @@
       !!      Geom(Geometry_class): Structure with geometry data\n
       !!        Input(Input_class): Structure with settings data\n
       !!     Frec(Frequency_class): Structure with frequency data
+      !!            rlimw(logical): Write RAM limit message\n
       !!              lit(logical): If the code had to iterate\n
       !!     polarization(logical): Normalizing profiles for
       !!                            polarization problem\n
@@ -326,7 +336,7 @@
 
       ! IO
       type(Atom_class), dimension(:):: Atom
-      type(LTEline_class), dimension(:):: lines
+      type(LTEline_class), dimension(:), allocatable:: lines
       type(Atmo_class), intent(in):: Atmo
       type(Geometry_class), intent(inout):: Geom
       type(Frequency_class), intent(in):: Frec
@@ -463,8 +473,8 @@
             end if
 
             call normalize(Atom(ia),Atmo,Bstrength,Geom,MPID,Frec, &
-                           Flgsg,njdir,ithv,iphv,Input%MIT_input, &
-                           lit,ofram,los)
+                           Flgsg,Input%folder,njdir,ithv,iphv, &
+                           Input%MIT_input,lit,ofram,los)
 
             if (laborted) return
 
@@ -665,8 +675,9 @@
             end if
 
             ! Call normalization
-            call normalizeI(Atom(ia),Atmo,Geom,MPID,Frec,njdir, &
-                            ithv,iphv,lit,ofram,los)
+            call normalizeI(Atom(ia),Atmo,Geom,MPID,Frec, &
+                            Input%folder,njdir,ithv,iphv,lit, &
+                            ofram,los)
 
             ! Control
             if (laborted) return
@@ -763,6 +774,8 @@
       !!           MPID(MPI_class): Structure with MPI data\n
       !!     Frec(Frequency_class): Structure with frequency data
       !!        Flgsg(Fctsg_class): Structure with factorials and
+      !!                            signs\n
+      !!    folder(character(500)): Output folder path\n
       !!            njdir(integer): Number of directions\n
       !!          ithv(integer(:)): Indexing of polar directions\n
       !!          ithv(integer(:)): Indexing of azimuth directions\n
@@ -774,7 +787,8 @@
       !!              LOS(logical): Indicates if we are normalizing
       !!                            LOS directions
       subroutine normalize(Atom,Atmo,Bstrength,Geom,MPID,Frec, &
-                           Flgsg,njdir,ithv,iphv,MIT,lp,ofram,LOS)
+                           Flgsg,folder,njdir,ithv,iphv,MIT,lp, &
+                           ofram,LOS)
 
       ! I/O
 
@@ -784,6 +798,7 @@
       type(Frequency_class), intent(in):: Frec
       type(Fctsg_class):: Flgsg
       type(MPI_class):: MPID
+      character(len=500), intent(in):: folder
       logical, intent(in):: lp, LOS
       logical, intent(out):: ofram
       integer, intent(in):: MIT, njdir
@@ -959,9 +974,9 @@
 
       ! Check Normp is not allocated
       if (associated(Atom%Normp)) then
-        do jdir=1,size(Atom%Normp,3)
-          do iz=Rz0,Rz1
-            do jtran=1,Atom%ntran
+        do jdir=lbound(Atom%Normp,3),ubound(Atom%Normp,3)
+          do iz=lbound(Atom%Normp,2),ubound(Atom%Normp,2)
+            do jtran=lbound(Atom%Normp,1),ubound(Atom%Normp,1)
               if (allocated(Atom%Normp(jtran,iz,jdir)%prof)) &
                 deallocate(Atom%Normp(jtran,iz,jdir)%prof)
               if (allocated(Atom%Normp(jtran,iz,jdir)%Norm)) &
@@ -2445,7 +2460,8 @@
         do jdir=1,size(Atom%Normp,3)
           do iz=Rz0,Rz1
             do jtran=1,Atom%ntran
-              deallocate(Atom%Normp(jtran,iz,jdir)%Norm)
+              if (allocated(Atom%Normp(jtran,iz,jdir)%Norm)) &
+                deallocate(Atom%Normp(jtran,iz,jdir)%Norm)
             end do
           end do
         end do
@@ -2498,7 +2514,8 @@
                         if (d1.lt.BADNORM.or.d1.gt.2d0-BADNORM) then
                           outofbound(jtran) = outofbound(jtran) + 1
                           if (obadnorm) &
-                            call writebadbound(Atom%Element,iz,jdir, &
+                            call writebadbound(folder, &
+                                               Atom%Element,iz,jdir, &
                                                .True.,.False.,jtran, &
                                                iU,iL,1,1,d1)
                         end if
@@ -2537,7 +2554,8 @@
                         if (d1.lt.BADNORM.or.d1.gt.2d0-BADNORM) then
                           outofbound(jtran) = outofbound(jtran) + 1
                           if (obadnorm) &
-                            call writebadbound(Atom%Element,iz,jdir, &
+                            call writebadbound(folder, &
+                                               Atom%Element,iz,jdir, &
                                               .True.,.False.,jtran, &
                                               iU,iL,1,1,d1)
                         end if
@@ -2575,7 +2593,8 @@
                                 d1.gt.2d0-BADNORM) then
                               outofbound(jtran) = outofbound(jtran)+1
                               if (obadnorm) &
-                                call writebadbound(Atom%Element, &
+                                call writebadbound(folder, &
+                                                   Atom%Element, &
                                                    iz,jdir, &
                                                    .True.,.True., &
                                                    jtran, &
@@ -2619,7 +2638,8 @@
                                 d1.gt.2d0-BADNORM) then
                               outofbound(jtran) = outofbound(jtran)+1
                               if (obadnorm) &
-                                call writebadbound(Atom%Element,iz, &
+                                call writebadbound(folder, &
+                                                   Atom%Element,iz, &
                                                    jdir,.True., &
                                                   .True.,jtran, &
                                                   iMu,iMl,iU,iL,d1)
@@ -4012,6 +4032,7 @@
       !!      Geom(Geometry_class): Structure with geometry data\n
       !!           MPID(MPI_class): Structure with MPI data\n
       !!     Frec(Frequency_class): Structure with frequency data\n
+      !!    folder(character(500)): Output folder path\n
       !!            njdir(integer): Number of directions\n
       !!          ithv(integer(:)): Indexing of polar directions\n
       !!          ithv(integer(:)): Indexing of azimuth directions\n
@@ -4020,8 +4041,8 @@
       !!            ofram(logical): Indicates if out of RAM\n
       !!              LOS(logical): Indicates if we are normalizing
       !!                            LOS directions
-      subroutine normalizeI(Atom,Atmo,Geom,MPID,Frec,njdir,ithv, &
-                            iphv,lio,ofram,LOS)
+      subroutine normalizeI(Atom,Atmo,Geom,MPID,Frec,folder, &
+                            njdir,ithv,iphv,lio,ofram,LOS)
 
       ! I/O
 
@@ -4030,6 +4051,7 @@
       type(Geometry_class), intent(inout):: Geom
       type(MPI_class), intent(inout):: MPID
       type(Frequency_class), intent(in):: Frec
+      character(len=500), intent(in):: folder
       logical, intent(in):: lio, LOS
       logical, intent(out):: ofram
       integer, intent(in):: njdir
@@ -4935,7 +4957,8 @@
         do jdir=1,size(Atom%Normp,3)
           do iz=Rz0,Rz1
             do jtran=1,Atom%ntran
-              deallocate(Atom%Normp(jtran,iz,jdir)%Norm)
+              if (allocated(Atom%Normp(jtran,iz,jdir)%Norm)) &
+                deallocate(Atom%Normp(jtran,iz,jdir)%Norm)
             end do
           end do
         end do
@@ -4979,7 +5002,8 @@
                     if (d1.lt.BADNORM.or.d1.gt.2d0-BADNORM) then
                       outofbound(i1) = outofbound(i1) + 1
                       if (obadnorm) &
-                        call writebadbound(Atom%Element,iz,jdir, &
+                        call writebadbound(folder, &
+                                           Atom%Element,iz,jdir, &
                                            .False.,.False.,jtran, &
                                            jj,1,1,1,d1)
                     end if
@@ -5012,7 +5036,8 @@
                     if (d1.lt.BADNORM.or.d1.gt.2d0-BADNORM) then
                       outofbound(i1) = outofbound(i1) + 1
                       if (obadnorm) &
-                        call writebadbound(Atom%Element,iz,jdir, &
+                        call writebadbound(folder, &
+                                           Atom%Element,iz,jdir, &
                                            .False.,.False.,jtran, &
                                            jj,1,1,1,d1)
                     end if
@@ -5880,11 +5905,12 @@
 !#####################################################################
 
       !> Outputs bad normalization data
-      subroutine writebadbound(element,iz,jdir,pol,field,jtran, &
-                               a1,a2,a3,a4,d1)
+      subroutine writebadbound(folder,element,iz,jdir,pol,field, &
+                               jtran,a1,a2,a3,a4,d1)
 
       ! I/O
       character(len=2), intent(in):: element
+      character(len=500), intent(in):: folder
       logical, intent(in):: pol,field
       integer, intent(in):: iz,jdir,jtran,a1,a2,a3,a4
       double precision, intent(in):: d1
@@ -5898,11 +5924,12 @@
 
       !
       ! ERROR
-      inquire(file='badnorm'//CPUC, exist=exists)
+      inquire(file=trim(folder)//'/badnorm'//CPUC, exist=exists)
       if(.not.exists)then
-        open(800,file='badnorm'//CPUC)
+        open(800,file=trim(folder)//'/badnorm'//CPUC)
       else
-        open(800,file='badnorm'//CPUC,position='append')
+        open(800,file=trim(folder)//'/badnorm'//CPUC, &
+             position='append')
       endif
 
       ! 1D case

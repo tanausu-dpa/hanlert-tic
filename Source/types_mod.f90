@@ -13,12 +13,14 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     09/29/2023 V3.0.22
+!     10/16/2023 V3.0.23
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/16/2023:   V3.0.23 - Added twp_step_pol to Input_class (TdPA)
 !
 !     09/29/2023:   V3.0.22 - Added Kcut and Krad to Atom_class (TdPA)
 !                           - Added Kcut_input, keep_raml, keep_mpil,
@@ -1697,7 +1699,9 @@
         ! input spectrum loaded, restrict in tau_c, restrict in z,
         ! angle-averaged forced in intensity problem, force intensity
         ! problem to be static, if there is a file for weights,
-        ! keep collisions log, keep MPI log, keep, MPI detailed log
+        ! keep collisions log, keep MPI log, keep, MPI detailed log,
+        ! if polarization with magnetic field must be done in
+        ! two steps
         logical:: AV, appendMRC, appendMRCI, out_contr, out_tau1, &
                   store, storeI, Pcorr, Raman, keepIsol, &
                   NG, keep_back, keep_damp, keep_cols, bfieldn, &
@@ -1708,7 +1712,7 @@
                   keep_JKQ, keep_stokesQ, keep_MRC, IWskip, &
                   skip_disk, lspect_input, rest_tau, rest_z, AVI, &
                   static_int, linv_weight, keep_coll, keep_mpil, &
-                  keep_mpidl
+                  keep_mpidl, two_step_pol
 
         ! If asymmetry input
         logical, dimension(2):: lasym

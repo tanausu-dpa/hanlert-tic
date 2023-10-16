@@ -1002,6 +1002,17 @@ ITER_2ORD
 
   * Description: Account for partial frequency redistribution effects.
 
+ITER_NB
+-------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string: Yes, No; default: No
+
+  * Description: If solving polarization with magnetic field, solve first the non-magnetic problem. It is most beneficial when the intensity problem is axial (and has been configured as axial). Otherwise, it is not necessarily faster, but problem dependent.
+
 ITER_MRC_I
 ----------
 

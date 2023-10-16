@@ -10,12 +10,15 @@
 !  Start:
 !     12/03/2019
 !  Last version:
-!     08/07/2023 V3.0.6
+!     10/16/2023 V3.0.7
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/16/2023:    V3.0.7 - Ensure Atmo%zalt is allocated with the
+!                             correct size in getztau (TdPA)
 !
 !     08/07/2023:    V3.0.6 - Added exit condition on the lower
 !                             index in restrict_zaxis (TdPA)
@@ -144,7 +147,14 @@
       if (pid.gt.0.and.can_leave) return
 
       ! Allocate zalt scale
-      allocate(Atmo%zalt(nZ))
+      if (allocated(Atmo%zalt)) then
+        if (nZ.ne.size(Atmo%zalt)) then
+          deallocate(Atmo%zalt)
+          allocate(Atmo%zalt(nZ))
+        end if
+      else
+        allocate(Atmo%zalt(nZ))
+      end if
 
       ! If tau was given
       if (ztau) then

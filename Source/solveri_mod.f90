@@ -12,12 +12,23 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     08/28/2023 V3.0.12
+!     10/16/2023 V3.0.13
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/16/2023:   V3.0.13 - Made LTElines allocatable to satisfy
+!                             memory warnings (TdPA)
+!                           - Added number of azimuths variable to
+!                             the JKQgen* calls. This is used to
+!                             allocate Stokes with its real size,
+!                             which can be different to Geom%nPh
+!                             if running a two-step solution (TdPA)
+!                           - Bugfix: Wrong order of indexes when
+!                             copying axial intensity in the
+!                             JKQgen_alt routine (TdPA)
 !
 !     08/28/2023:   V3.0.12 - Wrong check in emergenceI_serial
 !                             to free the RT memory (TdPA)
@@ -511,7 +522,7 @@
       ! I/O
 
       type(Atom_class), dimension(:):: Atom
-      type(LTEline_class), dimension(:):: LTElines
+      type(LTEline_class), dimension(:), allocatable:: LTElines
       type(Rhoc_class), dimension(:):: Rho_old
       type(Atmo_class):: Atmo
       type(Continuum_class):: Cont
@@ -588,7 +599,7 @@
       ! I/O
 
       type(Atom_class), dimension(:):: Atom
-      type(LTEline_class), dimension(:):: LTElines
+      type(LTEline_class), dimension(:), allocatable:: LTElines
       type(Rhoc_class), dimension(:):: Rho_old
       type(Atmo_class):: Atmo
       type(Continuum_class):: Cont
@@ -2630,7 +2641,7 @@
       ! I/O
 
       type(Atom_class), dimension(:):: Atom
-      type(LTEline_class), dimension(:):: LTElines
+      type(LTEline_class), dimension(:), allocatable:: LTElines
       type(Rhoc_class), dimension(:):: Rho_old
       type(Atmo_class):: Atmo
       type(Continuum_class):: Cont
@@ -4630,7 +4641,7 @@
       ! I/O
 
       type(Atom_class), dimension(:):: Atom
-      type(LTEline_class), dimension(:):: LTElines
+      type(LTEline_class), dimension(:), allocatable:: LTElines
       type(Rhoc_class), dimension(:):: Rho_old
       type(Atmo_class):: Atmo
       type(Continuum_class):: Cont
@@ -5744,7 +5755,7 @@
       ! I/O
 
       type(Atom_class), dimension(:):: Atom
-      type(LTEline_class), dimension(:):: LTElines
+      type(LTEline_class), dimension(:), allocatable:: LTElines
       type(Atmo_class):: Atmo
       type(Continuum_class):: Cont
       type(Frequency_class):: Frec
@@ -5799,7 +5810,7 @@
       ! I/O
 
       type(Atom_class), dimension(:):: Atom
-      type(LTEline_class), dimension(:):: LTElines
+      type(LTEline_class), dimension(:), allocatable:: LTElines
       type(Atmo_class):: Atmo
       type(Continuum_class):: Cont
       type(Frequency_class):: Frec
@@ -6558,7 +6569,7 @@
       ! I/O
 
       type(Atom_class), dimension(:):: Atom
-      type(LTEline_class), dimension(:):: LTElines
+      type(LTEline_class), dimension(:), allocatable:: LTElines
       type(Atmo_class):: Atmo
       type(Continuum_class):: Cont
       type(Frequency_class):: Frec
@@ -8493,6 +8504,7 @@
       !!                            intensities are to be corrected\n
       !!      Bfield(Bfield_blass): Structure with magnetic field
       !!                            data\n
+      !!             rnPh(integer): Allocation size for Stokes\n
       !!  Stokes0(dfloat(:,:,:,:)): Intensity\n
       !!          J00(dfloat(:,:)): Mean intensity integrated over
       !!                            absorption profile\n
@@ -8510,7 +8522,7 @@
       !!       J00P(dfloat(:,:,:)): Intensity integrals in the
       !!                            photoionization rates
       subroutine JKQgenerate(Atom,Rho_old,Atmo,Frec,Geom,MPID, &
-                             Flgsg,Pcorr,Bfield, &
+                             Flgsg,Pcorr,Bfield,rnPh, &
                              Stokes0,J00,J00S,J00C, &
                              Stokes,JKQ,JKQS,JKQC,J00P)
 
@@ -8525,6 +8537,7 @@
       type(Geometry_class):: Geom
       type(Bfield_class), intent(in):: Bfield
       logical, intent(in):: Pcorr
+      integer, intent(in):: rnPh
       double precision, dimension(:,:,:,:), allocatable:: Stokes0
       double precision, dimension(:,:), allocatable:: J00
       double precision, dimension(:,:), allocatable:: J00S
@@ -8539,19 +8552,19 @@
       if (MPID%mpi) then
         if (MPID%alternJgen) then
           call JKQgen_alt(Atom,Rho_old,Atmo,Frec,Geom, &
-                          MPID,Flgsg,Pcorr,Bfield, &
+                          MPID,Flgsg,Pcorr,Bfield,rnPh, &
                           Stokes0,J00,J00S,J00C, &
                           Stokes,JKQ,JKQS,JKQC,J00P)
         else
           call JKQgen(Atom,Rho_old,Atmo,Frec,Geom,MPID, &
-                      Flgsg,Pcorr,Bfield, &
+                      Flgsg,Pcorr,Bfield,rnPh, &
                       Stokes0,J00,J00S,J00C, &
                       Stokes,JKQ,JKQS,JKQC,J00P)
         end if
       ! Serial
       else
         call JKQgen_serial(Atom,Rho_old,Atmo,Frec,Geom, &
-                           MPID,Flgsg,Pcorr,Bfield, &
+                           MPID,Flgsg,Pcorr,Bfield,rnPh, &
                            Stokes0,J00,J00S,J00C, &
                            Stokes,JKQ,JKQS,JKQC,J00P)
       end if
@@ -8579,6 +8592,7 @@
       !!                            intensities are to be corrected\n
       !!      Bfield(Bfield_blass): Structure with magnetic field
       !!                            data\n
+      !!             rnPh(integer): Allocation size for Stokes\n
       !!  Stokes0(dfloat(:,:,:,:)): Intensity\n
       !!          J00(dfloat(:,:)): Mean intensity integrated over
       !!                            absorption profile\n
@@ -8596,7 +8610,8 @@
       !!       J00P(dfloat(:,:,:)): Intensity integrals in the
       !!                            photoionization rates
       subroutine JKQgen(Atom,Rho_old,Atmo,Frec,Geom,MPID, &
-                        Flgsg,Pcorr,Bfield,Stokes0,J00,J00S,J00C, &
+                        Flgsg,Pcorr,Bfield,rnPh, &
+                        Stokes0,J00,J00S,J00C, &
                         Stokes,JKQ,JKQS,JKQC,J00P)
 
       ! I/O
@@ -8610,6 +8625,7 @@
       type(Geometry_class):: Geom
       type(Bfield_class), intent(in):: Bfield
       logical, intent(in):: Pcorr
+      integer, intent(in):: rnPh
       double precision, dimension(:,:,:,:), allocatable:: Stokes0
       double precision, dimension(:,:), allocatable:: J00
       double precision, dimension(:,:), allocatable:: J00S
@@ -9189,9 +9205,9 @@
       ! Allocate the extra Stokes parameters
 !$omp single
       if (KSTK) then
-        allocate(Stokes(0:3,nfreq,Geom%nPh,Geom%nTh,Rz0:Rz1))
+        allocate(Stokes(0:3,nfreq,rnPh,Geom%nTh,Rz0:Rz1))
       else
-        allocate(Stokes(0:3,nfreq,Geom%nPh,Geom%nTh,Rz0:Rz0+1))
+        allocate(Stokes(0:3,nfreq,rnPh,Geom%nTh,Rz0:Rz0+1))
       end if
 !$omp end single
 
@@ -9288,6 +9304,7 @@
       !!                            intensities are to be corrected\n
       !!      Bfield(Bfield_blass): Structure with magnetic field
       !!                            data\n
+      !!             rnPh(integer): Allocation size for Stokes\n
       !!  Stokes0(dfloat(:,:,:,:)): Intensity\n
       !!          J00(dfloat(:,:)): Mean intensity integrated over
       !!                            absorption profile\n
@@ -9305,7 +9322,7 @@
       !!       J00P(dfloat(:,:,:)): Intensity integrals in the
       !!                            photoionization rates
       subroutine JKQgen_alt(Atom,Rho_old,Atmo,Frec,Geom, &
-                            MPID,Flgsg,Pcorr,Bfield, &
+                            MPID,Flgsg,Pcorr,Bfield,rnPh, &
                             Stokes0,J00,J00S,J00C, &
                             Stokes,JKQ,JKQS,JKQC,J00P)
 
@@ -9320,6 +9337,7 @@
       type(Geometry_class):: Geom
       type(Bfield_class), intent(in):: Bfield
       logical, intent(in):: Pcorr
+      integer, intent(in):: rnPh
       double precision, dimension(:,:,:,:), allocatable:: Stokes0
       double precision, dimension(:,:), allocatable:: J00
       double precision, dimension(:,:), allocatable:: J00S
@@ -9900,9 +9918,9 @@
       ! Allocate the extra Stokes parameters
 !$omp single
       if (KSTK) then
-        allocate(Stokes(0:3,nfreq,Geom%nPh,Geom%nTh,Rz0:Rz1))
+        allocate(Stokes(0:3,nfreq,rnPh,Geom%nTh,Rz0:Rz1))
       else
-        allocate(Stokes(0:3,nfreq,Geom%nPh,Geom%nTh,Rz0:Rz0+1))
+        allocate(Stokes(0:3,nfreq,rnPh,Geom%nTh,Rz0:Rz0+1))
       end if
 !$omp end single
 
@@ -9911,7 +9929,7 @@
       if (KSTK) then
         if (axiali.and..not.axial) then
           do iph=1,Geom%nPh
-            Stokes(0,iph,:,:,:) = Stokes0(1,:,:,:)
+            Stokes(0,:,iph,:,:) = Stokes0(:,1,:,:)
           end do
         else
           Stokes(0,:,:,:,:) = Stokes0
@@ -9998,6 +10016,7 @@
       !!                            intensities are to be corrected\n
       !!      Bfield(Bfield_blass): Structure with magnetic field
       !!                            data\n
+      !!             rnPh(integer): Allocation size for Stokes\n
       !!  Stokes0(dfloat(:,:,:,:)): Intensity\n
       !!          J00(dfloat(:,:)): Mean intensity integrated over
       !!                            absorption profile\n
@@ -10015,7 +10034,7 @@
       !!       J00P(dfloat(:,:,:)): Intensity integrals in the
       !!                            photoionization rates
       subroutine JKQgen_serial(Atom,Rho_old,Atmo,Frec,Geom, &
-                               MPID,Flgsg,Pcorr,Bfield, &
+                               MPID,Flgsg,Pcorr,Bfield,rnPh, &
                                Stokes0,J00,J00S,J00C, &
                                Stokes,JKQ,JKQS,JKQC,J00P)
 
@@ -10030,6 +10049,7 @@
       type(Geometry_class):: Geom
       type(Bfield_class), intent(in):: Bfield
       logical, intent(in):: Pcorr
+      integer, intent(in):: rnPh
       ! Apparently, deferring allocatables keep the custom limits
       double precision, dimension(:,:,:,:), allocatable:: Stokes0
       double precision, dimension(:,:), allocatable:: J00
@@ -10274,9 +10294,9 @@
       ! Allocate the extra Stokes parameters
 !$omp single
       if (KSTK) then
-        allocate(Stokes(0:3,nfreq,Geom%nPh,Geom%nTh,Rz0:Rz1))
+        allocate(Stokes(0:3,nfreq,rnPh,Geom%nTh,Rz0:Rz1))
       else
-        allocate(Stokes(0:3,nfreq,Geom%nPh,Geom%nTh,Rz0:Rz0+1))
+        allocate(Stokes(0:3,nfreq,rnPh,Geom%nTh,Rz0:Rz0+1))
       end if
 !$omp end single
 
@@ -10290,7 +10310,7 @@
       if (KSTK) then
         if (axiali.and..not.axial) then
           do iph=1,Geom%nPh
-            Stokes(0,iph,:,:,:) = Stokes0(1,:,:,:)
+            Stokes(0,:,iph,:,:) = Stokes0(:,1,:,:)
           end do
         else
           Stokes(0,:,:,:,:) = Stokes0

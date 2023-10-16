@@ -12,12 +12,15 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     08/24/2023 V3.0.10
+!     09/16/2023 V3.0.11
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     09/16/2023:   V3.0.11 - Made obs_wave allocatable to satisfy
+!                             memory warnings (TdPA)
 !
 !     08/24/2023:   V3.0.10 - Added the possibility to force
 !                             wavelengths in the inversion data in the
@@ -557,7 +560,8 @@
       type(Frequency_class):: Frec
       logical, intent(in):: lp
       double precision, intent(in):: maxB
-      double precision, dimension(:), intent(in):: obs_wave
+      double precision, dimension(:), allocatable, intent(in):: &
+                                                              obs_wave
 
       ! Local
 

@@ -6,6 +6,9 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an
 # Hao Li
 #
+# 10/16/2023: V3.0.24 - Formatting (TdPA)
+#                     - Added ITER_NB (TdPA)
+#
 # 10/04/2023: V3.0.23 - Bugfix: Writing 'sequential' in the
 #                       inversion mode would result in a thermal
 #                       inversion because the word contains the
@@ -2420,16 +2423,17 @@ def rInput():
     check = 0
     if 'FORCE' in Dictionary:
       val = Dictionary['FORCE'][0]
-      if val == 'I' or val == 'IN' or val == 'INT' or val == 'INTE' or \
-         val == 'INTEN' or val == 'INTENS' or val == 'INTENSI' or \
-         val == 'INTENSIT' or val == 'INTENSITY' or val == 'OI':
+      if val == 'I' or val == 'IN' or val == 'INT' or \
+         val == 'INTE' or val == 'INTEN' or val == 'INTENS' or \
+         val == 'INTENSI' or val == 'INTENSIT' or \
+         val == 'INTENSITY' or val == 'OI':
         f.write('I\n')
         check = 1
-      if val == 'P' or val == 'PO' or val == 'POL' or val == 'POLA' or \
-         val == 'POLAR' or val == 'POLARI' or val == 'POLARIZ' or \
-         val == 'POLARIZA' or val == 'POLARIZAT' or \
-         val == 'POLARIZATI' or val == 'POLARIZATIO' or \
-         val == 'POLARIZATION' or val == 'OP':
+      if val == 'P' or val == 'PO' or val == 'POL' or \
+         val == 'POLA' or val == 'POLAR' or val == 'POLARI' or \
+         val == 'POLARIZ' or val == 'POLARIZA' or \
+         val == 'POLARIZAT' or val == 'POLARIZATI' or \
+         val == 'POLARIZATIO' or val == 'POLARIZATION' or val == 'OP':
         f.write('P\n')
         check = 1
       if val == 'A' or val == 'AL' or val == 'ALL':
@@ -3696,6 +3700,23 @@ def rInput():
     check = 0
     if 'ITER_2ORD' in Dictionary:
       val = Dictionary['ITER_2ORD'][0]
+      if val == 'Y' or val == 'YE' or val == 'YES' or \
+         val == 'S' or val =='SI':
+        f.write('Y\n')
+        check = 1
+      if val == 'N' or val == 'NO' or val == 'NON':
+        f.write('N\n')
+        check = 1
+    if check == 0:
+      f.write('N\n')
+  else:
+    f.write('N\n')
+
+  # ITER_NB
+  if rmode >= -1 and rmode <= 1:
+    check = 0
+    if 'ITER_NB' in Dictionary:
+      val = Dictionary['ITER_NB'][0]
       if val == 'Y' or val == 'YE' or val == 'YES' or \
          val == 'S' or val =='SI':
         f.write('Y\n')

@@ -12,12 +12,19 @@
 !  Start:
 !     06/28/2022
 !  Last version:
-!     10/04/2023 V3.1.2
+!     10/16/2023 V3.1.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/16/2023:    V3.1.3 - Moved the deallocation of the damping
+!                             from free_local_Atom to the new
+!                             free_damp routine (TdPA)
+!                           - Added free_local_geom routine (TdPA)
+!                           - Added free_damp routine. This one is
+!                             called from free_pix (TdPA)
 !
 !     10/04/2023:    V3.1.2 - When freeing the profiles for LTE lines,
 !                             get the range limits from the array
@@ -69,6 +76,9 @@
 !  free_local_Atom:
 !    Deallocate atomic quantities generated during a call to hanle
 !
+!  free_local_geom:
+!    Deallocate geometry generated during a call to hanle
+!
 !  free_local_CGF:
 !    Deallocate continuum, geometry, and frequency quantities
 !  generated during a call to hanle
@@ -94,6 +104,9 @@
 !
 !  free_cols:
 !    Deallocate collisions for active atoms
+!
+!  free_damp:
+!    Deallocate damping coefficients for list of atoms
 !
 !  free_B:
 !    Deallocate magnetic field arrays
@@ -124,13 +137,11 @@
 !#####################################################################
 
       !> Deallocate memory that depends on the synthesis run\n
-      !!      Atom(Atom_class): Atom structures (active)\n
-      !!     Atomb(Atom_class): Atom structures (passive)
-      subroutine free_local_Atom(Atom,Atomb)
+      !!      Atom(Atom_class): Atom structures (active)
+      subroutine free_local_Atom(Atom)
 
       ! I/O
       type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:):: Atomb
 
       ! Local
       integer:: ii,jj,jdir,jtran,iz
@@ -147,8 +158,6 @@
         if (allocated(Atom(ii)%evec)) deallocate(Atom(ii)%evec)
 
         ! Damping
-        if (allocated(Atom(ii)%damp)) deallocate(Atom(ii)%damp)
-        if (allocated(Atom(ii)%ldamp)) deallocate(Atom(ii)%ldamp)
 
         ! Photoionization
         do jj=1,Atom(ii)%nphot
@@ -181,18 +190,31 @@
 
       end do ! Atoms
 
-      ! For each passive atom
-      do ii=1,nAb
-
-        ! Damping
-        if (allocated(Atomb(ii)%damp)) deallocate(Atomb(ii)%damp)
-        if (allocated(Atomb(ii)%ldamp)) deallocate(Atomb(ii)%ldamp)
-
-      end do ! Passive atoms
-
       return
 
       end subroutine free_local_Atom
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Deallocate memory that depends on the synthesis run\n
+      !!  Geom(Geometry_class): Structure with geometry data\n
+      subroutine free_local_geom(Geom)
+
+      ! I/O
+      type(Geometry_class):: Geom
+
+
+      !
+      ! Geometry
+      !
+      if (allocated(Geom%TB)) deallocate(Geom%TB)
+      if (allocated(Geom%TBL)) deallocate(Geom%TBL)
+
+      return
+
+      end subroutine free_local_geom
 
 !#####################################################################
 !#####################################################################
@@ -280,22 +302,20 @@
 
       !> Deallocate memory that depends on the synthesis run\n
       !!        Atom(Atom_class): Atom structures (active)\n
-      !!       Atomb(Atom_class): Atom structures (passive)\n
       !!   Cont(Continuum_class): Structure with background opacity
       !!    Geom(Geometry_class): Structure with geometry data\n
       !!   Frec(Frequency_class): Structure with frequency data\n
       !! LTElines(LTEline_class): Structure with the LTE line data
-      subroutine free_local(Atom,Atomb,Cont,Geom,Frec,LTElines)
+      subroutine free_local(Atom,Cont,Geom,Frec,LTElines)
 
       ! I/O
       type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:):: Atomb
       type(LTEline_class), dimension(:), allocatable:: LTElines
       type(Continuum_class):: Cont
       type(Geometry_class):: Geom
       type(Frequency_class):: Frec
 
-      call free_local_Atom(Atom,Atomb)
+      call free_local_Atom(Atom)
       call free_local_CGF(Cont,Geom,Frec)
       call free_local_LTE(LTElines)
 
@@ -596,6 +616,36 @@
 !#####################################################################
 !#####################################################################
 
+      !> Free data on damping\n
+      !!    Atom(Atom_class): Atom structures\n
+      !!         nn(integer): Size of Atom array
+      subroutine free_damp(Atom,nn)
+
+      ! I/O
+      type(Atom_class), dimension(:):: Atom
+      integer, intent(in):: nn
+
+      ! Local
+      integer:: ii
+
+      !
+      ! Atom
+      !
+
+      ! For each atom
+      do ii=1,nn
+
+        if (allocated(Atom(ii)%damp)) deallocate(Atom(ii)%damp)
+        if (allocated(Atom(ii)%ldamp)) deallocate(Atom(ii)%ldamp)
+
+      end do ! Atoms
+
+      end subroutine free_damp
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
       !> Deallocate memory for magnetic field\n
       !!  Bfield(Bfield_class): Structure with magnetic field data
       subroutine free_B(Bfield)
@@ -642,6 +692,10 @@
 
       ! Free collisions
       call free_cols(Atom)
+
+      ! Free damping
+      call free_damp(Atom,nA)
+      if (nAb.gt.0) call free_Damp(Atomb,nAb)
 
       ! Free Magnetic field
       call free_B(Bfield)

@@ -11,12 +11,14 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     09/29/2023 V3.0.16
+!     10/16/2023 V3.0.17
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     09/29/2023:   V3.0.16 - Read Input%two_step_pol (TdPA)
 !
 !     09/29/2023:   V3.0.16 - Read Input%Kcut_input, Input%keep_coll,
 !                             Input%keep_mpil, and variable
@@ -1183,6 +1185,14 @@
       else
         Input%iter_ord = 1
         PRD = .False.
+      end if
+
+      ! If solving in two steps
+      read(100,*,err=1100) cdump
+      if(cdump.eq.'Y')then
+        Input%two_step_pol = .True.
+      else
+        Input%two_step_pol = .False.
       end if
 
       ! Maximum relative change to consider convergence

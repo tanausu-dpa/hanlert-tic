@@ -519,7 +519,7 @@ MODE
     
     - string: solve, read, both
 
-  * Description: Specify what to do in the formal solution, solving from standard initialization (solve), read a previous solution and continue iterating (both), or read a previous solution and just perform the last formal solutions (read).
+  * Description: Specify what to do in the formal solution, solving from standard initialization (solve), read a previous solution and continue iterating (both), or read a previous solution and just perform the last formal solutions (read). WARNING: When using both with an only intensity solution file, it will be assumed that such a solution is fully converged.
 
 FORCE
 -----
@@ -1471,6 +1471,19 @@ ITER_2ORD
     - string: Yes, No; default: No
 
   * Description: Account for partial frequency redistribution effects.
+
+ITER_NB
+-------
+
+  * OPTIONAL
+
+  * Modes: 1D, 15D, INV
+
+  * Formats:
+    
+    - string: Yes, No; default: No
+
+  * Description: If solving polarization with magnetic field, solve first the non-magnetic problem. It is most beneficial when the intensity problem is axial (and has been configured as axial). Otherwise, it is not necessarily faster, but problem dependent.
 
 ITER_MRC_I
 ----------

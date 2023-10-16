@@ -12,12 +12,15 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     09/29/2023 V3.0.12
+!     10/16/2023 V3.0.13
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/16/2023:   V3.0.13 - Made LTElines allocatable to satisfy
+!                             memory warnings (TdPA)
 !
 !     09/29/2023:   V3.0.12 - Added calculation of radiation field
 !                             tensors with Q<0 from conjugation rules
@@ -406,7 +409,7 @@
       ! I/O
 
       type(Atom_class), dimension(:):: Atom
-      type(LTEline_class), dimension(:):: LTElines
+      type(LTEline_class), dimension(:), allocatable:: LTElines
       type(Rhoc_class), dimension(:):: Rho_old
       type(Atmo_class):: Atmo
       type(Continuum_class):: Cont
@@ -486,7 +489,7 @@
       ! I/O
 
       type(Atom_class), dimension(:):: Atom
-      type(LTEline_class), dimension(:):: LTElines
+      type(LTEline_class), dimension(:), allocatable:: LTElines
       type(Rhoc_class), dimension(:):: Rho_old
       type(Atmo_class):: Atmo
       type(Continuum_class):: Cont
@@ -1338,7 +1341,8 @@
 
             ! Send Stokes
             do while (.True.)
-              call MPI_SEND(Stokes_s(0,if0,Rz0,1,1), MPID%size4(pid), &
+              call MPI_SEND(Stokes_s(0,if0,Rz0,1,1), &
+                            MPID%size4(pid), &
                             MPI_DOUBLE_PRECISION, 0, pid, &
                             MPI_COMM_RT, ierr)
               if (ierr.eq.0) exit
@@ -2074,7 +2078,7 @@
       ! I/O
 
       type(Atom_class), dimension(:):: Atom
-      type(LTEline_class), dimension(:):: LTElines
+      type(LTEline_class), dimension(:), allocatable:: LTElines
       type(Rhoc_class), dimension(:):: Rho_old
       type(Atmo_class):: Atmo
       type(Continuum_class):: Cont
@@ -3633,7 +3637,7 @@
       ! I/O
 
       type(Atom_class), dimension(:):: Atom
-      type(LTEline_class), dimension(:):: LTElines
+      type(LTEline_class), dimension(:), allocatable:: LTElines
       type(Rhoc_class), dimension(:):: Rho_old
       type(Atmo_class):: Atmo
       type(Continuum_class):: Cont
@@ -4600,7 +4604,7 @@
       ! I/O
 
       type(Atom_class), dimension(:):: Atom
-      type(LTEline_class), dimension(:):: LTElines
+      type(LTEline_class), dimension(:), allocatable:: LTElines
       type(Atmo_class):: Atmo
       type(Continuum_class):: Cont
       type(Frequency_class):: Frec
@@ -4669,7 +4673,7 @@
       ! I/O
 
       type(Atom_class), dimension(:):: Atom
-      type(LTEline_class), dimension(:):: LTElines
+      type(LTEline_class), dimension(:), allocatable:: LTElines
       type(Atmo_class):: Atmo
       type(Continuum_class):: Cont
       type(Frequency_class):: Frec
@@ -5461,7 +5465,7 @@
       ! I/O
 
       type(Atom_class), dimension(:):: Atom
-      type(LTEline_class), dimension(:):: LTElines
+      type(LTEline_class), dimension(:), allocatable:: LTElines
       type(Atmo_class):: Atmo
       type(Continuum_class):: Cont
       type(Frequency_class):: Frec

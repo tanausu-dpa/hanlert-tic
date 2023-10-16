@@ -45,7 +45,8 @@ of the synthesis capability of the code (HanleRT), we ask you to quote the paper
 `del Pino Alemán et al. (2016) <https://ui.adsabs.harvard.edu/abs/2016ApJ...830L..24D/abstract>`_ [1]_.
 If using the inversion capabilities (HanleRT-TIC), we ask you to also quote
 `Li et al. (2022) <https://ui.adsabs.harvard.edu/abs/2022ApJ...933..145L/abstract>`_ [2]_.
-In both cases, please, include a link to the code repository `<url_repo>`_.
+In both cases, please, include a link to the code repository
+`https://gitlab.com/TdPA/hanlert-tic <https://gitlab.com/TdPA/hanlert-tic>`_.
 
 Authors
 =======

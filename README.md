@@ -33,7 +33,8 @@ of the synthesis capability of the code (HanleRT), we ask you to quote the paper
 [del Pino Alemán et al. (2016)](https://ui.adsabs.harvard.edu/abs/2016ApJ...830L..24D/abstract).
 If using the inversion capabilities (HanleRT-TIC), we ask you to also quote
 [Li et al. (2022)](https://ui.adsabs.harvard.edu/abs/2022ApJ...933..145L/abstract).
-In both cases, please, include a link to the code repository [url_repo](url_repo).
+In both cases, please, include a link to the code repository
+[https://gitlab.com/TdPA/hanlert-tic](https://gitlab.com/TdPA/hanlert-tic).
 
 Authors
 =======
@@ -45,5 +46,26 @@ Authors
 * Roberto Casini
 
 ## License
-For open source projects, say how it is licensed.
+
+MIT License
+
+Copyright (c) 2023 Tanausú del Pino Alemán
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
