@@ -10,12 +10,16 @@
 !  Start:
 !     02/23/2023
 !  Last version:
-!     10/04/2023 V3.1.4
+!     10/17/2023 V3.1.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/17/2023:    V3.1.5 - Bugfix: Missing exit condition when
+!                             providing PSF for a range not in the
+!                             data (TdPA)
 !
 !     10/04/2023:    V3.1.4 - Bugfix: the deallocations of unused
 !                             arrays in the non-gaussian PSF case
@@ -591,6 +595,9 @@
             buff(ir)%indx(2) = max(buff(ir)%indx(2),iright)
 
           end do ! Ranges in data
+
+          ! Skip if not found
+          if (buff(ir)%indx(1).gt.buff(ir)%indx(2)) cycle
 
           !
           ! Prepare input

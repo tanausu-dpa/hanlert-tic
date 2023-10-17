@@ -13,12 +13,15 @@
 !  Start:
 !     06/22/2022
 !  Last version:
-!     10/16/2023 V3.0.18
+!     10/17/2023 V3.0.19
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/17/2023:   V3.0.19 - Damping arrays were not being fred in
+!                             TIC (TdPA)
 !
 !     10/16/2023:   V3.0.18 - Added argument to the call to the
 !                             hanle subroutine (TdPA)
@@ -1663,6 +1666,8 @@
 
       ! Free memory
       call free_mol(Mol)
+      call free_damp(Atom,nA)
+      if (nAb.gt.0) call free_damp(Atomb,nAb)
       call free_gpop(Atom,Atomb,Mol)
       call free_lpop(Atom,Atomb)
       call free_cols(Atom)

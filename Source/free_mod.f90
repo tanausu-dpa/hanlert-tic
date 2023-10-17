@@ -695,7 +695,7 @@
 
       ! Free damping
       call free_damp(Atom,nA)
-      if (nAb.gt.0) call free_Damp(Atomb,nAb)
+      if (nAb.gt.0) call free_damp(Atomb,nAb)
 
       ! Free Magnetic field
       call free_B(Bfield)
