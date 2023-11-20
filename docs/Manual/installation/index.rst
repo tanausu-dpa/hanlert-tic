@@ -236,7 +236,7 @@ simple as::
         all:
           compiler: [<system_compiler>]
 
-The user can add *openmp* to the list of *specs* if planning to compile the *OpenMP* support.
+The user can add *openmp* to the list of *specs* if planning to compile the *OpenMP* [1]_ support.
 
 If using a compiler installed with *Spack*, the *yaml* file is slightly more complicated. First, we
 need the path to the compiler, e.g.::
@@ -344,3 +344,5 @@ directory to start the compilation. The objects and modules will be stored in th
    Run ``make clean`` in order to remove the compiled objects, modules, and
    excutable, or run ``make clean_obj`` to remove the compiled objects and
    modules.
+
+.. [1] While at some point there was support for OpenMP, significant structural changes have rendered the OpenMP inneficient at best (with PRD), and wrong at worst. Support for OpenMP will come back in a future version.

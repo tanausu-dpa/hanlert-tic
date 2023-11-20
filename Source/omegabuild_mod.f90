@@ -12,12 +12,34 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     09/16/2023 V3.0.11
+!     11/16/2023 V3.0.14
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/16/2023:   V3.0.14 - Bugfix: When AD, dynamic, and LOS, the
+!                             output direction to check i_scatt must
+!                             always be 1 (TdPA)
+!
+!     11/14/2023:   V3.0.13 - Magnetic PRD has its weight enhanced
+!                             with respect to the non-magnetic. This
+!                             results in significant more weight
+!                             for PRD lines with field (TdPA)
+!                           - Implemented the V3.0.12 changes to the
+!                             polarization part (TdPA)
+!
+!     10/31/2023:   V3.0.12 - Frec%stype and Frec%nfs are no longer
+!                             needed in intensity; the change in
+!                             polarization will arrive later (TdPA)
+!                           - Scattering angles are calculated
+!                             by calling get_scattering (TdPA)
+!                           - Reserve space for redistribution
+!                             accounting for unique scattering angles
+!                             only (TdPA)
+!                           - Bugfix: the angular size of Red%dzao
+!                             could be much larger than needed (TdPA)
 !
 !     09/16/2023:   V3.0.11 - Made obs_wave allocatable to satisfy
 !                             memory warnings (TdPA)
@@ -497,6 +519,9 @@
 !
 !  omegabuildin:
 !    Calculates the input frequency axis and the weights
+!
+!  omegabuildinI:
+!    Calculates the input frequency axis and the weights for intensity
 !
 !  freqresize:
 !    Resize weights and absence vector for each processor domain
@@ -1301,11 +1326,129 @@
         compfact = 0d0
         mincf = 1d99
 
+        !
+        ! Calculate factors without magnetic field
+
         ! For each atom
         do ia=1,nA
 
-          ! If we have to run M components
-          if (Yfield) then
+          ! For each transition
+          do jtran=1,Atom(ia)%ntran
+
+            ! If not PRD, ignore
+            if (.not.Atom(ia)%lemiss2(jtran)) cycle
+
+            ! Apply atomic shift
+            ktran = jtran + Atom(ia)%tshift
+
+            ! Identify terms
+            do i=1,Atom(ia)%nMulti-1
+              do i1=i+1,Atom(ia)%nMulti
+                if (Atom(ia)%irad(i,i1).eq.jtran) then
+                  itermf = i
+                  itermu = i1
+                end if
+              end do
+            end do
+
+            ! Spin
+            S = Atom(ia)%Sval(itermu)
+
+            ! Orbital angular momentum
+            rLu = Atom(ia)%rLval(itermu)
+            rLf = Atom(ia)%rLval(itermf)
+
+            ! For all the possible lower terms
+            do i=1,Atom(ia)%nMulti-1
+
+              ! If there is no transition or this term is larger
+              ! than the upper term of the output transition, skip
+              if (i.ge.itermu.or.Atom(ia)%irad(i,itermu).eq.0) &
+                cycle
+
+              ! Store the input lower term index
+              iterml = i
+
+              ! Get index of input transition
+              itran = Atom(ia)%irad(iterml,itermu)
+
+              ! Angular momentum input lower level
+              rLl = Atom(ia)%rLval(iterml)
+
+
+        !
+        ! Reset identation
+        !
+
+        ! For each Jf
+        do mF=1,Atom(ia)%nJ(itermf)
+
+          ! Get Jf
+          rJf = Atom(ia)%rJval(mF,itermf)
+
+          ! For each Ju
+          do iU=1,Atom(ia)%nJ(itermu)
+
+            ! Get Ju
+            rJu = Atom(ia)%rJval(iU,itermu)
+
+            if (nint(abs(rJu-rJf)).gt.1.or.(rJu+rJf).lt.dLSJ) cycle
+
+            ! For each Ju'
+            do iU1=1,Atom(ia)%nJ(itermu)
+
+              ! Get Ju'
+              rJu1 = Atom(ia)%rJval(iU1,itermu)
+
+              if (nint(abs(rJu1-rJf)).gt.1.or.(rJu1+rJf).lt.dLSJ) &
+                cycle
+
+              ! For each Jl
+              do iL=1,Atom(ia)%nJ(iterml)
+
+                ! Get Jl
+                rJl = Atom(ia)%rJval(iL,iterml)
+
+                if (nint(abs(rJu-rJl)).gt.1.or.(rJu+rJl).lt.dLSJ) &
+                  cycle
+
+                ! For each Jl'
+                do iL1=1,Atom(ia)%nJ(iterml)
+
+                  ! Get Jl1
+                  rJl1 = Atom(ia)%rJval(iL1,iterml)
+
+                  if (nint(abs(rJu1-rJl1)).gt.1.or. &
+                      (rJu1+rJl1).lt.dLSJ) cycle
+
+                  ! Add to the weight
+                  compfact(ktran) = compfact(ktran) + 1d0
+
+                end do ! Jl'
+              end do ! Jl
+            end do ! Ju'
+          end do ! Ju
+        end do ! Jf
+
+                !
+                ! Recover identation
+                !
+
+            end do ! Lower terms
+
+            if (compfact(ktran).lt.mincf) mincf = compfact(ktran)
+
+          end do ! Output transitions
+        end do ! Atoms
+
+        ! If we have to run M components
+        if (Yfield) then
+
+          ! Reset factor
+          compfact = 0d0
+
+          ! For each atom
+          do ia=1,nA
 
             ! For each transition
             do jtran=1,Atom(ia)%ntran
@@ -1464,125 +1607,10 @@
                 !
 
               end do ! Lower terms
-
-              if (compfact(ktran).lt.mincf) mincf = compfact(ktran)
-
             end do ! Output transitions
+          end do ! Atoms
 
-          ! No need to run over M components
-          else
-
-            ! For each transition
-            do jtran=1,Atom(ia)%ntran
-
-              ! If not PRD, ignore
-              if (.not.Atom(ia)%lemiss2(jtran)) cycle
-
-              ! Apply atomic shift
-              ktran = jtran + Atom(ia)%tshift
-
-              ! Identify terms
-              do i=1,Atom(ia)%nMulti-1
-                do i1=i+1,Atom(ia)%nMulti
-                  if (Atom(ia)%irad(i,i1).eq.jtran) then
-                    itermf = i
-                    itermu = i1
-                  end if
-                end do
-              end do
-
-              ! Spin
-              S = Atom(ia)%Sval(itermu)
-
-              ! Orbital angular momentum
-              rLu = Atom(ia)%rLval(itermu)
-              rLf = Atom(ia)%rLval(itermf)
-
-              ! For all the possible lower terms
-              do i=1,Atom(ia)%nMulti-1
-
-                ! If there is no transition or this term is larger
-                ! than the upper term of the output transition, skip
-                if (i.ge.itermu.or.Atom(ia)%irad(i,itermu).eq.0) &
-                  cycle
-
-                ! Store the input lower term index
-                iterml = i
-
-                ! Get index of input transition
-                itran = Atom(ia)%irad(iterml,itermu)
-
-                ! Angular momentum input lower level
-                rLl = Atom(ia)%rLval(iterml)
-
-
-        !
-        ! Reset identation
-        !
-
-        ! For each Jf
-        do mF=1,Atom(ia)%nJ(itermf)
-
-          ! Get Jf
-          rJf = Atom(ia)%rJval(mF,itermf)
-
-          ! For each Ju
-          do iU=1,Atom(ia)%nJ(itermu)
-
-            ! Get Ju
-            rJu = Atom(ia)%rJval(iU,itermu)
-
-            if (nint(abs(rJu-rJf)).gt.1.or.(rJu+rJf).lt.dLSJ) cycle
-
-            ! For each Ju'
-            do iU1=1,Atom(ia)%nJ(itermu)
-
-              ! Get Ju'
-              rJu1 = Atom(ia)%rJval(iU1,itermu)
-
-              if (nint(abs(rJu1-rJf)).gt.1.or.(rJu1+rJf).lt.dLSJ) &
-                cycle
-
-              ! For each Jl
-              do iL=1,Atom(ia)%nJ(iterml)
-
-                ! Get Jl
-                rJl = Atom(ia)%rJval(iL,iterml)
-
-                if (nint(abs(rJu-rJl)).gt.1.or.(rJu+rJl).lt.dLSJ) &
-                  cycle
-
-                ! For each Jl'
-                do iL1=1,Atom(ia)%nJ(iterml)
-
-                  ! Get Jl1
-                  rJl1 = Atom(ia)%rJval(iL1,iterml)
-
-                  if (nint(abs(rJu1-rJl1)).gt.1.or. &
-                      (rJu1+rJl1).lt.dLSJ) cycle
-
-                  ! Add to the weight
-                  compfact(ktran) = compfact(ktran) + 1d0
-
-                end do ! Jl'
-              end do ! Jl
-            end do ! Ju'
-          end do ! Ju
-        end do ! Jf
-
-                !
-                ! Recover identation
-                !
-
-              end do ! Lower terms
-
-              if (compfact(ktran).lt.mincf) mincf = compfact(ktran)
-
-            end do ! Output transitions
-
-          end if ! M or not M components
-
-        end do ! Atoms
+        end if ! Magnetic field
 
         compfact = compfact/mincf
 
@@ -2219,7 +2247,7 @@
       type(Input_class):: Input
       type(Frequency_class):: Frec
       type(Red_class):: Red
-      type(Geometry_class), intent(in):: Geom
+      type(Geometry_class):: Geom
       type(MPI_class):: MPID
       logical, intent(in):: lp,LOS
       logical, intent(out):: ofram
@@ -2229,13 +2257,14 @@
 
       logical:: lskip,skip,init,reset,nfound,core,Yfield,Nfield
       logical:: RAMOF, lNCHLT, cohw
-      logical, dimension(:), allocatable:: WNCHLT
+      logical, dimension(:), allocatable:: WNCHLT,skip_scatt
 
       integer:: ios,i,i1,i2,it,iz,ia,ip,ipp,ir,itran,jtran,ktran
       integer:: ifreq,jfreq,iifreq,lifreq,kfreq,cfreq,if0,if1,bf0,bf1
       integer:: iJl,iJu,iJf,itermf,itermu,iterml,iran,nran,ibfreq
-      integer:: jdir,jbdir,jcdir,njdir,iYYF,iYNF,iNF,iDF,iDFR
-      integer:: nr,nt,ntj,ni,nie,np,np0,npp,nti,iti,ith,iph,ith1,iph1
+      integer:: jdir,jbdir,njdir,iYYF,iYNF,iNF,iDF,iDFR
+      integer:: nr,nt,ntj,ni,nie,np,np0,npp,nti,iti
+      integer:: ith,iph,ith1,iph1,ish,nskip,nfs
       integer:: minto,maxto,mint,maxt,nat,mina,maxa
       integer:: jjfreq,jjfreq0,kkfreq,kkfreq0,jufreq
       integer:: nMm,nMu,nMl,nMf,nblk,indx,indxf,nn
@@ -2267,7 +2296,7 @@
       double precision:: rJu,rJu1,rJl,rJl1,rJf
       double precision:: rMf,rMu,rMu1,rMl,rMl1
       double precision:: q,q1,p,p1,QQ,PP
-      double precision:: ct,st,cc,sc,ThK,ct1,st1,cc1,sc1,SRAM
+      double precision:: ct,st,cc,sc,ct1,st1,cc1,sc1,SRAM
       double precision, dimension(:), allocatable:: dnl, nut
       double precision, dimension(:), allocatable:: vphv, vplv, vpr
       double precision, dimension(:), allocatable:: vphve, vplve
@@ -2347,6 +2376,7 @@
         ! If dynamic, axis changes
         if (dyn) then
 
+          ! Frequency interpolation angular size
           Frec%ndir = njdir
           Frec%nth = Geom%nTh
 
@@ -2357,17 +2387,24 @@
             Frec%nph = Geom%nPh
           end if
 
+          ! Redistribution (out) angular size
+          Red%njdir = njdir
+
         ! If static, they don't
         else
 
+          ! Frequency interpolation angular size
           Frec%ndir = 1
           Frec%nth = 1
           Frec%nph = 1
 
+          ! Redistribution (out) angular size
+          Red%njdir = 1
+
         end if
 
+        ! Redistribution (in) angular size
         Red%ndir = Geom%nPh2*Geom%nTh
-        Red%njdir = njdir
         Red%nth = Geom%nTh
         Red%nph = Geom%nPh2
 
@@ -2378,17 +2415,6 @@
         allocate(ithv(njdir))
         ! Index of azimuthal direction of quadrature
         allocate(iphv(njdir))
-
-        ! Allocate type of scattering
-        if (allocated(Frec%stype)) deallocate(Frec%stype)
-        if (allocated(Frec%nfs)) deallocate(Frec%nfs)
-        allocate(Frec%stype(Geom%nPh2,Geom%nTh,njdir))
-        allocate(Frec%nfs(njdir))
-
-        ! Initialize to normal scattering
-        Frec%stype = 0
-        Frec%nfs = 0
-
 
         !
         ! De-index the directions
@@ -2405,37 +2431,6 @@
               ithv(jdir) = ith
               iphv(jdir) = iph
 
-              ! If angle-dependent
-              if (.not.AV) then
-
-                do ith1=1,Geom%nTh
-                  do iph1=1,Geom%nPh2
-
-                    ! Calculate scattering angle between the
-                    ! quadrature direction and the LOS direction
-                    ThK = atom2lab(Geom%L_theta(ith), &
-                                   Geom%L_phi(iph), &
-                                   Geom%V_theta(ith1), &
-                                   Geom%V_phi(iph1))
-
-                    ! Backward condition
-                    if (abs(pi - ThK).le.TINYA) then
-
-                      Frec%stype(iph1,ith1,jdir) = 1
-
-                    ! Forward condition
-                    else if (ThK.le.TINYA) then
-
-                      Frec%stype(iph1,ith1,jdir) = -1
-                      Frec%nfs(jdir) = Frec%nfs(jdir) + 1
-
-                    end if ! Backward or forward scattering
-
-                  end do ! Quadrature directions (input)
-                end do
-
-              end if ! AD redistribution
-
             end do ! LOS directions
           end do
 
@@ -2449,37 +2444,13 @@
               ithv(jdir) = ith
               iphv(jdir) = iph
 
-              ! If angle-dependent
-              if (.not.AV) then
-
-                do ith1=1,Geom%nTh
-                  do iph1=1,Geom%nPh2
-
-                    ! Backward condition
-                    if ((Geom%nTh - ith + 1).eq.ith1.and. &
-                        int(iph + .5d0*Geom%V_muy(iph)* &
-                            Geom%nPh2).eq.iph1) then
-
-                      Frec%stype(iph1,ith1,jdir) = 1
-
-                    ! Forward condition
-                    else if (ith1.eq.ith.and. &
-                             iph1.eq.iph) then
-
-                      Frec%stype(iph1,ith1,jdir) = -1
-                      Frec%nfs(jdir) = Frec%nfs(jdir) + 1
-
-                    end if ! Backward or forward scattering
-
-                  end do ! Quadrature directions (input)
-                end do
-
-              end if ! AD redistribution
-
             end do ! Quadrature directions
           end do
 
         end if ! LOS
+
+        ! Generate scattering angles
+        call get_scattering(Geom,los)
 
         ! If static, initialize velocity factors
         if (.not.dyn) then
@@ -2502,14 +2473,22 @@
         else
           njdir = Geom%nPh*Geom%nTh
         end if
+
+        ! Frequency interpolation angular size
         Frec%ndir = njdir
         Frec%nth = 1
         Frec%nph = 1
 
+        ! Redistribution (out) angular size
+        Red%njdir = njdir
+
+        ! Redistribution (in) angular size
         Red%ndir = Geom%nPh*Geom%nTh
-        Red%njdir = 1
         Red%nth = 1
         Red%nph = 1
+
+        ! Number of scatterig angles (dummy init)
+        Geom%nScatt = 1
 
         ! Allocate auxiliar quantities for Doppler shifts
 
@@ -2517,16 +2496,6 @@
         allocate(ithv(njdir))
         ! Index of azimuthal direction of quadrature
         allocate(iphv(njdir))
-
-        ! Unneccessary type of scattering
-        if (allocated(Frec%stype)) deallocate(Frec%stype)
-        if (allocated(Frec%nfs)) deallocate(Frec%nfs)
-        allocate(Frec%stype(1,1,1))
-        allocate(Frec%nfs(1))
-
-        ! Initialize to normal scattering
-        Frec%stype = 0
-        Frec%nfs = 0
 
         !
         ! De-index the directions
@@ -2574,24 +2543,12 @@
         Red%nph = 1
         Red%njdir = 1
 
+        ! Scattering angles (dummy init)
+        Geom%nScatt = 1
+
         ! Doppler factors
         vfac = 1d0
         vfac1 = 1d0
-
-        ! Allocate stype to avoid undefined
-        if (PRD) then
-
-          ! Allocate type of scattering
-          if (allocated(Frec%stype)) deallocate(Frec%stype)
-          if (allocated(Frec%nfs)) deallocate(Frec%nfs)
-          allocate(Frec%stype(1,1,1))
-          allocate(Frec%nfs(1))
-
-          ! Initialize to normal scattering
-          Frec%stype = 0
-          Frec%nfs = 0
-
-        end if
 
       end if
 
@@ -2639,8 +2596,8 @@
         nullify(Frec%dzao(indx)%trani)
       end do
       if (PRAM) then
-        allocate(Red%indx(minto:maxto,mina:maxa,Rz0:Rz1,Red%ndir))
-        Red%ndzao = nat*Rnz*Red%ndir
+        allocate(Red%indx(minto:maxto,mina:maxa,Rz0:Rz1,Red%njdir))
+        Red%ndzao = nat*Rnz*Red%njdir
         allocate(Red%dzao(Red%ndzao))
         do indx=1,Red%ndzao
           nullify(Red%dzao(indx)%trani)
@@ -2725,7 +2682,7 @@
         ip = 0
 
         ! Directions
-        do jdir=1,Red%ndir
+        do jdir=1,Red%njdir
           ! Height
           do iz=Rz0,Rz1
             ! Atom
@@ -3046,7 +3003,7 @@
           if (PRAM) then
 
             ! For each output direction
-            do jdir=1,Red%ndir
+            do jdir=1,Red%njdir
 
               ! For each height
               do iz=Rz0,Rz1
@@ -4439,6 +4396,14 @@
         ! For each output direction
         do jdir=1,Frec%ndir
 
+          ! Generate scattering angles if AD, LOS, and dynamic
+          if (.not.AV.and.LOS.and.dyn) then
+            call get_scattering_los(Geom,ithv(jdir),iphv(jdir))
+            jbdir = 1
+          else
+            jbdir = jdir
+          end if
+
           !
           ! If coherent wings, compute vfac
           if (Input%cohw) then
@@ -4553,27 +4518,31 @@
         ! Predict size of next block
         nn = sum(p_frec%mfreq)
 
-        ! If angle-dependent
-        if (.not.AV) then
+        ! If angle-dependent and dynamic
+        if (.not.AV.and.dyn) then
 
-          ! If dynamic extra dimensions, if static just frequencies
-          if (dyn) then
+          ! Check if forward
+          if (jtran.eq.itran.and. &
+              Geom%V_CScatt(1).ge.1d0) then
+            nfs = 1
+          else
+            nfs = 0
+          end if
 
-            ! For axial problems
-            if (axial) then
+          ! For axial problems
+          if (axial) then
 
-              ! Size is just polar
-              nn = nn*Geom%nTh
+            ! Size is just polar
+            nn = nn*Geom%nTh
 
-            ! For non-axial problems
-            else
+          ! For non-axial problems
+          else
 
-              ! Skip backward rayleigh
-              nn = nn*(Geom%nTh*Geom%nPh2 - Frec%nfs(jdir))
+            ! Skip forward rayleigh
+            nn = nn*(Geom%nTh*Geom%nPh2 - nfs)
 
-            end if ! Axial
-          end if ! Dynamic
-        end if ! AD
+          end if ! Axial
+        end if ! AD and dynamic
 
         ! Predict aditional frequency
         SRAM = 16d-6*dble(nn)
@@ -4676,8 +4645,10 @@
 
                     ! If angle-dependent, check backward Rayleigh
                     ! scattering
-                    if (jtran.eq.itran.and. &
-                        Frec%stype(iph,ith,jdir).lt.0) cycle
+                    if (nfs.eq.1.and. &
+                        Geom%V_CScatt(Geom% &
+                             i_scatt(iph,ith,jbdir)).ge.1d0) &
+                      cycle
 
                     ! Get director cosines
                     ct1 = Geom%V_mu(ith)
@@ -5497,11 +5468,47 @@
               ! If Storing in RAM
               if (PRAM) then
 
+                ! Allocate skip scattering
+!$omp single
+                allocate(skip_scatt(Geom%nScatt))
+                skip_scatt = .False.
+                nskip = 0
+!$omp end single
+
                 ! For each output direction in the quadrature
-                do jdir=1,Red%ndir
+                do jdir=1,Red%njdir
 
                   jbdir = min(jdir,Frec%ndir)
-                  jcdir = min(jdir,Red%njdir)
+
+!$omp single
+                  ! Angle-dependent and dynamic
+                  if (.not.AV.and.dyn) then
+
+                    ! Initialize to skip everything
+                    skip_scatt = .True.
+                    nskip = Geom%nScatt
+
+                    ! Check scattering angles for this output direction
+                    do ith1=1,Geom%nTh
+                      do iph1=1,Geom%nPh2
+
+                        ! Scattering index
+                        ish = Geom%i_scatt(iph1,ith1,jdir)
+
+                        ! If skipping
+                        if (skip_scatt(ish)) then
+
+                          ! Flag no skip
+                          skip_scatt(ish) = .False.
+                          nskip = nskip - 1
+
+                        end if
+
+                      end do
+                    end do
+
+                  end if ! AD
+!$omp end single
 
                   ! For each height
                   do iz=Rz0,Rz1
@@ -5548,11 +5555,12 @@
 
                     ! Predict size of next block
                     nn = sum(Frec%dzao(indxf)%trani(iti)%mfreq)*iDFR
-                    if (jtran.eq.itran) then
-                      nn = nn*(Red%nth*Red%nph - Frec%nfs(jcdir))
+                    if (.not.AV.and.jtran.eq.itran) then
+                      nn = nn*(Geom%nScatt - 1 - nskip)
                     else
-                      nn = nn*Red%nth*Red%nph
+                      nn = nn*(Geom%nScatt - nskip)
                     end if
+                    if (nn.le.0) cycle
                     SRAM = 8d-6*dble(nn)
 
                     ! If no more space
@@ -5641,7 +5649,7 @@
       type(Input_class):: Input
       type(Frequency_class):: Frec
       type(Red_class):: Red
-      type(Geometry_class), intent(in):: Geom
+      type(Geometry_class):: Geom
       type(MPI_class):: MPID
       logical, intent(in):: lio,LOS
       logical, intent(out):: ofram
@@ -5649,15 +5657,16 @@
       ! Local
 
       logical:: skip,lskip,init,reset,nfound,core,cohw
+      logical, dimension(:), allocatable:: skip_scatt
 
       integer:: ios,i2,it,iz,ia,ip,ipp,ir,itran,jtran,iran,nran
       integer:: fitran,fjtran,ffitran,ffjtran,ffktran,ibfreq
       integer:: ifreq,jfreq,iifreq,lifreq,kfreq,cfreq,if0,if1
-      integer:: jdir,jbdir,jcdir,njdir,ith,iph,ith1,iph1
+      integer:: jdir,jbdir,njdir,ish,ith,iph,ith1,iph1
       integer:: iJl,iJu,iJf,itermf,itermu,iterml,iti,bf0,bf1
       integer:: ni,nie,np,np0,npp,nt,nti,nat,mina,maxa
       integer:: jjfreq0,jjfreq,kkfreq0,kkfreq,jufreq
-      integer:: minto,maxto,indx,indxf,nn
+      integer:: minto,maxto,indx,indxf,nn,nskip,nfs
 #ifdef _OPENMP
       integer:: tid
 #endif
@@ -5678,7 +5687,7 @@
       double precision:: red_fstpcW1,red_mstpcW1
       double precision:: red_coreW,red_cohwW
       double precision:: dnl, nut, nutout, vpr
-      double precision:: ct,st,cc,sc,ThK,ct1,st1,cc1,sc1,SRAM
+      double precision:: ct,st,cc,sc,ct1,st1,cc1,sc1,SRAM
       double precision, dimension(2):: vphv, vplv
       double precision, dimension(4):: vphve, vplve
       double precision, dimension(:), allocatable:: vpp
@@ -5744,6 +5753,7 @@
         ! If dynamic, axis changes
         if (dyn) then
 
+          ! Frequency interpolation angular size
           Frec%ndir = njdir
           Frec%nth = Geom%nTh
 
@@ -5754,17 +5764,24 @@
             Frec%nph = Geom%nPh
           end if
 
+          ! Redistribution (out) angular size
+          Red%njdir = njdir
+
         ! If static, they don't
         else
 
+          ! Frequency interpolation angular size
           Frec%ndir = 1
           Frec%nth = 1
           Frec%nph = 1
 
+          ! Redistribution (out) angular size
+          Red%njdir = 1
+
         end if
 
+        ! Redistribution (in) angular size
         Red%ndir = Geom%nPh2*Geom%nTh
-        Red%njdir = njdir
         Red%nth = Geom%nTh
         Red%nph = Geom%nPh2
 
@@ -5774,16 +5791,6 @@
         allocate(ithv(njdir))
         ! Index of azimuthal direction of quadrature
         allocate(iphv(njdir))
-
-        ! Allocate type of scattering
-        if (allocated(Frec%stype)) deallocate(Frec%stype)
-        if (allocated(Frec%nfs)) deallocate(Frec%nfs)
-        allocate(Frec%stype(Geom%nPh2,Geom%nTh,njdir))
-        allocate(Frec%nfs(njdir))
-
-        ! Initialize to normal scattering
-        Frec%stype = 0
-        Frec%nfs = 0
 
         !
         ! De-index the directions
@@ -5800,37 +5807,6 @@
               ithv(jdir) = ith
               iphv(jdir) = iph
 
-              ! If angle-dependent
-              if (.not.AVI) then
-
-                do ith1=1,Geom%nTh
-                  do iph1=1,Geom%nPh2
-
-                    ! Calculate scattering angle between the
-                    ! quadrature direction and the LOS direction
-                    ThK = atom2lab(Geom%L_theta(ith), &
-                                   Geom%L_phi(iph), &
-                                   Geom%V_theta(ith1), &
-                                   Geom%V_phi(iph1))
-
-                    ! Backward condition
-                    if (abs(pi - ThK).le.TINYA) then
-
-                      Frec%stype(iph1,ith1,jdir) = 1
-
-                    ! Forward condition
-                    else if (ThK.le.TINYA) then
-
-                      Frec%stype(iph1,ith1,jdir) = -1
-                      Frec%nfs(jdir) = Frec%nfs(jdir) + 1
-
-                    end if ! Backward or forward scattering
-
-                  end do ! Quadrature directions (input)
-                end do
-
-              end if ! AD redistribution
-
             end do ! LOS directions
           end do
 
@@ -5845,37 +5821,13 @@
               ithv(jdir) = ith
               iphv(jdir) = iph
 
-              ! If angle-dependent
-              if (.not.AVI) then
-
-                do ith1=1,Geom%nTh
-                  do iph1=1,Geom%nPh2
-
-                    ! Backward condition
-                    if ((Geom%nTh - ith + 1).eq.ith1.and. &
-                        int(iph + .5d0*Geom%V_muy(iph)* &
-                            Geom%nPh2).eq.iph1) then
-
-                      Frec%stype(iph1,ith1,jdir) = 1
-
-                    ! Forward condition
-                    else if (ith1.eq.ith.and. &
-                             iph1.eq.iph) then
-
-                      Frec%stype(iph1,ith1,jdir) = -1
-                      Frec%nfs(jdir) = Frec%nfs(jdir) + 1
-
-                    end if ! Backward or forward scattering
-
-                  end do ! Quadrature directions (input)
-                end do
-
-              end if ! AD redistribution
-
             end do
           end do ! Quadrature directions
 
         end if ! LOS
+
+        ! Generate scattering angles
+        call get_scattering(Geom,los)
 
         ! If static, initialize velocity factors
         if (.not.dyn) then
@@ -5899,14 +5851,21 @@
           njdir = Geom%nPh*Geom%nTh
         end if
 
+        ! Frequency interpolation angular size
         Frec%ndir = njdir
         Frec%nth = 1
         Frec%nph = 1
 
+        ! Redistribution (out) angular size
+        Red%njdir = njdir
+
+        ! Redistribution (in) angular size
         Red%ndir = Geom%nPh*Geom%nTh
-        Red%njdir = 1
         Red%nth = 1
         Red%nph = 1
+
+        ! Number of scatterig angles (dummy init)
+        Geom%nScatt = 1
 
         ! Allocate auxiliar quantities for Doppler shifts
 
@@ -5915,15 +5874,6 @@
         ! Index of azimuthal direction of quadrature
         allocate(iphv(njdir))
 
-        ! Unneccessary type of scattering
-        if (allocated(Frec%stype)) deallocate(Frec%stype)
-        if (allocated(Frec%nfs)) deallocate(Frec%nfs)
-        allocate(Frec%stype(1,1,1))
-        allocate(Frec%nfs(1))
-
-        ! Initialize to normal scattering
-        Frec%stype = 0
-        Frec%nfs = 0
 
         !
         ! De-index the directions
@@ -5974,24 +5924,12 @@
         Red%nph = 1
         Red%njdir = 1
 
+        ! Scattering angles (dummy init)
+        Geom%nScatt = 1
+
         ! Doppler factors
         vfac = 1d0
         vfac1 = 1d0
-
-        ! Allocate stype if PRD to avoid undefined
-        if (PRD) then
-
-          ! Allocate type of scattering
-          if (allocated(Frec%stype)) deallocate(Frec%stype)
-          if (allocated(Frec%nfs)) deallocate(Frec%nfs)
-          allocate(Frec%stype(1,1,1))
-          allocate(Frec%nfs(1))
-
-          ! Initialize to normal scattering
-          Frec%stype = 0
-          Frec%nfs = 0
-
-        end if ! PRD
 
       end if
 
@@ -6047,8 +5985,8 @@
         nullify(Frec%dzao(indx)%trani)
       end do
       if (IRAM) then
-        allocate(Red%indx(minto:maxto,mina:maxa,Rz0:Rz1,Red%ndir))
-        Red%ndzao = nat*Rnz*Red%ndir
+        allocate(Red%indx(minto:maxto,mina:maxa,Rz0:Rz1,Red%njdir))
+        Red%ndzao = nat*Rnz*Red%njdir
         allocate(Red%dzao(Red%ndzao))
         do indx=1,Red%ndzao
           nullify(Red%dzao(indx)%trani)
@@ -6143,7 +6081,7 @@
         ip = 0
 
         ! Directions
-        do jdir=1,Red%ndir
+        do jdir=1,Red%njdir
           ! Height
           do iz=Rz0,Rz1
             ! Atom
@@ -6484,7 +6422,7 @@
                 if (IRAM) then
 
                   ! For each direction
-                  do jdir=1,Red%ndir
+                  do jdir=1,Red%njdir
 
                     ! For each height
                     do iz=Rz0,Rz1
@@ -7649,6 +7587,14 @@
         ! For each output direction
         do jdir=1,Frec%ndir
 
+          ! Generate scattering angles if AD, LOS, and dynamic
+          if (.not.AVI.and.LOS.and.dyn) then
+            call get_scattering_los(Geom,ithv(jdir),iphv(jdir))
+            jbdir = 1
+          else
+            jbdir = jdir
+          end if
+
           ! For each height
           do iz=Rz0,Rz1
 
@@ -7724,6 +7670,14 @@
             ! If angle-dependent
             if (.not.AVI) then
 
+              ! Check if forward
+              if (ffjtran.eq.ffitran.and. &
+                  Geom%V_CScatt(1).ge.1d0) then
+                nfs = 1
+              else
+                nfs = 0
+              end if
+
               ! If dynamic extra dimensions, if static just
               ! frequencies
               if (dyn) then
@@ -7737,8 +7691,8 @@
                 ! For non-axial problems
                 else
 
-                  ! Skip backward rayleigh
-                  nn = nn*(Geom%nTh*Geom%nPh2 - Frec%nfs(jdir))
+                  ! Skip forward rayleigh
+                  nn = nn*(Geom%nTh*Geom%nPh2 - nfs)
 
                 end if ! Axial
               end if ! Dynamic
@@ -7815,10 +7769,12 @@
                       ! For non-axial problems
                       else
 
-                        ! If angle-dependent, check backward Rayleigh
+                        ! If angle-dependent, check forward Rayleigh
                         ! scattering
-                        if (ffjtran.eq.ffitran.and. &
-                            Frec%stype(iph,ith,jdir).lt.0) cycle
+                        if (nfs.eq.1.and. &
+                            Geom%V_CScatt(Geom% &
+                                 i_scatt(iph,ith,jbdir)).ge.1d0) &
+                          cycle
 
                         ! Get director cosines
                         ct1 = Geom%V_mu(ith)
@@ -8136,11 +8092,47 @@
         !
         if (IRAM) then
 
+          ! Allocate skip scattering
+!$omp single
+          allocate(skip_scatt(Geom%nScatt))
+          skip_scatt = .False.
+          nskip = 0
+!$omp end single
+
           ! For each output direction
-          do jdir=1,Red%ndir
+          do jdir=1,Red%njdir
 
             jbdir = min(jdir,Frec%ndir)
-            jcdir = min(jdir,Red%njdir)
+
+!$omp single
+            ! Angle-dependent and dynamic
+            if (.not.AVI.and.dyn) then
+
+              ! Initialize to skip everything
+              skip_scatt = .True.
+              nskip = Geom%nScatt
+
+              ! Check scattering angles for this output direction
+              do ith1=1,Geom%nTh
+                do iph1=1,Geom%nPh2
+
+                  ! Scattering index
+                  ish = Geom%i_scatt(iph1,ith1,jdir)
+
+                  ! If skipping
+                  if (skip_scatt(ish)) then
+
+                    ! Flag no skip
+                    skip_scatt(ish) = .False.
+                    nskip = nskip - 1
+
+                  end if
+
+                end do
+              end do
+
+            end if ! AD
+!$omp end single
 
             ! For each height
             do iz=Rz0,Rz1
@@ -8212,11 +8204,12 @@
 
             ! Predict size of next block
             nn = sum(Frec%dzao(indxf)%trani(iti)%mfreq)
-            if (ffjtran.eq.ffitran) then
-              nn = nn*(Red%nth*Red%nph - Frec%nfs(jcdir))
+            if (.not.AVI.and.ffjtran.eq.ffitran) then
+              nn = nn*(Geom%nScatt - 1 - nskip)
             else
-              nn = nn*Red%nth*Red%nph
+              nn = nn*(Geom%nScatt - nskip)
             end if
+            if (nn.le.0) cycle
             SRAM = 4d-6*dble(nn)
 
             ! If no more space

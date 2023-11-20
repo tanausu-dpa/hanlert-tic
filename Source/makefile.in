@@ -2,7 +2,7 @@
 #####################################################################
 #
 #  Last version:
-#     10/16/2023 V3.0.13
+#     10/31/2023 V3.0.14
 #
 #####################################################################
 #####################################################################
@@ -161,7 +161,8 @@ Common = $(obj_dir)hanlert.o $(obj_dir)aborted_mod.o \
 Diag = $(obj_dir)cle_mod.o $(obj_dir)hanle_mod.o
 FB = $(obj_dir)iosolution_mod.o $(obj_dir)jcalc_mod.o \
 	 $(obj_dir)jcalccle_mod.o $(obj_dir)omegabuild_mod.o \
-	 $(obj_dir)rtcoeffaux_mod.o $(obj_dir)rtcoeffiaux_mod.o
+	 $(obj_dir)rtcoeffaux_mod.o $(obj_dir)rtcoeffiaux_mod.o \
+	 $(obj_dir)solver_mod.o $(obj_dir)solveri_mod.o
 Fctsg = $(obj_dir)hanlert.o
 Free = $(obj_dir)cle_mod.o $(obj_dir)getrtcle_mod.o \
 	   $(obj_dir)hanle_mod.o $(obj_dir)hydrostatic_mod.o \
@@ -280,7 +281,7 @@ Prof = $(obj_dir)backgroundaux_mod.o $(obj_dir)jcalccle_mod.o \
 	   $(obj_dir)kurucz_mod.o $(obj_dir)normalizer_mod.o \
 	   $(obj_dir)rtcoeffaux_mod.o $(obj_dir)rtcoeffiaux_mod.o
 PSF = $(obj_dir)hanlert_mod.o $(obj_dir)tic_mod.o
-Qsort = $(obj_dir)omegabuild_mod.o
+Qsort = $(obj_dir)fieldb_mod.o $(obj_dir)omegabuild_mod.o
 Rdmat = $(obj_dir)btens_mod.o $(obj_dir)fieldb_mod.o
 Reg = $(obj_dir)inversion_mod.o $(obj_dir)lmfit_mod.o
 RF = $(obj_dir)jacobian_mod.o

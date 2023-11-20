@@ -13,12 +13,23 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     10/16/2023 V3.0.23
+!     11/14/2023 V3.0.25
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/14/2023:   V3.0.25 - Removed nfs and stype from the
+!                             Frequency_class structure (TdPA)
+!
+!     10/31/2023:   V3.0.24 - Added box_class (TdPA)
+!                           - Removed V_thetaAA from the type
+!                             Geometry_class (TdPA)
+!                           - Added skip_jsc, skip_ksc, nScatt, nskip,
+!                             j_scatt, k_scatt, i_scatt, V_muAA,
+!                             V_siAA, V_CScatt, and V_SScatt to the
+!                             Geometry_class (TdPA)
 !
 !     10/16/2023:   V3.0.23 - Added twp_step_pol to Input_class (TdPA)
 !
@@ -491,6 +502,7 @@
 !    This module contains the definitions of the derived data types
 !  or structures:
 !
+!    box_class
 !    strarr_class
 !    strarr2_class
 !    Freqflag_class
@@ -568,6 +580,19 @@
       use commons_mod
 
       integer, parameter:: nvar_inv = 14
+
+!#####################################################################
+
+      !> Typical box with a double
+      type box_class
+
+        ! Number
+        double precision:: val
+
+        ! Pointer to next box
+        type(box_class), pointer:: next
+
+      end type box_class
 
 !#####################################################################
 
@@ -1521,14 +1546,26 @@
         ! Flag for axial symmetry
         logical:: axial
 
+        ! Flag for skipping scattering angles
+        logical, dimension(:), allocatable:: skip_jsc,skip_ksc
+
         ! Number of polar nodes, number of real azimuthal nodes,
         ! number of azimuthal nodes for emiss2ord, number of emergent
-        ! polar directions, number of emergent azimuthal directions
-        ! Number of nodes for AA integral
-        integer:: nTh, nPh, nPh2, nThLOS, nPhLOS, nThAA
+        ! polar directions, number of emergent azimuthal directionsm
+        ! number of nodes for AA integral, number of scattering
+        ! angles, number of scattering angles to skip
+        integer:: nTh, nPh, nPh2, nThLOS, nPhLOS, nThAA, nScatt, nskip
+
+        ! Second order indexing of scattering angles (order in
+        ! rtcoeffaux and rtcoeffiaux) for all scattering angles or
+        ! for an explicit output direction
+        integer, dimension(:), allocatable:: j_scatt,k_scatt
 
         ! Indexing of 2D directions
         integer, dimension(:,:), allocatable:: i_geom
+
+        ! Indexing of scattering angles
+        integer, dimension(:,:,:), allocatable:: i_scatt
 
         ! Gamma angle
         double precision:: gam
@@ -1539,15 +1576,18 @@
         ! azimuthal angles, weights of polar integral, weights of
         ! RT azimuthal integral, weights of emiss2 azimuthal
         ! integral, cosines of polar angle of emergent directions,
-        ! azimuthal angles of emergent directions, Vector of angles
-        ! for the AA integral, weights for the AA integral, nodes for
-        ! classical gaussian quadrature, weights for classical
-        ! gaussian quadrature, polar angle on the disk for a given
-        ! quadrature in a point above the surface
+        ! azimuthal angles of emergent directions, Vector of cosines
+        ! for the AA integral, Vector of sines for the AA integral,
+        ! weights for the AA integral, nodes for classical gaussian
+        ! quadrature, weights for classical gaussian quadrature, polar
+        ! angle on the disk for a given quadrature in a point above
+        ! the surface, cosine of scattering angles, sine of scattering
+        ! angles
         double precision, dimension(:), allocatable:: V_mu, V_mux, &
                           V_muy, V_theta, V_phi, W_mu, W_mux, &
-                          W_mux2, L_mu, L_theta, L_phi, V_thetaAA, &
-                          W_muAA, V_gauss, W_gauss, V_mu_disk
+                          W_mux2, L_mu, L_theta, L_phi, V_muAA, &
+                          V_siAA, W_muAA, V_gauss, W_gauss, &
+                          V_mu_disk, V_CScatt, V_SScatt
 
         ! TKQ geometrical tensor in the vectical reference frames
         ! for the emergent problem
@@ -2183,19 +2223,15 @@
         ! Minimum and maximum index with photoionizations for the
         ! master, and for the lines, weight for each frequency node
         ! for sharing tasks, size of frequency space for profile
-        ! messages, same for intensity, number of forward scattering
-        ! directions, weight for each frequency node for sharing task
-        ! but neglecting PRD, mapping of output frequencies (CLE) into
-        ! general axis
+        ! messages, same for intensity, weight for each frequency
+        ! node for sharing task but neglecting PRD, mapping of
+        ! output frequencies (CLE) into general axis
         integer, dimension(:), allocatable:: Mpif0, Mpif1, &
                                              Mlif0, Mlif1, &
                                              IW_freq, Mntfreq, &
                                              Mntfreqi, Mnpfreq, &
-                                             nfs,IW_freq_in, &
+                                             IW_freq_in, &
                                              mapping
-
-        ! Type of scattering: -1: forward, 0: normal, 1: backward
-        integer, dimension(:,:,:), allocatable:: stype
 
         ! Indexing
         integer, dimension(:,:,:,:), allocatable:: indx

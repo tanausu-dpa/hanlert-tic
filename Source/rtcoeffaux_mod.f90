@@ -12,12 +12,27 @@
 !  Start:
 !     04/27/2017
 !  Last version:
-!     09/29/2023 V3.0.7
+!     11/14/2023 V3.1.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/14/2023:    V3.1.0 - Reworked emiss2ord significantly into
+!                             emiss2ord_AA and emiss2ord_AD (TdPA)
+!                           - Reworked emiss2ordNB significantly into
+!                             emiss2ordNB_AA and emiss2ordNB_AD (TdPA)
+!                           - Renamed getStokin to getStokinnu and
+!                             added a new getStokin (TdPA)
+!                           - Renamed getJKQin to getJKQinnu and added
+!                             a new getJKQin (TdPA)
+!
+!     10/31/2023:    V3.0.8 - Placeholder change to use the
+!                             pre-computed cosines and sines of
+!                             scattering angles in angle-average, but
+!                             a significant update is expected for
+!                             next version (TdPA)
 !
 !     09/29/2023:    V3.0.7 - Updated to term- and transition-wise
 !                             K cut limits (TdPA)
@@ -370,11 +385,19 @@
 !    the calculation of the emission coefficients (needed by
 !    emiss)
 !
-!  emiss2ord:
+!  emiss2ord_AA:
 !    This subroutine calculates the coherent scattering coefficients
+!  in the angle-averaged approximation
 !
-!  emiss2ordNB:
-!    Like emiss2ord but in the unmagnetized case
+!  emiss2ord_AD:
+!    This subroutine calculates the coherent scattering coefficients
+!  with angle-dependent redistribution
+!
+!  emiss2ordNB_AA:
+!    Like emiss2ord_AA but in the unmagnetized case
+!
+!  emiss2ordNB_AD:
+!    Like emiss2ord_AD but in the unmagnetized case
 !
 !  absorbLTE:
 !    Calculate the absorption coefficient of an LTE line
@@ -411,13 +434,21 @@
 !    Gets the coefficients to linearly interpolate the input radiation
 !    field when they cannot be stored
 !
-!  getStkin:
+!  getStkinnu:
 !    This function interpolates Stokes parameters for the forward
 !    2-level scattering case
 !
-!  getJKQin:
+!  getStkin:
+!    This function interpolates Stokes parameters into the input
+!    frequency axis
+!
+!  getJKQinnu:
 !    This function interpolates JKQ tensor components for the forward
 !    coherent scattering in the observers frame case
+!
+!  getJKQin:
+!    This function interpolates JKQ tensor components into the input
+!    frequency axis
 !
 !#####################################################################
 !#####################################################################
@@ -2664,34 +2695,22 @@
       !> Computes the second order emission coefficient.\n
       !!          Atom(Atom_class): Structure with the atomic data\n
       !!      Geom(Geometry_class): Structure with geometry data\n
-      !!         emerging(logical): Indicates if emergence solution\n
       !!                vx(dfloat): Velocity vector along X\n
       !!                vy(dfloat): Velocity vector along Y\n
       !!                vz(dfloat): Velocity vector along Z\n
       !!          omega(dfloat): Frequency array\n
       !!            Red(Red_class): Structure with redistribution
       !!                            data\n
-      !!            stype(integer): Type of scattering (geometry
-      !!                            wise)\n
       !!    Fin(Frequencyc2_class): Structure with the input frequency
       !!                            information\n
-      !!             nbth(integer): Maximum index in polar angles for
-      !!                            the input directions\n
-      !!             nbph(integer): Maximum index in azimuth angles
-      !!                            for the input directions\n
-      !!              nfs(integer): Number of forward scattering
-      !!                            directions\n
       !!        Flgsg(Fctsg_class): Structure with factorials and
       !!                            signs\n
       !!       Norma(Nindex_class): Normalization factors for Voigt\n
       !!                            profiles or Voigt profiles\n
-      !!               ia(integer): Atom index\n
       !!            jtran(integer): Output transition index\n
       !!           itermu(integer): Upper term of output transition\n
       !!           itermf(integer): Lower term of output transition\n
       !!               iz(integer): Height index\n
-      !!              iph(integer): Output direction azimuth index\n
-      !!              ith(integer): Output direction polar index\n
       !!              if0(integer): First frequency index for this
       !!                            transition\n
       !!              if1(integer): Last frequency index for this
@@ -2716,12 +2735,11 @@
       !!          eps21(dfloat(:)): Q emissivity\n
       !!          eps22(dfloat(:)): U emissivity\n
       !!          eps23(dfloat(:)): V emissivity
-      subroutine emiss2ord(Atom,Geom,emerging,vx,vy,vz,omega, &
-                           Red,stype,Fin,nbth,nbph,nfs,Flgsg, &
-                           Norma,jtran,itermu,itermf,iz,iph, &
-                           ith,if0,if1,DwT,Dw,vfac,Bfield,vmi, &
-                           TBout,Stokes,JKQa,JKQ,JKQC,aprof, &
-                           eps20,eps21,eps22,eps23)
+      subroutine emiss2ord_AA(Atom,Geom,vx,vy,vz,omega,Red,Fin, &
+                              Flgsg,Norma,jtran,itermu,itermf,iz, &
+                              if0,if1,DwT,Dw,vfac,Bfield,vmi,TBout, &
+                              Stokes,JKQa,JKQ,JKQC,aprof, &
+                              eps20,eps21,eps22,eps23)
 
       ! I/O
 
@@ -2732,10 +2750,7 @@
       type(Nindex_class), intent(in):: Norma
       type(Redc2_class), intent(inout):: Red
       type(Fctsg_class), intent(in):: Flgsg
-      logical, intent(in):: emerging
-      integer, intent(in):: jtran,itermu,itermf,iz,ith,iph,if0,if1
-      integer, intent(in):: nbph,nbth,nfs
-      integer, dimension(:,:), intent(in):: stype
+      integer, intent(in):: jtran,itermu,itermf,iz,if0,if1
       double precision, intent(in):: DwT,Dw,vfac,vmi, vx, vy, vz
       double precision, dimension(:), intent(in):: omega
       double precision, dimension(0:3,nfreq,Geom%nPh,Geom%nTh), &
@@ -2752,26 +2767,26 @@
 
       ! Local
 
-      logical:: PRDc,integrate,LPRAM,lNCHLT,cohIn
+      logical:: PRDc,integrate,LPRAM,lNCHLT,cohIn,conj
 #if _OPENMP
       logical:: ldo
 #endif
 
-      integer:: i,itran,ktran,iterml,ith1,iph1,ibth1,ibph1
+      integer:: i,itran,ktran,iterml,ith1
       integer:: ifreq,iifreq,jfreq,iti,ios,iran
       integer:: K,iQQ,K1,iPP,iq,iq1,ip,ip1
       integer:: nMl,nMu,nMf,iMl,iMl1,iMu,iMu1,iMf
       integer:: iJl,iJl1,iJlb,iJlb1,iJu,iJu1,iJu2,iJu3,iJf,iJf1
       integer:: indF,indU,indU1,indL,indL1,icom
-      integer:: jjfreq,jjfreq0,kkfreq,kwfreq0,llfreq,llfreq0,nmfreq
+      integer:: jjfreq,kkfreq,kwfreq0,nmfreq
 #ifdef _OPENMP
-      integer:: kkfreq0,tid
+      integer:: tid
 #endif
       integer:: iL,iL1,kL,kL1,kLb,kLb1
       integer:: iU,iU1,kU,kU1,kU2,kU3
       integer:: mF,kF,kF1
 
-      double precision:: omegao,omegai,vfac1
+      double precision:: omegao,omegai
       double precision:: rLl,rLu,rLf,S,rJl,rJl1,rJlb,rJlb1
       double precision:: rJu,rJu1,rJu2,rJu3,rJf,rJf1
       double precision:: rJlmax,rJumax,rJfmax
@@ -2779,17 +2794,12 @@
       double precision:: el,el1,eu,eu1,ef,wlf
       double precision:: rK,QQ,rK1,PP,q,q1,p,p1
       double precision:: al,au,af,auf,aul,Dw1,hau
-      double precision:: at,Dfreqw,vfacw
+      double precision:: at,Dfreqw,vfacw,sig
       double precision:: Norme0,Norme1
       double precision:: ftmp,f1tmp,daux,rep,imp
      !double precision:: dNorme2
       double precision:: Cl,Cl1,Clb,Clb1,Cu,Cu1,Cu2,Cu3,Cf,Cf1
-      double precision:: CC,CC1,CC2,CC3,cost,sint,cosc,sinc
-      double precision, dimension(0:3):: StokesM,dys,y0s
-      double precision, dimension(:),allocatable:: Wcos, Wsin
-      double precision, dimension(:,:),allocatable:: TWcos, TWsin
-      double precision, dimension(:,:),allocatable:: StokesMV
-      double precision, dimension(Geom%nPh2,Geom%nTh):: ThK
+      double precision:: CC,CC1,CC2,CC3
 #ifdef _OPENMP
       double precision, dimension(if0:if1):: leps20
       double precision, dimension(if0:if1):: leps21
@@ -2797,12 +2807,13 @@
       double precision, dimension(if0:if1):: leps23
 #endif
 
-      complex(kind=8):: intgr,tmpK,hanleden,rhoc,prof,dy,y0,JKQinM
-      complex(kind=8):: Norme2, PRDin,caux
+      complex(kind=8):: tmpK,hanleden,rhoc,prof,y0
+      complex(kind=8):: Norme2
       complex(kind=8), dimension(if0:if1):: PRD,CRD,CRD0
       complex(kind=8), dimension(0:3,if0:if1):: tmp
       complex(kind=8), dimension(-2:2,0:2):: Jrad
-      complex(kind=8), dimension(Fin%ggf0:Fin%ggf1,-2:2,0:2):: JradC
+      complex(kind=8), dimension(:,:,:), allocatable, target:: JKQinMV
+      complex(kind=8), dimension(:,:,:), allocatable, target:: JradC
       complex(kind=8), dimension(:), allocatable, target:: Warr2
 
 
@@ -2810,91 +2821,57 @@
       type(Frequencyd_class), pointer:: p_frec
       type(Redd_class), pointer :: p_red
       integer, pointer:: p_mfreq
-      integer, dimension(:), pointer:: p_index1, p_index2
-      double precision, dimension(:), pointer:: p_dx
       complex(kind=8), dimension(:), pointer:: p_warr2
+      complex(kind=8), dimension(:), pointer:: p_JKQ
+      complex(kind=8), dimension(:), pointer:: p_JKQC
 
 
       ! Routine name
-      urou = 'emiss2ord'
+      urou = 'emiss2ord_AA'
 
       ! Initialize pointers
       nullify(p_frec)
       nullify(p_red)
       nullify(p_mfreq)
       nullify(p_warr2)
-      nullify(p_index1)
-      nullify(p_index2)
-      nullify(p_dx)
+      nullify(p_JKQ)
+      nullify(p_JKQC)
 
       !
       ! Initializations
       !
 
-      ! If angle-average redistribution
-      if (AV) then
+      !
+      ! Construct mean intensity if needed
+      !
 
-        !
-        ! Compute cosines and sines
-        !
+      ! If dynamics
+      if (dyn) then
 
-        ! Allocate arrays
-        allocate(Wcos(Geom%nThAA))
-        allocate(Wsin(Geom%nThAA))
+        ! Get JKQ in comoving frame
+        call getJKQstar(Fin,Geom,iz,DwT,vx,vy,vz,omega, &
+                        Flgsg,Stokes,JKQa,JKQinMV)
 
-        ! For each direction in the integral AA quadrature
-        do ith1=1,Geom%nThAA
-          Wcos(ith1) = cos(Geom%V_thetaAA(ith1))
-          Wsin(ith1) = sin(Geom%V_thetaAA(ith1))
-        end do
+        ! If ad-hoc asymmetries, JradC needs to be rotated
+        if (size(JKQa).ge.10.and.Bfield%Bstrength(iz).gt.TINYB) &
+          call fieldB_alt(JKQinMV,Fin%ggf1-Fin%ggf0+1, &
+                          Flgsg,Bfield%Btheta(iz), &
+                          Bfield%Bphi(iz),1)
 
-        !
-        ! Construct mean intensity if needed
-        !
-
-        ! If dynamics
-        if (dyn) then
-
-          ! Get JKQ in comoving frame
-          call getJKQstar(Fin,Geom,iz,DwT,vx,vy,vz,omega, &
-                          Flgsg,Stokes,JKQa,JradC)
-
-          ! If ad-hoc asymmetries, JradC needs to be rotated
-          if (size(JKQa).ge.10.and.Bfield%Bstrength(iz).gt.TINYB) &
-            call fieldB(JradC,Fin%ggf1-Fin%ggf0+1, &
-                        Flgsg,Bfield%Btheta(iz), &
-                        Bfield%Bphi(iz),1)
-
-        ! No dynamics
-        else
-
-          ! Calculate JKQ(k) in B frame
-          do i=Fin%ggf0,Fin%ggf1
-             JradC(i,:,:) = JKQC(:,:,i)
-          enddo
-
-          ! Rotate only if there is some magnetic field
-          if (Bfield%Bstrength(iz).gt.TINYB) &
-            call fieldB(JradC,Fin%ggf1-Fin%ggf0+1, &
-                        Flgsg,Bfield%Btheta(iz), &
-                        Bfield%Bphi(iz),1)
-
-        end if ! Dynamics
-
-      ! If angle-dependent redistribution
+      ! No dynamics
       else
 
-        ! Get scattering angles
-        call getscatter(Geom,iph,ith,ThK,TWcos,TWsin,emerging)
+        ! Allocate and copy
+        allocate(JKQinMV(-2:2,0:2,Fin%ggf0:Fin%ggf1))
+        JKQinMV = JKQC(:,:,Fin%ggf0:Fin%ggf1)
 
-        ! If axial, prepare vector to store Stokes of input
-        if (axial) then
+        ! Rotate only if there is some magnetic field
+        if (Bfield%Bstrength(iz).gt.TINYB) &
+          call fieldB_alt(JKQinMV,Fin%ggf1-Fin%ggf0+1, &
+                          Flgsg,Bfield%Btheta(iz), &
+                          Bfield%Bphi(iz),1)
 
-          allocate(StokesMV(0:3,Fin%mxfreq))
-
-        end if ! Axial symmetry
-
-      end if ! angle-averaged
+      end if ! Dynamics
 
 
       !
@@ -2994,27 +2971,11 @@
         ! Point to input transition
         p_frec => Fin%trani(iti)
 
-        ! If interpolation data
-        if (p_frec%RAM) then
+        ! Predict size of interpolation block
+        nmfreq = sum(p_frec%mfreq)
 
-          p_index1 => p_frec%index1
-          p_index2 => p_frec%index2
-          p_dx => p_frec%dx
-
-        ! No interpolation data
-        else if (p_frec%isize.gt.0) then
-
-          ! Allocate
-          allocate(p_index1(p_frec%isize))
-          allocate(p_index2(p_frec%isize))
-          allocate(p_dx(p_frec%isize))
-
-          ! Get interpolation
-          call getinterpolation(Fin,p_frec,Geom,nbth,nbph,jtran, &
-                                itran,stype,omega,vx,vy,vz, &
-                                p_index1,p_index2,p_dx)
-
-        end if ! Interpolation data
+        ! Get input radiation field
+        call getJKQin(p_frec,Fin,nmfreq,omega,JradC,JKQinMV)
 
         ! Get the 'flat' JKQ for this input transition
         JRad = JKQ(:,:,itran)
@@ -3046,28 +3007,24 @@
 
 ! dnorme2 removed from list, commented in declarations
 !$omp parallel if (omp) default(none) &
-!$omp private(kwfreq0,rMf,ef,indF,iMu,rMu,q,iq,iU,eu,indU,Dfreqw) &
-!$omp private(ifreq,prof,iMu1,rMu1,q1,QQ,iq1,iQQ,iU1,eu1,indU1,iMf) &
-!$omp private(Norme1,hanleden,iMl,rMl,p,ip,iL,el,indL,iMl1,rMl1,p1) &
-!$omp private(PP,ip1,iPP,iL1,el1,indL1,tmp,icom,PRDc,kkfreq,nmfreq) &
-!$omp private(Warr2,jjfreq,iifreq,iran,omegao,p_mfreq,daux,tid) &
-!$omp private(jfreq,omegai,rep,imp,ith1,iph1,K1,rK1,integrate) &
-!$omp private(K,rK,ftmp,f1tmp,tmpK,kLb,Clb,iJlb,rJlb,kLb1,Clb1) &
-!$omp private(iJlb1,rJlb1,rhoc,kL,Cl,iJl,rJl,kU2,Cu2,iJu2) &
-!$omp private(rJu2,CC2,kL1,Cl1,iJl1,rJl1,kU3,Cu3,iJu3) &
-!$omp private(rJu3,CC3,kF,cF,iJf,rJf,kU,Cu,iJu,rJu) &
-!$omp private(CC,kF1,Cf1,iJf1,rJf1,kU1,Cu1,iJu1,rJu1,CC1) &
-!$omp private(PRD,p_warr2,Norme2,caux,JKQinM,y0,dy,wlf) &
-!$omp private(llfreq0,jjfreq0,kkfreq0,ibth1,ibph1,vfac1,cost,sint) &
-!$omp private(cosc,sinc,intgr,StokesM,StokesMV,PRDin,y0s,dys,llfreq) &
-!$omp private(CRD,CRD0,mF,ldo,cohIn) &
-!$omp shared(Atom,nMf,nMu,vpfil,Norme0,aprof,Dw,if0,if1) &
-!$omp shared(vfacw,vfac,omega,at,nMl,lNCHLT,LPRAM,AV,p_frec) &
-!$omp shared(Geom,Dw1,al,au,af,aul,auf,Wcos,Wsin,nfs,itran,jtran) &
-!$omp shared(stype,Flgsg,iterml,itermu,itermf,p_red,Fin,nbth,nbph) &
-!$omp shared(vx,vy,vz,dyn,iz,Jrad,p_index1,p_index2,p_dx,rJfmax) &
-!$omp shared(rJlmax,rJumax,Norma,hau,ktran,iti,TWcos,TWsin,JradC) &
-!$omp shared(axial,Stokes,TBout,rLl,omp) &
+!$omp private(tid,ldo,kwfreq0,iMf,rMf,mF,ef,indF,iMu,rMu) &
+!$omp private(q,iq,iU,eu,indU,CRD0,Dfreqw,Norme1,ifreq,prof,iMu1) &
+!$omp private(rMu1,q1,QQ,iq1,iQQ,iU1,eu1,indU1,CRD,hanleden,iMl,rMl) &
+!$omp private(rMl,p,ip,iL,el,indL,iMl1,rMl1,p1,PP,ip1,iPP,iL1,el1) &
+!$omp private(indL1,tmp,icom,PRDc,kkfreq,Warr2,jjfreq,iifreq,iran) &
+!$omp private(ifreq,omegao,p_mfreq,jfreq,omegai,ith1,rep,imp,K1,rK1) &
+!$omp private(integrate,K,rK,ftmp,f1tmp,tmpK,kLb,Clb,iJlb,rJlb,KLb1) &
+!$omp private(Clb1,iJlb1,rJlb1,rhoc,Kl,Cl,iJl,rJl,kU2,Cu2,iJu2,rJu2) &
+!$omp private(CC2,kL1,Cl1,iJl1,rJl1,kU3,Cu3,iJu2,rJu3,CC3,kF,Cf,iJf) &
+!$omp private(rJf,kU,Cu,iJu,rJu,CC,kF1,Cf1,iJf1,rJf1,kU1,Cu1,iJu1) &
+!$omp private(rJu1,CC1,conj,sig,PRD,wlf,cohIn,p_JKQC,p_warr2,y0) &
+!$omp private(Norme2,p_JKQ,daux) &
+!$omp shared(Atom,nMf,rJfmax,itermf,iz,nMu,rJumax,itermu,omp,lNCHLT) &
+!$omp shared(ktran,iti,vpfil,Norme0,aprof,Norma,Dw,if0,if1,vfacw,at) &
+!$omp shared(nMl,rJlmax,iterml,cZero,LPRAM,p_red,omega,vfac,jtran) &
+!$omp shared(p_frec,Geom,Dw1,au,al,af,aul,auf,IPI42,Flgsg,TINYJS) &
+!$omp shared(TINYER,TINYCO,dyn,JKQinMV,nmfreq,JradC,Fin,Jrad,TBout) &
+!$omp shared(rLl) &
 !$omp reduction(+: leps20,leps21,leps22,leps23)
 
 #ifdef _OPENMP
@@ -3122,23 +3079,17 @@
                   if (lNCHLT) then
 
                     ! Check if CRD is needed here
-                    if (iU.lt.Atom%omp_2c(ktran)%mnnU(tid,iti).or. &
-                        iU.gt.Atom%omp_2c(ktran)%mxnU(tid,iti)) then
-                      ldo = .False.
-                    else
-                      ldo = .True.
-                    end if
+                    ldo = .not. &
+                         (iU.lt.Atom%omp_2c(ktran)%mnnU(tid,iti).or. &
+                          iU.gt.Atom%omp_2c(ktran)%mxnU(tid,iti))
 
                   ! If CHLT
                   else
 
                     ! Check if CRD is needed here
-                    if (iU.lt.Atom%omp_2c(ktran)%mnU(tid,iti).or. &
-                        iU.gt.Atom%omp_2c(ktran)%mxU(tid,iti)) then
-                      ldo = .False.
-                    else
-                      ldo = .True.
-                    end if
+                    ldo = .not. &
+                          (iU.lt.Atom%omp_2c(ktran)%mnU(tid,iti).or. &
+                           iU.gt.Atom%omp_2c(ktran)%mxU(tid,iti))
 
                   end if ! NCHLT
                 end if ! OpenMP
@@ -3227,27 +3178,22 @@
                       if (lNCHLT) then
 
                         ! Check if CRD is needed here
-                        if (iU1.lt. &
-                            Atom%omp_2c(ktran)%mnnU1(tid,iti).or. &
-                            iU1.gt. &
-                            Atom%omp_2c(ktran)%mxnU1(tid,iti)) then
-                          ldo = .False.
-                        else
-                          ldo = .True.
-                        end if
+                        ldo = .not. &
+                             (iU1.lt. &
+                              Atom%omp_2c(ktran)%mnnU1(tid,iti).or. &
+                              iU1.gt. &
+                              Atom%omp_2c(ktran)%mxnU1(tid,iti))
 
                       ! If CHLT
                       else
 
                         ! Check if CRD is needed here
-                        if (iU1.lt. &
-                            Atom%omp_2c(ktran)%mnU1(tid,iti).or. &
-                            iU1.gt. &
-                            Atom%omp_2c(ktran)%mxU1(tid,iti)) then
-                          ldo = .False.
-                        else
-                          ldo = .True.
-                        end if
+                        ldo = .not. &
+                             (iU1.lt. &
+                              Atom%omp_2c(ktran)%mnU1(tid,iti).or. &
+                              iU1.gt. &
+                              Atom%omp_2c(ktran)%mxU1(tid,iti))
+
                       end if ! NCHLT
                     end if ! OpenMP
 
@@ -3390,22 +3336,8 @@
             ! If out of own ranges
             if (icom.lt.Atom%omp_2c(ktran)%nif0(tid,iti)) then
 
-              ! If angle-averaged
-              if(AV)then
-                nmfreq = sum(p_frec%mfreq)
-              ! If angle-dependent
-              else
-                if (itran.eq.jtran) then
-                  nmfreq = sum(p_frec%mfreq)*(Geom%nTh*Geom%nPh2-nfs)
-                else
-                  nmfreq = sum(p_frec%mfreq)*Geom%nTh*Geom%nPh2
-                end if
-              end if
-
-              ! Add to index
+              ! Add to index and skip
               kwfreq0 = kwfreq0 + nmfreq
-
-              ! And skip
               cycle
 
             end if ! Out by left
@@ -3419,22 +3351,8 @@
             ! If out of own ranges
             if (icom.lt.Atom%omp_2c(ktran)%if0(tid,iti)) then
 
-              ! If angle-averaged
-              if(AV)then
-                nmfreq = sum(p_frec%mfreq)
-              ! If angle-dependent
-              else
-                if (itran.eq.jtran) then
-                  nmfreq = sum(p_frec%mfreq)*(Geom%nTh*Geom%nPh2-nfs)
-                else
-                  nmfreq = sum(p_frec%mfreq)*Geom%nTh*Geom%nPh2
-                end if
-              end if
-
               ! Add to index
               kwfreq0 = kwfreq0 + nmfreq
-
-              ! And skip
               cycle
 
             end if ! Out by left
@@ -3462,185 +3380,1377 @@
 
         if (PRDc) then
 
-          ! If angle-averaged
-          if(AV)then
-
-            ! Initialize array
-            nmfreq = sum(p_frec%mfreq)
-            if (nmfreq.gt.0) then
-              if (.not.allocated(Warr2)) then
+          ! Initialize array
+          if (nmfreq.gt.0) then
+            if (.not.allocated(Warr2)) then
+              allocate(Warr2(nmfreq))
+            else
+              if (size(Warr2).ne.nmfreq) then
+                deallocate(Warr2)
                 allocate(Warr2(nmfreq))
-              else
-                if (size(Warr2).ne.nmfreq) then
-                  deallocate(Warr2)
-                  allocate(Warr2(nmfreq))
-                end if
               end if
             end if
+          end if
 
-            ! Initialize frequency index
-            jjfreq = 0
+          ! Initialize frequency index
+          jjfreq = 0
+
+          ! For each output frequency
+          iifreq = 0
+          do iran=1,Fin%nran
+            do ifreq=Fin%if0(iran),Fin%if1(iran)
+
+              ! Advance index
+              iifreq = iifreq + 1
+
+              ! Get output frequency
+              omegao = omega(ifreq)*vfac - Atom%Dfreq(jtran)
+
+              ! Point to dimension
+              p_mfreq => p_frec%mfreq(iifreq)
+
+              ! Skip coherent
+              if (p_mfreq.lt.1) cycle
+
+              ! For each input frequency
+              do jfreq=1,p_mfreq
+
+                ! Advance indexes
+                jjfreq = jjfreq + 1
+                kkfreq = kkfreq + 1
+
+                ! Get input frequency
+                omegai = p_frec%omega(jjfreq) - Atom%Dfreq(itran)
+
+                ! Initialize Warr2
+                Warr2(kkfreq) = cZero
+
+                ! For each direction in the integral AA quadrature
+                do ith1=1,Geom%nThAA
+
+                  ! Add the contribution to the angular integral
+                  ! of the redistribution function
+                  Warr2(kkfreq) = Warr2(kkfreq) + &
+                                  Geom%W_muAA(ith1)* &
+                                Wfunc(omegai,omegao, &
+                                      Dw,Dw1,el,el1,eu,eu1,ef, &
+                                             al,au,af,aul,auf, &
+                                      Geom%V_muAA(ith1), &
+                                      Geom%V_siAA(ith1),0)*IPI42
+
+                end do  ! direction nodes
+              end do ! input frequencies
+            end do ! output frequencies
+          end do ! output frequencies ranges
+
+          ! If storing
+          if (LPRAM) then
+
+            p_red%iPPRD(icom) = .False.
+            do jfreq=kkfreq-nmfreq+1,kkfreq
+              rep = dble(Warr2(jfreq))
+              imp = dimag(Warr2(jfreq))
+              if (rep.le.1e-30) rep = 0d0
+              if (abs(imp).le.1e-30) imp = 0d0
+              p_red%PWarr2(kwfreq0+jfreq) = &
+                                          cmplx(real(rep),real(imp))
+            end do
+
+          end if ! If storing
+        end if ! Initialized
+
+        ! For each K'
+        do K1=abs(iPP),2
+
+          ! Get real value
+          rK1 = dble(K1)
+
+          ! Initialize flag for K1
+          integrate = .True.
+
+          ! For each K
+          do K=abs(iQQ),2
+
+            ! Get real value
+            rK = dble(K)
+
+            ! Racah algebra
+            ftmp = fun3j(1d0,1d0,rK,-q,q1,-QQ,Flgsg)
+
+            ! If forbidden (3j-sym=0), skip
+            if(abs(ftmp).lt.TINYJS) cycle
+
+            ! Racah algebra
+            f1tmp = fun3j(1d0,1d0,rK1,-p,p1,-PP,Flgsg)
+
+            ! If forbidden (3j-sym=0), skip
+            if(abs(f1tmp).lt.TINYJS) cycle
+
+            ! Add the rest of the factor
+            ftmp = ftmp*Flgsg%sg(iq)*sqrt(2d0*rK+1d0)
+            f1tmp = f1tmp*Flgsg%sg(ip1)*sqrt(2d0*rK1+1d0)
+
+            ! Reset temporal variable
+            tmpK = cZero
+
+            ! For each Jlb
+            do kLb=1,Atom%nblk(iMl,iterml)
+
+              ! Get eigenvector for lower b level
+              Clb = Atom%evec(kLb,iL,iMl,iterml,iz)
+
+              ! If coefficient too small, skip
+              if(abs(Clb).lt.TINYEV) cycle
+
+              ! Get J level index
+              iJlb = Atom%iJval(kLb,iMl,iterml)
+
+              ! Get angular momentum
+              rJlb = Atom%rJval(iJlb,iterml)
+
+              ! For each Jlb'
+              do kLb1=1,Atom%nblk(iMl1,iterml)
+
+                ! Get eigenvector for lower b level
+                Clb1 = Atom%evec(kLb1,iL1,iMl1,iterml,iz)
+
+                ! If coefficient too small, skip
+                if(abs(Clb1).lt.TINYEV) cycle
+
+                ! Get J level index
+                iJlb1 = Atom%iJval(kLb1,iMl1,iterml)
+
+                ! Get angular momentum
+                rJlb1 = Atom%rJval(iJlb1,iterml)
+
+                ! sum over (Kl,Ql)
+                call absorb1(Atom,Flgsg,iz,iterml,iJlb,iJlb1, &
+                             rJlb,rJlb1,rMl,rMl1,K1,rhoc)
+
+                !!!!
+                !  Uncomment the following line for Zeeman effect
+               !if (iJlb.ne.iJlb1.of.iFlb.ne.iFlb1) rhoc=cZero
+                !!!!
+
+                !!!!
+                ! Uncomment the following line for incoherent lower
+                !  term
+               !if (.not.(rMl1.eq.rMl.and.iL1.eq.iL)) rhoc=cZero
+                !!!!
+
+                ! If no rhoKQ, skip
+                if(abs(rhoc).lt.TINYER) cycle
+
+                ! Add coefficients to rhoKQ
+                rhoc = Flgsg%sg(nint(rJlb-rMl))*Clb*Clb1*rhoc
+
+                ! For each Jl
+                do kL=1,Atom%nblk(iMl,iterml)
+
+                  ! Get eigenvector for lower level
+                  Cl = Atom%evec(kL,iL,iMl,iterml,iz)
+
+                  ! If coefficient too small, skip
+                  if(abs(Cl).lt.TINYEV) cycle
+
+                  ! Get J level index
+                  iJl = Atom%iJval(kL,iMl,iterml)
+
+                  ! Get angular momentum
+                  rJl = Atom%rJval(iJl,iterml)
+
+                  ! For each Ju''
+                  do kU2=1,Atom%nblk(iMu,itermu)
+
+                    ! Get eigenvector for upper'' level
+                    Cu2 = Atom%evec(kU2,iU,iMu,itermu,iz)
+
+                    ! If coefficient too small, skip
+                    if(abs(Cu2).lt.TINYEV) cycle
+
+                    ! Get J level index
+                    iJu2 = Atom%iJval(kU2,iMu,itermu)
+
+                    ! Get angular momentum
+                    rJu2 = Atom%rJval(iJu2,itermu)
+
+                    ! Add coefficient to dipole strength
+                    CC2 = Cl*Cu2*Atom%rdip(itran)% &
+                                      rdip(ip,iMu,iMl,iJu2,iJl)
+
+                    ! If coefficient too small, skip
+                    if(abs(CC2).lt.TINYCO) cycle
+
+                    ! For each Jl'
+                    do kL1=1,Atom%nblk(iMl1,iterml)
+
+                      ! Get eigenvector for lower' level
+                      Cl1 = Atom%evec(kL1,iL1,iMl1,iterml,iz)
+
+                      ! If coefficient too small, skip
+                      if(abs(Cl1).lt.TINYEV) cycle
+
+                      ! Get J level index
+                      iJl1 = Atom%iJval(kL1,iMl1,iterml)
+
+                      ! Get angular momentum
+                      rJl1 = Atom%rJval(iJl1,iterml)
+
+                      ! For each Ju'''
+                      do kU3=1,Atom%nblk(iMu1,itermu)
+
+                        ! Get eigenvector for upper''' level
+                        Cu3 = Atom%evec(kU3,iU1,iMu1,itermu,iz)
+
+                        ! If coefficient too small, skip
+                        if(abs(Cu3).lt.TINYEV) cycle
+
+                        ! Get J level index
+                        iJu3 = Atom%iJval(kU3,iMu1,itermu)
+
+                        ! Get angular momentum
+                        rJu3 = Atom%rJval(iJu3,itermu)
+
+                        ! KCUT
+!                       if (abs(rJu3-rJu2).gt.rK1) cycle
+
+                        ! Add coefficients to dipole strength
+                        CC3 = Cl1*Cu3* &
+                              Atom%rdip(itran)% &
+                                   rdip(ip1,iMu1,iMl1,iJu3,iJl1)
+
+                        ! If coefficient too small, skip
+                        if(abs(CC3).lt.TINYCO) cycle
+
+        !
+        ! Reset identation
+        !
+
+        ! For each Jf
+        do kF=1,Atom%nblk(iMf,itermf)
+
+          ! Get eigenvector for final level
+          Cf = Atom%evec(kF,mF,iMf,itermf,iz)
+
+          ! If coefficient too small, skip
+          if(abs(Cf).lt.TINYEV) cycle
+
+          ! Get J level index
+          iJf = Atom%iJval(kF,iMf,itermf)
+
+          ! Get angular momentum
+          rJf = Atom%rJval(iJf,itermf)
+
+          ! For each Ju
+          do kU=1,Atom%nblk(iMu,itermu)
+
+            ! Get eigenvector for upper level
+            Cu = Atom%evec(kU,iU,iMu,itermu,iz)
+
+            ! If coefficient too small, skip
+            if(abs(Cu).lt.TINYEV) cycle
+
+            ! Get J level index
+            iJu = Atom%iJval(kU,iMu,itermu)
+
+            ! Get angular momentum
+            rJu = Atom%rJval(iJu,itermu)
+
+            ! Add coefficients to dipole strength
+            CC = Cf*Cu*Atom%rdip(jtran)% &
+                            rdip(iq,iMu,iMf,iJu,iJf)
+
+            ! If coefficient too small, skip
+            if(abs(CC).lt.TINYCO) cycle
+
+            ! For each Jf'
+            do kF1=1,Atom%nblk(iMf,itermf)
+
+              ! Get eigenvector for final' level
+              Cf1 = Atom%evec(kF1,mF,iMf,itermf,iz)
+
+              ! If coefficient too small, skip
+              if(abs(Cf1).lt.TINYEV) cycle
+
+              ! Get J level index
+              iJf1 = Atom%iJval(kF1,iMf,itermf)
+
+              ! Get angular momentum
+              rJf1 = Atom%rJval(iJf1,itermf)
+
+              ! For each Ju'
+              do kU1=1,Atom%nblk(iMu1,itermu)
+
+                ! Get eigenvector for upper' level
+                Cu1 = Atom%evec(kU1,iU1,iMu1,itermu,iz)
+
+                ! If coefficient too small, skip
+                if(abs(Cu1).lt.TINYEV) cycle
+
+                ! Get J level index
+                iJu1 = Atom%iJval(kU1,iMu1,itermu)
+
+                ! Get angular momentum
+                rJu1 = Atom%rJval(iJu1,itermu)
+
+                ! Add coefficients to dipole strength
+                CC1 = Cf1*Cu1*Atom%rdip(jtran)% &
+                                   rdip(iq1,iMu1,iMf,iJu1,iJf1)
+
+                ! If coefficient big enough, add contribution to
+                ! temporal variable
+                if(abs(CC1).gt.TINYCO) &
+                  tmpK = f1tmp*ftmp*CC*CC1*CC2*CC3*rhoc + tmpK
+
+              end do ! kU1
+            end do ! kF1
+          end do ! kU
+        end do ! kF
+                      end do ! kU3
+                    end do ! kL1
+                  end do ! kU2
+                end do ! kL
+              end do ! kLb1
+            end do ! kLb
+
+
+            !
+            ! Integral over input frequencies
+            !
+
+            if (integrate) then
+
+              !
+              ! Check if conjugated
+              conj = iPP.lt.0
+              sig = Flgsg%sg(iPP)
+
+              ! Initialize 2nd order part
+              PRD = cZero
+
+              ! Difference between l and f energies
+              wlf = el - ef
+
+              ! Check if static and coherent
+              cohIn = dyn.or.abs(wlf).gt.0d0
+
+              ! If coherent, just point
+              if (minval(p_frec%mfreq).lt.1) &
+                p_JKQC(Fin%ggf0:Fin%ggf1) => JKQinMV(iQ,K,:)
+
+              ! If storing Warr
+              if (LPRAM) then
+                if (nmfreq.gt.0) then
+                  allocate(p_warr2(nmfreq))
+                  p_warr2 = dcmplx(p_red% &
+                            Pwarr2(kwfreq0+1:kwfreq0+nmfreq))
+                end if
+              ! If not storing
+              else
+                if (allocated(Warr2)) p_warr2 => Warr2
+              end if
+
+              ! Initialize frequency indexes
+              jjfreq = 0
+              kkfreq = 0
+
+              ! For each output frequency
+              iifreq = 0
+              do iran=1,Fin%nran
+                do ifreq=Fin%if0(iran),Fin%if1(iran)
+
+                  ! Advance index
+                  iifreq = iifreq + 1
+
+                  ! Point to dimension
+                  p_mfreq => p_frec%mfreq(iifreq)
+
+                  ! If coherent wing
+                  if (p_mfreq.lt.1) then
+
+                    ! Full coherent
+                    if (cohIn) then
+
+                      ! Input frequency
+                      omegai = omega(ifreq)*vfac - wlf
+
+                      ! Get JKQ
+                      y0 = getJKQinnu(omega(Fin%ggf0:Fin%ggf1), &
+                                      p_JKQC, &
+                                      ifreq-Fin%ggf0+1, &
+                                      Fin%ggf1-Fin%ggf0+1,omegai)
+
+                      ! Fully coherent contribution
+                      PRD(ifreq) = CRD(ifreq)*y0
+
+                    ! Interpolate
+                    else
+
+                      ! Fully coherent contribution
+                      PRD(ifreq) = CRD(ifreq)*p_JKQC(ifreq)
+
+                    end if
+
+                    ! Skip rest
+                    cycle
+
+                  end if ! Coherent wing
+
+                  ! If conjugate
+                  if (conj) then
+
+                    ! Point to positive Q
+                    p_JKQ => JradC(jjfreq+1:jjfreq+p_mfreq,-iPP,K1)
+
+                    ! Integrate
+                    PRD(ifreq) = sig*sum(conjg(p_JKQ)* &
+                             p_frec%W_freq(jjfreq+1:jjfreq+p_mfreq)* &
+                             p_warr2(kkfreq+1:kkfreq+p_mfreq))
+
+                  ! Not conjugate
+                  else
+
+                    ! Point to positive Q
+                    p_JKQ => JradC(jjfreq+1:jjfreq+p_mfreq,iPP,K1)
+
+                    ! Integrate
+                    PRD(ifreq) = sum(p_JKQ* &
+                             p_frec%W_freq(jjfreq+1:jjfreq+p_mfreq)* &
+                             p_warr2(kkfreq+1:kkfreq+p_mfreq))
+
+                  end if
+
+                  ! Initialize
+                  Norme2 = sum(p_warr2(kkfreq+1:kkfreq+p_mfreq)* &
+                               p_frec%W_freq(jjfreq+1:jjfreq+p_mfreq))
+
+                  ! Normalize to the first order profile
+                  PRD(ifreq) = PRD(ifreq)*CRD(ifreq)/Norme2
+
+                  ! This old normalization (only real part) was
+                  ! problematic for non-axial cases with
+                  ! angle-dependent
+                 !! Normalize real part to the first order profile
+                 !dNorme2 = dble(Norme2)
+                 !if (dNorme2.gt.0d0) then
+                 !  rep = dble(PRD(ifreq))*dble(CRD(ifreq))/ &
+                 !                                     dNorme2
+                 !  PRD(ifreq) = dcmplx(rep,dimag(PRD(ifreq)))
+                 !else
+                 !  PRD(ifreq) = dcmplx(0d0,dimag(PRD(ifreq)))
+                 !end if
+
+                  ! Update indexes
+                  jjfreq = jjfreq + p_mfreq
+                  kkfreq = kkfreq + p_mfreq
+
+                end do ! Output frequencies
+              end do ! Output frequencies ranges
+
+              ! Clean p_warr2
+              if (LPRAM) deallocate(p_warr2)
+              nullify(p_warr2)
+
+              ! Clean JKQ
+              nullify(p_JKQ)
+              nullify(p_JKQC)
+
+              !
+              ! Flat spectrum contribution. Implicit branching ratio
+              !
+
+              ! For each output frequency
+              do iran=1,Fin%nran
+                do ifreq=Fin%if0(iran),Fin%if1(iran)
+
+                  ! Substract the flat spectrum part due to just
+                  ! radiative excitation
+                  PRD(ifreq) = PRD(ifreq) - CRD(ifreq)*Jrad(iPP,K1)
+
+                end do ! Output frequencies
+              end do ! Output frequencies ranges
+
+              integrate = .False.
+
+            end if ! If flagged
+
+            !
+            ! Compute the main part of emiss2ord
+            !
 
             ! For each output frequency
-            iifreq = 0
             do iran=1,Fin%nran
               do ifreq=Fin%if0(iran),Fin%if1(iran)
 
-                ! Advance index
-                iifreq = iifreq + 1
+                ! Add TKQ to the PRD contribution and accumulate
+                tmp(0,ifreq) = tmpK*TBout(0,-iQQ,K)*PRD(ifreq) + &
+                               tmp(0,ifreq)
+                tmp(1,ifreq) = tmpK*TBout(1,-iQQ,K)*PRD(ifreq) + &
+                               tmp(1,ifreq)
+                tmp(2,ifreq) = tmpK*TBout(2,-iQQ,K)*PRD(ifreq) + &
+                               tmp(2,ifreq)
+                tmp(3,ifreq) = tmpK*TBout(3,-iQQ,K)*PRD(ifreq) + &
+                               tmp(3,ifreq)
 
-                ! Get output frequency
-                omegao = omega(ifreq)*vfac - Atom%Dfreq(jtran)
+              end do ! Output frequencies
+            end do ! Output frequencies ranges
 
-                ! Point to dimension
-                p_mfreq => p_frec%mfreq(iifreq)
+          end do ! K1
+        end do ! K
 
-                ! Skip coherent
-                if (p_mfreq.lt.1) cycle
+        ! Update redistribution initial index
+        kwfreq0 = kwfreq0 + nmfreq
+
+        ! Apply hanle factor and Einstein coefficient
+        daux = (2d0*rLl+1d0)*Atom%Ecoeff(iterml,itermu)
+#ifdef _OPENMP
+        leps20 = leps20 + dble(tmp(0,:)/hanleden)*daux
+        leps21 = leps21 + dble(tmp(1,:)/hanleden)*daux
+        leps22 = leps22 + dble(tmp(2,:)/hanleden)*daux
+        leps23 = leps23 + dble(tmp(3,:)/hanleden)*daux
+#else
+        eps20 = eps20 + dble(tmp(0,:)/hanleden)*daux
+        eps21 = eps21 + dble(tmp(1,:)/hanleden)*daux
+        eps22 = eps22 + dble(tmp(2,:)/hanleden)*daux
+        eps23 = eps23 + dble(tmp(3,:)/hanleden)*daux
+#endif
+                          end do ! iL1
+                        end do ! Ml1
+                      end do ! iL
+                    end do ! Ml
+                  end do ! iU1
+                end do ! Mu1
+              end do ! iU
+            end do ! Mu
+          end do ! mF
+        end do ! Mf
+!$omp end parallel
+
+#ifdef _OPENMP
+!$omp parallel workshare default(none) &
+!$omp shared(eps20,eps21,eps22,eps23,leps20,leps21,leps22,leps23)
+        eps20 = eps20 + leps20
+        eps21 = eps21 + leps21
+        eps22 = eps22 + leps22
+        eps23 = eps23 + leps23
+!$omp end parallel workshare
+#endif
+      end do ! Terms
+
+      ! Apply common factor
+      daux = 3d0*.5d0*IPI42*(2d0*rLu+1d0)* &
+             Atom%Ecoeff(itermu,itermf)*1d-10/(c*Dw)
+!$omp parallel workshare default(none) &
+!$omp shared(eps20,eps21,eps22,eps23) shared(daux)
+      eps20 = eps20*daux
+      eps21 = eps21*daux
+      eps22 = eps22*daux
+      eps23 = eps23*daux
+!$omp end parallel workshare
+
+      ! Clean pointers
+      if (associated(p_frec)) nullify(p_frec)
+      if (associated(p_red)) nullify(p_red)
+      if (associated(p_mfreq)) nullify(p_mfreq)
+      if (associated(p_warr2)) nullify(p_warr2)
+
+      return
+
+      end subroutine emiss2ord_AA
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Computes the second order emission coefficient.\n
+      !!          Atom(Atom_class): Structure with the atomic data\n
+      !!      Geom(Geometry_class): Structure with geometry data\n
+      !!         emerging(logical): Indicates if emergence solution\n
+      !!                vx(dfloat): Velocity vector along X\n
+      !!                vy(dfloat): Velocity vector along Y\n
+      !!                vz(dfloat): Velocity vector along Z\n
+      !!          omega(dfloat): Frequency array\n
+      !!            Red(Red_class): Structure with redistribution
+      !!                            data\n
+      !!    Fin(Frequencyc2_class): Structure with the input frequency
+      !!                            information\n
+      !!        Flgsg(Fctsg_class): Structure with factorials and
+      !!                            signs\n
+      !!       Norma(Nindex_class): Normalization factors for Voigt\n
+      !!                            profiles or Voigt profiles\n
+      !!             jdir(integer): Output direction in scattering
+      !!                            indexing\n
+      !!            jtran(integer): Output transition index\n
+      !!           itermu(integer): Upper term of output transition\n
+      !!           itermf(integer): Lower term of output transition\n
+      !!               iz(integer): Height index\n
+      !!              if0(integer): First frequency index for this
+      !!                            transition\n
+      !!              if1(integer): Last frequency index for this
+      !!                            transition\n
+      !!               DwT(dfloat): Thermal part of Doppler width\n
+      !!                Dw(dfloat): Doppler width output transition\n
+      !!              vfac(dfloat): Doppler shift factor\n
+      !!               vmi(dfloat): Microturbulent velocity\n
+      !!      TBout(dcmplx(:,:,:)): Geometrical tensor in the output
+      !!                            direction in the magnetic field
+      !!                            reference frame\n
+      !!   Stokes(dfloat(:,:,:,:)): Stokes parameters\n
+      !!      JKQ(dcomplex(:,:,:)): Radiation field tensors integrated
+      !!                            over absorption profile\n
+      !!        aprof(dcmplx(:,:)): Absorption profiles\n
+      !!          eps20(dfloat(:)): Intensity emissivity\n
+      !!          eps21(dfloat(:)): Q emissivity\n
+      !!          eps22(dfloat(:)): U emissivity\n
+      !!          eps23(dfloat(:)): V emissivity
+      subroutine emiss2ord_AD(Atom,Geom,emerging,vx,vy,vz,omega,Red, &
+                              Fin,Flgsg,Norma,jdir,jtran,itermu, &
+                              itermf,iz,if0,if1,DwT,Dw,vfac,vmi, &
+                              TBout,Stokes,JKQ,aprof, &
+                              eps20,eps21,eps22,eps23)
+
+      ! I/O
+
+      type(Atom_class), intent(in):: Atom
+      type(Geometry_class), intent(in):: Geom
+      type(Frequencyc2_class), intent(inout):: Fin
+      type(Nindex_class), intent(in):: Norma
+      type(Redc2_class), intent(inout):: Red
+      type(Fctsg_class), intent(in):: Flgsg
+      logical, intent(in):: emerging
+      integer, intent(in):: jtran,itermu,itermf,iz,if0,if1,jdir
+      double precision, intent(in):: DwT,Dw,vfac,vmi, vx, vy, vz
+      double precision, dimension(:), intent(in):: omega
+      double precision, dimension(0:3,nfreq,Geom%nPh,Geom%nTh), &
+                        intent(in):: Stokes
+      double precision, dimension(if0:if1), intent(out):: eps20
+      double precision, dimension(if0:if1), intent(out):: eps21
+      double precision, dimension(if0:if1), intent(out):: eps22
+      double precision, dimension(if0:if1), intent(out):: eps23
+      complex(kind=8), dimension(:,:), intent(in):: aprof
+      complex(kind=8), dimension(-2:2,0:2,nxtran), intent(in):: JKQ
+      complex(kind=8), dimension(0:3,-2:2,0:2), intent(in):: TBout
+
+      ! Local
+
+      logical:: PRDc,integrate,LPRAM,lNCHLT,cohIn
+#if _OPENMP
+      logical:: ldo
+#endif
+      logical, dimension(Geom%nScatt):: skip_scatt
+
+      integer:: i,itran,ktran,iterml,ith1,iph1
+      integer:: ifreq,iifreq,jfreq,iti,ios,iran
+      integer:: K,iQQ,K1,iPP,iq,iq1,ip,ip1
+      integer:: nMl,nMu,nMf,iMl,iMl1,iMu,iMu1,iMf
+      integer:: iJl,iJl1,iJlb,iJlb1,iJu,iJu1,iJu2,iJu3,iJf,iJf1
+      integer:: indF,indU,indU1,indL,indL1,icom
+      integer:: jjfreq,jjfreq0,kkfreq,kkfreq0,kkfreq0b,kwfreq0
+      integer:: llfreq0,nmfreq,ish1,nfs,nskip,nScatt,stype
+#ifdef _OPENMP
+      integer:: tid
+#endif
+      integer:: iL,iL1,kL,kL1,kLb,kLb1
+      integer:: iU,iU1,kU,kU1,kU2,kU3
+      integer:: mF,kF,kF1
+      integer, dimension(:), allocatable:: i_scatt
+
+      double precision:: omegao,omegai,vfac1
+      double precision:: rLl,rLu,rLf,S,rJl,rJl1,rJlb,rJlb1
+      double precision:: rJu,rJu1,rJu2,rJu3,rJf,rJf1
+      double precision:: rJlmax,rJumax,rJfmax
+      double precision:: rMl,rMl1,rMu,rMu1,rMf
+      double precision:: el,el1,eu,eu1,ef,wlf
+      double precision:: rK,QQ,rK1,PP,q,q1,p,p1
+      double precision:: al,au,af,auf,aul,Dw1,hau
+      double precision:: at,Dfreqw,vfacw
+      double precision:: Norme0,Norme1
+      double precision:: ftmp,f1tmp,daux,rep,imp
+     !double precision:: dNorme2
+      double precision:: Cl,Cl1,Clb,Clb1,Cu,Cu1,Cu2,Cu3,Cf,Cf1
+      double precision:: CC,CC1,CC2,CC3,cost,sint,cosc,sinc
+      double precision, dimension(0:3):: StokesM
+      double precision, dimension(:,:), allocatable:: Stokesin
+#ifdef _OPENMP
+      double precision, dimension(if0:if1):: leps20
+      double precision, dimension(if0:if1):: leps21
+      double precision, dimension(if0:if1):: leps22
+      double precision, dimension(if0:if1):: leps23
+#endif
+
+      complex(kind=8):: intgr,tmpK,hanleden,rhoc,prof
+      complex(kind=8):: Norme2,PRDin
+      complex(kind=8), dimension(if0:if1):: PRD,CRD,CRD0
+      complex(kind=8), dimension(0:3,if0:if1):: tmp
+      complex(kind=8), dimension(-2:2,0:2):: Jrad
+      complex(kind=8), dimension(:), allocatable, target:: Warr2
+      complex(kind=8), dimension(:), allocatable:: Warr2xW
+      complex(kind=8), dimension(:), allocatable:: intergrin
+
+
+      ! Pointers
+      type(Frequencyd_class), pointer:: p_frec
+      type(Redd_class), pointer :: p_red
+      integer, pointer:: p_mfreq
+      complex(kind=8), dimension(:), pointer:: p_warr2
+
+
+      ! Routine name
+      urou = 'emiss2ord_AD'
+
+      ! Initialize pointers
+      nullify(p_frec)
+      nullify(p_red)
+      nullify(p_mfreq)
+      nullify(p_warr2)
+
+
+      !
+      ! Get terms and transition quantities
+      !
+
+      ! Damping parameters
+      au = Atom%damp(itermu,iz)
+      af = Atom%damp(itermf,iz)
+      auf = Atom%ldamp(jtran,iz)
+      at = (au + af + auf)/Dw
+      hau = 2d0*(au+auf)/Dw
+
+      ! Units normalization factor for CRD
+      Norme0 = (1d5/Dw)*.5d0*sqrt(IPI)
+
+      ! Doppler shift in doppler units
+      vfacw = vfac/Dw
+
+      ! Spin
+      S = Atom%Sval(itermu)
+
+      ! Orbital angular momentum
+      rLu = Atom%rLval(itermu)
+      rLf = Atom%rLval(itermf)
+
+      ! Determine the maximum angular momentum and the number
+      ! of magnetic sublevels for that maximum momentum
+      rJumax = rLu + S
+      nMu = nint(2d0*rJumax+1d0)
+      rJfmax = rLf + S
+      nMf = nint(2d0*rJfmax+1d0)
+
+      ! Trano index
+      ktran = Atom%itrano(jtran)
+
+
+      !
+      ! Initialize the emission coefficient
+      !
+!$omp parallel workshare default(none) &
+!$omp shared(eps20,eps21,eps22,eps23)
+      eps20 = 0d0
+      eps21 = 0d0
+      eps22 = 0d0
+      eps23 = 0d0
+!$omp end parallel workshare
+
+      ! If there are frequencies
+#ifdef _OPENMP
+#else
+      if (Fin%mxfreq.gt.0) then
+        allocate(Warr2xW(Fin%mxfreq))
+        allocate(intergrin(Fin%mxfreq))
+      end if
+#endif
+
+
+      !
+      ! Calculation of 2nd order emissivity
+      !
+
+      ! For all the possible lower terms
+      do i=1,Atom%nMulti-1
+
+        ! If there is no transition or this term is larger
+        ! than the upper term of the output transition, skip
+        if(i.ge.itermu.or.Atom%irad(i,itermu).eq.0) cycle
+
+        ! Store the input lower term index
+        iterml = i
+
+        ! Get index of input transition
+        itran = Atom%irad(iterml,itermu)
+
+        ! Get index of input transition in structure
+        ios = -1
+        do iti=1,Atom%trano(ktran)%nt
+          if (Atom%trano(ktran)%ind(iti).eq.itran) then
+            ios = 1
+            exit
+          end if
+        end do
+        if (ios.lt.0) cycle
+
+        ! Check if forward
+        if (jtran.eq.itran.and. &
+            Geom%V_CScatt(1).ge.1d0) then
+          nfs = 1
+        else
+          nfs = 0
+        end if
+
+        ! If PRAM, point to the redistribution subblock
+        if (PRAM) then
+
+          p_red => Red%trani(iti)
+          LPRAM = PRAM.and.p_red%RAM
+
+        ! If not, nothing stored
+        else
+
+          LPRAM = .False.
+
+        end if
+
+        ! Define if non-coherent lower term
+        if (NCHLT.and.allocated(Atom%NCHLT)) then
+          lNCHLT = Atom%NCHLT(iz,itran)
+        else
+          lNCHLT = .False.
+        end if
+
+        ! If not storing or dynamic in quadrature
+        if ((.not.LPRAM.or.dyn).and..not.emerging) then
+
+          ! Copy restricted
+          skip_scatt = Geom%skip_ksc
+          nskip = Geom%nskip
+          nScatt = Geom%nScatt - nskip
+          i_scatt = Geom%k_scatt
+
+        ! Storing, static, or LOS
+        else
+
+          ! Copy total
+          skip_scatt = Geom%skip_jsc
+          nskip = 0
+          nScatt = Geom%nScatt
+          i_scatt = Geom%j_scatt
+
+        end if
+
+        ! Point to input transition
+        p_frec => Fin%trani(iti)
+
+        ! Get interpolated intensity
+        call getStkin(Geom,p_frec,Fin,omega,vx,vy,vz,jdir, &
+                      nfs,Stokesin,Stokes)
+
+        ! Get the 'flat' JKQ for this input transition
+        JRad = JKQ(:,:,itran)
+
+        ! Redistribution size
+        nmfreq = sum(p_frec%mfreq)*(nScatt-nfs)
+
+        ! Doppler width for the input transition
+        Dw1 = Atom%Dfreq(itran)*sqrt(DwT*DwT + vmi**2d0)
+
+        ! Damping parameter input lower level and input transition
+        al = Atom%damp(iterml,iz)
+        aul = Atom%ldamp(itran,iz)
+
+        ! Angular momentum input lower level
+        rLl = Atom%rLval(iterml)
+
+        ! Determine maximum value of J and number of magnetic
+        ! sublevels for this maximum J
+        rJlmax = rLl + S
+        nMl = nint(2d0*rJlmax+1d0)
+
+        !
+        ! Initialize the emission coefficient
+        !
+#ifdef _OPENMP
+        leps20 = 0d0
+        leps21 = 0d0
+        leps22 = 0d0
+        leps23 = 0d0
+#endif
+
+! dnorme2 removed from list, commented in declarations
+!$omp parallel if (omp) default(none) &
+!$omp private(tid,ldo,kwfreq0,iMf,rMf,mF,ef,indF,iMu,rMu,q,iq,iU,eu) &
+!$omp private(indU,CRD0,Dfreqw,Norme1,ifreq,prof,iMu1,rMu1,q1,QQ) &
+!$omp private(iq1,iQQ,iU1,eu1,indU1,CRD,hanleden,iMl,rMl,p,ip,iL,el) &
+!$omp private(indL,iMl1,rMl1,p1,PP,ip1,iPP,iL1,el1,indL1,tmp,icom) &
+!$omp private(PRDc,Warr2,jjfreq0,kkfreq0,iifreq,iran,ifreq,p_mfreq) &
+!$omp private(omegao,ish1,stype,jfreq,jjfreq,kkfreq,omegai,rep,imp) &
+!$omp private(K1,rK1,integrate,K,rK,ftmp,f1tmp,tmpK,kLb,Clb,iJlb) &
+!$omp private(rJlb,kLb1,Clb1,iJlb1,rJlb1,rhoc,kL,Cl,iJl,rJl,kU2,Cu2) &
+!$omp private(iJu2,rJu2,CC2,kL1,Cl1,iJl1,rJl1,kU3,Cu3,iJu3,rJu3,CC3) &
+!$omp private(kF,Cf,iJf,rJf,kU,Cu,iJu,rJu,CC,kF1,Cf1,iJf1,rJf1,kU1) &
+!$omp private(Cu1,iJu1,rJu1,CC1,PRD,wlf,cohIn,p_warr2,llfreq0,ith1) &
+!$omp private(iph1,cost,sint,cosc,sinc,vfac1,StokesM,intgr,kkfreq0b) &
+!$omp private(Warr2xW,intergrin,Norme2,PRDin,daux) &
+!$omp shared(Atom,nMf,rJfmax,itermf,iz,nMu,rJumax,itermu,omp,lNCHLT) &
+!$omp shared(ktran,iti,vpfil,if0,if1,Norme0,aprof,jtran,Norma,Dw) &
+!$omp shared(omega,vfacw,at,rJlmax,iterml,nMl,cZero,nmfreq,LPRAM) &
+!$omp shared(p_red,p_frec,vfac,Geom,skip_scatt,itran,Dw1,au,al,af) &
+!$omp shared(auf,aul,IPI42,Flgsg,TINYJS,TINYEV,TINYER,TINYCO,dyn) &
+!$omp shared(axial,Fin,Stokesin,nScatt,nfs,Jrad,TBout,rLl,jdir) &
+!$omp reduction(+: leps20,leps21,leps22,leps23)
+
+      ! If there are frequencies
+#ifdef _OPENMP
+      if (Fin%mxfreq.gt.0) then
+        allocate(Warr2xW(Fin%mxfreq))
+        allocate(intergrin(Fin%mxfreq))
+      end if
+#endif
+
+#ifdef _OPENMP
+        tid = omp_get_thread_num() + 1
+        ldo = .True.
+#endif
+
+        ! Initialize kkfreq index
+        kwfreq0 = 0
+
+        ! For each Mf
+        do iMf=1,nMf
+
+          ! Value of Mf
+          rMf = -rJfmax + dble(iMf-1)
+
+          ! For each mu_f
+          do mF=1,Atom%nblk(iMf,itermf)
+
+            ! Get eigenvalue final lower level
+            ef = Atom%eval(mF,iMf,itermf,iz)
+
+            ! Get indexes
+            indF = Atom%i_Wind(itermf)%ind(mF,iMf)
+
+            ! For each Mu
+            do iMu=1,nMu
+
+              ! Value of Mu
+              rMu = -rJumax + dble(iMu-1)
+
+              ! Difference between M momentums, done integer
+              q = rMu - rMf
+              iq = nint(q)
+
+              ! If not pi nor sigma, skip
+              if(abs(iq).gt.1) cycle
+
+              ! For each mu_u
+              do iU=1,Atom%nblk(iMu,itermu)
+
+                ! Get eigenvalue upper level
+                eu = Atom%eval(iU,iMu,itermu,iz)
+
+                ! Get indexes
+                indU = Atom%i_Wind(itermu)%ind(iU,iMu)
+#ifdef _OPENMP
+                ! If Openmp
+                if (omp) then
+
+                  ! If NCHLT
+                  if (lNCHLT) then
+
+                    ! Check if CRD is needed here
+                    ldo = .not. &
+                         (iU.lt.Atom%omp_2c(ktran)%mnnU(tid,iti).or. &
+                          iU.gt.Atom%omp_2c(ktran)%mxnU(tid,iti))
+
+                  ! If CHLT
+                  else
+
+                    ! Check if CRD is needed here
+                    ldo = .not. &
+                         (iU.lt.Atom%omp_2c(ktran)%mnU(tid,iti).or. &
+                          iU.gt.Atom%omp_2c(ktran)%mxU(tid,iti))
+
+                  end if ! NCHLT
+                end if ! OpenMP
+
+                ! If doing CRD profile
+                if (ldo) then
+#endif
+                ! If in file
+                if (vpfil) then
+
+                  CRD0(if0:if1) = Norme0*conjg(aprof(:, &
+                               Atom%i_Vind(jtran)%ind(mF,iMf,iU,iMu)))
+
+                ! If stored
+                else if (Norma%VRAM) then
+
+                  ! Flat spectrum contribution
+                  CRD0(if0:if1) = Norme0* &
+                          conjg(Norma%prof(mF,iU,iMf,iMu)%cp(if0:if1))
+
+                ! If not stored
+                else
+
+                  ! Shift term
+                  Dfreqw  = (eu - ef + Atom%Dfreq(jtran))/Dw
+
+                  ! Normalization factors
+                  Norme1  = Norma%Norm(mF,iU,iMf,iMu)*Norme0
+
+
+                  !
+                  ! Flat contribution. Implicit branching
+                  !
+
+                  ! For each frequency
+                  do ifreq=if0,if1
+
+                    ! Calculate profile u-f
+                    call voigt(Dfreqw - omega(ifreq)*vfacw, &
+                               at,prof)
+
+                    ! Normalize
+                    prof = dcmplx(dble(prof)*Norme1, &
+                                  dimag(prof)*Norme0)
+
+                    ! Flat spectrum contribution
+                    CRD0(ifreq) = conjg(prof)
+
+                  end do ! frequencies
+
+                end if ! Storing Voigt
+#ifdef _OPENMP
+                end if ! Computing CRD
+#endif
+
+                ! For each Mu'
+                do iMu1=1,nMu
+
+                  ! Value of Mu'
+                  rMu1 = -rJumax + dble(iMu1-1)
+
+                  ! Difference between M momentums
+                  q1 = rMu1-rMf
+                  QQ = q1-q
+
+                  ! Convert to integers
+                  iq1 = nint(q1)
+                  iQQ = nint(QQ)
+
+                  ! If not pi or sigma, skip
+                  if(abs(iq1).gt.1) cycle
+
+                  ! For each mu_u'
+                  do iU1=1,Atom%nblk(iMu1,itermu)
+
+                    ! Get eigenvalue upper' level
+                    eu1 = Atom%eval(iU1,iMu1,itermu,iz)
+
+                    ! Get indexes
+                    indU1 = Atom%i_Wind(itermu)%ind(iU1,iMu1)
+#ifdef _OPENMP
+                    ! If Openmp
+                    if (omp) then
+
+                      ! If NCHLT
+                      if (lNCHLT) then
+
+                        ! Check if CRD is needed here
+                        ldo = .not. &
+                             (iU1.lt. &
+                              Atom%omp_2c(ktran)%mnnU1(tid,iti).or. &
+                              iU1.gt. &
+                              Atom%omp_2c(ktran)%mxnU1(tid,iti))
+
+                      ! If CHLT
+                      else
+
+                        ! Check if CRD is needed here
+                        ldo = .not. &
+                             (iU1.lt. &
+                              Atom%omp_2c(ktran)%mnU1(tid,iti).or. &
+                              iU1.gt. &
+                              Atom%omp_2c(ktran)%mxU1(tid,iti))
+
+                      end if ! NCHLT
+                    end if ! OpenMP
+
+                    ! If doing CRD profile
+                    if (ldo) then
+#endif
+                    ! If in file
+                    if (vpfil) then
+
+                      CRD(if0:if1) = CRD0(if0:if1) + Norme0*aprof(:, &
+                              Atom%i_Vind(jtran)%ind(mF,iMf,iU1,iMu1))
+
+                    ! If stored
+                    else if (Norma%VRAM) then
+                      ! Flat spectrum contribution
+
+                      CRD(if0:if1) = CRD0(if0:if1) + Norme0* &
+                               Norma%prof(mF,iU1,iMf,iMu1)%cp(if0:if1)
+
+                    ! If not stored
+                    else
+
+                      ! Shift term
+                      Dfreqw = (eu1 - ef + Atom%Dfreq(jtran))/Dw
+
+                      ! Normalization factors
+                      Norme1 = Norma%Norm(mF,iU1,iMf,iMu1)*Norme0
+
+
+                      !
+                      ! Flat contribution. Implicit branching
+                      !
+
+                      ! For each frequency
+                      do ifreq=if0,if1
+
+                        ! Calculate profile u'-f
+                        call voigt(Dfreqw - omega(ifreq)*vfacw, &
+                                   at,prof)
+
+                        ! Normalize
+                        prof = dcmplx(dble(prof)*Norme1, &
+                                      dimag(prof)*Norme0)
+
+                        ! Flat spectrum contribution
+                        CRD(ifreq) = CRD0(ifreq) + prof
+
+                      end do ! frequencies
+
+                    end if ! Storing Voigt
+#ifdef _OPENMP
+                    end if ! Computing CRD
+#endif
+
+                    ! Hanle factor
+                    ! TODO ATTENTION TO THIS
+                    hanleden = dcmplx(hau,(eu-eu1)/Dw)
+
+                    !
+                    ! Continue with the 2nd order emissivity
+                    !
+
+                    ! For each Ml
+                    do iMl=1,nMl
+
+                      ! Value of Ml
+                      rMl = -rJlmax + dble(iMl-1)
+
+                      ! Difference between M momentums, in integer
+                      p = rMu-rMl
+                      ip = nint(p)
+
+                      ! If not pi nor sigma, skip
+                      if(abs(ip).gt.1) cycle
+
+                      ! For each mu_l
+                      do iL=1,Atom%nblk(iMl,iterml)
+
+                        ! Get eigenvalue of input lower level
+                        el = Atom%eval(iL,iMl,iterml,iz)
+
+                        ! Get indexes
+                        indL = Atom%i_Wind(iterml)%ind(iL,iMl)
+
+                        ! For each Ml'
+                        do iMl1=1,nMl
+
+                          ! Value of Ml'
+                          rMl1 = -rJlmax + dble(iMl1-1)
+
+                          ! Difference between M momentums
+                          p1 = rMu1-rMl1
+                          PP = p1-p
+
+                          ! Convert to integer
+                          ip1 = nint(p1)
+                          iPP = nint(PP)
+
+                          ! If not pi nor sigma, skip
+                          if(abs(ip1).gt.1) cycle
+
+                          ! If non-coherent lower term, skip if not
+                          ! diagonal
+                          if (lNCHLT) then
+                            if (iMl.ne.iMl1) cycle
+                          end if
+
+                          ! For each mu_l'
+                          do iL1 = 1,Atom%nblk(iMl1,iterml)
+
+                            ! If non-coherent lower term, skip if not
+                            ! diagonal
+                            if (lNCHLT) then
+                              if (iL.ne.iL1) cycle
+                            end if
+
+                            ! Get eigenvalue of input lower' level
+                            el1 = Atom%eval(iL1,iMl1,iterml,iz)
+
+                            ! Get indexes
+                            indL1 = Atom%i_Wind(iterml)%ind(iL1,iMl1)
+
+                            ! Initialize temporal variable
+                            tmp = cZero
+
+        !
+        ! Reset indexing
+        !
+
+        ! Get the component index
+        icom = Atom%trano(ktran)%trani(iti)% &
+                    Wind(indL1,indL,indF,indU1,indU)
+#ifdef _OPENMP
+        ! Check if doing this component if in omp
+        if (omp) then
+
+          ! If NCHLT
+          if (lNCHLT) then
+
+            ! If out of own ranges
+            if (icom.lt.Atom%omp_2c(ktran)%nif0(tid,iti)) then
+
+              ! Add to index, and skip
+              kwfreq0 = kwfreq0 + nmfreq
+              cycle
+
+            end if ! Out by left
+
+            ! If out by right
+            if (icom.gt.Atom%omp_2c(ktran)%nif1(tid,iti)) exit
+
+          ! If CHLT
+          else
+
+            ! If out of own ranges
+            if (icom.lt.Atom%omp_2c(ktran)%if0(tid,iti)) then
+
+              ! Add to index, and skip
+              kwfreq0 = kwfreq0 + nmfreq
+              cycle
+
+            end if ! Out by left
+
+            ! If out by right
+            if (icom.gt.Atom%omp_2c(ktran)%if1(tid,iti)) exit
+
+          end if ! NCHLT
+        end if ! OMP
+#endif
+
+        if (LPRAM) then
+          PRDc = p_red%iPPRD(icom)
+        else
+          PRDc = .True.
+        end if
+
+
+        !
+        ! Create array of Wfunc
+        !
+
+        if (PRDc) then
+
+          ! Initialize array
+          if (nmfreq.gt.0) then
+            if (.not.allocated(Warr2)) then
+              allocate(Warr2(nmfreq))
+            else
+              if (size(Warr2).ne.nmfreq) then
+                deallocate(Warr2)
+                allocate(Warr2(nmfreq))
+              end if
+            end if
+          end if
+
+          ! Initialize frequency index
+          jjfreq0 = 0
+          kkfreq0 = 0
+
+          ! For each output frequency
+          iifreq = 0
+          do iran=1,Fin%nran
+            do ifreq=Fin%if0(iran),Fin%if1(iran)
+
+              ! Advance index
+              iifreq = iifreq + 1
+
+              ! Point to dimension
+              p_mfreq => p_frec%mfreq(iifreq)
+
+              ! Coherent wing
+              if (p_mfreq.lt.1) cycle
+
+              ! Get output frequency
+              omegao = omega(ifreq)*vfac - Atom%Dfreq(jtran)
+
+              ! For each scattering angle
+              do ish1=1,Geom%nScatt
+
+                ! Non-present scattering angle
+                if (skip_scatt(ish1)) cycle
+
+                ! Check forward scattering two-terms
+                if (itran.eq.jtran.and. &
+                    Geom%V_CScatt(ish1).ge.1d0) cycle
+
+                ! Check backward
+                if (Geom%V_CScatt(ish1).le.-1d0) then
+                  stype = 1
+                else
+                  stype = 0
+                end if
 
                 ! For each input frequency
                 do jfreq=1,p_mfreq
 
                   ! Advance indexes
-                  jjfreq = jjfreq + 1
-                  kkfreq = kkfreq + 1
+                  jjfreq = jjfreq0 + jfreq
+                  kkfreq = kkfreq0 + jfreq
 
                   ! Get input frequency
-                  omegai = p_frec%omega(jjfreq) - Atom%Dfreq(itran)
+                  omegai = p_frec%omega(jjfreq) - &
+                           Atom%Dfreq(itran)
 
-                  ! Initialize Warr2
-                  Warr2(kkfreq) = cZero
-
-                  ! For each direction in the integral AA quadrature
-                  do ith1=1,Geom%nThAA
-
-
-                    ! Add the contribution to the angular integral
-                    ! of the redistribution function
-                    Warr2(kkfreq) = Warr2(kkfreq) + &
-                                    Geom%W_muAA(ith1)* &
-                                  Wfunc(omegai,omegao, &
+                  ! Calculate redistribution function
+                  Warr2(kkfreq) = Wfunc(omegai,omegao, &
                                         Dw,Dw1,el,el1,eu,eu1,ef, &
-                                               al,au,af,aul,auf, &
-                                        Wcos(ith1),Wsin(ith1),0)*IPI42
+                                        al,au,af,aul,auf, &
+                                        Geom%V_CScatt(ish1), &
+                                        Geom%V_SScatt(ish1), &
+                                        stype)*IPI42
 
-                  end do  ! direction nodes
                 end do ! input frequencies
-              end do ! output frequencies
-            end do ! output frequencies ranges
 
-            ! If storing
-            if (LPRAM) then
+                ! Update kkfreq0
+                kkfreq0 = kkfreq0 + p_mfreq
 
-              p_red%iPPRD(icom) = .False.
-              do jfreq=kkfreq-nmfreq+1,kkfreq
-                rep = dble(Warr2(jfreq))
-                imp = dimag(Warr2(jfreq))
-                if (rep.le.1e-30) rep = 0d0
-                if (abs(imp).le.1e-30) imp = 0d0
-                p_red%PWarr2(kwfreq0+jfreq) = &
-                                            cmplx(real(rep),real(imp))
-              end do
+              end do  ! Scattering angles
 
-            end if ! If storing
+              ! Update jjfreq0
+              jjfreq0 = jjfreq0 + p_mfreq
 
-          ! If angle-dependent
-          else
+            end do ! output frequencies
+          end do ! output frequencies ranges
 
-            ! Initialize array
-            if (itran.eq.jtran) then
-              nmfreq = sum(p_frec%mfreq)*(Geom%nTh*Geom%nPh2-nfs)
-            else
-              nmfreq = sum(p_frec%mfreq)*Geom%nTh*Geom%nPh2
-            end if
-            if (nmfreq.gt.0) then
-              if (.not.allocated(Warr2)) then
-                allocate(Warr2(nmfreq))
-              else
-                if (size(Warr2).ne.nmfreq) then
-                  deallocate(Warr2)
-                  allocate(Warr2(nmfreq))
-                end if
-              end if
-            end if
+          ! If storing
+          if (LPRAM) then
 
-            ! Initialize frequency index
-            jjfreq0 = 0
+            p_red%iPPRD(icom) = .False.
+            do jfreq = kkfreq-nmfreq+1,kkfreq
+              rep = dble(Warr2(jfreq))
+              imp = dimag(Warr2(jfreq))
+              if (rep.le.1e-30) rep = 0d0
+              if (abs(imp).le.1e-30) imp = 0d0
+              p_red%Pwarr2(kwfreq0+jfreq) = &
+                                          cmplx(real(rep),real(imp))
+            end do
 
-            ! For each output frequency
-            iifreq = 0
-            do iran=1,Fin%nran
-              do ifreq=Fin%if0(iran),Fin%if1(iran)
-
-                ! Advance index
-                iifreq = iifreq + 1
-
-                ! Point to dimension
-                p_mfreq => p_frec%mfreq(iifreq)
-
-                ! Coherent wing
-                if (p_mfreq.lt.1) cycle
-
-                ! Get output frequency
-                omegao = omega(ifreq)*vfac - Atom%Dfreq(jtran)
-
-                ! For each polar direction
-                do ith1=1,Geom%nTh
-
-                  ! For each azimuthal direction
-                  do iph1=1,Geom%nPh2
-
-                    ! Check backward scattering two-terms
-                    if (itran.eq.jtran.and. &
-                        stype(iph1,ith1).lt.0) cycle
-
-                    ! Get last index
-                    jjfreq = jjfreq0
-
-                    ! For each input frequency
-                    do jfreq=1,p_mfreq
-
-                      ! Advance indexes
-                      jjfreq = jjfreq + 1
-                      kkfreq = kkfreq + 1
-
-                      ! Get input frequency
-                      omegai = p_frec%omega(jjfreq) - &
-                               Atom%Dfreq(itran)
-
-                      ! Calculate redistribution function
-                      Warr2(kkfreq) = Wfunc(omegai,omegao, &
-                                            Dw,Dw1,el,el1,eu,eu1,ef, &
-                                            al,au,af,aul,auf, &
-                                            TWcos(iph1,ith1), &
-                                            TWsin(iph1,ith1), &
-                                            stype(iph1,ith1))*IPI42
-
-                    end do ! input frequencies
-                  end do ! azimuthal directions
-                end do  ! polar directions
-
-                ! Update jjfreq0
-                jjfreq0 = jjfreq
-
-              end do ! output frequencies
-            end do ! output frequencies ranges
-
-            ! If storing
-            if (LPRAM) then
-
-              p_red%iPPRD(icom) = .False.
-              do jfreq = kkfreq-nmfreq+1,kkfreq
-                rep = dble(Warr2(jfreq))
-                imp = dimag(Warr2(jfreq))
-                if (rep.le.1e-30) rep = 0d0
-                if (abs(imp).le.1e-30) imp = 0d0
-                p_red%Pwarr2(kwfreq0+jfreq) = &
-                                            cmplx(real(rep),real(imp))
-              end do
-
-            end if ! If storing
-          end if ! AV or AD
+          end if ! If storing
         end if ! Initialized
 
         ! For each K'
@@ -3913,25 +5023,25 @@
               ! Check if static and coherent
               cohIn = dyn.or.abs(wlf).gt.0d0
 
-              ! If angle-averaged
-              if(AV)then
-
-                ! If storing Warr
-                if (LPRAM) then
-                  nmfreq = sum(p_frec%mfreq)
-                  if (nmfreq.gt.0) then
-                    allocate(p_warr2(nmfreq))
-                    p_warr2 = dcmplx(p_red% &
-                              Pwarr2(kwfreq0+1:kwfreq0+nmfreq))
-                  end if
-                ! If not storing
-                else
-                  if (allocated(Warr2)) p_warr2 => Warr2
+              ! If storing Warr2
+              if (LPRAM) then
+                if (nmfreq.gt.0) then
+                  allocate(p_warr2(nmfreq))
+                  p_warr2 = dcmplx(p_red% &
+                                   Pwarr2(kwfreq0+1:kwfreq0+nmfreq))
                 end if
+              ! If not storing
+              else
+                if (allocated(Warr2)) p_warr2 => Warr2
+              end if
+
+              ! If axial symmetry
+              if (axial) then
 
                 ! Initialize frequency indexes
-                jjfreq = 0
-                kkfreq = 0
+                jjfreq0 = 0
+                llfreq0 = 0
+                kkfreq0 = 0
 
                 ! For each output frequency
                 iifreq = 0
@@ -3944,453 +5054,310 @@
                     ! Point to dimension
                     p_mfreq => p_frec%mfreq(iifreq)
 
-                    ! If coherent wing
-                    if (p_mfreq.lt.1) then
+                    ! For each polar direction
+                    do ith1=1,Geom%nTh
 
-                      ! Full coherent
-                      if (cohIn) then
+                      ! For each azimuthal direction
+                      do iph1=1,Geom%nPh2
 
-                        ! Fully coherent contribution
-                        PRD(ifreq) = CRD(ifreq)*JradC(ifreq,iPP,K1)
+                        ! Scattering index
+                        ish1 = Geom%i_scatt(iph1,ith1,jdir)
 
-                      ! Interpolate
-                      else
+                        ! Special treatment if forward for two
+                        ! terms
+                        if ((jtran.eq.itran.and. &
+                             Geom%V_CScatt(ish1).ge.1d0).or. &
+                            (p_mfreq.lt.1)) then
 
-                        ! Input frequency
-                        omegai = omega(ifreq)*vfac - wlf
+                          ! Interpolate
+                          if (cohIn) then
 
-                        ! Get JKQ
-                        y0 = getJKQin(omega(Fin%ggf0:Fin%ggf1), &
-                                      JradC(:,iPP,K1), &
-                                      ifreq-Fin%ggf0+1, &
-                                      Fin%ggf1-Fin%ggf0+1,omegai)
+                            ! Input frequency
+                            omegai = omega(ifreq)*vfac - wlf
 
-                        ! Fully coherent contribution
-                        PRD(ifreq) = CRD(ifreq)*y0
+                            ! If there are dynamics
+                            if (dyn) then
 
-                      end if
+                              ! Get director cosine
+                              cost = Geom%V_mu(ith1)
 
-                      ! Skip rest
-                      cycle
+                              ! Calculate Doppler shift factor
+                              vfac1 = 1d0 - vz*cost
 
-                    end if ! Coherent wing
+                              ! We will be using the inverse
+                              vfac1 = 1d0/vfac1
 
-                    ! Initialize normalization value
-                    Norme2 = cZero
+                              ! Shift
+                              omegai = omegai*vfac1
 
-                    ! For each input frequency
-                    do jfreq=1,p_mfreq
+                            end if
 
-                      ! Advance indexes
-                      jjfreq = jjfreq + 1
-                      kkfreq = kkfreq + 1
-
-                      ! Linear interpolation
-                      y0 = JradC(p_index1(jjfreq),iPP,K1)
-                      dy = JradC(p_index2(jjfreq),iPP,K1) - y0
-                      JKQinM = dy*p_dx(jjfreq) + y0
-
-                      ! Add weight to Warr2
-                      caux = p_warr2(kkfreq)*p_frec%w_freq(jjfreq)
-
-                      ! Add contribution to normalization
-                      Norme2 = Norme2 + caux
-
-                      ! Add contribution to the radiation integral
-                      PRD(ifreq) = PRD(ifreq) + JKQinM*caux
-
-                    end do ! Input frequencies
-
-                    ! Normalize to the first order profile
-                    PRD(ifreq) = PRD(ifreq)*CRD(ifreq)/Norme2
-
-                    ! This old normalization (only real part) was
-                    ! problematic for non-axial cases with
-                    ! angle-dependent
-                   !! Normalize real part to the first order profile
-                   !dNorme2 = dble(Norme2)
-                   !if (dNorme2.gt.0d0) then
-                   !  rep = dble(PRD(ifreq))*dble(CRD(ifreq))/ &
-                   !                                     dNorme2
-                   !  PRD(ifreq) = dcmplx(rep,dimag(PRD(ifreq)))
-                   !else
-                   !  PRD(ifreq) = dcmplx(0d0,dimag(PRD(ifreq)))
-                   !end if
-
-                  end do ! Output frequencies
-                end do ! Output frequencies ranges
-
-              ! If angle-dependent
-              else
-
-                ! If storing Warr2
-                if (LPRAM) then
-                  if (itran.eq.jtran) then
-                    nmfreq = sum(p_frec%mfreq)* &
-                             (Geom%nTh*Geom%nPh2-nfs)
-                  else
-                    nmfreq = sum(p_frec%mfreq)*Geom%nTh*Geom%nPh2
-                  end if
-                  if (nmfreq.gt.0) then
-                    allocate(p_warr2(nmfreq))
-                    p_warr2 = dcmplx(p_red% &
-                                     Pwarr2(kwfreq0+1:kwfreq0+nmfreq))
-                  end if
-                ! If not storing
-                else
-                  if (allocated(Warr2)) p_warr2 => Warr2
-                end if
-
-                ! If axial symmetry
-                if (axial) then
-
-                  ! Initialize frequency indexes
-                  jjfreq0 = 0
-                  llfreq0 = 0
-                  kkfreq = 0
-
-                  ! For each output frequency
-                  iifreq = 0
-                  do iran=1,Fin%nran
-                    do ifreq=Fin%if0(iran),Fin%if1(iran)
-
-                      ! Advance index
-                      iifreq = iifreq + 1
-
-                      ! Point to dimension
-                      p_mfreq => p_frec%mfreq(iifreq)
-
-                      ! For each polar direction
-                      do ith1=1,Geom%nTh
-                        ibth1 = min(ith1,nbth)
-
-                        ! Get last index
-                        jjfreq = jjfreq0
-
-                        ! For each input frequency
-                        do jfreq=1,p_mfreq
-
-                          ! Advance index
-                          jjfreq = jjfreq + 1
-
-                          ! Linear interpolation
-                          y0s = Stokes(:,p_index1(jjfreq),1,ith1)
-                          dys = Stokes(:,p_index2(jjfreq),1,ith1) - &
-                                y0s
-                          StokesMV(:,jfreq) = dys*p_dx(jjfreq) + y0s
-
-                        end do ! input frequencies
-
-                        ! For each azimuthal direction
-                        do iph1=1,Geom%nPh2
-                          ibph1 = min(iph1,nbph)
-
-                          ! Special treatment if forward for two
-                          ! terms
-                          if ((jtran.eq.itran.and. &
-                               stype(iph1,ith1).lt.0).or. &
-                              (p_mfreq.lt.1)) then
-
-                            ! Fully coherent
-                            if (cohIn) then
-
-                              StokesM = Stokes(:,ifreq,1,ith1)
-
-                            ! Interpolate
-                            else
-
-                              vfac1 = 1d0
-
-                              ! If there are dynamics
-                              if (dyn) then
-
-                                ! Get director cosine
-                                cost = Geom%V_mu(ith1)
-
-                                ! Calculate Doppler shift factor
-                                vfac1 = 1d0 - vz*cost
-
-                                ! We will be using the inverse
-                                vfac1 = 1d0/vfac1
-
-                              end if
-
-                              ! Input frequency
-                              omegai = (omega(ifreq)*vfac - wlf)*vfac1
-
-                              StokesM = getStkin(omega, &
+                            ! Interpol
+                            StokesM = getStkinnu(omega, &
                                                  Stokes(:,:,1,ith1), &
                                                  ifreq,omegai)
-                            end if
 
-                            ! Sum over Stokes parameters,
-                            ! integrand
-                            intgr = sum(StokesM* &
-                                        Geom%TB(:,iPP,K1, &
-                                                iph1,ith1,iz))
-
-                            PRD(ifreq) = PRD(ifreq) + &
-                                         intgr*Geom%W_mu(ith1)* &
-                                         Geom%W_mux2(iph1)* &
-                                         CRD(ifreq)
-
-                          ! Non-forward 2-term scattering
+                          ! Fully coherent
                           else
 
-                            ! Restore index
-                            llfreq = llfreq0
+                            StokesM = Stokes(:,ifreq,1,ith1)
 
-                            ! Initialize norm
-                            Norme2 = 0d0
+                          end if
 
-                            ! Local PRD
-                            PRDin = cZero
+                          ! Sum over Stokes parameters,
+                          ! integrand
+                          intgr = sum(StokesM* &
+                                      Geom%TB(:,iPP,K1, &
+                                              iph1,ith1,iz))
 
-                            ! For each input frequency
-                            do jfreq=1,p_mfreq
+                          PRD(ifreq) = PRD(ifreq) + &
+                                       intgr*Geom%W_mu(ith1)* &
+                                       Geom%W_mux2(iph1)* &
+                                       CRD(ifreq)
 
-                              ! Advance index
-                              llfreq = llfreq + 1
-                              kkfreq = kkfreq + 1
+                        ! Non-forward 2-term scattering
+                        else
 
-                              ! Sum over Stokes parameters, integrand
-                              intgr = sum(StokesMV(:,jfreq)* &
-                                       Geom%TB(:,iPP,K1,iph1,ith1,iz))
+                          !
+                          ! Find initial index for kkfreq
 
-                              ! Add weight to Warr2
-                              caux = p_warr2(kkfreq)* &
-                                     p_frec%w_freq(llfreq)
+                          ! Scattering index
+                          ish1 = i_scatt(ish1)
 
-                              ! Add contribution to the norm
-                              Norme2 = Norme2 + caux
+                          ! Shift in indexes
+                          kkfreq0b = kkfreq0 + (ish1-nfs-1)*p_mfreq
 
-                              ! Add contribution to the partial
-                              ! integral
-                              PRDin = PRDin + intgr*caux
+                          ! Multiply Warr2 and weights
+                          Warr2xW(1:p_mfreq) = &
+                              p_warr2(kkfreq0b+1:kkfreq0b+p_mfreq)* &
+                              p_frec%W_freq(llfreq0+1:llfreq0+p_mfreq)
 
-                            end do ! Input frequencies
+                          ! Sum Stokes
+                          intergrin(1:p_mfreq) = &
+                              Stokesin(0,jjfreq0+1:jjfreq0+p_mfreq)* &
+                              Geom%TB(0,iPP,K1,iph1,ith1,iz) + &
+                              Stokesin(1,jjfreq0+1:jjfreq0+p_mfreq)* &
+                              Geom%TB(1,iPP,K1,iph1,ith1,iz) + &
+                              Stokesin(2,jjfreq0+1:jjfreq0+p_mfreq)* &
+                              Geom%TB(2,iPP,K1,iph1,ith1,iz) + &
+                              Stokesin(3,jjfreq0+1:jjfreq0+p_mfreq)* &
+                              Geom%TB(3,iPP,K1,iph1,ith1,iz)
 
-                            ! Normalize to the first order profile
-                            ! and add the directional weights
-                            PRD(ifreq) = PRD(ifreq) + &
-                                         PRDin*CRD(ifreq)* &
-                                         Geom%W_mu(ith1)* &
-                                         Geom%W_mux2(iph1)/Norme2
+                          ! Compute norm
+                          Norme2 = sum(Warr2xW(1:p_mfreq))
 
-                            ! This old normalization (only real part) was
-                            ! problematic for non-axial cases with
-                            ! angle-dependent
-                           !! Normalize real part to the first order
-                           !! profile and add the directional
-                           !! weights
-                           !dNorme2 = dble(Norme2)
-                           !if (dNorme2.gt.0d0) then
-                           !  rep = dble(PRDin)* &
-                           !        dble(CRD(ifreq))/dNorme2
-                           !  imp = dimag(PRDin)
-                           !  PRD(ifreq) = PRD(ifreq) + &
-                           !               dcmplx(rep,imp)* &
-                           !               Geom%W_mu(ith1)* &
-                           !               Geom%W_mux2(iph1)
-                           !else
-                           !  PRD(ifreq) = PRD(ifreq) + &
-                           !               dcmplx(0d0, &
-                           !                      dimag(PRDin)* &
-                           !                       Geom%W_mu(ith1)* &
-                           !                       Geom%W_mux2(iph1))
-                           !end if ! Positive norm
+                          ! Integrate
+                          PRDin = sum(Warr2xW(1:p_mfreq)* &
+                                      intergrin(1:p_mfreq))
 
-                          end if ! Type of scattering
+                          ! Normalize to the first order profile
+                          ! and add the directional weights
+                          PRD(ifreq) = PRD(ifreq) + &
+                                       PRDin*CRD(ifreq)* &
+                                       Geom%W_mu(ith1)* &
+                                       Geom%W_mux2(iph1)/Norme2
 
-                        end do ! azimuthal nodes
+                          ! This old normalization (only real part)
+                          ! was problematic for non-axial cases with
+                          ! angle-dependent
+                         !! Normalize real part to the first order
+                         !! profile and add the directional
+                         !! weights
+                         !dNorme2 = dble(Norme2)
+                         !if (dNorme2.gt.0d0) then
+                         !  rep = dble(PRDin)* &
+                         !        dble(CRD(ifreq))/dNorme2
+                         !  imp = dimag(PRDin)
+                         !  PRD(ifreq) = PRD(ifreq) + &
+                         !               dcmplx(rep,imp)* &
+                         !               Geom%W_mu(ith1)* &
+                         !               Geom%W_mux2(iph1)
+                         !else
+                         !  PRD(ifreq) = PRD(ifreq) + &
+                         !               dcmplx(0d0, &
+                         !                      dimag(PRDin)* &
+                         !                       Geom%W_mu(ith1)* &
+                         !                       Geom%W_mux2(iph1))
+                         !end if ! Positive norm
 
-                        ! Update jjfreq
-                        if (dyn) jjfreq0 = jjfreq
+                        end if ! Type of scattering
 
-                      end do ! polar nodes
+                      end do ! azimuthal nodes
 
                       ! Update jjfreq
-                      jjfreq0 = jjfreq
-                      llfreq0 = llfreq
+                      jjfreq0 = jjfreq0 + p_mfreq
 
-                    end do ! output frequencies
-                  end do ! output frequencies ranges
+                    end do ! polar nodes
 
-                ! If not axial symmetric
-                else
+                    ! Update jjfreq
+                    llfreq0 = llfreq0 + p_mfreq
+                    kkfreq0 = kkfreq0 + p_mfreq*(nScatt - nfs)
 
-                  ! Initialize indexes
-                  jjfreq0 = 0
-                  llfreq0 = 0
-                  kkfreq = 0
+                  end do ! output frequencies
+                end do ! output frequencies ranges
 
-                  ! For each output frequency
-                  iifreq = 0
-                  do iran=1,Fin%nran
-                    do ifreq=Fin%if0(iran),Fin%if1(iran)
+              ! If not axial symmetric
+              else
 
-                      ! Advance index
-                      iifreq = iifreq + 1
+                ! Initialize indexes
+                jjfreq0 = 0
+                llfreq0 = 0
+                kkfreq0 = 0
 
-                      ! Point to dimension
-                      p_mfreq => p_frec%mfreq(iifreq)
+                ! For each output frequency
+                iifreq = 0
+                do iran=1,Fin%nran
+                  do ifreq=Fin%if0(iran),Fin%if1(iran)
 
-                      ! For each polar direction
-                      do ith1=1,Geom%nTh
-                        ibth1 = min(ith1,nbth)
+                    ! Advance index
+                    iifreq = iifreq + 1
 
-                        ! For each azimuthal direction
-                        do iph1=1,Geom%nPh2
-                          ibph1 = min(iph1,nbph)
+                    ! Point to dimension
+                    p_mfreq => p_frec%mfreq(iifreq)
 
-                          ! Special treatment if forward for two
-                          ! terms
-                          if ((jtran.eq.itran.and. &
-                               stype(iph1,ith1).lt.0).or. &
-                              (p_mfreq.lt.1)) then
+                    ! For each polar direction
+                    do ith1=1,Geom%nTh
 
-                            ! Full coherent
-                            if (cohIn) then
+                      ! For each azimuthal direction
+                      do iph1=1,Geom%nPh2
 
-                              StokesM = Stokes(:,ifreq,iph1,ith1)
+                        ! Scattering index
+                        ish1 = Geom%i_scatt(iph1,ith1,jdir)
 
-                            ! Interpolate
-                            else
+                        ! Special treatment if forward for two
+                        ! terms
+                        if ((jtran.eq.itran.and. &
+                             Geom%V_CScatt(ish1).ge.1d0).or. &
+                            (p_mfreq.lt.1)) then
 
-                              vfac1 = 1d0
+                          ! Interpolate
+                          if (cohIn) then
 
-                              ! If there are dynamics
-                              if (dyn) then
+                            ! Input frequency
+                            omegai = omega(ifreq)*vfac - wlf
 
-                                ! Get directional trigonimetric f.
-                                cost = Geom%V_mu(ith1)
-                                sint = sqrt(1d0 - cost*cost)
-                                cosc = Geom%v_mux(iph1)
-                                sinc = Geom%v_muy(iph1)* &
-                                       sqrt(1d0 - cosc*cosc)
+                            ! If there are dynamics
+                            if (dyn) then
 
-                                ! Calculate Doppler shift factor
-                                vfac1 = 1d0 - vx*sint*cosc - &
-                                              vy*sint*sinc - &
-                                              vz*cost
+                              ! Get directional trigonimetric f.
+                              cost = Geom%V_mu(ith1)
+                              sint = sqrt(1d0 - cost*cost)
+                              cosc = Geom%v_mux(iph1)
+                              sinc = Geom%v_muy(iph1)* &
+                                     sqrt(1d0 - cosc*cosc)
 
-                                ! We will be using the inverse
-                                vfac1 = 1d0/vfac1
+                              ! Calculate Doppler shift factor
+                              vfac1 = 1d0 - vx*sint*cosc - &
+                                            vy*sint*sinc - &
+                                            vz*cost
 
-                              end if
+                              ! We will be using the inverse
+                              vfac1 = 1d0/vfac1
 
-                              ! Input frequency
-                              omegai = (omega(ifreq)*vfac - wlf)*vfac1
+                              ! Shift
+                              omegai = omegai*vfac1
 
-                              StokesM = getStkin(omega, &
-                                              Stokes(:,:,iph1,ith1), &
-                                              ifreq,omegai)
                             end if
 
-                            ! Sum over Stokes parameters,
-                            ! integrand
-                            intgr = sum(StokesM* &
-                                        Geom%TB(:,iPP,K1, &
-                                                iph1,ith1,iz))
+                            ! Interpol
+                            StokesM = getStkinnu(omega, &
+                                            Stokes(:,:,iph1,ith1), &
+                                            ifreq,omegai)
 
-                            PRD(ifreq) = PRD(ifreq) + CRD(ifreq)* &
-                                         intgr*Geom%W_mu(ith1)* &
-                                         Geom%W_mux2(iph1)
-
-                          ! Non-forward 2-term scattering
+                          ! Full coherent
                           else
 
-                            ! Get last jjfreq index
-                            jjfreq = jjfreq0
-                            llfreq = llfreq0
+                            StokesM = Stokes(:,ifreq,iph1,ith1)
 
-                            ! Initialize normalization value
-                            Norme2 = cZero
+                          end if
 
-                            ! Reset partial integral
-                            PRDin = cZero
+                          ! Sum over Stokes parameters,
+                          ! integrand
+                          intgr = sum(StokesM* &
+                                      Geom%TB(:,iPP,K1, &
+                                              iph1,ith1,iz))
 
-                            ! For each input frequency
-                            do jfreq=1,p_mfreq
+                          PRD(ifreq) = PRD(ifreq) + CRD(ifreq)* &
+                                       intgr*Geom%W_mu(ith1)* &
+                                       Geom%W_mux2(iph1)
 
-                              ! Advance indexes
-                              jjfreq = jjfreq + 1
-                              llfreq = llfreq + 1
-                              kkfreq = kkfreq + 1
+                        ! Non-forward 2-term scattering
+                        else
 
-                              ! Linear interpolation
-                              y0s = Stokes(:,p_index1(jjfreq), &
-                                          iph1,ith1)
-                              dys = Stokes(:,p_index2(jjfreq), &
-                                             iph1,ith1) - y0s
-                              StokesM = dys*p_dx(jjfreq) + y0s
+                          ! Scattering index
+                          ish1 = i_scatt(ish1)
 
-                              ! Integrand
-                              intgr = sum(StokesM* &
-                                       Geom%TB(:,iPP,K1,iph1,ith1,iz))
+                          ! Shift in indexes
+                          kkfreq0b = kkfreq0 + (ish1-nfs-1)*p_mfreq
 
-                              ! Add weight to Warr2
-                              caux = p_warr2(kkfreq)* &
-                                     p_frec%w_freq(llfreq)
+                          ! Multiply Warr2 and weights
+                          Warr2xW(1:p_mfreq) = &
+                              p_warr2(kkfreq0b+1:kkfreq0b+p_mfreq)* &
+                              p_frec%W_freq(llfreq0+1:llfreq0+p_mfreq)
 
-                              ! Add contribution to normalization
-                              Norme2 = Norme2 + caux
+                          ! Sum Stokes
+                          intergrin(1:p_mfreq) = &
+                              Stokesin(0,jjfreq0+1:jjfreq0+p_mfreq)* &
+                              Geom%TB(0,iPP,K1,iph1,ith1,iz) + &
+                              Stokesin(1,jjfreq0+1:jjfreq0+p_mfreq)* &
+                              Geom%TB(1,iPP,K1,iph1,ith1,iz) + &
+                              Stokesin(2,jjfreq0+1:jjfreq0+p_mfreq)* &
+                              Geom%TB(2,iPP,K1,iph1,ith1,iz) + &
+                              Stokesin(3,jjfreq0+1:jjfreq0+p_mfreq)* &
+                              Geom%TB(3,iPP,K1,iph1,ith1,iz)
 
-                              ! Add contribution to radiation integral
-                              PRDin = PRDin + intgr*caux
+                          ! Compute norm
+                          Norme2 = sum(Warr2xW(1:p_mfreq))
 
-                            end do ! Input frequency
+                          ! Integrate
+                          PRDin = sum(Warr2xW(1:p_mfreq)* &
+                                      intergrin(1:p_mfreq))
 
-                            ! Normalize to the first order profile
-                            ! and add the directional weights
-                            PRD(ifreq) = PRD(ifreq) + &
-                                         PRDin*CRD(ifreq)* &
-                                         Geom%W_mu(ith1)* &
-                                         Geom%W_mux2(iph1)/Norme2
+                          ! Normalize to the first order profile
+                          ! and add the directional weights
+                          PRD(ifreq) = PRD(ifreq) + &
+                                       PRDin*CRD(ifreq)* &
+                                       Geom%W_mu(ith1)* &
+                                       Geom%W_mux2(iph1)/Norme2
 
-                            ! This old normalization (only real part)
-                            ! was problematic for non-axial cases with
-                            ! angle-dependent
-                           !! Normalize real part to the first order
-                           !! profile and add the directional weights
-                           !dNorme2 = dble(Norme2)
-                           !if (dNorme2.gt.0d0) then
-                           !  rep = dble(PRDin)* &
-                           !        dble(CRD(ifreq))/dNorme2
-                           !  imp = dimag(PRDin)
-                           !  PRD(ifreq) = PRD(ifreq) + &
-                           !               dcmplx(rep,imp)* &
-                           !                Geom%W_mu(ith1)* &
-                           !                Geom%W_mux2(iph1)
-                           !else
-                           !  PRD(ifreq) = PRD(ifreq) + &
-                           !               dcmplx(0d0, &
-                           !                      dimag(PRDin)* &
-                           !                       Geom%W_mu(ith1)* &
-                           !                       Geom%W_mux2(iph1))
-                           !end if ! Valid norm
+                          ! This old normalization (only real part)
+                          ! was problematic for non-axial cases with
+                          ! angle-dependent
+                         !! Normalize real part to the first order
+                         !! profile and add the directional weights
+                         !dNorme2 = dble(Norme2)
+                         !if (dNorme2.gt.0d0) then
+                         !  rep = dble(PRDin)* &
+                         !        dble(CRD(ifreq))/dNorme2
+                         !  imp = dimag(PRDin)
+                         !  PRD(ifreq) = PRD(ifreq) + &
+                         !               dcmplx(rep,imp)* &
+                         !                Geom%W_mu(ith1)* &
+                         !                Geom%W_mux2(iph1)
+                         !else
+                         !  PRD(ifreq) = PRD(ifreq) + &
+                         !               dcmplx(0d0, &
+                         !                      dimag(PRDin)* &
+                         !                       Geom%W_mu(ith1)* &
+                         !                       Geom%W_mux2(iph1))
+                         !end if ! Valid norm
 
-                            ! If dynamic, advance
-                            if (dyn) jjfreq0 = jjfreq
+                          ! Update indexes
+                          jjfreq0 = jjfreq0 + p_mfreq
 
-                          end if ! Type of scattering
+                        end if ! Type of scattering
 
-                        end do ! azimuthal nodes
+                      end do ! azimuthal nodes
+                    end do ! polar nodes
 
-                        ! If dynamic, advance
-                        if (dyn) jjfreq0 = jjfreq
+                    ! Advance
+                    llfreq0 = llfreq0 + p_mfreq
+                    kkfreq0 = kkfreq0 + p_mfreq*(nScatt - nfs)
 
-                      end do ! polar nodes
+                  end do ! output frequencies
+                end do ! output frequencies ranges
 
-                      ! Advance
-                      jjfreq0 = jjfreq
-                      llfreq0 = llfreq
-
-                    end do ! output frequencies
-                  end do ! output frequencies ranges
-
-                end if ! Axial symmetry
-              endif ! AV or AD
+              end if ! Axial symmetry
 
               ! Clean p_warr2
               if (LPRAM) deallocate(p_warr2)
@@ -4465,6 +5432,11 @@
             end do ! Mu
           end do ! mF
         end do ! Mf
+
+#ifdef _OPENMP
+      if (allocated(Warr2xW)) deallocate(Warr2xW,intergrin)
+#endif
+
 !$omp end parallel
 
 #ifdef _OPENMP
@@ -4476,10 +5448,6 @@
         eps23 = eps23 + leps23
 !$omp end parallel workshare
 #endif
-
-        ! Clean interpolation data
-        if (.not.p_frec%RAM) deallocate(p_index1,p_index2,p_dx)
-        nullify(p_index1,p_index2,p_dx)
 
       end do ! Terms
 
@@ -4502,44 +5470,32 @@
 
       return
 
-      end subroutine emiss2ord
+      end subroutine emiss2ord_AD
 
 !#####################################################################
 !#####################################################################
 !#####################################################################
 
       !> Computes the second order emission coefficient in absence
-      !! of magnetic fields.\n
+      !! of magnetic fields under the angle-averaged approximation.\n
       !!          Atom(Atom_class): Structure with the atomic data\n
       !!      Geom(Geometry_class): Structure with geometry data\n
-      !!         emerging(logical): Indicates if emergence solution\n
       !!                vx(dfloat): Velocity vector along X\n
       !!                vy(dfloat): Velocity vector along Y\n
       !!                vz(dfloat): Velocity vector along Z\n
       !!          omega(dfloat(:)): Frequency array\n
       !!            Red(Red_class): Structure with redistribution
       !!                            data\n
-      !!            stype(integer): Type of scattering (geometry
-      !!                            wise)\n
       !!    Fin(Frequencyc2_class): Structure with the input frequency
       !!                            information\n
-      !!             nbth(integer): Maximum index in polar angles for
-      !!                            the input directions\n
-      !!             nbph(integer): Maximum index in azimuth angles
-      !!                            for the input directions\n
-      !!              nfs(integer): Number of forward scattering
-      !!                            directions\n
       !!        Flgsg(Fctsg_class): Structure with factorials and
       !!                            signs\n
       !!       Norma(Nindex_class): Normalization factors for Voigt\n
       !!                            profiles or Voigt profiles\n
-      !!               ia(integer): Atom index\n
       !!            jtran(integer): Output transition index\n
       !!           itermu(integer): Upper term of output transition\n
       !!           itermf(integer): Lower term of output transition\n
       !!               iz(integer): Height index\n
-      !!              iph(integer): Output direction azimuth index\n
-      !!              ith(integer): Output direction polar index\n
       !!              if0(integer): First frequency index for this
       !!                            transition\n
       !!              if1(integer): Last frequency index for this
@@ -4561,12 +5517,11 @@
       !!          eps21(dfloat(:)): Q emissivity\n
       !!          eps22(dfloat(:)): U emissivity\n
       !!          eps23(dfloat(:)): V emissivity
-      subroutine emiss2ordNB(Atom,Geom,emerging,vx,vy,vz,omega, &
-                             Red,stype,Fin,nbth,nbph,nfs,Flgsg, &
-                             Norma,jtran,itermu,itermf,iz,iph,ith, &
-                             if0,if1,DwT,Dw,vfac,vmi,TBout,Stokes, &
-                             JKQa,JKQ,JKQC,aprof,eps20,eps21,eps22, &
-                             eps23)
+      subroutine emiss2ordNB_AA(Atom,Geom,vx,vy,vz,omega,Red,Fin, &
+                                Flgsg,Norma,jtran,itermu,itermf,iz, &
+                                if0,if1,DwT,Dw,vfac,vmi,TBout, &
+                                Stokes,JKQa,JKQ,JKQC,aprof, &
+                                eps20,eps21,eps22,eps23)
 
       ! I/O
 
@@ -4576,10 +5531,7 @@
       type(Nindex_class), intent(in):: Norma
       type(Redc2_class), intent(inout):: Red
       type(Fctsg_class), intent(in):: Flgsg
-      logical, intent(in):: emerging
-      integer, intent(in):: jtran,itermu,itermf,iz,ith,iph,if0,if1
-      integer, intent(in):: nbph,nbth,nfs
-      integer, dimension(:,:), intent(in):: stype
+      integer, intent(in):: jtran,itermu,itermf,iz,if0,if1
       double precision, intent(in):: DwT,Dw,vfac,vmi,vx,vy,vz
       double precision, dimension(:), intent(in):: omega
       double precision, dimension(0:3,nfreq,Geom%nPh,Geom%nTh), &
@@ -4591,58 +5543,51 @@
       complex(kind=8), dimension(:,:,:), intent(in):: JKQa
       complex(kind=8), dimension(:,:), intent(in):: aprof
       complex(kind=8), dimension(-2:2,0:2,nxtran), intent(in):: JKQ
-      complex(kind=8), dimension(-2:2,0:2,nfreq), intent(in):: JKQC
+      complex(kind=8), dimension(-2:2,0:2,nfreq), &
+                                             target, intent(in):: JKQC
       complex(kind=8), dimension(0:3,-2:2,0:2), intent(in):: TBout
 
       ! Local
 
-      logical:: PRDc,LPRAM,tointerp,cohIn
+      logical:: PRDc,LPRAM,cohIn,conj
 
-      integer:: ith1,iph1,ibth1,ibph1,i,iterml,itran,iti,icom,ios
+      integer:: ith1,i,iterml,itran,iti,icom,ios
       integer:: mF,iU,iU1,iL,iL1,iifreq,iran,ifreq,jfreq,iR
       integer:: K,iQ,K1,iQ1,iQl,Kmin,Kmax,Kl,ktran
-      integer:: jjfreq,jjfreq0,kkfreq,kkfreq0,llfreq,llfreq0,nmfreq
+      integer:: jjfreq,jjfreq0,nmfreq
       integer:: kwfreq0,indF,indU,indU1,indL,indL1
 #ifdef _OPENMP
-      integer:: mmfreq,iidir,tid
+      integer:: tid
 #endif
 
       double precision:: rLu,rLl,rLf,S,rJu,rJu1,rJl,rJl1,rJf
-      double precision:: rK,Q,rK1,Q1,Ql,rKl,wlf,vfac1
+      double precision:: rK,Q,rK1,Q1,Ql,rKl,wlf
       double precision:: eu,eu1,el,el1,ef,au,af,al,auf,aul,at
       double precision:: f61,f62,f63,f64,f0tmp,ftmp,f1tmp,fKfj
       double precision:: vfacw,Dw1,Dfreqw,Norme0,Norme1,rep,imp
-      double precision:: omegao,omegai,daux,cost,sint,cosc,sinc
+      double precision:: omegao,omegai,daux,sig
      !double precision:: dNorme2
-      double precision, dimension(0:3):: StokesM,dys,y0s
-      double precision, dimension(Geom%nPh2,Geom%nTh):: ThK
-      double precision, dimension(:),allocatable:: Wcos, Wsin
-      double precision, dimension(:,:),allocatable:: TWcos, TWsin
-      double precision, dimension(:,:), allocatable:: StokesMV
 
-      complex(kind=8):: hanleden,prof,rhoc,intgr,dy
-      complex(kind=8):: Norme2,PRDin,caux,y0
+      complex(kind=8):: hanleden,prof,rhoc
+      complex(kind=8):: Norme2,y0
       complex(kind=8), dimension(if0:if1):: PRD,CRD0,CRD
       complex(kind=8), dimension(0:3,if0:if1):: tmp
       complex(kind=8), dimension(-2:2,0:2):: Jrad
       complex(kind=8), dimension(:), allocatable, target:: Warr2
-#ifdef _OPENMP
-      complex(kind=8), dimension(:,:), allocatable:: PRDdir
-#endif
+      complex(kind=8), dimension(:,:,:), allocatable, target:: JKQinMV
       complex(kind=8), dimension(:,:,:), allocatable, target:: JradC
 
       ! Pointers
       type(Frequencyd_class), pointer:: p_frec
       type(Redd_class), pointer:: p_red
       integer, pointer:: p_mfreq
-      integer, dimension(:), pointer:: p_index1, p_index2
-      double precision, dimension(:), pointer:: p_dx
       complex(kind=8), dimension(:), pointer:: p_warr2
       complex(kind=8), dimension(:), pointer:: p_JKQ
+      complex(kind=8), dimension(:), pointer:: p_JKQC
 
 
       ! Routine name
-      urou = 'emiss2ordNB'
+      urou = 'emiss2ordNB_AA'
 
       ! Initialize pointers
       nullify(p_frec)
@@ -4650,74 +5595,21 @@
       nullify(p_mfreq)
       nullify(p_warr2)
       nullify(p_JKQ)
-      nullify(p_index1)
-      nullify(p_index2)
-      nullify(p_dx)
+      nullify(p_JKQC)
 
 
       !
-      ! Initializations
+      ! Construct mean intensity if needed
       !
 
-      ! If angle-average redistribution
-      if (AV) then
+      ! If dynamics
+      if (dyn) then
 
-        !
-        ! Compute cosines and sines
-        !
+        ! Get JKQ in comoving frame
+        call getJKQstar(Fin,Geom,iz,DwT,vx,vy,vz,omega, &
+                        Flgsg,Stokes,JKQa,JKQinMV)
 
-        ! Allocate arrays
-        allocate(Wcos(Geom%nThAA))
-        allocate(Wsin(Geom%nThAA))
-
-        ! For each direction in the integral AA quadrature
-        do ith1=1,Geom%nThAA
-          Wcos(ith1) = cos(Geom%V_thetaAA(ith1))
-          Wsin(ith1) = sin(Geom%V_thetaAA(ith1))
-        end do
-
-        !
-        ! Construct mean intensity if needed
-        !
-
-        ! Allocate mean intensity
-        allocate(JradC(Fin%ggf0:Fin%ggf1,-2:2,0:2))
-
-        ! If dynamics
-        if (dyn) then
-
-          ! Get JKQ in comoving frame
-          call getJKQstar(Fin,Geom,iz,DwT,vx,vy,vz,omega, &
-                          Flgsg,Stokes,JKQa,JradC)
-
-        ! No dynamics
-        else
-
-          ! Calculate JKQ(k) in B frame
-          do i=Fin%ggf0,Fin%ggf1
-             JradC(i,:,:) = JKQC(:,:,i)
-          enddo
-
-        end if ! Dynamics
-
-      ! If angle-dependent redistribution
-      else
-
-        ! Get scattering angles
-        call getscatter(Geom,iph,ith,ThK,TWcos,TWsin,emerging)
-
-        ! If axial, prepare vector to store Stokes of input
-        if (axial) then
-
-          allocate(StokesMV(0:3,Fin%mxfreq))
-
-        end if ! Axial symmetry
-
-#ifdef _OPENMP
-        ! Allocate auxiliar variable to deal with OpenMP
-        allocate(PRDdir(Geom%nTh*Geom%nPh2,if0:if1))
-#endif
-      end if ! angle-averaged
+      end if ! Dynamics
 
 
       !
@@ -4802,50 +5694,19 @@
         ! Predict size of interpolation block
         nmfreq = sum(p_frec%mfreq)
 
-        ! If angle-dependent
-        if (.not.AV) then
+        ! If dynamic
+        if (dyn) then
 
-          ! If dynamic extra dimensions, if static just
-          ! frequencies
-          if (dyn) then
+          ! Get input radiation field
+          call getJKQin(p_frec,Fin,nmfreq,omega,JradC,JKQinMV)
 
-            ! For axial problems
-            if (axial) then
+        else
 
-              ! Size is just polar
-              nmfreq = nmfreq*Geom%nTh
+          ! Get input radiation field
+          call getJKQin(p_frec,Fin,nmfreq,omega,JradC, &
+                        JKQC(:,:,Fin%ggf0:Fin%ggf1))
 
-            ! For non-axial problems
-            else
-
-              ! Skip backward rayleigh
-              nmfreq = nmfreq*(Geom%nTh*Geom%nPh2 - nfs)
-
-            end if ! Axial
-          end if ! Dynamic
-        end if ! AD
-
-        ! If interpolation data
-        if (p_frec%RAM) then
-
-          p_index1 => p_frec%index1
-          p_index2 => p_frec%index2
-          p_dx => p_frec%dx
-
-        ! No interpolation data
-        else if (nmfreq.gt.0) then
-
-          ! Allocate
-          allocate(p_index1(nmfreq))
-          allocate(p_index2(nmfreq))
-          allocate(p_dx(nmfreq))
-
-          ! Get interpolation
-          call getinterpolation(Fin,p_frec,Geom,nbth,nbph,jtran, &
-                                itran,stype,omega,vx,vy,vz,p_index1, &
-                                p_index2,p_dx)
-
-        end if ! Interpolation data
+        end if
 
         ! Get the 'flat' JKQ for this input transition
         JRad = JKQ(:,:,itran)
@@ -5082,253 +5943,1050 @@
 
         if (PRDc) then
 
-          ! If angle-averaged
-          if(AV)then
-
-            ! Initialize array
-            nmfreq = sum(p_frec%mfreq)
-            if (nmfreq.gt.0) then
-              if (.not.allocated(Warr2)) then
+          ! Initialize array
+          if (nmfreq.gt.0) then
+            if (.not.allocated(Warr2)) then
+              allocate(Warr2(nmfreq))
+            else
+              if (size(Warr2).ne.nmfreq) then
+                deallocate(Warr2)
                 allocate(Warr2(nmfreq))
-              else
-                if (size(Warr2).ne.nmfreq) then
-                  deallocate(Warr2)
-                  allocate(Warr2(nmfreq))
-                end if
               end if
             end if
+          end if
 
 !$omp parallel default(none) &
-!$omp private(jjfreq,jjfreq0,iifreq,iran,ifreq) &
-!$omp private(omegao,p_mfreq,omegai,tid,jfreq,rep,imp) &
-!$omp shared(kwfreq0,omega,vfac,Atom,Fin,p_frec,Warr2,Geom,Dw,Dw1) &
-!$omp shared(el,el1,eu,eu1,ef,al,au,af,aul,auf,Wcos,Wsin,omp,jtran) &
-!$omp shared(LPRAM,p_red,icom,nmfreq,itran)
+!$omp private(tid,Warr2,jjfreq0,iifreq,iran,ifreq,p_mfreq,omegao) &
+!$omp private(jfreq,jjfreq,omegai,ith1,red,imp) &
+!$omp shared(Atom,nmfreq,p_frec,omp,Fin,vfac,Geom,el,el1,eu,eu1,ef) &
+!$omp shared(al,au,af,aul,auf,IPI42,LPRAM,p_red) &
 
 #ifdef _OPENMP
-            tid = omp_get_thread_num() + 1
+          tid = omp_get_thread_num() + 1
 #endif
 
-            ! Initialize Warr2
-            if (nmfreq.gt.0) then
+          ! Initialize Warr2
+          if (nmfreq.gt.0) then
 !$omp workshare
-              Warr2 = cZero
+            Warr2 = cZero
 !$omp end workshare
+          end if
+
+          ! Initialize frequency index
+          jjfreq0 = 0
+
+          ! For each output frequency
+          iifreq = 0
+          do iran=1,Fin%nran
+            do ifreq=Fin%if0(iran),Fin%if1(iran)
+
+              ! Advance index
+              iifreq = iifreq + 1
+
+              ! Point to dimension
+              p_mfreq => p_frec%mfreq(iifreq)
+
+              ! Skip coherent
+              if (p_mfreq.lt.1) cycle
+#ifdef _OPENMP
+              ! If multi-threading
+              if (omp) then
+
+                ! If out of range below
+                if (iifreq.lt.Fin%oif0(tid)) then
+                  jjfreq0 = jjfreq0 + p_mfreq
+                  cycle
+                end if
+                ! If out of range above
+                if (iifreq.gt.Fin%oif1(tid)) exit
+              end if
+#endif
+              ! Get output frequency
+              omegao = omega(ifreq)*vfac - Atom%Dfreq(jtran)
+
+              ! For each input frequency
+              do jfreq=1,p_mfreq
+
+                ! Advance indexes
+                jjfreq = jjfreq0 + jfreq
+
+                ! Get input frequency
+                omegai = p_frec%omega(jjfreq) - Atom%Dfreq(itran)
+
+                ! For each direction in the integral AA quadrature
+                do ith1=1,Geom%nThAA
+
+                  ! Add the contribution to the angular integral
+                  ! of the redistribution function
+                  Warr2(jjfreq) = Warr2(jjfreq) + &
+                                 Geom%W_muAA(ith1)* &
+                                 Wfunc(omegai,omegao, &
+                                       Dw,Dw1,el,el1,eu,eu1,ef, &
+                                              al,au,af,aul,auf, &
+                                       Geom%V_muAA(ith1), &
+                                       Geom%V_siAA(ith1),0)*IPI42
+
+                end do ! Direction quadrature
+              end do ! input frequencies
+
+              ! Update
+              jjfreq0 = jjfreq0 + p_mfreq
+
+            end do ! output frequencies
+          end do ! output frequency ranges
+!$omp barrier
+!$omp flush (Warr2)
+
+          ! If storing
+          if (LPRAM) then
+!$omp single
+            p_red%iPPRD(icom) = .False.
+!$omp end single
+!$omp do
+            do jfreq=1,nmfreq
+              rep = dble(Warr2(jfreq))
+              imp = dimag(Warr2(jfreq))
+              if (rep.le.1e-30) rep = 0d0
+              if (abs(imp).le.1e-30) imp = 0d0
+              p_red%PWarr2(kwfreq0+jfreq) = &
+                                          cmplx(real(rep),real(imp))
+            end do
+!$omp end do
+          end if ! If storing
+!$omp end parallel
+        end if ! Initialized
+
+        f0tmp = f61*f62*f63*f64
+
+        ! For each K
+        do K=0,Krad
+
+          ! Get real value
+          rK = dble(K)
+
+          ! Racah algebra
+          ftmp = f0tmp*sqrt(2d0*rK+1d0)
+
+          do iQ=-K,K
+
+            Q = dble(iQ)
+
+            !
+            ! Check if conjugated
+            conj = iQ.lt.0
+            sig = Flgsg%sg(iQ)
+
+
+      !
+      ! Reset identation
+      !
+
+      !
+      ! Integral over input frequencies
+      !
+
+      ! Difference between l and f energies
+      wlf = el - ef
+
+      ! Check if static and coherent
+      cohIn = dyn.or.abs(wlf).gt.0d0
+
+      ! If coherent
+      if (minval(p_frec%mfreq).lt.1) then
+
+        ! If dynamic
+        if (dyn) then
+
+          ! Just point
+          p_JKQC(Fin%ggf0:Fin%ggf1) => JKQinMV(iQ,K,:)
+
+        ! If static
+        else
+
+          ! Just point
+          p_JKQC(Fin%ggf0:Fin%ggf1) => JKQC(iQ,K,Fin%ggf0:Fin%ggf1)
+
+        end if
+      end if
+
+! dnorme2 removed from list, commented in declarations
+!$omp parallel default(none) &
+!$omp private(p_warr2,tid,jjfreq,iifreq,iran,ifreq,p_mfreq,omegai) &
+!$omp private(y0,p_JKQ,Norme2) &
+!$omp shared(LPRAM,nmfreq,p_red,kwfreq0,Warr2,Fin,p_frec,cohIn) &
+!$omp shared(omega,vfac,wlf,p_JKQC,PRD,CRD,conj,JradC,iQ,K,sig) &
+
+      ! If storing Warr
+      if (LPRAM) then
+        if (nmfreq.gt.0) then
+!$omp single
+          allocate(p_warr2(nmfreq))
+!$omp end single
+!$omp workshare
+          p_warr2 = dcmplx(p_red%Pwarr2(kwfreq0+1:kwfreq0+nmfreq))
+!$omp end workshare
+        end if
+      ! If not storing
+      else
+!$omp single
+        if (allocated(Warr2)) p_warr2 => Warr2
+!$omp end single
+      end if
+
+#ifdef _OPENMP
+      tid = omp_get_thread_num() + 1
+#endif
+
+      ! Initialize frequency indexes
+      jjfreq = 0
+
+      ! For each output frequency
+      iifreq = 0
+      do iran=1,Fin%nran
+        do ifreq=Fin%if0(iran),Fin%if1(iran)
+
+          ! Advance index
+          iifreq = iifreq + 1
+
+          ! Point to dimension
+          p_mfreq => p_frec%mfreq(iifreq)
+
+          ! If coherent wing
+          if (p_mfreq.lt.1) then
+
+            ! Interpolate
+            if (cohIn) then
+
+              ! Input frequency
+              omegai = omega(ifreq)*vfac - wlf
+
+              ! Get JKQ
+              y0 = getJKQinnu(omega(Fin%ggf0:Fin%ggf1), &
+                              p_JKQC, &
+                              ifreq-Fin%ggf0+1, &
+                              Fin%ggf1-Fin%ggf0+1,omegai)
+
+              ! Fully coherent contribution
+              PRD(ifreq) = CRD(ifreq)*y0
+
+            ! Full coherent
+            else
+
+              ! Fully coherent contribution
+              PRD(ifreq) = CRD(ifreq)*p_JKQC(ifreq)
+
             end if
 
-            ! Initialize frequency index
-            jjfreq0 = 0
+            ! Skip rest
+            cycle
 
-            ! For each output frequency
-            iifreq = 0
-            do iran=1,Fin%nran
-              do ifreq=Fin%if0(iran),Fin%if1(iran)
+          end if
 
-                ! Advance index
-                iifreq = iifreq + 1
-
-                ! Point to dimension
-                p_mfreq => p_frec%mfreq(iifreq)
-
-                ! Skip coherent
-                if (p_mfreq.lt.1) cycle
 #ifdef _OPENMP
-                ! If multi-threading
-                if (omp) then
+          ! If multi-threading
+          if (omp) then
 
-                  ! If out of range below
-                  if (iifreq.lt.Fin%oif0(tid)) then
-                    jjfreq0 = jjfreq0 + p_mfreq
-                    cycle
-                  end if
-                  ! If out of range above
-                  if (iifreq.gt.Fin%oif1(tid)) exit
-                end if
+            ! If out of range below
+            if (iifreq.lt.Fin%oif0(tid)) then
+              jjfreq = jjfreq + p_mfreq
+              cycle
+            end if
+            ! If out of range above
+            if (iifreq.gt.Fin%oif1(tid)) exit
+          end if
 #endif
-                ! Get output frequency
-                omegao = omega(ifreq)*vfac - Atom%Dfreq(jtran)
+
+          ! If conjugate
+          if (conj) then
+
+            ! Point to positive Q
+            p_JKQ => JradC(jjfreq+1:jjfreq+p_mfreq,-iQ,K)
+
+            ! Integrate
+            PRD(ifreq) = sig*sum(conjg(p_JKQ)* &
+                             p_frec%W_freq(jjfreq+1:jjfreq+p_mfreq)* &
+                             p_warr2(jjfreq+1:jjfreq+p_mfreq))
+
+          ! Not conjugate
+          else
+
+            ! Point
+            p_JKQ => JradC(jjfreq+1:jjfreq+p_mfreq,iQ,K)
+
+            ! Integrate
+            PRD(ifreq) = sum(p_JKQ* &
+                             p_frec%W_freq(jjfreq+1:jjfreq+p_mfreq)* &
+                             p_warr2(jjfreq+1:jjfreq+p_mfreq))
+
+          end if
+
+          ! Compute norm
+          Norme2 = sum(p_warr2(jjfreq+1:jjfreq+p_mfreq)* &
+                       p_frec%W_freq(jjfreq+1:jjfreq+p_mfreq))
+
+          ! Normalize to the first order profile
+          PRD(ifreq) = PRD(ifreq)*CRD(ifreq)/Norme2
+
+          ! This old normalization (only real part) was problematic
+          ! for non-axial cases with angle-dependent
+         !! Normalize real part to the first order profile
+         !dNorme2 = dble(Norme2)
+         !if (dNorme2.gt.0d0) then
+         !  rep = dble(PRD(ifreq))*dble(CRD(ifreq))/dNorme2
+         !  PRD(ifreq) = dcmplx(rep,dimag(PRD(ifreq)))
+         !else
+         !  PRD(ifreq) = dcmplx(0d0,dimag(PRD(ifreq)))
+         !end if
+
+          ! Update index
+          jjfreq = jjfreq + p_mfreq
+
+        end do ! Output frequencies
+      end do ! Output frequencies ranges
+!$omp end parallel
+
+      ! Clean p_warr2
+      if (LPRAM) deallocate(p_warr2)
+      nullify(p_warr2)
+
+      ! Clean JKQ
+      nullify(p_JKQ)
+      nullify(p_JKQC)
+
+      !
+      ! Flat spectrum contribution. Implicit branching ratio
+      !
+
+      ! For each output frequency
+      do iran=1,Fin%nran
+        do ifreq=Fin%if0(iran),Fin%if1(iran)
+
+          ! Substract the flat spectrum part due to just
+          ! radiative excitation
+          PRD(ifreq) = PRD(ifreq) - CRD(ifreq)*Jrad(iQ,K)
+
+        end do ! Output frequencies
+      end do ! Output frequencies ranges
+
+      ! For each K'
+      do K1=0,2
+
+        ! Get real value
+        rK1 = dble(K1)
+
+        ! Racah algebra
+        f1tmp = fun6j(rK1,rJu,rJu1,rJf,1d0,1d0,Flgsg)
+
+        ! If forbidden (6j-sym=0), skip
+        if(abs(f1tmp).lt.TINYJS) cycle
+
+        f1tmp = sqrt(2d0*rK1+1d0)*f1tmp
+
+        do iQ1=-K1,K1
+
+          Q1 = dble(iQ1)
+
+          iQl = iQ + iQ1
+
+          Ql = dble(iQl)
+
+          ! Determine the limits in K
+          Kmin = max(abs(iQl),nint(abs(rK-rK1)), &
+                     nint(abs(rJl-rJl1)))
+          Kmax = min(nint(rJl+rJl1),nint(rK+rK1),Kcut)
+
+          rhoc = cZero
+
+          do Kl=Kmin,Kmax
+
+            ! Check sum K + Kl
+            if((Kl+K).gt.Kcut) cycle
+
+            ! Get the real number
+            rKl = dble(Kl)
+
+            ! Get the SEE index
+            iR = Atom%irho(iterml)%Jrho(iL1,iL)%kq(iQl,Kl)
+
+            ! If flagged as small, skip
+            if (iR.le.0.or.Atom%rhonull(iR,iz)) cycle
+
+            ! Racah algebra
+            fKfj = sqrt(2d0*rKl+1d0)*Flgsg%sg(Kl-iQl)* &
+                   fun3j(rK,rK1,rKl,Q,Q1,-Ql,Flgsg)* &
+                   fun9j(rK,rK1,rKl,1d0,rJu1,rJl1, &
+                         1d0,rJu,rJl,Flgsg)
+
+            if (abs(fKfj).lt.TINYJS) cycle
+
+            ! Accumulate in the sum
+            rhoc = fKfj*Atom%crho(iR,iz) + rhoc
+
+          end do ! Kl
+
+          ! If no rhoKQ, skip
+          if(abs(rhoc).lt.TINYER) cycle
+
+          rhoc = rhoc*ftmp*f1tmp
+
+          ! For each output frequency
+          do iran=1,Fin%nran
+            do ifreq=Fin%if0(iran),Fin%if1(iran)
+
+              tmp(:,ifreq) = tmp(:,ifreq) + &
+                             rhoc*TBout(:,iQ1,K1)*PRD(ifreq)
+
+            end do ! Output frequencies
+          end do ! Output frequency ranges
+
+        end do !Q'
+      end do !K'
+
+          end do ! Q
+        end do ! K
+
+        ! Update redistribution initial index
+        kwfreq0 = kwfreq0 + nmfreq
+
+        ! Apply hanle factor and Einstein coefficient
+        daux = (2d0*rLl+1d0)*Atom%Ecoeff(iterml,itermu)
+        eps20 = eps20 + dble(tmp(0,:)/hanleden)*daux
+        eps21 = eps21 + dble(tmp(1,:)/hanleden)*daux
+        eps22 = eps22 + dble(tmp(2,:)/hanleden)*daux
+        eps23 = eps23 + dble(tmp(3,:)/hanleden)*daux
+
+                end do ! iL1
+              end do ! iL
+            end do ! iU1
+          end do ! iU
+        end do ! mF
+      end do ! Terms
+
+      ! Apply common factor
+      daux = 3d0*.5d0*IPI42*(2d0*rLu+1d0)* &
+             Atom%Ecoeff(itermu,itermf)*1d-10/(c*Dw)
+      eps20 = eps20*daux
+      eps21 = eps21*daux
+      eps22 = eps22*daux
+      eps23 = eps23*daux
+
+      ! Clean pointers
+      if (associated(p_frec)) nullify(p_frec)
+      if (associated(p_red)) nullify(p_red)
+      if (associated(p_mfreq)) nullify(p_mfreq)
+      if (associated(p_warr2)) nullify(p_warr2)
+
+      return
+
+      end subroutine emiss2ordNB_AA
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Computes the second order emission coefficient in absence
+      !! of magnetic fields.\n
+      !!          Atom(Atom_class): Structure with the atomic data\n
+      !!      Geom(Geometry_class): Structure with geometry data\n
+      !!         emerging(logical): Indicates if emergence solution\n
+      !!                vx(dfloat): Velocity vector along X\n
+      !!                vy(dfloat): Velocity vector along Y\n
+      !!                vz(dfloat): Velocity vector along Z\n
+      !!          omega(dfloat(:)): Frequency array\n
+      !!            Red(Red_class): Structure with redistribution
+      !!                            data\n
+      !!    Fin(Frequencyc2_class): Structure with the input frequency
+      !!                            information\n
+      !!        Flgsg(Fctsg_class): Structure with factorials and
+      !!                            signs\n
+      !!       Norma(Nindex_class): Normalization factors for Voigt\n
+      !!                            profiles or Voigt profiles\n
+      !!             jdir(integer): Output direction in scattering
+      !!                            indexing\n
+      !!            jtran(integer): Output transition index\n
+      !!           itermu(integer): Upper term of output transition\n
+      !!           itermf(integer): Lower term of output transition\n
+      !!               iz(integer): Height index\n
+      !!              if0(integer): First frequency index for this
+      !!                            transition\n
+      !!              if1(integer): Last frequency index for this
+      !!                            transition\n
+      !!               DwT(dfloat): Thermal part of Doppler width\n
+      !!                Dw(dfloat): Doppler width output transition\n
+      !!              vfac(dfloat): Doppler shift factor\n
+      !!               vmi(dfloat): Microturbulent velocity\n
+      !!      TBout(dcmplx(:,:,:)): Geometrical tensor in the output
+      !!                            direction\n
+      !!   Stokes(dfloat(:,:,:,:)): Stokes parameters\n
+      !!      JKQ(dcomplex(:,:,:)): Radiation field tensors integrated
+      !!                            over absorption profile\n
+      !!        aprof(dcmplx(:,:)): Absorption profiles\n
+      !!          eps20(dfloat(:)): Intensity emissivity\n
+      !!          eps21(dfloat(:)): Q emissivity\n
+      !!          eps22(dfloat(:)): U emissivity\n
+      !!          eps23(dfloat(:)): V emissivity
+      subroutine emiss2ordNB_AD(Atom,Geom,emerging,vx,vy,vz,omega, &
+                                Red,Fin,Flgsg,Norma,jdir,jtran, &
+                                itermu,itermf,iz,if0,if1,DwT,Dw, &
+                                vfac,vmi,TBout,Stokes,JKQ,aprof, &
+                                eps20,eps21,eps22,eps23)
+
+      ! I/O
+
+      type(Atom_class), intent(in):: Atom
+      type(Geometry_class), intent(in):: Geom
+      type(Frequencyc2_class), intent(inout):: Fin
+      type(Nindex_class), intent(in):: Norma
+      type(Redc2_class), intent(inout):: Red
+      type(Fctsg_class), intent(in):: Flgsg
+      logical, intent(in):: emerging
+      integer, intent(in):: jtran,itermu,itermf,iz,if0,if1,jdir
+      double precision, intent(in):: DwT,Dw,vfac,vmi,vx,vy,vz
+      double precision, dimension(:), intent(in):: omega
+      double precision, dimension(0:3,nfreq,Geom%nPh,Geom%nTh), &
+                        intent(in):: Stokes
+      double precision, dimension(if0:if1), intent(out):: eps20
+      double precision, dimension(if0:if1), intent(out):: eps21
+      double precision, dimension(if0:if1), intent(out):: eps22
+      double precision, dimension(if0:if1), intent(out):: eps23
+      complex(kind=8), dimension(:,:), intent(in):: aprof
+      complex(kind=8), dimension(-2:2,0:2,nxtran), intent(in):: JKQ
+      complex(kind=8), dimension(0:3,-2:2,0:2), intent(in):: TBout
+
+      ! Local
+
+      logical:: PRDc,LPRAM,cohIn
+      logical, dimension(Geom%nScatt):: skip_scatt
+
+      integer:: ith1,iph1,i,iterml,itran,iti,icom,ios
+      integer:: mF,iU,iU1,iL,iL1,iifreq,iran,ifreq,jfreq,iR
+      integer:: K,iQ,K1,iQ1,iQl,Kmin,Kmax,Kl,ktran
+      integer:: jjfreq,jjfreq0,kkfreq,kkfreq0,llfreq0,nmfreq
+      integer:: kwfreq0,kkfreq0b,indF,indU,indU1,indL,indL1
+      integer:: ish1,nfs,nskip,nScatt,stype
+#ifdef _OPENMP
+      integer:: mmfreq,iidir,tid
+#endif
+      integer, dimension(:), allocatable:: i_scatt
+
+      double precision:: rLu,rLl,rLf,S,rJu,rJu1,rJl,rJl1,rJf
+      double precision:: rK,Q,rK1,Q1,Ql,rKl,wlf,vfac1
+      double precision:: eu,eu1,el,el1,ef,au,af,al,auf,aul,at
+      double precision:: f61,f62,f63,f64,f0tmp,ftmp,f1tmp,fKfj
+      double precision:: vfacw,Dw1,Dfreqw,Norme0,Norme1,rep,imp
+      double precision:: omegao,omegai,daux,cost,sint,cosc,sinc
+     !double precision:: dNorme2
+      double precision, dimension(0:3):: StokesM
+      double precision, dimension(:,:), allocatable:: Stokesin
+
+      complex(kind=8):: hanleden,prof,rhoc,intgr
+      complex(kind=8):: Norme2,PRDin
+      complex(kind=8), dimension(if0:if1):: PRD,CRD0,CRD
+      complex(kind=8), dimension(0:3,if0:if1):: tmp
+      complex(kind=8), dimension(-2:2,0:2):: Jrad
+      complex(kind=8), dimension(:), allocatable, target:: Warr2
+      complex(kind=8), dimension(:), allocatable:: Warr2xW
+      complex(kind=8), dimension(:), allocatable:: intergrin
+#ifdef _OPENMP
+      complex(kind=8), dimension(:,:), allocatable:: PRDdir
+#endif
+
+      ! Pointers
+      type(Frequencyd_class), pointer:: p_frec
+      type(Redd_class), pointer:: p_red
+      integer, pointer:: p_mfreq
+      complex(kind=8), dimension(:), pointer:: p_warr2
+      complex(kind=8), dimension(:), pointer:: p_JKQ
+
+
+      ! Routine name
+      urou = 'emiss2ordNB_AD'
+
+      ! Initialize pointers
+      nullify(p_frec)
+      nullify(p_red)
+      nullify(p_mfreq)
+      nullify(p_warr2)
+      nullify(p_JKQ)
+
+#ifdef _OPENMP
+      ! Allocate auxiliar variable to deal with OpenMP
+      allocate(PRDdir(Geom%nTh*Geom%nPh2,if0:if1))
+#endif
+
+
+      !
+      ! Get terms and transition quantities
+      !
+
+      ! Damping parameters
+      au = Atom%damp(itermu,iz)
+      af = Atom%damp(itermf,iz)
+      auf = Atom%ldamp(jtran,iz)
+      at = (au + af + auf)/Dw
+
+      ! Units normalization factor for CRD profile
+      Norme0 = (1d5/Dw)*.5d0*sqrt(IPI)
+
+      ! Doppler shift in doppler units
+      vfacw = vfac/Dw
+
+      ! Spin
+      S = Atom%Sval(itermu)
+
+      ! Orbital angular momentum
+      rLu = Atom%rLval(itermu)
+      rLf = Atom%rLval(itermf)
+
+      ! Trano index
+      ktran = Atom%itrano(jtran)
+
+      !
+      ! Initialize the emission coefficient
+      !
+      eps20 = 0d0
+      eps21 = 0d0
+      eps22 = 0d0
+      eps23 = 0d0
+      PRDc = .True.
+
+#ifdef _OPENMP
+#else
+      ! If there are frequencies
+      if (Fin%mxfreq.gt.0) then
+        allocate(Warr2xW(Fin%mxfreq))
+        allocate(intergrin(Fin%mxfreq))
+      end if
+#endif
+
+
+      !
+      ! Calculation of 2nd order emissivity
+      !
+
+      ! For all the possible lower terms
+      do i=1,Atom%nMulti-1
+
+        ! If there is no transition or this term is larger
+        ! than the upper term of the output transition, skip
+        if(i.ge.itermu.or.Atom%irad(i,itermu).eq.0) cycle
+
+        ! Store the input lower term index
+        iterml = i
+
+        ! Get index of input transition
+        itran = Atom%irad(iterml,itermu)
+
+        ! Get index of input transition in structure
+        ios = -1
+        do iti=1,Atom%trano(ktran)%nt
+          if (Atom%trano(ktran)%ind(iti).eq.itran) then
+            ios = 1
+            exit
+          end if
+        end do
+        if (ios.lt.0) cycle
+
+        ! Check if forward
+        if (jtran.eq.itran.and. &
+            Geom%V_CScatt(1).ge.1d0) then
+          nfs = 1
+        else
+          nfs = 0
+        end if
+
+        ! If PRAM, point to the redistribution subblock
+        if (PRAM) then
+
+          p_red => Red%trani(iti)
+          LPRAM = PRAM.and.p_red%RAM
+
+        ! If not, nothing stored
+        else
+
+          LPRAM = .False.
+
+        end if
+
+        ! If not storing or dynamic in quadrature
+        if ((.not.LPRAM.or.dyn).and..not.emerging) then
+
+          ! Copy restricted
+          skip_scatt = Geom%skip_ksc
+          nskip = Geom%nskip
+          nScatt = Geom%nScatt - nskip
+          i_scatt = Geom%k_scatt
+
+        ! Storing, static, or LOS
+        else
+
+          ! Copy total
+          skip_scatt = Geom%skip_jsc
+          nskip = 0
+          nScatt = Geom%nScatt
+          i_scatt = Geom%j_scatt
+
+        end if
+
+        ! Point to input transition
+        p_frec => Fin%trani(iti)
+
+        ! Get interpolated intensity
+        call getStkin(Geom,p_frec,Fin,omega,vx,vy,vz,jdir, &
+                      nfs,Stokesin,Stokes)
+
+        ! Get the 'flat' JKQ for this input transition
+        JRad = JKQ(:,:,itran)
+
+        ! Redistribution size
+        nmfreq = sum(p_frec%mfreq)*(nScatt-nfs)
+
+        ! Doppler width for the input transition
+        Dw1 = Atom%Dfreq(itran)*sqrt(DwT*DwT + vmi**2d0)
+
+        ! Damping parameter input lower level and input transition
+        al = Atom%damp(iterml,iz)
+        aul = Atom%ldamp(itran,iz)
+
+        ! Angular momentum input lower level
+        rLl = Atom%rLval(iterml)
+
+        ! Initialize kkfreq index
+        kwfreq0 = 0
+
+        ! For each Jf
+        do mF=1,Atom%nJ(itermf)
+
+          ! Get eigenvalue final lower level
+          ef = Atom%FSfreq(mF,itermf) - Atom%TRfreq(itermf)
+
+          ! Get indexes
+          indF = Atom%irho(itermf)%irho_ij(mF)
+
+          ! Get Jf
+          rJf = Atom%rJval(mF,itermf)
+
+          ! For each Ju
+          do iU=1,Atom%nJ(itermu)
+
+            ! Get eigenvalue upper level
+            eu = Atom%FSfreq(iU,itermu) - Atom%TRfreq(itermu)
+
+            ! Get indexes
+            indU = Atom%irho(itermu)%irho_ij(iU)
+
+            ! Get Ju
+            rJu = Atom%rJval(iU,itermu)
+
+            f61 = fun6j(rJu,rJf,1d0,rLf,rLu,S,Flgsg)
+
+            if (abs(f61).lt.TINYJS) cycle
+
+            f61 = f61*(2d0*rJu+1d0)*(2d0*rJf+1d0)
+
+
+            !
+            ! Flat contribution. Implicit branching
+            !
+
+            ! If in file
+            if (vpfil) then
+
+!$omp parallel workshare default(none) &
+!$omp shared(CRD0,if0,if1,Norme0,aprof,Atom,jtran,mF,iU)
+              CRD0(if0:if1) = Norme0*conjg(aprof(:, &
+                                     Atom%i_Vind(jtran)%indNB(mF,iU)))
+!$omp end parallel workshare
+
+            ! If stored
+            else if (Norma%VRAM) then
+
+!$omp parallel workshare default(none) &
+!$omp shared(CRD0,if0,if1,Norme0,Norma,mF,iU)
+              CRD0(if0:if1) = Norme0* &
+                              conjg(Norma%prof(mF,iU,1,1)%cp(if0:if1))
+!$omp end parallel workshare
+
+            ! If not stored
+            else
+
+              ! Shift term
+              Dfreqw  = (eu  - ef + Atom%Dfreq(jtran))/Dw
+
+              ! Normalization factors
+              Norme1  = Norma%Norm(mF,iU,1,1)*Norme0
+
+              ! For each frequency
+!$omp parallel do default(none) &
+!$omp private(ifreq,prof) &
+!$omp shared(if0,if1,Dfreqw,omega,vfacw,at,Norme1,Norme0,CRD0)
+              do ifreq=if0,if1
+
+                ! Calculate profile u-f
+                call voigt(Dfreqw - omega(ifreq)*vfacw,at,prof)
+
+                ! Normalize
+                prof = dcmplx(dble(prof)*Norme1,dimag(prof)*Norme0)
+
+                ! Flat spectrum contribution
+                CRD0(ifreq) = conjg(prof)
+
+              end do ! frequencies
+!$omp end parallel do
+
+            end if ! Storing Voigt
+
+            ! For each Ju'
+            do iU1=1,Atom%nJ(itermu)
+
+              ! Get eigenvalue upper' level
+              eu1 = Atom%FSfreq(iU1,itermu) - Atom%TRfreq(itermu)
+
+              ! Get indexes
+              indU1 = Atom%irho(itermu)%irho_ij(iU1)
+
+              ! Get Ju'
+              rJu1 = Atom%rJval(iU1,itermu)
+
+              f62 = fun6j(rJu1,rJf,1d0,rLf,rLu,S,Flgsg)
+
+              if (abs(f62).lt.TINYJS) cycle
+
+              f62 = f62*(2d0*rJu1+1d0)*Flgsg%sg(nint(rJu1+rJf+1d0))
+
+              !
+              ! Flat contribution. Implicit branching
+              !
+
+              ! If in file
+              if (vpfil) then
+
+!$omp parallel workshare default(none) &
+!$omp shared(CRD,CRD0,if0,if1,Norme0,aprof,Atom,jtran,mF,iU1)
+                CRD(if0:if1) = CRD0(if0:if1) + Norme0*aprof(:, &
+                                     Atom%i_Vind(jtran)%indNB(mF,iU1))
+!$omp end parallel workshare
+
+              ! If stored
+              else if (Norma%VRAM) then
+
+!$omp parallel workshare default(none) &
+!$omp shared(CRD,CRD0,if0,if1,Norme0,Norma,mF,iU1)
+                CRD(if0:if1) = CRD0(if0:if1) + Norme0*&
+                               Norma%prof(mF,iU1,1,1)%cp(if0:if1)
+!$omp end parallel workshare
+
+              ! If not stored
+              else
+
+                ! Shift term
+                Dfreqw = (eu1 - ef + Atom%Dfreq(jtran))/Dw
+
+                ! Normalization factor
+                Norme1 = Norma%Norm(mF,iU1,1,1)*Norme0
+
+                ! For each frequency
+!$omp parallel do default(none) &
+!$omp private(ifreq,prof) &
+!$omp shared(if0,if1,Dfreqw,omega,vfacw,at,Norme1,Norme0,CRD,CRD0)
+                do ifreq=if0,if1
+
+                  ! Calculate profile u'-f
+                  call voigt(Dfreqw - omega(ifreq)*vfacw,at,prof)
+
+                  ! Normalize
+                  prof = dcmplx(dble(prof)*Norme1,dimag(prof)*Norme0)
+
+                  ! Flat spectrum contribution
+                  CRD(ifreq) = CRD0(ifreq) + prof
+
+                end do ! frequencies
+!$omp end parallel do
+
+              end if ! Storing Voigt
+
+              !
+              ! Continue with the 2nd order emissivity
+              !
+
+              ! For each Jl
+              do iL=1,Atom%nJ(iterml)
+
+                ! Get eigenvalue of input lower level
+                el = Atom%FSfreq(iL,iterml) - Atom%TRfreq(iterml)
+
+                ! Get indexes
+                indL = Atom%irho(iterml)%irho_ij(iL)
+
+                ! Get Jl
+                rJl = Atom%rJval(iL,iterml)
+
+                f63 = fun6j(rJu,rJl,1d0,rLl,rLu,S,Flgsg)
+
+                if (abs(f63).lt.TINYJS) cycle
+
+                f63 = f63*sqrt(2d0*rJl+1d0)
+
+                ! For each Jl'
+                do iL1=1,Atom%nJ(iterml)
+
+                  ! Get eigenvalue of input lower' level
+                  el1 = Atom%FSfreq(iL1,iterml) - Atom%TRfreq(iterml)
+
+                  ! Get indexes
+                  indL1 = Atom%irho(iterml)%irho_ij(iL1)
+
+                  ! Get Jl1
+                  rJl1 = Atom%rJval(iL1,iterml)
+
+                  f64 = fun6j(rJu1,rJl1,1d0,rLl,rLu,S,Flgsg)
+
+                  if (abs(f64).lt.TINYJS) cycle
+
+                  f64 = f64*sqrt(2d0*rJl1+1d0)
+
+                  ! Hanle factor
+                  ! TODO ATTENTION TO THIS
+                  hanleden = dcmplx(2d0*(au+auf),eu-eu1)/Dw
+
+                  ! Initialize temporal variable
+                  tmp = cZero
+
+        !
+        ! Reset indexing
+        !
+
+        ! Get the component index
+        icom = Atom%trano(ktran)%trani(iti)% &
+                    WindNB(indL1,indL,indF,indU1,indU)
+
+        if (LPRAM) then
+          PRDc = p_red%iPPRD(icom)
+        else
+          PRDc = .True.
+        end if
+
+
+        !
+        ! Create array of Wfunc
+        !
+
+        if (PRDc) then
+
+          ! Initialize array
+          if (nmfreq.gt.0) then
+            if (.not.allocated(Warr2)) then
+              allocate(Warr2(nmfreq))
+            else
+              if (size(Warr2).ne.nmfreq) then
+                deallocate(Warr2)
+                allocate(Warr2(nmfreq))
+              end if
+            end if
+          end if
+
+!$omp parallel default(none) &
+!$omp private(tid,llfreq,jjfreq0,kkfreq0,iifreq,iran,ifreqp_mfreq) &
+!$omp private(omegao,ish1,stype,omp,jfreq,jjfreq,kkfreq,omegai) &
+!$omp shared(Atom,Fin,p_frec,omega,vfac,Geom,skip_scatt,itran,jtran) &
+!$omp shared(Warr2,Dw,Dw1,el,el1,eu,eu1,ef,al,au,af,aul,auf,IPI42) &
+!$omp shared(LPRAM,p_red)
+
+#ifdef _OPENMP
+          tid = omp_get_thread_num() + 1
+          llfreq = 0
+#endif
+          ! Initialize frequency index
+          jjfreq0 = 0
+          kkfreq0 = 0
+
+          ! For each output frequency
+          iifreq = 0
+          do iran=1,Fin%nran
+            do ifreq=Fin%if0(iran),Fin%if1(iran)
+
+              ! Advance index
+              iifreq = iifreq + 1
+
+              ! Point to dimension
+              p_mfreq => p_frec%mfreq(iifreq)
+
+              ! Coherent wing
+              if (p_mfreq.lt.1) cycle
+
+              ! Get output frequency
+              omegao = omega(ifreq)*vfac - Atom%Dfreq(jtran)
+
+              ! For each scattering angle
+              do ish1=1,Geom%nScatt
+
+                ! Non-present scattering angle
+                if (skip_scatt(ish1)) cycle
+
+                ! Check forward scattering two-terms
+                if (itran.eq.jtran.and. &
+                    Geom%V_CScatt(ish1).ge.1d0) cycle
+
+                ! Check backward
+                if (Geom%V_CScatt(ish1).le.-1d0) then
+                  stype = 1
+                else
+                  stype = 0
+                end if
 
                 ! For each input frequency
+!$omp do
                 do jfreq=1,p_mfreq
 
                   ! Advance indexes
                   jjfreq = jjfreq0 + jfreq
+                  kkfreq = kkfreq0 + jfreq
 
                   ! Get input frequency
-                  omegai = p_frec%omega(jjfreq) - Atom%Dfreq(itran)
+                  omegai = p_frec%omega(jjfreq) - &
+                           Atom%Dfreq(itran)
 
-                  ! For each direction in the integral AA quadrature
-                  do ith1=1,Geom%nThAA
+                  ! Calculate redistribution function
+                  Warr2(kkfreq) = Wfunc(omegai,omegao, &
+                                        Dw,Dw1,el,el1,eu,eu1,ef, &
+                                        al,au,af,aul,auf, &
+                                        Geom%V_CScatt(ish1), &
+                                        Geom%V_SScatt(ish1), &
+                                        stype)*IPI42
 
-                    ! Add the contribution to the angular integral
-                    ! of the redistribution function
-                    Warr2(jjfreq) = Warr2(jjfreq) + &
-                                   Geom%W_muAA(ith1)* &
-                                   Wfunc(omegai,omegao, &
-                                         Dw,Dw1,el,el1,eu,eu1,ef, &
-                                                al,au,af,aul,auf, &
-                                        Wcos(ith1),Wsin(ith1),0)*IPI42
-
-                  end do ! Direction quadrature
                 end do ! input frequencies
+!$omp end do nowait
 
-                ! Update
-                jjfreq0 = jjfreq0 + p_mfreq
+                ! Update kkfreq0
+                kkfreq0 = kkfreq0 + p_mfreq
 
-              end do ! output frequencies
-            end do ! output frequency ranges
+              end do  ! Scattering angles
+
+              ! Update jjfreq0
+              jjfreq0 = jjfreq0 + p_mfreq
+
+            end do ! output frequencies
+          end do ! output frequencies ranges
 !$omp barrier
 !$omp flush (Warr2)
 
-            ! If storing
-            if (LPRAM) then
+          ! If storing
+          if (LPRAM) then
 !$omp single
-              p_red%iPPRD(icom) = .False.
+            p_red%iPPRD(icom) = .False.
 !$omp end single
 !$omp do
-              do jfreq=1,nmfreq
-                rep = dble(Warr2(jfreq))
-                imp = dimag(Warr2(jfreq))
-                if (rep.le.1e-30) rep = 0d0
-                if (abs(imp).le.1e-30) imp = 0d0
-                p_red%PWarr2(kwfreq0+jfreq) = &
-                                            cmplx(real(rep),real(imp))
-              end do
+            do jfreq=1,nmfreq
+              rep = dble(Warr2(jfreq))
+              imp = dimag(Warr2(jfreq))
+              if (rep.le.1e-30) rep = 0d0
+              if (abs(imp).le.1e-30) imp = 0d0
+              p_red%Pwarr2(kwfreq0+jfreq) = &
+                                          cmplx(real(rep),real(imp))
+            end do
 !$omp end do
-            end if ! If storing
+          end if ! If storing
 !$omp end parallel
-
-          ! If angle-dependent
-          else
-
-            ! Initialize array
-            if (itran.eq.jtran) then
-              nmfreq = sum(p_frec%mfreq)*(Geom%nTh*Geom%nPh2-nfs)
-            else
-              nmfreq = sum(p_frec%mfreq)*Geom%nTh*Geom%nPh2
-            end if
-            if (nmfreq.gt.0) then
-              if (.not.allocated(Warr2)) then
-                allocate(Warr2(nmfreq))
-              else
-                if (size(Warr2).ne.nmfreq) then
-                  deallocate(Warr2)
-                  allocate(Warr2(nmfreq))
-                end if
-              end if
-            end if
-
-!$omp parallel default(none) &
-!$omp private(jjfreq,jjfreq0,kkfreq,kkfreq0,iran,ifreq,iifreq) &
-!$omp private(omegao,p_mfreq,ith1,iph1,jfreq,omegai,rep,imp) &
-!$omp private(tid,llfreq) &
-!$omp shared(Fin,omega,vfac,Atom,jtran,p_frec,itran,stype) &
-!$omp shared(Warr2,Dw,Dw1,el,el1,eu,eu1,ef,al,au,af,aul,auf) &
-!$omp shared(TWcos,TWsin,LPRAM,p_red,Geom,omp,icom,nmfreq,kwfreq0)
-
-#ifdef _OPENMP
-            tid = omp_get_thread_num() + 1
-            llfreq = 0
-#endif
-            ! Initialize frequency index
-            jjfreq0 = 0
-            kkfreq0 = 0
-
-            ! For each output frequency
-            iifreq = 0
-            do iran=1,Fin%nran
-              do ifreq=Fin%if0(iran),Fin%if1(iran)
-
-                ! Advance index
-                iifreq = iifreq + 1
-
-                ! Point to dimension
-                p_mfreq => p_frec%mfreq(iifreq)
-
-                ! Coherent wing
-                if (p_mfreq.lt.1) cycle
-
-                ! Get output frequency
-                omegao = omega(ifreq)*vfac - Atom%Dfreq(jtran)
-
-                ! For each polar direction
-                do ith1=1,Geom%nTh
-
-                  ! For each azimuthal direction
-                  do iph1=1,Geom%nPh2
-
-                    ! Check backward scattering two-terms
-                    if (itran.eq.jtran.and. &
-                        stype(iph1,ith1).lt.0) cycle
-#ifdef _OPENMP
-                    ! If multi-threading
-                    if (omp) then
-
-                      ! Advance llfreq index
-                      llfreq = llfreq + 1
-
-                      ! If out of range below
-                      if (llfreq.lt.Fin%oif0(tid)) then
-                        kkfreq0 = kkfreq0 + p_mfreq
-                        cycle
-                      end if
-                      ! If out of range above
-                      if (llfreq.gt.Fin%oif1(tid)) exit
-                    end if
-#endif
-                    ! For each input frequency
-                    do jfreq=1,p_mfreq
-
-                      ! Advance indexes
-                      jjfreq = jjfreq0 + jfreq
-                      kkfreq = kkfreq0 + jfreq
-
-                      ! Get input frequency
-                      omegai = p_frec%omega(jjfreq) - &
-                               Atom%Dfreq(itran)
-
-                      ! Calculate redistribution function
-                      Warr2(kkfreq) = Wfunc(omegai,omegao, &
-                                            Dw,Dw1,el,el1,eu,eu1,ef, &
-                                            al,au,af,aul,auf, &
-                                            TWcos(iph1,ith1), &
-                                            TWsin(iph1,ith1), &
-                                            stype(iph1,ith1))*IPI42
-
-                    end do ! input frequencies
-
-                    ! Update kkfreq0
-                    kkfreq0 = kkfreq0 + p_mfreq
-
-                  end do ! azimuthal directions
-                end do  ! polar directions
-
-                ! Update jjfreq0
-                jjfreq0 = jjfreq0 + p_mfreq
-
-              end do ! output frequencies
-            end do ! output frequencies ranges
-!$omp barrier
-!$omp flush (Warr2)
-
-            ! If storing
-            if (LPRAM) then
-!$omp single
-              p_red%iPPRD(icom) = .False.
-!$omp end single
-!$omp do
-              do jfreq=1,nmfreq
-                rep = dble(Warr2(jfreq))
-                imp = dimag(Warr2(jfreq))
-                if (rep.le.1e-30) rep = 0d0
-                if (abs(imp).le.1e-30) imp = 0d0
-                p_red%Pwarr2(kwfreq0+jfreq) = &
-                                            cmplx(real(rep),real(imp))
-              end do
-!$omp end do
-            end if ! If storing
-!$omp end parallel
-          end if ! AV or AD
         end if ! Initialized
 
         f0tmp = f61*f62*f63*f64
@@ -5360,46 +7018,62 @@
       ! Check if static and coherent
       cohIn = dyn.or.abs(wlf).gt.0d0
 
-      ! If angle-averaged
-      if(AV)then
-
-        ! Get relevant component
-        p_JKQ(Fin%ggf0:Fin%ggf1) => JradC(:,iQ,K)
-
-        ! Get total frequency size
-        if (LPRAM) nmfreq = sum(p_frec%mfreq)
-
 ! dnorme2 removed from list, commented in declarations
 !$omp parallel default(none) &
-!$omp private(jjfreq,iifreq,iran,ifreq,tid,y0,dy) &
-!$omp private(p_mfreq,Norme2,rep,omegai) &
-!$omp shared(LPRAM,p_warr2,p_red,kwfreq0,nmfreq,Warr2,PRD,Fin,omega) &
-!$omp shared(p_index1,p_index2,p_dx,p_JKQ,p_frec,omp,wlf,CRD,cohIn) &
-!$omp shared(vfac)
-
-        ! If storing Warr
-        if (LPRAM) then
-          if (nmfreq.gt.0) then
-!$omp single
-            allocate(p_warr2(nmfreq))
-!$omp end single
-!$omp workshare
-            p_warr2 = dcmplx(p_red%Pwarr2(kwfreq0+1:kwfreq0+nmfreq))
-!$omp end workshare
-          end if
-        ! If not storing
-        else
-!$omp single
-          if (allocated(Warr2)) p_warr2 => Warr2
-!$omp end single
-        end if
+!$omp private(tid,mmfreq,PRDdir,PRD,p_warr2,jjfreq0,llfreq0,kkfreq0) &
+!$omp private(ifreq,iran,ifreq,p_mfreq,iidir,ith1,iph1,ish1,) &
+!$omp private(omegai,cost,sint,cosc,sinc,vfac1,StokesM,intgr) &
+!$omp private(kkfreq0b,Warr2xW,intergrin,Norme2,PRDin) &
+!$omp shared(cZero,LPRAM,nmfreq,p_red,Warr2,axial,Fin,p_frec,Geom) &
+!$omp shared(jdir,itran,jtran,omp,cohIn,omega,vfac,wlf,dyn,Stokes) &
+!$omp shared(CRD,i_scatt,nfs,Stokesin)
 
 #ifdef _OPENMP
-        tid = omp_get_thread_num() + 1
+
+      tid = omp_get_thread_num() + 1
+      mmfreq = 0
+
+      ! If there are frequencies
+      if (Fin%mxfreq.gt.0) then
+        allocate(Warr2xW(Fin%mxfreq))
+        allocate(intergrin(Fin%mxfreq))
+      end if
+
+!$omp workshare
+      ! Initialize 2nd order part
+      PRDdir = cZero
+      PRD = cZero
+!$omp end workshare
+
+#else
+      ! Initialize 2nd order part
+      PRD = cZero
 #endif
 
+      ! If storing Warr2
+      if (LPRAM) then
+        if (nmfreq.gt.0) then
+!$omp single
+          allocate(p_warr2(nmfreq))
+!$omp end single
+!$omp workshare
+          p_warr2 = dcmplx(p_red%Pwarr2(kwfreq0+1:kwfreq0+nmfreq))
+!$omp end workshare
+        end if
+      ! If not storing
+      else
+!$omp single
+        if (allocated(Warr2)) p_warr2 => Warr2
+!$omp end single
+      end if
+
+      ! If axial symmetry
+      if (axial) then
+
         ! Initialize frequency indexes
-        jjfreq = 0
+        jjfreq0 = 0
+        llfreq0 = 0
+        kkfreq0 = 0
 
         ! For each output frequency
         iifreq = 0
@@ -5411,581 +7085,395 @@
 
             ! Point to dimension
             p_mfreq => p_frec%mfreq(iifreq)
-
-            ! If coherent wing
-            if (p_mfreq.lt.1) then
-
-              ! Full coherent
-              if (cohIn) then
-
-                ! Fully coherent contribution
-                PRD(ifreq) = CRD(ifreq)*p_JKQ(ifreq)
-
-              ! Interpolate
-              else
-
-                ! Input frequency
-                omegai = omega(ifreq)*vfac - wlf
-
-                ! Get JKQ
-                y0 = getJKQin(omega(Fin%ggf0:Fin%ggf1), &
-                              p_JKQ, &
-                              ifreq-Fin%ggf0+1, &
-                              Fin%ggf1-Fin%ggf0+1,omegai)
-
-                ! Fully coherent contribution
-                PRD(ifreq) = CRD(ifreq)*y0
-
-              end if
-
-              ! Skip rest
-              cycle
-
-            end if
-
 #ifdef _OPENMP
-            ! If multi-threading
-            if (omp) then
-
-              ! If out of range below
-              if (iifreq.lt.Fin%oif0(tid)) then
-                jjfreq = jjfreq + p_mfreq
-                cycle
-              end if
-              ! If out of range above
-              if (iifreq.gt.Fin%oif1(tid)) exit
-            end if
+            ! Initialize direction index
+            iidir = 0
 #endif
-            ! Initialize
-            PRD(ifreq) = cZero
-            Norme2 = cZero
+            ! For each polar direction
+            do ith1=1,Geom%nTh
 
-            ! Inner frequencies
-            do jfreq=jjfreq+1,jjfreq+p_mfreq
+              ! For each azimuthal direction
+              do iph1=1,Geom%nPh2
+#ifdef _OPENMP
+                ! Advance direction and thread index
+                iidir = iidir + 1
+                mmfreq = mmfreq + 1
+#endif
+                ! Scattering index
+                ish1 = Geom%i_scatt(iph1,ith1,jdir)
 
-              ! Interpolate
-              y0 = p_JKQ(p_index1(jfreq))
+                ! Special treatment if forward for two terms
+                if ((jtran.eq.itran.and. &
+                     Geom%V_CScatt(ish1).ge.1d0).or. &
+                    (p_mfreq.lt.1)) then
+#ifdef _OPENMP
+                  ! If multi-threading
+                  if (omp) then
+                    ! If out of range below
+                    if (mmfreq.lt.Fin%oif0(tid)) cycle
+                    ! If out of range above
+                    if (mmfreq.gt.Fin%oif1(tid)) exit
+                  end if
+#endif
+                  ! Interpolate
+                  if (cohIn) then
 
-              ! Linear interpolation
-              dy = p_JKQ(p_index2(jfreq)) - y0
+                    ! Input frequency
+                    omegai = omega(ifreq)*vfac - wlf
 
-              ! JKQ interpolated
-              y0 = dy*p_dx(jfreq) + y0
+                    ! If there are dynamics
+                    if (dyn) then
 
-              ! Weight
-              dy = p_warr2(jfreq)*p_frec%W_freq(jfreq)
+                      ! Get director cosine
+                      cost = Geom%V_mu(ith1)
 
-              ! Add to integrals
-              PRD(ifreq) = PRD(ifreq) + y0*dy
-              Norme2 = Norme2 + dy
+                      ! Calculate Doppler shift factor
+                      vfac1 = 1d0 - vz*cost
 
-            end do
+                      ! We will be using the inverse
+                      vfac1 = 1d0/vfac1
 
-            ! Normalize to the first order profile
-            PRD(ifreq) = PRD(ifreq)*CRD(ifreq)/Norme2
+                      ! Shift
+                      omegai = omegai*vfac1
 
-            ! This old normalization (only real part) was problematic
-            ! for non-axial cases with angle-dependent
-           !! Normalize real part to the first order profile
-           !dNorme2 = dble(Norme2)
-           !if (dNorme2.gt.0d0) then
-           !  rep = dble(PRD(ifreq))*dble(CRD(ifreq))/dNorme2
-           !  PRD(ifreq) = dcmplx(rep,dimag(PRD(ifreq)))
-           !else
-           !  PRD(ifreq) = dcmplx(0d0,dimag(PRD(ifreq)))
-           !end if
+                    end if
 
-            ! Update index
-            jjfreq = jjfreq + p_mfreq
+                    ! Get Stokes
+                    StokesM = getStkinnu(omega, &
+                                         Stokes(:,:,1,ith1), &
+                                         ifreq,omegai)
 
-          end do ! Output frequencies
-        end do ! Output frequencies ranges
-!$omp end parallel
+                  ! Fully coherent
+                  else
 
-      ! If angle-dependent
+                    StokesM = Stokes(:,ifreq,1,ith1)
+
+                  end if
+
+                  ! Sum over Stokes parameters, integrand
+                  intgr = sum(Geom%TS(:,iQ,K,iph1,ith1)* &
+                              StokesM)
+#ifdef _OPENMP
+                  PRDdir(iidir,ifreq) = PRDdir(iidir,ifreq) + &
+                               CRD(ifreq)* &
+                               intgr*Geom%W_mu(ith1)* &
+                               Geom%W_mux2(iph1)
+#else
+                  PRD(ifreq) = PRD(ifreq) + CRD(ifreq)* &
+                               intgr*Geom%W_mu(ith1)* &
+                               Geom%W_mux2(iph1)
+#endif
+
+                ! Non-forward 2-term scattering
+                else
+#ifdef _OPENMP
+                  ! If multi-threading
+                  if (omp) then
+                    ! If out of range below
+                    if (mmfreq.lt.Fin%oif0(tid)) cycle
+                    ! If out of range above
+                    if (mmfreq.gt.Fin%oif1(tid)) exit
+                  end if
+#endif
+                  !
+                  ! Find initial index for kkfreq
+
+                  ! Scattering index
+                  ish1 = i_scatt(ish1)
+
+                  ! Shift in indexes
+                  kkfreq0b = kkfreq0 + (ish1-nfs-1)*p_mfreq
+
+                  ! Multiply Warr2 and weights
+                  Warr2xW(1:p_mfreq) = p_warr2(kkfreq0b+1: &
+                                               kkfreq0b+p_mfreq)* &
+                                       p_frec%W_freq(llfreq0+1: &
+                                                     llfreq0+p_mfreq)
+
+                  ! Sum Stokes
+                  intergrin(1:p_mfreq) = &
+                        Stokesin(0,jjfreq0+1:jjfreq0+p_mfreq)* &
+                        Geom%TS(0,iQ,K,iph1,ith1) + &
+                        Stokesin(1,jjfreq0+1:jjfreq0+p_mfreq)* &
+                        Geom%TS(1,iQ,K,iph1,ith1) + &
+                        Stokesin(2,jjfreq0+1:jjfreq0+p_mfreq)* &
+                        Geom%TS(2,iQ,K,iph1,ith1) + &
+                        Stokesin(3,jjfreq0+1:jjfreq0+p_mfreq)* &
+                        Geom%TS(3,iQ,K,iph1,ith1)
+
+                  ! Compute norm
+                  Norme2 = sum(Warr2xW(1:p_mfreq))
+
+                  ! Integrate
+                  PRDin = sum(Warr2xW(1:p_mfreq)* &
+                              intergrin(1:p_mfreq))
+
+                  
+                  ! Normalize to the first order profile
+                  ! and add the directional weights
+#ifdef _OPENMP
+                  PRDdir(iidir,ifreq) = PRDdir(iidir,ifreq) + &
+                               PRDin*CRD(ifreq)* &
+                               Geom%W_mu(ith1)* &
+                               Geom%W_mux2(iph1)/Norme2
+#else
+                  PRD(ifreq) = PRD(ifreq) + &
+                               PRDin*CRD(ifreq)*&
+                               Geom%W_mu(ith1)* &
+                               Geom%W_mux2(iph1)/Norme2
+#endif
+                  ! This old normalization (only real part) was
+                  ! problematic for non-axial cases with
+                  ! angle-dependent
+                 !! Normalize real part to the first order
+                 !! profile and add the directional
+                 !! weights
+                 !dNorme2 = dble(Norme2)
+                 !if (dNorme2.gt.0d0) then
+                 !  rep = dble(PRDin)*dble(CRD(ifreq))/dNorme2
+                 !  imp = dimag(PRDin)
+!ifdef _OPENMP
+                 !  PRDdir(iidir,ifreq) = PRDdir(iidir,ifreq) + &
+                 !               dcmplx(rep,imp)*Geom%W_mu(ith1)* &
+                 !                               Geom%W_mux2(iph1)
+!else
+                 !  PRD(ifreq) = PRD(ifreq) + &
+                 !               dcmplx(rep,imp)*Geom%W_mu(ith1)* &
+                 !                               Geom%W_mux2(iph1)
+!endif
+                 !else
+!ifdef _OPENMP
+                 !  PRDdir(iidir,ifreq) = PRDdir(iidir,ifreq) + &
+                 !               dcmplx(0d0,dimag(PRDin)* &
+                 !                          Geom%W_mu(ith1)* &
+                 !                          Geom%W_mux2(iph1))
+!else
+                 !  PRD(ifreq) = PRD(ifreq) + &
+                 !               dcmplx(0d0,dimag(PRDin)* &
+                 !                          Geom%W_mu(ith1)* &
+                 !                          Geom%W_mux2(iph1))
+!endif
+                 !end if ! Positive norm
+
+                end if ! Type of scattering
+
+              end do ! azimuthal nodes
+
+              ! Update jjfreq
+              jjfreq0 = jjfreq0 + p_mfreq
+
+            end do ! polar nodes
+
+            ! Update llfreq and kkfreq
+            llfreq0 = llfreq0 + p_mfreq
+            kkfreq0 = kkfreq0 + p_mfreq*(nScatt - nfs)
+
+          end do ! output frequencies
+        end do ! output frequencies ranges
+
+      ! If not axial symmetric
       else
 
-        ! Compute sizes
-        if (LPRAM) then
-          if (itran.eq.jtran) then
-            nmfreq = sum(p_frec%mfreq)*(Geom%nTh*Geom%nPh2-nfs)
-          else
-            nmfreq = sum(p_frec%mfreq)*Geom%nTh*Geom%nPh2
-          end if
-        end if
-
-! dnorme2 removed from list, commented in declarations
-!$omp parallel default(none) &
-!$omp private(tid,mmfreq,jjfreq0,llfreq0,kkfreq,iifreq,iran,ifreq) &
-!$omp private(p_mfreq,iidir,ith1,ibth1,tointerp,iph1,ibph1,vfac1) &
-!$omp private(cost,omegai,StokesM,intgr,kkfreq0,jjfreq,y0s,dys) &
-!$omp private(StokesMV,llfreq,PRDin,Norme2,caux,rep,imp) &
-!$omp private(sint,cosc,sinc) &
-!$omp shared(wlf,LPRAM,nmfreq,PRD,PRDdir,p_warr2,p_red,Warr2,axial) &
-!$omp shared(nbth,jtran,itran,stype,dyn,vx,vy,vz,omega,Stokes) &
-!$omp shared(Geom,iQ,K,CRD,kwfreq0,Fin,p_frec,nbph,omp,vfac)&
-!$omp shared(p_dx,p_index1,p_index2,cohIn)
-
-#ifdef _OPENMP
-        tid = omp_get_thread_num() + 1
-        mmfreq = 0
-!$omp workshare
-        ! Initialize 2nd order part
-        PRDdir = cZero
-        PRD = cZero
-!$omp end workshare
-#else
-        ! Initialize 2nd order part
-        PRD = cZero
-#endif
-
-        ! If storing Warr2
-        if (LPRAM) then
-          if (nmfreq.gt.0) then
-!$omp single
-            allocate(p_warr2(nmfreq))
-!$omp end single
-!$omp workshare
-            p_warr2 = dcmplx(p_red%Pwarr2(kwfreq0+1:kwfreq0+nmfreq))
-!$omp end workshare
-          end if
-        ! If not storing
-        else
-!$omp single
-          if (allocated(Warr2)) p_warr2 => Warr2
-!$omp end single
-        end if
-
-        ! If axial symmetry
-        if (axial) then
-
-          ! Initialize frequency indexes
-          jjfreq0 = 0
-          llfreq0 = 0
-          kkfreq0 = 0
-
-          ! For each output frequency
-          iifreq = 0
-          do iran=1,Fin%nran
-            do ifreq=Fin%if0(iran),Fin%if1(iran)
-
-              ! Advance index
-              iifreq = iifreq + 1
-
-              ! Point to dimension
-              p_mfreq => p_frec%mfreq(iifreq)
-#ifdef _OPENMP
-              ! Initialize direction index
-              iidir = 0
-#endif
-              ! For each polar direction
-              do ith1=1,Geom%nTh
-                ibth1 = min(ith1,nbth)
-
-                ! Initialize interpolated
-                tointerp = .True.
-
-                ! For each azimuthal direction
-                do iph1=1,Geom%nPh2
-                  ibph1 = min(iph1,nbph)
-#ifdef _OPENMP
-                  ! Advance direction and thread index
-                  iidir = iidir + 1
-                  mmfreq = mmfreq + 1
-#endif
-                  ! Special treatment if forward for two terms
-                  if ((jtran.eq.itran.and.stype(iph1,ith1).lt.0).or. &
-                      (p_mfreq.lt.1)) then
-#ifdef _OPENMP
-                    ! If multi-threading
-                    if (omp) then
-                      ! If out of range below
-                      if (mmfreq.lt.Fin%oif0(tid)) cycle
-                      ! If out of range above
-                      if (mmfreq.gt.Fin%oif1(tid)) exit
-                    end if
-#endif
-                    ! Fully coherent
-                    if (cohIn) then
-
-                      StokesM = Stokes(:,ifreq,1,ith1)
-
-                    ! Interpolate
-                    else
-
-                      vfac1 = 1d0
-
-                      ! If there are dynamics
-                      if (dyn) then
-
-                        ! Get director cosine
-                        cost = Geom%V_mu(ith1)
-
-                        ! Calculate Doppler shift factor
-                        vfac1 = 1d0 - vz*cost
-
-                        ! We will be using the inverse
-                        vfac1 = 1d0/vfac1
-
-                      end if
-
-                      ! Input frequency
-                      omegai = (omega(ifreq)*vfac - wlf)*vfac1
-
-                      ! Get Stokes
-                      StokesM = getStkin(omega,Stokes(:,:,1,ith1), &
-                                         ifreq,omegai)
-                    end if
-
-                    ! Sum over Stokes parameters, integrand
-                    intgr = sum(Geom%TS(:,iQ,K,iph1,ith1)* &
-                                StokesM)
-#ifdef _OPENMP
-                    PRDdir(iidir,ifreq) = PRDdir(iidir,ifreq) + &
-                                 CRD(ifreq)* &
-                                 intgr*Geom%W_mu(ith1)* &
-                                 Geom%W_mux2(iph1)
-#else
-                    PRD(ifreq) = PRD(ifreq) + CRD(ifreq)* &
-                                 intgr*Geom%W_mu(ith1)* &
-                                 Geom%W_mux2(iph1)
-#endif
-
-                  ! Non-forward 2-term scattering
-                  else
-#ifdef _OPENMP
-                    ! If multi-threading
-                    if (omp) then
-                      ! If out of range below
-                      if (mmfreq.lt.Fin%oif0(tid)) then
-                        kkfreq0 = kkfreq0 + p_mfreq
-                        cycle
-                      end if
-                      ! If out of range above
-                      if (mmfreq.gt.Fin%oif1(tid)) exit
-                    end if
-#endif
-                    ! If need to interpolate
-                    if (tointerp) then
-
-                      ! Update flag
-                      tointerp = .False.
-
-                      ! For each input frequency
-                      do jfreq=1,p_mfreq
-
-                        ! Advance index
-                        jjfreq = jjfreq0 + jfreq
-
-                        ! Linear interpolation
-                        y0s = Stokes(:,p_index1(jjfreq),1,ith1)
-                        dys = Stokes(:,p_index2(jjfreq),1,ith1) - y0s
-                        StokesMV(:,jfreq) = dys*p_dx(jjfreq) + y0s
-
-                      end do ! Input frequencies
-
-                    end if ! Need to interpolate
-
-                    ! Initialize norm
-                    Norme2 = 0d0
-
-                    ! Local PRD
-                    PRDin = cZero
-
-                    ! For each input frequency
-                    do jfreq=1,p_mfreq
-
-                      ! Advance index
-                      kkfreq = kkfreq0 + jfreq
-                      llfreq = llfreq0 + jfreq
-
-                      ! Sum over Stokes parameters, integrand
-                      intgr = sum(StokesMV(:,jfreq)* &
-                                  Geom%TS(:,iQ,K,iph1,ith1))
-
-                      ! Add weight to Warr2
-                      caux = p_warr2(kkfreq)*p_frec%w_freq(llfreq)
-
-                      ! Add contribution to the norm
-                      Norme2 = Norme2 + caux
-
-                      ! Add contribution to the partial
-                      ! integral
-                      PRDin = PRDin + intgr*caux
-
-                    end do ! Input frequencies
-
-                    ! Normalize to the first order profile
-                    ! and add the directional weights
-#ifdef _OPENMP
-                    PRDdir(iidir,ifreq) = PRDdir(iidir,ifreq) + &
-                                 PRDin*CRD(ifreq)* &
-                                 Geom%W_mu(ith1)* &
-                                 Geom%W_mux2(iph1)/Norme2
-#else
-                    PRD(ifreq) = PRD(ifreq) + &
-                                 PRDin*CRD(ifreq)*&
-                                 Geom%W_mu(ith1)* &
-                                 Geom%W_mux2(iph1)/Norme2
-#endif
-                    ! This old normalization (only real part) was
-                    ! problematic for non-axial cases with
-                    ! angle-dependent
-                   !! Normalize real part to the first order
-                   !! profile and add the directional
-                   !! weights
-                   !dNorme2 = dble(Norme2)
-                   !if (dNorme2.gt.0d0) then
-                   !  rep = dble(PRDin)*dble(CRD(ifreq))/dNorme2
-                   !  imp = dimag(PRDin)
-!ifdef _OPENMP
-                   !  PRDdir(iidir,ifreq) = PRDdir(iidir,ifreq) + &
-                   !               dcmplx(rep,imp)*Geom%W_mu(ith1)* &
-                   !                               Geom%W_mux2(iph1)
-!else
-                   !  PRD(ifreq) = PRD(ifreq) + &
-                   !               dcmplx(rep,imp)*Geom%W_mu(ith1)* &
-                   !                               Geom%W_mux2(iph1)
-!endif
-                   !else
-!ifdef _OPENMP
-                   !  PRDdir(iidir,ifreq) = PRDdir(iidir,ifreq) + &
-                   !               dcmplx(0d0,dimag(PRDin)* &
-                   !                          Geom%W_mu(ith1)* &
-                   !                          Geom%W_mux2(iph1))
-!else
-                   !  PRD(ifreq) = PRD(ifreq) + &
-                   !               dcmplx(0d0,dimag(PRDin)* &
-                   !                          Geom%W_mu(ith1)* &
-                   !                          Geom%W_mux2(iph1))
-!endif
-                   !end if ! Positive norm
-
-                    ! Update redistribution index
-                    kkfreq0 = kkfreq0 + p_mfreq
-
-                  end if ! Type of scattering
-
-                end do ! azimuthal nodes
-
-                ! Update jjfreq
-                if (dyn) jjfreq0 = jjfreq0 + p_mfreq
-
-              end do ! polar nodes
-
-              ! Update jjfreq and llfreq
-              if(.not.dyn) jjfreq0 = jjfreq0 + p_mfreq
-              llfreq0 = llfreq0 + p_mfreq
-
-            end do ! output frequencies
-          end do ! output frequencies ranges
-
-        ! If not axial symmetric
-        else
-
-          ! Initialize indexes
-          jjfreq0 = 0
-          llfreq0 = 0
-          kkfreq0 = 0
-
-          ! For each output frequency
-          iifreq = 0
-          do iran=1,Fin%nran
-            do ifreq=Fin%if0(iran),Fin%if1(iran)
-
-              ! Advance index
-              iifreq = iifreq + 1
-
-              ! Point to dimension
-              p_mfreq => p_frec%mfreq(iifreq)
-#ifdef _OPENMP
-              ! Initialize direction index and
-              iidir = 0
-#endif
-              ! For each polar direction
-              do ith1=1,Geom%nTh
-                ibth1 = min(ith1,nbth)
-
-                ! For each azimuthal direction
-                do iph1=1,Geom%nPh2
-                  ibph1 = min(iph1,nbph)
-#ifdef _OPENMP
-                  ! Advance direction and thread index
-                  iidir = iidir + 1
-                  mmfreq = mmfreq + 1
-#endif
-                  ! Special treatment if forward for two
-                  ! terms
-                  if ((jtran.eq.itran.and.stype(iph1,ith1).lt.0).or. &
-                      (p_mfreq.lt.1)) then
-#ifdef _OPENMP
-                    ! If multi-threading
-                    if (omp) then
-                      ! If out of range below
-                      if (mmfreq.lt.Fin%oif0(tid)) cycle
-                      ! If out of range above
-                      if (mmfreq.gt.Fin%oif1(tid)) exit
-                    end if
-#endif
-                    ! Full coherent
-                    if (cohIn) then
-
-                      StokesM = Stokes(:,ifreq,iph1,ith1)
-
-                    ! Interpolate
-                    else
-
-                      vfac1 = 1d0
-
-                      ! If there are dynamics
-                      if (dyn) then
-
-                        ! Get directional trigonimetric f.
-                        cost = Geom%V_mu(ith1)
-                        sint = sqrt(1d0 - cost*cost)
-                        cosc = Geom%v_mux(iph1)
-                        sinc = Geom%v_muy(iph1)* &
-                               sqrt(1d0 - cosc*cosc)
-
-                        ! Calculate Doppler shift factor
-                        vfac1 = 1d0 - vx*sint*cosc - &
-                                      vy*sint*sinc - &
-                                      vz*cost
-
-                        ! We will be using the inverse
-                        vfac1 = 1d0/vfac1
-
-                      end if
-
-                      ! Input frequency
-                      omegai = (omega(ifreq)*vfac - wlf)*vfac1
-
-                      StokesM = getStkin(omega, &
-                                         Stokes(:,:,iph1,ith1), &
-                                         ifreq,omegai)
-                    end if
-
-                    ! Sum over Stokes parameters, integrand
-                    intgr = sum(Geom%TS(:,iQ,K,iph1,ith1)* &
-                                StokesM)
-
-#ifdef _OPENMP
-                    PRDdir(iidir,ifreq) = PRDdir(iidir,ifreq) + &
-                                 CRD(ifreq)* &
-                                 intgr*Geom%W_mu(ith1)* &
-                                 Geom%W_mux2(iph1)
-#else
-                    PRD(ifreq) = PRD(ifreq) + CRD(ifreq)* &
-                                 intgr*Geom%W_mu(ith1)* &
-                                 Geom%W_mux2(iph1)
-#endif
-
-                  ! Non-forward 2-term scattering
-                  else
-#ifdef _OPENMP
-                    ! If multi-threading
-                    if (omp) then
-                      ! If out of range below
-                      if (mmfreq.lt.Fin%oif0(tid)) then
-                        kkfreq0 = kkfreq0 + p_mfreq
-                        if (dyn) jjfreq0 = jjfreq0 + p_mfreq
-                        cycle
-                      end if
-                      ! If out of range above
-                      if (mmfreq.gt.Fin%oif1(tid)) exit
-                    end if
-#endif
-                    ! Initialize normalization value
-                    Norme2 = cZero
-
-                    ! Reset partial integral
-                    PRDin = cZero
-
-                    ! For each input frequency
-                    do jfreq=1,p_mfreq
-
-                      ! Advance indexes
-                      jjfreq = jjfreq0 + jfreq
-                      llfreq = llfreq0 + jfreq
-                      kkfreq = kkfreq0 + jfreq
-
-                      ! Linear interpolation
-                      y0s = Stokes(:,p_index1(jjfreq),iph1,ith1)
-                      dys = Stokes(:,p_index2(jjfreq),iph1,ith1) - &
-                            y0s
-                      StokesM = dys*p_dx(jjfreq) + y0s
-
-                      ! Integrand
-                      intgr = sum(StokesM*Geom%TS(:,iQ,K,iph1,ith1))
-
-                      ! Add weight to Warr2
-                      caux = p_warr2(kkfreq)*p_frec%w_freq(llfreq)
-
-                      ! Add contribution to normalization
-                      Norme2 = Norme2 + caux
-
-                      ! Add contribution to radiation integral
-                      PRDin = PRDin + intgr*caux
-
-                    end do ! Input frequency
-
-                    ! Normalize to the first order profile
-                    ! and add the directional weights
-                    PRD(ifreq) = PRD(ifreq) + &
-                                 PRDin*CRD(ifreq)* &
-                                 Geom%W_mu(ith1)* &
-                                 Geom%W_mux2(iph1)/Norme2
-
-                    ! This old normalization (only real part) was
-                    ! problematic for non-axial cases with
-                    ! angle-dependent
-                   !! Normalize real part to the first order profile
-                   !! and add the directional weights
-                   !dNorme2 = dble(Norme2)
-                   !if (dNorme2.gt.0d0) then
-                   !  rep = dble(PRDin)*dble(CRD(ifreq))/dNorme2
-                   !  imp = dimag(PRDin)
-                   !  PRD(ifreq) = PRD(ifreq) + &
-                   !               dcmplx(rep,imp)*Geom%W_mu(ith1)* &
-                   !                               Geom%W_mux2(iph1)
-                   !else
-                   !  PRD(ifreq) = PRD(ifreq) + &
-                   !               dcmplx(0d0,dimag(PRDin)* &
-                   !                          Geom%W_mu(ith1)* &
-                   !                          Geom%W_mux2(iph1))
-                   !end if ! Valid norm
-
-                    ! Update indexes
-                    if (dyn) jjfreq0 = jjfreq0 + p_mfreq
-                    kkfreq0 = kkfreq0 + p_mfreq
-
-                  end if ! Type of scattering
-
-                end do ! azimuthal nodes
-              end do ! polar nodes
-
-              ! Advance
-              if (.not.dyn) jjfreq0 = jjfreq0 + p_mfreq
-              llfreq0 = llfreq0 + p_mfreq
-
-            end do ! output frequencies
-          end do ! output frequencies ranges
-
-        end if ! Axial symmetry
-!$omp end parallel
-
-#ifdef _OPENMP
-        ! for each output frequency
+        ! Initialize indexes
+        jjfreq0 = 0
+        llfreq0 = 0
+        kkfreq0 = 0
+
+        ! For each output frequency
+        iifreq = 0
         do iran=1,Fin%nran
           do ifreq=Fin%if0(iran),Fin%if1(iran)
 
-            ! get proper prd quantity
-            PRD(ifreq) = PRD(ifreq) + sum(PRDdir(:,ifreq))
+            ! Advance index
+            iifreq = iifreq + 1
+
+            ! Point to dimension
+            p_mfreq => p_frec%mfreq(iifreq)
+#ifdef _OPENMP
+            ! Initialize direction index and
+            iidir = 0
+#endif
+            ! For each polar direction
+            do ith1=1,Geom%nTh
+
+              ! For each azimuthal direction
+              do iph1=1,Geom%nPh2
+#ifdef _OPENMP
+                ! Advance direction and thread index
+                iidir = iidir + 1
+                mmfreq = mmfreq + 1
+#endif
+                ! Scattering index
+                ish1 = Geom%i_scatt(iph1,ith1,jdir)
+
+                ! Special treatment if forward for two
+                ! terms
+                if ((jtran.eq.itran.and. &
+                     Geom%V_CScatt(ish1).ge.1d0).or. &
+                    (p_mfreq.lt.1)) then
+#ifdef _OPENMP
+                  ! If multi-threading
+                  if (omp) then
+                    ! If out of range below
+                    if (mmfreq.lt.Fin%oif0(tid)) cycle
+                    ! If out of range above
+                    if (mmfreq.gt.Fin%oif1(tid)) exit
+                  end if
+#endif
+                  ! Interpolate
+                  if (cohIn) then
+
+                    ! Input frequency
+                    omegai = omega(ifreq)*vfac - wlf
+
+                    ! If there are dynamics
+                    if (dyn) then
+
+                      ! Get directional trigonimetric f.
+                      cost = Geom%V_mu(ith1)
+                      sint = sqrt(1d0 - cost*cost)
+                      cosc = Geom%v_mux(iph1)
+                      sinc = Geom%v_muy(iph1)* &
+                             sqrt(1d0 - cosc*cosc)
+
+                      ! Calculate Doppler shift factor
+                      vfac1 = 1d0 - vx*sint*cosc - &
+                                    vy*sint*sinc - &
+                                    vz*cost
+
+                      ! We will be using the inverse
+                      vfac1 = 1d0/vfac1
+
+                      ! Shift
+                      omegai = omegai*vfac1
+
+                    end if
+
+                    StokesM = getStkinnu(omega, &
+                                         Stokes(:,:,iph1,ith1), &
+                                         ifreq,omegai)
+
+                  ! Full coherent
+                  else
+
+                    StokesM = Stokes(:,ifreq,iph1,ith1)
+
+                  end if
+
+                  ! Sum over Stokes parameters, integrand
+                  intgr = sum(Geom%TS(:,iQ,K,iph1,ith1)* &
+                              StokesM)
+
+#ifdef _OPENMP
+                  PRDdir(iidir,ifreq) = PRDdir(iidir,ifreq) + &
+                               CRD(ifreq)* &
+                               intgr*Geom%W_mu(ith1)* &
+                               Geom%W_mux2(iph1)
+#else
+                  PRD(ifreq) = PRD(ifreq) + CRD(ifreq)* &
+                               intgr*Geom%W_mu(ith1)* &
+                               Geom%W_mux2(iph1)
+#endif
+
+                ! Non-forward 2-term scattering
+                else
+#ifdef _OPENMP
+                  ! If multi-threading
+                  if (omp) then
+                    ! If out of range below
+                    if (mmfreq.lt.Fin%oif0(tid)) then
+                      jjfreq0 = jjfreq0 + p_mfreq
+                      cycle
+                    end if
+                    ! If out of range above
+                    if (mmfreq.gt.Fin%oif1(tid)) exit
+                  end if
+#endif
+                  ! Scattering index
+                  ish1 = i_scatt(ish1)
+
+                  ! Shift in indexes
+                  kkfreq0b = kkfreq0 + (ish1-nfs-1)*p_mfreq
+
+                  ! Multiply Warr2 and weights
+                  Warr2xW(1:p_mfreq) = p_warr2(kkfreq0b+1: &
+                                               kkfreq0b+p_mfreq)* &
+                                       p_frec%W_freq(llfreq0+1: &
+                                                     llfreq0+p_mfreq)
+
+                  ! Sum Stokes
+                  intergrin(1:p_mfreq) = &
+                        Stokesin(0,jjfreq0+1:jjfreq0+p_mfreq)* &
+                        Geom%TS(0,iQ,K,iph1,ith1) + &
+                        Stokesin(1,jjfreq0+1:jjfreq0+p_mfreq)* &
+                        Geom%TS(1,iQ,K,iph1,ith1) + &
+                        Stokesin(2,jjfreq0+1:jjfreq0+p_mfreq)* &
+                        Geom%TS(2,iQ,K,iph1,ith1) + &
+                        Stokesin(3,jjfreq0+1:jjfreq0+p_mfreq)* &
+                        Geom%TS(3,iQ,K,iph1,ith1)
+
+                  ! Compute norm
+                  Norme2 = sum(Warr2xW(1:p_mfreq))
+
+                  ! Integrate
+                  PRDin = sum(Warr2xW(1:p_mfreq)* &
+                              intergrin(1:p_mfreq))
+
+                  ! Normalize to the first order profile
+                  ! and add the directional weights
+                  PRD(ifreq) = PRD(ifreq) + &
+                               PRDin*CRD(ifreq)* &
+                               Geom%W_mu(ith1)* &
+                               Geom%W_mux2(iph1)/Norme2
+
+                  ! This old normalization (only real part) was
+                  ! problematic for non-axial cases with
+                  ! angle-dependent
+                 !! Normalize real part to the first order profile
+                 !! and add the directional weights
+                 !dNorme2 = dble(Norme2)
+                 !if (dNorme2.gt.0d0) then
+                 !  rep = dble(PRDin)*dble(CRD(ifreq))/dNorme2
+                 !  imp = dimag(PRDin)
+                 !  PRD(ifreq) = PRD(ifreq) + &
+                 !               dcmplx(rep,imp)*Geom%W_mu(ith1)* &
+                 !                               Geom%W_mux2(iph1)
+                 !else
+                 !  PRD(ifreq) = PRD(ifreq) + &
+                 !               dcmplx(0d0,dimag(PRDin)* &
+                 !                          Geom%W_mu(ith1)* &
+                 !                          Geom%W_mux2(iph1))
+                 !end if ! Valid norm
+
+                  ! Update indexes
+                  jjfreq0 = jjfreq0 + p_mfreq
+
+                end if ! Type of scattering
+
+              end do ! azimuthal nodes
+            end do ! polar nodes
+
+            ! Advance
+            llfreq0 = llfreq0 + p_mfreq
+            kkfreq0 = kkfreq0 + p_mfreq*(nScatt - nfs)
 
           end do ! output frequencies
-        end do ! output frequency range
+        end do ! output frequencies ranges
+
+      end if ! Axial symmetry
+!$omp end parallel
+
+#ifdef _OPENMP
+      ! for each output frequency
+      do iran=1,Fin%nran
+        do ifreq=Fin%if0(iran),Fin%if1(iran)
+
+          ! get proper prd quantity
+          PRD(ifreq) = PRD(ifreq) + sum(PRDdir(:,ifreq))
+
+        end do ! output frequencies
+      end do ! output frequency range
 #endif
-      endif ! AV or AD
 
       ! Clean p_warr2
       if (LPRAM) deallocate(p_warr2)
@@ -6099,10 +7587,6 @@
           end do ! iU
         end do ! mF
 
-        ! Clean interpolation data
-        if (.not.p_frec%RAM) deallocate(p_index1,p_index2,p_dx)
-        nullify(p_index1,p_index2,p_dx)
-
       end do ! Terms
 
       ! Apply common factor
@@ -6119,10 +7603,12 @@
       if (associated(p_mfreq)) nullify(p_mfreq)
       if (associated(p_warr2)) nullify(p_warr2)
       if (associated(p_JKQ)) nullify(p_JKQ)
+      if (allocated(Warr2xW)) deallocate(Warr2xW)
+      if (allocated(intergrin)) deallocate(intergrin)
 
       return
 
-      end subroutine emiss2ordNB
+      end subroutine emiss2ordNB_AD
 
 !#####################################################################
 !#####################################################################
@@ -6823,7 +8309,7 @@
       double precision, dimension(0:3,nfreq,Geom%nPh,Geom%nTh), &
                         intent(in):: Stokes
       complex(kind=8), dimension(:,:,:), intent(in):: JKQa
-      complex(kind=8), dimension(Fin%ggf0:Fin%ggf1,-2:2,0:2):: JradC
+      complex(kind=8), dimension(:,:,:), allocatable:: JradC
 
       ! Local
       logical:: shift,asym
@@ -6836,6 +8322,9 @@
       ! If velocity is below threshold
       shift = (vx*vx + vy*vy + vz*vz)*1d6*c.ge.vrfrac*DwT
       asym = size(JKQa).gt.10
+
+      ! Allocate
+      allocate(JradC(-2:2,0:2,Fin%ggf0:Fin%ggf1))
 
       ! For each frequency, get mean intensity
 !$omp parallel default(none) &
@@ -6868,34 +8357,77 @@
               ! Get director cosines
               if (shift) cost = Geom%V_mu(ith1)
 
-              ! Calculate Doppler shift factor
-              if (shift) then
-                vfac1 = 1d0 + vz*cost
-                omegao = omega(ifreq)*vfac1
-                StokesM = getStkin(omega, &
-                                   Stokes(:,:,1,ith1), &
-                                   ifreq,omegao)
+              ! If axial
+              if (axial) then
+
+                ! Calculate Doppler shift factor
+                if (shift) then
+
+                  ! Interpolate shift
+                  vfac1 = 1d0 + vz*cost
+                  omegao = omega(ifreq)*vfac1
+                  StokesM = getStkinnu(omega, &
+                                       Stokes(:,:,1,ith1), &
+                                       ifreq,omegao)
+
+                ! No shift
+                else
+
+                  ! Value
+                  StokesM = Stokes(:,ifreq,1,ith1)
+
+                end if ! shift
 
                 ! Add to JKQ
                 do K=0,Krad
-                  JradC(ifreq,0,K) = JradC(ifreq,0,K) + &
+                  JradC(0,K,ifreq) = JradC(0,K,ifreq) + &
                                      Geom%W_mu(ith1)* &
                                    sum(StokesM* &
                                        Geom%TS(:,0,K,1,ith1))
                 end do
 
-              ! No shift
+              ! Non-axial
               else
 
-                ! Add to JKQ
-                do K=0,Krad
-                JradC(ifreq,0,K) = JradC(ifreq,0,K) + &
-                                      Geom%W_mu(ith1)* &
-                                 sum(Stokes(:,ifreq,1,ith1)* &
-                                     Geom%TS(:,0,K,1,ith1))
+                if (shift) sint = sqrt(1d0 - cost*cost)
+
+                ! For each azimuth
+                do iph1=1,Geom%nPh
+
+                  ! Calculate Doppler shift factor
+                  if (shift) then
+
+                    ! Interpolate shift
+                    cosc = Geom%v_mux(iph1)
+                    sinc = Geom%v_muy(iph1)* &
+                           sqrt(1d0 - cosc*cosc)
+                    vfac1 = 1d0 + vx*sint*cosc + &
+                                  vy*sint*sinc + &
+                                  vz*cost
+                    omegao = omega(ifreq)*vfac1
+                    StokesM = getStkinnu(omega, &
+                                         Stokes(:,:,iph1,ith1), &
+                                         ifreq,omegao)
+
+                  ! No shift
+                  else
+
+                    ! Value
+                    StokesM = Stokes(:,ifreq,iph1,ith1)
+
+                  end if ! shift
+
+                  ! Add to JKQ
+                  do K=0,Krad
+                    JradC(0,K,ifreq) = JradC(0,K,ifreq) + &
+                                       Geom%W_mu(ith1)* &
+                                       Geom%W_mux(iph1)* &
+                                       sum(StokesM* &
+                                           Geom%TS(:,0,K,iph1,ith1))
+                  end do
                 end do
 
-              end if ! shift
+              end if
 
             end do ! Polar directions
           end do ! Relevant frequencies
@@ -6909,6 +8441,7 @@
             ! For each polar direction
             do ith1=1,Geom%nTh
 
+              ! Compute z shift
               if (shift) then
                 cost = Geom%V_mu(ith1)
                 sint = sqrt(1d0 - cost*cost)
@@ -6919,6 +8452,8 @@
 
                 ! Calculate Doppler shift factor
                 if (shift) then
+
+                  ! Interpolate shift
                   cosc = Geom%v_mux(iph1)
                   sinc = Geom%v_muy(iph1)* &
                          sqrt(1d0 - cosc*cosc)
@@ -6926,49 +8461,32 @@
                                 vy*sint*sinc + &
                                 vz*cost
                   omegao = omega(ifreq)*vfac1
-                  StokesM = getStkin(omega, &
-                                     Stokes(:,:,iph1,ith1), &
-                                     ifreq,omegao)
-
-                  ! Add to JKQ
-                  do K=0,Krad
-                    do iQ=0,K
-                    JradC(ifreq,iQ,K) = JradC(ifreq,iQ,K) + &
-                                          Geom%W_mu(ith1)* &
-                                          Geom%W_mux2(iph1)* &
-                                          sum(StokesM* &
-                                       Geom%TS(:,iQ,K,iph1,ith1))
-                    end do
-                  end do
+                  StokesM = getStkinnu(omega, &
+                                       Stokes(:,:,iph1,ith1), &
+                                       ifreq,omegao)
 
                 ! No shift
                 else
 
-                  ! Add to JKQ
-                  do K=0,Krad
-                    do iQ=0,K
-                    JradC(ifreq,iQ,K) = JradC(ifreq,iQ,K) + &
-                                          Geom%W_mu(ith1)* &
-                                          Geom%W_mux2(iph1)* &
-                                   sum(Stokes(:,ifreq,iph1,ith1)* &
-                                       Geom%TS(:,iQ,K,iph1,ith1))
-                    end do
-                  end do
+                  ! Value
+                  StokesM = Stokes(:,ifreq,iph1,ith1)
 
                 end if ! Shift
 
+                ! Add to JKQ
+                do K=0,Krad
+                  do iQ=0,K
+                  JradC(iQ,K,ifreq) = JradC(iQ,K,ifreq) + &
+                                        Geom%W_mu(ith1)* &
+                                        Geom%W_mux2(iph1)* &
+                                        sum(StokesM* &
+                                     Geom%TS(:,iQ,K,iph1,ith1))
+                  end do
+                end do
               end do ! Azimuth
             end do ! Polar
           end do ! Frequencies
 !$omp end do
-
-          ! Complete negative Q
-          do K=1,Krad
-            do iQ=0,K
-              JradC(:,-iQ,K) = Flgsg%sg(iQ)*conjg(JradC(:,iQ,K))
-            end do
-          end do
-
         end if ! Type of ad-hoc asymmetry
 
         ! Current height for JKQa
@@ -6979,8 +8497,8 @@
         ! Relevant frequencies
         do ifreq=Fin%ggf0,Fin%ggf1
 
-          JradC(ifreq,:,1:2) = JradC(ifreq,:,1:2) + &
-                               JKQa(:,:,jz)*dble(JradC(ifreq,0,0))
+        JradC(0:2,1:2,ifreq) = JradC(0:2,1:2,ifreq) + &
+                               JKQa(3:5,:,jz)*dble(JradC(0,0,ifreq))
 
         end do
 !$omp end do
@@ -6988,6 +8506,7 @@
       ! No Ad-hoc asymmetries
       else
 
+      ! For each frequency, get JKQ
 !$omp do
         do ifreq=Fin%ggf0,Fin%ggf1
 
@@ -7002,32 +8521,29 @@
 
               ! Calculate Doppler shift factor
               if (shift) then
+
+                ! Interpolate shift
                 vfac1 = 1d0 + vz*cost
                 omegao = omega(ifreq)*vfac1
-                StokesM = getStkin(omega, &
-                                   Stokes(:,:,1,ith1), &
-                                   ifreq,omegao)
-
-                ! Add to JKQ
-                do K=0,Krad
-                  JradC(ifreq,0,K) = JradC(ifreq,0,K) + &
-                                     Geom%W_mu(ith1)* &
-                                   sum(StokesM* &
-                                       Geom%TB(:,0,K,1,ith1,iz))
-                end do
+                StokesM = getStkinnu(omega, &
+                                     Stokes(:,:,1,ith1), &
+                                     ifreq,omegao)
 
               ! No shift
               else
 
-                ! Add to JKQ
-                do K=0,Krad
-                  JradC(ifreq,0,K) = JradC(ifreq,0,K) + &
-                                        Geom%W_mu(ith1)* &
-                                   sum(Stokes(:,ifreq,1,ith1)* &
-                                       Geom%TB(:,0,K,1,ith1,iz))
-                end do
+                ! Value
+                StokesM = Stokes(:,ifreq,1,ith1)
 
               end if ! shift
+
+              ! Add to JKQ
+              do K=0,Krad
+                JradC(0,K,ifreq) = JradC(0,K,ifreq) + &
+                                   Geom%W_mu(ith1)* &
+                                   sum(StokesM* &
+                                       Geom%TB(:,0,K,1,ith1,iz))
+              end do
 
             ! Non axial symmetric
             else
@@ -7039,6 +8555,8 @@
 
                 ! Calculate Doppler shift factor
                 if (shift) then
+
+                  ! Interpolate shift
                   cosc = Geom%v_mux(iph1)
                   sinc = Geom%v_muy(iph1)* &
                          sqrt(1d0 - cosc*cosc)
@@ -7046,45 +8564,31 @@
                                 vy*sint*sinc + &
                                 vz*cost
                   omegao = omega(ifreq)*vfac1
-                  StokesM = getStkin(omega, &
-                                     Stokes(:,:,iph1,ith1), &
-                                     ifreq,omegao)
+                  StokesM = getStkinnu(omega, &
+                                       Stokes(:,:,iph1,ith1), &
+                                       ifreq,omegao)
 
-                  ! Add to JKQ
-                  do K=0,Krad
-                    do iQ=0,K
-                    JradC(ifreq,iQ,K) = JradC(ifreq,iQ,K) + &
-                                          Geom%W_mu(ith1)* &
-                                          Geom%W_mux2(iph1)* &
-                                          sum(StokesM* &
-                                       Geom%TB(:,iQ,K,iph1,ith1,iz))
-                    end do
-                  end do
 
                 ! No shift
                 else
 
-                  ! Add to JKQ
-                  do K=0,Krad
-                    do iQ=0,K
-                    JradC(ifreq,iQ,K) = JradC(ifreq,iQ,K) + &
-                                          Geom%W_mu(ith1)* &
-                                          Geom%W_mux2(iph1)* &
-                                   sum(Stokes(:,ifreq,iph1,ith1)* &
-                                       Geom%TB(:,iQ,K,iph1,ith1,iz))
-                    end do
-                  end do
+                  ! Value
+                  StokesM = Stokes(:,ifreq,iph1,ith1)
 
                 end if ! Shift
 
-              end do ! Azimuth
-
-              ! Complete negative Q
-              do K=1,Krad
-                do iQ=0,K
-                  JradC(:,-iQ,K) = Flgsg%sg(iQ)*conjg(JradC(:,iQ,K))
+                ! Add to JKQ
+                do K=0,Krad
+                  do iQ=0,K
+                    JradC(iQ,K,ifreq) = JradC(iQ,K,ifreq) + &
+                                          Geom%W_mu(ith1)* &
+                                          Geom%W_mux2(iph1)* &
+                                          sum(StokesM* &
+                                       Geom%TB(:,iQ,K,iph1,ith1,iz))
+                  end do
                 end do
-              end do
+
+              end do ! Azimuth
 
             end if ! Axial symmetry
 
@@ -7095,146 +8599,229 @@
 !$omp end parallel
 
 
+      ! If not axial 
+      if (.not.axial) then
+
+        ! Complete negative Q
+        do K=1,Krad
+          do iQ=0,K
+            JradC(-iQ,K,:) = Flgsg%sg(iQ)*conjg(JradC(iQ,K,:))
+          end do
+        end do
+
+      end if
+
       end subroutine getJKQstar
 
 !#####################################################################
 !#####################################################################
 !#####################################################################
 
-      !> Gets scattering angles\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!              iph(integer): Output direction azimuth index\n
-      !!              ith(integer): Output direction polar index\n
-      !!          ThK(dfloat(:,:)): Scattering angle\n
-      !!        TWcos(dfloat(:,:)): Cosine scattering angle\n
-      !!        TWsin(dfloat(:,:)): Sine scattering angle\n
-      !!         emerging(logical): If emerging LOS
-      subroutine getscatter(Geom,iph,ith,ThK,TWcos,TWsin,emerging)
+      !> Interpolates Stokes parameters to the requested frequency\n
+      !!     omega(dfloat(:)): Frequency array\n
+      !!  Stokes(dfloat(:,:)): Stokes parameters\n
+      !!       ifreq(integer): Frequency index of the output frequency
+      !!                       associated to the requested input
+      !!                       frequency\n
+      !!            x(dfloat): Input frequency to interpolate into
+      function getStkinnu(omega,Stokes,ifreq,x)
 
       ! I/O
-      type(Geometry_class), intent(in):: Geom
-      logical, intent(in):: emerging
-      integer, intent(in):: ith,iph
-      double precision, dimension(:,:), intent(out):: ThK
-      double precision, dimension(:,:), allocatable, &
-                                        intent(out):: TWcos,TWsin
+      integer, intent(in):: ifreq
+      double precision, intent(in):: x
+      double precision, dimension(:), intent(in):: omega
+      double precision, dimension(0:3,nfreq), intent(in):: Stokes
+
+      double precision, dimension(0:3):: getStkinnu
 
       ! Local
-      integer:: ith1,iph1
+      integer:: jfreq
+      double precision, dimension(0:3):: dxs, dys
 
+      ! Initialize as equals
+      getStkinnu = Stokes(:,ifreq)
 
-      ! Allocate arrays for cosines and sines
-      allocate(TWcos(Geom%nPh2,Geom%nTh))
-      allocate(TWsin(Geom%nPh2,Geom%nTh))
+      ! If omegai > omega(ifreq)
+      if (x.gt.omega(ifreq)) then
 
-      ! If doing an emerging direction
-      if (emerging) then
+        ! If out of right boundary
+        if (x.ge.omega(nfreq)-TINYO) then
 
-        ! For each polar quadrature angle
-        do ith1=1,Geom%nTh
+          getStkinnu = Stokes(:,nfreq)
 
-          ! For each azimuthal quadrature angle
-          do iph1=1,Geom%nPh2
+          return
 
-            ! Calculate scattering angle between the quadrature
-            ! direction and the LOS direction
-            ThK(iph1,ith1) = atom2lab(Geom%L_theta(ith), &
-                                      Geom%L_phi(iph), &
-                                      Geom%V_theta(ith1), &
-                                      Geom%V_phi(iph1))
+        ! If within boundaries, look for where
+        else
 
-            ! Compute trigonometric functions
-            TWcos(iph1,ith1) = cos(ThK(iph1,ith1))
-            TWsin(iph1,ith1) = sin(ThK(iph1,ith1))
+          ! Look after the perfect resonance
+          do jfreq=ifreq,nfreq-1
 
-          end do ! azimuthal nodes
-        end do ! polar nodes
+            ! If this exact frequency is in
+            ! output
+            if (abs(x - omega(jfreq)).lt.TINYO) then
 
-      ! If NOT doing an emerging direction
-      else
+              getStkinnu = Stokes(:,jfreq)
 
-        ! For each polar quadrature angle
-        do ith1=1,Geom%nTh
+              return
 
-          ! For each azimuthal quadrature angle
-          do iph1=1,Geom%nPh2
+            ! If the input is between this
+            ! output and the next
+            else if(x.ge.omega(jfreq).and. &
+                    x.lt.omega(jfreq+1)) then
 
-            ! Calculate scattering angle between the quadrature
-            ! directions and the current one
-            ThK(iph1,ith1) = atom2lab(Geom%V_theta(ith), &
-                                      Geom%V_phi(iph), &
-                                      Geom%V_theta(ith1), &
-                                      Geom%V_phi(iph1))
+              dys = Stokes(:,jfreq+1) - Stokes(:,jfreq)
 
-            ! Compute trigonometric functions
-            TWcos(iph1,ith1) = cos(ThK(iph1,ith1))
-            TWsin(iph1,ith1) = sin(ThK(iph1,ith1))
+              dxs = x - omega(jfreq)
 
-          end do ! azimuthal nodes
-        end do ! polar nodes
+              getStkinnu = dxs*dys/(omega(jfreq+1) - omega(jfreq)) + &
+                         Stokes(:,jfreq)
 
-      end if ! emergence direction
+              return
 
-      end subroutine getscatter
+            end if ! Check output frequency
+
+          end do ! Searching frequency
+
+        end if ! Within boundaries
+
+      ! If omegai < omegao
+      else if (x.lt.omega(ifreq)) then
+
+        ! If out of left boundary
+        if (x.le.omega(1)+TINYO) then
+
+          getStkinnu = Stokes(:,1)
+
+          return
+
+        ! If within boundaries, look for where
+        else
+
+          ! Look after the perfect resonance
+          do jfreq=ifreq,2,-1
+
+            ! If this exact frequency is in
+            ! output
+            if (abs(x - omega(jfreq)).lt.TINYO) then
+
+              getStkinnu = Stokes(:,jfreq)
+
+              return
+
+            ! If the input is between this
+            ! output and the next
+            else if(x.ge.omega(jfreq-1).and. &
+                    x.lt.omega(jfreq)) then
+
+              dys = Stokes(:,jfreq) - Stokes(:,jfreq-1)
+
+              dxs = x - omega(jfreq-1)
+
+              getStkinnu = dxs*dys/(omega(jfreq) - omega(jfreq-1)) + &
+                         Stokes(:,jfreq-1)
+
+              return
+
+            end if ! Check output frequency
+
+          end do ! Searching frequency
+
+        end if ! Within boundaries
+      end if ! omegai > omegao
+
+      end function getStkinnu
 
 !#####################################################################
 !#####################################################################
 !#####################################################################
 
-      !> Gets the interpolation quantities for emiss2ord\n
-      !!    Fin(Frequencyc2_class): Structure with the input frequency
-      !!                            information\n
-      !!  p_frec(Frequencyd_class): Structure with input line data\n
+      !> Interpolates Stokes parameters to the input frequency axis\n
       !!      Geom(Geometry_class): Structure with geometry data\n
+      !!  p_frec(Frequencyd_class): Input frequency data for output
+      !!                            index and input transition\n
+      !!    Fin(Frequencyc2_class): Input frequency data for output
+      !!                            index\n
+      !!          omega(dfloat(:)): Frequency array\n
       !!                vx(dfloat): Velocity vector along X\n
       !!                vy(dfloat): Velocity vector along Y\n
       !!                vz(dfloat): Velocity vector along Z\n
-      !!          omega(dfloat(:)): Frequency array\n
-      !!            jtran(integer): Output transition index\n
-      !!            itran(integer): Input transition index\n
-      !!             nbth(integer): Maximum index in polar angles for
-      !!                            the input directions\n
-      !!             nbph(integer): Maximum index in azimuth angles
-      !!                            for the input directions\n
-      !!            stype(integer): Type of scattering (geometry
-      !!                            wise)\n
-      !!      p_index1(integer(:)): Left index linear interpolation\n
-      !!      p_index2(integer(:)): Right index linear interpolation\n
-      !!           p_dx(dfloat(:)): Slope denominator in linear
-      !!                            interpolation
-      subroutine getinterpolation(Fin,p_frec,Geom,nbth,nbph,jtran, &
-                                  itran,stype,omega,vx,vy,vz, &
-                                  p_index1,p_index2,p_dx)
+      !!             jdir(integer): Output direction index\n
+      !!              nfs(integer): Number of forward scattering\n
+      !!        Stkin(double(:,:)): Interpolated Stokes\n
+      !!      Stk(double(:,:,:,:)): Original Stokes
+      subroutine getStkin(Geom,p_frec,Fin,omega,vx,vy,vz,jdir, &
+                          nfs,Stkin,Stk)
 
       ! I/O
-      type(Frequencyc2_class), intent(in):: Fin
-      type(Frequencyd_class), target, intent(in):: p_frec
       type(Geometry_class), intent(in):: Geom
-      integer, intent(in):: nbth,nbph,jtran,itran
-      integer, dimension(:,:), intent(in):: stype
+      type(Frequencyd_class), intent(in), pointer:: p_frec
+      type(Frequencyc2_class), intent(in):: Fin
+      integer, intent(in):: jdir,nfs
       double precision, intent(in):: vx,vy,vz
       double precision, dimension(:), intent(in):: omega
-      integer, dimension(:), intent(out):: p_index1, p_index2
-      double precision, dimension(:), intent(out):: p_dx
+      double precision, dimension(:,:,:,:), intent(in):: Stk
+      double precision, dimension(:,:), &
+                        allocatable, intent(out):: Stkin
 
       ! Local
+      integer:: ith1,iph1,ish1
+      integer:: nmfreq,iran,ifreq,iifreq,lifreq,ibfreq
+      integer:: jfreq,jjfreq0,jjfreq,kkfreq0,kkfreq,nblock
 
-      integer:: jjfreq0,kkfreq0,iifreq,iran,ifreq,ith1,iph1,lifreq
-      integer:: jjfreq,kkfreq,jfreq,ibfreq
-      double precision:: cost,sint,cosc,sinc,vfac1
+      double precision:: dx,vfac1
+      double precision:: cost,sint,cosc,sinc
+      double precision, dimension(4):: y0,dy
 
-      ! Pointers
       integer, pointer:: p_mfreq
 
-!$omp parallel default(none) &
-!$omp private(iifreq,lifreq,iran,ifreq,jfreq,p_mfreq) &
-!$omp private(ith1,iph1,cost,sint,cosc,sinc,vfac1) &
-!$omp private(jjfreq,kkfreq,jjfreq0,kkfreq0,ibfreq) &
-!$omp shared(jtran,itran,p_index1,p_index2,p_dx,p_frec) &
-!$omp shared(dyn,AV,axial,nbth,nbph,vx,vy,vz,stype,omega,Fin,Geom) &
-!$omp shared(nfreq)
 
-          ! Initialize index
+      ! Nullify
+      nullify(p_mfreq)
+
+      ! Get J size
+      nmfreq = 0
+
+      ! Run over all output frequencies
+      iifreq = 0
+      do iran=1,Fin%nran
+        do ifreq=Fin%if0(iran),Fin%if1(iran)
+
+          ! Advance index
+          iifreq = iifreq + 1
+
+          ! Input frequency number
+          p_mfreq => p_frec%mfreq(iifreq)
+
+          ! Add size
+          if (p_mfreq.gt.0) nmfreq = nmfreq + p_mfreq
+
+        end do
+      end do
+
+      ! If no size, return
+      if (nmfreq.lt.1) return
+
+      ! Allocate intensity
+      if (axiali) then
+        allocate(Stkin(0:3,nmfreq*Geom%nTh))
+      else
+        allocate(Stkin(0:3,nmfreq*(Geom%nPh2*Geom%nTh-nfs)))
+      end if
+
+
+      ! If interpolation data
+      if (p_frec%RAM) then
+
+        ! Axial
+        if (axiali) then
+
+!$omp parallel default(none) &
+!$omp private(iifreq,iran,ifreq,jfreq,p_mfreq,y0,dx,dy) &
+!$omp private(ith1,jjfreq,jjfreq0) &
+!$omp shared(Fin,Geom,p_frec,dyn)
+
+          ! Initialize frequency indexes
           jjfreq0 = 0
           kkfreq0 = 0
 
@@ -7246,67 +8833,159 @@
               ! Advance index
               iifreq = iifreq + 1
 
-              ! Input frequency number
+              ! Point to dimension
               p_mfreq => p_frec%mfreq(iifreq)
 
-              ! For each input direction
-              do ith1=1,nbth
-                do iph1=1,nbph
+              ! If coherent wing
+              if (p_mfreq.lt.1) cycle
 
-                  ! If dynamics and AD
-                  if (dyn.and..not.AV) then
+              ! For each polar direction
+              do ith1=1,Geom%nTh
 
-                    ! For axial problems
-                    if (axial) then
+                ! For each input frequency
+!$omp do
+                do jfreq=1,p_mfreq
 
-                      ! Automatically skip extra azimuths
-                      if (iph1.gt.1) cycle
+                  ! Advance index
+                  jjfreq = jjfreq0 + jfreq
+                  kkfreq = kkfreq0 + jfreq
 
-                      ! Get director cosines
-                      cost = Geom%V_mu(ith1)
+                  ! Initial
+                  y0 = Stk(:,p_frec%index1(jjfreq),1,ith1)
 
-                      ! Calculate Doppler shift factor
-                      vfac1 = 1d0 - vz*cost
+                  ! Slope
+                  dy = Stk(:,p_frec%index2(jjfreq),1,ith1) - y0
 
-                      ! We will be using the inverse
-                      vfac1 = 1d0/vfac1
+                  ! Linear interpolation
+                  Stkin(:,kkfreq) = dy*p_frec%dx(jjfreq) + y0
 
-                    ! For non-axial problems
-                    else
+                end do ! Input frequencies
+!$omp end do
+                ! Update jjfreq
+                if (dyn) jjfreq0 = jjfreq0 + p_mfreq
+                kkfreq0 = kkfreq0 + p_mfreq
 
-                      ! If angle-dependent, check backward Rayleigh
-                      ! scattering
-                      if (.not.AV) then
-                        if (jtran.eq.itran.and. &
-                            stype(iph1,ith1).lt.0) cycle
-                      end if
+              end do ! polar nodes
 
-                      ! Get director cosines
-                      cost = Geom%V_mu(ith1)
-                      sint = sqrt(1d0 - cost*cost)
-                      cosc = Geom%v_mux(iph1)
-                      sinc = Geom%v_muy(iph1)*sqrt(1d0 - cosc*cosc)
+              ! Update jjfreq
+              if (.not.dyn) jjfreq0 = jjfreq0 + p_mfreq
 
-                      ! Calculate Doppler shift factor
-                      vfac1 = 1d0 - vx*sint*cosc - &
-                                    vy*sint*sinc - &
-                                    vz*cost
+            end do ! output frequencies
+          end do ! output frequencies ranges
 
-                      ! We will be using the inverse
-                      vfac1 = 1d0/vfac1
+        ! Not axial
+        else
 
-                    end if ! Axial
+!$omp parallel default(none) &
+!$omp private(iifreq,iran,ifreq,jfreq,p_mfreq,y0,dx,dy) &
+!$omp private(ith1,iph1,ish1,jjfreq,jjfreq0) &
+!$omp shared(Fin,Geom,nfs,p_frec,dyn,jdir)
 
-                  ! Not dynamic or AV
-                  else
+          ! Initialize indexes
+          jjfreq0 = 0
+          kkfreq0 = 0
 
-                    ! No shift
-                    vfac1 = 1d0
+          ! For each output frequency
+          iifreq = 0
+          do iran=1,Fin%nran
+            do ifreq=Fin%if0(iran),Fin%if1(iran)
 
-                    ! Only one direction
-                    if (iph1.gt.1.or.ith1.gt.1) cycle
+              ! Advance index
+              iifreq = iifreq + 1
 
-                  end if ! Dynamics
+              ! Point to dimension
+              p_mfreq => p_frec%mfreq(iifreq)
+
+              ! For each polar direction
+              do ith1=1,Geom%nTh
+
+                ! For each azimuthal direction
+                do iph1=1,Geom%nPh2
+
+                  ! Scattering index
+                  ish1 = Geom%i_scatt(iph1,ith1,jdir)
+
+                  ! Special treatment if forward for two terms
+                  if ((nfs.eq.1.and.Geom%V_CScatt(ish1).ge.1d0).or. &
+                      (p_mfreq.lt.1)) cycle
+
+                  ! For each input frequency
+!$omp do
+                  do jfreq=1,p_mfreq
+
+                    ! Advance indexes
+                    jjfreq = jjfreq0 + jfreq
+                    kkfreq = kkfreq0 + jfreq
+
+                    ! Linear interpolation
+                    y0 = Stk(:,p_frec%index1(jjfreq),iph1,ith1)
+                    dy = Stk(:,p_frec%index2(jjfreq),iph1,ith1) - y0
+                    Stkin(:,kkfreq) = dy*p_frec%dx(jjfreq) + y0
+
+                  end do ! Input frequencies
+!$omp end do
+                  ! Update indexes
+                  if (dyn) jjfreq0 = jjfreq0 + p_mfreq
+                  kkfreq0 = kkfreq0 + p_mfreq
+
+                end do ! azimuthal nodes
+              end do ! polar nodes
+
+              ! Advance
+              if (.not.dyn) jjfreq0 = jjfreq0 + p_mfreq
+
+            end do ! output frequencies
+          end do ! output frequencies ranges
+!$omp end parallel
+
+        end if ! Axial symmetry
+
+      ! No interpolation data
+      else
+
+!$omp parallel default(none) &
+!$omp private(iifreq,lifreq,iran,ifreq,jfreq,p_mfreq) &
+!$omp private(ith1,iph1,cost,sint,cosc,sinc,vfac1) &
+!$omp private(jjfreq,kkfreq,jjfreq0,kkfreq0,ibfreq) &
+!$omp shared(dyn,axiali,nbth,nbph,vx,vy,vz,omega,Fin,Geom) &
+!$omp shared(ffjtran,ffitran,p_frec) &
+!$omp shared(nfreq)
+
+        ! If axial
+        if (axiali) then
+
+          ! If dynamic
+          if (dyn) then
+
+            ! Initialize index
+            jjfreq0 = 0
+            kkfreq0 = 0
+
+            ! For each output frequency
+            iifreq = 0
+            do iran=1,Fin%nran
+              do ifreq=Fin%if0(iran),Fin%if1(iran)
+
+                ! Advance index
+                iifreq = iifreq + 1
+
+                ! Input frequency number
+                p_mfreq => p_frec%mfreq(iifreq)
+
+                ! Skip empty
+                if (p_mfreq.lt.1) cycle
+
+                ! For each input direction
+                do ith1=1,Geom%nth
+
+                  ! Get director cosines
+                  cost = Geom%V_mu(ith1)
+
+                  ! Calculate Doppler shift factor
+                  vfac1 = 1d0 - vz*cost
+
+                  ! We will be using the inverse
+                  vfac1 = 1d0/vfac1
 
                   ! Reset the search frequency
                   lifreq = Fin%ggf0
@@ -7328,13 +9007,7 @@
                       lifreq = 1
 
                       ! The index to take is 1
-                      p_index1(kkfreq) = 1
-
-                      ! The index to take is 1
-                      p_index2(kkfreq) = 1
-
-                      ! We do not need this number
-                      p_dx(kkfreq) = 0d0
+                      Stkin(:,kkfreq) = Stk(:,1,1,ith1)
 
                     ! If out of range, take the value at the
                     ! boundary
@@ -7345,13 +9018,7 @@
                       lifreq = nfreq
 
                       ! The index to take is nfreq
-                      p_index1(kkfreq) = nfreq
-
-                      ! The index to take is nfreq
-                      p_index2(kkfreq) = nfreq
-
-                      ! We do not need this number
-                      p_dx(kkfreq) = 0d0
+                      Stkin(:,kkfreq) = Stk(:,nfreq,1,ith1)
 
                     ! If within the boundaries
                     else
@@ -7368,13 +9035,7 @@
                           lifreq = ibfreq
 
                           ! This frequency gives us the value
-                          p_index1(kkfreq) = lifreq
-
-                          ! This frequency gives us the value
-                          p_index2(kkfreq) = lifreq
-
-                          ! We do not need this number
-                          p_dx(kkfreq) = 0d0
+                          Stkin(:,kkfreq) = Stk(:,lifreq,1,ith1)
 
                           exit
 
@@ -7389,17 +9050,19 @@
                           lifreq = ibfreq
 
                           ! The first index is the lower
-                          p_index1(kkfreq) = lifreq
+                          y0 = Stk(:,lifreq,1,ith1)
 
                           ! The second index is the upper
-                          p_index2(kkfreq) = lifreq+1
+                          dy = Stk(:,lifreq+1,1,ith1) - y0
 
-                          ! Store the inverse of the distance
+                          ! Inverse of the distance
                           ! between the two outputs
-                          p_dx(kkfreq) = &
-                              (p_frec%omega(jjfreq)*vfac1 - &
-                               omega(lifreq))/ &
-                              (omega(lifreq+1) - omega(lifreq))
+                          dx = (p_frec%omega(jjfreq)*vfac1 - &
+                                omega(lifreq))/ &
+                               (omega(lifreq+1) - omega(lifreq))
+
+                          ! Interpolate
+                          Stkin(:,kkfreq) = dx*dy + y0
 
                           exit
 
@@ -7411,152 +9074,530 @@
 
                   end do ! Run input frequencies
 !$omp end do
-                  ! Update index in general
-                  kkfreq = kkfreq0 + p_mfreq
-                  jjfreq = jjfreq0 + p_mfreq
+                  ! Update indexes
+                  kkfreq0 = kkfreq0 + p_mfreq
 
-                  ! Actually update index
-                  if (.not.AV.and..not.axial.and.dyn) &
-                    kkfreq0 = kkfreq
+                end do ! Input polar
 
-                end do ! Input azimuth
+                ! Update indexes
+                jjfreq0 = jjfreq0 + p_mfreq
 
-                ! Update kkfreq
-                if (.not.AV.and.dyn) kkfreq0 = kkfreq
-
-              end do ! Input polar
-
-              ! Update index
-              jjfreq0 = jjfreq
-              kkfreq0 = kkfreq
-
-            end do ! Output frequencies
-          end do ! Output frequency ranges
+              end do ! Output frequencies
+            end do ! Output frequency ranges
 !$omp end parallel
 
-      ! Nullify pointer
-      if (associated(p_mfreq)) nullify(p_mfreq)
+          ! If static
+          else
 
-      end subroutine getinterpolation
+            ! Initialize index
+            jjfreq0 = 0
+            kkfreq0 = 0
 
-!#####################################################################
-!#####################################################################
-!#####################################################################
+            ! For each output frequency
+            iifreq = 0
+            do iran=1,Fin%nran
+              do ifreq=Fin%if0(iran),Fin%if1(iran)
 
-      !> Interpolates Stokes parameters to the requested frequency\n
-      !!     omega(dfloat(:)): Frequency array\n
-      !!  Stokes(dfloat(:,:)): Stokes parameters\n
-      !!       ifreq(integer): Frequency index of the output frequency
-      !!                       associated to the requested input
-      !!                       frequency\n
-      !!            x(dfloat): Input frequency to interpolate into
-      function getStkin(omega,Stokes,ifreq,x)
+                ! Advance index
+                iifreq = iifreq + 1
 
-      ! I/O
-      integer, intent(in):: ifreq
-      double precision, intent(in):: x
-      double precision, dimension(:), intent(in):: omega
-      double precision, dimension(0:3,nfreq), intent(in):: Stokes
+                ! Input frequency number
+                p_mfreq => p_frec%mfreq(iifreq)
 
-      double precision, dimension(0:3):: getStkin
+                ! Skip empty
+                if (p_mfreq.lt.1) cycle
 
-      ! Local
-      integer:: jfreq
-      double precision, dimension(0:3):: dxs, dys
+                ! Reset the search frequency
+                lifreq = Fin%ggf0
+!$omp do
+                ! For each input frequency
+                do jfreq=1,p_mfreq
 
-      ! Initialize as equals
-      getStkin = Stokes(:,ifreq)
+                  ! Advance indexes
+                  jjfreq = jjfreq0 + jfreq
 
-      ! If omegai > omega(ifreq)
-      if (x.gt.omega(ifreq)) then
+                  ! If out of range, take the value at the
+                  ! boundary
+                  if (p_frec%omega(jjfreq).le. &
+                      omega(1)+TINYO) then
 
-        ! If out of right boundary
-        if (x.ge.omega(nfreq)-TINYO) then
+                    ! We are still looking in the first one
+                    lifreq = 1
 
-          getStkin = Stokes(:,nfreq)
+                    ! Inclinations
+                    do ith1=1,Geom%nTh
 
-          return
+                      ! Output index
+                      kkfreq = kkfreq0 + p_mfreq*(ith1-1) + jfreq
 
-        ! If within boundaries, look for where
+                      ! The index to take is 1
+                      Stkin(:,kkfreq) = Stk(:,1,1,ith1)
+
+                    end do
+
+                  ! If out of range, take the value at the
+                  ! boundary
+                  else if (p_frec%omega(jjfreq).ge. &
+                           (omega(nfreq) - TINYO)) then
+
+                    ! We are in the last frequency
+                    lifreq = nfreq
+
+                    ! Inclinations
+                    do ith1=1,Geom%nTh
+
+                      ! Output index
+                      kkfreq = kkfreq0 + p_mfreq*(ith1-1) + jfreq
+
+                      ! The index to take is nfreq
+                      Stkin(:,kkfreq) = Stk(:,nfreq,1,ith1)
+
+                    end do
+
+                  ! If within the boundaries
+                  else
+
+                    ! Search between the last found frequency and
+                    ! all but the boundary
+                    do ibfreq=lifreq,nfreq-1
+
+                      ! If this exact frequency is in output
+                      if (abs(p_frec%omega(jjfreq)- &
+                              omega(ibfreq)).lt.TINYO) then
+
+                        ! We are in the found frequency
+                        lifreq = ibfreq
+
+                        ! Inclinations
+                        do ith1=1,Geom%nTh
+
+                          ! Output index
+                          kkfreq = kkfreq0 + p_mfreq*(ith1-1) + jfreq
+
+                          ! The index to take is nfreq
+                          Stkin(:,kkfreq) = Stk(:,lifreq,1,ith1)
+
+                        end do
+
+                        exit
+
+                      ! If the input is between this output and
+                      ! the next
+                      else if(p_frec%omega(jjfreq).ge. &
+                              omega(ibfreq).and. &
+                              p_frec%omega(jjfreq).lt. &
+                              omega(ibfreq+1)) then
+
+                        ! We found it in the index of the lower
+                        lifreq = ibfreq
+
+                        ! Inverse of the distance
+                        ! between the two outputs
+                        dx = (p_frec%omega(jjfreq) - &
+                              omega(lifreq))/ &
+                             (omega(lifreq+1) - omega(lifreq))
+
+                        ! Inclinations
+                        do ith1=1,Geom%nTh
+
+                          ! Output index
+                          kkfreq = kkfreq0 + p_mfreq*(ith1-1) + jfreq
+
+                          ! The first index is the lower
+                          y0 = Stk(:,lifreq,1,ith1)
+
+                          ! The second index is the upper
+                          dy = Stk(:,lifreq+1,1,ith1) - y0
+
+                          ! Interpolate
+                          Stkin(:,kkfreq) = dx*dy + y0
+
+                        end do
+
+                        exit
+
+                      end if ! Check output frequency
+
+                    end do ! Run output frequencies
+
+                  end if ! Check if out of limits
+
+                end do ! Run input frequencies
+!$omp end do
+                ! Update frequency index
+                jjfreq0 = jjfreq0 + p_mfreq
+
+                ! Update Stokes index
+                kkfreq0 = kkfreq0 + p_mfreq*Geom%nTh
+
+              end do ! Output frequencies
+            end do ! Output frequency ranges
+!$omp end parallel
+
+          end if ! Not dynamic
+
+        ! Non-axially symmetric
         else
 
-          ! Look after the perfect resonance
-          do jfreq=ifreq,nfreq-1
+          ! If dynamic
+          if (dyn) then
 
-            ! If this exact frequency is in
-            ! output
-            if (abs(x - omega(jfreq)).lt.TINYO) then
+            ! Initialize index
+            jjfreq0 = 0
+            kkfreq0 = 0
 
-              getStkin = Stokes(:,jfreq)
+            ! For each output frequency
+            iifreq = 0
+            do iran=1,Fin%nran
+              do ifreq=Fin%if0(iran),Fin%if1(iran)
 
-              return
+                ! Advance index
+                iifreq = iifreq + 1
 
-            ! If the input is between this
-            ! output and the next
-            else if(x.ge.omega(jfreq).and. &
-                    x.lt.omega(jfreq+1)) then
+                ! Input frequency number
+                p_mfreq => p_frec%mfreq(iifreq)
 
-              dys = Stokes(:,jfreq+1) - Stokes(:,jfreq)
+                ! Skip empty
+                if (p_mfreq.lt.1) cycle
 
-              dxs = x - omega(jfreq)
+                ! For each input direction
+                do ith1=1,Geom%nth
+                  do iph1=1,Geom%nph2
 
-              getStkin = dxs*dys/(omega(jfreq+1) - omega(jfreq)) + &
-                         Stokes(:,jfreq)
+                    ! If angle-dependent, check backward Rayleigh
+                    ! scattering
+                    if (nfs.eq.1.and. &
+                        Geom%V_CScatt(Geom% &
+                                i_scatt(iph1,ith1,jdir)).ge.1d0) &
+                      cycle
 
-              return
+                    ! Get director cosines
+                    cost = Geom%V_mu(ith1)
+                    sint = sqrt(1d0 - cost*cost)
+                    cosc = Geom%v_mux(iph1)
+                    sinc = Geom%v_muy(iph1)*sqrt(1d0 - cosc*cosc)
 
-            end if ! Check output frequency
+                    ! Calculate Doppler shift factor
+                    vfac1 = 1d0 - vx*sint*cosc - &
+                                  vy*sint*sinc - &
+                                  vz*cost
 
-          end do ! Searching frequency
+                    ! We will be using the inverse
+                    vfac1 = 1d0/vfac1
 
-        end if ! Within boundaries
+                    ! Reset the search frequency
+                    lifreq = Fin%ggf0
 
-      ! If omegai < omegao
-      else if (x.lt.omega(ifreq)) then
+                    ! For each input frequency
+!$omp do
+                    do jfreq=1,p_mfreq
 
-        ! If out of left boundary
-        if (x.le.omega(1)+TINYO) then
+                      ! Advance indexes
+                      jjfreq = jjfreq0 + jfreq
+                      kkfreq = kkfreq0 + jfreq
 
-          getStkin = Stokes(:,1)
+                      ! If out of range, take the value at the
+                      ! boundary
+                      if (p_frec%omega(jjfreq)*vfac1.le. &
+                          omega(1)+TINYO) then
 
-          return
+                        ! We are still looking in the first one
+                        lifreq = 1
 
-        ! If within boundaries, look for where
-        else
+                        ! The index to take is 1
+                        Stkin(:,kkfreq) = Stk(:,1,iph1,ith1)
 
-          ! Look after the perfect resonance
-          do jfreq=ifreq,2,-1
+                      ! If out of range, take the value at the
+                      ! boundary
+                      else if (p_frec%omega(jjfreq)*vfac1.ge. &
+                               (omega(nfreq) - TINYO)) then
 
-            ! If this exact frequency is in
-            ! output
-            if (abs(x - omega(jfreq)).lt.TINYO) then
+                        ! We are in the last frequency
+                        lifreq = nfreq
 
-              getStkin = Stokes(:,jfreq)
+                        ! The index to take is nfreq
+                        Stkin(:,kkfreq) = Stk(:,nfreq,iph1,ith1)
 
-              return
+                      ! If within the boundaries
+                      else
 
-            ! If the input is between this
-            ! output and the next
-            else if(x.ge.omega(jfreq-1).and. &
-                    x.lt.omega(jfreq)) then
+                        ! Search between the last found frequency and
+                        ! all but the boundary
+                        do ibfreq=lifreq,nfreq-1
 
-              dys = Stokes(:,jfreq) - Stokes(:,jfreq-1)
+                          ! If this exact frequency is in output
+                          if (abs(p_frec%omega(jjfreq)*vfac1 - &
+                                  omega(ibfreq)).lt.TINYO) then
 
-              dxs = x - omega(jfreq-1)
+                            ! We are in the found frequency
+                            lifreq = ibfreq
 
-              getStkin = dxs*dys/(omega(jfreq) - omega(jfreq-1)) + &
-                         Stokes(:,jfreq-1)
+                            ! This frequency gives us the value
+                            Stkin(:,kkfreq) = Stk(:,lifreq,iph1,ith1)
 
-              return
+                            exit
 
-            end if ! Check output frequency
+                          ! If the input is between this output and
+                          ! the next
+                          else if(p_frec%omega(jjfreq)*vfac1.ge. &
+                                  omega(ibfreq).and. &
+                                  p_frec%omega(jjfreq)*vfac1.lt. &
+                                  omega(ibfreq+1)) then
 
-          end do ! Searching frequency
+                            ! We found it in the index of the lower
+                            lifreq = ibfreq
 
-        end if ! Within boundaries
-      end if ! omegai > omegao
+                            ! The first index is the lower
+                            y0 = Stk(:,lifreq,iph1,ith1)
 
-      end function getStkin
+                            ! The second index is the upper
+                            dy = Stk(:,lifreq+1,iph1,ith1) - y0
+
+                            ! Inverse of the distance
+                            ! between the two outputs
+                            dx = (p_frec%omega(jjfreq)*vfac1 - &
+                                  omega(lifreq))/ &
+                                 (omega(lifreq+1) - omega(lifreq))
+
+                            ! Interpolate
+                            Stkin(:,kkfreq) = dx*dy + y0
+
+                            exit
+
+                          end if ! Check output frequency
+
+                        end do ! Run output frequencies
+
+                      end if ! Check if out of limits
+
+                    end do ! Run input frequencies
+!$omp end do
+                    ! Update index
+                    kkfreq0 = kkfreq0 + p_mfreq
+
+                  end do ! Input azimuth
+                end do ! Input polar
+
+                ! Update index
+                jjfreq0 = jjfreq0 + p_mfreq
+
+              end do ! Output frequencies
+            end do ! Output frequency ranges
+!$omp end parallel
+
+          ! If static
+          else
+
+            ! Initialize index
+            jjfreq0 = 0
+            kkfreq0 = 0
+
+            ! For each output frequency
+            iifreq = 0
+            do iran=1,Fin%nran
+              do ifreq=Fin%if0(iran),Fin%if1(iran)
+
+                ! Advance index
+                iifreq = iifreq + 1
+
+                ! Input frequency number
+                p_mfreq => p_frec%mfreq(iifreq)
+
+                ! Skip empty
+                if (p_mfreq.lt.1) cycle
+
+                ! Reset the search frequency
+                lifreq = Fin%ggf0
+
+                ! For each input frequency
+!$omp do
+                do jfreq=1,p_mfreq
+
+                  ! Advance indexes
+                  jjfreq = jjfreq0 + jfreq
+
+                  ! If out of range, take the value at the
+                  ! boundary
+                  if (p_frec%omega(jjfreq).le. &
+                      omega(1)+TINYO) then
+
+                    ! We are still looking in the first one
+                    lifreq = 1
+
+                    ! Block counter
+                    nblock = -1
+
+                    ! Directions
+                    do ith1=1,Geom%nTh
+                      do iph1=1,Geom%nPh
+
+                        ! Skip forward scattering two-term
+                        if (nfs.eq.1.and. &
+                            Geom%V_CScatt(Geom% &
+                                    i_scatt(iph1,ith1,jdir)).ge.1d0) &
+                          cycle
+
+                        ! Add block
+                        nblock = nblock + 1
+
+                        ! Output index
+                        kkfreq = kkfreq0 + jfreq + p_mfreq*nblock
+
+                        ! The index to take is 1
+                        Stkin(:,kkfreq) = Stk(:,1,iph1,ith1)
+
+                      end do
+                    end do
+
+                  ! If out of range, take the value at the
+                  ! boundary
+                  else if (p_frec%omega(jjfreq).ge. &
+                           (omega(nfreq) - TINYO)) then
+
+                    ! We are in the last frequency
+                    lifreq = nfreq
+
+                    ! Block counter
+                    nblock = -1
+
+                    ! Directions
+                    do ith1=1,Geom%nTh
+                      do iph1=1,Geom%nPh
+
+                        ! Skip forward scattering two-term
+                        if (nfs.eq.1.and. &
+                            Geom%V_CScatt(Geom% &
+                                    i_scatt(iph1,ith1,jdir)).ge.1d0) &
+                          cycle
+
+                        ! Add block
+                        nblock = nblock + 1
+
+                        ! Output index
+                        kkfreq = kkfreq0 + jfreq + p_mfreq*nblock
+
+                        ! The index to take is nfreq
+                        Stkin(:,kkfreq) = Stk(:,nfreq,iph1,ith1)
+
+                      end do
+                    end do
+
+                  ! If within the boundaries
+                  else
+
+                    ! Search between the last found frequency and
+                    ! all but the boundary
+                    do ibfreq=lifreq,nfreq-1
+
+                      ! If this exact frequency is in output
+                      if (abs(p_frec%omega(jjfreq)- &
+                              omega(ibfreq)).lt.TINYO) then
+
+                        ! We are in the found frequency
+                        lifreq = ibfreq
+
+                        ! Block counter
+                        nblock = -1
+
+                        ! Directions
+                        do ith1=1,Geom%nTh
+                          do iph1=1,Geom%nPh
+
+                            ! Skip forward scattering two-term
+                            if (nfs.eq.1.and. &
+                                Geom%V_CScatt(Geom% &
+                                    i_scatt(iph1,ith1,jdir)).ge.1d0) &
+                              cycle
+
+                            ! Add block
+                            nblock = nblock + 1
+
+                            ! Output index
+                            kkfreq = kkfreq0 + jfreq + p_mfreq*nblock
+
+                            ! This frequency gives us the value
+                            Stkin(:,kkfreq) = Stk(:,lifreq,iph1,ith1)
+
+                          end do
+                        end do
+
+                        exit
+
+                      ! If the input is between this output and
+                      ! the next
+                      else if(p_frec%omega(jjfreq).ge. &
+                              omega(ibfreq).and. &
+                              p_frec%omega(jjfreq).lt. &
+                              omega(ibfreq+1)) then
+
+                        ! We found it in the index of the lower
+                        lifreq = ibfreq
+
+                        ! Inverse of the distance
+                        ! between the two outputs
+                        dx = (p_frec%omega(jjfreq) - &
+                              omega(lifreq))/ &
+                             (omega(lifreq+1) - omega(lifreq))
+
+                        ! Block counter
+                        nblock = -1
+
+                        ! Directions
+                        do ith1=1,Geom%nTh
+                          do iph1=1,Geom%nPh
+
+                            ! Skip forward scattering two-term
+                            if (nfs.eq.1.and. &
+                                Geom%V_CScatt(Geom% &
+                                    i_scatt(iph1,ith1,jdir)).ge.1d0) &
+                              cycle
+
+                            ! Add block
+                            nblock = nblock + 1
+
+                            ! The first index is the lower
+                            y0 = Stk(:,lifreq,iph1,ith1)
+
+                            ! The second index is the upper
+                            dy = Stk(:,lifreq+1,iph1,ith1) - y0
+
+                            ! Output index
+                            kkfreq = kkfreq0 + jfreq + p_mfreq*nblock
+
+                            ! Interpolate
+                            Stkin(:,kkfreq) = dx*dy + y0
+
+                          end do
+                        end do
+
+                        exit
+
+                      end if ! Check output frequency
+
+                    end do ! Run output frequencies
+
+                  end if ! Check if out of limits
+
+                end do ! Run input frequencies
+!$omp end do
+                ! Update frequency index
+                jjfreq0 = jjfreq0 + p_mfreq
+
+                ! Update Stokes index
+                kkfreq0 = kkfreq0 + p_mfreq*(Geom%nTh*Geom%nPh-nfs)
+
+              end do ! Output frequencies
+            end do ! Output frequency ranges
+!$omp end parallel
+
+          end if ! Static
+        end if ! Non-axial
+      end if ! Interpolation data
+
+      ! Nullify
+      nullify(p_mfreq)
+
+      end subroutine getStkin
 
 !#####################################################################
 !#####################################################################
@@ -7572,7 +9613,7 @@
       !!                    associated to the requested input
       !!                    frequency (shifted to limited vector)\n
       !!         x(dfloat): Input frequency to interpolate into
-      function getJKQin(omega,JKQ,ifreq,nfreq,x)
+      function getJKQinnu(omega,JKQ,ifreq,nfreq,x)
 
       ! I/O
       integer, intent(in):: ifreq,nfreq
@@ -7580,7 +9621,7 @@
       double precision, dimension(:), intent(in):: omega
       complex(kind=8), dimension(:), intent(in):: JKQ
 
-      complex(kind=8):: getJKQin
+      complex(kind=8):: getJKQinnu
 
       ! Local
       integer:: jfreq
@@ -7588,7 +9629,7 @@
       complex(kind=8):: dys
 
       ! Initialize as equals
-      getJKQin = JKQ(ifreq)
+      getJKQinnu = JKQ(ifreq)
 
       ! If omegai > omega(ifreq)
       if (x.gt.omega(ifreq)) then
@@ -7596,7 +9637,7 @@
         ! If out of right boundary
         if (x.ge.omega(nfreq)-TINYO) then
 
-          getJKQin = JKQ(nfreq)
+          getJKQinnu = JKQ(nfreq)
           return
 
         ! If within boundaries, look for where
@@ -7609,7 +9650,7 @@
             ! output
             if (abs(x - omega(jfreq)).lt.TINYO) then
 
-              getJKQin = JKQ(jfreq)
+              getJKQinnu = JKQ(jfreq)
 
               return
 
@@ -7622,7 +9663,7 @@
 
               dxs = x - omega(jfreq)
 
-              getJKQin = dxs*dys/(omega(jfreq+1) - omega(jfreq)) + &
+              getJKQinnu = dxs*dys/(omega(jfreq+1) - omega(jfreq)) + &
                          JKQ(jfreq)
 
               return
@@ -7639,7 +9680,7 @@
         ! If out of left boundary
         if (x.le.omega(1)+TINYO) then
 
-          getJKQin = JKQ(1)
+          getJKQinnu = JKQ(1)
 
           return
 
@@ -7653,7 +9694,7 @@
             ! output
             if (abs(x - omega(jfreq)).lt.TINYO) then
 
-              getJKQin = JKQ(jfreq)
+              getJKQinnu = JKQ(jfreq)
 
               return
 
@@ -7666,7 +9707,7 @@
 
               dxs = x - omega(jfreq-1)
 
-              getJKQin = dxs*dys/(omega(jfreq) - omega(jfreq-1)) + &
+              getJKQinnu = dxs*dys/(omega(jfreq) - omega(jfreq-1)) + &
                          JKQ(jfreq-1)
 
               return
@@ -7678,7 +9719,218 @@
         end if ! Within boundaries
       end if ! omegai > omegao
 
-      end function getJKQin
+      end function getJKQinnu
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Interpolates JKQ to the input frequency axis\n
+      !!  p_frec(Frequencyd_class): Input frequency data for output
+      !!                            index and input transition\n
+      !!    Fin(Frequencyc2_class): Input frequency data for output
+      !!                            index\n
+      !!           nmfreq(integer): Size of frequency space\n
+      !!          omega(dfloat(:)): Frequency array\n
+      !!        Jin(dcmplx(:,:,:)): Interpolated mean intensity\n
+      !!        JKQ(dcmplx(:,:,:)): Original mean intensity
+      subroutine getJKQin(p_frec,Fin,nmfreq,omega,Jin,JKQ)
+
+      ! I/O
+      type(Frequencyd_class), intent(in), pointer:: p_frec
+      type(Frequencyc2_class), intent(in):: Fin
+      integer, intent(in):: nmfreq
+      double precision, dimension(:), intent(in):: omega
+      complex(kind=8), dimension(:,:,:), &
+                                        allocatable, intent(out):: Jin
+      complex(kind=8), dimension(-2:2,0:2,Fin%ggf0:Fin%ggf1), &
+                                                      intent(in):: JKQ
+
+      ! Local
+      integer:: lifreq,ibfreq
+      integer:: iran,ifreq,iifreq,jfreq,jjfreq0,jjfreq
+
+      double precision:: dx
+
+      complex(kind=8), dimension(0:2,0:2):: y0, dy
+
+      integer, pointer:: p_mfreq
+
+
+      ! Nullify
+      nullify(p_mfreq)
+
+      ! If no size, return
+      if (nmfreq.lt.1) return
+
+      ! Allocate J
+      allocate(Jin(nmfreq,0:2,0:2))
+
+      ! If interpolation data
+      if (p_frec%RAM) then
+
+!$omp parallel default(none) &
+!$omp private(jjfreq,iifreq,iran,ifreq,p_mfreq,dy,y0) &
+!$omp shared(Jin,JKQ,Fin,p_frec)
+
+        ! Initialize frequency index
+        jjfreq = 0
+
+        ! For each output frequency
+        iifreq = 0
+        do iran=1,Fin%nran
+          do ifreq=Fin%if0(iran),Fin%if1(iran)
+
+            ! Advance index
+            iifreq = iifreq + 1
+
+            ! Point to dimension
+            p_mfreq => p_frec%mfreq(iifreq)
+
+            ! If coherent wing
+            if (p_mfreq.lt.1) cycle
+
+            ! Input frequencies
+!$omp do
+            do jfreq=jjfreq+1,jjfreq+p_mfreq
+
+              ! Interpolate
+              y0 = JKQ(0:2,0:2,p_frec%index1(jfreq))
+
+              ! Linear interpolation
+              dy = JKQ(0:2,0:2,p_frec%index2(jfreq)) - y0
+
+              ! Add J00 interpolated
+              Jin(jfreq,0:2,0:2) = dy*p_frec%dx(jfreq) + y0
+
+            end do
+!$omp end do
+
+            ! Update jjfreq
+            jjfreq = jjfreq + p_mfreq
+
+          end do ! output frequencies
+        end do ! output frequencies ranges
+!$omp end parallel
+
+      ! No interpolation data
+      else
+
+!$omp parallel default(none) &
+!$omp private(iifreq,lifreq,iran,ifreq,jfreq,p_mfreq) &
+!$omp private(jjfreq,jjfreq0,ibfreq) &
+!$omp shared(p_frec,omega,Fin,nfreq,Jin,JKQ)
+
+        ! Initialize index
+        jjfreq0 = 0
+
+        ! For each output frequency
+        iifreq = 0
+        do iran=1,Fin%nran
+          do ifreq=Fin%if0(iran),Fin%if1(iran)
+
+            ! Advance index
+            iifreq = iifreq + 1
+
+            ! Input frequency number
+            p_mfreq => p_frec%mfreq(iifreq)
+
+            ! Reset the search frequency
+            lifreq = Fin%ggf0
+
+            ! For each input frequency
+!$omp do
+            do jfreq=1,p_mfreq
+
+              ! Advance indexes
+              jjfreq = jjfreq0 + jfreq
+
+              ! If out of range, take the value at the
+              ! boundary
+              if (p_frec%omega(jjfreq).le.omega(1)+TINYO) then
+
+                ! We are still looking in the first one
+                lifreq = 1
+
+                ! The index to take is 1
+                Jin(jjfreq,0:2,0:2) = JKQ(0:2,0:2,1)
+
+              ! If out of range, take the value at the
+              ! boundary
+              else if (p_frec%omega(jjfreq).ge. &
+                       (omega(nfreq) - TINYO)) then
+
+                ! We are in the last frequency
+                lifreq = nfreq
+
+                ! The index to take is nfreq
+                Jin(jjfreq,0:2,0:2) = JKQ(0:2,0:2,nfreq)
+
+              ! If within the boundaries
+              else
+
+                ! Search between the last found frequency and
+                ! all but the boundary
+                do ibfreq=lifreq,nfreq-1
+
+                  ! If this exact frequency is in output
+                  if (abs(p_frec%omega(jjfreq) - &
+                          omega(ibfreq)).lt.TINYO) then
+
+                    ! We are in the found frequency
+                    lifreq = ibfreq
+
+                    ! This frequency gives us the value
+                    Jin(jjfreq,0:2,0:2) = JKQ(0:2,0:2,lifreq)
+
+                    exit
+
+                  ! If the input is between this output and
+                  ! the next
+                  else if(p_frec%omega(jjfreq).ge. &
+                          omega(ibfreq).and. &
+                          p_frec%omega(jjfreq).lt. &
+                          omega(ibfreq+1)) then
+
+                    ! We found it in the index of the lower
+                    lifreq = ibfreq
+
+                    ! Inverse of the distance
+                    ! between the two outputs
+                    dx = (p_frec%omega(jjfreq) - omega(lifreq))/ &
+                         (omega(lifreq+1) - omega(lifreq))
+
+                    ! The first index is the lower
+                    y0 = JKQ(0:2,0:2,ibfreq)
+
+                    ! Difference with next
+                    dy = JKQ(0:2,0:2,ibfreq+1) - y0
+
+                    ! Interpolate
+                    Jin(jjfreq,0:2,0:2) = dy*dx + y0
+
+                    exit
+
+                  end if ! Check output frequency
+
+                end do ! Run output frequencies
+
+              end if ! Check if out of limits
+
+            end do ! Run input frequencies
+!$omp end do
+            ! Update index in general
+            jjfreq0 = jjfreq0 + p_mfreq
+
+          end do ! Output frequencies
+        end do ! Output frequency ranges
+!$omp end parallel
+      end if ! Interpolation data
+
+      ! Free pointers
+      nullify(p_mfreq)
+
+      end subroutine getJKQin
 
 !#####################################################################
 !#####################################################################

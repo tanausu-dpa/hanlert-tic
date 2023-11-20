@@ -12,12 +12,17 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     10/16/2023 V3.2.0
+!     11/14/2023 V3.2.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/14/2023:    V3.2.1 - Bugfix: When failing to read Stokes
+!                             from a solution file, checking "lio"
+!                             can be insufficient to decide what
+!                             to initialize (TdPA)
 !
 !     10/16/2023:    V3.2.0 - Split the hanle routine into calls
 !                             of a number of routines: hanle_setup,
@@ -1401,17 +1406,17 @@
           ! If could not read Stokes
           if (.not.read_stokes) then
 
-            ! Intensity
-            if (lio) then
-
-              ! Initialize
-              call initializeI_failread(Frec,Atmo,StokesI,J00C)
-
             ! Polarization
-            else
+            if (allocated(JKQC)) then
 
               ! Initialize
               call initialize_failread(Frec,Atmo,Stokes,JKQC)
+
+            ! Intensity
+            else
+
+              ! Initialize
+              call initializeI_failread(Frec,Atmo,StokesI,J00C)
 
             end if ! Type of solution
           end if ! Could read Stokes

@@ -522,7 +522,6 @@
       ! Routine name
       urou = 'readsol'
 
-
       !
       ! Open file
       !

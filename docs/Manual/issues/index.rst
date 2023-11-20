@@ -4,7 +4,7 @@
 Known Issues and to do
 **********************
 
-To be (fully) documented.
+The OpenMP implementation with PRD is potentially broken in the last versions.
 
 A bit of history and justification
 ==================================

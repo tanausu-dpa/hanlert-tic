@@ -3667,7 +3667,8 @@
                         do iL1 = 1,Atom(ia)%nblk(iMl1,iterml)
 
                           ! Get indexes
-                          indL1 = Atom(ia)%i_Wind(iterml)%ind(iL1,iMl1)
+                          indL1 = Atom(ia)%i_Wind(iterml)% &
+                                           ind(iL1,iMl1)
 
       !
       ! Reset indenting

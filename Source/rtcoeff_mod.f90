@@ -11,12 +11,22 @@
 !  Start:
 !     04/27/2017
 !  Last version:
-!     10/16/2023 V3.0.10
+!     11/16/2023 V3.0.12
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/16/2023:   V3.0.12 - When doing LOS, AD second order
+!                             emissivity should be called with the
+!                             direction index always 1 (TdPA)
+!
+!     11/14/2023:   V3.0.11 - Split the calls to emiss2ord into AA
+!                             and AD (TdPA)
+!                           - The index for Red%indx should be for
+!                             direction index jddir, and not the
+!                             jcdir one (TdPA)
 !
 !     10/16/2023:   V3.0.10 - Made LTElines allocatable to satisfy
 !                             memory warnings (TdPA)
@@ -791,7 +801,7 @@
 
               ! If storing
               if (PRAM) then
-                indx = Red%indx(jtran,ia,iz,jcdir)
+                indx = Red%indx(jtran,ia,iz,jddir)
                 p_red => Red%dzao(indx)
               else
                 p_red => Red%dzao(1)
@@ -810,19 +820,34 @@
                 t0 = Atom(ia)%tshift + 1
                 t1 = t0 + Atom(ia)%ntran - 1
 
-                call emiss2ord(Atom(ia),Geom,.False., &
-                               Atmo%vx(iz),Atmo%vy(iz),Atmo%vz(iz), &
-                               Frec%omega,p_red, &
-                               Frec%stype(:,:,jddir),p_frec, &
-                               Frec%nth,Frec%nph,Frec%nfs(jddir), &
-                               Flgsg,p_Norm,jtran,itermu,iterml, &
-                               iz,iph,ith,if0l2,if1l2,DwT,Dw,vfac, &
-                               Bfield,Atmo%vmi(iz),TBo,Stokes,JKQa, &
-                               JKQ(:,:,t0:t1),JKQC,p_prof, &
-                               es2tmp0(if0l2:if1l2), &
-                               es2tmp1(if0l2:if1l2), &
-                               es2tmp2(if0l2:if1l2), &
-                               es2tmp3(if0l2:if1l2))
+                ! Angle-average
+                if (AV) then
+                  call emiss2ord_AA(Atom(ia),Geom,Atmo%vx(iz), &
+                                    Atmo%vy(iz),Atmo%vz(iz), &
+                                    Frec%omega,p_red,p_frec, &
+                                    Flgsg,p_Norm,jtran, &
+                                    itermu,iterml,iz, &
+                                    if0l2,if1l2,DwT,Dw,vfac, &
+                                    Bfield,Atmo%vmi(iz),TBo, &
+                                    Stokes,JKQa,JKQ(:,:,t0:t1), &
+                                    JKQC,p_prof, &
+                                    es2tmp0(if0l2:if1l2), &
+                                    es2tmp1(if0l2:if1l2), &
+                                    es2tmp2(if0l2:if1l2), &
+                                    es2tmp3(if0l2:if1l2))
+                else
+                  call emiss2ord_AD(Atom(ia),Geom,.False., &
+                                    Atmo%vx(iz),Atmo%vy(iz), &
+                                    Atmo%vz(iz),Frec%omega,p_red, &
+                                    p_frec,Flgsg,p_Norm,jdir,jtran, &
+                                    itermu,iterml,iz,if0l2,if1l2, &
+                                    DwT,Dw,vfac,Atmo%vmi(iz),TBo, &
+                                    Stokes,JKQ(:,:,t0:t1),p_prof, &
+                                    es2tmp0(if0l2:if1l2), &
+                                    es2tmp1(if0l2:if1l2), &
+                                    es2tmp2(if0l2:if1l2), &
+                                    es2tmp3(if0l2:if1l2))
+                end if
 
                 !
                 ! Total emissivity
@@ -1045,7 +1070,7 @@
 
               ! If storing
               if (PRAM) then
-                indx = Red%indx(jtran,ia,iz,jcdir)
+                indx = Red%indx(jtran,ia,iz,jddir)
                 p_red => Red%dzao(indx)
               else
                 p_red => Red%dzao(1)
@@ -1064,20 +1089,34 @@
                 t0 = Atom(ia)%tshift + 1
                 t1 = t0 + Atom(ia)%ntran - 1
 
-                call emiss2ordNB(Atom(ia),Geom,.False.,Atmo%vx(iz), &
-                                 Atmo%vy(iz),Atmo%vz(iz), &
-                                 Frec%omega,p_red, &
-                                 Frec%stype(:,:,jddir),p_frec, &
-                                 Frec%nth,Frec%nph,Frec%nfs(jddir), &
-                                 Flgsg,p_Norm, &
-                                 jtran,itermu,iterml, &
-                                 iz,iph,ith,if0l2,if1l2,DwT,Dw,vfac, &
-                                 Atmo%vmi(iz),TBo,Stokes,JKQa, &
-                                 JKQ(:,:,t0:t1),JKQC,p_prof, &
-                                 es2tmp0(if0l2:if1l2), &
-                                 es2tmp1(if0l2:if1l2), &
-                                 es2tmp2(if0l2:if1l2), &
-                                 es2tmp3(if0l2:if1l2))
+                ! Angle-averaged
+                if (AV) then
+                  call emiss2ordNB_AA(Atom(ia),Geom,Atmo%vx(iz), &
+                                      Atmo%vy(iz),Atmo%vz(iz), &
+                                      Frec%omega,p_red,p_frec, &
+                                      Flgsg,p_Norm,jtran, &
+                                      itermu,iterml,iz, &
+                                      if0l2,if1l2,DwT,Dw,vfac, &
+                                      Atmo%vmi(iz),TBo,Stokes,JKQa, &
+                                      JKQ(:,:,t0:t1),JKQC,p_prof, &
+                                      es2tmp0(if0l2:if1l2), &
+                                      es2tmp1(if0l2:if1l2), &
+                                      es2tmp2(if0l2:if1l2), &
+                                      es2tmp3(if0l2:if1l2))
+                else
+                  call emiss2ordNB_AD(Atom(ia),Geom,.False., &
+                                      Atmo%vx(iz),Atmo%vy(iz), &
+                                      Atmo%vz(iz),Frec%omega,p_red, &
+                                      p_frec,Flgsg,p_Norm,jdir, &
+                                      jtran,itermu,iterml,iz, &
+                                      if0l2,if1l2,DwT,Dw,vfac, &
+                                      Atmo%vmi(iz),TBo,Stokes, &
+                                      JKQ(:,:,t0:t1),p_prof, &
+                                      es2tmp0(if0l2:if1l2), &
+                                      es2tmp1(if0l2:if1l2), &
+                                      es2tmp2(if0l2:if1l2), &
+                                      es2tmp3(if0l2:if1l2))
+                end if
 
                 !
                 ! Total emissivity
@@ -1800,7 +1839,7 @@
 
               ! If storing
               if (PRAM) then
-                indx = Red%indx(jtran,ia,iz,jcdir)
+                indx = Red%indx(jtran,ia,iz,jddir)
                 p_red => Red%dzao(indx)
               else
                 p_red => Red%dzao(1)
@@ -1819,19 +1858,34 @@
                 t0 = Atom(ia)%tshift + 1
                 t1 = t0 + Atom(ia)%ntran - 1
 
-                call emiss2ord(Atom(ia),Geom,.True.,Atmo%vx(iz), &
-                               Atmo%vy(iz),Atmo%vz(iz), &
-                               Frec%omega,p_red, &
-                               Frec%stype(:,:,jddir),p_frec, &
-                               Frec%nth,Frec%nph,Frec%nfs(jddir), &
-                               Flgsg,p_Norm,jtran,itermu,iterml, &
-                               iz,iph,ith,if0l2,if1l2,DwT,Dw,vfac, &
-                               Bfield,Atmo%vmi(iz),TBo,Stokes,JKQa, &
-                               JKQ(:,:,t0:t1),JKQC,p_prof, &
-                               es2tmp0(if0l2:if1l2), &
-                               es2tmp1(if0l2:if1l2), &
-                               es2tmp2(if0l2:if1l2), &
-                               es2tmp3(if0l2:if1l2))
+                ! Angle-average
+                if (AV) then
+                  call emiss2ord_AA(Atom(ia),Geom,Atmo%vx(iz), &
+                                    Atmo%vy(iz),Atmo%vz(iz), &
+                                    Frec%omega,p_red,p_frec, &
+                                    Flgsg,p_Norm,jtran, &
+                                    itermu,iterml,iz, &
+                                    if0l2,if1l2,DwT,Dw,vfac, &
+                                    Bfield,Atmo%vmi(iz),TBo, &
+                                    Stokes,JKQa,JKQ(:,:,t0:t1), &
+                                    JKQC,p_prof, &
+                                    es2tmp0(if0l2:if1l2), &
+                                    es2tmp1(if0l2:if1l2), &
+                                    es2tmp2(if0l2:if1l2), &
+                                    es2tmp3(if0l2:if1l2))
+                else
+                  call emiss2ord_AD(Atom(ia),Geom,.True., &
+                                    Atmo%vx(iz),Atmo%vy(iz), &
+                                    Atmo%vz(iz),Frec%omega,p_red, &
+                                    p_frec,Flgsg,p_Norm,1,jtran, &
+                                    itermu,iterml,iz,if0l2,if1l2, &
+                                    DwT,Dw,vfac,Atmo%vmi(iz),TBo, &
+                                    Stokes,JKQ(:,:,t0:t1),p_prof, &
+                                    es2tmp0(if0l2:if1l2), &
+                                    es2tmp1(if0l2:if1l2), &
+                                    es2tmp2(if0l2:if1l2), &
+                                    es2tmp3(if0l2:if1l2))
+                end if
 
                 !
                 ! Total emissivity
@@ -2007,7 +2061,7 @@
 
               ! If storing
               if (PRAM) then
-                indx = Red%indx(jtran,ia,iz,jcdir)
+                indx = Red%indx(jtran,ia,iz,jddir)
                 p_red => Red%dzao(indx)
               else
                 p_red => Red%dzao(1)
@@ -2026,19 +2080,33 @@
                 t0 = Atom(ia)%tshift + 1
                 t1 = t0 + Atom(ia)%ntran - 1
 
-                call emiss2ordNB(Atom(ia),Geom,.True.,Atmo%vx(iz), &
-                                 Atmo%vy(iz),Atmo%vz(iz), &
-                                 Frec%omega,p_red, &
-                                 Frec%stype(:,:,jddir),p_frec, &
-                                 Frec%nth,Frec%nph,Frec%nfs(jddir), &
-                                 Flgsg,p_Norm,jtran,itermu,iterml, &
-                                 iz,iph,ith,if0l2,if1l2,DwT,Dw,vfac, &
-                                 Atmo%vmi(iz),TBo,Stokes,JKQa, &
-                                 JKQ(:,:,t0:t1),JKQC,p_prof, &
-                                 es2tmp0(if0l2:if1l2), &
-                                 es2tmp1(if0l2:if1l2), &
-                                 es2tmp2(if0l2:if1l2), &
-                                 es2tmp3(if0l2:if1l2))
+                if (AV) then
+                  call emiss2ordNB_AA(Atom(ia),Geom,Atmo%vx(iz), &
+                                      Atmo%vy(iz),Atmo%vz(iz), &
+                                      Frec%omega,p_red,p_frec, &
+                                      Flgsg,p_Norm,jtran, &
+                                      itermu,iterml,iz, &
+                                      if0l2,if1l2,DwT,Dw,vfac, &
+                                      Atmo%vmi(iz),TBo,Stokes,JKQa, &
+                                      JKQ(:,:,t0:t1),JKQC,p_prof, &
+                                      es2tmp0(if0l2:if1l2), &
+                                      es2tmp1(if0l2:if1l2), &
+                                      es2tmp2(if0l2:if1l2), &
+                                      es2tmp3(if0l2:if1l2))
+                else
+                  call emiss2ordNB_AD(Atom(ia),Geom,.True., &
+                                      Atmo%vx(iz),Atmo%vy(iz), &
+                                      Atmo%vz(iz),Frec%omega,p_red, &
+                                      p_frec,Flgsg,p_Norm,1, &
+                                      jtran,itermu,iterml, &
+                                      iz,if0l2,if1l2,DwT,Dw,vfac, &
+                                      Atmo%vmi(iz),TBo,Stokes, &
+                                      JKQ(:,:,t0:t1),p_prof, &
+                                      es2tmp0(if0l2:if1l2), &
+                                      es2tmp1(if0l2:if1l2), &
+                                      es2tmp2(if0l2:if1l2), &
+                                      es2tmp3(if0l2:if1l2))
+                end if
 
                 !
                 ! Total emissivity

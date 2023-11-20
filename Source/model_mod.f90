@@ -10,12 +10,15 @@
 !  Start:
 !     02/17/2023
 !  Last version:
-!     10/04/2023 V3.0.4
+!     14/11/2023 V3.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     14/11/2023:    V3.0.5 - Redid the reference frame rotations
+!                             because HL found an issue (TdPA)
 !
 !     10/04/2023:    V3.0.4 - The azimuth in the LOS is set to zero
 !                             if there is no transversal component
@@ -545,17 +548,17 @@
       bstrength = sqrt(blos*blos + bpos*bpos)
 
       ! Get coordinates in POS
-      bxp = blos
-      byp = bpos*cos(azimuth)
-      bzp = bpos*sin(azimuth)
+      bxp = bpos*cos(azimuth)
+      byp = bpos*sin(azimuth)
+      bzp = blos
 
       ! Auxiliar
-      by = (bxp*Mup - bzp*Mu)
+      by = (bxp*Mu + bzp*Mup)
 
       ! Get coordinates in vertical
-      bx = cp*by - byp*sp
-      by = sp*by + byp*cp
-      bz = bxp*Mu + bzp*Mup
+      bx =  cp*by - byp*sp
+      by =  sp*by + byp*cp
+      bz = -bxp*Mup + bzp*Mu
 
       where (abs(bx).lt.TINYDP)
         bx =  0d0
@@ -580,7 +583,6 @@
           ! Round
           if (btheta(i).lt.TINYA) btheta(i) = 0d0
           if (btheta(i).gt.PI-TINYA) btheta(i) = PI
-
 
           ! If negative phi, put in 0,2pi
           if (bphi(i).lt.0d0) bphi(i) = bphi(i) + 2d0*PI
@@ -632,7 +634,7 @@
       integer:: ii
 
       double precision:: Mup, cp, sp
-      double precision, dimension(Num):: bx, by, bz, byp, bzp, st
+      double precision, dimension(Num):: bx, by, bz, bxp, byp, st
 
 
       ! Get sin
@@ -666,31 +668,32 @@
       by = bstrength*st*sin(bphi)
       bz = bstrength*cos(btheta)
 
-      ! Rotate to LOS (calculate only pos)
-      blos = bx*Mup*cp + by*Mup*sp + bz*Mu
-      byp  = bx*sp - by*cp
-      bzp  = -Mu*(by*sp + bx*cp) + bz*Mup
+      ! Rotate to LOS
+      blos = (bx*cp + by*sp)
+      bxp  =  Mu*blos - bz*Mup
+      byp  = -bx*sp + by*cp
+      blos = Mup*blos + bz*Mu
 
       where (abs(blos).lt.TINYDP)
-        blos =  0d0
+        blos = 0d0
+      end where
+      where (abs(bxp).lt.TINYDP)
+        bxp = 0d0
       end where
       where (abs(byp).lt.TINYDP)
-        byp =  0d0
-      end where
-      where (abs(bzp).lt.TINYDP)
-        bzp =  0d0
+        byp = 0d0
       end where
 
       ! Get POS
-      bpos = sqrt(byp*byp + bzp*bzp)
+      bpos = sqrt(bxp*bxp + byp*byp)
 
       ! For each point
       do ii=1,Num
 
-        if (abs(byp(ii)).gt.0d0) then
-          azimuth(ii) = atan2(bzp(ii),byp(ii))
-        else if (abs(bzp(ii)).gt.0d0) then
-          if (bzp(ii).gt.0d0) then
+        if (abs(bxp(ii)).gt.0d0) then
+          azimuth(ii) = atan2(byp(ii),bxp(ii))
+        else if (abs(byp(ii)).gt.0d0) then
+          if (byp(ii).gt.0d0) then
             azimuth(ii) = PI*0.5d0
           else
             azimuth(ii) = PI*1.5d0
@@ -760,17 +763,17 @@
       end if
 
       ! Get coordinates in POS
-      vxp = vlos
-      vyp = vpos*cos(azimuth)
-      vzp = vpos*sin(azimuth)
+      vxp = vpos*cos(azimuth)
+      vyp = vpos*sin(azimuth)
+      vzp = vlos
 
       ! Auxiliar
-      vy = (vxp*Mup - vzp*Mu)
+      vy = (vxp*Mu + vzp*Mup)
 
       ! Get coordinates in vertical
-      vx = cp*vy - vyp*sp
-      vy = sp*vy + vyp*cp
-      vz = vxp*Mu + vzp*Mup
+      vx =  cp*vy - vyp*sp
+      vy =  sp*vy + vyp*cp
+      vz = -vxp*Mup + vzp*Mu
 
       where (abs(vx).lt.TINYDP)
         vx =  0d0
@@ -815,7 +818,7 @@
       integer:: ii
 
       double precision:: Mup, cp, sp
-      double precision, dimension(Num):: vyp, vzp
+      double precision, dimension(Num):: vxp, vyp
 
 
       ! Get sin
@@ -843,31 +846,32 @@
         sp = sin(phi)
       end if
 
-      ! Rotate to LOS (calculate only pos)
-      vlos = vx*Mup*cp + vy*Mup*sp + vz*Mu
-      vyp  = vx*sp - vy*cp
-      vzp  = -Mu*(vy*sp + vx*cp) + vz*Mup
+      ! Rotate to LOS
+      vlos = (vx*cp + vy*sp)
+      vxp  =  Mu*vlos - vz*Mup
+      vyp  = -vx*sp + vy*cp
+      vlos = Mup*vlos + vz*Mu
 
       where (abs(vlos).lt.TINYDP)
-        vlos =  0d0
+        vlos = 0d0
+      end where
+      where (abs(vxp).lt.TINYDP)
+        vxp = 0d0
       end where
       where (abs(vyp).lt.TINYDP)
-        vyp =  0d0
-      end where
-      where (abs(vzp).lt.TINYDP)
-        vzp =  0d0
+        vyp = 0d0
       end where
 
       ! Get POS
-      vpos = sqrt(vyp*vyp + vzp*vzp)
+      vpos = sqrt(vxp*vxp + vyp*vyp)
 
       ! For each point
       do ii=1,Num
 
-        if (abs(vyp(ii)).gt.0d0) then
-          azimuth(ii) = atan2(vzp(ii),vyp(ii))
-        else if (abs(vzp(ii)).gt.0d0) then
-          if (vzp(ii).gt.0d0) then
+        if (abs(vxp(ii)).gt.0d0) then
+          azimuth(ii) = atan2(vyp(ii),vxp(ii))
+        else if (abs(vyp(ii)).gt.0d0) then
+          if (vyp(ii).gt.0d0) then
             azimuth(ii) = PI*0.5d0
           else
             azimuth(ii) = PI*1.5d0

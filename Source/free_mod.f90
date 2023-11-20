@@ -12,12 +12,14 @@
 !  Start:
 !     06/28/2022
 !  Last version:
-!     10/16/2023 V3.1.3
+!     11/14/2023 V3.1.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/14/2023:    V3.1.4 - Removed Frec%stype variable (TdPA)
 !
 !     10/16/2023:    V3.1.3 - Moved the deallocation of the damping
 !                             from free_local_Atom to the new
@@ -246,7 +248,6 @@
       !
       ! Frequency
       !
-      if (allocated(Frec%stype)) deallocate(Frec%stype)
       if (allocated(Frec%omega3)) deallocate(Frec%omega3)
       if (associated(Frec%exu)) then
         deallocate(Frec%exu)

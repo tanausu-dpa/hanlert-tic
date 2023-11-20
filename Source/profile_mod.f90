@@ -10,12 +10,15 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     11/24/2022 V3.0.1
+!     11/14/2023 V3.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/14/2023:    V3.0.2 - Taylor series for small exponentials
+!                             in Wfunc and WfuncI (TdPA)
 !
 !     11/24/2022:    V3.0.1 - Added gaussian profile (TdPA)
 !
@@ -468,18 +471,28 @@
       wuf = (omega - (eu-ef))*iDw0
       wu1f = (omega - (eu1-ef))*iDw0
 
-      earg = wuf - vul
-      earg1 = wuf - vul1
+      earg = abs(wuf - vul)
+      earg1 = abs(wuf - vul1)
 
-      if (abs(earg).gt.Wbiggauss) then
+      if (earg.gt.Wbiggauss) then
         efact = 0d0
       else
-        efact = exp(-earg*earg)
+        earg = earg*earg
+        if (earg.gt.smallexp) then
+          efact = exp(-earg)
+        else
+          efact = 1d0 + earg*(0.5d0*earg - 1d0)
+        end if
       end if
-      if (abs(earg1).gt.Wbiggauss) then
+      if (earg1.gt.Wbiggauss) then
         efact1 = 0d0
       else
-        efact1 = exp(-earg1*earg1)
+        earg1 = earg1*earg1
+        if (earg1.gt.smallexp) then
+          efact1 = exp(-earg1)
+        else
+          efact1 = 1d0 + earg1*(0.5d0*earg1 - 1d0)
+        end if
       end if
 
       atf = (au+af+auf)*iDw0
@@ -1148,7 +1161,7 @@
       ! Control underflow
       else
 
-        ou = 1d0 - v2 + 0.5*v2*v2
+        ou = 1d0 - v2 + 0.5d0*v2*v2
 
       end if
 
@@ -1196,12 +1209,17 @@
       vul = omega1*iDw0
       wuf = omega*iDw0
 
-      earg = wuf - vul
+      earg = abs(wuf - vul)
 
-      if (abs(earg).gt.WbiggaussI) then
+      if (earg.gt.WbiggaussI) then
         efact = 0d0
       else
-        efact = exp(-earg*earg)
+        earg = earg*earg
+        if (earg.gt.smallexp) then
+          efact = exp(-earg)
+        else
+          efact = 1d0 + earg*(0.5*earg - 1d0)
+        end if
       end if
 
       x = kkp*vul + kkm*wuf

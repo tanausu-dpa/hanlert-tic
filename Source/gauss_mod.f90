@@ -12,12 +12,16 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     04/12/2023 V3.0.5
+!     10/31/2023 V3.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/31/2023:    V3.0.6 - Store sine and cosine of the scattering
+!                             angle for the angle-averaged integral
+!                             for PRD (TdPA)
 !
 !     04/12/2023:    V3.0.5 - Bugfix: GeomI is always used in
 !                             subroutine background. So it should be
@@ -489,29 +493,54 @@
       ! hemisphere
       ! The actual number of nodes is twice the input
       GeomI%nThAA = Input%nThAAI*2
-      ! Vector with the cos of the nodes
-      allocate(GeomI%W_muAA(GeomI%nThAA))
       ! Vector with the weights of the integral
-      allocate(GeomI%V_thetaAA(GeomI%nThAA))
+      allocate(GeomI%W_muAA(GeomI%nThAA))
+      ! Vector with the cos and sin of the nodes
+      allocate(GeomI%V_muAA(GeomI%nThAA))
+      allocate(GeomI%V_siAA(GeomI%nThAA))
 
       ! Get quadrature
-      call fullgauss(GeomI%nThAA,GeomI%V_thetaAA,GeomI%W_muAA)
-      GeomI%V_thetaAA = acos(GeomI%V_thetaAA)
+      call fullgauss(GeomI%nThAA,GeomI%V_muAA,GeomI%W_muAA)
+      do ii=1,GeomI%nThAA
+        ! If zero angle
+        if (GeomI%V_muAA(ii).ge.1d0) then
+          GeomI%V_siAA(ii) = 0d0
+        ! If pi angle
+        else if (GeomI%V_muAA(ii).le.-1d0) then
+          GeomI%V_siAA(ii) = 0d0
+        ! General
+        else
+          GeomI%V_siAA(ii) = sqrt(1d0 - &
+                                  GeomI%V_muAA(ii)*GeomI%V_muAA(ii))
+        end if
+      end do
 
 
       ! Define a global quadrature from a quadrature in each
       ! hemisphere
       ! The actual number of nodes is twice the input
       Geom%nThAA = Input%nThAA*2
-      ! Vector with the cos of the nodes
-      allocate(Geom%W_muAA(Geom%nThAA))
       ! Vector with the weights of the integral
-      allocate(Geom%V_thetaAA(Geom%nThAA))
-
+      allocate(Geom%W_muAA(Geom%nThAA))
+      ! Vector with the cos and sin of the nodes
+      allocate(Geom%V_muAA(Geom%nThAA))
+      allocate(Geom%V_siAA(Geom%nThAA))
 
       ! Get quadrature
-      call fullgauss(Geom%nThAA,Geom%V_thetaAA,Geom%W_muAA)
-      Geom%V_thetaAA = acos(Geom%V_thetaAA)
+      call fullgauss(Geom%nThAA,Geom%V_muAA,Geom%W_muAA)
+      do ii=1,Geom%nThAA
+        ! If zero angle
+        if (Geom%V_muAA(ii).ge.1d0) then
+          Geom%V_siAA(ii) = 0d0
+        ! If pi angle
+        else if (Geom%V_muAA(ii).le.-1d0) then
+          Geom%V_siAA(ii) = 0d0
+        ! General
+        else
+          Geom%V_siAA(ii) = sqrt(1d0 - &
+                                 Geom%V_muAA(ii)*Geom%V_muAA(ii))
+        end if
+      end do
 
       !
       ! Sanity check inputs

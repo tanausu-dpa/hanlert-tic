@@ -11,12 +11,18 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     10/16/2023 V3.0.7
+!     10/31/2023 V3.0.8
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/31/2023:    V3.0.8 - Split the calls to emissI2ord into AA
+!                             and AD (TdPA)
+!                           - The index for Red%indx should be for
+!                             direction index jddir, and not the
+!                             jcdir one (TdPA)
 !
 !     10/16/2023:    V3.0.7 - Made LTElines allocatable to satisfy
 !                             memory warnings (TdPA)
@@ -698,7 +704,7 @@
 
               ! If storing
               if (IRAM) then
-                indx = Red%indx(ffjtran,ia,iz,jcdir)
+                indx = Red%indx(ffjtran,ia,iz,jddir)
                 p_red => Red%dzao(indx)
               else
                 p_red => Red%dzao(1)
@@ -715,17 +721,34 @@
                 t0 = Atom(ia)%tfshift + 1
                 t1 = t0 + Atom(ia)%nftran - 1
 
-                call emissI2ord(Atom(ia),Geom,.False.,Atmo%vx(iz), &
-                                Atmo%vy(iz),Atmo%vz(iz), &
-                                Frec%omega,p_red, &
-                                Frec%stype(:,:,jddir),p_frec, &
-                                Frec%nth,Frec%nph, &
-                                Frec%nfs(jddir),p_Norm,jtran,fjtran, &
-                                itermu,iterml,iJu,iJl,iz,iph,ith, &
-                                if0l2,if1l2,DwT,Dw,vfac, &
-                                Atmo%vmi(iz),Stokes,JKQ(t0:t1), &
-                                JKQC(ggf0:ggf1),prof(if0l2:if1l2), &
-                                es2tmp(if0l2:if1l2),rpf(if0l2:if1l2))
+                ! Angle-average
+                if (AVI) then
+                  call emissI2ord_AA(Atom(ia),Geom, &
+                                     Atmo%vx(iz),Atmo%vy(iz), &
+                                     Atmo%vz(iz),Frec%omega,p_red, &
+                                     p_frec, &
+                                     p_Norm,jtran,fjtran,itermu, &
+                                     iterml,iJu,iJl,iz, &
+                                     if0l2,if1l2,DwT,Dw,vfac, &
+                                     Atmo%vmi(iz),Stokes,JKQ(t0:t1), &
+                                     JKQC(ggf0:ggf1), &
+                                     prof(if0l2:if1l2), &
+                                     es2tmp(if0l2:if1l2), &
+                                     rpf(if0l2:if1l2))
+                ! Angle-dependent
+                else
+                  call emissI2ord_AD(Atom(ia),Geom,.False., &
+                                     Atmo%vx(iz),Atmo%vy(iz), &
+                                     Atmo%vz(iz),Frec%omega,p_red, &
+                                     p_frec, &
+                                     p_Norm,jdir,jtran,fjtran, &
+                                     itermu,iterml,iJu,iJl,iz, &
+                                     if0l2,if1l2,DwT,Dw,vfac, &
+                                     Atmo%vmi(iz),Stokes,JKQ(t0:t1), &
+                                     prof(if0l2:if1l2), &
+                                     es2tmp(if0l2:if1l2), &
+                                     rpf(if0l2:if1l2))
+                end if
 
 
                 !
@@ -1272,7 +1295,7 @@
 
               ! If storing
               if (IRAM) then
-                indx = Red%indx(ffjtran,ia,iz,jcdir)
+                indx = Red%indx(ffjtran,ia,iz,jddir)
                 p_red => Red%dzao(indx)
               else
                 p_red => Red%dzao(1)
@@ -1289,17 +1312,35 @@
                 t0 = Atom(ia)%tfshift + 1
                 t1 = t0 + Atom(ia)%nftran - 1
 
-                call emissI2ord(Atom(ia),Geom,.True.,Atmo%vx(iz), &
-                                Atmo%vy(iz),Atmo%vz(iz), &
-                                Frec%omega,p_red, &
-                                Frec%stype(:,:,jddir),p_frec, &
-                                Frec%nth,Frec%nph, &
-                                Frec%nfs(jddir),p_Norm,jtran,fjtran, &
-                                itermu,iterml,iJu,iJl,iz,iph,ith, &
-                                if0l2,if1l2,DwT,Dw,vfac, &
-                                Atmo%vmi(iz),Stokes,JKQ(t0:t1), &
-                                JKQC(ggf0:ggf1),prof(if0l2:if1l2), &
-                                es2tmp(if0l2:if1l2),rpf(if0l2:if1l2))
+                ! Angle-average
+                if (AVI) then
+                  call emissI2ord_AA(Atom(ia),Geom, &
+                                     Atmo%vx(iz),Atmo%vy(iz), &
+                                     Atmo%vz(iz),Frec%omega,p_red, &
+                                     p_frec, &
+                                     p_Norm,jtran, &
+                                     fjtran,itermu,iterml,iJu,iJl, &
+                                     iz,if0l2,if1l2,DwT, &
+                                     Dw,vfac,Atmo%vmi(iz),Stokes, &
+                                     JKQ(t0:t1),JKQC(ggf0:ggf1), &
+                                     prof(if0l2:if1l2), &
+                                     es2tmp(if0l2:if1l2), &
+                                     rpf(if0l2:if1l2))
+                ! Angle-dependent
+                else
+                  call emissI2ord_AD(Atom(ia),Geom,.True., &
+                                     Atmo%vx(iz),Atmo%vy(iz), &
+                                     Atmo%vz(iz),Frec%omega,p_red, &
+                                     p_frec, &
+                                     p_Norm,1,jtran, &
+                                     fjtran,itermu,iterml,iJu,iJl, &
+                                     iz,if0l2,if1l2,DwT, &
+                                     Dw,vfac,Atmo%vmi(iz),Stokes, &
+                                     JKQ(t0:t1), &
+                                     prof(if0l2:if1l2), &
+                                     es2tmp(if0l2:if1l2), &
+                                     rpf(if0l2:if1l2))
+                end if
 
 
                 !

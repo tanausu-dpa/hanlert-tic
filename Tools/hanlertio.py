@@ -1807,7 +1807,7 @@ class _stokes_15D():
            _error('The requested column is out of bounds',1)
            return None
 
-        return self.__get_column(ix,iy,minl,maxl,fractional,[3])[3]
+        return self.__get_gen_column(ix,iy,minl,maxl,fractional,[3])[3]
 
     def _get_linear_column(self,ix,iy,minl=None,maxl=None,fractional=False):
         ''' Get Stokes V profile at a given column
@@ -1828,7 +1828,7 @@ class _stokes_15D():
            _error('The requested column is out of bounds',1)
            return None
 
-        qu = self.__get_column(ix,iy,minl,maxl,fractional,[1,2])
+        qu = self.__get_gen_column(ix,iy,minl,maxl,fractional,[1,2])
         return np.sqrt(qu[1]*qu[1] + qu[2]*qu[2])
 
     def _get_stokes_column(self,ix,iy,minl=None,maxl=None,fractional=False):
@@ -1851,7 +1851,7 @@ class _stokes_15D():
            _error('The requested column is out of bounds',1)
            return None
 
-        iquv = self.__get_column(ix,iy,minl,maxl,fractional,[0,1,2,3])
+        iquv = self.__get_gen_column(ix,iy,minl,maxl,fractional,[0,1,2,3])
         return np.stack((iquv[0],iquv[1],iquv[2],iquv[3]))
 
 
@@ -7733,6 +7733,11 @@ class hanlertio_class():
         # Not valid
         if not self.__valid:
             return None
+
+    def valid(self):
+        ''' Return if valid file
+        '''
+        return self.__valid
 
     def __verbose(self,msg,force=False):
         ''' Control verbosity

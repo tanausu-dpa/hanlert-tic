@@ -13,12 +13,14 @@
 !  Start:
 !     06/22/2022
 !  Last version:
-!     10/17/2023 V3.0.19
+!     11/14/2023 V3.0.20
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/14/2023:   V3.0.20 - Bugfix: Initialize 0 maxB in CLE (TdPA)
 !
 !     10/17/2023:   V3.0.19 - Damping arrays were not being fred in
 !                             TIC (TdPA)
@@ -1736,7 +1738,11 @@
       if (allocated(Input%mol)) deallocate(Input%mol)
 
       ! Trick maxB if not unmagnetized by force
-      if (.not.Input%unmagnetized) maxB = 1d0
+      if (Input%unmagnetized) then
+        maxB = 0d0
+      else
+        maxB = 1d0
+      end if
 
       ! Correct maxV
       if (Input%static) then

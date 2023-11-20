@@ -6,6 +6,8 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an
 # Hao Li
 #
+# 11/16/2023: V3.0.25 - Missing argument in os.path.isdir() (TdPA)
+#
 # 10/16/2023: V3.0.24 - Formatting (TdPA)
 #                     - Added ITER_NB (TdPA)
 #
@@ -2617,7 +2619,7 @@ def rInput():
       else:
         val = ofolder+'/Solution-folder'
         if MOD == 'R' or MOD == 'B':
-          if not os.path.isdir():
+          if not os.path.isdir(val):
             verbose(' # Solution folder not found', ofolder, \
                     verbosity)
             abort(f, filename)

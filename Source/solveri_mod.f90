@@ -12,12 +12,20 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     10/16/2023 V3.0.13
+!     11/14/2023 V3.0.15
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/14/2023:   V3.0.15 - Added termination paths in case of
+!                             error (TdPA)
+!
+!     10/31/2023:   V3.0.14 - Call scattering_manage in angular
+!                             loops in solvers (TdPA)
+!                           - Call get_scattering_los when computing
+!                             emergent LOS (TdPA)
 !
 !     10/16/2023:   V3.0.13 - Made LTElines allocatable to satisfy
 !                             memory warnings (TdPA)
@@ -470,6 +478,7 @@
       use aborted_mod
       use boundary_mod
       use commons_mod
+      use fieldb_mod
       use iosolution_mod
       use jcalci_mod
       use mrc_mod
@@ -1359,6 +1368,11 @@
               ! For each azimuthal direction
               do iph=1,Geom%nPh
 
+                !
+                ! If angle-dependent, manage scattering angles
+                if (.not.AVI.and.PRD) &
+                  call scattering_manage(Geom,ith,iph)
+
 
                 !
                 ! First height
@@ -1395,6 +1409,7 @@
                               Cont%c(:,:,:,o),Stokes(:,:,:,op), &
                               rLineO(:),rPhotO(:), &
                               data1M(:,0:1),data2O(:,:))
+                if (laborted) goto 3000
 
                 !
                 ! Store in buffer
@@ -1432,6 +1447,7 @@
                               Cont%c(:,:,:,p),Stokes(:,:,:,op), &
                               rLineO(:),rPhotO(:), &
                               data1O(:,0:1),data2O(:,:))
+                if (laborted) goto 3000
 
 
                 !
@@ -1594,6 +1610,9 @@
                   end if
                   nullify(rLineP,rPhotP)
 
+                  ! Error
+                  if (laborted) goto 3000
+
                 end do ! Intermedium heights
 
 
@@ -1627,6 +1646,7 @@
                              dsm,dsp,p_K0M,p_SM,p_K0O, &
                              p_SO,p_K0P,p_SP,p_StkM, &
                              p_StkO,p_LO,lALI,.False.)
+                if (laborted) goto 3000
 
 
                 !
@@ -1719,7 +1739,7 @@
             !
 
             ! If had an error
-            if (laborted) then
+3000        if (laborted) then
 
               ! Send error
               do while (.True.)
@@ -2044,6 +2064,9 @@
           if (gooutprd) exit
 
         end do ! PRD iteration
+
+        ! Control
+        if (laborted) goto 2000
 
 
         !
@@ -3352,6 +3375,10 @@
               ! For each azimuthal direction
               do iph=1,Geom%nPh
 
+                !
+                ! If angle-dependent, manage scattering angles
+                if (.not.AVI.and.PRD) &
+                  call scattering_manage(Geom,ith,iph)
 
                 !
                 ! First height
@@ -3388,6 +3415,7 @@
                               Cont%c(:,:,:,o),Stokes(:,:,:,op), &
                               rLineO(:),rPhotO(:), &
                               data1M(:,0:1),data2O(:,:))
+                if (laborted) goto 3000
 
 
                 !
@@ -3426,6 +3454,7 @@
                               Cont%c(:,:,:,p),Stokes(:,:,:,op), &
                               rLineO(:),rPhotO(:), &
                               data1O(:,0:1),data2O(:,:))
+                if (laborted) goto 3000
 
                 !
                 ! Intermedium heights
@@ -3585,6 +3614,9 @@
                   end if
                   nullify(rLineP,rPhotP)
 
+                  ! Error
+                  if (laborted) goto 3000
+
                 end do ! Intermedium heights
 
 
@@ -3618,6 +3650,7 @@
                              dsm,dsp,p_K0M,p_SM,p_K0O, &
                              p_SO,p_K0P,p_SP,p_StkM, &
                              p_StkO,p_LO,lALI,.False.)
+                if (laborted) goto 3000
 
                 !
                 ! Combine the value of lambda operator with the
@@ -3693,7 +3726,7 @@
                 !
 
                 ! If had an error
-                if (laborted) then
+3000            if (laborted) then
 
                   ! Send error
                   info_c = (/ -pid, ith, iph /)
@@ -4926,6 +4959,11 @@
             ! For each azimuthal direction
             do iph=1,Geom%nPh
 
+              !
+              ! If angle-dependent, manage scattering angles
+              if (.not.AVI.and.PRD) &
+                call scattering_manage(Geom,ith,iph)
+
 
               !
               ! First height
@@ -4960,6 +4998,7 @@
                             J00C(:,o),Cont%ndir, &
                             Cont%c(:,:,:,o),Stokes(:,:,:,op), &
                             rLineO,rPhotO,data1M(:,0:1),data2O)
+              if (laborted) goto 2000
 
               if (KSTK) Stokes_n(:,iph,ith,o) = data1M(:,2)
 
@@ -4996,6 +5035,7 @@
                             J00C(:,p),Cont%ndir, &
                             Cont%c(:,:,:,p),Stokes(:,:,:,op), &
                             rLineO,rPhotO,data1O(:,0:1),data2O)
+              if (laborted) goto 2000
 
               !
               ! Intermedium heights
@@ -5147,6 +5187,9 @@
                 end if
                 nullify(rLineP,rPhotP)
 
+                ! Error
+                if (laborted) goto 2000
+
               end do
 
               !
@@ -5179,6 +5222,7 @@
                            dsm,dsp,p_K0M,p_SM,p_K0O, &
                            p_SO,p_K0P,p_SP,p_StkM, &
                            p_StkO,p_LO,lALI,.False.)
+              if (laborted) goto 2000
 
               !
               ! Combine the value of lambda operator with the
@@ -6105,6 +6149,13 @@
           else
 
             !
+            ! Get geometry if PRD AD
+            !
+            if (PRD.and..not.AVI) &
+              call get_scattering_los(Geom,ith,iph)
+
+
+            !
             ! If calculating height of tau=1
             !
             if (Input%out_tau1.or.Input%out_contr) then
@@ -6680,6 +6731,12 @@
                         '   Doing direction ',icount,' of ',ncount
             call verbose
           end if
+
+          !
+          ! Get geometry if PRD AD
+          !
+          if (PRD.and..not.AVI) &
+            call get_scattering_los(Geom,ith,iph)
 
           ! If calculating contribution function
           if (Input%out_tau1.or.Input%out_contr) then

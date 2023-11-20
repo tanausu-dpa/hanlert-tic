@@ -12,12 +12,19 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     10/16/2023 V3.0.13
+!     11/14/2023 V3.0.14
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/14/2023:   V3.0.14 - Call scattering_manage in angular
+!                             loops in solvers (TdPA)
+!                           - Call get_scattering_los when computing
+!                             emergent LOS (TdPA)
+!                           - Added termination paths in case of
+!                             error (TdPA)
 !
 !     10/16/2023:   V3.0.13 - Made LTElines allocatable to satisfy
 !                             memory warnings (TdPA)
@@ -1119,6 +1126,10 @@
             ! For each azimuthal direction
             do iph=1,Geom%nPh
 
+              !
+              ! If angle-dependent, manage scattering angles
+              if (.not.AV.and.PRD) &
+                call scattering_manage(Geom,ith,iph)
 
               !
               ! First height
@@ -1154,7 +1165,7 @@
                            Cont%c(:,:,:,o),Bfield, &
                            Stokes(:,:,:,:,op), data1M(:,:,0:4), &
                            data2O)
-
+              if (laborted) goto 3000
 
               !
               ! Store in buffer
@@ -1179,6 +1190,7 @@
                            Cont%c(:,:,:,p),Bfield, &
                            Stokes(:,:,:,:,op),data1O(:,:,0:4), &
                            data2O)
+              if (laborted) goto 3000
 
 
               !
@@ -1263,6 +1275,9 @@
                 data2O => data2P
                 nullify(data1P,data2P)
 
+                ! Error
+                if (laborted) goto 3000
+
               end do ! Intermedium heights
 
 
@@ -1300,6 +1315,7 @@
                           p_SM,p_K0O,p_K1O,p_K2O, &
                           p_SO,p_K0P,p_SP,p_StkM, &
                           p_StkO,.False.)
+              if (laborted) goto 3000
 
               !
               ! Store in buffer
@@ -1320,7 +1336,7 @@
           !
 
           ! If had an error
-          if (laborted) then
+3000      if (laborted) then
 
             ! Send error
             do while (.True.)
@@ -2681,6 +2697,13 @@
             ! For each azimuthal direction
             do iph=1,Geom%nPh
 
+              ! Error
+              if (laborted) goto 3000
+
+              !
+              ! If angle-dependent, manage scattering angles
+              if (.not.AV.and.PRD) &
+                call scattering_manage(Geom,ith,iph)
 
               !
               ! First height
@@ -2716,6 +2739,7 @@
                            Cont%c(:,:,:,o),Bfield, &
                            Stokes(:,:,:,:,op), data1M(:,:,0:4), &
                            data2O)
+              if (laborted) goto 3000
 
 
               !
@@ -2741,6 +2765,7 @@
                            Cont%c(:,:,:,p),Bfield, &
                            Stokes(:,:,:,:,op),data1O(:,:,0:4), &
                            data2O)
+              if (laborted) goto 3000
 
 
               !
@@ -2825,6 +2850,9 @@
                 data2O => data2P
                 nullify(data1P,data2P)
 
+                ! Error
+                if (laborted) goto 3000
+
               end do ! Intermedium heights
 
 
@@ -2868,7 +2896,7 @@
               !
 
               ! If had an error
-              if (laborted) then
+3000          if (laborted) then
 
                 ! Send error
                 info_c = (/ -pid, ith, iph /)
@@ -3914,6 +3942,10 @@
           ! For each azimuthal direction
           do iph=1,Geom%nPh
 
+            !
+            ! If angle-dependent, manage scattering angles
+            if (.not.AV.and.PRD) &
+              call scattering_manage(Geom,ith,iph)
 
             !
             ! First height
@@ -3949,6 +3981,7 @@
                          Cont%c(:,:,:,o),Bfield, &
                          Stokes(:,:,:,:,op), &
                          data1M(:,:,0:4),data2O)
+            if (laborted) goto 2000
 
             if (KSTK) Stokes_n(:,:,iph,ith,o) = data1M(:,:,5)
 
@@ -3980,6 +4013,7 @@
                          Cont%c(:,:,:,p),Bfield, &
                          Stokes(:,:,:,:,op), &
                          data1O(:,:,0:4),data2O)
+            if (laborted) goto 2000
 
 
             !
@@ -4068,6 +4102,9 @@
               data2O => data2P
               nullify(data1P,data2P)
 
+              ! Error
+              if (laborted) goto 2000
+
             end do
 
             !
@@ -4104,6 +4141,7 @@
                         p_SM,p_K0O,p_K1O,p_K2O, &
                         p_SO,p_K0P,p_SP,p_StkM, &
                         p_StkO,.False.)
+            if (laborted) goto 2000
 
             if (KSTK) Stokes_n(:,:,iph,ith,o) = data1O(:,:,5)
 
@@ -4211,6 +4249,9 @@
 !$omp end do nowait
         end do ! atoms
 !$omp end parallel
+
+        ! Error 
+        if (laborted) goto 2000
 
 
         !
@@ -4535,7 +4576,7 @@
       end if
 
       ! Clean pointers
-      deallocate(data1M,data1O,data2O)
+2000  deallocate(data1M,data1O,data2O)
       nullify(data1M,data1O,data2O)
       nullify(p_K0M,p_K0O,p_K0P,p_SM,p_SO,p_SP)
       nullify(p_StkM,p_StkO)
@@ -4981,6 +5022,12 @@
           ! Slave
           !
           else
+
+            !
+            ! Get geometry if PRD AD
+            !
+            if (PRD.and..not.AV) &
+              call get_scattering_los(Geom,ith,iph)
 
             !
             ! Set geometrical tensors
@@ -5573,6 +5620,12 @@
 
         ! For each azimuthal LOS direction
         do iph=1,Geom%nPhLOS
+
+          !
+          ! Get geometry if PRD AD
+          !
+          if (PRD.and..not.AV) &
+            call get_scattering_los(Geom,ith,iph)
 
           !
           ! Set geometrical tensors
