@@ -718,7 +718,7 @@ WEIGHT_FILE
 INV_INIT
 --------
 
-  * MANDATORY
+  * OPTIONAL
 
   * Formats:
     
@@ -729,7 +729,7 @@ INV_INIT
 INV_MASK
 --------
 
-  * MANDATORY
+  * OPTIONAL
 
   * Formats:
     
@@ -740,7 +740,7 @@ INV_MASK
 CENTERED_DERIVATIVE
 -------------------
 
-  * MANDATORY
+  * OPTIONAL
 
   * Formats:
     

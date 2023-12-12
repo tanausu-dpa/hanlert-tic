@@ -2321,7 +2321,7 @@ WEIGHT_FILE
 INV_INIT
 --------
 
-  * MANDATORY
+  * OPTIONAL
 
   * Modes: INV
 
@@ -2334,7 +2334,7 @@ INV_INIT
 INV_MASK
 --------
 
-  * MANDATORY
+  * OPTIONAL
 
   * Modes: INV
 
@@ -2347,7 +2347,7 @@ INV_MASK
 CENTERED_DERIVATIVE
 -------------------
 
-  * MANDATORY
+  * OPTIONAL
 
   * Modes: INV
 
