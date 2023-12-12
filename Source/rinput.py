@@ -6,6 +6,14 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an
 # Hao Li
 #
+# 12/12/2023: V3.0.28 - Added REDI_COHW (TdPA)
+#                     - Ensure that "magnetic" is not considered
+#                       as "thermal" (TdPA)
+#
+# 11/27/2023: V3.0.27 - Classify INV_MASK as path (TdPA)
+#
+# 11/24/2023: V3.0.26 - Added INV_MASK (TdPA)
+#
 # 11/16/2023: V3.0.25 - Missing argument in os.path.isdir() (TdPA)
 #
 # 10/16/2023: V3.0.24 - Formatting (TdPA)
@@ -1169,7 +1177,8 @@ def rInput():
          'BARK_PD','BARK_DF','MPIDETAIL','OPERFORM','CHIANTI_PATH', \
          'SPECT_INPUT','ATOM_ION','ATOM_POPU','ATOM_FIX_POP', \
          'ATOM_ZERO_ION','DATA_FILE','INV_INIT','ATOM_NO_WAVE', \
-         'ATOM_FIX_POP_LTERM','LTE_LINE','WEIGHT_FILE','PSF_FWHM']
+         'ATOM_FIX_POP_LTERM','LTE_LINE','WEIGHT_FILE','PSF_FWHM', \
+         'INV_MASK']
   APP = ['ATOM_INPUT','ATOM_BACK','MOLECULE_INPUT','KURUCZ', \
          'ASYMM_INPUT','ATOM_FIX_POP','ATOM_ZERO_ION', \
          'ATOM_POPU', 'ATOM_ION','ATOM_FIX_POP_LTERM', \
@@ -3021,6 +3030,27 @@ def rInput():
     val = Dictionary['RED_COHW'][0]
     if val == 'N' or val == 'NO' or val == 'NON':
       f.write('-1\n')
+      dcoh = '-1'
+      check = 1
+    else:
+      try:
+        val = interpret(val)
+        dw = float(val)
+        f.write(val+'\n')
+        dcoh = val
+        check = 1
+      except:
+        pass
+  if check == 0:
+    f.write('-1\n')
+    dcoh = '-1'
+
+  # REDI_COHW
+  check = 0
+  if 'REDI_COHW' in Dictionary:
+    val = Dictionary['REDI_COHW'][0]
+    if val == 'N' or val == 'NO' or val == 'NON':
+      f.write('-1\n')
       check = 1
     else:
       try:
@@ -3031,7 +3061,7 @@ def rInput():
       except:
         pass
   if check == 0:
-    f.write('-1\n')
+    f.write(dcoh+'\n')
 
   # RED_MOD
   check = 0
@@ -4899,7 +4929,7 @@ def rInput():
     check = 0
     if 'TYPE_INVERSION' in Dictionary:
       val = Dictionary['TYPE_INVERSION'][0]
-      if 'T' in val and 'S' not in val:
+      if 'T' in val and 'ET' not in val and 'S' not in val:
         f.write('0\n')
         check = 1
       elif 'B' in val or 'M' in val and 'S' not in val:
@@ -5061,6 +5091,26 @@ def rInput():
         check = 1
     if check == 0:
       f.write('INIT\n')
+
+    # INV_MASK
+    check = 0
+    if 'INV_MASK' in Dictionary:
+      val = Dictionary['INV_MASK'][0]
+      if val.upper() in 'NONE':
+        f.write('NONE\n')
+        check = 1
+      else:
+        try:
+          f2=open(val)
+          f2.close()
+        except:
+          verbose(' # INV_MASK file not found '+val, \
+                  ofolder, verbosity)
+          abort(f, filename)
+        f.write(val+'\n')
+        check = 1
+    if check == 0:
+      f.write('NONE\n')
 
     # CENTERED_DERIVATIVE
     check = 0

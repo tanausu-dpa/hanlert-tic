@@ -908,9 +908,22 @@ RED_COHW
 
   * Formats:
     
-    - float: No
+    - float / string: No; Default: No
 
   * Description: Doppler widths from the line center from where to assume that the scattering is fully coherent.
+
+REDI_COHW
+---------
+
+  * OPTIONAL, ADVANCED
+
+  * Modes: 1D, 15D, CLE, INV
+
+  * Formats:
+    
+    - float / string: No; Default: RED_COHW
+
+  * Description: Doppler widths from the line center from where to assume that the scattering is fully coherent in only intensity problems.
 
 RED_MOD
 -------
@@ -2317,6 +2330,19 @@ INV_INIT
     - string: Init, file path
 
   * Description: Path, absolute or relative to the running directory, of a file with the result of a previous inversion. Init means starting from scratch.
+
+INV_MASK
+--------
+
+  * MANDATORY
+
+  * Modes: INV
+
+  * Formats:
+    
+    - string: None, file path
+
+  * Description: Path, absolute or relative to the running directory, of a file with a mask to determine pixels for which only the error will be calculated. This is only used when restarting from a previous file. The error will not be fully consistent with the model, as while it is kept unchanged, internally it is interpolated with splines from a (in general) new set of nodes.
 
 CENTERED_DERIVATIVE
 -------------------

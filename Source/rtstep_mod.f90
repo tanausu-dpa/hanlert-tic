@@ -10,12 +10,14 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     09/21/2023 V3.1.0
+!     11/27/2023 V3.1.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/27/2023:    V3.1.1 - Improved error verbosity (TdPA)
 !
 !     09/21/2023:    V3.1.0 - Removed I+Q/I-Q solution algorithm, now
 !                             solve the coupled equations. This solves
@@ -272,11 +274,11 @@
               write(umsg,'(A,3(i4,","),i5,A,'// &
                          '2(A,4(1x,es9.2)),'// &
                          '6(A,2(1x,es9.2)))') &
-              'Error in RTStep: NaN in Stokes parameters'// &
+              'Error in RTStep: NaN in Stokes'// &
               new_line('A')//'(ith,iph,iz,ifreq)=(', &
               ith,iph,iz,ifreq,')', &
-              new_line('A')//'Stokes(M):',StkM(:,ifreq), &
-              new_line('A')//'Stokes(O):',StkO(:,ifreq), &
+              new_line('A')//'Stk(M):',StkM(:,ifreq), &
+              new_line('A')//'Stk(O):',StkO(:,ifreq), &
               new_line('A')//'etaI(M),SI(M):', &
                           K0M(0,ifreq),SM(0,ifreq), &
               new_line('A')//'etaI(O),SI(O):', &
@@ -307,11 +309,11 @@
             write(umsg,'(A,3(i4,","),i5,A,'// &
                        '2(A,4(1x,es9.2)),'// &
                        '6(A,2(1x,es9.2)),A)') &
-            'Non-phys. Stokes par.'// &
+            'Non-phys. Stokes'// &
             new_line('A')//'(ith,iph,iz,ifreq)=(', &
             ith,iph,iz,ifreq,')', &
-            new_line('A')//'Stokes(M):',StkM(:,ifreq), &
-            new_line('A')//'Stokes(O):',StkO(:,ifreq), &
+            new_line('A')//'Stk(M):',StkM(:,ifreq), &
+            new_line('A')//'Stk(O):',StkO(:,ifreq), &
             new_line('A')//'etaI(M),SI(M):', &
                         K0M(0,ifreq),SM(0,ifreq), &
             new_line('A')//'etaI(O),SI(O):', &
@@ -352,11 +354,11 @@
               write(umsg,'(A,3(i4,","),i5,A,'// &
                          '2(A,4(1x,es9.2)),'// &
                          '6(A,2(1x,es9.2)))') &
-              'Non-phys. Stokes par.'// &
+              'Non-phys. Stokes'// &
               new_line('A')//'(ith,iph,iz,ifreq)=(', &
               ith,iph,iz,ifreq,')', &
-              new_line('A')//'Stokes(M):',StkM(:,ifreq), &
-              new_line('A')//'Stokes(O):',StkO(:,ifreq), &
+              new_line('A')//'Stk(M):',StkM(:,ifreq), &
+              new_line('A')//'Stk(O):',StkO(:,ifreq), &
               new_line('A')//'etaI(M),SI(M):', &
                           K0M(0,ifreq),SM(0,ifreq), &
               new_line('A')//'etaI(O),SI(O):', &
@@ -484,21 +486,22 @@
 #endif
               write(umsg,'(A,3(i4,","),i5,A,'// &
                          '2(A,4(1x,es8.1)),'// &
-                         '3(A,5(1x,es8.1)),'// &
-                         '2(A,3(4(1x,es8.1),A)),'// &
-                         'A,4(1x,es8.1))') &
-              'NaN in Stokes parameters'// &
+                         '3(A,5(1x,es8.1)))') &
+              'NaN in Stokes'// &
               new_line('A')//'(ith,iph,iz,ifreq)=(', &
               ith,iph,iz,ifreq,')', &
-              new_line('A')//'Stokes(M):',StkM(:,ifreq), &
-              new_line('A')//'Stokes(O):',StkO(:,ifreq), &
+              new_line('A')//'Stk(M):',StkM(:,ifreq), &
+              new_line('A')//'Stk(O):',StkO(:,ifreq), &
               new_line('A')//'etaI(M),S(M):', &
                           K0M(0,ifreq),SM(:,ifreq), &
               new_line('A')//'etaI(O),S(O):', &
                           K0O(0,ifreq),SO(:,ifreq), &
               new_line('A')//'etaI(P),S(P):', &
-                          K0P(0,ifreq),SP(:,ifreq), &
-              new_line('A')//'Kabs(M)'//new_line('A'), &
+                          K0P(0,ifreq),SP(:,ifreq)
+              call abortedS(umsg,urou,tid,.True.,.True.)
+              write(umsg,'(2(A,3(4(1x,es8.1),A)),'// &
+                         'A,4(1x,es8.1))') &
+              'Kabs(M)'//new_line('A'), &
                            K0M(:,ifreq),new_line('A'), &
                            K1M(:,ifreq),new_line('A'), &
                            K2M(:,ifreq),new_line('A'), &
@@ -508,7 +511,6 @@
                            K2O(:,ifreq),new_line('A'), &
               'Kabs(P)'//new_line('A'), &
                            K0P(:,ifreq)
-
               call abortedS(umsg,urou,tid,.True.,.True.)
 
             endif ! if NaN
@@ -524,38 +526,63 @@
 #ifdef _OPENMP
             tid = omp_get_thread_num() + 1
 #endif
-            write(umsg,'(A,3(i4,","),i5,A,'// &
-                       '2(A,4(1x,es8.1)),'// &
-                       '3(A,5(1x,es8.1)),'// &
-                       '2(A,3(4(1x,es8.1),A)),'// &
-                       'A,4(1x,es8.1),A)') &
-              'Non-phys. Stokes par.'// &
-              new_line('A')//'(ith,iph,iz,ifreq)=(', &
-              ith,iph,iz,ifreq,')', &
-              new_line('A')//'Stokes(M):',StkM(:,ifreq), &
-              new_line('A')//'Stokes(O):',StkO(:,ifreq), &
-              new_line('A')//'etaI(M),S(M):', &
-                          K0M(0,ifreq),SM(:,ifreq), &
-              new_line('A')//'etaI(O),S(O):', &
-                          K0O(0,ifreq),SO(:,ifreq), &
-              new_line('A')//'etaI(P),S(P):', &
-                          K0P(0,ifreq),SP(:,ifreq), &
-              new_line('A')//'Kabs(M)'//new_line('A'), &
-                           K0M(:,ifreq),new_line('A'), &
-                           K1M(:,ifreq),new_line('A'), &
-                           K2M(:,ifreq),new_line('A'), &
-              'Kabs(O)'//new_line('A'), &
-                           K0O(:,ifreq),new_line('A'), &
-                           K1O(:,ifreq),new_line('A'), &
-                           K2O(:,ifreq),new_line('A'), &
-              'Kabs(P)'//new_line('A'), &
-                           K0P(:,ifreq), &
-              new_line('A')//' do lin.'
-
             ! Do not quit if non-linear
             if (nolinear) then
+              write(umsg,'(A,3(i4,","),i5,A,'// &
+                         '2(A,4(1x,es8.1)),'// &
+                         '3(A,5(1x,es8.1)))') &
+                'Non-phys. Stokes'// &
+                new_line('A')//'(ith,iph,iz,ifreq)=(', &
+                ith,iph,iz,ifreq,')', &
+                new_line('A')//'Stk(M):',StkM(:,ifreq), &
+                new_line('A')//'Stk(O):',StkO(:,ifreq), &
+                new_line('A')//'etaI(M),S(M):', &
+                            K0M(0,ifreq),SM(:,ifreq), &
+                new_line('A')//'etaI(O),S(O):', &
+                            K0O(0,ifreq),SO(:,ifreq), &
+                new_line('A')//'etaI(P),S(P):', &
+                            K0P(0,ifreq),SP(:,ifreq)
+              call abortedS(umsg,urou,tid,.False.,.True.)
+              write(umsg,'(2(A,4(1x,es8.1),A,'// &
+                            '18x,2(1x,es8.1),A,'// &
+                            '28x,es8.1,A),A,4(1x,es8.1),A)') &
+                new_line('A')//'Kabs(M)'//new_line('A'), &
+                           K0M(:,ifreq),new_line('A'), &
+                           K1M(2:3,ifreq),new_line('A'), &
+                           K2M(3,ifreq),new_line('A'), &
+                'Kabs(O)'//new_line('A'), &
+                           K0O(:,ifreq),new_line('A'), &
+                           K1O(2:3,ifreq),new_line('A'), &
+                           K2O(3,ifreq),new_line('A'), &
+                'Kabs(P)'//new_line('A'), &
+                             K0P(:,ifreq), &
+                new_line('A')//' do lin.'
               call abortedS(umsg,urou,tid,.False.,.True.)
             else
+              write(umsg,'(A,3(i4,","),i5,A,'// &
+                         '2(A,4(1x,es8.1)),'// &
+                         '2(A,5(1x,es8.1)))') &
+                'Non-phys. Stokes'// &
+                new_line('A')//'(ith,iph,iz,ifreq)=(', &
+                ith,iph,iz,ifreq,')', &
+                new_line('A')//'Stk(M):',StkM(:,ifreq), &
+                new_line('A')//'Stk(O):',StkO(:,ifreq), &
+                new_line('A')//'etaI(M),S(M):', &
+                            K0M(0,ifreq),SM(:,ifreq), &
+                new_line('A')//'etaI(O),S(O):', &
+                            K0O(0,ifreq),SO(:,ifreq)
+              call abortedS(umsg,urou,tid,.False.,.True.)
+              write(umsg,'(2(A,4(1x,es8.1),A,'// &
+                            '18x,2(1x,es8.1),A,'// &
+                            '28x,es8.1))') &
+                new_line('A')//'Kabs(M)'//new_line('A'), &
+                           K0M(:,ifreq),new_line('A'), &
+                           K1M(2:3,ifreq),new_line('A'), &
+                           K2M(3,ifreq),new_line('A'), &
+                'Kabs(O)'//new_line('A'), &
+                           K0O(:,ifreq),new_line('A'), &
+                           K1O(2:3,ifreq),new_line('A'), &
+                           K2O(3,ifreq)
               call abortedS(umsg,urou,tid,.not.nphysS,.True.)
             end if
 
@@ -575,27 +602,30 @@
 
               write(umsg,'(A,3(i4,","),i5,A,'// &
                          '2(A,4(1x,es8.1)),'// &
-                         '2(A,5(1x,es8.1)),'// &
-                         '2(A,3(4(1x,es8.1),A)))') &
-                'Nonphys. Stokes par.'// &
+                         '2(A,5(1x,es8.1)))') &
+                'Non-phys. Stokes'// &
                 new_line('A')//'(ith,iph,iz,ifreq)=(', &
                 ith,iph,iz,ifreq,')', &
-                new_line('A')//'Stokes(M):',StkM(:,ifreq), &
-                new_line('A')//'Stokes(O):',StkO(:,ifreq), &
+                new_line('A')//'Stk(M):',StkM(:,ifreq), &
+                new_line('A')//'Stk(O):',StkO(:,ifreq), &
                 new_line('A')//'etaI(M),S(M):', &
                             K0M(0,ifreq),SM(:,ifreq), &
                 new_line('A')//'etaI(O),S(O):', &
-                            K0O(0,ifreq),SO(:,ifreq), &
+                            K0O(0,ifreq),SO(:,ifreq)
+              call abortedS(umsg,urou,tid,.False.,.True.)
+              write(umsg,'(2(A,4(1x,es8.1),A,'// &
+                            '18x,2(1x,es8.1),A,'// &
+                            '28x,es8.1,A))') &
                 new_line('A')//'Kabs(M)'//new_line('A'), &
-                             K0M(:,ifreq),new_line('A'), &
-                             K1M(:,ifreq),new_line('A'), &
-                             K2M(:,ifreq),new_line('A'), &
+                           K0M(:,ifreq),new_line('A'), &
+                           K1M(2:3,ifreq),new_line('A'), &
+                           K2M(3,ifreq),new_line('A'), &
                 'Kabs(O)'//new_line('A'), &
-                             K0O(:,ifreq),new_line('A'), &
-                             K1O(:,ifreq),new_line('A'), &
-                             K2O(:,ifreq),new_line('A')
-
+                           K0O(:,ifreq),new_line('A'), &
+                           K1O(2:3,ifreq),new_line('A'), &
+                           K2O(3,ifreq),''
               call abortedS(umsg,urou,tid,.not.nphysS,.True.)
+
 
             end if ! Physical Stokes parameters
           end if ! Physical Stokes parameters

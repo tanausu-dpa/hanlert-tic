@@ -10,12 +10,14 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     09/26/2023 V3.0.3
+!     11/24/2023 V3.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/24/2023:    V3.0.4 - Added Moleq_T (TdPA)
 !
 !     09/26/2023:    V3.0.3 - Bugfix: Needed absolute value for
 !                             energy, not mavxal (TdPA)
@@ -79,6 +81,10 @@
 !
 !  Moleq:
 !    Interpolates the equilibrium constant given the type of fit
+!
+!  Moleq_T:
+!    Interpolates the equilibrium constant given the type of fit
+!  for a given temperature
 !
 !  allocatemol:
 !    Allocates array of Mol_class
@@ -443,6 +449,105 @@
       end do
 
       end subroutine Moleq
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Computes the molecular equilibrium parameter for a given
+      !! temperature\n
+      !!    Mol(Mol_class): Structure with the molecule data\n
+      !!         T(dfloat): Temperature
+      double precision function Moleq_T(Mol,T)
+
+      ! I/O
+
+      type(Mol_class), intent(inout):: Mol
+      double precision, intent(in):: T
+
+      ! Local
+
+      integer:: ii
+
+      double precision:: x1, x2, x3, C0, fact
+
+
+      ! Routine name
+      urou = 'Moleq_T'
+
+
+      ! Initialize
+      Moleq_T = 0d0
+
+      ! If there are no coefficients, return
+      if (Mol%neqcoeff.eq.0) return
+
+      ! If temperature out of limits of molecule existence, skip
+      if (T.lt.Mol%Tmin.or.T.gt.Mol%Tmax) return
+
+      Moleq_T = Mol%eqcoeff(1)
+
+      if (Mol%pffit.eq.0) then
+
+        x1 = T
+        x2 = fktoJ/kb/T
+        x3 = log(T)
+        C0 = Mol%nAT - 1 - Mol%charge
+
+        do ii=2,Mol%neqcoeff
+          Moleq_T = Moleq_T*x1 + Mol%eqcoeff(ii)
+        end do
+
+        Moleq_T = exp(Mol%Den*x2 + Moleq_T - 1.5d0*C0*x3)
+
+      else if (Mol%pffit.eq.1) then
+
+        x1 = T*1d-4
+        x2 = fktoJ/kb/T
+        x3 = log(T)
+        C0 = Mol%nAT - 1 - Mol%charge
+
+        do ii=2,Mol%neqcoeff
+          Moleq_T = Moleq_T*x1 + Mol%eqcoeff(ii)
+        end do
+
+        Moleq_T = exp(Mol%Den*x2 + Moleq_T - 1.5d0*C0*x3)
+
+      else if (Mol%pffit.eq.2.or.Mol%pffit.eq.3) then
+
+        x1 = ktoev/T
+        x2 = kb*T
+        x3 = log10(x1)
+        C0 = Mol%nAT - 1 - Mol%charge
+
+        fact = 1d4/(1d-2**C0) !J->erg and m->cm / 10^3 ad-hoc
+
+        do ii=2,Mol%neqcoeff
+          Moleq_T = Moleq_T*x3 + Mol%eqcoeff(ii)
+        end do
+
+        Moleq_T = 1d1**(Mol%Den*fktoev*x1 - Moleq_T)*x2*fact
+
+      else if (Mol%pffit.eq.4) then
+
+        x1 = ktoev/T
+        x2 = kb*T
+
+        do ii=2,Mol%neqcoeff
+          Moleq_T = Moleq_T*x1 + Mol%eqcoeff(ii)
+        end do
+
+        Moleq_T = 1d1**(-Moleq_T)*x2*x2
+
+      else
+
+        umsg = ' # Unknown fit for equilibrium constant '// &
+               'function'
+        call aborted
+
+      end if
+
+      end function Moleq_T
 
 !#####################################################################
 !#####################################################################

@@ -10,12 +10,18 @@
 !  Start:
 !     02/22/2023
 !  Last version:
-!     10/04/2023 V3.1.8
+!     11/29/2023 V3.1.10
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/29/2023:   V3.1.10 - Masked pixels do not change their
+!                             model atmosphere now (TdPA)
+!
+!     11/24/2023:    V3.1.9 - Added inversion argument to pass to
+!                             LMFIT (TdPA)
 !
 !     10/04/2023:    V3.1.8 - Changed priority of the current pixel
 !                             verbosity (TdPA)
@@ -151,11 +157,13 @@
       !!                           data\n
       !!   Inf_Nodes(Nodes_class): Structure with nodes data\n
       !!      Sol(Solution_class): Class with the data of the RT
-      !!                           solution
+      !!                           solution\n
+      !!           imask(integer): Indicate if this pixel is masked
+      !!                           in the restart
       subroutine Inversion(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec, &
                            fudge,kurucz,MPID,Atmo_in, &
                            Bfield_in,Input,Inf_Stokes, &
-                           Inf_Nodes,Sol)
+                           Inf_Nodes,Sol,imask)
 
 
       ! IO
@@ -174,6 +182,7 @@
       type(Stokes_class), intent(inout):: Inf_Stokes
       type(Nodes_class), intent(inout):: Inf_Nodes
       type(Solution_class), intent(inout):: Sol
+      integer, intent(in):: imask
 
       ! Local
       type(Atmo_class):: Atmo
@@ -350,7 +359,7 @@
       Inf_Nodes%Const(Inf_Nodes%index_f) = Input%f_diff
 
       ! If retoring
-      if (trim(Input%Inv_init).ne.'INIT') then
+      if (trim(Input%Inv_init).ne.'INIT'.and.imask.eq.0) then
 
         ! Magnetic field inclination index
         i = Inf_Nodes%index_Bt
@@ -462,7 +471,7 @@
             end if ! If too small v azimuth
           end if ! vy or azimuth
         end if ! inverting vy or azimuth
-      end if ! Type of restore file
+      end if ! Type of restore file and mask
 
       ! If regularizing, initialize regularization
       if (Inf_Nodes%Regul_Flag) then
@@ -507,8 +516,9 @@
             Input%force = 'I'
 
             ! Interpolate into the atmosphere
-            call Intpol_Atmo_all(Inf_Nodes, Atmo, Bfield, Atom, &
-                                 Atomb, Mol, Input, fudge)
+            if (imask.eq.0) &
+              call Intpol_Atmo_all(Inf_Nodes, Atmo, Bfield, Atom, &
+                                   Atomb, Mol, Input, fudge)
 
             ! Allocate mangetic arrays
             allocate(Bfield0%Bstrength(Atmo%nZ))
@@ -529,7 +539,7 @@
             ! Fit the profiles
             call Fit(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge, &
                      kurucz,MPID,Atmo,Bfield0,Input,Inf_Stokes, &
-                     Inf_Nodes,Sol,.True.)
+                     Inf_Nodes,Sol,imask,.True.)
 
             ! Deallocate magnetic arrays
             deallocate(Bfield0%Bstrength,Bfield0%Btheta,Bfield0%Bphi)
@@ -554,13 +564,14 @@
             Input%force = 'N'
 
             ! Interpolate into the atmosphere
-            call Intpol_Atmo_all(Inf_Nodes, Atmo, Bfield, Atom, &
-                                 Atomb, Mol, Input, fudge)
+            if (imask.eq.0) &
+              call Intpol_Atmo_all(Inf_Nodes, Atmo, Bfield, Atom, &
+                                   Atomb, Mol, Input, fudge)
 
             ! Fit the profiles
             call Fit(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge, &
                      kurucz,MPID,Atmo,Bfield,Input,Inf_Stokes, &
-                     Inf_Nodes,Sol,.True.)
+                     Inf_Nodes,Sol,imask,.True.)
 
           end if ! Magnetic nodes
 
@@ -579,13 +590,14 @@
           Input%force = 'N'
 
           ! Interpolate into the atmosphere
-          call Intpol_Atmo_all(Inf_Nodes, Atmo, Bfield, Atom, Atomb, &
-                               Mol, Input, fudge)
+          if (imask.eq.0) &
+            call Intpol_Atmo_all(Inf_Nodes, Atmo, Bfield, Atom, &
+                                 Atomb, Mol, Input, fudge)
 
           ! Fit the profiles
           call Fit(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge, &
                    kurucz,MPID,Atmo,Bfield,Input,Inf_Stokes, &
-                   Inf_Nodes,Sol,.True.)
+                   Inf_Nodes,Sol,imask,.True.)
 
         ! Fit all, but not together
         case(3)
@@ -620,13 +632,14 @@
             Input%force = 'I'
 
             ! Interpolate into the atmosphere
-            call Intpol_Atmo_all(Inf_Nodes, Atmo, Bfield, Atom, &
-                                 Atomb, Mol, Input, fudge)
+            if (imask.eq.0) &
+              call Intpol_Atmo_all(Inf_Nodes, Atmo, Bfield, Atom, &
+                                   Atomb, Mol, Input, fudge)
 
             ! Fit the profiles
             call Fit(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge, &
                      kurucz,MPID,Atmo,Bfield0,Input,Inf_Stokes, &
-                     Inf_Nodes,Sol,.False.)
+                     Inf_Nodes,Sol,imask,.False.)
 
             ! Deallocate magnetic field quantities
             deallocate(Bfield0%Bstrength,Bfield0%Btheta,Bfield0%Bphi)
@@ -666,13 +679,14 @@
             Input%force = 'N'
 
             ! Interpolate into the atmosphere
-            call Intpol_Atmo_all(Inf_Nodes, Atmo, Bfield, Atom, &
-                                 Atomb, Mol, Input, fudge)
+            if (imask.eq.0) &
+              call Intpol_Atmo_all(Inf_Nodes, Atmo, Bfield, Atom, &
+                                   Atomb, Mol, Input, fudge)
 
             ! Fit profiles
             call Fit(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge, &
                      kurucz,MPID,Atmo,Bfield,Input,Inf_Stokes, &
-                     Inf_Nodes,Sol,.True.)
+                     Inf_Nodes,Sol,imask,.True.)
 
           end if
 
@@ -709,13 +723,14 @@
             Input%force = 'I'
 
             ! Interpolate into the atmosphere
-            call Intpol_Atmo_all(Inf_Nodes, Atmo, Bfield, Atom, &
-                                 Atomb, Mol, Input, fudge)
+            if (imask.eq.0) &
+              call Intpol_Atmo_all(Inf_Nodes, Atmo, Bfield, Atom, &
+                                   Atomb, Mol, Input, fudge)
 
             ! Fit the profiles
             call Fit(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge, &
                      kurucz,MPID,Atmo,Bfield0,Input,Inf_Stokes, &
-                     Inf_Nodes,Sol,.False.)
+                     Inf_Nodes,Sol,imask,.False.)
 
             ! Deallocate magnetic field quantities
             deallocate(Bfield0%Bstrength,Bfield0%Btheta,Bfield0%Bphi)
@@ -755,13 +770,14 @@
             Input%force = 'N'
 
             ! Interpolate into the atmosphere
-            call Intpol_Atmo_all(Inf_Nodes, Atmo, Bfield, Atom, &
-                                 Atomb, Mol, Input, fudge)
+            if (imask.eq.0) &
+              call Intpol_Atmo_all(Inf_Nodes, Atmo, Bfield, Atom, &
+                                   Atomb, Mol, Input, fudge)
 
             ! Fit profiles
             call Fit(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge, &
                      kurucz,MPID,Atmo,Bfield,Input,Inf_Stokes, &
-                     Inf_Nodes,Sol,.True.)
+                     Inf_Nodes,Sol,imask,.True.)
 
           end if
 
@@ -826,10 +842,12 @@
       !!     Inf_Nodes(Nodes_class): Structure with nodes data\n
       !!        Sol(Solution_class): Class with the data of the RT
       !!                             solution\n
+      !!             imask(integer): Indicate if this pixel is masked
+      !!                             in the restart\n
       !!            saving(logical): If the result is to be stored
       subroutine Fit(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge, &
                      kurucz,MPID,Atmo,Bfield,Input,Inf_Stokes, &
-                     Inf_Nodes,Sol,saving)
+                     Inf_Nodes,Sol,imask,saving)
 
 
       ! IO
@@ -849,6 +867,7 @@
       type(Nodes_class), intent(inout):: Inf_Nodes
       type(Solution_class), intent(inout):: Sol
       logical, intent(in):: saving
+      integer, intent(in):: imask
 
       ! Local
       type(LMFIT_class):: LM_Stru
@@ -898,7 +917,7 @@
       ! Call LM fit routine
       call LMFIT(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge,kurucz, &
                  MPID,Atmo,Bfield,Input,Inf_Stokes,Inf_Nodes,Sol, &
-                 LM_Stru,saving)
+                 LM_Stru,imask,saving)
 
       return
 

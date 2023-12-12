@@ -668,9 +668,20 @@ RED_COHW
 
   * Formats:
     
-    - float: No
+    - float / string: No; Default: No
 
   * Description: Doppler widths from the line center from where to assume that the scattering is fully coherent.
+
+REDI_COHW
+---------
+
+  * OPTIONAL, ADVANCED
+
+  * Formats:
+    
+    - float / string: No; Default: RED_COHW
+
+  * Description: Doppler widths from the line center from where to assume that the scattering is fully coherent in only intensity problems.
 
 RED_MOD
 -------

@@ -10,12 +10,14 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     06/29/2022 V3.0.0
+!     12/12/2023 V3.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     12/12/2023:    V3.0.1 - Added PB0 subroutine (TdPA)
 !
 !     06/29/2022:    V3.0.0 - Changed global version (TdPA)
 !
@@ -42,10 +44,14 @@
 !
 !  Data:
 !
-!  This subroutine calculates the energy eigenvalues and eigenvectors
-!  for a multiplet, in the magnetic-field regime of the incomplete
-!  Paschen-Back effect. Diagonality with respect to M is exploited
-!  for block-diagonalization
+!  PB:
+!    This subroutine calculates the energy eigenvalues and
+!    eigenvectors for a multiplet, in the magnetic-field regime of the
+!    incomplete Paschen-Back effect. Diagonality with respect to M is
+!    exploited for block-diagonalization
+!
+!  PB0:
+!    Initialize some quantities for zero field.
 !
 !#####################################################################
 !#####################################################################
@@ -283,6 +289,91 @@
       end if ! Multilevel or multiterm
 
       end subroutine PB
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Initialize sizes in atomic Hamiltonian for B=0\n
+      !!     iterm(integer): Term index\n
+      !!   Atom(Atom_class): Structure with the atomic data
+      subroutine PB0(iterm,Atom)
+
+      ! I/O
+
+      type(Atom_class),intent(inout):: Atom
+      integer, intent(in):: iterm
+
+      ! Local
+
+      integer:: nM,iM,iJ,iJ1,idJ,i,i1,j,j1,INFO
+
+      double precision:: rL,S,rM,rJ,rJ1,rJm,rJmin,rJmax
+      double precision:: pS,pJ,pJ1,comm
+
+      ! Get term quantities
+      rL = Atom%rLval(iterm)
+      S = Atom%Sval(iterm)
+
+      ! Multilevel
+      if (Atom%ML) then
+
+        rJ = Atom%rJval(1,iterm)
+        nM = nint(2d0*rJ + 1d0)
+
+        ! For each M
+        do iM=1,nM
+
+          ! Idenfity the J index for that M (only one)
+          Atom%iJval(1,iM,iterm) = 1
+
+          ! Size of the block of this M (just one)
+          Atom%nblk(iM,iterm) = 1
+
+        end do
+
+      ! Multiterm
+      else
+
+        rJmin = abs(rL - S)
+        rJmax = rL + S
+
+        nM = nint(2d0*rJmax + 1d0)
+
+        ! Run over the magnetic block
+        do iM=1,nM
+
+          rM = -rJmax + dble(iM-1)
+
+          rJm = max(abs(rM),rJmin)
+
+          ! initialize the column index
+          i=0
+
+          ! Column loop
+          do iJ = 1,Atom%nJ(iterm)
+
+            rJ = Atom%rJval(iJ,iterm)
+
+            if (rJ.ge.rJm) then
+
+              ! Increase the column index
+              i = i + 1
+
+              Atom%iJval(i,iM,iterm) = iJ
+
+            end if ! Test J compatibility with M
+
+          end do ! iJ
+
+          ! Block dimension
+          Atom%nblk(iM,iterm) = i
+
+        end do ! iM
+
+      end if ! Multilevel or multiterm
+
+      end subroutine PB0
 
 !#####################################################################
 !#####################################################################

@@ -10,12 +10,14 @@
 !  Start:
 !     02/16/2023
 !  Last version:
-!     10/16/2023 V3.1.11
+!     11/24/2023 V3.1.12
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/24/2023:   V3.1.12 - Added management of mask file (TdPA)
 !
 !     10/16/2023:   V3.1.11 - Fits support is optional now (TdPA)
 !
@@ -190,11 +192,11 @@
       logical:: double_jkq,receiving,atmojkq
       logical, dimension(:,:), allocatable:: cache
 
-      integer:: unitD,unitC,unitA,unitJ
-      integer:: ix0,iy0,ix1,iy1,ix2,iy2,ix,iy,inod,ip,iproc
+      integer:: unitD,unitC,unitA,unitJ,unitM
+      integer:: ix0,iy0,ix1,iy1,ix2,iy2,ix,iy,inod,ip,iproc,imask
       integer:: ia,ii,jj,NLOS,NLOSr,aindex,type_atmo_size
-      integer, dimension(3):: dims,out_dims,dims_atmo,int_buff
-      integer, dimension(4):: finfo
+      integer, dimension(3):: dims,out_dims,dims_atmo
+      integer, dimension(4):: int_buff,finfo
       integer, dimension(:), allocatable:: cpu_free
 
       double precision:: maxB, DwTa
@@ -247,6 +249,7 @@
       unitD = -1
       unitC = -1
       unitJ = -1
+      unitM = -1
 
       ! Slaves, add identifiers for verbosity if 1.5D
       if (gpid.gt.0.and.MPID%mpi15d) &
@@ -271,6 +274,9 @@
 
         ! Check if could read
         laborted = aborting
+
+        ! Open mask
+        call open_mask(Input,unitM,aborting,dims)
 
       end if ! G. master
 
@@ -1390,6 +1396,13 @@
                                   double_jkq,check)
                 end if
 
+                ! Get mask
+                if (unitM.gt.0) then
+                  read(unitM) imask
+                else
+                  imask = 0
+                end if
+
                 ! Store last read
                 ix1 = ix
                 iy1 = iy
@@ -1439,8 +1452,12 @@
               ! Take a free cpu
               ip = maxloc(cpu_free, 1)
 
+              ! Message
+              int_buff(1:3) = icoords
+              int_buff(4) = imask
+
               ! Send signal to node
-              call MPI_SEND(icoords(1), 3, MPI_INTEGER, &
+              call MPI_SEND(int_buff(1), 4, MPI_INTEGER, &
                             MPID%ltslave(ip), &
                             2000000+MPID%ltslave(ip), &
                             MPI_COMM_WORLD, ierr)
@@ -1536,12 +1553,12 @@
           end do ! While there is work to do
 
           ! If we are done, notify to slaves
-          icoords(1) = -1
+          int_buff(1) = -1
           iproc = 1
           do while (.True.)
 
             ! send termination signal
-            call MPI_SEND(icoords(1), 3, MPI_INTEGER, &
+            call MPI_SEND(int_buff(1), 4, MPI_INTEGER, &
                           MPID%ltslave(iproc), &
                           2000000+MPID%ltslave(iproc), &
                           MPI_COMM_WORLD, ierr)
@@ -1573,7 +1590,7 @@
               do while (.True.)
 
                 ! Wait for signal
-                call MPI_RECV(icoords(1), 3, MPI_INTEGER, 0, &
+                call MPI_RECV(int_buff(1), 4, MPI_INTEGER, 0, &
                               2000000+gpid, MPI_COMM_WORLD, &
                               MPI_STATUS_IGNORE, ierr)
 
@@ -1581,7 +1598,7 @@
                 if (ierr.ne.0) cycle
 
                 ! Check if it is the termination signal
-                if (icoords(1).lt.1) then
+                if (int_buff(1).lt.1) then
                   aborting = .True.
                   exit
                 end if
@@ -1610,14 +1627,14 @@
               do while (.True.)
 
                 ! Broadcast
-                call MPI_BCAST(icoords(1), 3, MPI_INTEGER, 0, &
+                call MPI_BCAST(int_buff(1), 4, MPI_INTEGER, 0, &
                                MPI_COMM_RT, ierr)
 
                 ! If it fails
                 if (ierr.ne.0) cycle
 
                 ! If aborting
-                if (icoords(1).lt.1) then
+                if (int_buff(1).lt.1) then
                   aborting = .True.
                   exit
                 end if
@@ -1637,6 +1654,10 @@
               end do ! Try communicating until successfull
 
             end if ! MPI in RT
+
+            ! Get coords
+            icoords = int_buff(1:3)
+            imask = int_buff(4)
 
             ! Problem
             if (aborting) exit
@@ -1763,7 +1784,7 @@
             call Inversion(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec, &
                            fudge,kurucz,MPID,Atmo_in, &
                            Bfield_in,Input,Inf_Stokes, &
-                           Inf_Nodes,Sol)
+                           Inf_Nodes,Sol,imask)
 
             ! Clean atmosphere?
             if (s_atmo_buffer.gt.0.or.restoring) &
@@ -1880,6 +1901,13 @@
               jj = s_transfer_buffer
               call get_column(unitJ,p_transfer_buffer(ii:jj), &
                               double_jkq,check)
+            end if
+
+            ! Get mask
+            if (unitM.gt.0) then
+              read(unitM) imask
+            else
+              imask = 0
             end if
 
             ! Store last read
@@ -2030,14 +2058,14 @@
           call Inversion(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec, &
                          fudge,kurucz,MPID,Atmo_in, &
                          Bfield_in,Input,Inf_Stokes, &
-                         Inf_Nodes,Sol)
+                         Inf_Nodes,Sol,imask)
 
           ! Clean Atmo?
           if (s_atmo_buffer.gt.0.or.restoring) &
             call free_Atmo(Atmo_in,.False.)
 
           ! Copy coords
-          int_buff = icoords
+          int_buff(1:3) = icoords
 
           ! Convert ix coordinate into node coordinate
           int_buff(1) = &
@@ -2065,6 +2093,7 @@
       if (gpid.eq.0.and.unitD.gt.0) call close_file(unitD)
       if (gpid.eq.0.and.unitC.gt.0) call close_file(unitC)
       if (gpid.eq.0.and.unitJ.gt.0) call close_file(unitJ)
+      if (gpid.eq.0.and.unitM.gt.0) call close_file(unitM)
 
 
       !

@@ -10,12 +10,14 @@
 !  Start:
 !     04/19/2017
 !  Last version:
-!     09/08/2023 V3.0.3
+!     11/24/2023 V3.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/24/2023:    V3.0.4 - Added getpf_T routine (TdPA)
 !
 !     09/08/2023:    V3.0.3 - Added return value to recallabund_ind
 !                             and recallmass_ind in case of failure,
@@ -121,6 +123,10 @@
 !
 !  atom_index2char:
 !    Gets the atom ID given the atomic number
+!
+!  getpf_T:
+!    Gets the partition function of an element or ion for an specific
+!  temperature
 !
 !  getpf:
 !    Gets the partition function of an element or ion
@@ -778,6 +784,111 @@
       atom_index2char = symbols(atm*2-1:atm*2)
 
       end function atom_index2char
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Returns particion function of the atom for one given
+      !! temperature\n
+      !!       Ele(character(:)): ID of the atom\n
+      !!           nstg(integer): Number of stages there is
+      !!                          information on partition function\n
+      !!         pf(dfloat(:,:)): Partition function\n
+      !!           Ei(dfloat(:)): Ionization energy\n
+      !!        Atmo(Atmo_class): Structure with PF data\n
+      !!               T(dfloat): Temperature
+      subroutine getpf_T(Ele,nstg,pf,Ei,Atmo,T)
+
+      ! I/O
+
+      type(Atmo_class), intent(in):: Atmo
+      character(len=2), intent(in):: Ele
+      integer, intent(out):: nstg
+      double precision, intent(in):: T
+      double precision, dimension(:), allocatable, intent(out):: Ei
+      double precision, dimension(:), allocatable, intent(out):: pf
+
+      ! Local
+
+      logical:: interp
+
+      integer:: istg, ii, iele, ind
+
+      double precision:: x0, x1, y0, y1, dx
+
+      ! Routine name
+      urou = 'getpf_T'
+
+      ! Allocate the partition function and ionization energies
+      iele = atom_char2index(Ele)
+      nstg = Atmo%ele(iele)%nstg
+      allocate(pf(nstg))
+      allocate(Ei(nstg))
+
+      ! If out of boundaries, take it constant
+      if (T.le.Atmo%pT(1)) then
+
+        interp = .False.
+        ind = 1
+
+      else if (T.ge.(Atmo%pT(Atmo%NT) - 1d-6)) then
+
+        interp = .False.
+        ind = Atmo%NT
+
+      ! If within boundaries, look for the index of the
+      ! lower input boundary and store the denominator
+      ! of the interpolation
+      else
+
+        do ii=1,Atmo%NT-1
+
+          ! Exact
+          if (abs(T - Atmo%pT(ii)).le.1d-6) then
+            interp = .False.
+            ind = ii
+            exit
+          else if (T.gt.Atmo%pT(ii).and. &
+                   T.lt.Atmo%pT(ii+1)) then
+            interp = .True.
+            ind = ii
+            dx = 1d0/(Atmo%pT(ii+1) - Atmo%pT(ii))
+            exit
+          end if
+
+        end do
+
+      end if
+
+      ! For each stage
+      do istg=1,nstg
+
+        ! If interpolating
+        if (interp) then
+
+          y1 = Atmo%ele(iele)%pf(ind + 1,istg)
+          y0 = Atmo%ele(iele)%pf(ind,istg)
+          x1 = Atmo%pT(ind + 1)
+          x0 = Atmo%pT(ind)
+
+          pf(istg) = ((y1 - y0)*T + y0*x1 - y1*x0)*dx
+
+        ! if not interpolating
+        else
+
+          pf(istg) = Atmo%ele(iele)%pf(ind,istg)
+
+        end if
+
+        ! Ionization energy
+        Ei(istg) = Atmo%ele(iele)%Ei(istg)
+
+      end do ! Ionization stages
+
+      return
+
+      end subroutine getpf_T
 
 !#####################################################################
 !#####################################################################

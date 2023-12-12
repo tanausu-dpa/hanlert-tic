@@ -34,6 +34,10 @@ HanleRT-TIC is written in standard Fortran 2008, parallelized with the OpenMPI
 libraries. The code also has some parsing routines written in python to
 allow for more flexible input formats.
 
+The code has been made publicly available within the framework of the POLMAG
+project funded by an Advanced Grant of the European Research Council (see the
+`POLMAG webpage <http://research.iac.es/proyecto/polmag/>`_).
+
 ************
 Terms of use
 ************

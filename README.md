@@ -39,7 +39,7 @@ In both cases, please, include a link to the code repository
 Authors
 =======
 
-* Tanausú del Pino Alemán 
+* Tanausú del Pino Alemán
 
 * Hao Li
 

@@ -12,12 +12,20 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     10/31/2023 V3.1.0
+!     11/24/2023 V3.1.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/24/2023:    V3.1.1 - Enter calculation of Warr2 and
+!                             deallocation of p_warr2 pointer only if
+!                             there were frequencies (TdPA)
+!                           - Bugfix: getJinnu could be called with
+!                             out of range indexes (TdPA)
+!                           - Bugfix: In coherent scattering one
+!                             should not multiply by CRD either (TdPA)
 !
 !     10/31/2023:    V3.1.0 - Reworked emissI2ord significantly into
 !                             emissI2ord_AA and emissI2ord_AD (TdPA)
@@ -1066,7 +1074,7 @@
           ! Create array of Wfunc
           !
 
-          if (PRDc) then
+          if (PRDc.and.nmfreq.gt.0) then
 
             ! Initialize array
             if (nmfreq.gt.0) then
@@ -1271,13 +1279,13 @@
                                 Fin%ggf1-Fin%ggf0+1,omegai)
 
                   ! Fully coherent contribution
-                  PRD(ifreq) = CRD(ifreq)*y0
+                  PRD(ifreq) = y0
 
                 ! Static
                 else
 
                   ! Fully coherent contribution
-                  PRD(ifreq) = CRD(ifreq)*p_JKQ(ifreq)
+                  PRD(ifreq) = p_JKQ(ifreq)
 
                 end if ! Dynamic
 
@@ -1302,7 +1310,7 @@
               ! Initialize
               PRD(ifreq) = sum(p_warr2(jjfreq+1:jjfreq+p_mfreq)* &
                                Jin(jjfreq+1:jjfreq+p_mfreq))
-                         
+
               ! Update jjfreq
               jjfreq = jjfreq + p_mfreq
 
@@ -1311,7 +1319,7 @@
 !$omp end parallel
 
           ! Clean warr2
-          if (LIRAM) deallocate(p_warr2)
+          if (LIRAM.and.nmfreq.gt.0) deallocate(p_warr2)
           nullify(p_warr2)
 
           !
@@ -1695,7 +1703,7 @@
           ! Create array of Wfunc
           !
 
-          if (PRDc) then
+          if (PRDc.and.nmfreq.gt.0) then
 
             ! Initialize array
             if (nmfreq.gt.0) then
@@ -2175,7 +2183,7 @@
 #endif
 
           ! Clean warr2
-          if (LIRAM) deallocate(p_warr2)
+          if (LIRAM.and.nmfreq.gt.0) deallocate(p_warr2)
           nullify(p_warr2)
 
 
@@ -3865,17 +3873,17 @@
       !> Interpolates J00 to the requested frequency\n
       !!  omega(dfloat(:)): Frequency array\n
       !!    JKQ(dfloat(:)): Radiation field tensor\n
-      !!    ifreq(integer): Frequency index of the output frequency
+      !!    kfreq(integer): Frequency index of the output frequency
       !!                    associated to the requested input
       !!                    frequency (shifted to limited vector)\n
       !!    nfreq(integer): Size of input vectors\n
       !!                    associated to the requested input
       !!                    frequency (shifted to limited vector)\n
       !!         x(dfloat): Input frequency to interpolate into
-      function getJinnu(omega,JKQ,ifreq,nfreq,x)
+      function getJinnu(omega,JKQ,kfreq,nfreq,x)
 
       ! I/O
-      integer, intent(in):: ifreq,nfreq
+      integer, intent(in):: kfreq,nfreq
       double precision, intent(in):: x
       double precision, dimension(:), intent(in):: omega
       double precision, dimension(:), intent(in):: JKQ
@@ -3883,10 +3891,20 @@
       double precision:: getJinnu
 
       ! Local
-      integer:: jfreq
+      integer:: jfreq,ifreq
       double precision:: dxs,dys
 
-      ! Initialize as equals
+
+      ! Check limits
+      if (kfreq.lt.1) then
+        ifreq = 1
+      else if (kfreq.gt.nfreq) then
+        ifreq = nfreq
+      else
+        ifreq = kfreq
+      end if
+
+      ! Init as "equal"
       getJinnu = JKQ(ifreq)
 
       ! If omegai > omega(ifreq)
@@ -3909,7 +3927,6 @@
             if (abs(x - omega(jfreq)).lt.TINYO) then
 
               getJinnu = JKQ(jfreq)
-
               return
 
             ! If the input is between this
@@ -3939,7 +3956,6 @@
         if (x.le.omega(1)+TINYO) then
 
           getJinnu = JKQ(1)
-
           return
 
         ! If within boundaries, look for where
@@ -3953,7 +3969,6 @@
             if (abs(x - omega(jfreq)).lt.TINYO) then
 
               getJinnu = JKQ(jfreq)
-
               return
 
             ! If the input is between this
@@ -3967,7 +3982,6 @@
 
               getJinnu = dxs*dys/(omega(jfreq) - omega(jfreq-1)) + &
                          JKQ(jfreq-1)
-
               return
 
             end if ! Check output frequency

@@ -2616,7 +2616,8 @@
                         ! Add contribution to the JKQC integral
                         J00C(ifreq,iz) = J00C(ifreq,iz) + &
                                         Stokes0(ifreq,iph,ith,1)* &
-                                        GeomI%W_mu(ith)*GeomI%W_mux(iph)
+                                        GeomI%W_mu(ith)* &
+                                        GeomI%W_mux(iph)
 
                       end do ! frequencies
                     end do ! azimuthal nodes
@@ -2787,7 +2788,8 @@
                       ! Add contribution to the JKQC integral
                       J00C(ifreq,iz) = J00C(ifreq,iz) + &
                                        Stokes0(ifreq,iph,ith,iz)* &
-                                       GeomI%W_mu(ith)*GeomI%W_mux(iph)
+                                       GeomI%W_mu(ith)* &
+                                       GeomI%W_mux(iph)
 
                     end do ! azimuthal nodes
                   end do ! polar nodes

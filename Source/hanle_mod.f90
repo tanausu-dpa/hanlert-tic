@@ -12,12 +12,18 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     11/14/2023 V3.2.1
+!     12/12/2023 V3.2.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     12/12/2023:    V3.2.3 - Call diabon_B0 in absence of magnetic
+!                             fields (TdPA)
+!
+!     11/24/2023:    V3.2.2 - Do not normalize for intensity if there
+!                             are no iterations to make (TdPA)
 !
 !     11/14/2023:    V3.2.1 - Bugfix: When failing to read Stokes
 !                             from a solution file, checking "lio"
@@ -623,10 +629,8 @@
       complex(kind=8), dimension(:,:,:,:), allocatable:: JKQS
       complex(kind=8), dimension(:,:,:,:), allocatable:: JKQC
 
-
       ! Initialize frequency and redistribution pointer
       nullify(Frec%dzao)
-
 
       ! If forcing the problem to be static for intensity, but it
       ! is dynamic
@@ -1538,9 +1542,9 @@
       nullify(Red%dzao)
 
       !
-      ! Formal solution
+      ! Formal solution and iterating
       !
-      if (lio) then
+      if (lio.and.Input%iteri_max.ge.Input%iteri_min) then
 
         ! Normalize first order
         call normalization(Atom,LTElines,Atmo,Atmo%zeros,GeomI, &
@@ -1936,6 +1940,10 @@
           umsg = ' - Hamiltonian diagonalized'
           call verbose
         end if
+      else
+        do ia=1,nA
+          call diagon_B0(Atom(ia))
+        end do
       end if
 
       !

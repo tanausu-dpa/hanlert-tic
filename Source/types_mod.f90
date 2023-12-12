@@ -13,12 +13,18 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     11/14/2023 V3.0.25
+!     12/12/2023 V3.0.27
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     12/12/2023:   V3.0.27 - Added cohwi and dcohwi to the
+!                             Input_class type (TdPA)
+!
+!     11/24/2023:   V3.0.26 - Added pfs to catm_class (TdPA)
+!                           - Added Inv_mask to Input_class (TdPA)
 !
 !     11/14/2023:   V3.0.25 - Removed nfs and stype from the
 !                             Frequency_class structure (TdPA)
@@ -1308,10 +1314,10 @@
         ! Abundance
         double precision:: abun = 0
 
-        ! Ionization eng
-        double precision, dimension(:), allocatable:: Eion
+        ! Ionization eng, PF single height
+        double precision, dimension(:), allocatable:: Eion,pfs
 
-        ! PF
+        ! PF, height dependent
         double precision, dimension(:,:), allocatable:: pf
 
       end type catm_class
@@ -1747,7 +1753,7 @@
                   NG, keep_back, keep_damp, keep_cols, bfieldn, &
                   keep_aparam, altbcast, addbb, keep_atmo, memo, &
                   protect_H, NGI, RAMreport, chem_protect_all, &
-                  asym, g_perf, mpi_perf, keep_jkqnu, cohw, &
+                  asym, g_perf, mpi_perf, keep_jkqnu, cohw, cohwi, &
                   keep_sol, keep_pop, keep_dep, keep_rhoKQ, &
                   keep_JKQ, keep_stokesQ, keep_MRC, IWskip, &
                   skip_disk, lspect_input, rest_tau, rest_z, AVI, &
@@ -1852,7 +1858,7 @@
         ! of the star for CLE, minimum tauc to consider, maximum tauc
         ! to consider, minimum height to consider, maximum height to
         ! consider
-        double precision:: dw, MIT_node, dcohw, minT, maxT, maxV, &
+        double precision:: dw,MIT_node,dcohw,dcohwi,minT,maxT,maxV, &
                            omega_ref,T_rad,R_star,r0tc,r1tc,r0z,r1z
 
         ! LOS polar mus, LOS azimuthal angles
@@ -1882,9 +1888,10 @@
         type(Node_class), dimension(:), allocatable:: Node
 
         ! Filename with input Stokes profiles, filename of file to
-        ! restore the inversion from, name of the output file
+        ! restore the inversion from, name of the output file,
+        ! filename of file with mask
         character(len=500):: Filename_Ob, Inv_init, &
-                             Output_file
+                             Output_file, Inv_mask
 
         ! Inversion ID
         character(len=9) IDv

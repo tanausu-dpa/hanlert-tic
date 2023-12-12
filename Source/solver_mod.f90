@@ -4250,7 +4250,7 @@
         end do ! atoms
 !$omp end parallel
 
-        ! Error 
+        ! Error
         if (laborted) goto 2000
 
 

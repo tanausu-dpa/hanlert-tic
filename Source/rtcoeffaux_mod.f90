@@ -12,12 +12,21 @@
 !  Start:
 !     04/27/2017
 !  Last version:
-!     11/14/2023 V3.1.0
+!     11/29/2023 V3.1.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/29/2023:    V3.1.2 - With coherent scattering, wrong use of
+!                             the JKQ tensors with Q < 0 (TdPA)
+!
+!     11/24/2023:    V3.1.1 - Enter calculation of Warr2 and
+!                             deallocation of p_warr2 pointer only if
+!                             there were frequencies (TdPA)
+!                           - Bugfix: getJKQinnu could be called
+!                             with out of range indexes (TdPA)
 !
 !     11/14/2023:    V3.1.0 - Reworked emiss2ord significantly into
 !                             emiss2ord_AA and emiss2ord_AD (TdPA)
@@ -3378,7 +3387,7 @@
         ! Create array of Wfunc
         !
 
-        if (PRDc) then
+        if (PRDc.and.nmfreq.gt.0) then
 
           ! Initialize array
           if (nmfreq.gt.0) then
@@ -3734,9 +3743,16 @@
               ! Check if static and coherent
               cohIn = dyn.or.abs(wlf).gt.0d0
 
-              ! If coherent, just point
-              if (minval(p_frec%mfreq).lt.1) &
-                p_JKQC(Fin%ggf0:Fin%ggf1) => JKQinMV(iQ,K,:)
+              ! If coherent
+              if (minval(p_frec%mfreq).lt.1) then
+
+                ! Just point
+                if (conj) then
+                  p_JKQC(Fin%ggf0:Fin%ggf1) => JKQinMV(-iPP,K,:)
+                else
+                  p_JKQC(Fin%ggf0:Fin%ggf1) => JKQinMV(iPP,K,:)
+                end if
+              end if
 
               ! If storing Warr
               if (LPRAM) then
@@ -3781,13 +3797,22 @@
                                       Fin%ggf1-Fin%ggf0+1,omegai)
 
                       ! Fully coherent contribution
-                      PRD(ifreq) = CRD(ifreq)*y0
+                      if (conj) then
+                        PRD(ifreq) = sig*CRD(ifreq)*conjg(y0)
+                      else
+                        PRD(ifreq) = CRD(ifreq)*y0
+                      end if
 
                     ! Interpolate
                     else
 
                       ! Fully coherent contribution
-                      PRD(ifreq) = CRD(ifreq)*p_JKQC(ifreq)
+                      if (conj) then
+                        PRD(ifreq) = sig*CRD(ifreq)* &
+                                     conjg(p_JKQC(ifreq))
+                      else
+                        PRD(ifreq) = CRD(ifreq)*p_JKQC(ifreq)
+                      end if
 
                     end if
 
@@ -3848,7 +3873,7 @@
               end do ! Output frequencies ranges
 
               ! Clean p_warr2
-              if (LPRAM) deallocate(p_warr2)
+              if (LPRAM.and.nmfreq.gt.0) deallocate(p_warr2)
               nullify(p_warr2)
 
               ! Clean JKQ
@@ -4653,7 +4678,7 @@
         ! Create array of Wfunc
         !
 
-        if (PRDc) then
+        if (PRDc.and.nmfreq.gt.0) then
 
           ! Initialize array
           if (nmfreq.gt.0) then
@@ -5360,7 +5385,7 @@
               end if ! Axial symmetry
 
               ! Clean p_warr2
-              if (LPRAM) deallocate(p_warr2)
+              if (LPRAM.and.nmfreq.gt.0) deallocate(p_warr2)
               nullify(p_warr2)
 
               !
@@ -5941,7 +5966,7 @@
         ! Create array of Wfunc
         !
 
-        if (PRDc) then
+        if (PRDc.and.nmfreq.gt.0) then
 
           ! Initialize array
           if (nmfreq.gt.0) then
@@ -6098,13 +6123,21 @@
         if (dyn) then
 
           ! Just point
-          p_JKQC(Fin%ggf0:Fin%ggf1) => JKQinMV(iQ,K,:)
+          if (conj) then
+            p_JKQC(Fin%ggf0:Fin%ggf1) => JKQinMV(-iQ,K,:)
+          else
+            p_JKQC(Fin%ggf0:Fin%ggf1) => JKQinMV(iQ,K,:)
+          end if
 
         ! If static
         else
 
           ! Just point
-          p_JKQC(Fin%ggf0:Fin%ggf1) => JKQC(iQ,K,Fin%ggf0:Fin%ggf1)
+          if (conj) then
+            p_JKQC(Fin%ggf0:Fin%ggf1) => JKQC(-iQ,K,Fin%ggf0:Fin%ggf1)
+          else
+            p_JKQC(Fin%ggf0:Fin%ggf1) => JKQC(iQ,K,Fin%ggf0:Fin%ggf1)
+          end if
 
         end if
       end if
@@ -6167,13 +6200,21 @@
                               Fin%ggf1-Fin%ggf0+1,omegai)
 
               ! Fully coherent contribution
-              PRD(ifreq) = CRD(ifreq)*y0
+              if (conj) then
+                PRD(ifreq) = sig*CRD(ifreq)*conjg(y0)
+              else
+                PRD(ifreq) = CRD(ifreq)*y0
+              end if
 
             ! Full coherent
             else
 
               ! Fully coherent contribution
-              PRD(ifreq) = CRD(ifreq)*p_JKQC(ifreq)
+              if (conj) then
+                PRD(ifreq) = sig*CRD(ifreq)*conjg(p_JKQC(ifreq))
+              else
+                PRD(ifreq) = CRD(ifreq)*p_JKQC(ifreq)
+              end if
 
             end if
 
@@ -6246,7 +6287,7 @@
 !$omp end parallel
 
       ! Clean p_warr2
-      if (LPRAM) deallocate(p_warr2)
+      if (LPRAM.and.nmfreq.gt.0) deallocate(p_warr2)
       nullify(p_warr2)
 
       ! Clean JKQ
@@ -6871,7 +6912,7 @@
         ! Create array of Wfunc
         !
 
-        if (PRDc) then
+        if (PRDc.and.nmfreq.gt.0) then
 
           ! Initialize array
           if (nmfreq.gt.0) then
@@ -7476,7 +7517,7 @@
 #endif
 
       ! Clean p_warr2
-      if (LPRAM) deallocate(p_warr2)
+      if (LPRAM.and.nmfreq.gt.0) deallocate(p_warr2)
       nullify(p_warr2)
 
       !
@@ -9606,17 +9647,17 @@
       !> Interpolates JKQ to the requested frequency\n
       !!  omega(dfloat(:)): Frequency array\n
       !!  JKQ(dcomplex(:)): Radiation field tensor\n
-      !!    ifreq(integer): Frequency index of the output frequency
+      !!    kfreq(integer): Frequency index of the output frequency
       !!                    associated to the requested input
       !!                    frequency (shifted to limited vector)\n
       !!    nfreq(integer): Size of input vectors\n
       !!                    associated to the requested input
       !!                    frequency (shifted to limited vector)\n
       !!         x(dfloat): Input frequency to interpolate into
-      function getJKQinnu(omega,JKQ,ifreq,nfreq,x)
+      function getJKQinnu(omega,JKQ,kfreq,nfreq,x)
 
       ! I/O
-      integer, intent(in):: ifreq,nfreq
+      integer, intent(in):: kfreq,nfreq
       double precision, intent(in):: x
       double precision, dimension(:), intent(in):: omega
       complex(kind=8), dimension(:), intent(in):: JKQ
@@ -9624,11 +9665,21 @@
       complex(kind=8):: getJKQinnu
 
       ! Local
-      integer:: jfreq
+      integer:: jfreq,ifreq
       double precision:: dxs
       complex(kind=8):: dys
 
-      ! Initialize as equals
+
+      ! Check limits
+      if (kfreq.lt.1) then
+        ifreq = 1
+      else if (kfreq.gt.nfreq) then
+        ifreq = nfreq
+      else
+        ifreq = kfreq
+      end if
+
+      ! Initialize as "equal"
       getJKQinnu = JKQ(ifreq)
 
       ! If omegai > omega(ifreq)

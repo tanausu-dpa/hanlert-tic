@@ -10,12 +10,14 @@
 !  Start:
 !     02/22/2023
 !  Last version:
-!     10/16/2023 V3.0.17
+!     11/24/2023 V3.0.18
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/24/2023:   V3.0.18 - Added open_mask routine (TdPA)
 !
 !     10/16/2023:   V3.0.17 - The fits support is optional (TdPA)
 !
@@ -148,6 +150,9 @@
 !  open_data_and_cache:
 !    Open the data file and return the dimensions and information
 !  about its content
+!
+!  open_mask:
+!    Open the mask file and return the unit number
 !
 !  get_data_wavelength:
 !    Read the wavelength axis from the input data file
@@ -850,6 +855,64 @@
 #endif
 
       end subroutine open_data_and_cache
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Open binary file and cache file if present. Return
+      !! sucess and cache file usage\n
+      !!     Input(Input_class): Structure with settings data\n
+      !!         unitM(integer): Unit to open mask file\n
+      !!      aborting(logical): Indicate failure at output\n
+      !!       dims(integer(3)): Grid dimensions (X,Y,L)
+      subroutine open_mask(Input,unitM,aborting,dims)
+
+      ! I/O
+      type(Input_class), intent(in):: Input
+      logical, intent(out):: aborting
+      integer, intent(out):: unitM
+      integer, dimension(:), intent(in):: dims
+
+      ! Local
+      logical:: check
+      integer, dimension(2):: ldims
+
+
+      ! If Mask none, return
+      if (trim(Input%Inv_mask).eq.'NONE') return
+
+      ! If from scratch, return
+      if (trim(Input%Inv_init).eq.'INIT') return
+
+      !
+      ! Give unit a number
+      !
+      unitM = 20
+
+      !
+      ! Open data file to read
+      !
+      call open_file(unitM,Input%Inv_mask,0,.False.,check)
+
+      ! Check could open
+      if (.not.check) then
+        aborting = .True.
+        return
+      end if
+
+      ! Read dimensions
+      read(unitM) ldims
+
+      ! Check dimensions
+      if (ldims(1).ne.dims(1).or.ldims(2).ne.dims(2)) then
+        umsg = ' # Mask file has wrong dimensions'
+        call verbose
+      end if
+
+      return
+
+      end subroutine open_mask
 
 !#####################################################################
 !#####################################################################

@@ -1515,6 +1515,7 @@ class _stokes_15D():
                     msg = f'I have guessed that this is ' + \
                           f'an incomplete polarization file'
                     _error(msg,0)
+                    self.__column_size = self.__nl*16
 
                 # No sign change
                 else:
@@ -1525,6 +1526,7 @@ class _stokes_15D():
                     msg = f'I have guessed that this is ' + \
                           f'an incomplete intensity file'
                     _error(msg,0)
+                    self.__column_size = self.__nl*4
 
             except:
 
@@ -2946,10 +2948,10 @@ class _atmo_15D():
                            r'N$_{\rm H_1}$',r'N$_{\rm H_2}$', \
                            r'N$_{\rm H_3}$',r'N$_{\rm H_4}$', \
                            r'N$_{\rm p^+}$']
-            self.__alias = ['h','tau','chic$','T','Pg','rho', \
+            self.__alias = ['h','tau','chic','T','Pg','rho', \
                             'Bx','By','Bz','vx','vy','vz', \
-                            'vmi','Pe','Ne','NHT','NHa', \
-                            'NH-','NH0','NH1','NH2','NH3','NH4','Np']
+                            'vmi','Pe','ne','nHT','nHa', \
+                            'nH-','nH0','nH1','nH2','nH3','nH4','np']
             self.__vars_units = ['[km]','',r'[cm$^{-1}$]', \
                                  '[K]',r'[dyn cm$^{-2}$]', \
                                 r'[g cm$^{-3}$]','[G]','[G]','[G]', \

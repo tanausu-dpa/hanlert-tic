@@ -12,12 +12,42 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     11/16/2023 V3.0.14
+!     12/12/2023 V3.0.18
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     12/12/2023:   V3.0.18 - Account for the intensity flag for
+!                             coherent scattering when solving only
+!                             intensity (TdPA)
+!
+!     11/29/2023:   V3.0.17 - Improved the information in the too big
+!                             velocity shift message (TdPA)
+!
+!     11/27/2023:   V3.0.16 - Bugfix: Wrong initialization of a
+!                             variable (TdPA)
+!
+!     11/24/2023:   V3.0.15 - To check if neglecting PRD, if coherent
+!                             wing, or if core, consider the
+!                             maximum possible displacement. Also only
+!                             check transition energy if there are
+!                             not MIT lines (TdPA)
+!                           - If no ranges for output frequencies,
+!                             indicate zero size before skip (TdPA)
+!                           - Skip saving space for redistribution if
+!                             no output range (TdPA)
+!                           - RAM in redistribution structure must be
+!                             initialized to false in case there are
+!                             no redistributions to compute (e.g.,
+!                             only coherent wings) and the iPRD
+!                             variables get not allocated (TdPA)
+!                           - Bugfixes: The coherent scattering in
+!                             wings was wrong, missing shifts for the
+!                             intensity and a mistake in the logic
+!                             to chose the relevant input frequency
+!                             range in both (TdPA)
 !
 !     11/16/2023:   V3.0.14 - Bugfix: When AD, dynamic, and LOS, the
 !                             output direction to check i_scatt must
@@ -590,8 +620,8 @@
 
       ! Local
 
-      logical:: init, core, cohw
-      logical:: Yfield
+      logical:: init, core, cohw, gcohw
+      logical:: Yfield,lPRD
       logical:: warmed, MIT
       logical, dimension(:), allocatable:: protect
       logical, dimension(:), allocatable:: vMIT
@@ -609,13 +639,14 @@
       double precision:: S,rLf,rLu,rLl,rJf,rJu,rJu1,rJl,rJl1
       double precision:: rJfmax,rJumax,rJlmax,maxV,disp
       double precision:: rMf,rMu,rMu1,rMl,rMl1,q,q1,p,p1
-      double precision:: prdcohw
+      double precision:: prdcohw,prdneg,vfacl,vfacr
       double precision, dimension(:), allocatable:: omegaaux
       double precision, dimension(:), allocatable:: omega
       double precision, dimension(:), allocatable:: nut
       double precision, dimension(:), allocatable:: DwT
       double precision, dimension(:), allocatable:: DwTL
       double precision, dimension(:), allocatable:: DwTmin
+      double precision, dimension(:), allocatable:: DwTmax
       double precision, dimension(:), allocatable:: compfact
       double precision, dimension(:,:), allocatable:: tmp_lim
       double precision, dimension(:,:), allocatable:: tmp_limL
@@ -654,22 +685,31 @@
 
       end if
 
+      ! Maximum and minimum Doppler widths
+      vfacl = 1d0 - Input%maxV
+      vfacr = 1d0 + Input%maxV
+
+      ! Compute minimum and maximum Doppler width
+      allocate(DwTmax(nA),DwTmin(nA))
+      do ia=1,nA
+        DwTmax(ia) = Atom(ia)%cDopp*sqrt(Input%maxT)
+        DwTmin(ia) = Atom(ia)%cDopp*sqrt(Input%minT)
+      end do
+
       ! Take the Doppler width from the input
       allocate(DwT(nA))
 
       ! Maximum Doppler width
       if(Input%dws.eq.'MAX')then
 
-        do ia=1,nA
-          DwT(ia) = Atom(ia)%cDopp*sqrt(Input%maxT)
-        end do
+        ! Copy
+        DwT = DwTmax
 
       ! Minimum Doppler width
       else if(Input%dws.eq.'MIN')then
 
-        do ia=1,nA
-          DwT(ia) = Atom(ia)%cDopp*sqrt(Input%minT)
-        end do
+        ! Copy
+        DwT = DwTmin
 
       ! Or fixed input Doppler width
       else if(Input%dws.eq.'NUM')then
@@ -709,17 +749,6 @@
 
         end if
       end if ! LTE lines
-
-      ! Compute minimum Doppler width if coherent wing
-      if (Input%cohw) then
-
-        allocate(DwTmin(nA))
-
-        do ia=1,nA
-          DwTmin(ia) = Atom(ia)%cDopp*sqrt(Input%minT)
-        end do
-
-      end if
 
       ! Correct nfreq if including MIT transitions
       if (Input%MIT_input.ge.0) then
@@ -1012,10 +1041,11 @@
                   call verbose
                   warmed = .True.
                 end if
-                write(umsg,'(A,i4,",",i4,3A)') &
+                write(umsg,'(A,i4,",",i4,3A,2(f6.1,A))') &
                   ' - Warning: transition ',itran,it,' in ', &
                   Atom(ia)%Element,' atom can be shifted more '// &
-                  'than half of the total width specified'
+                  'than half of the total width specified (', &
+                  disp,'>',Atom(ia)%Dwvl(itran),'/2)'
                 call verbose
               else if (disp.gt.Atom(ia)%Dwvlc(itran)) then
                 if (.not.warmed) then
@@ -1027,10 +1057,11 @@
                   call verbose
                   warmed = .True.
                 end if
-                write(umsg,'(A,i4,",",i4,3A)') &
+                write(umsg,'(A,i4,",",i4,3A,2(f6.1,A))') &
                   ' - Warning: transition ',itran,it,' in ', &
                   Atom(ia)%Element,' atom can be shifted more '// &
-                  'than the core width specified'
+                  'than the core width specified (', &
+                  disp,'>',Atom(ia)%Dwvlc(itran),')'
                 call verbose
               else if (2d0*disp.gt.Atom(ia)%Dwvlc(itran)) then
                 if (.not.warmed) then
@@ -1042,10 +1073,11 @@
                   call verbose
                   warmed = .True.
                 end if
-                write(umsg,'(A,i4,",",i4,3A)') &
+                write(umsg,'(A,i4,",",i4,3A,2(f6.1,A))') &
                   ' - Warning: transition ',itran,it,' in ', &
                   Atom(ia)%Element,' atom can be shifted more '// &
-                  'than half of the core width specified'
+                  'than half of the core width specified (', &
+                  disp,'>',Atom(ia)%Dwvlc(itran),'/2)'
                 call verbose
               end if
             end do
@@ -1624,11 +1656,41 @@
       ! For each atom
       do ia=1,nA
 
-        ! Distance to consider PRD in the core
-        prdc = Input%red_pars(7)*DwT(ia)
+        ! If forcing intensity only
+        if (Input%force.eq.'I') then
 
-        ! Distance to consider coherent scattering in wing
-        if (Input%cohw) prdcohw = Input%dcohw*DwTmin(ia)
+          ! Distance to consider PRD
+          prdneg = Input%redi_pars(3)*DwTmax(ia)
+
+          ! Distance to consider PRD in the core
+          prdc = Input%redi_pars(7)*DwT(ia)
+
+          ! Distance to consider coherent scattering in wing
+          if (Input%cohwi) then
+            gcohw = .True.
+            prdcohw = Input%dcohwi*DwTmax(ia)
+          else
+            gcohw = .False.
+          end if
+
+        ! Potentially doing polarization
+        else
+
+          ! Distance to consider PRD
+          prdneg = Input%red_pars(3)*DwTmax(ia)
+
+          ! Distance to consider PRD in the core
+          prdc = Input%red_pars(7)*DwT(ia)
+
+          ! Distance to consider coherent scattering in wing
+          if (Input%cohw) then
+            gcohw = .True.
+            prdcohw = Input%dcohw*DwTmax(ia)
+          else
+            gcohw = .False.
+          end if
+
+        end if
 
         ! For each b-b transitions
         do itran=1,Atom(ia)%ntran
@@ -1657,28 +1719,73 @@
             if (Frec%omega(ifreq).ge.tmp_lim(1,ktran).and. &
                 Frec%omega(ifreq).le.tmp_lim(2,ktran)) then
 
-              ! Add weight to the node
+              ! Initialize
+              lPRD = .False.
+
+              ! If PRD line
               if (Atom(ia)%lemiss2(itran).and.PRD) then
+
+                ! For each pair of levels
+                do iJu=1,Atom(ia)%nJ(itermu)
+                  do iJl=1,Atom(ia)%nJ(iterml)
+
+                    ! If no MIT, check radiative
+                    if (.not.MIT) then
+                      if (Atom(ia)%fst(itran)%irad(iJu,iJl).lt.1) &
+                        cycle
+                    end if
+
+                    ! Get transition frequency
+                    v = Atom(ia)%FSfreq(iJu,itermu) - &
+                        Atom(ia)%FSfreq(iJl,iterml)
+
+                    ! Check shifted frequencies
+                    if (abs(v - Frec%omega(ifreq)*vfacl).lt. &
+                        prdneg.or. &
+                        abs(v - Frec%omega(ifreq)*vfacr).lt. &
+                        prdneg) then
+                      lPRD = .True.
+                      exit
+                    end if
+
+                  end do
+                  if (lPRD) exit
+                end do
+
+              end if ! PRD line
+
+              ! If PRD frequency
+              if (lPRD) then
 
                 ! Initialize flag
                 core = .False.
 
                 ! Coherent wing?
-                if (Input%cohw) then
+                if (gcohw) then
 
                   ! Initialize flag
                   cohw = .True.
 
+                  ! Pair of levels
                   do iJu=1,Atom(ia)%nJ(itermu)
                     do iJl=1,Atom(ia)%nJ(iterml)
 
-                      if (Atom(ia)%fst(itran)%irad(iJu,iJl).lt.1) &
-                        cycle
+                      ! If no MIT
+                      if (.not.MIT) then
+                        ! Check radiative transition
+                        if (Atom(ia)%fst(itran)%irad(iJu,iJl).lt.1) &
+                          cycle
+                      end if
 
+                      ! Transition frequency
                       v = Atom(ia)%FSfreq(iJu,itermu) - &
                           Atom(ia)%FSfreq(iJl,iterml)
 
-                      if (abs(v - Frec%omega(ifreq)).lt.prdcohw) then
+                      ! Check shifted frequency
+                      if (abs(v - Frec%omega(ifreq)*vfacl).lt. &
+                          prdcohw.or. &
+                          abs(v - Frec%omega(ifreq)*vfacr).lt. &
+                          prdcohw) then
                         cohw = .False.
                         exit
                       end if
@@ -1697,18 +1804,29 @@
                 ! If not coherent wing
                 if (.not.cohw) then
 
+                  ! Get compact factor
                   cmpf = compfact(ktran)
 
+                  ! Pairs of levels
                   do iJu=1,Atom(ia)%nJ(itermu)
                     do iJl=1,Atom(ia)%nJ(iterml)
 
-                      if (Atom(ia)%fst(itran)%irad(iJu,iJl).lt.1) &
-                        cycle
+                      ! If no MIT
+                      if (.not.MIT) then
+                        ! Check radiative transition
+                        if (Atom(ia)%fst(itran)%irad(iJu,iJl).lt.1) &
+                          cycle
+                      end if
 
+                      ! Transition frequency
                       v = Atom(ia)%FSfreq(iJu,itermu) - &
                           Atom(ia)%FSfreq(iJl,iterml)
 
-                      if (abs(v - Frec%omega(ifreq)).lt.prdc) then
+                      ! Check shifted frequency
+                      if (abs(v - Frec%omega(ifreq)*vfacl).lt. &
+                          prdc.or. &
+                          abs(v - Frec%omega(ifreq)*vfacr).lt. &
+                          prdc) then
                         core = .True.
                         exit
                       end if
@@ -1719,6 +1837,7 @@
 
                 end if ! Non-coherent wings
 
+                ! If line core
                 if (core) then
 
                     if (nint(prdf*cmpf).eq.1) &
@@ -1728,6 +1847,7 @@
                                         nint(cmpf*prdf* &
                                              (LPRDW + LCRDW + 1))
 
+                ! If coherent wing
                 else if (cohw) then
 
                     if (nint(cmpf).eq.1) &
@@ -1736,6 +1856,7 @@
                     Frec%IW_freq(ifreq) = Frec%IW_freq(ifreq) + &
                                         nint(cmpf*(LCOHW + LCRDW + 1))
 
+                ! If normal wing
                 else
 
                     if (nint(cmpf).eq.1) &
@@ -3375,7 +3496,6 @@
 
                       ! If we skip this frequency
                       if(skip.or.ifreq.eq.if1) then
-
                         if(.not.lskip) then
                           if (ifreq.eq.if1) then
                             bf1 = ifreq
@@ -3404,7 +3524,14 @@
                   ! Store in the array
                   Frec%dzao(indx)%nran = nran
 
-                  if (Frec%dzao(indx)%nran.lt.1) cycle
+                  ! No ranges
+                  if (Frec%dzao(indx)%nran.lt.1) then
+
+                    ! No frequencies
+                    Frec%dzao(indx)%nfreq = 0
+                    cycle
+
+                  end if
 
                   ! Allocate the ranges
                   allocate(Frec%dzao(indx)%if0(nran))
@@ -4693,28 +4820,45 @@
                   !
                   ! Look for the indexes
 
+                  !
                   ! Left
-                  do while (.True.)
 
-                    ! Check if already inside
-                    if (Frec%omega(lifreq)*vfac1.ge.O0) exit
+                  ! Only if not beyond already
+                  if (Frec%omega(lifreq)*vfac1.lt.O0) then
 
-                    lifreq = lifreq + 1
-                    if (lifreq.gt.nfreq) exit
+                    ! Search
+                    do while (.True.)
 
-                  end do
+                      ! Check if next inside
+                      if (Frec%omega(lifreq+1)*vfac1.gt.O0) exit
 
+                      ! Advance
+                      lifreq = lifreq + 1
+                      if ((lifreq+1).gt.nfreq) exit
+
+                    end do ! Search
+
+                  end if ! Need to search
+
+                  !
                   ! Right
-                  do while (.True.)
 
-                    ! Check if already inside
-                    if (Frec%omega(jfreq)*vfac1.le.O1) exit
+                  ! Only if not beyond already
+                  if (Frec%omega(jfreq)*vfac1.gt.O1) then
 
-                    jfreq = jfreq - 1
-                    if (jfreq.lt.1) exit
+                    ! Search
+                    do while (.True.)
 
-                  end do
+                      ! Check if already inside
+                      if (Frec%omega(jfreq-1)*vfac1.lt.O1) exit
 
+                      ! Advance
+                      jfreq = jfreq - 1
+                      if ((jfreq-1).lt.1) exit
+
+                    end do
+
+                  end if ! Need to search
 
                   ! Update global limits
                   if (lifreq.lt.Frec%dzao(indx)%ggf0) &
@@ -5488,7 +5632,8 @@
                     skip_scatt = .True.
                     nskip = Geom%nScatt
 
-                    ! Check scattering angles for this output direction
+                    ! Check scattering angles for this output
+                    ! direction
                     do ith1=1,Geom%nTh
                       do iph1=1,Geom%nPh2
 
@@ -5513,9 +5658,15 @@
                   ! For each height
                   do iz=Rz0,Rz1
 
-                    ! Get index
+                    ! Get indexes
                     indxf = Frec%indx(jtran,ia,iz,jbdir)
                     indx = Red%indx(jtran,ia,iz,jdir)
+
+                    ! Initialize
+                    Red%dzao(indx)%trani(iti)%RAM = .False.
+
+                    ! If no range, skip
+                    if (Frec%dzao(indxf)%nran.lt.1) cycle
 #ifdef _OPENMP
                     ! If multi-thread
                     if (omp) then
@@ -5575,7 +5726,6 @@
                     MPID%RAM = MPID%RAM + SRAM
                     MPID%WRAM = MPID%WRAM + SRAM
 !$omp flush(MPID)
-
                     Red%dzao(indx)%trani(iti)%RAM = .True.
 
                     ! Allocate initialize flag
@@ -6593,7 +6743,7 @@
 
                 ! Transform the searching parameters from normalized
                 ! to proper frequency units
-                red_cohwW = Input%dcohw*Dw
+                red_cohwW = Input%dcohwi*Dw
                 red_resoW = Input%redi_pars(2)*Dw
                 red_neglW = Input%redi_pars(3)*Dw
                 red_coreW = Input%redi_pars(7)*Dw
@@ -6678,7 +6828,14 @@
                   ! Store in the array
                   Frec%dzao(indx)%nran = nran
 
-                  if (Frec%dzao(indx)%nran.lt.1) cycle
+                  ! No ranges
+                  if (Frec%dzao(indx)%nran.lt.1) then
+
+                    ! No frequencies
+                    Frec%dzao(indx)%nfreq = 0
+                    cycle
+
+                  end if
 
                   ! Allocate the ranges
                   allocate(Frec%dzao(indx)%if0(nran))
@@ -6815,7 +6972,7 @@
       Frec%dzao(indx)%trani(iti)%mfreq(iifreq) = 0
 
       ! Coherent wings?
-      if (Input%cohw) then
+      if (Input%cohwi) then
 
         ! Check distance
         if (abs(nut - Frec%omega(ifreq)*vfac).lt.red_cohwW) then
@@ -7595,8 +7752,51 @@
             jbdir = jdir
           end if
 
+          !
+          ! If coherent wings, compute vfac
+          if (Input%cohwi) then
+
+            ! If dynamic
+            if (dyn) then
+
+              ! If line of sight
+              if (LOS) then
+
+                ith = ithv(jdir)
+                iph = iphv(jdir)
+                ct = Geom%L_mu(ith)
+                st = sqrt(1d0 - ct*ct)
+                cc = cos(Geom%L_phi(iph))
+                sc = sin(Geom%L_phi(iph))
+
+              ! If quadrature
+              else
+
+                ith = ithv(jdir)
+                iph = iphv(jdir)
+                ct = Geom%V_mu(ith)
+                st = sqrt(1d0 - ct*ct)
+                cc = Geom%v_mux(iph)
+                sc = Geom%v_muy(iph)*sqrt(1d0 - cc*cc)
+
+              end if
+
+            ! not-dynamic
+            else
+
+              vfac = 1d0
+
+            end if
+          end if
+
           ! For each height
           do iz=Rz0,Rz1
+
+            ! Calculate Doppler shift factor
+            if (dyn.and.Input%cohwi) &
+              vfac = 1d0 - atmo%vx(iz)*st*cc - &
+                           atmo%vy(iz)*st*sc - &
+                           atmo%vz(iz)*ct
 
             ! For each upper level
             do itermu=2,Atom(ia)%nMulti
@@ -7818,27 +8018,45 @@
                       !
                       ! Look for the indexes
 
+                      !
                       ! Left
-                      do while (.True.)
 
-                        ! Check if already inside
-                        if (Frec%omega(lifreq)*vfac1.ge.O0) exit
+                      ! Only if not beyond already
+                      if (Frec%omega(lifreq)*vfac1.lt.O0) then
 
-                        lifreq = lifreq + 1
-                        if (lifreq.gt.nfreq) exit
+                        ! Search
+                        do while (.True.)
 
-                      end do
+                          ! Check if next inside
+                          if (Frec%omega(lifreq+1)*vfac1.gt.O0) exit
 
+                          ! Advance
+                          lifreq = lifreq + 1
+                          if ((lifreq+1).gt.nfreq) exit
+
+                        end do ! Search
+
+                      end if ! Need to search
+
+                      !
                       ! Right
-                      do while (.True.)
 
-                        ! Check if already inside
-                        if (Frec%omega(jfreq)*vfac1.le.O0) exit
+                      ! Only if not beyond already
+                      if (Frec%omega(jfreq)*vfac1.gt.O0) then
 
-                        jfreq = jfreq - 1
-                        if (jfreq.lt.1) exit
+                        ! Search
+                        do while (.True.)
 
-                      end do
+                          ! Check if already inside
+                          if (Frec%omega(jfreq-1)*vfac1.lt.O0) exit
+
+                          ! Advance
+                          jfreq = jfreq - 1
+                          if ((jfreq-1).lt.1) exit
+
+                        end do
+
+                      end if ! Need to search
 
                       ! Update global limits
                       if (lifreq.lt.Frec%dzao(indx)%ggf0) &
@@ -8164,6 +8382,11 @@
 
                       ! Get index
                       indx = Red%indx(ffjtran,ia,iz,jdir)
+
+                      ! Initialize
+                      do iti=1,Atom(ia)%trano(ffktran)%nt
+                        Red%dzao(indx)%trani(iti)%RAM = .False.
+                      end do
 #ifdef _OPENMP
                       ! If multi-thread
                       if (omp) then

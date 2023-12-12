@@ -11,14 +11,19 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     10/16/2023 V3.0.17
+!     12/12/2023 V3.0.19
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     09/29/2023:   V3.0.16 - Read Input%two_step_pol (TdPA)
+!     12/12/2023:   V3.0.19 - Read Input%dcohwi and use it to set
+!                             Input%cohwi (TdPA)
+!
+!     11/24/2023:   V3.0.18 - Read Input%Inv_mask (TdPA)
+!
+!     09/29/2023:   V3.0.17 - Read Input%two_step_pol (TdPA)
 !
 !     09/29/2023:   V3.0.16 - Read Input%Kcut_input, Input%keep_coll,
 !                             Input%keep_mpil, and variable
@@ -982,6 +987,10 @@
       read(100,*,err=1100) Input%dcohw
       Input%cohw = Input%dcohw.gt.0d0
 
+      ! Coherent wings in the observers frame
+      read(100,*,err=1100) Input%dcohwi
+      Input%cohwi = Input%dcohwi.gt.0d0
+
       ! Type of redistribution (AA or not)
       read(100,*,err=1100) cdump
       if(cdump.eq.'A')then
@@ -1660,6 +1669,9 @@
 
         ! Inversion initialization
         read(100,'(A)',err=1100) Input%Inv_init
+
+        ! Inversion mask
+        read(100,'(A)',err=1100) Input%Inv_mask
 
         ! Centered derivative
         read(100,'(A)',err=1100) cdump

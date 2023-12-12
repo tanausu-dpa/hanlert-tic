@@ -10,12 +10,14 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     10/25/2022 V3.0.1
+!     12/12/2023 V3.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     12/12/2023:    V3.0.2 - Added diagon_B0 subroutine (TdPA)
 !
 !     10/25/2022:    V3.0.1 - The relevant atomic variables are
 !                             allocated here now (TdPA)
@@ -42,11 +44,16 @@
 !
 !  Data:
 !
-!  This subroutine calls the routine that calculates the energy
-!  eigenvalues and eigenvectors for a multiplet, in the
-!  magnetic-field regime of the incomplete Paschen-Back effect.
-!  Diagonality with respect to M is exploited for block-
-!  diagonalization
+!  diagon:
+!    This subroutine calls the routine that calculates the energy
+!    eigenvalues and eigenvectors for a multiplet, in the
+!    magnetic-field regime of the incomplete Paschen-Back effect.
+!    Diagonality with respect to M is exploited for block-
+!    diagonalization
+!
+!  diagon_B0:
+!    This subroutine calls the routine that initializes some
+!    multi-term quantities in absence of magnetic fields.
 !
 !#####################################################################
 !#####################################################################
@@ -65,7 +72,7 @@
 !#####################################################################
 
       !> Runs over all the heights and terms to call the
-      !! diagonalization routine.\n
+      !! diagonalization routine\n
       !!       Atom(Atom_class): Structure with the atomic data\n
       !!   Bfield(Bfield_class): Structure with magnetic field data\n
       !!          mode(integer): Type of Zeeman effect\n
@@ -111,6 +118,31 @@
       end do ! Height
 
       end subroutine diagon
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Initialize diagonalization variables for B=0\n
+      !!       Atom(Atom_class): Structure with the atomic data
+      subroutine diagon_B0(Atom)
+
+      ! I/O
+
+      type(Atom_class),intent(inout):: Atom
+
+      ! Local
+
+      integer:: iterm
+
+      ! For each term
+      do iterm=1,Atom%nMulti
+
+       call PB0(iterm,Atom)
+
+      enddo ! Term
+
+      end subroutine diagon_B0
 
 !#####################################################################
 !#####################################################################

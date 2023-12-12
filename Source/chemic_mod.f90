@@ -10,12 +10,19 @@
 !  Start:
 !     04/19/2017
 !  Last version:
-!     08/07/2023 V3.0.7
+!     11/24/2023 V3.0.8
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/24/2023:    V3.0.8 - Changed the structure of the chemical
+!                             equilibrium (now split in chemeq and
+!                             chemeq_T routines) to implement a
+!                             suggestion from Jaime de la Cruz
+!                             Rodríguez to avoid the negative results
+!                             for small temperatures. It works (TdPA)
 !
 !     08/07/2023:    V3.0.7 - The chemical equilibrium must reduce the
 !                             populations of LTE lines as well, if
@@ -187,6 +194,9 @@
 !  chemeq
 !    This subroutine calculates chemical equilibrium with molecules
 !
+!  chemeq_T
+!     Solve the actual chemical equilibrium for a given temperature
+!
 !  eqstate
 !    Computes number densities of electrons and hydrogen from
 !  pressure/densities (gas or electron)
@@ -250,26 +260,20 @@
       ! Local
 
       type(catm_class), dimension(nM*2):: atoms
-      type(Atom_class):: Atom_l
 
       character(len=2):: sname
 
       logical:: nfound,warning,nwarning
 
-      integer:: iz, ia, iterm, iJ, ilevel, iter, info, nres
-      integer:: iatom, imol, ieq, iatom1, natom, nmol, neq
-      integer:: max_it_chem, check_it_chem, check_it_res, nres_opt
-      integer, dimension(:), allocatable:: indx
+      integer:: iz,ia
+      integer:: iatom,imol,iatom1,natom,nmol,neq
+      integer:: max_it_chem,check_it_chem,check_it_res,nres_opt
       integer, dimension(:,:), allocatable:: atom_index
 
-      double precision:: phiHm, aaHm, C0, phil, frac
-      double precision:: mrc_chem, minv, maxv
-      double precision, dimension(:), allocatable:: aa, xx, bb, phi
-      double precision, dimension(:,:), allocatable:: aap, frc
+      double precision:: phiHm,C0,frac
+      double precision:: mrc_chem,minT,minT2
+      double precision, dimension(:), allocatable:: xx,xxT
 
-
-      ! Prepare molecular data
-      call setupmol_eq(Mol,nM,Atmo)
 
       ! Parameters
       max_it_chem = 500
@@ -277,6 +281,11 @@
       check_it_res = 3
       nres_opt = 4
       mrc_chem = 1d-5
+      minT = 2.5d3
+
+      ! Minimum T for stable chemeq
+      minT = 3.0d3
+      minT2 = 2.0d3
 
       ! Initialize
       warning = .True.
@@ -291,7 +300,7 @@
         ! Local variable
         nmol = nM
 
-        ! First atom in the sistem of equations is always hydrogen
+        ! First atom in the system of equations is always hydrogen
         natom = 1
         atoms(1)%s = ' H'
         atoms(1)%inmod = .True.
@@ -302,11 +311,6 @@
         atoms(1)%imol = 0
         allocate(atoms(1)%nmol(nM))
         atoms(1)%nmol = 0
-
-        ! Get the partition function for the H atom
-        call getpf(' H',atoms(1)%nstg,atoms(1)%pf, &
-                   atoms(1)%Eion,Atmo)
-
 
         !
         ! Go through all the molecules and add the elements that
@@ -356,10 +360,6 @@
               atoms(natom)%pnmol = 1
               atoms(natom)%imol(1) = imol
               atoms(natom)%nmol(1) = Mol(imol)%natom(iatom)
-
-              ! Get the partition function of this atom
-              call getpf(atoms(natom)%s,atoms(natom)%nstg, &
-                         atoms(natom)%pf,atoms(natom)%Eion,Atmo)
 
               ! Look for the abundance in the list of active atoms
               nfound = .True.
@@ -414,20 +414,9 @@
         neq = natom + nM
 
         ! Allocate variables
-        ! Distance to total dissociation
-        allocate(aa(neq))
         ! Solution
-        allocate(xx(neq))
-        ! Independent term
-        allocate(bb(neq))
-        ! Molecular coefficient
-        allocate(phi(neq))
-        ! System of equations (SoE)
-        allocate(aap(neq,neq))
-        ! Variable needed by BLAS
-        allocate(indx(neq))
-        ! Fraction of atoms in the first two stages
-        allocate(frc(2,neq))
+        allocate(xx(neq),xxT(neq))
+        xxT = 0d0
         ! Indexing of the atoms in the system
         allocate(atom_index(natom,2))
         atom_index = -1
@@ -464,6 +453,7 @@
         end do ! Atoms in the SoE
 
 
+
         !
         ! Solve the chemical equilibrium
         !
@@ -471,511 +461,48 @@
         ! For each height
         do iz=1,nz
 
-          ! Re_initialize
-          frc = 0d0
-          bb = 0d0
-          nres = 0
+          ! If temperature too small
+          if (Atmo%T(iz).lt.minT) then
 
-          ! For each atom in the SoE
-          do iatom=1,natom
+            ! Solve for minT
+            call chemeq_T(Atom,Atomb,Mol,Atmo,natom,nmol,neq, &
+                          atoms,atom_index,warning,nwarning, &
+                          max_it_chem,check_it_chem,check_it_res, &
+                          nres_opt,mrc_chem,c0,iz,.True., &
+                          minT,xx,xxT)
 
-            ! Independent element
-            ! If Hydrogen
-            if (iatom.eq.1) then
+            if (Atmo%T(iz).lt.minT2) then
 
-              ! If there is a model
-              if (atoms(iatom)%inmod) then
+              ! Solve for T
+              call chemeq_T(Atom,Atomb,Mol,Atmo,natom,nmol,neq, &
+                            atoms,atom_index,warning,nwarning, &
+                            max_it_chem,check_it_chem,check_it_res, &
+                            nres_opt,mrc_chem,c0,iz,.False., &
+                            minT2,xxT,xx)
 
-                ! Get model
-                if (atom_index(iatom,2).eq.1) then
-                  Atom_l = Atom(atom_index(iatom,1))
-                else if (atom_index(iatom,2).eq.2) then
-                  Atom_l = Atomb(atom_index(iatom,1))
-                else
-                  umsg = 'Something went wrong when '// &
-                         'indexing the atoms in chemical '// &
-                         'equilibrium'
-                  urou = 'chemeq'
-                  call aborted
-                  return
-                end if
-
-                ! If protected
-                if (Atom_l%mol_protect) then
-                  bb(iatom) = Atom_l%n(iz)
-                ! If not protected
-                else
-                  bb(iatom) = Atmo%nHt(iz)
-                end if
-
-              ! If no model
-              else
-                bb(iatom) = Atmo%nHt(iz)
-              end if
-
-            ! Any other element
-            else
-              bb(iatom) = atoms(iatom)%abun*Atmo%nHT(iz)
-            end if
-
-
-            !
-            ! Get fraction in neutral and first ion
-            !
-
-            ! Initialize the not found flag
-            nfound = .True.
-
-            ! If the atom has a model, store it in the local variable
-            if (atoms(iatom)%inmod) then
-
-              if (atom_index(iatom,2).eq.1) then
-                Atom_l = Atom(atom_index(iatom,1))
-              else if (atom_index(iatom,2).eq.2) then
-                Atom_l = Atomb(atom_index(iatom,1))
-              else
-                umsg = 'Something went wrong when '// &
-                       'indexing the atoms in chemical '// &
-                       'equilibrium'
-                urou = 'chemeq'
-                call aborted
-                return
-              end if
-
-              ! Check that the model have neutral stage
-              if (Atom_l%stage(1).eq.1) then
-                nfound = .False.
-              else
-                if (pid.eq.0.and.iz.eq.1) then
-                  umsg = ' - The atomic model for atom '// &
-                         atoms(iatom)%s//' does not have'// &
-                         ' neutral stage, using '// &
-                         'partition functions for the '// &
-                         'chemical equilibrium'
-                  call verbose
-                end if ! Master in first height
-              end if ! Model has neutral
-            end if ! There is model
-
-            ! If we don't have the necessary populations, use
-            ! partition functions to calculate the fractions
-            if (nfound) then
-
-              call getfrc(atoms(iatom)%nstg,atoms(iatom)%pf(:,iz), &
-                          atoms(iatom)%Eion,Atmo%T(iz),Atmo%ne(iz), &
-                          -1,frc(:,iatom))
-
-            ! If we have the populations, use them
-            else
-
-              ilevel = 0
-              do iterm=1,Atom_l%nMulti
-                if (Atom_l%stage(iterm).gt.2) exit
-                do iJ=1,Atom_l%nJ(iterm)
-
-                  ilevel = ilevel + 1
-
-                  frc(Atom_l%stage(iterm),iatom) = &
-                                  frc(Atom_l%stage(iterm),iatom) + &
-                                  Atom_l%popu(ilevel,iz)
-
-                end do
-              end do
-
-              frc(:,iatom) = frc(:,iatom)/Atom_l%n(iz)
+              ! Update initial
+              xxT = xx
 
             end if
 
-          end do ! atoms in molecules
-
-          ! Add Hminus
-          phiHm = .25d6*((C0/Atmo%T(iz))**(1.5d0))* &
-                  exp(8.74980963338d3/Atmo%T(iz))
-          aaHm = Atmo%ne(iz)*frc(1,1)*phiHm
-
-          ! Get equilibrium constant for every molecule
-          do imol=1,nM
-            phi(imol) = Mol(imol)%eq(iz)
-          end do
-
-          ! Initial solution, complete dissociation
-          xx = bb
-
-
-          !
-          ! Force protections
-          !
-
-          ! Atoms in SoE
-          do iatom=1,natom
-
-            ! If has model
-            if (atoms(iatom)%inmod) then
-              if (atom_index(iatom,2).eq.1) then
-                Atom_l = Atom(atom_index(iatom,1))
-              else if (atom_index(iatom,2).eq.2) then
-                Atom_l = Atomb(atom_index(iatom,1))
-              else
-                umsg = 'Something went wrong when '// &
-                       'indexing the atoms in chemical '// &
-                       'equilibrium'
-                urou = 'chemeq'
-                call aborted
-                return
-              end if
-            end if ! Has model
-
-            ! Check if protected
-            if (Atom_l%mol_protect) xx(iatom) = Atom_l%n(iz)
-
-          end do ! Atoms in SoE
-
-
-          !
-          ! Iterate the SoE for this height
-          !
-          do iter=1,max_it_chem
-
-            ! Reset the SoE matrix
-            aap = 0d0
-
-            ! Compute the difference between solution and independent
-            ! term of total dissociation
-            aa = xx - bb
-
-            ! Diagonal is identity
-            do ieq=1,neq
-
-              aap(ieq,ieq) = 1d0
-
-            end do
-
-            ! Add Hminus to the Hydrogen row
-            aa(1) = aa(1) + aaHm*xx(1)
-            aap(1,1) = aap(1,1) + phiHm
-
-            ! Run over molecules
-            do imol=1,nM
-
-              ! Determine the row for this molecule and get the
-              ! equilibrum constant
-              ieq = imol + natom
-              phil = phi(imol)
-
-              ! Run over components
-              do ia=1,Mol(imol)%nA
-
-                ! Ask which atom it is in the list
-                iatom = Mol(imol)%iatom(ia)
-
-                ! Update the coefficient using the fraction of
-                ! populations
-                phil = phil*((frc(1,iatom)*xx(iatom))** &
-                             (Mol(imol)%natom(ia)))
-
-               !! Correction for charged molecules
-               !if (Mol(imol)%Charge.gt.0) &
-               !  phil = phil*frc(2,iatom)/frc(1,iatom)
-
-                ! Add the contribution to the independent term of the
-                ! row of the atomic component
-                aa(iatom) = aa(iatom) + &
-                            Mol(imol)%natom(ia)*xx(ieq)
-
-              end do ! Atomic components of molecule
-
-              ! Get the new independent term
-              phil = phil/((Atmo%ne(iz))**Mol(imol)%Charge)
-              aa(ieq) = aa(ieq) - phil
-
-              ! Derivative
-              do ia=1,Mol(imol)%nA
-
-                ! Ask which atom it is in the list
-                iatom = Mol(imol)%iatom(ia)
-
-                ! Contribution due to molecule in the atomic row
-                aap(iatom,ieq) = aap(iatom,ieq) + &
-                                 Mol(imol)%natom(ia)
-                ! Contribution due to atom in the molecule row
-                aap(ieq,iatom) = -phil*Mol(imol)%natom(ia)/xx(iatom)
-
-              end do
-
-            end do ! Molecules
-
-            !
-            ! Force protections
-            !
-
-            ! Atoms in SoE
-            do iatom=1,natom
-
-              ! If has model
-              if (atoms(iatom)%inmod) then
-                if (atom_index(iatom,2).eq.1) then
-                  Atom_l = Atom(atom_index(iatom,1))
-                else if (atom_index(iatom,2).eq.2) then
-                  Atom_l = Atomb(atom_index(iatom,1))
-                else
-                  umsg = 'Something went wrong when '// &
-                         'indexing the atoms in chemical '// &
-                         'equilibrium'
-                  urou = 'chemeq'
-                  call aborted
-                  return
-                end if
-              end if ! Has model
-
-              ! Check if protected
-              if (Atom_l%mol_protect) then
-                aap(iatom,:) = 0d0
-                aap(iatom,iatom) = 1d0
-                aa(iatom) = 0d0
-              end if
-
-            end do ! Atoms in SoE
-
-            ! Solve system of equations
-            call DGESV(neq,1,aap,neq,indx,aa,neq,info)
-
-            ! Get the new solution
-            xx = xx - aa
-
-            ! And calculate the MRC
-            do ieq=1,neq
-
-              if (abs(xx(ieq)).gt.1d-30) aa(ieq) = aa(ieq)/xx(ieq)
-
-            end do
-
-            ! If we reached convergence, go out
-            if (maxval(abs(aa)).lt.mrc_chem.and.minval(xx).ge.0d0) &
-              exit
-
-            ! Warning iterations
-            if (iter.eq.max_it_chem.and.nwarning.and.pid.eq.0) then
-              if (minval(xx).lt.0d0) then
-                umsg = 'Negative fractions obtained in '// &
-                       'chemical equilibrium'
-                urou = 'chemical'
-                call abortedS(umsg,urou,-1,.True.,.True.)
-                nwarning = .False.
-                warning = .False.
-                cycle
-              else if (warning.and.run_mode.ne.-1) then
-                umsg = 'Maximum number of iterations reached '//&
-                       'in the chemical equilibrium'
-                urou = 'chemical'
-                call abortedS(umsg,urou,-1,.False.,.True.)
-                warning = .False.
-                cycle
-              end if ! Negative solution
-
-            ! Last iteration
-            else if (iter.eq.max_it_chem) then
-
-              cycle
-
-            end if ! Can issue more warnings and last iteration
-
-
-            ! If we have iterated for a while times and populations
-            ! are out of control
-            if (mod(iter,check_it_chem).eq.0.and. &
-                minval(xx).lt.0d0) then
-
-              ! Reset atomic populations to dissociation
-              xx(1:natom) = bb(1:natom)
-
-              ! If we are beyond the number of resets
-              if (nres.gt.check_it_res) then
-
-                ! Try with minimum
-                if (mod(nres,nres_opt).eq.0) then
-
-                  !
-                  ! Get minimum non-zero
-                  minv = minval(xx(natom+1:neq), &
-                                xx(natom+1:neq).gt.0d0)
-
-                  ! For each molecule
-                  do imol=1,nM
-
-                    ! Get equation index
-                    ieq = imol + natom
-
-                    ! Remove negatives
-                    if (xx(ieq).lt.0d0) xx(ieq) = minv
-
-                    ! Run over components
-                    do ia=1,Mol(imol)%nA
-
-                      ! Ask which atom it is in the list
-                      iatom = Mol(imol)%iatom(ia)
-
-                      ! Remove molecules
-                      xx(iatom) = xx(iatom) - &
-                                  Mol(imol)%natom(ia)*xx(ieq)
-
-
-                    end do ! Components
-                  end do ! Molecules
-
-                ! Try with maximum
-                else if (mod(nres,nres_opt).eq.1) then
-
-                  !
-                  ! Get maximum
-                  maxv = maxval(xx(natom+1:neq))
-
-                  ! For each molecule
-                  do imol=1,nM
-
-                    ! Get equation index
-                    ieq = imol + natom
-
-                    ! Remove negatives
-                    if (xx(ieq).lt.0d0) xx(ieq) = maxv
-
-                    ! Run over components
-                    do ia=1,Mol(imol)%nA
-
-                      ! Ask which atom it is in the list
-                      iatom = Mol(imol)%iatom(ia)
-
-                      ! Remove molecules
-                      xx(iatom) = xx(iatom) - &
-                                  Mol(imol)%natom(ia)*xx(ieq)
-
-
-                    end do ! Components
-                  end do ! Molecules
-
-                ! Try average
-                else if (mod(nres,nres_opt).eq.2) then
-
-                  !
-                  ! Get minimum non-zero
-                  minv = minval(xx(natom+1:neq),xx(natom+1:neq).gt.0d0)
-                  ! Get maximum non-zero
-                  maxv = maxval(xx(natom+1:neq))
-
-                  ! For each molecule
-                  do imol=1,nM
-
-                    ! Get equation index
-                    ieq = imol + natom
-
-                    ! Remove negatives
-                    if (xx(ieq).lt.0d0) xx(ieq) = 0.5d0*(minv+maxv)
-
-                    ! Run over components
-                    do ia=1,Mol(imol)%nA
-
-                      ! Ask which atom it is in the list
-                      iatom = Mol(imol)%iatom(ia)
-
-                      ! Remove molecules
-                      xx(iatom) = xx(iatom) - &
-                                  Mol(imol)%natom(ia)*xx(ieq)
-
-
-                    end do ! Components
-                  end do ! Molecules
-
-                ! Try abs
-                else if (mod(nres,nres_opt).eq.3) then
-
-                  ! For each molecule
-                  do imol=1,nM
-
-                    ! Get equation index
-                    ieq = imol + natom
-
-                    ! Remove negatives
-                    if (xx(ieq).lt.0d0) xx(ieq) = abs(xx(ieq))
-
-                    ! Run over components
-                    do ia=1,Mol(imol)%nA
-
-                      ! Ask which atom it is in the list
-                      iatom = Mol(imol)%iatom(ia)
-
-                      ! Remove molecules
-                      xx(iatom) = xx(iatom) - &
-                                  Mol(imol)%natom(ia)*xx(ieq)
-
-
-                    end do ! Components
-                  end do ! Molecules
-
-                end if ! Type of try
-
-              ! First resets
-              else
-
-                ! For each molecule
-                do imol=1,nM
-
-                  ! Get equation index
-                  ieq = imol + natom
-
-                  ! Remove negatives
-                  if (xx(ieq).lt.0d0) xx(ieq) = 0d0
-
-                  ! Run over components
-                  do ia=1,Mol(imol)%nA
-
-                    ! Ask which atom it is in the list
-                    iatom = Mol(imol)%iatom(ia)
-
-                    ! Remove molecules
-                    xx(iatom) = xx(iatom) - &
-                                Mol(imol)%natom(ia)*xx(ieq)
-
-
-                  end do ! Components
-                end do ! Molecules
-
-              end if
-
-              ! While there are negative atomic populations
-              do while (minval(xx(1:natom)).lt.0d0)
-
-                ! Reduce molecules by 10
-                xx(natom+1:neq) = xx(natom+1:neq)*0.1d0
-
-                ! Reset to dissociation
-                xx(1:natom) = bb(1:natom)
-
-                ! For each molecule
-                do imol=1,nM
-
-                  ! Get equation index
-                  ieq = imol + natom
-
-                  ! Run over components
-                  do ia=1,Mol(imol)%nA
-
-                    ! Ask which atom it is in the list
-                    iatom = Mol(imol)%iatom(ia)
-
-                    ! Remove molecules
-                    xx(iatom) = xx(iatom) - &
-                                Mol(imol)%natom(ia)*xx(ieq)
-
-
-                  end do ! Components
-                end do ! Molecules
-              end do ! While there are negative populations
-
-              ! Add reset to counter
-              nres = nres + 1
-
-            end if ! Out of control populations
-
-          end do ! Iterations
+            ! Solve for T
+            call chemeq_T(Atom,Atomb,Mol,Atmo,natom,nmol,neq, &
+                          atoms,atom_index,warning,nwarning, &
+                          max_it_chem,check_it_chem,check_it_res, &
+                          nres_opt,mrc_chem,c0,iz,.False., &
+                          Atmo%T(iz),xxT,xx)
+
+          ! Normal temperature
+          else
+
+            ! Solve for T
+            call chemeq_T(Atom,Atomb,Mol,Atmo,natom,nmol,neq, &
+                          atoms,atom_index,warning,nwarning, &
+                          max_it_chem,check_it_chem,check_it_res, &
+                          nres_opt,mrc_chem,c0,iz,.True., &
+                          Atmo%T(iz),xxT,xx)
+
+          end if
 
 
           !
@@ -1069,12 +596,6 @@
 
 
           !
-          ! Store Hm density
-          !
-          Atmo%nHm(iz) = Atmo%ne(iz)*xx(1)*phiHm
-
-
-          !
           ! Store molecular density
           !
           do imol=1,nM
@@ -1096,12 +617,649 @@
 
       end if
 
+      ! Free molecule data
+      if (run_mode.eq.0) then
+
+        ! For each molecule
+        do imol=1,nM
+
+          ! Free constants
+          deallocate(Mol(imol)%eqcoeff)
+
+        end do
+
+      end if ! 1D
+
       ! Control
       call control
 
       return
 
       end subroutine chemeq
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Solve the actual chemical equilibrium for a given
+      !! temperature\n
+      !!          Atom(Atom_class): Structure with the atomic data\n
+      !!         Atomb(Atom_class): Structure with the atomic data for
+      !!                            background opacities\n
+      !!            Mol(Mol_class): Structure with the molecule data\n
+      !!          Atmo(Atmo_class): Structure with atmospheric data\n
+      !!            natom(integer): Number of different atoms\n
+      !!  atom_index(integer(:,:)): Indexing of atoms\n
+      !!             nmol(integer): Number of different molecules\n
+      !!              neq(integer): Number of equations\n
+      !! atoms(catm_class(2*nmol)): Atmic data for equations\n
+      !!          warning(logical): If to issue warning for all\n
+      !!         nwarning(logical): If to issue warning for not inv\n
+      !!      max_it_chem(integer): Maximum number of iterations\n
+      !!    check_it_chem(integer): Iterations to check physics\n
+      !!     check_it_res(integer): Number of resets\n
+      !!         nres_opt(integer): Type of reset to try first\n
+      !!          mrc_chem(dfloat): Maximum relative change to
+      !!                            achieve\n
+      !!                C0(dfloat): Constant needed in equations\n
+      !!               iz(integer): Height index\n
+      !!             diss(logical): Initialize full dissociation\n
+      !!                 T(dfloat): Temperature\n
+      !!                xx(dfloat): Initial solution\n
+      !!                xx(dfloat): Solution
+      subroutine chemeq_T(Atom,Atomb,Mol,Atmo,natom,nmol, &
+                          neq,atoms,atom_index,warning,nwarning, &
+                          max_it_chem,check_it_chem,check_it_res, &
+                          nres_opt,mrc_chem,c0,iz,diss,T,xx0,xx)
+
+      ! I/O
+
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Atmo_class), intent(inout):: Atmo
+      type(catm_class), dimension(:), intent(inout):: atoms
+      logical, intent(in):: diss
+      logical, intent(inout):: warning,nwarning
+      integer, intent(in):: natom,nmol,neq,iz
+      integer, intent(in):: max_it_chem,check_it_chem
+      integer, intent(in):: check_it_res,nres_opt
+      integer, dimension(:,:), intent(in):: atom_index
+      double precision, intent(in):: mrc_chem,C0,T
+      double precision, dimension(:), intent(in):: xx0
+      double precision, dimension(:), intent(out):: xx
+
+      ! Local
+
+      type(Atom_class):: Atom_l
+
+      logical:: nfound
+
+      integer:: ia,iterm,iJ,ilevel,iter,info,nres
+      integer:: iatom,imol,ieq
+      integer, dimension(neq):: indx
+
+      double precision:: phiHm,aaHm,phil
+      double precision:: minv,maxv
+      double precision, dimension(neq):: aa,bb,phi
+      double precision, dimension(nmol):: MEq
+      double precision, dimension(2,neq):: frc
+      double precision, dimension(neq,neq):: aap
+
+
+      ! For each molecule
+      do imol=1,nmol
+
+        ! Get Eq. constant
+        MEq(imol) = Moleq_T(Mol(imol),T)
+
+      end do ! Molecules
+
+      ! For all atoms
+      do iatom=1,natom
+
+        ! Get the partition function of this atom
+        call getpf_T(atoms(iatom)%s,atoms(iatom)%nstg, &
+                     atoms(iatom)%pfs,atoms(iatom)%Eion, &
+                     Atmo,T)
+
+      end do
+
+
+      !
+      ! Construct the system of equations
+      !
+
+      ! Initialize
+      frc = 0d0
+      bb = 0d0
+      nres = 0
+
+      ! For each atom in the SoE
+      do iatom=1,natom
+
+        ! Independent element
+        ! If Hydrogen
+        if (iatom.eq.1) then
+
+          ! If there is a model
+          if (atoms(iatom)%inmod) then
+
+            ! Get model
+            if (atom_index(iatom,2).eq.1) then
+              Atom_l = Atom(atom_index(iatom,1))
+            else if (atom_index(iatom,2).eq.2) then
+              Atom_l = Atomb(atom_index(iatom,1))
+            else
+              umsg = 'Something went wrong when '// &
+                     'indexing the atoms in chemical '// &
+                     'equilibrium'
+              urou = 'chemeq_T'
+              call aborted
+              return
+            end if
+
+            ! If protected
+            if (Atom_l%mol_protect) then
+              bb(iatom) = Atom_l%n(iz)
+            ! If not protected
+            else
+              bb(iatom) = Atmo%nHt(iz)
+            end if
+
+          ! If no model
+          else
+            bb(iatom) = Atmo%nHt(iz)
+          end if
+
+        ! Any other element
+        else
+          bb(iatom) = atoms(iatom)%abun*Atmo%nHT(iz)
+        end if
+
+
+        !
+        ! Get fraction in neutral and first ion
+        !
+
+        ! Initialize the not found flag
+        nfound = .True.
+
+        ! If the atom has a model, store it in the local variable
+        if (atoms(iatom)%inmod) then
+
+          if (atom_index(iatom,2).eq.1) then
+            Atom_l = Atom(atom_index(iatom,1))
+          else if (atom_index(iatom,2).eq.2) then
+            Atom_l = Atomb(atom_index(iatom,1))
+          else
+            umsg = 'Something went wrong when '// &
+                   'indexing the atoms in chemical '// &
+                   'equilibrium'
+            urou = 'chemeq_T'
+            call aborted
+            return
+          end if
+
+          ! Check that the model have neutral stage
+          if (Atom_l%stage(1).eq.1) then
+            nfound = .False.
+          else
+            if (pid.eq.0.and.iz.eq.1) then
+              umsg = ' - The atomic model for atom '// &
+                     atoms(iatom)%s//' does not have'// &
+                     ' neutral stage, using '// &
+                     'partition functions for the '// &
+                     'chemical equilibrium'
+              call verbose
+            end if ! Master in first height
+          end if ! Model has neutral
+        end if ! There is model
+
+        ! If we don't have the necessary populations, use
+        ! partition functions to calculate the fractions
+        if (nfound) then
+
+          call getfrc(atoms(iatom)%nstg,atoms(iatom)%pfs(:), &
+                      atoms(iatom)%Eion,T,Atmo%ne(iz), &
+                      -1,frc(:,iatom))
+
+        ! If we have the populations, use them
+        else
+
+          ilevel = 0
+          do iterm=1,Atom_l%nMulti
+            if (Atom_l%stage(iterm).gt.2) exit
+            do iJ=1,Atom_l%nJ(iterm)
+
+              ilevel = ilevel + 1
+
+              frc(Atom_l%stage(iterm),iatom) = &
+                              frc(Atom_l%stage(iterm),iatom) + &
+                              Atom_l%popu(ilevel,iz)
+
+            end do
+          end do
+
+          frc(:,iatom) = frc(:,iatom)/Atom_l%n(iz)
+
+        end if
+
+      end do ! atoms in molecules
+
+      ! Add Hminus
+      phiHm = .25d6*((C0/T)**(1.5d0))*exp(8.74980963338d3/T)
+      aaHm = Atmo%ne(iz)*frc(1,1)*phiHm
+
+      ! Get equilibrium constant for every molecule
+      do imol=1,nmol
+        phi(imol) = MEq(imol)
+      end do
+
+      ! If initializing dissociated
+      if (diss) then
+
+        ! Initial solution, complete dissociation
+        xx = bb
+
+      ! No dissociated
+      else
+
+        ! Take provided solution
+        xx = xx0
+
+      end if
+
+
+      !
+      ! Force protections
+      !
+
+      ! Atoms in SoE
+      do iatom=1,natom
+
+        ! If has model
+        if (atoms(iatom)%inmod) then
+          if (atom_index(iatom,2).eq.1) then
+            Atom_l = Atom(atom_index(iatom,1))
+          else if (atom_index(iatom,2).eq.2) then
+            Atom_l = Atomb(atom_index(iatom,1))
+          else
+            umsg = 'Something went wrong when '// &
+                   'indexing the atoms in chemical '// &
+                   'equilibrium'
+            urou = 'chemeq_T'
+            call aborted
+            return
+          end if
+        end if ! Has model
+
+        ! Check if protected
+        if (Atom_l%mol_protect) xx(iatom) = Atom_l%n(iz)
+
+      end do ! Atoms in SoE
+
+
+      !
+      ! Iterate the SoE for this height
+      !
+      do iter=1,max_it_chem
+
+        ! Reset the SoE matrix
+        aap = 0d0
+
+        ! Compute the difference between solution and independent
+        ! term of total dissociation
+        aa = xx - bb
+
+        ! Diagonal is identity
+        do ieq=1,neq
+
+          aap(ieq,ieq) = 1d0
+
+        end do
+
+        ! Add Hminus to the Hydrogen row
+        aa(1) = aa(1) + aaHm*xx(1)
+        aap(1,1) = aap(1,1) + phiHm
+
+        ! Run over molecules
+        do imol=1,nmol
+
+          ! Determine the row for this molecule and get the
+          ! equilibrum constant
+          ieq = imol + natom
+          phil = phi(imol)
+
+          ! Run over components
+          do ia=1,Mol(imol)%nA
+
+            ! Ask which atom it is in the list
+            iatom = Mol(imol)%iatom(ia)
+
+            ! Update the coefficient using the fraction of
+            ! populations
+            phil = phil*((frc(1,iatom)*xx(iatom))** &
+                         (Mol(imol)%natom(ia)))
+
+           !! Correction for charged molecules
+           !if (Mol(imol)%Charge.gt.0) &
+           !  phil = phil*frc(2,iatom)/frc(1,iatom)
+
+            ! Add the contribution to the independent term of the
+            ! row of the atomic component
+            aa(iatom) = aa(iatom) + &
+                        Mol(imol)%natom(ia)*xx(ieq)
+
+          end do ! Atomic components of molecule
+
+          ! Get the new independent term
+          phil = phil/((Atmo%ne(iz))**Mol(imol)%Charge)
+          aa(ieq) = aa(ieq) - phil
+
+          ! Derivative
+          do ia=1,Mol(imol)%nA
+
+            ! Ask which atom it is in the list
+            iatom = Mol(imol)%iatom(ia)
+
+            ! Contribution due to molecule in the atomic row
+            aap(iatom,ieq) = aap(iatom,ieq) + &
+                             Mol(imol)%natom(ia)
+            ! Contribution due to atom in the molecule row
+            aap(ieq,iatom) = -phil*Mol(imol)%natom(ia)/xx(iatom)
+
+          end do
+
+        end do ! Molecules
+
+        !
+        ! Force protections
+        !
+
+        ! Atoms in SoE
+        do iatom=1,natom
+
+          ! If has model
+          if (atoms(iatom)%inmod) then
+            if (atom_index(iatom,2).eq.1) then
+              Atom_l = Atom(atom_index(iatom,1))
+            else if (atom_index(iatom,2).eq.2) then
+              Atom_l = Atomb(atom_index(iatom,1))
+            else
+              umsg = 'Something went wrong when '// &
+                     'indexing the atoms in chemical '// &
+                     'equilibrium'
+              urou = 'chemeq_T'
+              call aborted
+              return
+            end if
+          end if ! Has model
+
+          ! Check if protected
+          if (Atom_l%mol_protect) then
+            aap(iatom,:) = 0d0
+            aap(iatom,iatom) = 1d0
+            aa(iatom) = 0d0
+          end if
+
+        end do ! Atoms in SoE
+
+        ! Solve system of equations
+        call DGESV(neq,1,aap,neq,indx,aa,neq,info)
+
+        ! Get the new solution
+        xx = xx - aa
+
+        ! And calculate the MRC
+        do ieq=1,neq
+
+          if (abs(xx(ieq)).gt.1d-30) aa(ieq) = aa(ieq)/xx(ieq)
+
+        end do
+
+        ! If we reached convergence, go out
+        if (maxval(abs(aa)).lt.mrc_chem.and.minval(xx).ge.0d0) &
+          exit
+
+        ! Warning iterations
+        if (iter.eq.max_it_chem.and.nwarning.and.pid.eq.0) then
+          if (minval(xx).lt.0d0) then
+            umsg = 'Negative fractions obtained in '// &
+                   'chemical equilibrium'
+            urou = 'chemeq_T'
+            call abortedS(umsg,urou,-1,.True.,.True.)
+            nwarning = .False.
+            warning = .False.
+            cycle
+          else if (warning.and.run_mode.ne.-1) then
+            umsg = 'Maximum number of iterations reached '//&
+                   'in the chemical equilibrium'
+            urou = 'chemeq_T'
+            call abortedS(umsg,urou,-1,.False.,.True.)
+            warning = .False.
+            cycle
+          end if ! Negative solution
+
+        ! Last iteration
+        else if (iter.eq.max_it_chem) then
+
+          cycle
+
+        end if ! Can issue more warnings and last iteration
+
+
+        ! If we have iterated for a while times and populations
+        ! are out of control
+        if (mod(iter,check_it_chem).eq.0.and. &
+            minval(xx).lt.0d0) then
+
+          ! Reset atomic populations to dissociation
+          xx(1:natom) = bb(1:natom)
+
+          ! If we are beyond the number of resets
+          if (nres.gt.check_it_res) then
+
+            ! Try with minimum
+            if (mod(nres,nres_opt).eq.0) then
+
+              !
+              ! Get minimum non-zero
+              minv = minval(xx(natom+1:neq), &
+                            xx(natom+1:neq).gt.0d0)
+
+              ! For each molecule
+              do imol=1,nmol
+
+                ! Get equation index
+                ieq = imol + natom
+
+                ! Remove negatives
+                if (xx(ieq).lt.0d0) xx(ieq) = minv
+
+                ! Run over components
+                do ia=1,Mol(imol)%nA
+
+                  ! Ask which atom it is in the list
+                  iatom = Mol(imol)%iatom(ia)
+
+                  ! Remove molecules
+                  xx(iatom) = xx(iatom) - &
+                              Mol(imol)%natom(ia)*xx(ieq)
+
+
+                end do ! Components
+              end do ! Molecules
+
+            ! Try with maximum
+            else if (mod(nres,nres_opt).eq.1) then
+
+              !
+              ! Get maximum
+              maxv = maxval(xx(natom+1:neq))
+
+              ! For each molecule
+              do imol=1,nmol
+
+                ! Get equation index
+                ieq = imol + natom
+
+                ! Remove negatives
+                if (xx(ieq).lt.0d0) xx(ieq) = maxv
+
+                ! Run over components
+                do ia=1,Mol(imol)%nA
+
+                  ! Ask which atom it is in the list
+                  iatom = Mol(imol)%iatom(ia)
+
+                  ! Remove molecules
+                  xx(iatom) = xx(iatom) - &
+                              Mol(imol)%natom(ia)*xx(ieq)
+
+
+                end do ! Components
+              end do ! Molecules
+
+            ! Try average
+            else if (mod(nres,nres_opt).eq.2) then
+
+              !
+              ! Get minimum non-zero
+              minv = minval(xx(natom+1:neq), &
+                            xx(natom+1:neq).gt.0d0)
+              ! Get maximum non-zero
+              maxv = maxval(xx(natom+1:neq))
+
+              ! For each molecule
+              do imol=1,nmol
+
+                ! Get equation index
+                ieq = imol + natom
+
+                ! Remove negatives
+                if (xx(ieq).lt.0d0) xx(ieq) = 0.5d0*(minv+maxv)
+
+                ! Run over components
+                do ia=1,Mol(imol)%nA
+
+                  ! Ask which atom it is in the list
+                  iatom = Mol(imol)%iatom(ia)
+
+                  ! Remove molecules
+                  xx(iatom) = xx(iatom) - &
+                              Mol(imol)%natom(ia)*xx(ieq)
+
+
+                end do ! Components
+              end do ! Molecules
+
+            ! Try abs
+            else if (mod(nres,nres_opt).eq.3) then
+
+              ! For each molecule
+              do imol=1,nmol
+
+                ! Get equation index
+                ieq = imol + natom
+
+                ! Remove negatives
+                if (xx(ieq).lt.0d0) xx(ieq) = abs(xx(ieq))
+
+                ! Run over components
+                do ia=1,Mol(imol)%nA
+
+                  ! Ask which atom it is in the list
+                  iatom = Mol(imol)%iatom(ia)
+
+                  ! Remove molecules
+                  xx(iatom) = xx(iatom) - &
+                              Mol(imol)%natom(ia)*xx(ieq)
+
+
+                end do ! Components
+              end do ! Molecules
+
+            end if ! Type of try
+
+          ! First resets
+          else
+
+            ! For each molecule
+            do imol=1,nmol
+
+              ! Get equation index
+              ieq = imol + natom
+
+              ! Remove negatives
+              if (xx(ieq).lt.0d0) xx(ieq) = 0d0
+
+              ! Run over components
+              do ia=1,Mol(imol)%nA
+
+                ! Ask which atom it is in the list
+                iatom = Mol(imol)%iatom(ia)
+
+                ! Remove molecules
+                xx(iatom) = xx(iatom) - &
+                            Mol(imol)%natom(ia)*xx(ieq)
+
+
+              end do ! Components
+            end do ! Molecules
+
+          end if
+
+          ! While there are negative atomic populations
+          do while (minval(xx(1:natom)).lt.0d0)
+
+            ! Reduce molecules by 10
+            xx(natom+1:neq) = xx(natom+1:neq)*0.1d0
+
+            ! Reset to dissociation
+            xx(1:natom) = bb(1:natom)
+
+            ! For each molecule
+            do imol=1,nmol
+
+              ! Get equation index
+              ieq = imol + natom
+
+              ! Run over components
+              do ia=1,Mol(imol)%nA
+
+                ! Ask which atom it is in the list
+                iatom = Mol(imol)%iatom(ia)
+
+                ! Remove molecules
+                xx(iatom) = xx(iatom) - &
+                            Mol(imol)%natom(ia)*xx(ieq)
+
+
+              end do ! Components
+            end do ! Molecules
+          end do ! While there are negative populations
+
+          ! Add reset to counter
+          nres = nres + 1
+
+        end if ! Out of control populations
+
+      end do ! Iterations
+
+      !
+      ! Store Hm density
+      !
+      Atmo%nHm(iz) = Atmo%ne(iz)*xx(1)*phiHm
+
+      ! Free
+      do iatom=1,natom
+        deallocate(atoms(iatom)%pfs,atoms(iatom)%Eion)
+      end do
+
+      return
+
+      end subroutine chemeq_T
 
 !#####################################################################
 !#####################################################################

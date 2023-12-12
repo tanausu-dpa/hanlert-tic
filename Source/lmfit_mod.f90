@@ -10,12 +10,19 @@
 !  Start:
 !     02/22/2023
 !  Last version:
-!     10/04/2023 V3.0.12
+!     11/27/2023 V3.0.14
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/27/2023:   V3.0.14 - Wrong initialization of the variable
+!                             to ensure that the error gets
+!                             calculated (TdPA)
+!
+!     11/24/2023:   V3.0.13 - Added argument to LMFIT to skip the
+!                             iterations for the pixel (TdPA)
 !
 !     10/04/2023:   V3.0.12 - Ensure that the '*' character before an
 !                             iteration is also in the secondary
@@ -200,10 +207,13 @@
       !!                             solution\n
       !!       LM_Stru(LMFIT_class): Structure with Jacobian and
       !!                             other LM quantities\n
+      !!             imask(integer): Indicate if this pixel is masked
+      !!                             in the restart\n
       !!            saving(logical): If the result is to be stored
       subroutine LMFIT(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge, &
                        kurucz,MPID,Atmo,Bfield,Input,Inf_Stokes, &
-                       Inf_Nodes,Sol,LM_Stru,saving)
+                       Inf_Nodes,Sol,LM_Stru,imask,saving)
+
 
       ! IO
       type(Atom_class), dimension(:):: Atom
@@ -223,6 +233,7 @@
       type(Solution_class), intent(inout):: Sol
       type(LMFIT_class), intent(inout):: LM_Stru
       logical, intent(in):: saving
+      integer, intent(in):: imask
 
       ! Local
 
@@ -237,7 +248,7 @@
       ! Lambda boundary
       logical:: Flag_Convg, Flag_Jac
 
-      integer:: indx_iter, indx_rej, i, Num_Broyden
+      integer:: indx_iter, indx_rej, i, Num_Broyden, max_iters
 
       double precision:: Chisq_old, Ratio
 
@@ -435,13 +446,25 @@
       LM_Stru%Flag_weight = .False.
       LM_Stru%factorreject = Input%factorreject
       LM_Stru%factoraccept = Input%factoraccept
+      LM_Stru%accepted = .True.
       Stokes_best = Sol%Stokes_out
 
-      ! Initialize accepted
-      LM_Stru%accepted = .True.
+      ! If masked
+      if (imask.eq.1) then
+
+        ! Don't iterate and assume not accepted
+        max_iters = 0
+
+      ! Not masked
+      else
+
+        ! True number of iterations
+        max_iters = Input%Num_Iter
+
+      end if ! Mask
 
       ! Iterate, in principle, to the maximum allowed
-      do indx_iter=1,Input%Num_Iter
+      do indx_iter=1,max_iters
 
         ! If after the first iteration the accepted blag is on,
         ! we are doing Broyden and we have not done three already

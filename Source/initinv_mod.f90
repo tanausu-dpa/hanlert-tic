@@ -10,12 +10,14 @@
 !  Start:
 !     02/23/2023
 !  Last version:
-!     10/04/2023 V3.1.12
+!     11/24/2023 V3.1.13
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/24/2023:   V3.1.13 - Added verbosity of mask file (TdPA)
 !
 !     10/04/2023:   V3.1.12 - Improved the verbosity of the PSF
 !                             option (TdPA)
@@ -685,6 +687,13 @@
                              trim(Input%Filename_ob)
         call verboseI(1)
 
+        ! If mask
+        if (trim(Input%Inv_mask).ne.'NONE'.and. &
+            trim(Input%Inv_init).ne.'INIT') then
+          write(umsg,'(A,A)') '   o Mask file: ', &
+                              trim(Input%Inv_mask)
+          call verboseI(1)
+        end if
 
         if (Input%Type_Inversion.eq.0) then
           write(umsg,'(A)') '   o Thermodynamic inversion'

@@ -10,12 +10,14 @@
 !  Start:
 !     06/29/2022
 !  Last version:
-!     09/25/2023 V3.0.10
+!     11/24/2023 V3.0.11
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     11/24/2023:   V3.0.11 - Crash wrong cache dimensions (TdPA)
 !
 !     09/25/2023:   V3.0.10 - Change names for population and
 !                             departure coefficient files (TdPA)
@@ -1285,6 +1287,7 @@
       if (ldims(1).ne.dims(1).or.ldims(2).ne.dims(2)) then
         umsg = ' # Cache file has wrong dimensions'
         call verbose
+        goto 1100
       end if
 
       check = .True.
