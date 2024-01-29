@@ -11,12 +11,18 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     09/21/2023 V3.0.13
+!     01/29/2024 V3.0.14
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     01/29/2024:   V3.0.14 - Removed electron mass density option in
+!                             3D models (TdPA)
+!                           - Bugfix: in 1D models, the input options
+!                             gas pressure and mass density were being
+!                             interpreted as gas pressure (TdPA)
 !
 !     09/21/2023:   V3.0.13 - For safety reasons, rAtmo must be
 !                             called by all processes in
@@ -517,7 +523,7 @@
         !
         ! Electron pressure
         !
-        if (Atmo%typo.ge.2) then
+        if (Atmo%typo.eq.2) then
 
           ! Convert to electron number density
           Atmo%ne = Atmo%ne*ikbcgs/Atmo%T
@@ -1614,7 +1620,7 @@
           Atmo%ne = buffer(14*nz+1:15*nz)
 
         ! Electron pressure
-        else if (Atmo%typo.eq.2.or.Atmo%typo.eq.3) then
+        else if (Atmo%typo.eq.2) then
 
           Atmo%ne = buffer(13*nz+1:14*nz)
           Atmo%ne = Atmo%ne*ikbcgs/Atmo%T

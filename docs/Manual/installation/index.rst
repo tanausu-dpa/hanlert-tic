@@ -206,7 +206,7 @@ The command::
 
 shows the list of compilers avaiable to *Spack*. If an existing compiler is missing, you can run::
 
-  spack compilers find
+  spack compiler find
 
 either without arguments, for autodetection, or with a path where to look for, if it is known.
 

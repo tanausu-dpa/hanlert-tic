@@ -12,12 +12,15 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     12/12/2023 V3.2.3
+!     01/26/2024 V3.2.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     01/26/2024:    V3.2.4 - Save the intensity solution when not
+!                             calculating polarization (TdPA)
 !
 !     12/12/2023:    V3.2.3 - Call diabon_B0 in absence of magnetic
 !                             fields (TdPA)
@@ -707,7 +710,7 @@
                              GeomI,Bfield,Frec,Flgsg,SolF, &
                              Cont,Rho_old, &
                              StokesI,J00,J00S,J00C,J00P, &
-                             lload,lio,lie,rlimw,ofram)
+                             lload,lio,lie,lp.or.lpe,rlimw,ofram)
 
       ! Control
       if (laborted) goto 1000
@@ -1498,13 +1501,14 @@
       !!            lload(logical): Reading solution file\n
       !!              lio(logical): Doing intensity formal solution\n
       !!              lie(logical): Doing intensity emergence\n
+      !!               lp(logical): Will call hanle_polarization\n
       !!            rlimw(logical): Write RAM limit message\n
       !!            ofram(logical): Indicates if out of RAM
       subroutine hanle_intensity(Atom,LTElines,Atmo,MPID,Input, &
                                  GeomI,Bfield,Frec,Flgsg,SolF, &
                                  Cont,Rho_old, &
                                  StokesI,J00,J00S,J00C,J00P, &
-                                 lload,lio,lie,rlimw,ofram)
+                                 lload,lio,lie,lp,rlimw,ofram)
 
       ! I/O
 
@@ -1520,7 +1524,7 @@
       type(Solution_F_class):: SolF
       type(Continuum_class):: Cont
       type(Rhoc_class), dimension(:):: Rho_old
-      logical, intent(in):: lload,lio,lie
+      logical, intent(in):: lload,lio,lie,lp
       logical, intent(inout):: rlimw,ofram
       double precision, dimension(:,:,:,:), allocatable:: StokesI
       double precision, dimension(:,:,:,:,:), allocatable:: Stokes
@@ -1811,6 +1815,21 @@
 
         ! Control
         if (laborted) goto 1000
+
+      end if
+
+      ! If no calling polarization in synthesis
+      if (run_mode.ge.0.and.lio.and..not.lp) then
+
+        ! Write the solution file
+        if (gpid.eq.0) then
+          umsg = ' - Saving solution'
+          call verbose
+        end if
+
+        ! Write to file
+        call writesolI(Input,'NONE',Frec%omega,GeomI,Atom, &
+                       Atmo%z,StokesI,J00,J00S,J00C,J00P,.False.)
 
       end if
 

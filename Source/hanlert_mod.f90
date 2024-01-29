@@ -13,12 +13,16 @@
 !  Start:
 !     06/22/2022
 !  Last version:
-!     11/14/2023 V3.0.20
+!     01/09/2024 V3.0.21
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     01/09/2024:   V3.0.21 - In 1.5D mode, when the cache says that
+!                             the pixel is solved, it is skipped
+!                             regardless of mode (TdPA)
 !
 !     11/14/2023:   V3.0.20 - Bugfix: Initialize 0 maxB in CLE (TdPA)
 !
@@ -964,10 +968,8 @@
               ! If done in cache, skip
               if (lcache) then
                 if (cache(iy,ix)) then
-                  if (.not.lload) then
-                    NLOSr = NLOSr + 1
-                    cycle
-                  end if
+                  NLOSr = NLOSr + 1
+                  cycle
                 end if
               end if
 

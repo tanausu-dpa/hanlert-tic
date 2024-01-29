@@ -6,6 +6,12 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an
 # Hao Li
 #
+# 01/29/2024: V3.0.30 - Deprecated "rhoe" as option in
+#                       ATMO_CHAR (TdPA)
+#
+# 01/10/2024: V3.0.29 - STORE_STEP and STORE_STEPI can be specified
+#                       in the 1.5D case (TdPA)
+#
 # 12/12/2023: V3.0.28 - Added REDI_COHW (TdPA)
 #                     - Ensure that "magnetic" is not considered
 #                       as "thermal" (TdPA)
@@ -1487,6 +1493,10 @@ def rInput():
           f.write('2\n')
       # If specifying only electron mass density
       elif 'RHOE' in val:
+          if rmode != 0:
+              verbose(' # ATMO_CHAR option "rhoe"' + \
+                      ' has been deprecated',verbfile,verbosity)
+              abort(f,filename)
           f.write('3\n')
       # If specifying only gas pressure
       elif 'PG' in val:
@@ -4103,7 +4113,7 @@ def rInput():
       f.write('-1\n-1\n-1\n-1\n')
 
   # STORE_STEP
-  if rmode == 0:
+  if rmode == 0 or rmode == 1:
     check = 0
     valid = 0
     if 'STORE_STEP' in Dictionary:
@@ -4122,7 +4132,7 @@ def rInput():
     f.write('{0:7d}\n'.format(-1))
 
   # STOREI_STEP
-  if rmode == 0:
+  if rmode == 0 or rmode == 1:
     check = 0
     valid = 0
     if 'STOREI_STEP' in Dictionary:

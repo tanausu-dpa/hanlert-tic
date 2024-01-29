@@ -10,12 +10,16 @@
 !  Start:
 !     04/19/2017
 !  Last version:
-!     09/29/2023 V3.0.12
+!     01/09/2024 V3.0.13
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     01/09/2024:   V3.0.13 - Bugfix: There was a termination
+!                             condition when splitting 1.5D tasks that
+!                             was too strict (TdPA)
 !
 !     09/29/2023:   V3.0.12 - Only output MPI_info files by user
 !                             request (TdPA)
@@ -361,11 +365,7 @@
         ! Add elements until all split
         indx = ngroup
         do while (sum(nelem).lt.nslave)
-          if (indx.lt.1) then
-            umsg = 'Problem splitting taks'
-            urou = 'setmpi15D'
-            call aborted
-          end if
+          if (indx.lt.1) indx = ngroup
           nelem(indx) = nelem(indx) + 1
           indx = indx-1
         end do

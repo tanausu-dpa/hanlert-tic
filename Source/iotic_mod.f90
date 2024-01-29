@@ -10,12 +10,15 @@
 !  Start:
 !     02/22/2023
 !  Last version:
-!     11/24/2023 V3.0.18
+!     01/29/2024 V3.0.19
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     01/29/2024:   V3.0.19 - Do not account for electron mass density
+!                             option in the model atmosphere (TdPA)
 !
 !     11/24/2023:   V3.0.18 - Added open_mask routine (TdPA)
 !
@@ -1949,7 +1952,7 @@
             Atmo%nH = reshape(buffer(18*nz+1:24*nz), (/ nz, 6 /))
 
         ! Electron pressure
-        else if (Atmo%typo.eq.2.or.Atmo%typo.eq.3) then
+        else if (Atmo%typo.eq.2) then
 
           Atmo%ne = buffer(13*lnz+1:14*lnz)
           Atmo%ne = Atmo%ne*ikbcgs/Atmo%T
