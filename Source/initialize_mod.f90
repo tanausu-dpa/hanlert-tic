@@ -10,12 +10,15 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     08/07/2023 V3.0.4
+!     02/14/2024 V3.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/14/2024:    V3.0.5 - RAM variable for radiation does not
+!                             assume not initialized (TdPA)
 !
 !     08/07/2023:    V3.0.4 - Added initialize_failread and
 !                             initializeI_failread (TdPA)
@@ -178,12 +181,14 @@
         allocate(Stokes(0:3,nfreq,Geom%nPh,Geom%nTh,Rz0:Rz1))
         giz0 = Rz0
         giz1 = Rz1
-        MPID%RRAM = 8d-6*dble(4*nfreq*Geom%nPh*Geom%nTh*Rnz)
+        MPID%RRAM = MPID%RRAM + &
+                    8d-6*dble(4*nfreq*Geom%nPh*Geom%nTh*Rnz)
       else
         allocate(Stokes(0:3,nfreq,Geom%nPh,Geom%nTh,Rz0:Rz0+1))
         giz0 = Rz0
         giz1 = Rz0+1
-        MPID%RRAM = 8d-6*dble(4*nfreq*Geom%nPh*Geom%nTh*2)
+        MPID%RRAM = MPID%RRAM + &
+                    8d-6*dble(4*nfreq*Geom%nPh*Geom%nTh*2)
       end if
       Stokes = 0d0
 
@@ -290,12 +295,14 @@
         allocate(Stokes(nfreq,Geom%nPh,Geom%nTh,Rz0:Rz1))
         giz0 = Rz0
         giz1 = Rz1
-        MPID%RRAM = 8d-6*dble(nfreq*Geom%nph*Geom%nTh*Rnz)
+        MPID%RRAM = MPID%RRAM + &
+                    8d-6*dble(nfreq*Geom%nph*Geom%nTh*Rnz)
       else
         allocate(Stokes(nfreq,Geom%nPh,Geom%nTh,Rz0:Rz0+1))
         giz0 = Rz0
         giz1 = Rz0+1
-        MPID%RRAM = 8d-6*dble(nfreq*Geom%nph*Geom%nTh*2)
+        MPID%RRAM = MPID%RRAM + &
+                    8d-6*dble(nfreq*Geom%nph*Geom%nTh*2)
       end if
       Stokes = 0d0
 

@@ -302,9 +302,20 @@ MIN_T
 
   * Formats:
     
-    - float; default: 3e3
+    - float
 
-  * Description: Minimum temperature in kelvin expected in the 3D model atmosphere.
+  * Description: Minimum temperature in kelvin expected in the 3D model atmosphere. If not specified, the model will be explored to get it.
+
+MAX_T
+-----
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - float
+
+  * Description: Maximum temperature in kelvin expected in the 3D model atmosphere. If not specified, the model will be explored to get it.
 
 MAX_V
 -----
@@ -313,9 +324,9 @@ MAX_V
 
   * Formats:
     
-    - float; default: 1e1
+    - float
 
-  * Description: Minimum velocity in km s^-1 expected in the 3D model atmosphere.
+  * Description: Maximum velocity in km s^-1 expected in the 3D model atmosphere. If not specified, the model will be explored to get it.
 
 RT_GROUP_N
 ----------

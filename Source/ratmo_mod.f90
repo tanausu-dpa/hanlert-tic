@@ -22,7 +22,7 @@
 !                             3D models (TdPA)
 !                           - Bugfix: in 1D models, the input options
 !                             gas pressure and mass density were being
-!                             interpreted as gas pressure (TdPA)
+!                             interpreted as electron pressure (TdPA)
 !
 !     09/21/2023:   V3.0.13 - For safety reasons, rAtmo must be
 !                             called by all processes in

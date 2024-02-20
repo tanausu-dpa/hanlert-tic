@@ -1096,6 +1096,276 @@ class _jkq_1D():
 ################################################################################
 ################################################################################
 
+class _rkq_1D():
+    ''' Class to manage the density matrix from a 1D synthesis
+    '''
+
+    def __init__(self,filename):
+        ''' Initialize class
+        '''
+
+        # Store filename
+        self.__filename = filename
+
+        # Get header
+        if not self.__head(): return None
+
+        self.__methods = {\
+         'get_filename': \
+          [None,'Get name of the read file'], \
+         'get_na': \
+          [None,'Get number of atoms'], \
+         'get_nz': \
+          [None,'Get number of height'], \
+         'get_height': \
+          [{'minh': \
+             'Lower boundary for output height', \
+            'maxh': \
+             'Upper boundary for output height'}, \
+           'Get vertical axis, either heights in [km] or in optical ' + \
+           'depth'], \
+          'get_rkq': \
+          [{'atom': 'Request this particular atom index', \
+            'minh': \
+             'Lower boundary for output height', \
+            'maxh': \
+             'Upper boundary for output height'}, \
+           'Get the density matrix tensor components'] \
+           }
+
+    def _get_help(self):
+        ''' Return methods dictionary
+        '''
+        return self.__methods
+
+    def __head(self):
+        ''' Reads hanlert 1D JKQ file head
+        '''
+        try:
+            # Get actual header
+            f = open(self.__filename,'rb')
+            f.seek(2,0)
+            self.__nz = struct.unpack('i',f.read(4))[0]
+            self.__na = struct.unpack('i',f.read(4))[0]
+            # Z
+            z = np.array(struct.unpack('d'*self.__nz, \
+                                       f.read(8*self.__nz)))
+            # Check if tau
+            self.__ltau = np.min(z) > 0 and np.max(z) < 1e2
+            self.__zreverse = z[-2] > z[-1]
+            self.__hsize = 10
+            f.close()
+            return True
+        except struct.error:
+            raise
+        except:
+            raise
+
+    def _get_filename(self):
+        ''' Get the name of the read file
+        '''
+        return self.__filename
+
+    def _get_nz(self):
+        ''' Get number of heights
+        '''
+        return self.__nz
+
+    def _get_na(self):
+        ''' Get number of atoms
+        '''
+        return self.__na
+
+    def _get_height(self,minh=None,maxh=None):
+        ''' Get height from file
+        '''
+        if self.__zreverse:
+            iminh = maxh
+            imaxh = minh
+        else:
+            iminh = minh
+            imaxh = maxh
+        try:
+            f = open(self.__filename,'rb')
+            f.seek(self.__hsize,0)
+            z = np.array(struct.unpack('d'*self.__nz, \
+                                       f.read(8*self.__nz)))
+            if not self.__ltau: z *= 1e-5
+            if iminh is not None:
+                i = np.argmin(np.absolute(z - iminh))
+                z = z[i:]
+            if imaxh is not None:
+                i = np.argmin(np.absolute(z - imaxh))
+                z = z[:i+1]
+            f.close()
+            return z
+        except struct.error:
+            raise
+        except:
+            raise
+
+    def _get_rkq(self,atom=None,minh=None,maxh=None):
+        ''' Get frequency integrated radiation field tensors
+        '''
+        # Manage height limits
+        if self.__zreverse:
+            iminh = maxh
+            imaxh = minh
+        else:
+            iminh = minh
+            imaxh = maxh
+        if atom is None:
+            iatoms = list(range(self.__na))
+        else:
+            if not isinstance(atom,list):
+                _error('atom argument must be a list',0,True)
+                return None
+            for ia in atom:
+                if not isinstance(ia,int):
+                    _error('atom argument must be a list ' + \
+                           'of integers',0,True)
+                    return None
+            iatoms = copy.deepcopy(atom)
+
+        try:
+
+            f = open(self.__filename,'rb')
+            f.seek(self.__hsize,0)
+            z = np.array(struct.unpack('d'*self.__nz, \
+                                       f.read(8*self.__nz)))
+            if not self.__ltau: z *= 1e-5
+
+            # Adjust height
+            if iminh is not None:
+                i0 = np.argmin(np.absolute(z - iminh))
+            else:
+                i0 = 0
+            if imaxh is not None:
+                i1 = np.argmin(np.absolute(z - imaxh))
+            else:
+                i1 = self.__nz
+
+            # Initialize
+            rkq = []
+
+            # For each atom
+            for ia in range(self.__na):
+
+                # Check if storing
+                keep = ia in iatoms
+
+                # Initialize
+                if keep: lrkq = {}
+
+                # Population
+                if keep:
+                    lrkq['n'] = np.array(struct.unpack('d'*self.__nz, \
+                                                       f.read(8*self.__nz)))
+                else:
+                    f.seek(self.__nz*8,1)
+
+                # Number of terms
+                nt = struct.unpack('i',f.read(4))[0]
+                if keep: lrkq['nt'] = nt
+
+                # For each term
+                for it in range(nt):
+
+                    # Initialize
+                    if keep: lrkq[it] = {}
+
+                    # J levels
+                    nj = struct.unpack('i',f.read(4))[0]
+                    if keep: lrkq[it]['nj'] = nj
+                    njj = nj*nj
+                    if keep: lrkq[it]['J'] = []
+
+                    # Multi-term
+                    mt =  nj > 1
+
+                    # For each J combination
+                    for jj in range(njj):
+
+                        # Read J combination
+                        J1 = struct.unpack('i',f.read(4))[0]
+                        if keep:
+                            if J1 not in lrkq[it]['J']: lrkq[it]['J'].append(J1)
+                        J2 = struct.unpack('i',f.read(4))[0]
+                        if keep:
+                            if J2 not in lrkq[it]['J']: lrkq[it]['J'].append(J2)
+
+                        # Get label
+                        if keep:
+                            if J1 % 2 == 0:
+                                ijs1 = f'{int(round(J1*0.5))}'
+                            else:
+                                ijs1 = f'{J1}/2'
+                            if ijs1 not in lrkq[it]: lrkq[it][ijs1] = {}
+                            if mt:
+                                if J2 % 2 == 0:
+                                    ijs2 = f'{int(round(J2*0.5))}'
+                                else:
+                                    ijs2 = f'{J2}/2'
+                                lrkq[it][ijs1][ijs2] = {}
+
+                        # K limits
+                        kmin = int(np.absolute(int(round(J1 - J2))//2))
+                        kmax = int(np.absolute(int(round(J1 + J2))//2))
+
+                        # Pointer
+                        if keep:
+                            if mt:
+                                point = lrkq[it][ijs1][ijs2]
+                            else:
+                                point = lrkq[it][ijs1]
+
+                        # For each K
+                        for K in range(kmin,kmax+1):
+
+                            # Initialize
+                            if keep:
+                                point[K] = {}
+
+                            # For each Q
+                            for Q in range(-K,K+1):
+
+                                # Read
+                                if keep:
+                                    point[K][Q] = np.zeros((self.__nz), \
+                                                           dtype=np.complex_)
+                                    for iz in range(self.__nz):
+                                        point[K][Q][iz] = \
+                                          struct.unpack('d',f.read(8))[0] + \
+                                       1j*struct.unpack('d',f.read(8))[0]
+                                        f.seek(4,1)
+                                    point[K][Q] = point[K][Q][i0:i1+1]
+                                # Skip
+                                else:
+                                    f.seek(self.__nz*20,1)
+
+
+                    # Process J
+                    if keep:
+                        for jj in range(len(lrkq[it]['J'])):
+                            lrkq[it]['J'][jj] = 0.5*lrkq[it]['J'][jj]
+                        lrkq[it]['J'] = np.array(lrkq[it]['J'])
+
+                # Add to list
+                if keep:
+                    rkq.append(lrkq.copy())
+                    del lrkq
+
+            f.close()
+            return rkq
+        except struct.error:
+            raise
+        except:
+            raise
+
+################################################################################
+################################################################################
+################################################################################
+
 class _pop_dep_1D():
     ''' Class to manage the 1D population/departure files
     '''
@@ -2572,7 +2842,7 @@ class _tau_15D():
             self.__jump_to_lambda = 4*4 + 8*2
             # Head
             self.__head = self.__jump_to_lambda + self.__nl*8
-            print(f'Head size {self.__head}')
+           #print(f'Head size {self.__head}')
         except struct.error:
             raise
         except:
@@ -7757,7 +8027,6 @@ class hanlertio_class():
   'MRC': 'Maximum relative change from 1.5D synthesis', \
   'sp': 'Solution file with polarization', \
   'si': 'Solution file without polarization', \
-  'br': 'Density matrices from 1D synthesis', \
   'bo': 'Stokes parameters in the quadrature in 1D synthesis', \
   'ko': 'Frequency dependent radiation field tensors in 1D synthesis', \
   'ct': 'Term to term collisional rates from 1D synthesis', \
@@ -7916,6 +8185,30 @@ class hanlertio_class():
                     self.get_nt = self.__get_nt
                     self.get_height = self.__get_height
                     self.get_jkq = self.__get_jkq1d
+
+                    # Valid class
+                    return True
+
+                # Fail
+                else:
+
+                    # Not valid class
+                    return False
+
+            # rkq_1D
+            elif label == 'br':
+
+                # Load rkq 1D class
+                self.__object = _rkq_1D(self.__filename)
+
+                if self.__object is not None:
+
+                    # Methods
+                    self.get_filename = self.__get_filename
+                    self.get_nz = self.__get_nz
+                    self.get_na = self.__get_na
+                    self.get_height = self.__get_height
+                    self.get_rkq = self.__get_rkq1d
 
                     # Valid class
                     return True
@@ -8335,7 +8628,7 @@ class hanlertio_class():
 
     # Parsers
 
-    # stokes 1D, contribution 1D, tau 1D, jkq 1D, stokes 15D,
+    # stokes 1D, contribution 1D, tau 1D, jkq 1D, rkq 1D, stokes 15D,
     # contribution 15D, tau 15D, 3D atmos, inversion out, 15D cols,
     # 15D back, 15D popdep
     def __get_filename(self):
@@ -8396,14 +8689,14 @@ class hanlertio_class():
     # inversion out, 15D cols, 15D back, 15D popdep, 1D popdep
     def __get_dims(self):
         return self.__object._get_dims()
-    # contribution 1D, jkq 1D, 1D popdep, contribution 15D, 3D atmos,
-    # inversion out, 15D cols, 15D back, 15D popdep
+    # contribution 1D, jkq 1D, rkq 1D, 1D popdep, contribution 15D,
+    # 3D atmos, inversion out, 15D cols, 15D back, 15D popdep
     def __get_nz(self):
         return self.__object._get_nz()
     # 15D cols, 15D popdep
     def __get_nentry(self):
         return self.__object._get_nentry()
-    # jkq 1D, 15D cols
+    # jkq 1D, rkq 1D, 15D cols
     def __get_na(self):
         return self.__object._get_na()
     # jkq 1D
@@ -8434,7 +8727,7 @@ class hanlertio_class():
     # contribution 15D, tau15D, inversion in, inversion out, 15D back
     def __get_lambda(self,minl=None,maxl=None):
         return self.__object._get_lambda(minl,maxl)
-    # contribution 1D, jkq 1D
+    # contribution 1D, jkq 1D, rkq 1D
     def __get_height(self,minh=None,maxh=None):
         return self.__object._get_height(minh,maxh)
     # tau 1D
@@ -8477,6 +8770,9 @@ class hanlertio_class():
     def __get_jkq1d(self,atom=None,transition=None,k=None,q=None, \
                     minh=None,maxh=None,sti=False):
         return self.__object._get_jkq(atom,transition,k,q,minh,maxh,sti)
+    # rkq 1D
+    def __get_rkq1d(self,atom=None,minh=None,maxh=None):
+        return self.__object._get_rkq(atom,minh,maxh)
     # contribution 1D
     def __get_ctr1d(self,minl=None,maxl=None,minh=None,maxh=None):
         return self.__object._get_ctr(minl,maxl,minh,maxh)
@@ -8573,7 +8869,7 @@ class hanlertio_class():
         return self.__object._get_plane(iz,minl,maxl,var)
     # 15D cols, 15D popdeb
     def __get_column_15dcapd(self,ix=None,iy=None,ie=None):
-        return self.__object_get_column(ix,iy,ie)
+        return self.__object._get_column(ix,iy,ie)
     # 15D cols, 15D popbed
     def __get_plane_15dcapd(self,iz,ie=None):
         return self.__object._get_plane(iz,ie)

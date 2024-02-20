@@ -534,6 +534,19 @@ FORCE
 
   * Description: Force the code to solve only the intensity problem (intensity), to solve the polarization problem skipping the intensity problem (polarization), to solve both intensity and polarization problem (all), or let the code decide from the available inputs (none).
 
+RESTRICT_TAUC_STRICT
+--------------------
+
+  * OPTIONAL
+
+  * Modes: 1D, 15D
+
+  * Formats:
+    
+    - string: Yes, No
+
+  * Description: If yes, the nodes will be truncated to not include the ranges in RESTRICT_TAUC. If not, once the restriction is identified, the selected nodes will move one step to the extrema.
+
 RESTRICT_TAUC
 -------------
 
@@ -546,6 +559,19 @@ RESTRICT_TAUC
     - float*2
 
   * Description: Lower and upper limit in the decimal logarithm of the optical depth where to solve the radiative transfer problem. Nodes with values of the optical depths outside the specified range will be neglected.
+
+RESTRICT_HEIGHT_STRICT
+----------------------
+
+  * OPTIONAL
+
+  * Modes: 1D, 15D
+
+  * Formats:
+    
+    - string: Yes, No
+
+  * Description: If yes, the nodes will be truncated to not include the ranges in RESTRICT_HEIGHT. If not, once the restriction is identified, the selected nodes will move one step to the extrema.
 
 RESTRICT_HEIGHT
 ---------------
@@ -1338,9 +1364,22 @@ MIN_T
 
   * Formats:
     
-    - float; default: 3e3
+    - float
 
-  * Description: Minimum temperature in kelvin expected in the 3D model atmosphere.
+  * Description: Minimum temperature in kelvin expected in the 3D model atmosphere. If not specified, the model will be explored to get it.
+
+MAX_T
+-----
+
+  * OPTIONAL
+
+  * Modes: 15D, CLE, INV
+
+  * Formats:
+    
+    - float
+
+  * Description: Maximum temperature in kelvin expected in the 3D model atmosphere. If not specified, the model will be explored to get it.
 
 MAX_V
 -----
@@ -1351,9 +1390,9 @@ MAX_V
 
   * Formats:
     
-    - float; default: 1e1
+    - float
 
-  * Description: Minimum velocity in km s^-1 expected in the 3D model atmosphere.
+  * Description: Maximum velocity in km s^-1 expected in the 3D model atmosphere. If not specified, the model will be explored to get it.
 
 RT_GROUP_N
 ----------
@@ -1757,6 +1796,19 @@ SOLUTION_BOX
     - integer*4; default: -1 -1 -1 -1
 
   * Description: Indicate the initial x index, final x index, initial y index, and final y index, respectively, of the pixels to solve in a 3D model or data file. Negative numbers are wildcards (automatically adjusted to the relevant size of the input).
+
+EXCLUDE_PIXEL
+-------------
+
+  * OPTIONAL, ADDITIVE
+
+  * Modes: 15D, INV
+
+  * Formats:
+    
+    - integer*2
+
+  * Description: Pair of X and Y pixel coordinate for a pixel that must be excluded from the calculations. Note that, for the inversion model, this is not equivalent to setting a mask with INV_MASK, as the pixel will be completely skipped and nothing will be written.
 
 STORE_STEP
 ----------

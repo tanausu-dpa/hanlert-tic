@@ -6,6 +6,16 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an
 # Hao Li
 #
+# 02/19/2024: V3.0.33 - Added MAX_T (TdPA)
+#                     - The default for MIN_T and MAX_V is now
+#                       -1 (TdPA)
+#
+# 02/16/2024: V3.0.32 - Added RESTRICT_TAUC_STRICT and
+#                       RESTRICT_HEIGHT_STRICT (TdPA)
+#
+# 02/14/2024: V3.0.31 - Added EXCLUDE_PIXEL (TdPA)
+#                     - Removed debugging raise statements (TdPA)
+#
 # 01/29/2024: V3.0.30 - Deprecated "rhoe" as option in
 #                       ATMO_CHAR (TdPA)
 #
@@ -453,6 +463,25 @@ def order_float(vec):
       return array
     except:
       return []
+
+def process_pixels(pixels):
+    ''' Order pixels by first dimension and avoid duplicates
+    '''
+    output = []
+    aux = {}
+    lst = []
+    for pixel in pixels:
+      if pixel[0] in aux:
+        if pixel[1] not in aux[pixel[0]]:
+          aux[pixel[0]].append(pixel[1])
+      else:
+        aux[pixel[0]] = [pixel[1]]
+        lst.append(pixel[0])
+    lst.sort()
+    for ix in lst:
+        for iy in aux[ix]:
+            output.append([ix,iy])
+    return output
 
 def unique_ranges(NL,ilow,iup,iff,tran):
     ''' Check that a list of ranges does not have intersections
@@ -956,7 +985,6 @@ def rInput():
       cols[i] = interpret(cols[i])
       cols[i] = ff*(10.0**(float(cols[i])))
     except:
-      raise
       lerror(msg,ofolder,verbosity)
       return False, []
 
@@ -1191,7 +1219,7 @@ def rInput():
          'LIM_STK','LIM_CTR','LIM_TAU', \
          'LIM_COLS_TT','LIM_COLS_LL','LIM_DAMP','LIM_BACK', \
          'LIM_POP','ATMO_STRAT','WEIGHT','ATOM_NO_WAVE', \
-         'PSF_FWHM','LTE_LINE','K_CUT_TERM']
+         'PSF_FWHM','LTE_LINE','K_CUT_TERM','EXCLUDE_PIXEL']
 
   # Inversion variables
   varis = ['B','BT','BP','F','T','VX','VY','VZ','VT','PG', \
@@ -2468,6 +2496,23 @@ def rInput():
   else:
     f.write('N\n')
 
+  # RESTRICT_TAUC_STRICT
+  if rmode == 0 or rmode == 1:
+    check = 0
+    if 'RESTRICT_TAUC_STRICT' in Dictionary:
+      val = Dictionary['RESTRICT_TAUC_STRICT'][0]
+      if val == 'Y' or val == 'YE' or val == 'YES' or \
+         val == 'S' or val =='SI':
+        f.write('Y\n')
+        check = 1
+      if val == 'N' or val == 'NO' or val == 'NON':
+        f.write('N\n')
+        check = 1
+    if check == 0:
+      f.write('N\n')
+  else:
+    f.write('N\n')
+
   # RESTRICT_TAUC
   if rmode == 0 or rmode == 1:
     if 'RESTRICT_TAUC' in Dictionary:
@@ -2488,6 +2533,22 @@ def rInput():
       f.write('{0}\n'.format(t0))
       f.write('{0}\n'.format(t1))
     else:
+      f.write('N\n')
+  else:
+    f.write('N\n')
+
+  # RESTRICT_HEIGHT_STRICT
+  if rmode == 0 or rmode == 1:
+    if 'RESTRICT_HEIGHT_STRICT' in Dictionary:
+      val = Dictionary['RESTRICT_HEIGHT_STRICT'][0]
+      if val == 'Y' or val == 'YE' or val == 'YES' or \
+         val == 'S' or val =='SI':
+        f.write('Y\n')
+        check = 1
+      if val == 'N' or val == 'NO' or val == 'NON':
+        f.write('N\n')
+        check = 1
+    if check == 0:
       f.write('N\n')
   else:
     f.write('N\n')
@@ -2779,7 +2840,6 @@ def rInput():
         else:
           i3 = int(val[3])
       except:
-        raise
         verbose(' # K_CUT_TERM allows for entries with ' + \
                 'three or four integers', ofolder, verbosity)
         abort(f, filename)
@@ -3576,7 +3636,25 @@ def rInput():
       except:
         pass
     if check == 0:
-      f.write('3d3\n')
+      f.write('-1\n')
+  else:
+    f.write('-1\n')
+
+  # MAX_T
+  if rmode == -1 or rmode == 1 or rmode == 2:
+    check = 0
+    if 'MAX_T' in Dictionary:
+      val = Dictionary['MAX_T'][0]
+      try:
+        val = interpret(val)
+        num = float(val)
+        if num > 0:
+          f.write(val+'\n')
+          check = 1
+      except:
+        pass
+    if check == 0:
+      f.write('-1\n')
   else:
     f.write('-1\n')
 
@@ -3594,7 +3672,7 @@ def rInput():
       except:
         pass
     if check == 0:
-      f.write('1d1\n')
+      f.write('-1\n')
   else:
     f.write('-1\n')
 
@@ -4111,6 +4189,36 @@ def rInput():
         abort(f, filename)
   if check == 0:
       f.write('-1\n-1\n-1\n-1\n')
+
+  # EXCLUDE_PIXEL
+  check = 0
+  if rmode == -1 or rmode == 1:
+    if 'EXCLUDE_PIXEL' in Dictionary:
+      vals = Dictionary['EXCLUDE_PIXEL']
+      NL = len(vals)
+      pixels = []
+      for val in vals:
+        if len(val) != 2:
+          verbose(' # EXCLUDE_PIXEL allows for entries with ' + \
+                  'two integers', ofolder, verbosity)
+          abort(f, filename)
+        try:
+          i0 = int(val[0])
+          i1 = int(val[1])
+        except:
+          verbose(' # EXCLUDE_PIXEL allows for entries with ' + \
+                  'two integers', ofolder, verbosity)
+          abort(f, filename)
+        pixels.append([i0,i1])
+      # Process
+      pixels = process_pixels(pixels)
+      # Output
+      f.write('{0}\n'.format(len(pixels)))
+      for pix in pixels:
+        f.write('{0} {1}\n'.format(*pix))
+      check = 1
+  if check == 0:
+    f.write('0\n')
 
   # STORE_STEP
   if rmode == 0 or rmode == 1:
@@ -5659,7 +5767,6 @@ def rInput():
           except ValueError:
             pass
           except:
-            raise
             verbose(' # PSF_FWHM must be a float, triplets of ' + \
                     'floats, a file, or two floats and a file', \
                     ofolder, verbosity)
@@ -5685,7 +5792,6 @@ def rInput():
                         'larger than 0 nm', ofolder, verbosity)
                 abort(f, filename)
             except:
-              raise
               verbose(' # PSF_FWHM must be a float or ' + \
                       'triplets of floats', ofolder, verbosity)
               abort(f, filename)
@@ -5709,7 +5815,6 @@ def rInput():
                         'larger than 0 nm', ofolder, verbosity)
                 abort(f, filename)
             except:
-              raise
               verbose(' # PSF_FWHM must be a float or ' + \
                       'triplets of floats', ofolder, verbosity)
               abort(f, filename)

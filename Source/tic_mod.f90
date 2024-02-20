@@ -10,12 +10,17 @@
 !  Start:
 !     02/16/2023
 !  Last version:
-!     11/24/2023 V3.1.12
+!     02/19/2024 V3.1.14
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/19/2024:   V3.1.14 - Added call to get_lims (TdPA)
+!
+!     02/14/2024:   V3.1.13 - Added option to skip individual pixels,
+!                             without specifying mask (TdPA)
 !
 !     11/24/2023:   V3.1.12 - Added management of mask file (TdPA)
 !
@@ -189,7 +194,7 @@
 
       logical:: aborting,check,lcache,double,restoring
       logical:: update_tlim,update_vlim,update_blim
-      logical:: double_jkq,receiving,atmojkq
+      logical:: double_jkq,receiving,atmojkq,lexcl
       logical, dimension(:,:), allocatable:: cache
 
       integer:: unitD,unitC,unitA,unitJ,unitM
@@ -791,8 +796,22 @@
       !
       if (Input%atmoin_type.gt.0) then
 
+        ! Check known atmospheric limits
+        if ((PRD.and.(Input%minT.lt.0d0.or.Input%maxT.lt.0d0)).or. &
+            (Input%minT.lt.0d0.and.Input%dws.eq.'MIN').or. &
+            (Input%maxT.lt.0d0.and.Input%dws.eq.'MAX').or. &
+            (.not.Input%static.and.Input%maxV.lt.0d0)) then
+
+          ! Read whole model to get limits
+          call get_lims(Input,1,aborting)
+
+          ! Check if could read
+          laborted = aborting
+
+        end if
+
         ! Master
-        if (gpid.eq.0) then
+        if (gpid.eq.0.and..not.laborted) then
 
           ! Open files (ii is a dummy variable here)
           call open_atm(Input,1,unitA,aborting,dims_atmo, &
@@ -1446,6 +1465,26 @@
                 if (cache(iy,ix)) then
                   NLOSr = NLOSr + 1
                   cycle
+                end if
+              end if
+
+              ! If excluding
+              if (Input%lexcl) then
+                if (ix.ge.Input%excl(1,1).and. &
+                    ix.le.Input%excl(1,Input%nexcl)) then
+                  lexcl = .False.
+                  do ia=1,Input%nexcl
+                    if (Input%excl(1,ia).lt.ix) cycle
+                    if (Input%excl(1,ia).gt.ix) exit
+                    if (Input%excl(2,ia).eq.iy) then
+                      lexcl = .True.
+                      exit
+                    end if
+                  end do
+                  if (lexcl) then
+                    NLOSr = NLOSr + 1
+                    cycle
+                  end if
                 end if
               end if
 

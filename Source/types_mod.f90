@@ -13,12 +13,18 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     12/12/2023 V3.0.27
+!     02/16/2024 V3.0.29
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/16/2024:   V3.0.29 - Added rest_tau_strc and rest_z_strc to
+!                             the Input_class type (TdPA)
+!
+!     02/14/2024:   V3.0.28 - Added lexcl, nexcl and excl to the
+!                             Input_class type (TdPA)
 !
 !     12/12/2023:   V3.0.27 - Added cohwi and dcohwi to the
 !                             Input_class type (TdPA)
@@ -1747,7 +1753,8 @@
         ! problem to be static, if there is a file for weights,
         ! keep collisions log, keep MPI log, keep, MPI detailed log,
         ! if polarization with magnetic field must be done in
-        ! two steps
+        ! two steps, if excluded pixels, if truncating tau or height
+        ! restriction
         logical:: AV, appendMRC, appendMRCI, out_contr, out_tau1, &
                   store, storeI, Pcorr, Raman, keepIsol, &
                   NG, keep_back, keep_damp, keep_cols, bfieldn, &
@@ -1758,7 +1765,8 @@
                   keep_JKQ, keep_stokesQ, keep_MRC, IWskip, &
                   skip_disk, lspect_input, rest_tau, rest_z, AVI, &
                   static_int, linv_weight, keep_coll, keep_mpil, &
-                  keep_mpidl, two_step_pol
+                  keep_mpidl, two_step_pol, lexcl, rest_tau_strc, &
+                  rest_z_strc
 
         ! If asymmetry input
         logical, dimension(2):: lasym
@@ -1831,7 +1839,8 @@
         ! presurre/density scale, polar nodes, azimuthal nodes,
         ! intensity polar nodes, intensity azimuthal nodes, AA
         ! integral nodes, intensity AA integral nodes, LOS polar
-        ! directions, LOS azimuthal directions, number of LTE lines
+        ! directions, LOS azimuthal directions, number of LTE lines,
+        ! number of pixels to exclude
         integer:: iter_min, iter_max, iter_ord, store_step, &
                   nA, nAb, nM, iteri_min, iteri_max, &
                   storei_step, iteri_prd, iter_j, NG_ord, NG_delay, &
@@ -1839,13 +1848,14 @@
                   zeeman_mode, update_atmos, redo_ne, NGI_ord, &
                   NGI_delay, PRD_delay, nasym_num, nasym_fil, nasym, &
                   MIT_input, run_mode, rt_group_n, atmo_char, nTh, &
-                  nPh, nThI, nPhI, nThAA, nThAAI, nThLOS, nPhLOS, nLTE
+                  nPh, nThI, nPhI, nThAA, nThAAI, nThLOS, nPhLOS, &
+                  nLTE, nexcl
 
         ! Box to solve in 1.5D synthesis problem
         integer, dimension(:), allocatable:: sol_box
 
-        ! Input for additional K cuts
-        integer, dimension(:,:), allocatable:: Kcut_input
+        ! Input for additional K cuts, excluded pixels
+        integer, dimension(:,:), allocatable:: Kcut_input,excl
 
         ! Value of the Doppler width to build the frequency axis,
         ! factor for the nodes dedicated to magnetically induced

@@ -12,12 +12,19 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     01/26/2024 V3.2.4
+!     02/08/2024 V3.2.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/08/2024:    V3.2.5 - Added counter for RAM allocated by
+!                             the continuum. It was quite likely
+!                             unintentionally removed during the
+!                             transition to version 3 (TdPA)
+!                           - Properly account for the solution size
+!                             in inversions (TdPA)
 !
 !     01/26/2024:    V3.2.4 - Save the intensity solution when not
 !                             calculating polarization (TdPA)
@@ -631,6 +638,10 @@
       complex(kind=8), dimension(:,:,:,:), allocatable:: JKQ
       complex(kind=8), dimension(:,:,:,:), allocatable:: JKQS
       complex(kind=8), dimension(:,:,:,:), allocatable:: JKQC
+#ifdef DEBUGSYN
+      ! Shift ID
+      gpid = gpid - 1
+#endif
 
       ! Initialize frequency and redistribution pointer
       nullify(Frec%dzao)
@@ -702,6 +713,9 @@
       ! Control
       if (laborted) goto 1000
 
+#ifdef DEBUGATMO
+      if (pid.eq.0) call dump_atmo(Atmo,Bfield,Input%folder,1)
+#endif
 
       !
       ! Intensity formal solution
@@ -799,12 +813,18 @@
 
           ! Remove current size in radiation
           MPID%RAM = MPID%RAM - MPID%RRAM
+          MPID%RRAM = MPID%RRAM - (sizeof(J00)*2 + &
+                                   sizeof(J00C) + &
+                                   sizeof(J00P) + &
+                                   sizeof(StokesI))*1d-6
 
           ! Pre-compute amount of RAM to fill with radiation
           if (AV.or..not.PRD) then
-            MPID%RRAM = 8d-6*dble(4*nfreq*Geom%nPh*Geom%nTh*2)
+            MPID%RRAM = MPID%RRAM + &
+                        8d-6*dble(4*nfreq*Geom%nPh*Geom%nTh*2)
           else
-            MPID%RRAM = 8d-6*dble(4*nfreq*Geom%nPh*Geom%nTh*nz)
+            MPID%RRAM = MPID%RRAM + &
+                        8d-6*dble(4*nfreq*Geom%nPh*Geom%nTh*nz)
           end if
           MPID%RRAM = MPID%RRAM + 8d-6*dble(nz*(nxphot*2 + &
                                             15*2*(2*nxtran + nfreq)))
@@ -951,6 +971,10 @@
 
       ! Clean rest
 1000  call free_local(Atom,Cont,Geom,Frec,LTElines)
+#ifdef DEBUGSYN
+      ! Recover ID
+      gpid = gpid + 1
+#endif
 
       return
 
@@ -1035,7 +1059,78 @@
       MPID%RRAM = 0d0
 
       ! Add size of SolF to radiation
-      MPID%RRAM = sizeof(SolF)
+      if (allocated(SolF%e_tau1)) MPID%RRAM = MPID%RRAM + &
+                                         1d-6*sizeof(SolF%e_tau1)
+      if (allocated(SolF%e_Ctr)) MPID%RRAM = MPID%RRAM + &
+                                        1d-6*sizeof(SolF%e_Ctr)
+      if (allocated(SolF%i_J00)) MPID%RRAM = MPID%RRAM + &
+                                        1d-6*sizeof(SolF%i_J00)
+      if (allocated(SolF%i_J00C)) MPID%RRAM = MPID%RRAM + &
+                                         1d-6*sizeof(SolF%i_J00C)
+      if (allocated(SolF%i_J00P)) MPID%RRAM = MPID%RRAM + &
+                                         1d-6*sizeof(SolF%i_J00P)
+      if (allocated(SolF%e_Stk)) MPID%RRAM = MPID%RRAM + &
+                                        1d-6*sizeof(SolF%e_Stk)
+      if (allocated(SolF%i_StkI)) MPID%RRAM = MPID%RRAM + &
+                                         1d-6*sizeof(SolF%i_StkI)
+      if (allocated(SolF%i_Stk)) MPID%RRAM = MPID%RRAM + &
+                                        1d-6*sizeof(SolF%i_Stk)
+      if (allocated(SolF%i_JKQ)) MPID%RRAM = MPID%RRAM + &
+                                        1d-6*sizeof(SolF%i_JKQ)
+      if (allocated(SolF%i_JKQS)) MPID%RRAM = MPID%RRAM + &
+                                         1d-6*sizeof(SolF%i_JKQS)
+      if (allocated(SolF%i_JKQC)) MPID%RRAM = MPID%RRAM + &
+                                         1d-6*sizeof(SolF%i_JKQC)
+      if (allocated(SolF%e_tau1_t)) MPID%RRAM = MPID%RRAM + &
+                                           1d-6*sizeof(SolF%e_tau1_t)
+      if (allocated(SolF%e_Ctr_t)) MPID%RRAM = MPID%RRAM + &
+                                          1d-6*sizeof(SolF%e_Ctr_t)
+      if (allocated(SolF%i_J00_t)) MPID%RRAM = MPID%RRAM + &
+                                          1d-6*sizeof(SolF%i_J00_t)
+      if (allocated(SolF%i_J00C_t)) MPID%RRAM = MPID%RRAM + &
+                                           1d-6*sizeof(SolF%i_J00C_t)
+      if (allocated(SolF%i_J00P_t)) MPID%RRAM = MPID%RRAM + &
+                                           1d-6*sizeof(SolF%i_J00P_t)
+      if (allocated(SolF%e_Stk_t)) MPID%RRAM = MPID%RRAM + &
+                                          1d-6*sizeof(SolF%e_Stk_t)
+      if (allocated(SolF%i_StkI_t)) MPID%RRAM = MPID%RRAM + &
+                                           1d-6*sizeof(SolF%i_StkI_t)
+      if (allocated(SolF%i_Stk_t)) MPID%RRAM = MPID%RRAM + &
+                                          1d-6*sizeof(SolF%i_Stk_t)
+      if (allocated(SolF%i_JKQ_t)) MPID%RRAM = MPID%RRAM + &
+                                          1d-6*sizeof(SolF%i_JKQ_t)
+      if (allocated(SolF%i_JKQS_t)) MPID%RRAM = MPID%RRAM + &
+                                           1d-6*sizeof(SolF%i_JKQS_t)
+      if (allocated(SolF%i_JKQC_t)) MPID%RRAM = MPID%RRAM + &
+                                           1d-6*sizeof(SolF%i_JKQC_t)
+      if (allocated(SolF%e_tau1_b)) MPID%RRAM = MPID%RRAM + &
+                                           1d-6*sizeof(SolF%e_tau1_b)
+      if (allocated(SolF%e_Ctr_b)) MPID%RRAM = MPID%RRAM + &
+                                          1d-6*sizeof(SolF%e_Ctr_b)
+      if (allocated(SolF%i_J00_b)) MPID%RRAM = MPID%RRAM + &
+                                          1d-6*sizeof(SolF%i_J00_b)
+      if (allocated(SolF%i_J00C_b)) MPID%RRAM = MPID%RRAM + &
+                                           1d-6*sizeof(SolF%i_J00C_b)
+      if (allocated(SolF%i_J00P_b)) MPID%RRAM = MPID%RRAM + &
+                                           1d-6*sizeof(SolF%i_J00P_b)
+      if (allocated(SolF%e_Stk_b)) MPID%RRAM = MPID%RRAM + &
+                                          1d-6*sizeof(SolF%e_Stk_b)
+      if (allocated(SolF%i_StkI_b)) MPID%RRAM = MPID%RRAM + &
+                                           1d-6*sizeof(SolF%i_StkI_b)
+      if (allocated(SolF%i_Stk_b)) MPID%RRAM = MPID%RRAM + &
+                                          1d-6*sizeof(SolF%i_Stk_b)
+      if (allocated(SolF%i_JKQ_b)) MPID%RRAM = MPID%RRAM + &
+                                          1d-6*sizeof(SolF%i_JKQ_b)
+      if (allocated(SolF%i_JKQS_b)) MPID%RRAM = MPID%RRAM + &
+                                           1d-6*sizeof(SolF%i_JKQS_b)
+      if (allocated(SolF%i_JKQC_b)) MPID%RRAM = MPID%RRAM + &
+                                           1d-6*sizeof(SolF%i_JKQC_b)
+      if (allocated(SolF%i_rhoes)) MPID%RRAM = MPID%RRAM + &
+                                          1d-6*sizeof(SolF%i_rhoes)
+      if (allocated(SolF%i_rhoes_t)) MPID%RRAM = MPID%RRAM + &
+                                           1d-6*sizeof(SolF%i_rhoes_t)
+      if (allocated(SolF%i_rhoes_b)) MPID%RRAM = MPID%RRAM + &
+                                           1d-6*sizeof(SolF%i_rhoes_b)
 
 
       !
@@ -1054,6 +1149,9 @@
       !
       call background(Atom,Atomb,Mol,Atmo,fudge,kurucz, &
                       Input,Frec%omega,Cont,GeomI,MPID,Flgsg)
+
+      ! Add size to counter
+      MPID%BRAM = sizeof(Cont%c)*1d-6
 
       ! Control
       if (laborted) return
@@ -1267,11 +1365,19 @@
       ! Clean
       if (allocated(Cont%c)) deallocate(Cont%c)
 
+      ! Remove current background
+      MPID%RAM = MPID%RAM - MPID%BRAM
+      MPID%BRAM = 0d0
+
       ! Do it again
       call background(Atom,Atomb,Mol,Atmo,fudge,kurucz, &
                       Input,Frec%omega,Cont,Geom,MPID,Flgsg)
       ! Control
       if (laborted) return
+
+      ! Add current background to RAM
+      MPID%BRAM = sizeof(Cont%c)*1d-6
+      MPID%RAM = MPID%RAM + MPID%BRAM
 
       if (gpid.eq.0) then
         umsg = ' - Background quantities re-calculated'
@@ -1997,6 +2103,9 @@
         l1 = NCHLT
         if (NCHLT) NCHLT = .False.
 
+#ifdef DEBUGRHOKQ
+        if (pid.eq.0) call dump_rho(Atom,Input%folder,-3)
+#endif
         ! Call
         call JKQgenerate(Atom,Rho_old,Atmo,Frec,Geom, &
                          MPID,Flgsg,Input%Pcorr,Bfield,rnPh, &

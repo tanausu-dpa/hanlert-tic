@@ -10,12 +10,17 @@
 !  Start:
 !     06/29/2022
 !  Last version:
-!     11/24/2023 V3.0.11
+!     02/19/2024 V3.0.13
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/19/2024:   V3.0.13 - Added get_lims routine (TdPA)
+!
+!     02/14/2024:   V3.0.12 - Bugfix: Wrong label for 1.5D output file
+!                             for height of optical depth unity (TdPA)
 !
 !     11/24/2023:   V3.0.11 - Crash wrong cache dimensions (TdPA)
 !
@@ -161,6 +166,10 @@
 !  get_column:
 !    Read data to fill the specified buffer from an opened file
 !  (atmospheric model)
+!
+!  get_lims:
+!    Check the temperature and velocity limits for an opened
+!  atmospheric model
 !
 !  get_column_ion:
 !    Read data to fill the specified buffer from an opened file
@@ -1178,6 +1187,351 @@
       return
 
       end subroutine get_column
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Get limits for temperature and velocity for a given model\n
+      !!     Input(Input_class): Structure with settings data\n
+      !!      run_mode(integer): Running mode\n
+      !!      aborting(logical): Indicate failure at output
+      subroutine get_lims(Input,run_mode,aborting)
+
+      ! I/O
+      type(Input_class), intent(inout):: Input
+      logical, intent(out):: aborting
+      integer, intent(in):: run_mode
+
+      ! Local
+      logical:: double,check,readx,readxy
+      integer:: unitA,mode,norm,sizeA,jump,jumpY,ix,iy,iz,i0,i1
+      integer:: d0,di0,di1,it,iv
+      integer, dimension(3):: dims
+      integer, dimension(4):: sol_box
+      double precision:: minT,maxT,maxV,lv,ycoor,zcoor
+      double precision, dimension(:), allocatable:: x,y,z
+      double precision, dimension(:), allocatable, target:: buffer
+      double precision, dimension(:), pointer:: p_T,p_vx,p_vy,p_vz
+
+      !
+      ! Only Master
+      !
+      if (gpid.eq.0) then
+
+      ! Initialize good
+      aborting = .False.
+
+      ! Dummy loop
+      do while (.True.)
+
+      !
+      ! Give unit a number
+      !
+      unitA = 16
+
+      !
+      ! Open atmospheric file to read
+      !
+      call open_file(unitA, Input%atmo, 0, .False., check)
+
+      ! Check could open
+      if (.not.check) then
+        aborting = .True.
+        exit
+      end if
+
+      ! Get dimensions from atmosphere file
+      call get_dims(unitA,run_mode,mode,double,norm,dims,check)
+      if (.not.check) then
+        aborting = .True.
+        exit
+      end if
+
+      ! Initialize
+      minT = 1d299
+      maxT = -1d299
+      if (Input%static) then
+        maxV = 0d0
+      else
+        maxV = -1d299
+      end if
+      nullify(p_T,p_vx,p_vy,p_vz)
+
+      ! If 1.5D
+      if (run_mode.eq.1) then
+
+        ! Fix wildcards in input
+        sol_box = Input%sol_box
+        if (sol_box(1).lt.1) sol_box(1) = 1
+        if (sol_box(2).lt.1) sol_box(2) = dims(1)
+        if (sol_box(3).lt.1) sol_box(3) = 1
+        if (sol_box(4).lt.1) sol_box(4) = dims(2)
+
+        ! Allocate column buffer
+        sizeA = dims(3)*24
+        jump = sizeA*8
+        allocate(buffer(sizeA))
+
+        ! For each X
+        do ix=1,dims(1)
+
+          ! Aborting
+          if (aborting) exit
+
+          ! Read?
+          readx = ix.ge.sol_box(1).and.ix.le.sol_box(2)
+          if (ix.lt.sol_box(1)) call fseek(unitA,jump*dims(2),1)
+          if (ix.gt.sol_box(2)) exit
+
+          ! For each Y
+          do iy=1,dims(2)
+
+            ! Read?
+            readxy = readx.and. &
+                     iy.ge.sol_box(3).and.iy.le.sol_box(4)
+
+            ! If reading
+            if (readxy) then
+
+              ! Get column
+              call get_column(unitA,buffer,double,check)
+
+              ! Check could read
+              if (.not.check) then
+                aborting = .True.
+                exit
+              end if
+
+              ! Temperature
+              p_T => buffer(3*dims(3)+1:4*dims(3))
+              minT = min(minT,minval(p_T))
+              maxT = max(maxT,maxval(p_T))
+
+              ! Velocity
+              if (.not.Input%static) then
+                p_vx => buffer(9*dims(3)+1:10*dims(3))
+                p_vy => buffer(10*dims(3)+1:11*dims(3))
+                p_vz => buffer(11*dims(3)+1:12*dims(3))
+                maxV = max(maxV,maxval(sqrt(p_vx*p_vx + &
+                                            p_vy*p_vy + &
+                                            p_vz*p_vz)))
+              end if
+
+            ! Not reading
+            else
+
+              ! Skip
+              call fseek(unitA,jump,1)
+
+            end if
+
+          end do ! Y
+        end do ! X
+
+      ! If CLE
+      else if (run_mode.eq.2) then
+
+        ! If cartesian or slab
+        if (mode.eq.0.or.mode.eq.1) then
+
+          ! Get axes if cartesian
+          if (mode.eq.0) &
+            call get_axes(unitA,dims,x,y,z,double,gpid.eq.0)
+
+          ! Size
+          sizeA = dims(1)*22
+          if (mode.eq.1) sizeA = sizeA + 3
+
+          ! Cartesian
+          if (mode.eq.0) then
+
+            ! Indexes for buffer call
+            d0 = dims(1)
+            di0 = 1
+            di1 = dims(1)
+            it = 1
+            iv = 7
+
+          ! Slab
+          else
+
+            ! Indexes for buffer call
+            d0 = 1
+            di0 = 0
+            di1 = 0
+            it = 5
+            iv = 11
+
+          end if
+
+        ! If not cartesian
+        else if (mode.eq.2) then
+
+          ! Size
+          sizeA = dims(1)*23
+
+          ! Indexes for buffer call
+          d0 = dims(1)
+          di0 = 1
+          di1 = dims(1)
+          it = 2
+          iv = 8
+
+        end if
+
+        ! Allocate buffer
+        allocate(buffer(sizeA))
+
+        ! Static
+        if (Input%static) then
+
+          ! For each column
+          do iy=1,dims(2)
+
+            ! Aborting
+            if (aborting) exit
+
+            do iz=1,dims(3)
+
+              ! Not cartesian
+              if (mode.eq.2) &
+                call get_point(unitA,dims(1),ycoor,zcoor,double)
+
+              ! Get data
+              call get_column(unitA,buffer,double,check)
+
+              ! Check could read
+              if (.not.check) then
+                aborting = .True.
+                exit
+              end if
+
+              ! For each point
+              do ix=1,dims(1)
+
+                ! Coordinate
+                i1 = di0*ix
+
+                ! Temperature
+                i0 = it*d0
+                minT = min(minT,buffer(i0+iz))
+                maxT = max(maxT,buffer(i0+iz))
+
+              end do
+            end do
+          end do
+
+        ! Not static
+        else
+
+          ! For each column
+          do iy=1,dims(2)
+
+            ! Aborting
+            if (aborting) exit
+
+            do iz=1,dims(3)
+
+              ! Not cartesian
+              if (mode.eq.2) &
+                call get_point(unitA,dims(1),ycoor,zcoor,double)
+
+              ! Get data
+              call get_column(unitA,buffer,double,check)
+
+              ! Check could read
+              if (.not.check) then
+                aborting = .True.
+                exit
+              end if
+
+              ! For each point
+              do ix=1,dims(1)
+
+                ! Coordinate
+                i1 = di0*ix
+
+                ! Temperature
+                i0 = it*d0
+                minT = min(minT,buffer(i0+iz))
+                maxT = max(maxT,buffer(i0+iz))
+
+                ! Velocity
+                lv = 0d0
+                i0 = iv*d0
+                lv = lv + buffer(i0+iz)*buffer(i0+iz)
+                i0 = i0 + d0
+                lv = lv + buffer(i0+iz)*buffer(i0+iz)
+                i0 = i0 + d0
+                lv = lv + buffer(i0+iz)*buffer(i0+iz)
+                maxV = max(maxV,sqrt(lv))
+
+              end do
+            end do
+          end do
+
+        end if ! Static
+      end if ! 15D/CLE
+
+      ! Dummy loop
+      exit
+      end do
+
+      ! Close
+      call close_file(unitA)
+
+      ! Clean
+      nullify(p_T,p_vx,p_vy,p_vz)
+
+      !!
+      end if ! Master
+
+      ! Master share status
+      call MPI_BCAST(aborting,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+
+      ! Aborting?
+      if (aborting) return
+
+      ! Minimun temperature
+      if (Input%minT.lt.0d0) then
+
+        ! Update
+        if (gpid.eq.0) Input%minT = minT
+        call MPI_BCAST(Input%minT,1,MPI_DOUBLE_PRECISION, &
+                       0,MPI_COMM_WORLD,ierr)
+
+      end if
+
+      ! Maximum temperature
+      if (Input%maxT.lt.0d0) then
+
+        ! Update
+        if (gpid.eq.0) Input%maxT = maxT
+        call MPI_BCAST(Input%maxT,1,MPI_DOUBLE_PRECISION, &
+                       0,MPI_COMM_WORLD,ierr)
+
+      end if
+
+      ! If static
+      if (Input%static) then
+
+        ! Just 0
+        Input%maxV = 0d0
+
+      ! Not specific
+      else if (Input%maxV.lt.0d0) then
+
+        ! Update
+        if (gpid.eq.0) Input%maxV = maxV
+        call MPI_BCAST(Input%maxV,1,MPI_DOUBLE_PRECISION, &
+                       0,MPI_COMM_WORLD,ierr)
+
+      end if ! V
+
+      return
+
+      end subroutine get_lims
 
 !#####################################################################
 !#####################################################################
@@ -2535,7 +2889,7 @@
                   form='unformatted')
 
             ! Write header
-            write(200) '2Dbc'
+            write(200) '2Dbt'
             write(200) Input%lim_tau%nn
             write(200) dims(1:2)
             write(200) Tlos(ith)*180d0/PI

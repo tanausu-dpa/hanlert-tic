@@ -13,12 +13,18 @@
 !  Start:
 !     06/22/2022
 !  Last version:
-!     01/09/2024 V3.0.21
+!     02/19/2024 V3.0.23
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/19/2024:   V3.0.23 - Added calls to new get_lims routine
+!                             in 1.5D and CLE modes (TdPA)
+!
+!     02/14/2024:   V3.0.22 - In 1.5D mode, added option to skip
+!                             specific pixels (TdPA)
 !
 !     01/09/2024:   V3.0.21 - In 1.5D mode, when the cache says that
 !                             the pixel is solved, it is skipped
@@ -207,6 +213,9 @@
       use initmodel_mod
       use inspect_mod
       use io_mod
+#ifdef DEBUGATMO
+      use iosolution_mod
+#endif
       use kurucz_mod
       use normalizer_mod
       use omegabuild_mod
@@ -462,6 +471,9 @@
       if (allocated(Input%atomback)) deallocate(Input%atomback)
       if (allocated(Input%mol)) deallocate(Input%mol)
 
+#ifdef DEBUGATMO
+      if (pid.eq.0) call dump_atmo(Atmo,Bfield,Input%folder,0)
+#endif
       ! Prepare for synthesis
       call prepare_syn(Atom,Atomb,LTElines,Mol,Atmo,Input,Flgsg)
 
@@ -529,7 +541,7 @@
 
       logical:: aborting,check,receiving,lcache
       logical:: lio,lie,lp,lpe,lporlpe,lload,l1,l2
-      logical:: double
+      logical:: double,lexcl
 
       logical, dimension(:,:), allocatable:: cache
 
@@ -554,6 +566,23 @@
         maxB = 0d0
       else
         maxB = 1d0
+      end if
+
+      ! Check known atmospheric limits
+      if ((PRD.and.(Input%minT.lt.0d0.or.Input%maxT.lt.0d0)).or. &
+          (Input%minT.lt.0d0.and.Input%dws.eq.'MIN').or. &
+          (Input%maxT.lt.0d0.and.Input%dws.eq.'MAX').or. &
+          (.not.Input%static.and.Input%maxV.lt.0d0)) then
+
+        ! Read whole model to get limits
+        call get_lims(Input,1,aborting)
+
+        ! Check if could read
+        laborted = aborting
+
+        ! Check if aborting
+        call gcontrol
+
       end if
 
       ! Correct maxV
@@ -973,6 +1002,26 @@
                 end if
               end if
 
+              ! If excluding
+              if (Input%lexcl) then
+                if (ix.ge.Input%excl(1,1).and. &
+                    ix.le.Input%excl(1,Input%nexcl)) then
+                  lexcl = .False.
+                  do ia=1,Input%nexcl
+                    if (Input%excl(1,ia).lt.ix) cycle
+                    if (Input%excl(1,ia).gt.ix) exit
+                    if (Input%excl(2,ia).eq.iy) then
+                      lexcl = .True.
+                      exit
+                    end if
+                  end do
+                  if (lexcl) then
+                    NLOSr = NLOSr + 1
+                    cycle
+                  end if
+                end if
+              end if
+
               ! Take a free cpu
               ip = maxloc(cpu_free, 1)
 
@@ -1229,6 +1278,9 @@
             ! Initialize aborting flag
             laborted = .False.
 
+#ifdef DEBUGATMO
+      if (pid.eq.0) call dump_atmo(Atmo,Bfield,Input%folder,0)
+#endif
             ! Prepare for synthesis
             call prepare_syn(Atom,Atomb,LTElines,Mol,Atmo,Input,Flgsg)
 
@@ -1361,6 +1413,9 @@
           ! Initialize aborting flag
           laborted = .False.
 
+#ifdef DEBUGATMO
+      if (pid.eq.0) call dump_atmo(Atmo,Bfield,Input%folder,0)
+#endif
           ! Prepare for synthesis
           call prepare_syn(Atom,Atomb,LTElines,Mol,Atmo,Input,Flgsg)
 
@@ -1481,6 +1536,9 @@
       if (associated(Atmo%Bx)) nullify(Atmo%Bz,Atmo%Bx,Atmo%By)
 
 
+#ifdef DEBUGATMO
+      if (pid.eq.0) call dump_atmo(Atmo,Bfield,Input%folder,0)
+#endif
       !
       ! Prepare the models for synthesis
       call prepare_syn(Atom,Atomb,LTElines,Mol,Atmo,Input,Flgsg)
@@ -1744,6 +1802,23 @@
         maxB = 0d0
       else
         maxB = 1d0
+      end if
+
+      ! Check known atmospheric limits
+      if ((PRD.and.(Input%minT.lt.0d0.or.Input%maxT.lt.0d0)).or. &
+          (Input%minT.lt.0d0.and.Input%dws.eq.'MIN').or. &
+          (Input%maxT.lt.0d0.and.Input%dws.eq.'MAX').or. &
+          (.not.Input%static.and.Input%maxV.lt.0d0)) then
+
+        ! Read whole model to get limits
+        call get_lims(Input,1,aborting)
+
+        ! Check if could read
+        laborted = aborting
+
+        ! Check if aborting
+        call gcontrol
+
       end if
 
       ! Correct maxV

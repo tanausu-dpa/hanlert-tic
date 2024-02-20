@@ -380,9 +380,20 @@ MIN_T
 
   * Formats:
     
-    - float; default: 3e3
+    - float
 
-  * Description: Minimum temperature in kelvin expected in the 3D model atmosphere.
+  * Description: Minimum temperature in kelvin expected in the 3D model atmosphere. If not specified, the model will be explored to get it.
+
+MAX_T
+-----
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - float
+
+  * Description: Maximum temperature in kelvin expected in the 3D model atmosphere. If not specified, the model will be explored to get it.
 
 MAX_V
 -----
@@ -391,9 +402,9 @@ MAX_V
 
   * Formats:
     
-    - float; default: 1e1
+    - float
 
-  * Description: Minimum velocity in km s^-1 expected in the 3D model atmosphere.
+  * Description: Maximum velocity in km s^-1 expected in the 3D model atmosphere. If not specified, the model will be explored to get it.
 
 RT_GROUP_N
 ----------
@@ -614,6 +625,17 @@ SOLUTION_BOX
     - integer*4; default: -1 -1 -1 -1
 
   * Description: Indicate the initial x index, final x index, initial y index, and final y index, respectively, of the pixels to solve in a 3D model or data file. Negative numbers are wildcards (automatically adjusted to the relevant size of the input).
+
+EXCLUDE_PIXEL
+-------------
+
+  * OPTIONAL, ADDITIVE
+
+  * Formats:
+    
+    - integer*2
+
+  * Description: Pair of X and Y pixel coordinate for a pixel that must be excluded from the calculations. Note that, for the inversion model, this is not equivalent to setting a mask with INV_MASK, as the pixel will be completely skipped and nothing will be written.
 
 CONTRIBUTION
 ------------

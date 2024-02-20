@@ -10,12 +10,18 @@
 !  Start:
 !     12/03/2019
 !  Last version:
-!     10/16/2023 V3.0.7
+!     02/16/2024 V3.0.8
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/16/2024:    V3.0.8 - Added additional mode to restrict nodes
+!                             in RT (TdPA)
+!                           - Bugfix: wrong initialization of z
+!                             indexes when restricting height and
+!                             the upper limit does not apply (TdPA)
 !
 !     10/16/2023:    V3.0.7 - Ensure Atmo%zalt is allocated with the
 !                             correct size in getztau (TdPA)
@@ -277,10 +283,20 @@
 
             ! Find
             do iz=2,nz-1
-              if (Atmo%z(iz-1).lt.r0.and.Atmo%z(iz).ge.r0) &
-                tz0 = iz - 1
-              if (Atmo%z(iz).le.r1.and.Atmo%z(iz+1).gt.r1) &
-                tz1 = iz + 1
+              if (Atmo%z(iz-1).lt.r0.and.Atmo%z(iz).ge.r0) then
+                if (Input%rest_tau_strc) then
+                  tz0 = iz
+                else
+                  tz0 = iz - 1
+                end if
+              end if
+              if (Atmo%z(iz).le.r1.and.Atmo%z(iz+1).gt.r1) then
+                if (Input%rest_tau_strc) then
+                  tz1 = iz
+                else
+                  tz1 = iz + 1
+                end if
+              end if
               if (tz1.gt.0.and.tz0.gt.0) exit
             end do
 
@@ -294,10 +310,20 @@
 
             ! Find
             do iz=2,nz-1
-              if (Atmo%zalt(iz-1).lt.r0.and.Atmo%zalt(iz).ge.r0) &
-                tz0 = iz - 1
-              if (Atmo%zalt(iz).le.r1.and.Atmo%zalt(iz+1).gt.r1) &
-                tz1 = iz + 1
+              if (Atmo%zalt(iz-1).lt.r0.and.Atmo%zalt(iz).ge.r0) then
+                if (Input%rest_tau_strc) then
+                  tz0 = iz
+                else
+                  tz0 = iz - 1
+                end if
+              end if
+              if (Atmo%zalt(iz).le.r1.and.Atmo%zalt(iz+1).gt.r1) then
+                if (Input%rest_tau_strc) then
+                  tz1 = iz
+                else
+                  tz1 = iz + 1
+                end if
+              end if
               if (tz1.gt.0.and.tz0.gt.0) exit
             end do
 
@@ -318,8 +344,8 @@
           zz1 = -1
 
           ! Shortener
-          r0 = Input%r0z
-          r1 = Input%r1z
+          r0 = Input%r0z*1d5
+          r1 = Input%r1z*1d5
 
           ! Tau is main
           if (ztau) then
@@ -327,14 +353,24 @@
             ! If already larger
             if (Atmo%zalt(nz).ge.r0) zz1 = nz
             ! If already smaller
-            if (Atmo%zalt(1).le.r1) zz1 = 1
+            if (Atmo%zalt(1).le.r1) zz0 = 1
 
             ! Find
             do iz=2,nz-1
-              if (Atmo%zalt(iz-1).gt.r1.and.Atmo%zalt(iz).le.r1) &
-                zz0 = iz - 1
-              if (Atmo%zalt(iz).ge.r0.and.Atmo%zalt(iz+1).lt.r0) &
-                zz1 = iz + 1
+              if (Atmo%zalt(iz-1).gt.r1.and.Atmo%zalt(iz).le.r1) then
+                if (Input%rest_z_strc) then
+                  zz0 = iz
+                else
+                  zz0 = iz - 1
+                end if
+              end if
+              if (Atmo%zalt(iz).ge.r0.and.Atmo%zalt(iz+1).lt.r0) then
+                if (Input%rest_z_strc) then
+                  zz1 = iz
+                else
+                  zz1 = iz + 1
+                end if
+              end if
               if (zz1.gt.0.and.zz0.gt.0) exit
             end do
 
@@ -344,14 +380,24 @@
             ! If already larger
             if (Atmo%z(nz).ge.r0) zz1 = nz
             ! If already smaller
-            if (Atmo%z(1).le.r1) zz1 = 1
+            if (Atmo%z(1).le.r1) zz0 = 1
 
             ! Find
             do iz=2,nz-1
-              if (Atmo%z(iz-1).gt.r1.and.Atmo%z(iz).le.r1) &
-                zz0 = iz - 1
-              if (Atmo%z(iz).ge.r0.and.Atmo%z(iz+1).lt.r0) &
-                zz1 = iz + 1
+              if (Atmo%z(iz-1).gt.r1.and.Atmo%z(iz).le.r1) then
+                if (Input%rest_z_strc) then
+                  zz0 = iz
+                else
+                  zz0 = iz - 1
+                end if
+              end if
+              if (Atmo%z(iz).ge.r0.and.Atmo%z(iz+1).lt.r0) then
+                if (Input%rest_z_strc) then
+                  zz1 = iz
+                else
+                  zz1 = iz + 1
+                end if
+              end if
               if (zz1.gt.0.and.zz0.gt.0) exit
             end do
 

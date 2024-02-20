@@ -297,6 +297,17 @@ FORCE
 
   * Description: Force the code to solve only the intensity problem (intensity), to solve the polarization problem skipping the intensity problem (polarization), to solve both intensity and polarization problem (all), or let the code decide from the available inputs (none).
 
+RESTRICT_TAUC_STRICT
+--------------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string: Yes, No
+
+  * Description: If yes, the nodes will be truncated to not include the ranges in RESTRICT_TAUC. If not, once the restriction is identified, the selected nodes will move one step to the extrema.
+
 RESTRICT_TAUC
 -------------
 
@@ -307,6 +318,17 @@ RESTRICT_TAUC
     - float*2
 
   * Description: Lower and upper limit in the decimal logarithm of the optical depth where to solve the radiative transfer problem. Nodes with values of the optical depths outside the specified range will be neglected.
+
+RESTRICT_HEIGHT_STRICT
+----------------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string: Yes, No
+
+  * Description: If yes, the nodes will be truncated to not include the ranges in RESTRICT_HEIGHT. If not, once the restriction is identified, the selected nodes will move one step to the extrema.
 
 RESTRICT_HEIGHT
 ---------------

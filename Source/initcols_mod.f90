@@ -641,7 +641,7 @@
             ! Convertion to 10^8 s-1
             CulI = CulI*1d-8
 
-            ! Compute actual rate and add to the damping
+            ! Compute actual rate
             do iz=1,nZ
 
               Atom%CcoeffJ(low,up,iz) = CulI(iz)*p_pop(iz) + &

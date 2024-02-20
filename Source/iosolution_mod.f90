@@ -12,12 +12,32 @@
 !  Start:
 !     04/20/2016
 !  Last version:
-!     09/25/2023 V3.0.16
+!     02/20/2024 V3.0.20
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/20/2024:   V3.0.20 - Improved algorithm to read radiation
+!                             field. It is more readable and may fix
+!                             potential undetected issues (TdPA)
+!
+!     02/19/2024:   V3.0.19 - Bugfix: wrong logic when reading Stokes
+!                             parameters for a non axially-symmetric
+!                             solution without keeping the Stokes
+!                             parameters, also when computing the
+!                             corresponding tensors (TdPA)
+!                           - Bugfix: wrong pointer for J00P when
+!                             sharing in readsol when restricting
+!                             heights (TdPA)
+!
+!     02/16/2024:   V3.0.18 - Bugfix: wrong name file when storing
+!                             solution variables without storing the
+!                             solution file in 1.5DS mode (TdPA)
+!
+!     02/14/2024:   V3.0.17 - RAM variable for radiation does not
+!                             assume not initialized (TdPA)
 !
 !     09/29/2023:   V3.0.16 - Updated to term- and transition-wise
 !                             K cut limits (TdPA)
@@ -630,7 +650,7 @@
       ! Allocate J00 for photoionizations (common for both)
       !
       allocate(J00P(nxphot,2,Rz0:Rz1))
-      MPID%RRAM = 8d-6*dble(2*nxphot*Rnz)
+      MPID%RRAM = MPID%RRAM + 8d-6*dble(2*nxphot*Rnz)
 
       !
       ! Polarization read
@@ -1499,7 +1519,8 @@
               ! Master
               if(pid.eq.0)then
 
-                JKQC = dcmplx(.0D0,.0D0)
+                ! Initialize
+                JKQC = cZero
 
                 ! For each height
                 do iz=1,nZ
@@ -1507,84 +1528,135 @@
                   ! For each polar direction
                   do ith=1,Geom%nTh
 
-                    ! For each azimuthal direction
-                    do iph=1,Geom%nPh
+                    ! Axial input
+                    if (inaxial) then
 
                       ! For each frequency
                       do ifreq=1,nfreq
 
+                        ! Integral
+                        integr = cZero
+
                         ! For each Stokes parameter
                         do iS=0,3
 
-                          ! If the input is not axial or is the first
-                          ! azimuth
-                          if(.not.inaxial.or.iph.eq.1)then
+                          ! Read the data point
+                          read (200,err=1100) da1
+
+                          ! Skip out of limits
+                          if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+
+                          ! Store
+                          if (KSTK) Stokes(iS,ifreq,iph,ith,iz) = da1
+
+                          ! For each K
+                          do K=0,Krad
+
+                            ! Sum over Stokes parameters of Stk*TKQ
+                            integr = da1*Geom%TS(iS,0,K,iph,ith)
+
+                            ! Add contribution to the JKQC integral
+                            JKQC(0,K,ifreq,iz) = &
+                                               JKQC(0,K,ifreq,iz) + &
+                                               integr*Geom%W_mu(ith)
+
+                          end do ! K
+                        end do ! Stokes
+                      end do ! frequencies
+
+                      ! Skip if out of limits
+                      if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+
+                      ! If storing, fill rest
+                      if (KSTK) then
+                        do iph=2,Geom%nph
+                          Stokes(:,:,iph,ith,iz) = &
+                                                  Stokes(:,:,1,ith,iz)
+                        end do
+                      end if
+
+                    ! Not axial input
+                    else
+
+                      ! For each azimuthal direction
+                      do iph=1,ia4
+
+                        ! For each frequency
+                        do ifreq=1,nfreq
+
+                          ! For each Stokes parameter
+                          do iS=0,3
 
                             ! Read the data point
                             read (200,err=1100) da1
 
+                            ! Skip out of limits
                             if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
 
-                            if (.not.axial.or.iph.eq.1) then
-
-                              ! Store
-                              if (KSTK) then
-                                Stokes(iS,ifreq,iph,ith,iz) = da1
-                              else
-                                Stokes(iS,ifreq,iph,ith,Rz0) = da1
-                              end if
-
-                            end if
-
-                          ! If the input is axial
-                          else
-
-                            if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+                            ! Axial?
+                            if (axial.and.iph.gt.1) cycle
 
                             ! Store
-                            if (KSTK) then
-                              Stokes(iS,ifreq,iph,ith,iz) = &
-                                            Stokes(iS,ifreq,1,ith,iz)
+                            if (KSTK) &
+                              Stokes(iS,ifreq,iph,ith,iz) = da1
+
+                            ! If axial
+                            if (axial) then
+
+                              ! For each K
+                              do K=0,Krad
+
+                                ! Sum over Stk parameters of Stk*TKQ
+                                integr = da1*Geom%TS(iS,0,K,iph,ith)
+
+                                ! Add contribution to the JKQC int.
+                                JKQC(0,K,ifreq,iz) = &
+                                                JKQC(0,K,ifreq,iz) + &
+                                                integr*Geom%W_mu(ith)
+                              end do
+
+                            ! If not axial
                             else
-                              Stokes(iS,ifreq,iph,ith,1) = &
-                                            Stokes(iS,ifreq,1,ith,1)
-                            end if
 
-                          end if ! axial input
+                              ! For each K
+                              do K=0,Krad
 
-                        end do ! Stokes parameters
+                                ! For each Q
+                                do iQ=0,K
 
-                        if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+                                  ! Sum over Stk parameters of Stk*TKQ
+                                  integr = da1* &
+                                           Geom%TS(iS,iQ,K,iph,ith)
 
-                        ! For each K
-                        do K=0,Krad
-
-                          ! For each Q
-                          do iQ=0,K
-
-                            ! Sum over Stokes parameters of Stokes*TKQ
-                            integr = sum(Stokes(:,ifreq,iph,ith,1)* &
-                                         Geom%TS(:,iQ,K,iph,ith))
-
-                            ! Add contribution to the JKQC integral
-                            JKQC(iQ,K,ifreq,iz) = &
+                                  ! Add contribution to the JKQC
+                                  JKQC(iQ,K,ifreq,iz) = &
                                                JKQC(iQ,K,ifreq,iz) + &
-                                 integr*Geom%W_mu(ith)*Geom%W_mux(iph)
+                                               integr* &
+                                               Geom%W_mu(ith)* &
+                                               Geom%W_mux(iph)
 
-                          end do ! Q
-                        end do ! K
-                      end do ! frequencies
-                    end do ! azimuthal nodes
+                                end do ! Q
+                              end do ! K
+
+                            end if ! Axial
+                          end do ! Stokes
+                        end do ! frequencies
+                      end do ! azimuthal nodes
+
+                    end if ! In axial
+
                   end do ! polar nodes
                 end do ! heights
 
                 ! Complete
-                do K=1,Krad
-                  do iQ=1,K
-                    JKQC(-iQ,K,:,Rz0:Rz1) = Flgsg%sg(iQ)* &
+                if (.not.axial) then
+                  do K=1,Krad
+                    do iQ=1,K
+                      JKQC(-iQ,K,:,Rz0:Rz1) = Flgsg%sg(iQ)* &
                                            conjg(JKQC(iQ,K,:,Rz0:Rz1))
+                    end do
                   end do
-                end do
+                end if
 
               end if ! Master
 
@@ -1651,8 +1723,8 @@
                   ! For each polar direction
                   do ith=1,Geom%nTh
 
-                    ! For each azimuthal direction
-                    do iph=1,Geom%nPh
+                    ! If input axial
+                    if (inaxial) then
 
                       ! For each frequency
                       do ifreq=1,nfreq
@@ -1660,31 +1732,57 @@
                         ! For each Stokes parameter
                         do iS=0,3
 
-                          ! If the input is not axial or it is the
-                          ! first azimuth
-                          if(.not.inaxial.or.iph.eq.1)then
+                          ! Read the data
+                          read (200,err=1100) da1
+
+                          ! Skip out of limits
+                          if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+
+                          ! Save
+                          Stokes(iS,ifreq,1,ith,iz) = da1
+
+                        end do ! Stokes parameters
+                      end do ! frequencies
+
+                      ! Skip out of limits
+                      if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+
+                      ! Fill rest
+                      do iph=2,Geom%nph
+                        Stokes(iS,ifreq,iph,ith,iz) = &
+                                             Stokes(iS,ifreq,1,ith,iz)
+                      end do ! azimuthal nodes
+
+                    ! Not input axial
+                    else
+
+                      ! For each azimuthal direction
+                      do iph=1,ia4
+
+                        ! For each frequency
+                        do ifreq=1,nfreq
+
+                          ! For each Stokes parameter
+                          do iS=0,3
 
                             ! Read the data
                             read (200,err=1100) da1
 
+                            ! Skip out of limits
                             if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
 
-                            if (.not.axial.or.iph.eq.1) &
-                              Stokes(iS,ifreq,iph,ith,iz) = da1
+                            ! Axial?
+                            if (axial.and.iph.gt.1) cycle
 
-                          ! Input is axial
-                          else
+                            ! Save
+                            Stokes(iS,ifreq,iph,ith,iz) = da1
 
-                            if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+                          end do ! Stokes parameters
+                        end do ! frequencies
+                      end do ! azimuthal nodes
 
-                            Stokes(iS,ifreq,iph,ith,iz) = &
-                                            Stokes(iS,ifreq,1,ith,iz)
+                    end if ! Input axial
 
-                          end if ! axial input
-
-                        end do ! Stokes parameters
-                      end do ! frequencies
-                    end do ! azimuthal nodes
                   end do ! polar nodes
                 end do ! heights
 
@@ -1742,7 +1840,7 @@
               ! Calculate JKQC from Stokes
               !
 
-              JKQC = dcmplx(.0D0,.0D0)
+              JKQC = cZero
 
               ! For each height
               do iz=Rz0,Rz1
@@ -2449,7 +2547,7 @@
             do istep=1,MPID%nsend
 
               ! Send J00P
-              call MPI_ISEND(J00P(1,1,1), psize, &
+              call MPI_ISEND(J00P(1,1,Rz0), psize, &
                              MPI_DOUBLE_PRECISION, &
                              MPID%lsend(istep), &
                              6000000+MPID%lsend(istep), &
@@ -2461,7 +2559,7 @@
           ! Normal bcast
           else
 
-            call MPI_BCAST(J00P(1,1,1), psize, &
+            call MPI_BCAST(J00P(1,1,Rz0), psize, &
                            MPI_DOUBLE_PRECISION, 0, &
                            MPI_COMM_RT, ierr)
 
@@ -2569,60 +2667,74 @@
                   ! For each polar direction
                   do ith=1,GeomI%nTh
 
-                    ! For each azimuthal direction
-                    do iph=1,max(GeomI%nPh,ia4)
+                    ! Axial input
+                    if (inaxial) then
 
                       ! For each frequency
                       do ifreq=1,nfreq
 
-                        ! If the input is not axial or is the first
-                        ! azimuth
-                        if(.not.inaxial.or.iph.eq.1)then
+                        ! Read the data point
+                        read (200,err=1100) da1
+
+                        ! Skip out of limits
+                        if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+
+                        ! Store
+                        if (KSTK) Stokes0(ifreq,1,ith,iz) = da1
+
+                        ! Integral
+                        J00C(ifreq,iz) = J00C(ifreq,iz) + &
+                                         da1*GeomI%W_mu(ith)
+
+                      end do ! Frequency
+
+                      ! Skip if out of limits
+                      if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+
+                      ! If storing, fill rest
+                      if (KSTK) then
+                        do iph=2,GeomI%nph
+                          Stokes0(:,iph,ith,iz) = Stokes0(:,1,ith,iz)
+                        end do
+                      end if
+
+                    ! Not axial input
+                    else
+
+                      ! Read for azimuthal directions
+                      do iph=1,ia4
+
+                        ! For each frequency
+                        do ifreq=1,nfreq
 
                           ! Read the data point
                           read (200,err=1100) da1
 
+                          ! Axial?
+                          if (axiali.and.iph.gt.1) cycle
+
+                          ! Skip out of limits
                           if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
 
-                          if (.not.axiali.or.iph.eq.1) then
 
-                            ! Store
-                            if (KSTK) then
-                              Stokes0(ifreq,iph,ith,iz) = da1
-                            else
-                              Stokes0(ifreq,iph,ith,1) = da1
-                            end if
+                          ! Add contribution to the JKQC integral
+                          if (axiali) then
 
-                          end if
-
-                        ! If the input is axial
-                        else
-
-                          if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
-
-                          ! Store
-                          if (KSTK) then
-                            Stokes0(ifreq,iph,ith,iz) = &
-                                                Stokes0(ifreq,1,ith,1)
+                            J00C(ifreq,iz) = J00C(ifreq,iz) + &
+                                             da1*GeomI%W_mu(ith)
                           else
-                            Stokes0(ifreq,iph,ith,1) = &
-                                                Stokes0(ifreq,1,ith,1)
+                            J00C(ifreq,iz) = J00C(ifreq,iz) + da1* &
+                                             GeomI%W_mu(ith)* &
+                                             GeomI%W_mux(iph)
                           end if
 
-                        end if ! axial input
+                        end do ! Frequencies
+                      end do ! Input azimuths
 
-                        if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+                    end if ! Type of axial input
 
-                        ! Add contribution to the JKQC integral
-                        J00C(ifreq,iz) = J00C(ifreq,iz) + &
-                                        Stokes0(ifreq,iph,ith,1)* &
-                                        GeomI%W_mu(ith)* &
-                                        GeomI%W_mux(iph)
-
-                      end do ! frequencies
-                    end do ! azimuthal nodes
-                  end do ! polar nodes
-                end do ! heights
+                  end do ! Polar
+                end do ! Height
 
               end if ! Master
 
@@ -2687,36 +2799,58 @@
                   ! For each polar direction
                   do ith=1,GeomI%nTh
 
-                    ! For each azimuthal direction
-                    do iph=1,max(GeomI%nPh,ia4)
+                    ! If input axial
+                    if (inaxial) then
 
                       ! For each frequency
                       do ifreq=1,nfreq
 
-                        ! If the input is not axial or it is the first
-                        ! azimuth
-                        if(.not.inaxial.or.iph.eq.1)then
+                        ! Read the data
+                        read (200,err=1100) da1
+
+                        ! Skip out of limits
+                        if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+
+                        ! Save
+                        Stokes0(ifreq,1,ith,iz) = da1
+
+                      end do ! frequencies
+
+                      ! Skip out of limits
+                      if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+
+                      ! Fill rest
+                      do iph=2,GeomI%nph
+                        Stokes0(ifreq,iph,ith,iz) = &
+                                               Stokes0(ifreq,1,ith,iz)
+                      end do ! azimuthal nodes
+
+                    ! Not input axial
+                    else
+
+                      ! For each azimuthal direction
+                      do iph=1,ia4
+
+                        ! For each frequency
+                        do ifreq=1,nfreq
 
                           ! Read the data
                           read (200,err=1100) da1
 
+                          ! Skip out of limits
                           if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
 
-                          if (.not.axiali.or.iph.eq.1) &
-                            Stokes0(ifreq,iph,ith,iz) = da1
+                          ! Axial?
+                          if (axial.and.iph.gt.1) cycle
 
-                        ! Input is axial
-                        else
+                          ! Save
+                          Stokes0(ifreq,iph,ith,iz) = da1
 
-                          if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+                        end do ! frequencies
+                      end do ! azimuthal nodes
 
-                          Stokes0(ifreq,iph,ith,iz) = &
-                                         Stokes0(ifreq,1,ith,iz)
+                    end if ! Input axial
 
-                        end if ! axial input
-
-                      end do ! frequencies
-                    end do ! azimuthal nodes
                   end do ! polar nodes
                 end do ! heights
 
@@ -2931,12 +3065,14 @@
           allocate(Stokes0(nfreq,GeomI%nPh,GeomI%nTh,Rz0:Rz1))
           giz0 = Rz0
           giz1 = Rz1
-          MPID%RRAM = 8d-6*dble(nfreq*GeomI%nph*GeomI%nTh*Rnz)
+          MPID%RRAM = MPID%RRAM + &
+                      8d-6*dble(nfreq*GeomI%nph*GeomI%nTh*Rnz)
         else
           allocate(Stokes0(nfreq,GeomI%nPh,GeomI%nTh,Rz0:Rz0+1))
           giz0 = Rz0
           giz1 = Rz0+1
-          MPID%RRAM = 8d-6*dble(nfreq*GeomI%nph*GeomI%nTh*2)
+          MPID%RRAM = MPID%RRAM + &
+                      8d-6*dble(nfreq*GeomI%nph*GeomI%nTh*2)
         end if
 
         ! J00 for absorptivity
@@ -3153,12 +3289,14 @@
           allocate(Stokes(0:3,nfreq,Geom%nPh,Geom%nTh,Rz0:Rz1))
           giz0 = Rz0
           giz1 = Rz1
-          MPID%RRAM = 8d-6*dble(4*nfreq*Geom%nPh*Geom%nTh*Rnz)
+          MPID%RRAM = MPID%RRAM + &
+                      8d-6*dble(4*nfreq*Geom%nPh*Geom%nTh*Rnz)
         else
           allocate(Stokes(0:3,nfreq,Geom%nPh,Geom%nTh,Rz0:Rz0+1))
           giz0 = Rz0
           giz1 = Rz0+1
-          MPID%RRAM = 8d-6*dble(4*nfreq*Geom%nPh*Geom%nTh*2)
+          MPID%RRAM = MPID%RRAM + &
+                      8d-6*dble(4*nfreq*Geom%nPh*Geom%nTh*2)
         end if
 
         ! JKQ for absorptivity
@@ -3860,6 +3998,9 @@
       ! Open files
       !
 
+      ! Get LOS index string
+      if (run_mode.eq.1) write(scoord,'(I0.8)') icoords(3)
+
       !
       ! To write the solution
       !
@@ -3876,9 +4017,6 @@
 
         ! If 1.5D
         else if (run_mode.eq.1) then
-
-          ! Get LOS index
-          write(scoord,'(I0.8)') icoords(3)
 
           ! Open solution file
           open (200,file=trim(filename)// &
@@ -5193,6 +5331,9 @@
       !
       ! Open files
       !
+
+      ! Get LOS index string
+      if (run_mode.eq.1) write(scoord,'(I0.8)') icoords(3)
 
       ! Writing solution
       if (saveSol) then
@@ -10218,6 +10359,381 @@
 
       end subroutine wAtmo
 
+#ifdef DEBUGRHOKQ
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Dump rho solution into a file.\n
+      !!    Atom(Atom_class(:)): Structure with the atomic data\n
+      !! folder(character(500)): Output folder\n
+      !!          iter(integer): Iteration index
+      subroutine dump_rho(Atom,folder,iter)
+
+      ! IO
+      type(Atom_class), dimension(:), intent(in):: Atom
+      character(len=500), intent(in):: folder
+      integer, intent(in):: iter
+
+      ! Local
+      character(len=500):: filename
+      logical:: exists
+      integer:: ia,iz,it,iJ,iJ1,K,iQ
+      double precision:: rJ,rJ1
+
+      ! Get file name for 1D
+      if (run_mode.eq.0) then
+
+        filename = trim(folder)//'/debug_rho'
+
+      ! Get file name for rest
+      else
+
+        write(filename,'(A,I0.7)') trim(folder)//'/debug_rho_', &
+                                   icoords(3)
+
+      end if
+
+      !
+      ! Exists?
+      inquire(file=trim(filename), exist=exists)
+      if(.not.exists.or.(iter.eq.-3.and.run_mode.ne.-1))then
+        open(800,file=trim(filename))
+      else
+        open(800,file=trim(filename),position='append')
+      endif
+
+      ! Write
+      if (iter.eq.-3) then
+        write(800,*) 'Initial rhoKQ'
+      else if (iter.eq.-2) then
+        write(800,*) ''
+        write(800,*) ''
+        write(800,*) 'After correction rhoKQ'
+      else if (iter.eq.-1) then
+        write(800,*) ''
+        write(800,*) ''
+        write(800,*) 'Final rhoKQ'
+      else
+        write(800,*) ''
+        write(800,*) ''
+        write(800,'("Iteration:",i3)') iter
+      end if
+      do ia=1,na
+        write(800,'("  o Atom ",A)') Atom(ia)%element
+        do it=1,Atom(ia)%nMulti
+        do iJ=1,Atom(ia)%nJ(it)
+          rJ = Atom(ia)%rJval(iJ,it)
+          do iJ1=1,Atom(ia)%nJ(it)
+            rJ1 = Atom(ia)%rJval(iJ1,it)
+            do K=nint(abs(rJ-rJ1)), &
+                 min(nint(rJ+rJ1),Atom(ia)%Kcut(it))
+            do iQ=0,K
+              if (iQ == 0) then
+                do iz=Rz0,Rz1
+                  write(800,'(i4,4(1x,i2),1x,i3,1x,es15.8)') &
+                        it,iJ,iJ1,K,iQ,iz, &
+                        dble(Atom(ia)%crho(Atom(ia)%irho(it)% &
+                                           Jrho(iJ,iJ1)%kq(iQ,K),iz))
+                end do
+              else
+                do iz=1,nZ
+                  write(800,'(i4,4(1x,i2),1x,i3,2(1x,es15.8))') &
+                      it,iJ,iJ1,K,iQ,iz, &
+                      dble(Atom(ia)%crho(Atom(ia)%irho(it)% &
+                                         Jrho(iJ,iJ1)%kq(iQ,K),iz)), &
+                      dimag(Atom(ia)%crho(Atom(ia)%irho(it)% &
+                                         Jrho(iJ,iJ1)%kq(iQ,K),iz))
+                end do
+              end if
+            end do
+            end do
+          end do
+        end do
+        end do
+      end do
+
+      ! Close
+      close(800)
+
+      end subroutine dump_rho
+
+#endif
+#ifdef DEBUGJKQ
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Dump rho solution into a file.\n
+      !!     Atom(Atom_class(:)): Structure with the atomic data\n
+      !!    Bfield(Bfield_blass): Structure with magnetic field
+      !!                          data\n
+      !!      Flgsg(Fctsg_class): Structure with factorials and
+      !!                          signs\n
+      !!  JKQ(dcomplex(:,:,:,:)): Radiation field tensors integrated
+      !!                             over absorption profile\n
+      !! JKQS(dcomplex(:,:,:,:)): Radiation field tensors integrated
+      !!                            over emission profile\n
+      !!  folder(character(500)): Output folder\n
+      !!           iter(integer): Iteration index
+      subroutine dump_jkq(Atom,Bfield,Flgsg,JKQ,JKQS,folder,iter)
+
+      ! IO
+      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Bfield_class), intent(in):: Bfield
+      type(Fctsg_class):: Flgsg
+      character(len=500), intent(in):: folder
+      integer, intent(in):: iter
+      complex(kind=8), &
+             dimension(-2:2,0:2,nxtran,Rz0:Rz1), intent(in):: JKQ
+      complex(kind=8), &
+             dimension(-2:2,0:2,nxtran,Rz0:Rz1), intent(in):: JKQS
+
+      ! Local
+      character(len=500):: filename
+      logical:: exists
+      integer:: ia,iz,itran,jtran,K,iQ
+      complex(kind=8),dimension(-2:2,0:2,nz):: JKQaux,JKQSaux
+
+      ! Get file name for 1D
+      if (run_mode.eq.0) then
+
+        filename = trim(folder)//'/debug_jkq'
+
+      ! Get file name for rest
+      else
+
+        write(filename,'(A,I0.7)') trim(folder)//'/debug_jkq', &
+                                   icoords(3)
+
+      end if
+
+      !
+      ! Exists?
+      inquire(file=trim(filename), exist=exists)
+      if(.not.exists.or.(iter.eq.-2.and.run_mode.ne.-1))then
+        open(800,file=trim(filename))
+      else
+        open(800,file=trim(filename),position='append')
+      endif
+
+      ! Write
+      if (iter.eq.-2) then
+        write(800,*) 'Initial JKQ'
+      else if (iter.eq.-1) then
+        write(800,*) ''
+        write(800,*) ''
+        write(800,*) 'Final JKQ'
+      else
+        write(800,*) ''
+        write(800,*) ''
+        write(800,'("Iteration:",i3)') iter
+      end if
+      do ia=1,na
+        write(800,'("  o Atom ",A)') Atom(ia)%element
+        do itran=1,Atom(ia)%ntran
+          jtran = itran + Atom(ia)%tshift
+          do iz=Rz0,Rz1
+            JKQaux(:,:,iz) = JKQ(:,:,jtran,iz)
+            JKQSaux(:,:,iz) = JKQS(:,:,jtran,iz)
+            if (Bfield%Bstrength(iz).gt.TINYB) then
+              call fieldB(JKQaux(:,:,iz),1,Flgsg,-Bfield%Btheta(iz), &
+                          -Bfield%Bphi(iz),-1)
+              call fieldB(JKQSaux(:,:,iz),1,Flgsg,-Bfield%Btheta(iz),&
+                          -Bfield%Bphi(iz),-1)
+            end if
+          end do
+          do K=0,2
+            do iQ=0,K
+              if (iQ.eq.0) then
+                do iz=Rz0,Rz1
+                  if (Bfield%Bstrength(iz).gt.TINYB) then
+                    write(800,'(i4,2(1x,i2),1x,i3,2(1x,es15.8,'// &
+                               '17x,es15.8))') &
+                      itran,K,iQ,iz,dble(JKQaux(iQ,K,iz)), &
+                                    dble(JKQSaux(iQ,K,iz)), &
+                                    dble(JKQ(iQ,K,jtran,iz)), &
+                                    dble(JKQS(iQ,K,jtran,iz))
+                  else
+                    write(800,'(i4,2(1x,i2),1x,i3,1x,es15.8,'// &
+                               '17x,es15.8)') &
+                      itran,K,iQ,iz,dble(JKQaux(iQ,K,iz)), &
+                                    dble(JKQSaux(iQ,K,iz))
+                  end if
+                end do
+              else
+                do iz=Rz0,Rz1
+                  if (Bfield%Bstrength(iz).gt.TINYB) then
+                    write(800,'(i4,2(1x,i2),1x,i3,8(1x,es15.8))') &
+                      itran,K,iQ,iz,dble(JKQaux(iQ,K,iz)), &
+                                    dimag(JKQaux(iQ,K,iz)), &
+                                    dble(JKQSaux(iQ,K,iz)), &
+                                    dimag(JKQSaux(iQ,K,iz)), &
+                                    dble(JKQ(iQ,K,jtran,iz)), &
+                                    dimag(JKQ(iQ,K,jtran,iz)), &
+                                    dble(JKQS(iQ,K,jtran,iz)), &
+                                    dimag(JKQS(iQ,K,jtran,iz))
+                  else
+                    write(800,'(i4,2(1x,i2),1x,i3,4(1x,es15.8))') &
+                      itran,K,iQ,iz,dble(JKQaux(iQ,K,iz)), &
+                                    dimag(JKQaux(iQ,K,iz)), &
+                                    dble(JKQSaux(iQ,K,iz)), &
+                                    dimag(JKQSaux(iQ,K,iz))
+                  end if
+                end do
+              end if
+            end do
+          end do
+        end do
+      end do
+
+      ! Close
+      close(800)
+
+      end subroutine dump_jkq
+
+#endif
+#ifdef DEBUGATMO
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Dump rho solution into a file.\n
+      !!       Atmo(Atmo_class): Structure with atmospheric data\n
+      !!   Bfield(Bfield_blass): Structure with magnetic field
+      !!                         data\n
+      !! folder(character(500)): Output folder\n
+      !!          iter(integer): Iteration index
+      subroutine dump_atmo(Atmo,Bfield,folder,iter)
+
+      ! IO
+      type(Atmo_class), intent(in):: Atmo
+      type(Bfield_class), intent(in):: Bfield
+      character(len=500), intent(in):: folder
+      integer, intent(in):: iter
+
+      ! Local
+      character(len=500):: filename
+      logical:: exists
+      integer:: iz,iRz0,iRz1
+      double precision, dimension(1:nz):: z,tau
+
+      ! Get file name for 1D
+      if (run_mode.eq.0) then
+
+        filename = trim(folder)//'/debug_atmo'
+
+      ! Get file name for rest
+      else
+
+        write(filename,'(A,I0.7)') trim(folder)//'/debug_atmo', &
+                                   icoords(3)
+
+      end if
+
+      !
+      ! Exists?
+      inquire(file=trim(filename), exist=exists)
+      if(.not.exists.or.(iter.eq.0.and.run_mode.ne.-1))then
+        open(800,file=trim(filename))
+      else
+        open(800,file=trim(filename),position='append')
+      endif
+
+      ! Scale
+      if (ztau) then
+        if (iter.eq.1) then
+          z = Atmo%zalt
+        else
+          tau = 0d0
+        end if
+        tau = Atmo%z
+      else
+        z = Atmo%z
+        if (iter.eq.1) then
+          tau = Atmo%zalt
+        else
+          tau = 0d0
+        end if
+      end if
+
+      ! Write Initial
+      if (iter.eq.0) then
+        write(800,*) 'Initial Atmosphere'
+        iRz0 = 1
+        iRz1 = nz
+      ! Write calculating
+      else if (iter.eq.1) then
+        write(800,*) ''
+        write(800,*) ''
+        write(800,*) 'Final Atmosphere'
+        iRz0 = Rz0
+        iRz1 = Rz1
+      end if
+
+      ! Standard or final
+      if (Atmo%typo.eq.0.or.iter.eq.1) then
+        write(800,*) 'Number densities'
+        do iz=iRz0,iRz1
+          write(800,'(17(1x,es15.8))') &
+            z(iz),tau(iz),Atmo%T(iz),Atmo%vx(iz)*1d6*c, &
+                                     Atmo%vy(iz)*1d6*c, &
+                                     Atmo%vz(iz)*1d6*c, &
+                                     Atmo%vmi(iz)*1d6*c, &
+                                     Bfield%Bstrength(iz), &
+                                     Bfield%Btheta(iz), &
+                                     Bfield%Bphi(iz), &
+                                     Atmo%ne(iz), &
+                                     Atmo%nH(iz,:)
+        end do
+      else if (Atmo%typo.eq.1.or.Atmo%typo.eq.2.or. &
+               Atmo%typo.eq.3) then
+        write(800,*) 'Electron number density'
+        do iz=iRz0,iRz1
+          write(800,'(17(1x,es15.8))') &
+            z(iz),tau(iz),Atmo%T(iz),Atmo%vx(iz)*1d6*c, &
+                                     Atmo%vy(iz)*1d6*c, &
+                                     Atmo%vz(iz)*1d6*c, &
+                                     Atmo%vmi(iz)*1d6*c, &
+                                     Bfield%Bstrength(iz), &
+                                     Bfield%Btheta(iz), &
+                                     Bfield%Bphi(iz), &
+                                     Atmo%ne(iz)
+        end do
+      else if (Atmo%typo.eq.4) then
+        write(800,*) 'Gas pressure'
+        do iz=iRz0,iRz1
+          write(800,'(17(1x,es15.8))') &
+            z(iz),tau(iz),Atmo%T(iz),Atmo%vx(iz)*1d6*c, &
+                                     Atmo%vy(iz)*1d6*c, &
+                                     Atmo%vz(iz)*1d6*c, &
+                                     Atmo%vmi(iz)*1d6*c, &
+                                     Bfield%Bstrength(iz), &
+                                     Bfield%Btheta(iz), &
+                                     Bfield%Bphi(iz), &
+                                     Atmo%Pg(iz)
+        end do
+      else if (Atmo%typo.eq.4) then
+        write(800,*) 'Gas density'
+        do iz=iRz0,iRz1
+          write(800,'(17(1x,es15.8))') &
+            z(iz),tau(iz),Atmo%T(iz),Atmo%vx(iz)*1d6*c, &
+                                     Atmo%vy(iz)*1d6*c, &
+                                     Atmo%vz(iz)*1d6*c, &
+                                     Atmo%vmi(iz)*1d6*c, &
+                                     Bfield%Bstrength(iz), &
+                                     Bfield%Btheta(iz), &
+                                     Bfield%Bphi(iz), &
+                                     Atmo%rho(iz)
+        end do
+      end if
+
+      ! Close
+      close(800)
+
+      end subroutine dump_atmo
+
+#endif
 !#####################################################################
 !#####################################################################
 !#####################################################################

@@ -12,12 +12,16 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     11/14/2023 V3.0.15
+!     02/20/2024 V3.0.16
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/20/2024:   V3.0.16 - Bugfix: Wrong initial index in the
+!                             tau1 calculation when restricting
+!                             heights (TdPA)
 !
 !     11/14/2023:   V3.0.15 - Added termination paths in case of
 !                             error (TdPA)
@@ -6169,7 +6173,7 @@
               ! First height
 
               ! Top boundary
-              o = 1
+              o = Rz0
 
               ! Calculate absorptivity
               call RTAbsI(Frec,Atom,LTElines,Atmo,Geom, &

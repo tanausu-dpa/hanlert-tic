@@ -10,12 +10,16 @@
 !  Start:
 !     02/23/2023
 !  Last version:
-!     11/24/2023 V3.1.13
+!     02/19/2024 V3.1.14
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/29/2024:   V3.1.14 - It is no longer necessary to guess the
+!                             temperature and velocity limits for
+!                             input 3D models (TdPA)
 !
 !     11/24/2023:   V3.1.13 - Added verbosity of mask file (TdPA)
 !
@@ -1440,8 +1444,9 @@
         else
 
           ! Temperature limits (guess)
-          Input%minT = 3d3
-          Input%maxT = 5d5
+          ! It should be set-up
+         !Input%minT = 3d3
+         !Input%maxT = 5d5
 
           ! Need to update
           update_tlim = .True.
@@ -1547,7 +1552,8 @@
         ! Asumme dynamic 5 km/s to start with
         dyn = .True.
         Input%static = .False.
-        Input%maxV = 5d-6/c
+        ! It should be set up
+       !Input%maxV = 5d-6/c
 
       ! No need to update
       else

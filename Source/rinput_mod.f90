@@ -11,12 +11,19 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     12/12/2023 V3.0.19
+!     02/19/2024 V3.0.22
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/19/2024:   V3.0.22 - Read Input%maxt (TdPA)
+!
+!     02/16/2024:   V3.0.21 - Read Input%rest_tau_strc and
+!                             Input%rest_z_strc (TdPA)
+!
+!     02/14/2024:   V3.0.20 - Read Input%nexcl and Input%excl (TdPA)
 !
 !     12/12/2023:   V3.0.19 - Read Input%dcohwi and use it to set
 !                             Input%cohwi (TdPA)
@@ -748,6 +755,14 @@
       ! Force type of calculation
       read(100,*,err=1100) Input%force
 
+      ! Restrict problem in tau_c strictly
+      read(100,*,err=1100) cdump
+      if(cdump.eq.'Y')then
+        Input%rest_tau_strc = .True.
+      else
+        Input%rest_tau_strc = .False.
+      end if
+
       ! Restrict problem in tau_c
       read(100,*,err=1100) cdump
       if(cdump.eq.'Y')then
@@ -756,6 +771,14 @@
         read(100,*,err=1100) Input%r1tc
       else
         Input%rest_tau = .False.
+      end if
+
+      ! Restrict problem in height strictly
+      read(100,*,err=1100) cdump
+      if(cdump.eq.'Y')then
+        Input%rest_z_strc = .True.
+      else
+        Input%rest_z_strc = .False.
       end if
 
       ! Restrict problem in height
@@ -1140,6 +1163,9 @@
       ! Minimum expected temperature
       read(100,*,err=1100) Input%minT
 
+      ! Maximum expected temperature
+      read(100,*,err=1100) Input%maxT
+
       ! Maximum expected velocity
       read(100,*,err=1100) Input%maxV
 
@@ -1293,6 +1319,18 @@
         read(100,*,err=1100) ios
         read(100,*,err=1100) ios
         read(100,*,err=1100) ios
+      end if
+
+      ! Excluded pixels
+      read(100,*,err=1100) Input%nexcl
+      if (Input%nexcl.gt.0) then
+        allocate(Input%excl(2,Input%nexcl))
+        do i1=1,Input%nexcl
+          read(100,*,err=1100) Input%excl(:,i1)
+        end do
+        Input%lexcl = .True.
+      else
+        Input%lexcl = .False.
       end if
 
       ! Steps between storing solution

@@ -12,12 +12,16 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     11/14/2023 V3.0.14
+!     02/20/2024 V3.0.15
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/20/2024:   V3.0.15 - Bugfix: Wrong initial index in the
+!                             tau1 calculation when restricting
+!                             heights (TdPA)
 !
 !     11/14/2023:   V3.0.14 - Call scattering_manage in angular
 !                             loops in solvers (TdPA)
@@ -434,6 +438,13 @@
       complex(kind=8), dimension(-2:2,0:2,nxtran,Rz0:Rz1):: JKQS
       complex(kind=8), dimension(-2:2,0:2,nfreq,Rz0:Rz1):: JKQC
 
+#ifdef DEBUGRHOKQ
+      if (pid.eq.0) call dump_rho(Atom,Input%folder,-2)
+#endif
+#ifdef DEBUGJKQ
+      if (pid.eq.0) call dump_jkq(Atom,Bfield,Flgsg,JKQ,JKQS, &
+                                  Input%folder,-2)
+#endif
       ! MPI
       if (MPID%mpi) then
 
@@ -454,6 +465,13 @@
                            Red,Bfield,Geom,MPID,Input,Flgsg, &
                            JKQ_asym,Stokes,JKQ,JKQS,JKQC)
       end if
+#ifdef DEBUGRHOKQ
+      if (pid.eq.0) call dump_rho(Atom,Input%folder,-1)
+#endif
+#ifdef DEBUGJKQ
+      if (pid.eq.0) call dump_jkq(Atom,Bfield,Flgsg,JKQ,JKQS, &
+                                  Input%folder,-1)
+#endif
 
       end subroutine solve
 
@@ -1514,6 +1532,10 @@
         !
         ! Solve SEE
         !
+#ifdef DEBUGJKQ
+      if (pid.eq.0) call dump_jkq(Atom,Bfield,Flgsg,JKQ,JKQS, &
+                                  Input%folder,iter)
+#endif
 
         ! For each atom
 !$omp parallel default(none) if (iter > Input%iter_min) &
@@ -1550,6 +1572,9 @@
 !$omp end do nowait
         end do ! atoms
 !$omp end parallel
+#ifdef DEBUGRHOKQ
+      if (pid.eq.0) call dump_rho(Atom,Input%folder,iter)
+#endif
 
         ! Control
         call control
@@ -2165,6 +2190,7 @@
       double precision, dimension(:,:,:), pointer:: p_MStk
       double precision, dimension(:,:,:), pointer:: p_MProf
       double precision, dimension(:), pointer:: p_exu
+
 
       ! Routine name
       urou = 'solver_alt'
@@ -3086,6 +3112,10 @@
         !
         ! Solve SEE
         !
+#ifdef DEBUGJKQ
+      if (pid.eq.0) call dump_jkq(Atom,Bfield,Flgsg,JKQ,JKQS, &
+                                  Input%folder,iter)
+#endif
 
 !$omp parallel default(none) &
 !$omp private(ia,iz,itran,jtran,iphot,jphot,larmor,urou,umsg,tid) &
@@ -3121,6 +3151,9 @@
 !$omp end do nowait
         end do ! atoms
 !$omp end parallel
+#ifdef DEBUGRHOKQ
+      if (pid.eq.0) call dump_rho(Atom,Input%folder,iter)
+#endif
 
         ! Control
         call control
@@ -4214,6 +4247,10 @@
         !
         ! Solve SEE
         !
+#ifdef DEBUGJKQ
+      if (pid.eq.0) call dump_jkq(Atom,Bfield,Flgsg,JKQ,JKQS, &
+                                  Input%folder,iter)
+#endif
 
 !$omp parallel default(none) &
 !$omp private(ia,iz,itran,jtran,iphot,jphot,larmor,umsg,urou,tid) &
@@ -4249,6 +4286,9 @@
 !$omp end do nowait
         end do ! atoms
 !$omp end parallel
+#ifdef DEBUGRHOKQ
+        call dump_rho(Atom,Input%folder,iter)
+#endif
 
         ! Error
         if (laborted) goto 2000
@@ -5053,7 +5093,7 @@
               ! First height
 
               ! Top boundary
-              o = 1
+              o = Rz0
 
               ! Calculate absorptivity
               call RTAbs(Frec,Atom,LTElines,Atmo,Flgsg,Geom, &
@@ -5654,7 +5694,7 @@
             tau1(2,:) = Atmo%z(Rz0)
 
             ! Initial point
-            o = 1
+            o = Rz0
 
             ! Calculate absorptivity
             call RTAbs(Frec,Atom,LTElines,Atmo,Flgsg,Geom, &

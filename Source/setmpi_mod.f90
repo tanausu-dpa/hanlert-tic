@@ -10,12 +10,16 @@
 !  Start:
 !     04/19/2017
 !  Last version:
-!     01/09/2024 V3.0.13
+!     02/19/2024 V3.0.14
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/19/2024:   V3.0.14 - Bugfix: The wrong geometrical structure
+!                             was being used to re-evaluate the size
+!                             sizei8 (TdPA)
 !
 !     01/09/2024:   V3.0.13 - Bugfix: There was a termination
 !                             condition when splitting 1.5D tasks that
@@ -302,6 +306,11 @@
       integer:: nslave,ngroup,indx,jndx,lid,icolor
       integer, dimension(:), allocatable:: nelem
       integer, dimension(0:gnproc-1):: colors
+#ifdef DEBUGSYN
+      ! Only one group doing synthesis
+      Input%rt_group_n = gnproc - 1
+#endif
+
 
       !
       ! If only 1 CPU or whole MPI in RT, no groups
@@ -1970,7 +1979,7 @@
           MPID%sizei7(iproc) = nfreq*Rnz
           ! Stokes (full dependence) in intensity to
           ! broadcast
-          MPID%sizei8(iproc) = nfreq*Geom%nTh*Geom%nPh*Rnz
+          MPID%sizei8(iproc) = nfreq*GeomI%nTh*GeomI%nPh*Rnz
           ! Lambda_line to master
           MPID%sizei9(iproc) = nxb*Frec%Mntfreqi(iproc)*GeomI%nTh* &
                               GeomI%nPh*Rnz
