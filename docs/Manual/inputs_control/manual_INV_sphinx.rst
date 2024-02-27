@@ -965,9 +965,20 @@ STATIC_INT
 
   * Formats:
     
-    - string: Yes, No; default: No
+    - string: Yes, No; default: STATIC
 
   * Description: Assume no velocity in the input model atmosphere when solving the only intensity problem.
+
+INIT_J_BB
+---------
+
+  * OPTIONAL, ADVANCED
+
+  * Formats:
+    
+    - string: Yes, No; default: Yes
+
+  * Description: Include bound-bound transitions in the only radiation initial iterations.
 
 ITER_MIN
 --------
@@ -1034,6 +1045,17 @@ ITER_NB
     - string: Yes, No; default: No
 
   * Description: If solving polarization with magnetic field, solve first the non-magnetic problem. It is most beneficial when the intensity problem is axial (and has been configured as axial). Otherwise, it is not necessarily faster, but problem dependent.
+
+ITER_MRC_J
+----------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - float; default: 1e-4
+
+  * Description: Maximum relative change of the radiation field to consider it converged in the only radiation field initial iterations.
 
 ITER_MRC_I
 ----------
@@ -1189,6 +1211,17 @@ ALI_DELAY
 
   * Description: Iteration index from which to start using the accelerated lambda iteration algorithm in the only intensity problem.
 
+ALI_FORCE
+---------
+
+  * OPTIONAL, ADVANCED
+
+  * Formats:
+    
+    - string: Yes, No; default: No
+
+  * Description: Force more iterations with ALI if converged with delayed ALI iterations.
+
 BCAST_MODE
 ----------
 
@@ -1221,6 +1254,17 @@ ALLOW_NPHYS_RHO
     - integer; default: -1
 
   * Description: Iteration index from which finding a non-physical density matrix results in termination of the formal solution. Negative means from the beginning.
+
+ALLOW_NPHYS_POP
+---------------
+
+  * OPTIONAL, ADVANCED
+
+  * Formats:
+    
+    - integer; default: -1
+
+  * Description: Iteration index from which finding a non-physical populations in the only intensity problem results in termination of the formal solution. Negative means from the beginning.
 
 SOLUTION_BOX
 ------------

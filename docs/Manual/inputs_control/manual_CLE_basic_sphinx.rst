@@ -295,6 +295,17 @@ RAM_LIMIT
 
   * Description: Maximum amount of Megabytes which can be allocated in the form of Voigt profiles, photoionization pre-calculated quantities, interpolation precalculated quantities (partial frequency redistribution), or redistribution functions. Negative means no limit (NOT RECOMMENDED for complex problems).
 
+FORCE_MICRO
+-----------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - float
+
+  * Description: Constant microturbulence, in kilometers per second, to force in the model atmosphere.
+
 MIN_T
 -----
 

@@ -13,12 +13,16 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     02/16/2024 V3.0.29
+!     02/23/2024 V3.0.30
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/23/2024:   V3.0.30 - Added ALI_force, init_J_bb, fvmicro,
+!                             allownphys_pop, and mrcj to the
+!                             Input_class type (TdPA)
 !
 !     02/16/2024:   V3.0.29 - Added rest_tau_strc and rest_z_strc to
 !                             the Input_class type (TdPA)
@@ -1754,7 +1758,8 @@
         ! keep collisions log, keep MPI log, keep, MPI detailed log,
         ! if polarization with magnetic field must be done in
         ! two steps, if excluded pixels, if truncating tau or height
-        ! restriction
+        ! restriction, force ALI iterations, initialize radiation
+        ! field with bound-bound transitions
         logical:: AV, appendMRC, appendMRCI, out_contr, out_tau1, &
                   store, storeI, Pcorr, Raman, keepIsol, &
                   NG, keep_back, keep_damp, keep_cols, bfieldn, &
@@ -1766,7 +1771,7 @@
                   skip_disk, lspect_input, rest_tau, rest_z, AVI, &
                   static_int, linv_weight, keep_coll, keep_mpil, &
                   keep_mpidl, two_step_pol, lexcl, rest_tau_strc, &
-                  rest_z_strc
+                  rest_z_strc, ALI_force, init_J_bb
 
         ! If asymmetry input
         logical, dimension(2):: lasym
@@ -1840,7 +1845,8 @@
         ! intensity polar nodes, intensity azimuthal nodes, AA
         ! integral nodes, intensity AA integral nodes, LOS polar
         ! directions, LOS azimuthal directions, number of LTE lines,
-        ! number of pixels to exclude
+        ! number of pixels to exclude, for how many iterations
+        ! allow negative populations
         integer:: iter_min, iter_max, iter_ord, store_step, &
                   nA, nAb, nM, iteri_min, iteri_max, &
                   storei_step, iteri_prd, iter_j, NG_ord, NG_delay, &
@@ -1849,7 +1855,7 @@
                   NGI_delay, PRD_delay, nasym_num, nasym_fil, nasym, &
                   MIT_input, run_mode, rt_group_n, atmo_char, nTh, &
                   nPh, nThI, nPhI, nThAA, nThAAI, nThLOS, nPhLOS, &
-                  nLTE, nexcl
+                  nLTE, nexcl, allownphys_pop
 
         ! Box to solve in 1.5D synthesis problem
         integer, dimension(:), allocatable:: sol_box
@@ -1867,9 +1873,10 @@
         ! atmosphere, effective temperature for CLE radiation, radius
         ! of the star for CLE, minimum tauc to consider, maximum tauc
         ! to consider, minimum height to consider, maximum height to
-        ! consider
+        ! consider, forced microturbulence
         double precision:: dw,MIT_node,dcohw,dcohwi,minT,maxT,maxV, &
-                           omega_ref,T_rad,R_star,r0tc,r1tc,r0z,r1z
+                           omega_ref,T_rad,R_star,r0tc,r1tc,r0z,r1z, &
+                           fvmicro
 
         ! LOS polar mus, LOS azimuthal angles
         double precision, dimension(:), allocatable:: L_mu,L_phi
@@ -1880,8 +1887,8 @@
         double precision, dimension(11):: red_pars, redi_pars
 
         ! MRC for populations, MRC for rhoKQ with K!=0 and for rho00
-        ! in the intensity problem
-        double precision:: mrc_i, mrc_p, mrci_i, mrci_r
+        ! in the intensity problem, MRC for J00 initial iterations
+        double precision:: mrc_i, mrc_p, mrci_i, mrci_r, mrcj
 
         ! Numerical values for field
         double precision, dimension(3):: bfieldv

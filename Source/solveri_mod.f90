@@ -12,12 +12,26 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     02/20/2024 V3.0.16
+!     02/23/2024 V3.0.17
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/23/2024:   V3.0.17 - Manage the force ALI option (TdPA)
+!                           - Change the format and header for the
+!                             MRC messages for the new limit of
+!                             possible PRD iterations (TdPA)
+!                           - Now Input%allownphys_pop decides if
+!                             negative populations are allowed (TdPA)
+!                           - Added bool argument to RTCoeffi to
+!                             specify if data2*, rLine*, and
+!                             rPhoto* need to be returned (TdPA)
+!                           - Now the J iterations can include the
+!                             atomic transitions (TdPA)
+!                           - Now the J iterations can stop if a
+!                             convergence has been achieved (TdPA)
 !
 !     02/20/2024:   V3.0.16 - Bugfix: Wrong initial index in the
 !                             tau1 calculation when restricting
@@ -552,6 +566,12 @@
       double precision, dimension(nxt,Rz0:Rz1):: J00S
       double precision, dimension(nxphot,2,Rz0:Rz1):: J00P
 
+#ifdef DEBUGRHO00
+      if (pid.eq.0) call dump_rho00(Atom,Input%folder,-2)
+#endif
+#ifdef DEBUGJ00
+      if (pid.eq.0) call dump_j00(Atom,J00,J00S,J00P,Input%folder,-2)
+#endif
       ! If MPI
       if (MPID%mpi) then
 
@@ -572,6 +592,12 @@
                             Frec,Red,Geom,MPID,Input,lload, &
                             Stokes,J00,J00S,J00C,J00P)
       end if ! MPI
+#ifdef DEBUGRHO00
+      if (pid.eq.0) call dump_rho00(Atom,Input%folder,-1)
+#endif
+#ifdef DEBUGJ00
+      if (pid.eq.0) call dump_j00(Atom,J00,J00S,J00P,Input%folder,-1)
+#endif
 
       end subroutine solveI
 
@@ -635,7 +661,7 @@
       type(MRC_class):: MRC
 
       logical:: goout,gooutprd,AD,ADT,ADD,PRDl,doNG,laux,lALI
-      logical:: RIRAM,deal
+      logical:: RIRAM,deal,force_ALI
 
       character(LEN=20):: iterS
 
@@ -701,6 +727,9 @@
 
       ! Initialize converged flag
       goout = .False.
+
+      ! Initialize force ALI
+      force_ALI = .False.
 
       ! Initialize angle depended flag
       AD = .not.AVI
@@ -870,7 +899,7 @@
       if (gpid.eq.0) then
 
         ! Announce we are starting
-        umsg = '   Iteration          MRC(rho^0_0) Atom_index '// &
+        umsg = '    Iteration          MRC(rho^0_0) Atom_index '// &
                'Level_index Height_index Height(km)'
         call verbose
       end if
@@ -887,7 +916,7 @@
           if (.not.laux) then
             open(800, file=trim(Input%folder)//'/MRCI', &
                  action='write',iostat=ios,err=1000)
-            write(800,'(A)') '!  Iteration          MRC(rho^0_0) '// &
+            write(800,'(A)') '!   Iteration          MRC(rho^0_0) '// &
                          'Atom_index Level_index Height_index '// &
                          'Height(km)'
             close(800)
@@ -896,7 +925,7 @@
         else
           open(800, file=trim(Input%folder)//'/MRCI', &
                action='write',iostat=ios,err=1000)
-          write(800,'(A)') '!  Iteration          MRC(rho^0_0) '// &
+          write(800,'(A)') '!   Iteration          MRC(rho^0_0) '// &
                        'Atom_index Level_index Height_index '// &
                        'Height(km)'
           close(800)
@@ -932,7 +961,7 @@
         end if
 
         ! Flags for physics
-        if (iter.le.Input%allownphys_rho) then
+        if (iter.le.Input%allownphys_pop) then
           if (.not.nphysR) nphysR = .True.
         else
           if (nphysR) nphysR = .False.
@@ -949,7 +978,7 @@
         end do
 
         ! Flag for ALI
-        lALI = iter.gt.Input%ALI_delay
+        lALI = iter.gt.Input%ALI_delay.or.force_ALI
 
         ! Internal PRD iterations
         do iterr=1,Input%iteri_prd
@@ -1314,7 +1343,7 @@
                 end if
 
                 ! Write in stdout
-                write(umsg,'(3x,"PRD it:",1x,i1,2x,es20.12,'// &
+                write(umsg,'(2x,"PRD it:",1x,i3,2x,es20.12,'// &
                            '2x,i9,2x,f10.4,4x,i9,2x,f9.3)') &
                            iterr,MRC%values(2,1),MRC%indexes(1,1), &
                            1d2/Frec%omega(MRC%indexes(1,1)), &
@@ -1412,7 +1441,7 @@
                               J00C(:,o),Cont%ndir, &
                               Cont%c(:,:,:,o),Stokes(:,:,:,op), &
                               rLineO(:),rPhotO(:), &
-                              data1M(:,0:1),data2O(:,:))
+                              data1M(:,0:1),data2O(:,:),.True.)
                 if (laborted) goto 3000
 
                 !
@@ -1450,7 +1479,7 @@
                               J00C(:,p),Cont%ndir, &
                               Cont%c(:,:,:,p),Stokes(:,:,:,op), &
                               rLineO(:),rPhotO(:), &
-                              data1O(:,0:1),data2O(:,:))
+                              data1O(:,0:1),data2O(:,:),.True.)
                 if (laborted) goto 3000
 
 
@@ -1498,7 +1527,7 @@
                                 J00C(:,p),Cont%ndir, &
                                 Cont%c(:,:,:,p),Stokes(:,:,:,op), &
                                 rLineP(:),rPhotP(:), &
-                                data1P(:,0:1),data2P(:,:))
+                                data1P(:,0:1),data2P(:,:),.True.)
 
                   ! Point to the data
                   p_K0M  => data1M(:,0)
@@ -2076,6 +2105,14 @@
         !
         ! Solve SEE
         !
+#ifdef DEBUGJ00
+      if (pid.eq.0) call dump_j00(Atom,J00,J00S,J00P, &
+                                  Input%folder,iter)
+#endif
+#ifdef DEBUGLAMBDA
+      if (pid.eq.0) call dump_lambda(Atom,LambdaL,LambdaP, &
+                                     Input%folder,iter)
+#endif
 
 !$omp parallel default(none) &
 !$omp private(ia,iz,itran,jtran,fftran,jftran,urou,umsg,tid) &
@@ -2101,16 +2138,27 @@
           do iz=Rz0,Rz1
 
             ! Solve the SEE
+#ifdef DEBUGSEE
+            call SEEI(Atom(ia),Rho_old(ia),J00(itran:jtran,iz), &
+                     !J00S(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
+                      J00(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
+                      LambdaL(:,itran:jtran,iz), &
+                      LambdaP(:,fftran:jftran,:,iz),iz,lALI,tid,INPUT)
+#else
             call SEEI(Atom(ia),Rho_old(ia),J00(itran:jtran,iz), &
                      !J00S(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
                       J00(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
                       LambdaL(:,itran:jtran,iz), &
                       LambdaP(:,fftran:jftran,:,iz),iz,lALI,tid)
+#endif
 
           end do ! heights
 !$omp end do nowait
         end do ! atoms
 !$omp end parallel
+#ifdef DEBUGRHO00
+      if (pid.eq.0) call dump_rho00(Atom,Input%folder,iter)
+#endif
 
         ! Control
         call control
@@ -2425,7 +2473,7 @@
         if (gpid.eq.0) then
 
           ! Write in stdout
-          write(umsg,'(3x,i9,2x,es20.12,2x,i9,3x,i9,2x,i11,'// &
+          write(umsg,'(4x,i9,2x,es20.12,2x,i9,3x,i9,2x,i11,'// &
                      '2x,f9.3)') &
           iter,MRC%values(2,1),MRC%indexes(1,1),MRC%indexes(3,1), &
           MRC%indexes(2,1),MRC%values(1,1)
@@ -2437,7 +2485,7 @@
             ! Write in MRC file
             open(800, file=trim(Input%folder)//'/MRCI', &
                  iostat=ios,err=1000,position='append')
-            write(800,'(3x,i9,2x,es20.12,2x,i9,3x,i9,2x,i11,'// &
+            write(800,'(4x,i9,2x,es20.12,2x,i9,3x,i9,2x,i11,'// &
                       '2x,f9.3)', err=1100) &
             iter,MRC%values(2,1),MRC%indexes(1,1),MRC%indexes(3,1), &
             MRC%indexes(2,1),MRC%values(1,1)
@@ -2539,6 +2587,15 @@
           end do ! Processors
 
         end if ! Domain decomposition
+
+        ! If going out, but with no ALI
+        if (goout.and..not.lALI.and.INPUT%ALI_force) then
+
+          ! Don't leave and activate ALI
+          goout = .False.
+          force_ALI = .True.
+
+        end if
 
         ! If we are finished, everyone exits
         if (goout) exit
@@ -2691,7 +2748,7 @@
       type(MRC_class):: MRC
 
       logical:: goout,gooutprd,AD,ADT,ADD,PRDl,doNG,laux,lALI
-      logical:: RIRAM,deal
+      logical:: RIRAM,deal,force_ALI
 
       character(LEN=20):: iterS
 
@@ -2753,6 +2810,9 @@
 
       ! Initialize converged flag
       goout = .False.
+
+      ! Initialize force ALI
+      force_ALI = .False.
 
       ! Initialize angle depended flag
       AD = .not.AVI
@@ -2912,7 +2972,7 @@
       if (gpid.eq.0) then
 
         ! Announce we are starting
-        umsg = '   Iteration          MRC(rho^0_0) Atom_index '// &
+        umsg = '    Iteration          MRC(rho^0_0) Atom_index '// &
                'Level_index Height_index Height(km)'
         call verbose
 
@@ -2930,7 +2990,7 @@
           if (.not.laux) then
             open(800, file=trim(Input%folder)//'/MRCI', &
                  action='write',iostat=ios,err=1000)
-            write(800,'(A)') '!  Iteration          MRC(rho^0_0) '// &
+            write(800,'(A)') '!   Iteration          MRC(rho^0_0) '//&
                          'Atom_index Level_index Height_index '// &
                          'Height(km)'
             close(800)
@@ -2939,7 +2999,7 @@
         else
           open(800, file=trim(Input%folder)//'/MRCI', &
                action='write',iostat=ios,err=1000)
-          write(800,'(A)') '!  Iteration          MRC(rho^0_0) '// &
+          write(800,'(A)') '!   Iteration          MRC(rho^0_0) '// &
                        'Atom_index Level_index Height_index '// &
                        'Height(km)'
           close(800)
@@ -2975,7 +3035,7 @@
         end if
 
         ! Flags for physics
-        if (iter.le.Input%allownphys_rho) then
+        if (iter.le.Input%allownphys_pop) then
           if (.not.nphysR) nphysR = .True.
         else
           if (nphysR) nphysR = .False.
@@ -2991,7 +3051,7 @@
         end do
 
         ! Flag for ALI
-        lALI = iter.gt.Input%ALI_delay
+        lALI = iter.gt.Input%ALI_delay.or.force_ALI
 
         ! Internal PRD iterations
         do iterr=1,Input%iteri_prd
@@ -3324,7 +3384,7 @@
                 end if
 
                 ! Write in stdout
-                write(umsg,'(3x,"PRD it:",1x,i1,2x,es20.12,'// &
+                write(umsg,'(2x,"PRD it:",1x,i3,2x,es20.12,'// &
                            '2x,i9,2x,f10.4,4x,i9,2x,f9.3)') &
                            iterr,MRC%values(2,1),MRC%indexes(1,1), &
                            1d2/Frec%omega(MRC%indexes(1,1)), &
@@ -3418,7 +3478,7 @@
                               J00C(:,o),Cont%ndir, &
                               Cont%c(:,:,:,o),Stokes(:,:,:,op), &
                               rLineO(:),rPhotO(:), &
-                              data1M(:,0:1),data2O(:,:))
+                              data1M(:,0:1),data2O(:,:),.True.)
                 if (laborted) goto 3000
 
 
@@ -3457,7 +3517,7 @@
                               J00C(:,p),Cont%ndir, &
                               Cont%c(:,:,:,p),Stokes(:,:,:,op), &
                               rLineO(:),rPhotO(:), &
-                              data1O(:,0:1),data2O(:,:))
+                              data1O(:,0:1),data2O(:,:),.True.)
                 if (laborted) goto 3000
 
                 !
@@ -3504,7 +3564,7 @@
                                 J00C(:,p),Cont%ndir, &
                                 Cont%c(:,:,:,p),Stokes(:,:,:,op), &
                                 rLineP(:),rPhotP(:), &
-                                data1P(:,0:1),data2P(:,:))
+                                data1P(:,0:1),data2P(:,:),.True.)
 
                   ! Point to the data
                   p_K0M  => data1M(:,0)
@@ -4083,6 +4143,14 @@
         !
         ! Solve SEE
         !
+#ifdef DEBUGJ00
+      if (pid.eq.0) call dump_j00(Atom,J00,J00S,J00P, &
+                                  Input%folder,iter)
+#endif
+#ifdef DEBUGLAMBDA
+      if (pid.eq.0) call dump_lambda(Atom,LambdaL,LambdaP, &
+                                     Input%folder,iter)
+#endif
 
 !$omp parallel default(none) &
 !$omp private(ia,iz,itran,jtran,fftran,jftran,umsg,urou,tid) &
@@ -4107,16 +4175,27 @@
           do iz=Rz0,Rz1
 
             ! Solve the SEE
+#ifdef DEBUGSEE
+            call SEEI(Atom(ia),Rho_old(ia),J00(itran:jtran,iz), &
+           !          J00S(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
+                      J00(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
+                      LambdaL(:,itran:jtran,iz), &
+                      LambdaP(:,fftran:jftran,:,iz),iz,lALI,tid,INPUT)
+#else
             call SEEI(Atom(ia),Rho_old(ia),J00(itran:jtran,iz), &
            !          J00S(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
                       J00(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
                       LambdaL(:,itran:jtran,iz), &
                       LambdaP(:,fftran:jftran,:,iz),iz,lALI,tid)
+#endif
 
           end do ! heights
 !$omp end do nowait
         end do ! atoms
 !$omp end parallel
+#ifdef DEBUGRHO00
+      if (pid.eq.0) call dump_rho00(Atom,Input%folder,iter)
+#endif
 
         ! Control
         call control
@@ -4431,7 +4510,7 @@
         if (gpid.eq.0) then
 
           ! Write in stdout
-          write(umsg,'(3x,i9,2x,es20.12,2x,i9,3x,i9,2x,i11,'// &
+          write(umsg,'(4x,i9,2x,es20.12,2x,i9,3x,i9,2x,i11,'// &
                      '2x,f9.3)') &
           iter,MRC%values(2,1),MRC%indexes(1,1),MRC%indexes(3,1), &
           MRC%indexes(2,1),MRC%values(1,1)
@@ -4443,7 +4522,7 @@
             ! Write in MRC file
             open(800, file=trim(Input%folder)//'/MRCI', &
                  iostat=ios,err=1000,position='append')
-            write(800,'(3x,i9,2x,es20.12,2x,i9,3x,i9,2x,i11,'// &
+            write(800,'(4x,i9,2x,es20.12,2x,i9,3x,i9,2x,i11,'// &
                       '2x,f9.3)', err=1100) &
             iter,MRC%values(2,1),MRC%indexes(1,1),MRC%indexes(3,1), &
             MRC%indexes(2,1),MRC%values(1,1)
@@ -4546,6 +4625,15 @@
           end do ! Processors
 
         end if ! Domain decomposition
+
+        ! If going out, but with no ALI
+        if (goout.and..not.lALI.and.INPUT%ALI_FORCE) then
+
+          ! Don't leave and activate ALI
+          goout = .False.
+          force_ALI = .True.
+
+        end if
 
         ! If we are finished, everyone exits
         if (goout) exit
@@ -4700,7 +4788,7 @@
       type(MRC_class):: MRC
 
       logical:: goout,gooutprd,AD,ADT,ADD,PRDl,doNG,laux,lALI,RIRAM
-      logical:: lp_exu
+      logical:: lp_exu,force_ALI
 
       character(LEN=20):: iterS
 
@@ -4738,6 +4826,9 @@
 
       ! Initialize converged flag
       goout = .False.
+
+      ! Initialize force ALI
+      force_ALI = .False.
 
       ! Initialize angle depended flag
       AD = .not.AVI
@@ -4852,7 +4943,7 @@
       if (gpid.eq.0) then
 
         ! Announce we are starting
-        umsg = '   Iteration          MRC(rho^0_0) Atom_index '// &
+        umsg = '    Iteration          MRC(rho^0_0) Atom_index '// &
                'Level_index Height_index Height(km)'
         call verbose
 
@@ -4869,7 +4960,7 @@
           if (.not.laux) then
             open(800, file=trim(Input%folder)//'/MRCI', &
                  action='write',iostat=ios,err=1000)
-            write(800,'(A)') '!  Iteration          MRC(rho^0_0) '// &
+            write(800,'(A)') '!   Iteration          MRC(rho^0_0) '//&
                          'Atom_index Level_index Height_index '// &
                          'Height(km)'
             close(800)
@@ -4878,7 +4969,7 @@
         else
           open(800, file=trim(Input%folder)//'/MRCI', &
                action='write',iostat=ios,err=1000)
-          write(800,'(A)') '!  Iteration          MRC(rho^0_0) '// &
+          write(800,'(A)') '!   Iteration          MRC(rho^0_0) '// &
                        'Atom_index Level_index Height_index '// &
                        'Height(km)'
           close(800)
@@ -4904,7 +4995,7 @@
         end if
 
         ! Flags for physics
-        if (iter.le.Input%allownphys_rho) then
+        if (iter.le.Input%allownphys_pop) then
           if (.not.nphysR) nphysR = .True.
         else
           if (nphysR) nphysR = .False.
@@ -4920,7 +5011,7 @@
         end do
 
         ! Flag for ALI
-        lALI = iter.gt.Input%ALI_delay
+        lALI = iter.gt.Input%ALI_delay.or.force_ALI
 
         ! Internal PRD iterations
         do iterr=1,Input%iteri_prd
@@ -5001,7 +5092,7 @@
                             o,ith,iph,if0,if1,J00(:,o), &
                             J00C(:,o),Cont%ndir, &
                             Cont%c(:,:,:,o),Stokes(:,:,:,op), &
-                            rLineO,rPhotO,data1M(:,0:1),data2O)
+                            rLineO,rPhotO,data1M(:,0:1),data2O,.True.)
               if (laborted) goto 2000
 
               if (KSTK) Stokes_n(:,iph,ith,o) = data1M(:,2)
@@ -5038,7 +5129,7 @@
                             p,ith,iph,if0,if1,J00(:,p), &
                             J00C(:,p),Cont%ndir, &
                             Cont%c(:,:,:,p),Stokes(:,:,:,op), &
-                            rLineO,rPhotO,data1O(:,0:1),data2O)
+                            rLineO,rPhotO,data1O(:,0:1),data2O,.True.)
               if (laborted) goto 2000
 
               !
@@ -5084,7 +5175,8 @@
                               p,ith,iph,if0,if1,J00(:,p), &
                               J00C(:,p),Cont%ndir, &
                               Cont%c(:,:,:,p),Stokes(:,:,:,op), &
-                              rLineP,rPhotP,data1P(:,0:1),data2P)
+                              rLineP,rPhotP, &
+                              data1P(:,0:1),data2P,.True.)
 
                 ! Point to the data
                 p_K0M  => data1M(:,0)
@@ -5325,7 +5417,7 @@
               end if
 
               ! Write in stdout
-              write(umsg,'(3x,"PRD it:",1x,i1,2x,es20.12,'// &
+              write(umsg,'(2x,"PRD it:",1x,i3,2x,es20.12,'// &
                          '2x,i9,2x,f10.4,4x,i9,2x,f9.3)') &
                          iterr,MRC%values(2,1),MRC%indexes(1,1), &
                          1d2/Frec%omega(MRC%indexes(1,1)), &
@@ -5376,6 +5468,14 @@
         !
         ! Solve SEE
         !
+#ifdef DEBUGJ00
+      if (pid.eq.0) call dump_j00(Atom,J00,J00S,J00P, &
+                                  Input%folder,iter)
+#endif
+#ifdef DEBUGLAMBDA
+      if (pid.eq.0) call dump_lambda(Atom,LambdaL,LambdaP, &
+                                     Input%folder,iter)
+#endif
 
 !$omp parallel default(none) &
 !$omp private(ia,iz,itran,jtran,fftran,jftran,urou,umsg,tid) &
@@ -5400,17 +5500,29 @@
           do iz=Rz0,Rz1
 
             ! Solve the SEE
+#ifdef DEBUGSEE
+            call SEEI(Atom(ia),Rho_old(ia),J00_n(itran:jtran,iz), &
+           !          J00S_n(itran:jtran,iz), &
+                      J00_n(itran:jtran,iz), &
+                      J00P(fftran:jftran,:,iz), &
+                      LambdaL(:,itran:jtran,iz), &
+                      LambdaP(:,fftran:jftran,:,iz),iz,lALI,tid,INPUT)
+#else
             call SEEI(Atom(ia),Rho_old(ia),J00_n(itran:jtran,iz), &
            !          J00S_n(itran:jtran,iz), &
                       J00_n(itran:jtran,iz), &
                       J00P(fftran:jftran,:,iz), &
                       LambdaL(:,itran:jtran,iz), &
                       LambdaP(:,fftran:jftran,:,iz),iz,lALI,tid)
+#endif
 
           end do ! heights
 !$omp end do nowait
         end do ! atoms
 !$omp end parallel
+#ifdef DEBUGRHO00
+      if (pid.eq.0) call dump_rho00(Atom,Input%folder,iter)
+#endif
 
 
         !
@@ -5636,7 +5748,7 @@
         if (gpid.eq.0) then
 
           ! Write in stdout
-          write(umsg,'(3x,i9,2x,es20.12,2x,i9,3x,i9,2x,i11,'// &
+          write(umsg,'(4x,i9,2x,es20.12,2x,i9,3x,i9,2x,i11,'// &
                      '2x,f9.3)') &
           iter,MRC%values(2,1),MRC%indexes(1,1),MRC%indexes(3,1), &
           MRC%indexes(2,1),MRC%values(1,1)
@@ -5648,7 +5760,7 @@
             ! Write in MRC file
             open(800, file=trim(Input%folder)//'/MRCI', &
                  iostat=ios,err=1000,position='append')
-            write(800,'(3x,i9,2x,es20.12,2x,i9,3x,i9,2x,i11,'// &
+            write(800,'(4x,i9,2x,es20.12,2x,i9,3x,i9,2x,i11,'// &
                        '2x,f9.3)', err=1100) &
             iter,MRC%values(2,1),MRC%indexes(1,1),MRC%indexes(3,1), &
             MRC%indexes(2,1),MRC%values(1,1)
@@ -5669,9 +5781,14 @@
         if (iter.le.Input%PRD_delay) goout = .False.
 
         ! Recover PRD variable
-        if (iter.eq.Input%PRD_delay) then
+        if (iter.eq.Input%PRD_delay) PRD = PRDl
 
-          PRD = PRDl
+        ! If going out, but with no ALI
+        if (goout.and..not.lALI.and.INPUT%ALI_FORCE) then
+
+          ! Don't leave and activate ALI
+          goout = .False.
+          force_ALI = .True.
 
         end if
 
@@ -7062,6 +7179,8 @@
       !> Call the solver for the NLTE problem for intensity with just
       !! the continuum opacities\n
       !!          Atmo(Atmo_class): Structure with atmospheric data\n
+      !!          Atom(Atom_class): Structure with the atomic data\n
+      !!   LTElines(LTEline_class): Structure with the LTE line data\n
       !!     Cont(Continuum_class): Structure with background opacity
       !!                            data\n
       !!     Frec(Frequency_class): Structure with frequency data\n
@@ -7071,11 +7190,14 @@
       !!   Stokes(dfloat(:,:,:,:)): Intensity\n
       !!         J00C(dfloat(:,:)): Mean intensity with frequency
       !!                            dependence
-      subroutine solveJ(Atmo,Cont,Frec,Geom,MPID,Input,Stokes,J00C)
+      subroutine solveJ(Atmo,Atom,LTElines,Cont,Frec,Geom, &
+                        MPID,Input,Stokes,J00C)
 
       ! I/O
 
+      type(Atom_class), dimension(:):: Atom
       type(Atmo_class):: Atmo
+      type(LTEline_class), dimension(:), allocatable:: LTElines
       type(Continuum_class):: Cont
       type(Frequency_class):: Frec
       type(Input_class):: Input
@@ -7088,16 +7210,16 @@
       ! MPI
       if (MPID%mpi) then
         if (MPID%alternJ) then
-          call solverJ_alt(Atmo,Cont,Frec,Geom,MPID,Input, &
-                           Stokes,J00C)
+          call solverJ_alt(Atmo,Atom,LTElines,Cont,Frec,Geom, &
+                           MPID,Input,Stokes,J00C)
         else
-          call solverJ(Atmo,Cont,Frec,Geom,MPID,Input, &
-                       Stokes,J00C)
+          call solverJ(Atmo,Atom,LTElines,Cont,Frec,Geom, &
+                       MPID,Input,Stokes,J00C)
         end if
       ! Serial
       else
-        call solverJ_serial(Atmo,Cont,Frec,Geom,MPID,Input, &
-                            Stokes,J00C)
+        call solverJ_serial(Atmo,Atom,LTElines,Cont,Frec,Geom, &
+                            MPID,Input,Stokes,J00C)
       end if
 
       end subroutine solveJ
@@ -7109,6 +7231,8 @@
       !> Solves the NLTE problem for intensity with just the continuum
       !! opacities, using lambda iteration, with several CPU.\n
       !!          Atmo(Atmo_class): Structure with atmospheric data\n
+      !!          Atom(Atom_class): Structure with the atomic data\n
+      !!   LTElines(LTEline_class): Structure with the LTE line data\n
       !!     Cont(Continuum_class): Structure with background opacity
       !!                            data\n
       !!     Frec(Frequency_class): Structure with frequency data\n
@@ -7118,11 +7242,14 @@
       !!   Stokes(dfloat(:,:,:,:)): Intensity\n
       !!         J00C(dfloat(:,:)): Mean intensity with frequency
       !!                            dependence
-      subroutine solverJ(Atmo,Cont,Frec,Geom,MPID,Input,Stokes,J00C)
+      subroutine solverJ(Atmo,Atom,LTElines,Cont,Frec, &
+                         Geom,MPID,Input,Stokes,J00C)
 
       ! I/O
 
+      type(Atom_class), dimension(:):: Atom
       type(Atmo_class):: Atmo
+      type(LTEline_class), dimension(:), allocatable:: LTElines
       type(Continuum_class):: Cont
       type(Frequency_class):: Frec
       type(Input_class):: Input
@@ -7136,7 +7263,7 @@
 
       type(MRC_class):: MRC
 
-      logical:: AD, ADD
+      logical:: AD,ADD,PRDl,goout
 
       integer:: iaux,iz0,iz1,diz,m,o,p,op,ith,iph,iz,if0,if1
       integer:: iproc,iter,id,if0l,if1l,nfl
@@ -7156,13 +7283,18 @@
       ! Dual
       integer:: info_b
 
-
       ! Pointers
       double precision, dimension(:,:), pointer:: data1M,data1O,data1P
       double precision, dimension(:), pointer:: p_K0M, p_SM, p_StkM
       double precision, dimension(:), pointer:: p_K0O, p_SO, p_StkO
       double precision, dimension(:), pointer:: p_K0P, p_SP
       double precision, dimension(:,:), pointer:: p_MStk
+
+      ! Dummy
+      type(Red_class):: Red
+      double precision, dimension(:), allocatable:: ad1
+      double precision, dimension(:,:), allocatable:: ad2
+      double precision, dimension(:,:,:), allocatable:: ad3
 
 
       ! Announce we are starting
@@ -7175,6 +7307,13 @@
       ! Initialize angle depended flag
       AD = .not.AVI
       ADD = AD.or.dyn
+
+      ! B-B
+      if (Input%init_J_bb) then
+        ! Store if it was PRD
+        PRDl = PRD
+        PRD = .False.
+      end if
 
       ! Initialize index of Stokes
       op = 1
@@ -7349,6 +7488,9 @@
             call verbose
           end if
 
+          ! Check convergence
+          goout = MRC%values(2,1).lt.INPUT%mrcj
+
 
         !
         ! Slave
@@ -7405,9 +7547,17 @@
               o = iz0
 
               ! Calculate radiative coefficients
-              call RTCoeffJ(Geom,ith,iph,if0,if1,J00C(:,o), &
-                            Cont%ndir,Cont%c(:,:,:,o), &
-                            data1M(:,0:1))
+              if (Input%init_J_bb) then
+                call RTCoeffI(Frec,Red,Atom,LTElines,Atmo,MPID,Geom, &
+                              o,ith,iph,if0,if1,ad1, &
+                              J00C(:,o),Cont%ndir, &
+                              Cont%c(:,:,:,o),ad3, &
+                              ad1,ad1,data1M(:,0:1),ad2,.False.)
+              else
+                call RTCoeffJ(Geom,ith,iph,if0,if1,J00C(:,o), &
+                              Cont%ndir,Cont%c(:,:,:,o), &
+                              data1M(:,0:1))
+              end if
 
 
               !
@@ -7421,9 +7571,17 @@
               p = iz0 + diz
 
               ! Calculate radiative coefficients
-              call RTCoeffJ(Geom,ith,iph,if0,if1,J00C(:,p), &
-                            Cont%ndir,Cont%c(:,:,:,p), &
-                            data1O(:,0:1))
+              if (Input%init_J_bb) then
+                call RTCoeffI(Frec,Red,Atom,LTElines,Atmo,MPID,Geom, &
+                              p,ith,iph,if0,if1,ad1, &
+                              J00C(:,p),Cont%ndir, &
+                              Cont%c(:,:,:,p),ad3, &
+                              ad1,ad1,data1O(:,0:1),ad2,.False.)
+              else
+                call RTCoeffJ(Geom,ith,iph,if0,if1,J00C(:,p), &
+                              Cont%ndir,Cont%c(:,:,:,p), &
+                              data1O(:,0:1))
+              end if
 
               !
               ! Intermedium heights
@@ -7458,9 +7616,17 @@
                 end if
 
                 ! Calculate radiative coefficients
-                call RTCoeffJ(Geom,ith,iph,if0,if1,J00C(:,p), &
-                              Cont%ndir,Cont%c(:,:,:,p), &
-                              data1P(:,0:1))
+                if (Input%init_J_bb) then
+                  call RTCoeffI(Frec,Red,Atom,LTElines,Atmo,MPID, &
+                                Geom,p,ith,iph,if0,if1,ad1, &
+                                J00C(:,p),Cont%ndir, &
+                                Cont%c(:,:,:,p),ad3, &
+                                ad1,ad1,data1P(:,0:1),ad2,.False.)
+                else
+                  call RTCoeffJ(Geom,ith,iph,if0,if1,J00C(:,p), &
+                                Cont%ndir,Cont%c(:,:,:,p), &
+                                data1P(:,0:1))
+                end if
 
                 ! Point to the data
                 p_K0M  => data1M(:,0)
@@ -7600,6 +7766,11 @@
                             MPI_COMM_RT, MPI_STATUS_IGNORE, &
                             ierr)
 
+            ! Finished?
+            call MPI_RECV(goout,1,MPI_LOGICAL,MPID%recv, &
+                          4000000+pid,MPI_COMM_RT, &
+                          MPI_STATUS_IGNORE,ierr)
+
           end if ! No master
 
           ! For each send
@@ -7622,6 +7793,12 @@
                              MPI_COMM_RT, &
                              MPID%requestA(istep,4), ierr)
 
+            ! Finished
+            call MPI_ISEND(goout,1,MPI_LOGICAL,MPID%lsend(istep), &
+                           4000000+MPID%lsend(istep), &
+                           MPI_COMM_RT, &
+                           MPID%requestA(istep,5), ierr)
+
           end do ! Sends
 
         ! Normal bcast
@@ -7638,6 +7815,10 @@
                            MPI_DOUBLE_PRECISION, 0, &
                            MPI_COMM_RT, ierr)
 
+          ! Finished
+          call MPI_BCAST(goout,1,MPI_LOGICAL,0, &
+                         MPI_COMM_RT, ierr)
+
         end if ! Type of bcast
 
         ! If alternative bcast
@@ -7652,12 +7833,23 @@
                           MPI_STATUS_IGNORE,ierr)
             call MPI_WAIT(MPID%requestA(iproc,4), &
                           MPI_STATUS_IGNORE,ierr)
+            call MPI_WAIT(MPID%requestA(iproc,5), &
+                          MPI_STATUS_IGNORE,ierr)
 
           end do ! Processors
 
         end if ! Domain decomposition
 
+        ! Finish?
+        if (goout) exit
+
       end do ! Iterations
+
+      ! B-B
+      if (Input%init_J_bb) then
+        ! Restore PRD
+        PRD = PRDl
+      end if
 
       !
       ! Clean slave pointers
@@ -7681,6 +7873,8 @@
       !! opacities, using lambda iteration, with several CPU.
       !! Alternative communication scheme.\n
       !!          Atmo(Atmo_class): Structure with atmospheric data\n
+      !!          Atom(Atom_class): Structure with the atomic data\n
+      !!   LTElines(LTEline_class): Structure with the LTE line data\n
       !!     Cont(Continuum_class): Structure with background opacity
       !!                            data\n
       !!     Frec(Frequency_class): Structure with frequency data\n
@@ -7690,12 +7884,14 @@
       !!   Stokes(dfloat(:,:,:,:)): Intensity\n
       !!         J00C(dfloat(:,:)): Mean intensity with frequency
       !!                            dependence
-      subroutine solverJ_alt(Atmo,Cont,Frec,Geom,MPID,Input, &
-                             Stokes,J00C)
+      subroutine solverJ_alt(Atmo,Atom,LTElines,Cont,Frec, &
+                             Geom,MPID,Input,Stokes,J00C)
 
       ! I/O
 
+      type(Atom_class), dimension(:):: Atom
       type(Atmo_class):: Atmo
+      type(LTEline_class), dimension(:), allocatable:: LTElines
       type(Continuum_class):: Cont
       type(Frequency_class):: Frec
       type(Input_class):: Input
@@ -7709,7 +7905,7 @@
 
       type(MRC_class):: MRC
 
-      logical:: AD, ADD
+      logical:: AD,ADD,PRDl,goout
 
       integer:: iaux,iz0,iz1,diz,m,o,p,op,ith,iph,ith1,iph1,iz
       integer:: if0,if1,iproc,iter,id
@@ -7738,6 +7934,12 @@
       double precision, dimension(:), pointer:: p_K0P, p_SP
       double precision, dimension(:,:), pointer:: p_MStk
 
+      ! Dummy
+      type(Red_class):: Red
+      double precision, dimension(:), allocatable:: ad1
+      double precision, dimension(:,:), allocatable:: ad2
+      double precision, dimension(:,:,:), allocatable:: ad3
+
 
       ! Announce we are starting
       if (gpid.eq.0) then
@@ -7749,6 +7951,13 @@
       ! Initialize angle depended flag
       AD = .not.AVI
       ADD = AD.or.dyn
+
+      ! B-B
+      if (Input%init_J_bb) then
+        ! Store if it was PRD
+        PRDl = PRD
+        PRD = .False.
+      end if
 
       ! Initialize index of Stokes
       op = 1
@@ -7915,6 +8124,9 @@
             call verbose
           end if
 
+          ! Check convergence
+          goout = MRC%values(2,1).lt.INPUT%mrcj
+
 
         !
         ! Slave
@@ -7970,9 +8182,17 @@
               o = iz0
 
               ! Calculate radiative coefficients
-              call RTCoeffJ(Geom,ith,iph,if0,if1,J00C(:,o), &
-                            Cont%ndir,Cont%c(:,:,:,o), &
-                            data1M(:,0:1))
+              if (Input%init_J_bb) then
+                call RTCoeffI(Frec,Red,Atom,LTElines,Atmo,MPID,Geom, &
+                              o,ith,iph,if0,if1,ad1, &
+                              J00C(:,o),Cont%ndir, &
+                              Cont%c(:,:,:,o),ad3, &
+                              ad1,ad1,data1M(:,0:1),ad2,.False.)
+              else
+                call RTCoeffJ(Geom,ith,iph,if0,if1,J00C(:,o), &
+                              Cont%ndir,Cont%c(:,:,:,o), &
+                              data1M(:,0:1))
+              end if
 
 
               !
@@ -7986,9 +8206,17 @@
               p = iz0 + diz
 
               ! Calculate radiative coefficients
-              call RTCoeffJ(Geom,ith,iph,if0,if1,J00C(:,p), &
-                            Cont%ndir,Cont%c(:,:,:,p), &
-                            data1O(:,0:1))
+              if (Input%init_J_bb) then
+                call RTCoeffI(Frec,Red,Atom,LTElines,Atmo,MPID,Geom, &
+                              p,ith,iph,if0,if1,ad1, &
+                              J00C(:,p),Cont%ndir, &
+                              Cont%c(:,:,:,p),ad3, &
+                              ad1,ad1,data1O(:,0:1),ad2,.False.)
+              else
+                call RTCoeffJ(Geom,ith,iph,if0,if1,J00C(:,p), &
+                              Cont%ndir,Cont%c(:,:,:,p), &
+                              data1O(:,0:1))
+              end if
 
               !
               ! Intermedium heights
@@ -8023,9 +8251,17 @@
                 end if
 
                 ! Calculate radiative coefficients
-                call RTCoeffJ(Geom,ith,iph,if0,if1,J00C(:,p), &
-                              Cont%ndir,Cont%c(:,:,:,p), &
-                              data1P(:,0:1))
+                if (Input%init_J_bb) then
+                  call RTCoeffI(Frec,Red,Atom,LTElines,Atmo,MPID, &
+                                Geom,p,ith,iph,if0,if1,ad1, &
+                                J00C(:,p),Cont%ndir, &
+                                Cont%c(:,:,:,p),ad3, &
+                                ad1,ad1,data1P(:,0:1),ad2,.False.)
+                else
+                  call RTCoeffJ(Geom,ith,iph,if0,if1,J00C(:,p), &
+                                Cont%ndir,Cont%c(:,:,:,p), &
+                                data1P(:,0:1))
+                end if
 
                 ! Point to the data
                 p_K0M  => data1M(:,0)
@@ -8189,6 +8425,17 @@
                              MPI_COMM_RT, &
                              MPID%requestA(istep,4), ierr)
 
+            ! Finished?
+            call MPI_RECV(goout,1,MPI_LOGICAL,MPID%recv, &
+                          4000000+pid,MPI_COMM_RT, &
+                          MPI_STATUS_IGNORE,ierr)
+
+            ! Finished
+            call MPI_ISEND(goout,1,MPI_LOGICAL,MPID%lsend(istep), &
+                           4000000+MPID%lsend(istep), &
+                           MPI_COMM_RT, &
+                           MPID%requestA(istep,5), ierr)
+
           end do ! Sends
 
         ! Normal bcast
@@ -8205,6 +8452,10 @@
                            MPI_DOUBLE_PRECISION, 0, &
                            MPI_COMM_RT, ierr)
 
+          ! Finished
+          call MPI_BCAST(goout,1,MPI_LOGICAL,0, &
+                         MPI_COMM_RT, ierr)
+
         end if ! Type of bcast
 
         ! If alternative bcast
@@ -8219,6 +8470,8 @@
                           MPI_STATUS_IGNORE,ierr)
             call MPI_WAIT(MPID%requestA(iproc,4), &
                           MPI_STATUS_IGNORE,ierr)
+            call MPI_WAIT(MPID%requestA(iproc,5), &
+                          MPI_STATUS_IGNORE,ierr)
 
           end do ! Processors
 
@@ -8228,7 +8481,16 @@
         call control
         if (laborted) exit
 
+        ! Finish?
+        if (goout) exit
+
       end do ! Iterations
+
+      ! B-B
+      if (Input%init_J_bb) then
+        ! Restore PRD
+        PRD = PRDl
+      end if
 
       !
       ! Clean slave pointers
@@ -8251,6 +8513,8 @@
       !> Solves the NLTE problem for intensity with just the continuum
       !! opacities, using lambda iteration, with one CPU (serial).\n
       !!          Atmo(Atmo_class): Structure with atmospheric data\n
+      !!          Atom(Atom_class): Structure with the atomic data\n
+      !!   LTElines(LTEline_class): Structure with the LTE line data\n
       !!     Cont(Continuum_class): Structure with background opacity
       !!                            data\n
       !!     Frec(Frequency_class): Structure with frequency data\n
@@ -8260,12 +8524,14 @@
       !!   Stokes(dfloat(:,:,:,:)): Intensity\n
       !!         J00C(dfloat(:,:)): Mean intensity with frequency
       !!                            dependence
-      subroutine solverJ_serial(Atmo,Cont,Frec,Geom,MPID,Input, &
-                                Stokes,J00C)
+      subroutine solverJ_serial(Atmo,Atom,LTElines,Cont,Frec, &
+                                Geom,MPID,Input,Stokes,J00C)
 
       ! I/O
 
+      type(Atom_class), dimension(:):: Atom
       type(Atmo_class):: Atmo
+      type(LTEline_class), dimension(:), allocatable:: LTElines
       type(Continuum_class):: Cont
       type(Frequency_class):: Frec
       type(Input_class):: Input
@@ -8279,7 +8545,7 @@
 
       type(MRC_class):: MRC
 
-      logical:: AD,ADD
+      logical:: AD,ADD,PRDl,goout
 
       integer:: iz0,iz1,diz,m,o,p
       integer:: iter,ith,iph,iz,if0,if1
@@ -8296,6 +8562,12 @@
       double precision, dimension(:), pointer:: p_K0O, p_SO, p_StkO
       double precision, dimension(:), pointer:: p_K0P, p_SP
 
+      ! Dummy
+      type(Red_class):: Red
+      double precision, dimension(:), allocatable:: ad1
+      double precision, dimension(:,:), allocatable:: ad2
+      double precision, dimension(:,:,:), allocatable:: ad3
+
 
       ! Announce we are starting
       if (gpid.eq.0) then
@@ -8307,6 +8579,13 @@
       ! Initialize angle depended flag
       AD = .not.AVI
       ADD = AD.or.dyn
+
+      ! B-B
+      if (Input%init_J_bb) then
+        ! Store if it was PRD
+        PRDl = PRD
+        PRD = .False.
+      end if
 
       ! CPU limits
       if0 = 1
@@ -8378,8 +8657,16 @@
             o = iz0
 
             ! Calculate radiative coefficients
-            call RTCoeffJ(Geom,ith,iph,if0,if1,J00C(:,o), &
-                          Cont%ndir,Cont%c(:,:,:,o),data1M(:,0:1))
+            if (Input%init_J_bb) then
+              call RTCoeffI(Frec,Red,Atom,LTElines,Atmo,MPID,Geom, &
+                            o,ith,iph,if0,if1,ad1, &
+                            J00C(:,o),Cont%ndir, &
+                            Cont%c(:,:,:,o),ad3, &
+                            ad1,ad1,data1M(:,0:1),ad2,.False.)
+            else
+              call RTCoeffJ(Geom,ith,iph,if0,if1,J00C(:,o), &
+                            Cont%ndir,Cont%c(:,:,:,o),data1M(:,0:1))
+            end if
 
             if (KSTK) Stokes_n(:,iph,ith,o) = data1M(:,2)
 
@@ -8392,8 +8679,16 @@
             p = iz0 + diz
 
             ! Calculate radiative coefficients
-            call RTCoeffJ(Geom,ith,iph,if0,if1,J00C(:,p), &
-                          Cont%ndir,Cont%c(:,:,:,p),data1O(:,0:1))
+            if (Input%init_J_bb) then
+              call RTCoeffI(Frec,Red,Atom,LTElines,Atmo,MPID,Geom, &
+                            p,ith,iph,if0,if1,ad1, &
+                            J00C(:,p),Cont%ndir, &
+                            Cont%c(:,:,:,p),ad3, &
+                            ad1,ad1,data1O(:,0:1),ad2,.False.)
+            else
+              call RTCoeffJ(Geom,ith,iph,if0,if1,J00C(:,p), &
+                            Cont%ndir,Cont%c(:,:,:,p),data1O(:,0:1))
+            end if
 
 
             !
@@ -8429,8 +8724,16 @@
               end if
 
               ! RT coefficients
-              call RTCoeffJ(Geom,ith,iph,if0,if1,J00C(:,p), &
-                            Cont%ndir,Cont%c(:,:,:,p),data1P(:,0:1))
+              if (Input%init_J_bb) then
+                call RTCoeffI(Frec,Red,Atom,LTElines,Atmo,MPID, &
+                              Geom,p,ith,iph,if0,if1,ad1, &
+                              J00C(:,p),Cont%ndir, &
+                              Cont%c(:,:,:,p),ad3, &
+                              ad1,ad1,data1P(:,0:1),ad2,.False.)
+              else
+                call RTCoeffJ(Geom,ith,iph,if0,if1,J00C(:,p), &
+                              Cont%ndir,Cont%c(:,:,:,p),data1P(:,0:1))
+              end if
 
               ! Point to the data
               p_K0M  => data1M(:,0)
@@ -8526,6 +8829,9 @@
           call verbose
         end if
 
+        ! Check convergence
+        goout = MRC%values(2,1).lt.INPUT%mrcj
+
         ! Shift the new values into the proper variables
         Stokes = Stokes_n
         J00C = J00C_n
@@ -8533,7 +8839,16 @@
         ! Control
         if (laborted) exit
 
+        ! Finish?
+        if (goout) exit
+
       end do ! Iterations
+
+      ! B-B
+      if (Input%init_J_bb) then
+        ! Restore PRD
+        PRD = PRDl
+      end if
 
       !
       ! Clean pointers
@@ -8559,6 +8874,7 @@
       !!     Frec(Frequency_class): Structure with frequency data\n
       !!      Geom(Geometry_class): Structure with geometry data\n
       !!           MPID(MPI_class): Structure with MPI data\n
+      !!        Input(Input_class): Structure with settings data\n
       !!        Flgsg(Fctsg_class): Structure with factorials and
       !!                            signs\n
       !!            Pcorr(logical): Bool that says if the mean
@@ -8582,7 +8898,7 @@
       !!                            frequency dependence\n
       !!       J00P(dfloat(:,:,:)): Intensity integrals in the
       !!                            photoionization rates
-      subroutine JKQgenerate(Atom,Rho_old,Atmo,Frec,Geom,MPID, &
+      subroutine JKQgenerate(Atom,Rho_old,Atmo,Frec,Geom,MPID,Input, &
                              Flgsg,Pcorr,Bfield,rnPh, &
                              Stokes0,J00,J00S,J00C, &
                              Stokes,JKQ,JKQS,JKQC,J00P)
@@ -8594,6 +8910,7 @@
       type(Atmo_class):: Atmo
       type(Frequency_class):: Frec
       type(Fctsg_class):: Flgsg
+      type(Input_class):: Input
       type(MPI_class):: MPID
       type(Geometry_class):: Geom
       type(Bfield_class), intent(in):: Bfield
@@ -8613,19 +8930,19 @@
       if (MPID%mpi) then
         if (MPID%alternJgen) then
           call JKQgen_alt(Atom,Rho_old,Atmo,Frec,Geom, &
-                          MPID,Flgsg,Pcorr,Bfield,rnPh, &
+                          MPID,Input,Flgsg,Pcorr,Bfield,rnPh, &
                           Stokes0,J00,J00S,J00C, &
                           Stokes,JKQ,JKQS,JKQC,J00P)
         else
           call JKQgen(Atom,Rho_old,Atmo,Frec,Geom,MPID, &
-                      Flgsg,Pcorr,Bfield,rnPh, &
+                      Input,Flgsg,Pcorr,Bfield,rnPh, &
                       Stokes0,J00,J00S,J00C, &
                       Stokes,JKQ,JKQS,JKQC,J00P)
         end if
       ! Serial
       else
         call JKQgen_serial(Atom,Rho_old,Atmo,Frec,Geom, &
-                           MPID,Flgsg,Pcorr,Bfield,rnPh, &
+                           MPID,Input,Flgsg,Pcorr,Bfield,rnPh, &
                            Stokes0,J00,J00S,J00C, &
                            Stokes,JKQ,JKQS,JKQC,J00P)
       end if
@@ -8647,6 +8964,7 @@
       !!     Frec(Frequency_class): Structure with frequency data\n
       !!      Geom(Geometry_class): Structure with geometry data\n
       !!           MPID(MPI_class): Structure with MPI data\n
+      !!        Input(Input_class): Structure with settings data\n
       !!        Flgsg(Fctsg_class): Structure with factorials and
       !!                            signs\n
       !!            Pcorr(logical): Bool that says if the mean
@@ -8670,7 +8988,7 @@
       !!                            frequency dependence\n
       !!       J00P(dfloat(:,:,:)): Intensity integrals in the
       !!                            photoionization rates
-      subroutine JKQgen(Atom,Rho_old,Atmo,Frec,Geom,MPID, &
+      subroutine JKQgen(Atom,Rho_old,Atmo,Frec,Geom,MPID,Input, &
                         Flgsg,Pcorr,Bfield,rnPh, &
                         Stokes0,J00,J00S,J00C, &
                         Stokes,JKQ,JKQS,JKQC,J00P)
@@ -8682,6 +9000,7 @@
       type(Atmo_class):: Atmo
       type(Frequency_class):: Frec
       type(Fctsg_class):: Flgsg
+      type(Input_class):: Input
       type(MPI_class):: MPID
       type(Geometry_class):: Geom
       type(Bfield_class), intent(in):: Bfield
@@ -9198,10 +9517,17 @@
           do iz=Rz0,Rz1
 
             ! Solve the SEE
+#ifdef DEBUGSEE
+            call SEEI(Atom(ia),Rho_old(ia),J00(itran:jtran,iz), &
+                      J00(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
+                     !J00S(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
+                      LambdaL,LambdaP,iz,.False.,tid,INPUT)
+#else
             call SEEI(Atom(ia),Rho_old(ia),J00(itran:jtran,iz), &
                       J00(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
                      !J00S(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
                       LambdaL,LambdaP,iz,.False.,tid)
+#endif
 
           end do ! heights
 !$omp end do nowait
@@ -9359,6 +9685,7 @@
       !!     Frec(Frequency_class): Structure with frequency data\n
       !!      Geom(Geometry_class): Structure with geometry data\n
       !!           MPID(MPI_class): Structure with MPI data\n
+      !!        Input(Input_class): Structure with settings data\n
       !!        Flgsg(Fctsg_class): Structure with factorials and
       !!                            signs\n
       !!            Pcorr(logical): Bool that says if the mean
@@ -9383,7 +9710,7 @@
       !!       J00P(dfloat(:,:,:)): Intensity integrals in the
       !!                            photoionization rates
       subroutine JKQgen_alt(Atom,Rho_old,Atmo,Frec,Geom, &
-                            MPID,Flgsg,Pcorr,Bfield,rnPh, &
+                            MPID,Input,Flgsg,Pcorr,Bfield,rnPh, &
                             Stokes0,J00,J00S,J00C, &
                             Stokes,JKQ,JKQS,JKQC,J00P)
 
@@ -9394,6 +9721,7 @@
       type(Atmo_class):: Atmo
       type(Frequency_class):: Frec
       type(Fctsg_class):: Flgsg
+      type(Input_class):: Input
       type(MPI_class):: MPID
       type(Geometry_class):: Geom
       type(Bfield_class), intent(in):: Bfield
@@ -9912,9 +10240,15 @@
           do iz=Rz0,Rz1
 
             ! Solve the SEE
+#ifdef DEBUGSEE
+            call SEEI(Atom(ia),Rho_old(ia),J00(itran:jtran,iz), &
+                      J00S(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
+                      LambdaL,LambdaP,iz,.False.,tid,INPUT)
+#else
             call SEEI(Atom(ia),Rho_old(ia),J00(itran:jtran,iz), &
                       J00S(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
                       LambdaL,LambdaP,iz,.False.,tid)
+#endif
 
           end do ! heights
 !$omp end do nowait
@@ -10071,6 +10405,7 @@
       !!     Frec(Frequency_class): Structure with frequency data\n
       !!      Geom(Geometry_class): Structure with geometry data\n
       !!           MPID(MPI_class): Structure with MPI data\n
+      !!        Input(Input_class): Structure with settings data\n
       !!        Flgsg(Fctsg_class): Structure with factorials and
       !!                            signs\n
       !!            Pcorr(logical): Bool that says if the mean
@@ -10095,7 +10430,7 @@
       !!       J00P(dfloat(:,:,:)): Intensity integrals in the
       !!                            photoionization rates
       subroutine JKQgen_serial(Atom,Rho_old,Atmo,Frec,Geom, &
-                               MPID,Flgsg,Pcorr,Bfield,rnPh, &
+                               MPID,Input,Flgsg,Pcorr,Bfield,rnPh, &
                                Stokes0,J00,J00S,J00C, &
                                Stokes,JKQ,JKQS,JKQC,J00P)
 
@@ -10106,6 +10441,7 @@
       type(Atmo_class):: Atmo
       type(Frequency_class):: Frec
       type(Fctsg_class):: Flgsg
+      type(Input_class):: Input
       type(MPI_class):: MPID
       type(Geometry_class):: Geom
       type(Bfield_class), intent(in):: Bfield
@@ -10308,10 +10644,17 @@
           do iz=Rz0,Rz1
 
             ! Solve the SEE
+#ifdef DEBUGSEE
+            call SEEI(Atom(ia),Rho_old(ia),J00(itran:jtran,iz), &
+                      J00(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
+                     !J00S(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
+                      LambdaL,LambdaP,iz,.False.,tid,INPUT)
+#else
             call SEEI(Atom(ia),Rho_old(ia),J00(itran:jtran,iz), &
                       J00(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
                      !J00S(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
                       LambdaL,LambdaP,iz,.False.,tid)
+#endif
 
           end do ! heights
 !$omp end do nowait

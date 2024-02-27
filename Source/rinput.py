@@ -6,6 +6,12 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an
 # Hao Li
 #
+# 02/23/2024: V3.0.34 - Added FORCE_MICRO, INIT_J_BB, ITER_MRC_J,
+#                       and ALLOW_NPHYS_POP (TdPA)
+#                     - Activate STATIC and STATIC_INT for 1D (TdPA)
+#                     - The STATIC_INT default is whatever
+#                       STATIC is (TdPA)
+#
 # 02/19/2024: V3.0.33 - Added MAX_T (TdPA)
 #                     - The default for MIN_T and MAX_V is now
 #                       -1 (TdPA)
@@ -3622,6 +3628,24 @@ def rInput():
     f.write('NUM\n')
     f.write('2.5d3\n')
 
+  # FORCE_MICRO
+  if rmode == 0 or rmode == 1 or rmode == 2:
+    check = 0
+    if 'FORCE_MICRO' in Dictionary:
+      val = Dictionary['FORCE_MICRO'][0]
+      try:
+        val = interpret(val)
+        num = float(val)
+        if num > 0:
+          f.write(val+'\n')
+          check = 1
+      except:
+        pass
+    if check == 0:
+      f.write('-1\n')
+  else:
+    f.write('-1\n')
+
   # MIN_T
   if rmode == -1 or rmode == 1 or rmode == 2:
     check = 0
@@ -3711,7 +3735,7 @@ def rInput():
     f.write('N\n')
 
   # STATIC
-  if rmode == 1 or rmode == 2:
+  if rmode == 0 or rmode == 1 or rmode == 2:
     check = 0
     if 'STATIC' in Dictionary:
       val = Dictionary['STATIC'][0]
@@ -3719,16 +3743,20 @@ def rInput():
          val == 'S' or val =='SI':
         f.write('Y\n')
         check = 1
+        static = 'Y\n'
       if val == 'N' or val == 'NO' or val == 'NON':
         f.write('N\n')
         check = 1
+        static = 'N\n'
     if check == 0:
       f.write('N\n')
+      static = 'N\n'
   else:
     f.write('N\n')
+    static = 'N\n'
 
   # STATIC_INT
-  if rmode == -1 or rmode == 0:
+  if rmode == 0 or rmode == -1 or rmode == 0:
     check = 0
     if 'STATIC_INT' in Dictionary:
       val = Dictionary['STATIC_INT'][0]
@@ -3740,7 +3768,7 @@ def rInput():
         f.write('N\n')
         check = 1
     if check == 0:
-      f.write('N\n')
+      f.write(static)
   else:
     f.write('N\n')
 
@@ -3760,6 +3788,23 @@ def rInput():
       f.write('N\n')
   else:
     f.write('N\n')
+
+  # INIT_J_BB
+  if rmode >= -1 and rmode <= 1:
+    check = 0
+    if 'INIT_J_BB' in Dictionary:
+      val = Dictionary['INIT_J_BB'][0]
+      if val == 'Y' or val == 'YE' or val == 'YES' or \
+         val == 'S' or val =='SI':
+        f.write('Y\n')
+        check = 1
+      if val == 'N' or val == 'NO' or val == 'NON':
+        f.write('N\n')
+        check = 1
+    if check == 0:
+      f.write('Y\n')
+  else:
+    f.write('Y\n')
 
   # ITER_MIN
   if rmode >= -1 and rmode <= 1:
@@ -3848,6 +3893,22 @@ def rInput():
       f.write('N\n')
   else:
     f.write('N\n')
+
+  # ITER_MRC_J
+  if rmode >= -1 and rmode <= 1:
+    check = 0
+    if 'ITER_MRC_J' in Dictionary:
+      val = Dictionary['ITER_MRC_J'][0]
+      try:
+        val = interpret(val)
+        f.write('{0:22.16e}\n'.format(float(val)))
+        check = 1
+      except:
+        pass
+    if check == 0:
+      f.write('{0:22.16e}\n'.format(1e-4))
+  else:
+    f.write('0\n')
 
   # ITER_MRC_I
   if rmode >= -1 and rmode <= 1:
@@ -4079,6 +4140,23 @@ def rInput():
   else:
     f.write('0\n')
 
+  # ALI_FORCE
+  if rmode >= -1 and rmode <= 1:
+    check = 0
+    if 'ALI_FORCE' in Dictionary:
+      val = Dictionary['ALI_FORCE'][0]
+      if val == 'Y' or val == 'YE' or val == 'YES' or \
+         val == 'S' or val =='SI':
+        f.write('Y\n')
+        check = 1
+      if val == 'N' or val == 'NO' or val == 'NON':
+        f.write('N\n')
+        check = 1
+    if check == 0:
+      f.write('N\n')
+  else:
+    f.write('N\n')
+
   # APPEND_MRC
   if rmode == 0:
     check = 0
@@ -4147,6 +4225,23 @@ def rInput():
   check = 0
   if 'ALLOW_NPHYS_RHO' in Dictionary:
     val = Dictionary['ALLOW_NPHYS_RHO'][0]
+    try:
+      val = int(val)
+      check = 1
+    except:
+      pass
+    if(check == 1):
+      if(val > 0):
+        f.write('{0:7d}\n'.format(val))
+      else:
+        check = 0
+  if check == 0:
+    f.write('{0:7d}\n'.format(-1))
+
+  # ALLOW_NPHYS_POP
+  check = 0
+  if 'ALLOW_NPHYS_POP' in Dictionary:
+    val = Dictionary['ALLOW_NPHYS_POP'][0]
     try:
       val = int(val)
       check = 1

@@ -13,12 +13,15 @@
 !  Start:
 !     06/22/2022
 !  Last version:
-!     02/19/2024 V3.0.23
+!     02/23/2024 V3.0.24
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/23/2024:   V3.0.24 - Added Input%fvmicro argument to rAtmo
+!                             call (TdPA)
 !
 !     02/19/2024:   V3.0.23 - Added calls to new get_lims routine
 !                             in 1.5D and CLE modes (TdPA)
@@ -305,7 +308,7 @@
       !
       ! Read atmospheric data
       !
-      call rAtmo(Input%atmo,Input%source,Input%ID,Atmo)
+      call rAtmo(Input%atmo,Input%source,Input%ID,Atmo,Input%fvmicro)
       nz = Atmo%nz
 
       !

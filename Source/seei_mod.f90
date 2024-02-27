@@ -10,12 +10,17 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     07/03/2023 V3.0.4
+!     02/23/2024 V3.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/23/2024:    V3.0.5 - Do not skip the first row when adding
+!                             the lambda operator (TdPA)
+!                           - It is possible to accept negative
+!                             populations if specified in input (TdPA)
 !
 !     07/03/2023:    V3.0.4 - Renamed SEEI to SEEI_actual and added
 !                             a new SEEI that calls it. Now, if
@@ -159,11 +164,19 @@
       !!               iz(integer): Height index\n
       !!             lALI(logical): Apply ALI\n
       !!              tid(integer): thread index
+#ifdef DEBUGSEE
+      subroutine SEEI(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP,iz,lALI, &
+                      tid,INPUT)
+#else
       subroutine SEEI(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP,iz,lALI, &
                       tid)
+#endif
 
       ! I/O
 
+#ifdef DEBUGSEE
+      type(Input_class), intent(in):: INPUT
+#endif
       type(Atom_class), intent(inout):: Atom
       type(Rhoc_class), intent(inout):: Atom0
       logical, intent(in):: lALI
@@ -183,8 +196,13 @@
       !
       ! Call real SEEI with current ALI configuration
       !
+#ifdef DEBUGSEE
+      call SEEI_actual(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP, &
+                       iz,lALI,try_no_ALI,tid,INPUT)
+#else
       call SEEI_actual(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP, &
                        iz,lALI,try_no_ALI,tid)
+#endif
 
       !
       ! If we need to try without ALI now because there was a
@@ -192,8 +210,13 @@
       !
       if (try_no_ALI) then
 
+#ifdef DEBUGSEE
+        call SEEI_actual(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP, &
+                         iz,.False.,try_no_ALI,tid,INPUT)
+#else
         call SEEI_actual(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP, &
                          iz,.False.,try_no_ALI,tid)
+#endif
 
       end if
 
@@ -223,11 +246,19 @@
       !!             lALI(logical): Apply ALI\n
       !!       try_no_ALI(logical): Output signal to try without ALI\n
       !!              tid(integer): thread index
+#ifdef DEBUGSEE
+      subroutine SEEI_actual(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP, &
+                             iz,lALI,try_no_ALI,tid,INPUT)
+#else
       subroutine SEEI_actual(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP, &
                              iz,lALI,try_no_ALI,tid)
+#endif
 
       ! I/O
 
+#ifdef DEBUGSEE
+      type(Input_class), intent(in):: INPUT
+#endif
       type(Atom_class), intent(inout):: Atom
       type(Rhoc_class), intent(inout):: Atom0
       logical, intent(in):: lALI
@@ -249,12 +280,18 @@
       !
       call SEbuildI(Atom,JRad,JRadS,Jphot,STcoeff,iz,tid)
 
+#ifdef DEBUGSEE
+      call dump_see(Atom,STcoeff,INPUT%folder,iz,.False.)
+#endif
 
       !
       ! Add the contributions due to Lambda operator
       !
       if (lALI) call ALIbuildI(Atom,Atom0,LamL,LamP,STcoeff,iz)
 
+#ifdef DEBUGSEE
+      if (lALI) call dump_see(Atom,STcoeff,INPUT%folder,iz,.True.)
+#endif
 
       !
       ! Initialize rho and fix populations if requested
@@ -757,7 +794,7 @@
       !
 
       ! First row is not modified, it is the trace
-      if (i.eq.1) cycle
+!     if (i.eq.1) cycle
 
       ! If there is a transition between levels
       if (zpermitJ) then
@@ -1044,42 +1081,52 @@
       !
       if (minval(rho).lt.0d0) then
 
-        ! If doing ALI
-        if (lALI) then
+        ! If allowing
+        if (nphysR) then
 
-            write(umsg,'(A)') 'Negative population in SEEI '// &
-                              'solution, will try without ALI'
-            call abortedS(umsg,urou,tid,.False.,.True.)
+          write(umsg,'(A)') 'Negative population in SEEI '// &
+                            'solution, but allowed'
+          call abortedS(umsg,urou,tid,.False.,.True.)
 
-            ! Flag and go back
-            try_no_ALI = .True.
-            return
-
-        ! Not doing ALI
         else
 
-          ! Find
-          do i=1,Atom%nlevel
+          ! If doing ALI
+          if (lALI) then
 
-            ! Check negativity
-            if(rho(i).lt.0d0)then
+              write(umsg,'(A)') 'Negative population in SEEI '// &
+                                'solution, will try without ALI'
+              call abortedS(umsg,urou,tid,.False.,.True.)
 
-              write(umsg,'(A,i4,",",i4,A,1x,es11.4)') &
-                'Negative population in SEE solution'// &
-                new_line('A')// &
-                '(iz,il)=(',iz,i,')'// &
-                new_line('A')//'rho00: ',rho(i)
+              ! Flag and go back
+              try_no_ALI = .True.
+              return
 
-              call abortedS(umsg,urou,tid,.not.nphysR,.True.)
+          ! Not doing ALI
+          else
 
-            end if ! Negative population at this heright
+            ! Find
+            do i=1,Atom%nlevel
 
-          end do ! Levels
+              ! Check negativity
+              if(rho(i).lt.0d0)then
 
-          ! Go back, we are aborting
-          return
+                write(umsg,'(A,i4,",",i4,A,1x,es11.4)') &
+                  'Negative population in SEE solution'// &
+                  new_line('A')// &
+                  '(iz,il)=(',iz,i,')'// &
+                  new_line('A')//'rho00: ',rho(i)
 
-        end if ! Doing ALI
+                call abortedS(umsg,urou,tid,.not.nphysR,.True.)
+
+              end if ! Negative population at this heright
+
+            end do ! Levels
+
+            ! Go back, we are aborting
+            return
+
+          end if ! Doing ALI
+        end if ! Allowed negative
       end if ! Negative population
 
 
@@ -1128,6 +1175,84 @@
 
       end subroutine rhosolI
 
+#ifdef DEBUGSEE
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Dump SEE matrix into a file.\n
+      !!       Atmo(Atmo_class): Structure with atmospheric data\n
+      !!   Bfield(Bfield_blass): Structure with magnetic field
+      !!                         data\n
+      !! folder(character(500)): Output folder\n
+      !!            iz(integer): Height index\n
+      !!          lALI(logical): Lambda operator included
+      subroutine dump_see(Atom,STcoeff,folder,iz,lALI)
+
+      ! IO
+      type(Atom_class), intent(inout):: Atom
+      character(len=500), intent(in):: folder
+      logical, intent(in):: lALI
+      integer, intent(in):: iz
+      double precision, dimension(:,:):: STcoeff
+
+      ! Local
+      character(len=500):: filename,formating
+      logical:: exists
+      integer:: ilevel,jlevel
+
+      ! Get file name for 1D
+      if (run_mode.eq.0) then
+
+        filename = trim(folder)//'/debug_see'
+
+      ! Get file name for rest
+      else
+
+        write(filename,'(A,I0.7)') trim(folder)//'/debug_see_', &
+                                   icoords(3)
+
+      end if
+
+      !
+      ! Exists?
+      inquire(file=trim(filename), exist=exists)
+      if(.not.exists) then
+        open(800,file=trim(filename))
+      else
+        open(800,file=trim(filename),position='append')
+      endif
+
+      write(800,*) ''
+      write(800,*) ''
+      if (lALI) then
+        write(800,'("Height node (ALI)",2(1x,i4))') iz,iz-Rz0+1
+      else
+        write(800,'("Height node",2(1x,i4))') iz,iz-Rz0+1
+      end if
+
+      ! Define formating
+      if (Atom%nlevel.lt.10) then
+        write(formating,'("(i1,1x,",i1,"(1x,es13.5))")') Atom%nlevel
+      else if (Atom%nlevel.lt.100) then
+        write(formating,'("(i2,1x,",i2,"(1x,es13.5))")') Atom%nlevel
+      else if (Atom%nlevel.lt.1000) then
+        write(formating,'("(i3,1x,",i3,"(1x,es13.5))")') Atom%nlevel
+      else
+        write(formating,'("(i4,1x,",i4,"(1x,es13.5))")') Atom%nlevel
+      end if
+
+      ! For each row
+      do ilevel=1,Atom%nlevel
+        write(800,trim(formating)) ilevel,STcoeff(ilevel,:)
+      end do
+
+      ! Close
+      close(800)
+
+      end subroutine dump_see
+
+#endif
 !#####################################################################
 !#####################################################################
 !#####################################################################

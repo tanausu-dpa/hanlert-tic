@@ -747,6 +747,17 @@ DOP_WIDTH
 
   * Description: Doppler width in m s^-1 to consider when building the frequency axis to transform between Doppler widths and actual frequencies. | Take the maximum (Max) or minimum (Min) temperature to calculate the Doppler width used to build the frequency axis to transform between Doppler widths and actual frequencies.
 
+FORCE_MICRO
+-----------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - float
+
+  * Description: Constant microturbulence, in kilometers per second, to force in the model atmosphere.
+
 MIN_T
 -----
 
@@ -867,6 +878,17 @@ ALLOW_NPHYS_RHO
     - integer; default: -1
 
   * Description: Iteration index from which finding a non-physical density matrix results in termination of the formal solution. Negative means from the beginning.
+
+ALLOW_NPHYS_POP
+---------------
+
+  * OPTIONAL, ADVANCED
+
+  * Formats:
+    
+    - integer; default: -1
+
+  * Description: Iteration index from which finding a non-physical populations in the only intensity problem results in termination of the formal solution. Negative means from the beginning.
 
 KEEP_BACK
 ---------

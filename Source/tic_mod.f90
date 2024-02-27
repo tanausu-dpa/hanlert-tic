@@ -10,12 +10,14 @@
 !  Start:
 !     02/16/2023
 !  Last version:
-!     02/19/2024 V3.1.14
+!     02/23/2024 V3.1.15
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/23/2024:   V3.1.15 - Added void argument to rAtmo call (TdPA)
 !
 !     02/19/2024:   V3.1.14 - Added call to get_lims (TdPA)
 !
@@ -707,7 +709,7 @@
 
             ! Read input atmosphere
             call rAtmo(Input%atmo,Input%source, &
-                       Input%ID, Atmo_in)
+                       Input%ID, Atmo_in, -1d0)
 
             ! If no input field, generate one
             if (trim(Input%bfield).eq.'NONE'.and. &

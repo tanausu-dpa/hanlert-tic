@@ -11,12 +11,15 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     01/29/2024 V3.0.14
+!     02/23/2024 V3.0.15
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/23/2024:   V3.0.15 - Added the possibility to force a
+!                             constant microturbulence value (TdPA)
 !
 !     01/29/2024:   V3.0.14 - Removed electron mass density option in
 !                             3D models (TdPA)
@@ -321,14 +324,16 @@
       !!   filename(character(:)): Name of the file to read\n
       !!     source(character(:)): Path to the source code\n
       !!         ID(character(:)): ID of this run\n
-      !!         Atmo(Atmo_class): Structure with atmospheric data
-      subroutine rAtmo(filename,source,ID,Atmo)
+      !!         Atmo(Atmo_class): Structure with atmospheric data\n
+      !!             fvmi(double): Forced microturbulence
+      subroutine rAtmo(filename,source,ID,Atmo,fvmi)
 
       ! I/O
 
       character(len=500), intent(in):: filename,source
       character(len=9), intent(in):: ID
       type(Atmo_class), intent(inout):: Atmo
+      double precision, intent(in):: fvmi
 
       ! Local
 
@@ -444,6 +449,9 @@
                               Atmo%vx(iz), Atmo%vy(iz)
 
       end do ! heights
+
+      ! If forced micro
+      if (fvmi.ge.0d0) Atmo%vmi = fvmi
 
       !
       ! If number densities
@@ -1585,6 +1593,9 @@
       ! Microturbulence
       Atmo%vmi => buffer(12*nz+1:13*nz)
 
+      ! If forced
+      if (Input%fvmicro.ge.0d0) Atmo%vmi = Input%fvmicro
+
       ! Velocity
       if (Input%static) then
         Atmo%vx => Atmo%zeros
@@ -1982,6 +1993,9 @@
       ! Micro
       i0 = Atmo%imi*Atmo%d0
       Atmo%vmi => buffer(i0+iz:i0+iz)
+
+      ! If forced micro
+      if (Input%fvmicro.ge.0d0) Atmo%vmi = Input%fvmicro
 
       ! Velocity
       if (.not.Input%static) then

@@ -11,12 +11,16 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     10/31/2023 V3.0.8
+!     02/23/2024 V3.0.9
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/23/2024:    V3.0.9 - Add iterating argument to RTCoeffI which
+!                             determines if the profile and lambda
+!                             operators are to be computed (TdPA)
 !
 !     10/31/2023:    V3.0.8 - Split the calls to emissI2ord into AA
 !                             and AD (TdPA)
@@ -267,10 +271,11 @@
       !!             rl(dfloat(:)): Bound-bound transition strengths\n
       !!             rp(dfloat(:)): Bound-free transition strengths\n
       !!        data1(dfloat(:,:)): Radiation transfer coefficients\n
-      !!        data2(dfloat(:,:)): Line profiles
+      !!        data2(dfloat(:,:)): Line profiles\n
+      !!        iterating(logical): If solving formal problem
       subroutine RTCoeffI(Frec,Red,Atom,LTElines,Atmo,MPID,Geom,iz, &
                           ith,iph,if0,if1,JKQ,JKQC,cdir,Cont, &
-                          Stokes,rl,rp,data1,data2)
+                          Stokes,rl,rp,data1,data2,iterating)
 
       ! I/O
 
@@ -282,11 +287,11 @@
       type(Atom_class), dimension(:), intent(in):: Atom
       type(LTEline_class), dimension(:), intent(in), allocatable:: &
                                                               LTElines
+      logical, intent(in):: iterating
       integer, intent(in):: iz,ith,iph,cdir,if0,if1
       double precision, dimension(if0:if1,3,cdir):: Cont
-      double precision, dimension(nfreq,Geom%nPh,Geom%nTh), &
-                        intent(in):: Stokes
-      double precision, dimension(nxt), intent(in):: JKQ
+      double precision, dimension(:,:,:), intent(in):: Stokes
+      double precision, dimension(:), intent(in):: JKQ
       double precision, dimension(nfreq), intent(in):: JKQC
       double precision, dimension(:):: rl
       double precision, dimension(:):: rp
@@ -549,41 +554,43 @@
             !
             ! Store absorption profile
             !
+            if (iterating) then
 
-            ! If in file
-            if (vifil) then
+              ! If in file
+              if (vifil) then
 
 !$omp parallel workshare default(none) &
 !$omp shared(data2,iil,nf,prof,if0l,if1l,Dw)
-              data2(iil:iil+nf,1) = prof(if0l:if1l)*1d-5*sqrt(IPI)/Dw
+                data2(iil:iil+nf,1) = prof(if0l:if1l)* &
+                                      1d-5*sqrt(IPI)/Dw
 !$omp end parallel workshare
 
-            ! Storing
-            else if (p_Norm%VRAM) then
+              ! Storing
+              else if (p_Norm%VRAM) then
 
 !$omp parallel workshare default(none) &
 !$omp shared(data2,iil,nf,p_Norm,fjtran,Dw)
-              data2(iil:iil+nf,1) = p_Norm%prof(fjtran,1,1,1)%p* &
-                                    1d-5*sqrt(IPI)/Dw
+                data2(iil:iil+nf,1) = p_Norm%prof(fjtran,1,1,1)%p* &
+                                      1d-5*sqrt(IPI)/Dw
 !$omp end parallel workshare
 
-            ! Computing
-            else
-
-              ! If MPI
-              if (MPID%mpi) then
-
-                ! Copy absorbtivity in data2
-!$omp parallel workshare default(none) &
-!$omp shared(data2,iil,nf,etmp,if0l,if1l)
-                data2(iil:iil+nf,1) = etmp(if0l:if1l)
-!$omp end parallel workshare
-
-              ! If there is no MPI, normalize it here
+              ! Computing
               else
 
-                ! Initialize
-                daux = 0d0
+                ! If MPI
+                if (MPID%mpi) then
+
+                  ! Copy absorbtivity in data2
+!$omp parallel workshare default(none) &
+!$omp shared(data2,iil,nf,etmp,if0l,if1l)
+                  data2(iil:iil+nf,1) = etmp(if0l:if1l)
+!$omp end parallel workshare
+
+                ! If there is no MPI, normalize it here
+                else
+
+                  ! Initialize
+                  daux = 0d0
 
 !$omp parallel default(none) &
 !$omp private(jjl,ifreq) &
@@ -591,49 +598,50 @@
 !$omp reduction(+: daux)
                 ! Copy absorbtivity in data2
 !$omp workshare
-                data2(iil:iil+nf,1) = etmp(if0l:if1l)
+                  data2(iil:iil+nf,1) = etmp(if0l:if1l)
 !$omp end workshare
 
-                ! For each line frequency
+                  ! For each line frequency
 !$omp do
-                do ifreq=if0l,if1l
+                  do ifreq=if0l,if1l
 
-                  ! Left limit
-                  if (ifreq.eq.if0l) then
+                    ! Left limit
+                    if (ifreq.eq.if0l) then
 
-                    jjl = iil
-                    daux = daux + data2(jjl,1)*Atom(ia)%W0(jtran)
+                      jjl = iil
+                      daux = daux + data2(jjl,1)*Atom(ia)%W0(jtran)
 
-                  ! Not left limit
-                  else
-
-                    ! Get index
-                    jjl = iil + ifreq - if0l
-
-                    ! Right limit
-                    if (ifreq.eq.if1l) then
-
-                      daux = daux + data2(jjl,1)*Atom(ia)%W1(jtran)
-
-                    ! No limit
+                    ! Not left limit
                     else
 
-                      daux = daux + data2(jjl,1)*Frec%W_freq(ifreq)
+                      ! Get index
+                      jjl = iil + ifreq - if0l
 
-                    end if ! Right limit
-                  end if ! Left limit
+                      ! Right limit
+                      if (ifreq.eq.if1l) then
 
-                end do ! Frequencies
+                        daux = daux + data2(jjl,1)*Atom(ia)%W1(jtran)
+
+                      ! No limit
+                      else
+
+                        daux = daux + data2(jjl,1)*Frec%W_freq(ifreq)
+
+                      end if ! Right limit
+                    end if ! Left limit
+
+                  end do ! Frequencies
 !$omp end do
 !$omp end parallel
-                if (daux.gt.0d0) then
-                  daux = 1d0/daux
+                  if (daux.gt.0d0) then
+                    daux = 1d0/daux
 !$omp parallel workshare default(none) shared(data2,iil,nf,daux)
-                  data2(iil:iil+nf,1) = data2(iil:iil+nf,1)*daux
+                    data2(iil:iil+nf,1) = data2(iil:iil+nf,1)*daux
 !$omp end parallel workshare
-                end if ! Non zero normalization
-              end if ! Not MPI
-            end if ! Type of profile
+                  end if ! Non zero normalization
+                end if ! Not MPI
+              end if ! Type of profile
+            end if ! Iterating
 
 
             !
@@ -649,34 +657,39 @@
 !$omp workshare
               etmp(if0l:if1l) = etmp(if0l:if1l) - &
                                 estmp(if0l:if1l)/absK
+!$omp end workshare
 
               !
               ! Store emission profile
               !
 
-              ! For intensity it is the same than absorption
-              data2(iil:iil+nf,2) = data2(iil:iil+nf,1)
-!$omp end workshare
-             !data2(iil:iil+nf,2) = estmp(if0l:if1l)
+              ! Folrmal solution
+              if (iterating) then
 
-             !! If there is no MPI, normalize it here
-             !if (.not.MPID%mpi) then
-             !  jjl = iil
-             !  daux = data2(jjl,2)*Atom(ia)%W0(jtran)
-             !  do ifreq=if0l+1,if1l-1
-             !    jjl = jjl + 1
-             !    daux = daux + data2(jjl,2)*Frec%W_freq(ifreq)
-             !  end do
-             !  if (if1l.gt.if0l) then
-             !    jjl = jjl + 1
-             !    daux = daux + data2(jjl,2)*Atom(ia)%W1(jtran)
-             !  end if
+                ! For intensity it is the same than absorption
+                data2(iil:iil+nf,2) = data2(iil:iil+nf,1)
+               !data2(iil:iil+nf,2) = estmp(if0l:if1l)
 
-             !  if (daux.gt.0d0) then
-             !    daux = 1d0/daux
-             !    data2(iil:iil+nf,2) = data2(iil:iil+nf,2)*daux
-             !  end if
-             !end if
+               !! If there is no MPI, normalize it here
+               !if (.not.MPID%mpi) then
+               !  jjl = iil
+               !  daux = data2(jjl,2)*Atom(ia)%W0(jtran)
+               !  do ifreq=if0l+1,if1l-1
+               !    jjl = jjl + 1
+               !    daux = daux + data2(jjl,2)*Frec%W_freq(ifreq)
+               !  end do
+               !  if (if1l.gt.if0l) then
+               !    jjl = jjl + 1
+               !    daux = daux + data2(jjl,2)*Atom(ia)%W1(jtran)
+               !  end if
+
+               !  if (daux.gt.0d0) then
+               !    daux = 1d0/daux
+               !    data2(iil:iil+nf,2) = data2(iil:iil+nf,2)*daux
+               !  end if
+               !end if
+
+             end if ! Formal solution
             endif ! Stimulated emission
 
 !$omp workshare
@@ -686,7 +699,8 @@
 
             ! Store the numerator of the opacity fraction of this
             ! line
-            rL(iil:iil+nf) = estmp(if0l:if1l)*pE*pop/rhou
+            if (iterating) &
+              rL(iil:iil+nf) = estmp(if0l:if1l)*pE*pop/rhou
 !$omp end workshare
 !$omp end parallel
 
@@ -841,7 +855,8 @@
 !$omp shared(rP,iip,nf,estmp,if0l,if1l,pop,rhou,data1,etmp,rstmp)
 !$omp workshare
           ! ALI ratio
-          rP(iip:iip+nf) = estmp(if0l:if1l)*pop/rhou
+          if (iterating) &
+            rP(iip:iip+nf) = estmp(if0l:if1l)*pop/rhou
 
           ! Add contribution to emissivity
           data1(if0l:if1l,1) = data1(if0l:if1l,1) + &
@@ -866,67 +881,70 @@
       !
       ! Finish the construction of the opacity fractions
       !
+      if (iterating) then
 !$omp parallel default(none) &
 !$omp private(ia,jtran,if0l,if1l,nf,fjtran,iil,iip,ktran) &
 !$omp shared(nA,Atom,rL,data1,rP)
-      ! Initialize
-      iil = 1
-      iip = 1
+        ! Initialize
+        iil = 1
+        iip = 1
 
-      ! For each atom
-      do ia=1,nA
+        ! For each atom
+        do ia=1,nA
 
-        ! For each FS b-b transition
-        do jtran=1,Atom(ia)%ntran
+          ! For each FS b-b transition
+          do jtran=1,Atom(ia)%ntran
 
-          ! If this CPU does not have frequencies in this line, skip
-          if (Atom(ia)%fflag(jtran)%absent) cycle
+            ! If this CPU does not have frequencies in this line, skip
+            if (Atom(ia)%fflag(jtran)%absent) cycle
 
-          ! Store frequency limits
-          if0l = Atom(ia)%if0(jtran)
-          if1l = Atom(ia)%if1(jtran)
-          nf = if1l - if0l
+            ! Store frequency limits
+            if0l = Atom(ia)%if0(jtran)
+            if1l = Atom(ia)%if1(jtran)
+            nf = if1l - if0l
 
-          ! For each FS transition
-          do fjtran=1,Atom(ia)%fst(jtran)%nt
+            ! For each FS transition
+            do fjtran=1,Atom(ia)%fst(jtran)%nt
+
+              ! Get the opacity fraction
+!$omp workshare
+              rL(iil:iil+nf) = rL(iil:iil+nf)/ &
+                               (data1(if0l:if1l,0) + vacuum)
+!$omp end workshare
+
+              ! Update index
+              iil = iil + nf + 1
+
+            end do ! b-b FS transitions
+          end do ! b-b transitions
+
+          ! For each b-f transition
+          do jtran=1,Atom(ia)%nphot
+
+            ! If this CPU does not have frequencies in this
+            ! transition, skip
+            if (Atom(ia)%phot(jtran)%absent) cycle
+
+            ktran = jtran + Atom(ia)%pshift
+
+            ! Store frequency limits
+            if0l = Atom(ia)%phot(jtran)%if0
+            if1l = Atom(ia)%phot(jtran)%if1
+            nf = if1l - if0l
 
             ! Get the opacity fraction
 !$omp workshare
-            rL(iil:iil+nf) = rL(iil:iil+nf)/ &
+            rP(iip:iip+nf) = rP(iip:iip+nf)/ &
                              (data1(if0l:if1l,0) + vacuum)
 !$omp end workshare
 
             ! Update index
-            iil = iil + nf + 1
+            iip = iip + nf + 1
 
-          end do ! b-b FS transitions
-        end do ! b-b transitions
+          end do ! b-f transitions
+        end do ! Atoms
 
-        ! For each b-f transition
-        do jtran=1,Atom(ia)%nphot
-
-          ! If this CPU does not have frequencies in this transition,
-          ! skip
-          if (Atom(ia)%phot(jtran)%absent) cycle
-
-          ktran = jtran + Atom(ia)%pshift
-
-          ! Store frequency limits
-          if0l = Atom(ia)%phot(jtran)%if0
-          if1l = Atom(ia)%phot(jtran)%if1
-          nf = if1l - if0l
-
-          ! Get the opacity fraction
-!$omp workshare
-          rP(iip:iip+nf) = rP(iip:iip+nf)/ &
-                           (data1(if0l:if1l,0) + vacuum)
-!$omp end workshare
-
-          ! Update index
-          iip = iip + nf + 1
-
-        end do ! b-f transitions
-      end do ! Atoms
+      end if ! Formal solution
 
 
       !

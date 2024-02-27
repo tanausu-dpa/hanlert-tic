@@ -10,12 +10,15 @@
 !  Start:
 !     06/29/2022
 !  Last version:
-!     02/19/2024 V3.0.13
+!     02/23/2024 V3.0.14
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/23/2024:   V3.0.14 - Properly cycle if before the box in x
+!                             when checking limits (TdPA)
 !
 !     02/19/2024:   V3.0.13 - Added get_lims routine (TdPA)
 !
@@ -1281,7 +1284,10 @@
 
           ! Read?
           readx = ix.ge.sol_box(1).and.ix.le.sol_box(2)
-          if (ix.lt.sol_box(1)) call fseek(unitA,jump*dims(2),1)
+          if (ix.lt.sol_box(1)) then
+            call fseek(unitA,jump*dims(2),1)
+            cycle
+          end if
           if (ix.gt.sol_box(2)) exit
 
           ! For each Y

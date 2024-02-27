@@ -10359,6 +10359,262 @@
 
       end subroutine wAtmo
 
+#ifdef DEBUGRHO00
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Dump rho00 solution into a file.\n
+      !!    Atom(Atom_class(:)): Structure with the atomic data\n
+      !! folder(character(500)): Output folder\n
+      !!          iter(integer): Iteration index
+      subroutine dump_rho00(Atom,folder,iter)
+
+      ! IO
+      type(Atom_class), dimension(:), intent(in):: Atom
+      character(len=500), intent(in):: folder
+      integer, intent(in):: iter
+
+      ! Local
+      character(len=500):: filename
+      logical:: exists
+      integer:: ia,iz,it,iJ
+      double precision:: ff
+
+      ! Get file name for 1D
+      if (run_mode.eq.0) then
+
+        filename = trim(folder)//'/debug_rho00'
+
+      ! Get file name for rest
+      else
+
+        write(filename,'(A,I0.7)') trim(folder)//'/debug_rho00_', &
+                                   icoords(3)
+
+      end if
+
+      !
+      ! Exists?
+      inquire(file=trim(filename), exist=exists)
+      if(.not.exists.or.(iter.eq.-2.and.run_mode.ne.-1))then
+        open(800,file=trim(filename))
+      else
+        open(800,file=trim(filename),position='append')
+      endif
+
+      ! Write
+      if (iter.eq.-2) then
+        write(800,*) 'Initial rho00'
+      else if (iter.eq.-1) then
+        write(800,*) ''
+        write(800,*) ''
+        write(800,*) 'Final rho00'
+      else
+        write(800,*) ''
+        write(800,*) ''
+        write(800,'("Iteration:",i3)') iter
+      end if
+      do ia=1,na
+        write(800,'("  o Atom ",A)') Atom(ia)%element
+        do it=1,Atom(ia)%nMulti
+        do iJ=1,Atom(ia)%nJ(it)
+          do iz=Rz0,Rz1
+            ff = sqrt(2d0*Atom(ia)%rJval(iJ,it)+1d0)*Atom(ia)%n(iz)
+            write(800,'(i4,1x,i2,1x,i3,3(1x,es15.8))') &
+                  it,iJ,iz, &
+                  dble(Atom(ia)%crho(Atom(ia)%irho(it)% &
+                                           Jrho(iJ,iJ)%kq(0,0),iz)), &
+               ff*dble(Atom(ia)%crho(Atom(ia)%irho(it)% &
+                                           Jrho(iJ,iJ)%kq(0,0),iz)), &
+                                           Atom(ia)%n(iz)
+          end do
+        end do
+        end do
+      end do
+
+      ! Close
+      close(800)
+
+      end subroutine dump_rho00
+
+#endif
+#ifdef DEBUGJ00
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Dump integrated J00 into a file.\n
+      !!     Atom(Atom_class(:)): Structure with the atomic data\n
+      !!    J00(double(:,:,:,:)): Mean intensity integrated over
+      !!                          absorption profile\n
+      !!   J00S(double(:,:,:,:)): Mean intensity integrated over
+      !!                          emission profile\n
+      !!     J00P(dfloat(:,:,:)): Intensity integrals in the
+      !!                          photoionization rates
+      !!  folder(character(500)): Output folder\n
+      !!           iter(integer): Iteration index
+      subroutine dump_j00(Atom,J00,J00S,J00P,folder,iter)
+
+      ! IO
+      type(Atom_class), dimension(:), intent(in):: Atom
+      character(len=500), intent(in):: folder
+      integer, intent(in):: iter
+      double precision,dimension(nxt,Rz0:Rz1), intent(in):: J00, J00S
+      double precision,dimension(nxphot,2,Rz0:Rz1), intent(in):: J00P
+
+      ! Local
+      character(len=500):: filename
+      logical:: exists
+      integer:: ia,iz,itran,jtran
+      double precision, parameter:: ff=1d0/299792458d5
+
+      ! Get file name for 1D
+      if (run_mode.eq.0) then
+
+        filename = trim(folder)//'/debug_j00'
+
+      ! Get file name for rest
+      else
+
+        write(filename,'(A,I0.7)') trim(folder)//'/debug_j00_', &
+                                   icoords(3)
+
+      end if
+
+      !
+      ! Exists?
+      inquire(file=trim(filename), exist=exists)
+      if(.not.exists.or.(iter.eq.-2.and.run_mode.ne.-1))then
+        open(800,file=trim(filename))
+      else
+        open(800,file=trim(filename),position='append')
+      endif
+
+      ! Write
+      if (iter.eq.-2) then
+        write(800,*) 'Initial J00'
+      else if (iter.eq.-1) then
+        write(800,*) ''
+        write(800,*) ''
+        write(800,*) 'Final J00'
+      else
+        write(800,*) ''
+        write(800,*) ''
+        write(800,'("Iteration:",i3)') iter
+      end if
+      do ia=1,na
+        write(800,'("  o Atom ",A)') Atom(ia)%element
+        write(800,'("    ",A)') 'J00'
+        do itran=1,Atom(ia)%nftran
+          jtran = itran + Atom(ia)%tfshift
+          do iz=Rz0,Rz1
+            write(800,'(i4,1x,i3,2(1x,es15.8))') &
+                  itran,iz,J00(jtran,iz)*ff,J00S(jtran,iz)*ff
+          end do
+        end do
+        write(800,'("    ",A)') 'J00P'
+        do itran=1,Atom(ia)%nphot
+          jtran = itran + Atom(ia)%pshift
+          do iz=Rz0,Rz1
+            write(800,'(i4,1x,i3,3(1x,es15.8))') &
+                  itran,iz,&
+                  J00P(jtran,1,iz)*1d8, &
+                  J00P(jtran,2,iz)*1d8, &
+                  Atom(ia)%phot(jtran)%TEI(iz)*1d8
+          end do
+        end do
+      end do
+
+      ! Close
+      close(800)
+
+      end subroutine dump_j00
+
+#endif
+#ifdef DEBUGLAMBDA
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Dump lambda operators into a file.\n
+      !!     Atom(Atom_class(:)): Structure with the atomic data\n
+      !!       LamL(dfloat(:,:)): Lambda operator for bound-bound
+      !!                          transitions\n
+      !!     LamP(dfloat(:,:,:)): Lambda operator for bound-free
+      !!                          transitions\n
+      !!  folder(character(500)): Output folder\n
+      !!           iter(integer): Iteration index
+      subroutine dump_lambda(Atom,LamL,LamP,folder,iter)
+
+      ! IO
+      type(Atom_class), dimension(:), intent(in):: Atom
+      character(len=500), intent(in):: folder
+      integer, intent(in):: iter
+      double precision,dimension(nxb,nxt,Rz0:Rz1), intent(in):: LamL
+      double precision,dimension(nxb,nxphot,2,Rz0:Rz1), &
+                                                     intent(in):: LamP
+
+      ! Local
+      character(len=500):: filename
+      logical:: exists
+      integer:: ia,iz,itran,jtran
+      double precision, parameter:: ff=1d0/299792458d5
+
+      ! Get file name for 1D
+      if (run_mode.eq.0) then
+
+        filename = trim(folder)//'/debug_lambda'
+
+      ! Get file name for rest
+      else
+
+        write(filename,'(A,I0.7)') trim(folder)//'/debug_lambda_', &
+                                   icoords(3)
+
+      end if
+
+      !
+      ! Exists?
+      inquire(file=trim(filename), exist=exists)
+      if(.not.exists.or.(iter.eq.1.and.run_mode.ne.-1))then
+        open(800,file=trim(filename))
+      else
+        open(800,file=trim(filename),position='append')
+      endif
+
+      ! Write
+      if (iter.gt.1) then
+        write(800,*) ''
+        write(800,*) ''
+      end if
+      write(800,'("Iteration:",i3)') iter
+      do ia=1,na
+        write(800,'("  o Atom ",A)') Atom(ia)%element
+        write(800,'("    ",A)') 'b-b'
+        do itran=1,Atom(ia)%nftran
+          jtran = itran + Atom(ia)%tfshift
+          do iz=Rz0,Rz1
+            write(800,'(i4,1x,i3,2(1x,es15.8))') &
+                  itran,iz,LamL(1,jtran,iz)*ff
+          end do
+        end do
+        write(800,'("    ",A)') 'b-f'
+        do itran=1,Atom(ia)%nphot
+          jtran = itran + Atom(ia)%pshift
+          do iz=Rz0,Rz1
+            write(800,'(i4,1x,i3,2(1x,es15.8))') &
+                  itran,iz,LamP(1,jtran,1,iz)*ff,LamP(1,jtran,2,iz)*ff
+          end do
+        end do
+      end do
+
+      ! Close
+      close(800)
+
+      end subroutine dump_lambda
+
+#endif
 #ifdef DEBUGRHOKQ
 !#####################################################################
 !#####################################################################
@@ -10503,7 +10759,7 @@
       ! Get file name for rest
       else
 
-        write(filename,'(A,I0.7)') trim(folder)//'/debug_jkq', &
+        write(filename,'(A,I0.7)') trim(folder)//'/debug_jkq_', &
                                    icoords(3)
 
       end if
@@ -10626,7 +10882,7 @@
       ! Get file name for rest
       else
 
-        write(filename,'(A,I0.7)') trim(folder)//'/debug_atmo', &
+        write(filename,'(A,I0.7)') trim(folder)//'/debug_atmo_', &
                                    icoords(3)
 
       end if

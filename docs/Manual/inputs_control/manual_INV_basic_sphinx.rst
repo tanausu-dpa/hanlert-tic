@@ -483,6 +483,17 @@ ITER_NB
 
   * Description: If solving polarization with magnetic field, solve first the non-magnetic problem. It is most beneficial when the intensity problem is axial (and has been configured as axial). Otherwise, it is not necessarily faster, but problem dependent.
 
+ITER_MRC_J
+----------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - float; default: 1e-4
+
+  * Description: Maximum relative change of the radiation field to consider it converged in the only radiation field initial iterations.
+
 ITER_MRC_I
 ----------
 

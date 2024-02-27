@@ -12,12 +12,16 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     02/08/2024 V3.2.5
+!     02/23/2024 V3.2.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/23/2024:    V3.2.6 - Added Atom and LTElines argument to
+!                             SolveJ and added argument Input to
+!                             JKQgenerate (TdPA)
 !
 !     02/08/2024:    V3.2.5 - Added counter for RAM allocated by
 !                             the continuum. It was quite likely
@@ -640,7 +644,7 @@
       complex(kind=8), dimension(:,:,:,:), allocatable:: JKQC
 #ifdef DEBUGSYN
       ! Shift ID
-      gpid = gpid - 1
+      if (run_mode.ne.0) gpid = gpid - 1
 #endif
 
       ! Initialize frequency and redistribution pointer
@@ -706,9 +710,9 @@
       ! Initialize solution
       !
       call hanle_init(Atom,Atmo,MPID,Input,GeomI,Geom,Bfield, &
-                            Frec,Flgsg,SolF,lload,lio,lie,lp,lpe, &
-                            Stokes,JKQ,JKQS,JKQC, &
-                            StokesI,J00,J00S,J00C,J00P)
+                      Frec,Flgsg,SolF,lload,lio,lie,lp,lpe, &
+                      Stokes,JKQ,JKQS,JKQC, &
+                      StokesI,J00,J00S,J00C,J00P)
 
       ! Control
       if (laborted) goto 1000
@@ -973,7 +977,7 @@
 1000  call free_local(Atom,Cont,Geom,Frec,LTElines)
 #ifdef DEBUGSYN
       ! Recover ID
-      gpid = gpid + 1
+      if (run_mode.ne.0) gpid = gpid + 1
 #endif
 
       return
@@ -1727,8 +1731,8 @@
             end if
 
             ! Solve
-            call solveJ(Atmo,Cont,Frec,GeomI,MPID,Input, &
-                        StokesI,J00C)
+            call solveJ(Atmo,Atom,LTElines,Cont,Frec, &
+                        GeomI,MPID,Input,StokesI,J00C)
 
             ! Control
             if (laborted) goto 1000
@@ -2108,7 +2112,7 @@
 #endif
         ! Call
         call JKQgenerate(Atom,Rho_old,Atmo,Frec,Geom, &
-                         MPID,Flgsg,Input%Pcorr,Bfield,rnPh, &
+                         MPID,Input,Flgsg,Input%Pcorr,Bfield,rnPh, &
                          StokesI,J00,J00S,J00C, &
                          Stokes,JKQ,JKQS,JKQC,J00P)
 

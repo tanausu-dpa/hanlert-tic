@@ -11,12 +11,18 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     02/19/2024 V3.0.22
+!     02/23/2024 V3.0.23
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/23/2024:   V3.0.23 - Read Input%fvmicro, Input%init_J_bb,
+!                             Input%mrcj, Input%ALI_force, and
+!                             Input%allownphys_pop (TdPA)
+!                           - Changed the limit of prd radiation
+!                             iterations from 9 to 99 (TdPA)
 !
 !     02/19/2024:   V3.0.22 - Read Input%maxt (TdPA)
 !
@@ -1160,6 +1166,9 @@
       ! If the input is flagged as numeric, read the number
       if(Input%dws.eq.'NUM')read(100,*) Input%dw
 
+      ! Force microturbulence
+      read(100,*,err=1100) Input%fvmicro
+
       ! Minimum expected temperature
       read(100,*,err=1100) Input%minT
 
@@ -1204,6 +1213,14 @@
         Input%skip_disk = .False.
       end if
 
+      ! Initialize radiation field with b-b transitions
+      read(100,*,err=1100) cdump
+      if(cdump.eq.'Y')then
+        Input%init_J_bb = .True.
+      else
+        Input%init_J_bb = .False.
+      end if
+
       ! Index of first iteration
       read(100,*,err=1100) Input%iter_min
       read(100,*,err=1100) Input%iteri_min
@@ -1231,6 +1248,7 @@
       end if
 
       ! Maximum relative change to consider convergence
+      read(100,*,err=1100) Input%mrcj
       read(100,*,err=1100) Input%mrc_i
       read(100,*,err=1100) Input%mrci_i
       read(100,*,err=1100) Input%mrc_p
@@ -1241,7 +1259,7 @@
       ! PRD internal iterations
       read(100,*,err=1100) Input%iteri_prd
       if (Input%iteri_prd.lt.1) Input%iteri_prd = 1
-      if (Input%iteri_prd.gt.9) Input%iteri_prd = 9
+      if (Input%iteri_prd.gt.99) Input%iteri_prd = 99
       read(100,*,err=1100) Input%mrci_r
 
       ! NG acceleration
@@ -1284,6 +1302,14 @@
       ! ALI method delay
       read(100,*,err=1100) Input%ALI_delay
 
+      ! ALI force
+      read(100,*,err=1100) cdump
+      if(cdump.eq.'Y')then
+        Input%ALI_force = .True.
+      else
+        Input%ALI_force = .False.
+      endif
+
       ! Append into the MRC files
       read(100,*,err=1100) cdump
       if(cdump.eq.'Y')then
@@ -1309,6 +1335,7 @@
       ! Non physical Stokes and rho
       read(100,*,err=1100) Input%allownphys_stk
       read(100,*,err=1100) Input%allownphys_rho
+      read(100,*,err=1100) Input%allownphys_pop
 
       ! Solution Box
       if(run_mode.eq.1.or.run_mode.eq.-1) then
