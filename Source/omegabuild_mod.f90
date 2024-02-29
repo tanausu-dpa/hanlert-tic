@@ -12,12 +12,18 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     12/12/2023 V3.0.18
+!     02/29/2023 V3.0.19
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/29/2023:   V3.0.19 - Bugfix: the array skip_scatt was not
+!                             being deallocated after its use, and
+!                             there were situations in which it
+!                             tried to allocate it more than once.
+!                             Notified by David Afonso (TdPA)
 !
 !     12/12/2023:   V3.0.18 - Account for the intensity flag for
 !                             coherent scattering when solving only
@@ -5739,6 +5745,9 @@
                   end do ! heights
                 end do ! output directions
 
+                ! Free skip_scat
+                deallocate(skip_scatt)
+
               ! If not storing in RAM
               else
 
@@ -8464,6 +8473,9 @@
               end do ! upper term
             end do ! height nodes
           end do ! output directions
+
+          ! Free
+          deallocate(skip_scatt)
 
         ! If not storing in RAM
         else
