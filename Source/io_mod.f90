@@ -10,12 +10,16 @@
 !  Start:
 !     06/29/2022
 !  Last version:
-!     02/23/2024 V3.0.14
+!     03/01/2024 V3.0.15
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     03/01/2024:   V3.0.15 - Forgot to account for the inversion
+!                             result models when checking the velocity
+!                             and temperature extrema (TdPA)
 !
 !     02/23/2024:   V3.0.14 - Properly cycle if before the box in x
 !                             when checking limits (TdPA)
@@ -1208,7 +1212,7 @@
 
       ! Local
       logical:: double,check,readx,readxy
-      integer:: unitA,mode,norm,sizeA,jump,jumpY,ix,iy,iz,i0,i1
+      integer:: unitA,mode,norm,sizeA,jump,ix,iy,iz,i0,i1
       integer:: d0,di0,di1,it,iv
       integer, dimension(3):: dims
       integer, dimension(4):: sol_box
@@ -1261,15 +1265,19 @@
       end if
       nullify(p_T,p_vx,p_vy,p_vz)
 
-      ! If 1.5D
-      if (run_mode.eq.1) then
+      ! If 1.5D or inversion with 1.5D model
+      if (run_mode.eq.1.or.(run_mode.eq.-1.and.mode.lt.0)) then
 
         ! Fix wildcards in input
-        sol_box = Input%sol_box
-        if (sol_box(1).lt.1) sol_box(1) = 1
-        if (sol_box(2).lt.1) sol_box(2) = dims(1)
-        if (sol_box(3).lt.1) sol_box(3) = 1
-        if (sol_box(4).lt.1) sol_box(4) = dims(2)
+        if (run_mode.eq.1) then
+          sol_box = Input%sol_box
+          if (sol_box(1).lt.1) sol_box(1) = 1
+          if (sol_box(2).lt.1) sol_box(2) = dims(1)
+          if (sol_box(3).lt.1) sol_box(3) = 1
+          if (sol_box(4).lt.1) sol_box(4) = dims(2)
+        else
+          sol_box = (/ 1, dims(1), 1, dims(2) /)
+        end if
 
         ! Allocate column buffer
         sizeA = dims(3)*24
@@ -1330,6 +1338,60 @@
               ! Skip
               call fseek(unitA,jump,1)
 
+            end if
+
+          end do ! Y
+        end do ! X
+
+      ! If inversion and previous solution
+      else if (run_mode.eq.-1) then
+
+        ! If jkq
+        if (mode.gt.7) then
+
+          ! Size atmosphere
+          sizeA = dims(3)*27 + 1
+
+        ! No jkq
+        else
+
+          ! Size atmosphere
+          sizeA = dims(3)*19 + 1
+
+        end if
+
+        ! Allocate column buffer
+        jump = sizeA*8
+        allocate(buffer(sizeA))
+
+        ! For each X
+        do ix=1,dims(1)
+
+          ! For each Y
+          do iy=1,dims(2)
+
+            ! Get column
+            call get_column(unitA,buffer,double,check)
+
+            ! Check could read
+            if (.not.check) then
+              aborting = .True.
+              exit
+            end if
+
+            ! Temperature
+            p_T => buffer(  dims(3)+1:2*dims(3))
+            minT = min(minT,minval(p_T))
+            maxT = max(maxT,maxval(p_T))
+
+            ! Velocity
+            if (.not.Input%static) then
+              p_vx => buffer(6*dims(3)+1:7*dims(3))
+              p_vy => buffer(7*dims(3)+1:8*dims(3))
+              p_vz => buffer(8*dims(3)+1:9*dims(3))
+              maxV = max(maxV,maxval(sqrt(p_vx*p_vx + &
+                                          p_vy*p_vy + &
+                                          p_vz*p_vz)))
             end if
 
           end do ! Y

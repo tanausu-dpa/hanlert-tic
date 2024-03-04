@@ -10,12 +10,14 @@
 !  Start:
 !     02/16/2023
 !  Last version:
-!     02/23/2024 V3.1.15
+!     03/01/2024 V3.1.16
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     03/01/2024:   V3.1.16 - Fixed call to get_lims (TdPA)
 !
 !     02/23/2024:   V3.1.15 - Added void argument to rAtmo call (TdPA)
 !
@@ -805,7 +807,7 @@
             (.not.Input%static.and.Input%maxV.lt.0d0)) then
 
           ! Read whole model to get limits
-          call get_lims(Input,1,aborting)
+          call get_lims(Input,-1,aborting)
 
           ! Check if could read
           laborted = aborting
