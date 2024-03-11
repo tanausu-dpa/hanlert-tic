@@ -22,6 +22,9 @@ def _error(msg,level,ret=False):
     # If error and had to return something
     if ret and level == 1: return None
 
+# Numpy integer
+npint = type(np.argmin(np.array([0.])))
+
 ################################################################################
 ################################################################################
 ################################################################################
@@ -2006,10 +2009,10 @@ class _stokes_15D():
         '''
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -2027,10 +2030,10 @@ class _stokes_15D():
            return np.zeros(self.__nl)
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -2048,10 +2051,10 @@ class _stokes_15D():
            return np.zeros(self.__nl)
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -2069,10 +2072,10 @@ class _stokes_15D():
            return np.zeros(self.__nl)
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix,int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy,int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -2090,10 +2093,10 @@ class _stokes_15D():
            return np.zeros(self.__nl)
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix,int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy,int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -2113,10 +2116,10 @@ class _stokes_15D():
            return None
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix,int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy,int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -2176,7 +2179,7 @@ class _stokes_15D():
                         f.seek(full,1)
 
                     # Q, U, and V
-                    if j in range(1,4):
+                    for j in range(1,4):
 
                         # There is polarization
                         if self.__mode == 2:
@@ -2255,7 +2258,7 @@ class _stokes_15D():
         '''
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= self.__nl:
@@ -2270,7 +2273,7 @@ class _stokes_15D():
         '''
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= self.__nl:
@@ -2285,7 +2288,7 @@ class _stokes_15D():
         '''
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= self.__nl:
@@ -2300,7 +2303,7 @@ class _stokes_15D():
         '''
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= self.__nl:
@@ -2315,7 +2318,7 @@ class _stokes_15D():
         '''
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= self.__nl:
@@ -2331,7 +2334,7 @@ class _stokes_15D():
         '''
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= self.__nl:
@@ -2669,10 +2672,10 @@ class _contribution_15D():
         '''
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -2686,10 +2689,10 @@ class _contribution_15D():
         '''
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -2703,10 +2706,10 @@ class _contribution_15D():
         '''
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -2720,10 +2723,10 @@ class _contribution_15D():
         '''
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -2737,10 +2740,10 @@ class _contribution_15D():
         '''
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -2948,10 +2951,10 @@ class _tau_15D():
         '''
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -3025,7 +3028,7 @@ class _tau_15D():
         '''
 
         # Valid?
-        if not isinstance(jl, int):
+        if not isinstance(jl, int) and not isinstance(jl, npint):
            _error('il must be an integer',1)
            return None
         if jl < 0 or jl >= self.__nl:
@@ -3307,10 +3310,10 @@ class _atmo_15D():
         '''
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -3391,7 +3394,7 @@ class _atmo_15D():
         '''
 
         # Valid?
-        if not isinstance(iz, int):
+        if not isinstance(iz, int) and not isinstance(iz, npint):
            _error('iz must be an integer',1)
            return None
         if iz < 0 or iz >= self.__nz:
@@ -4123,10 +4126,10 @@ class _inversion_in():
         # Variable
         else:
             # Valid?
-            if not isinstance(ix, int):
+            if not isinstance(ix, int) and not isinstance(ix, npint):
                _error('ix must be an integer',1)
                return None
-            if not isinstance(iy, int):
+            if not isinstance(iy, int) and not isinstance(iy, npint):
                _error('iy must be an integer',1)
                return None
             if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -4253,10 +4256,10 @@ class _inversion_in():
         '''
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -4274,10 +4277,10 @@ class _inversion_in():
            return np.zeros(self.__nl)
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -4295,10 +4298,10 @@ class _inversion_in():
            return np.zeros(self.__nl)
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -4316,10 +4319,10 @@ class _inversion_in():
            return np.zeros(self.__nl)
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -4337,10 +4340,10 @@ class _inversion_in():
            return np.zeros(self.__nl)
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -4360,10 +4363,10 @@ class _inversion_in():
            return None
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -4426,7 +4429,7 @@ class _inversion_in():
                         f.seek(full,1)
 
                     # Q, U, and V
-                    if j in range(1,4):
+                    for j in range(1,4):
 
                         # There is polarization
                         if pol:
@@ -4435,6 +4438,7 @@ class _inversion_in():
                             if j in indx:
 
                                 # Get Stokes
+                                siz = 0
                                 if left > 0: f.seek(left,1)
                                 out[j][ix,iy] = struct.unpack('d',f.read(8))[0]
                                 if right > 0: f.seek(right,1)
@@ -4475,7 +4479,7 @@ class _inversion_in():
         '''
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= self.__nl:
@@ -4489,7 +4493,7 @@ class _inversion_in():
         '''
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= self.__nl:
@@ -4503,7 +4507,7 @@ class _inversion_in():
         '''
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= self.__nl:
@@ -4517,7 +4521,7 @@ class _inversion_in():
         '''
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= self.__nl:
@@ -4531,7 +4535,7 @@ class _inversion_in():
         '''
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= self.__nl:
@@ -4546,7 +4550,7 @@ class _inversion_in():
         '''
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= self.__nl:
@@ -4630,10 +4634,10 @@ class _inversion_in():
             imaxl = maxl
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -4660,10 +4664,10 @@ class _inversion_in():
             imaxl = maxl
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -4690,10 +4694,10 @@ class _inversion_in():
             imaxl = maxl
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -4720,10 +4724,10 @@ class _inversion_in():
             imaxl = maxl
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -4750,10 +4754,10 @@ class _inversion_in():
             imaxl = maxl
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -4783,7 +4787,7 @@ class _inversion_in():
             nl = self.__nl
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= nl:
@@ -4812,7 +4816,7 @@ class _inversion_in():
             nl = self.__nl
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= nl:
@@ -4841,7 +4845,7 @@ class _inversion_in():
             nl = self.__nl
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= nl:
@@ -4870,7 +4874,7 @@ class _inversion_in():
             nl = self.__nl
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= nl:
@@ -4903,7 +4907,7 @@ class _inversion_in():
             nl = self.__nl
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= nl:
@@ -4966,10 +4970,10 @@ class _inversion_in():
             return self.__get_diff_ct()[0]
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -4988,10 +4992,10 @@ class _inversion_in():
             return self.__get_diff_ct()[1]
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -5010,10 +5014,10 @@ class _inversion_in():
             return self.__get_diff_ct()[2]
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -5032,10 +5036,10 @@ class _inversion_in():
             return self.__get_diff_ct()[3]
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -5054,10 +5058,10 @@ class _inversion_in():
             return self.__get_diff_ct()
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -5078,7 +5082,7 @@ class _inversion_in():
             diff[:,:] = self.__get_diff_ct()[0][il]
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= self.__nl:
@@ -5098,7 +5102,7 @@ class _inversion_in():
             diff[:,:] = self.__get_diff_ct()[1][il]
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= self.__nl:
@@ -5118,7 +5122,7 @@ class _inversion_in():
             diff[:,:] = self.__get_diff_ct()[2][il]
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= self.__nl:
@@ -5138,7 +5142,7 @@ class _inversion_in():
             diff[:,:] = self.__get_diff_ct()[3][il]
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= self.__nl:
@@ -5160,7 +5164,7 @@ class _inversion_in():
                 diff[i,:,:] = ldiff[i][il]
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= self.__nl:
@@ -5764,10 +5768,10 @@ class _inversion_out():
         '''
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -5972,10 +5976,10 @@ class _inversion_out():
         '''
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -6133,10 +6137,10 @@ class _inversion_out():
            return None
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -6360,7 +6364,7 @@ class _inversion_out():
         '''
 
         # Valid?
-        if not isinstance(il, int):
+        if not isinstance(il, int) and not isinstance(il, npint):
            _error('il must be an integer',1)
            return None
         if il < 0 or il >= self.__nl:
@@ -6499,7 +6503,7 @@ class _inversion_out():
         '''
 
         # Valid?
-        if not isinstance(iz, int):
+        if not isinstance(iz, int) and not isinstance(iz, npint):
            _error('iz must be an integer',1)
            return None
         if iz < 0 or iz >= self.__nz:
@@ -6968,10 +6972,10 @@ class _cols_damp_15D():
         '''
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -7059,7 +7063,7 @@ class _cols_damp_15D():
         '''
 
         # Valid?
-        if not isinstance(iz, int):
+        if not isinstance(iz, int) and not isinstance(iz, npint):
            _error('iz must be an integer',1)
            return None
         if iz < 0 or iz >= self.__nz:
@@ -7395,10 +7399,10 @@ class _back_15D():
         '''
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -7494,7 +7498,7 @@ class _back_15D():
         '''
 
         # Valid?
-        if not isinstance(iz, int):
+        if not isinstance(iz, int) and not isinstance(iz, npint):
            _error('ix must be an integer',1)
            return None
         if iz < 0 or iz >= self.__nz:
@@ -7784,10 +7788,10 @@ class _pop_dep_15D():
         '''
 
         # Valid?
-        if not isinstance(ix, int):
+        if not isinstance(ix, int) and not isinstance(ix, npint):
            _error('ix must be an integer',1)
            return None
-        if not isinstance(iy, int):
+        if not isinstance(iy, int) and not isinstance(iy, npint):
            _error('iy must be an integer',1)
            return None
         if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
@@ -7876,7 +7880,7 @@ class _pop_dep_15D():
         '''
 
         # Valid?
-        if not isinstance(iz, int):
+        if not isinstance(iz, int) and not isinstance(iz, npint):
            _error('iz must be an integer',1)
            return None
         if iz < 0 or iz >= self.__nz:

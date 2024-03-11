@@ -12,12 +12,22 @@
 !  Start:
 !     04/20/2016
 !  Last version:
-!     02/20/2024 V3.0.20
+!     03/11/2024 V3.0.21
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     03/11/2024:   V3.0.21 - Removed unnecessary reshapes in cases
+!                             when there was a single dimension with
+!                             a non fixed index (TdPA)
+!                           - Bugfix: Fixed out of bounds when writing
+!                             the contribution function when limiting
+!                             the height indexes. Because the variable
+!                             for the contribution function has
+!                             implicit dimensions, it is necessary to
+!                             shift the indexing (TdPA)
 !
 !     02/20/2024:   V3.0.20 - Improved algorithm to read radiation
 !                             field. It is more readable and may fix
@@ -6719,8 +6729,8 @@
               nn = i1-i0+1
 
               ! Fill buffer
-              buffer(ii+1:ii+nn) = real(reshape(Stokes(jj,i0:i1), &
-                                                (/ nn /)))
+              buffer(ii+1:ii+nn) = real(Stokes(jj,i0:i1))
+
               ! Advance index
               ii = ii + nn
 
@@ -6959,8 +6969,8 @@
             nn = i1-i0+1
 
             ! Fill buffer
-            buffer(ii+1:ii+nn) = real(reshape(StokesI(i0:i1), &
-                                               (/ nn /)))
+            buffer(ii+1:ii+nn) = real(StokesI(i0:i1))
+
             ! Advance index
             ii = ii + nn
 
@@ -7584,7 +7594,7 @@
 
       character(len=4):: cph,cth
 
-      integer:: ios,ierr,ifreq,iran,iz,ii,jj,i0,i1,nn
+      integer:: ios,ierr,ifreq,iran,iz,jz,ii,jj,i0,i1,nn
 
       integer(kind=MPI_OFFSET_KIND):: offset
 
@@ -7747,6 +7757,9 @@
               ! In bounds
               else
 
+                ! Shift height
+                jz = iz - Rz0 + 1
+
                 ! For each entry to write
                 do iran=1,buff%nran
 
@@ -7756,8 +7769,7 @@
                   nn = i1-i0+1
 
                   ! Fill buffer
-                  buffer(ii+1:ii+nn) = &
-                      real(reshape(Contr(jj,i0:i1,iz), (/ nn /)))
+                  buffer(ii+1:ii+nn) = real(Contr(jj,i0:i1,jz))
 
                   ! Advance index
                   ii = ii + nn
@@ -7790,9 +7802,11 @@
                 ! In bounds
                 else
 
+                  ! Shift height
+                  jz = iz - Rz0 + 1
+
                   ! Fill buffer
-                  buffer(ii+1:ii+nfreq) = &
-                      real(reshape(Contr(jj,:,iz), (/ nfreq /)))
+                  buffer(ii+1:ii+nfreq) = real(Contr(jj,:,jz))
 
                 end if ! Height bounds
 
@@ -7872,7 +7886,7 @@
 
       ! Local
 
-      integer:: ierr,iz,ii,jj,nn
+      integer:: ierr,iz,jz,ii,jj,nn
 
       integer(kind=MPI_OFFSET_KIND):: offset
 
@@ -7934,9 +7948,11 @@
             ! In bounds
             else
 
+              ! Shift height
+              jz = iz - Rz0 + 1
+
               ! Fill buffer
-              buffer(ii+1:ii+buff%nn) = &
-                                reshape(Contr(jj,:,iz), (/ buff%nn /))
+              buffer(ii+1:ii+buff%nn) = Contr(jj,:,jz)
 
             end if ! Height bounds
 
@@ -8020,7 +8036,7 @@
 
       character(len=4):: cph,cth
 
-      integer:: ios,iz,ifreq,ierr,iran,ii,i0,i1,nn
+      integer:: ios,iz,jz,ifreq,ierr,iran,ii,i0,i1,nn
 
       integer(kind=MPI_OFFSET_KIND):: offset
 
@@ -8176,6 +8192,9 @@
             ! In bounds
             else
 
+              ! Shift height
+              jz = iz - Rz0 + 1
+
               ! For each entry to write
               do iran=1,buff%nran
 
@@ -8185,8 +8204,7 @@
                 nn = i1-i0+1
 
                 ! Fill buffer
-                buffer(ii+1:ii+nn) = &
-                    real(reshape(Contr(i0:i1,iz), (/ nn /)))
+                buffer(ii+1:ii+nn) = real(Contr(i0:i1,jz))
 
                 ! Advance index
                 ii = ii + nn
@@ -8215,9 +8233,11 @@
               ! In bounds
               else
 
+                ! Shift height
+                jz = iz - Rz0 + 1
+
                 ! Fill buffer
-                buffer(ii+1:ii+nfreq) = &
-                    real(reshape(Contr(:,iz), (/ nfreq /)))
+                buffer(ii+1:ii+nfreq) = real(Contr(:,jz))
 
               end if ! Height bounds
 
@@ -8291,7 +8311,7 @@
 
       ! Local
 
-      integer:: iz,ierr,ii,nn,nt
+      integer:: iz,jz,ierr,ii,nn,nt
 
       integer(kind=MPI_OFFSET_KIND):: offset
 
@@ -8353,9 +8373,11 @@
           ! In bounds
           else
 
+            ! Shift height
+            jz = iz - Rz0 + 1
+
             ! Fill buffer
-            buffer(ii+1:ii+buff%nn) = &
-                                   reshape(Contr(:,iz), (/ buff%nn /))
+            buffer(ii+1:ii+buff%nn) = Contr(:,jz)
 
           end if ! Height bounds
 
@@ -8446,7 +8468,7 @@
 
             ! Fill buffer
             e_Contr(jj,ii+1:ii+nn,Rz0:Rz1) = &
-                                         real(Contr(jj,i0:i1,Rz0:Rz1))
+                                         real(Contr(jj,i0:i1,1:Rnz))
 
             ! Advance index
             ii = ii + nn
@@ -8458,7 +8480,7 @@
       else
 
         ! Copy
-        e_Contr(:,:,Rz0:Rz1) = real(Contr(:,:,Rz0:Rz1))
+        e_Contr(:,:,Rz0:Rz1) = real(Contr(:,:,1:Rnz))
 
       end if ! Full frequency range
 
@@ -8509,7 +8531,7 @@
           nn = i1-i0+1
 
           ! Fill buffer
-          e_Contr(1,ii+1:ii+nn,Rz0:Rz1) = real(Contr(i0:i1,Rz0:Rz1))
+          e_Contr(1,ii+1:ii+nn,Rz0:Rz1) = real(Contr(i0:i1,1:Rnz))
 
           ! Advance index
           ii = ii + nn
@@ -8520,7 +8542,7 @@
       else
 
         ! Copy
-        e_Contr(1,:,Rz0:Rz1) = real(Contr(:,Rz0:Rz1))
+        e_Contr(1,:,Rz0:Rz1) = real(Contr(:,1:Rnz))
 
       end if ! Full frequency range
 
