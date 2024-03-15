@@ -12,12 +12,16 @@
 !  Start:
 !     06/28/2022
 !  Last version:
-!     11/14/2023 V3.1.4
+!     03/15/2024 V3.1.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     03/15/2024:    V3.1.5 - Use array-stored indexes to run over
+!                             the Normp pointer in the Atom class
+!                             when freeing normalization (TdPA)
 !
 !     11/14/2023:    V3.1.4 - Removed Frec%stype variable (TdPA)
 !
@@ -170,8 +174,9 @@
         ! Norm
         if (associated(Atom(ii)%Normp)) then
           do jdir=1,size(Atom(ii)%Normp,3)
-            do iz=Rz0,Rz1
-              do jtran=1,Atom(ii)%ntran
+            do iz=lbound(Atom(ii)%Normp,2),ubound(Atom(ii)%Normp,2)
+              do jtran=lbound(Atom(ii)%Normp,1), &
+                       ubound(Atom(ii)%Normp,1)
                 if (allocated(Atom(ii)% &
                               Normp(jtran,iz,jdir)%prof)) then
                   deallocate(Atom(ii)%Normp(jtran,iz,jdir)%prof)

@@ -760,6 +760,7 @@ class _tau_1D():
             lam = 1e2/omg[::-1]
             tau1 = np.array(struct.unpack('d'*self.__nl, \
                                           f.read(8*self.__nl)))
+            tau1 = tau1[::-1]
             if minl is not None:
                 i = np.argmin(np.absolute(lam - minl))
                 lam = lam[i:]

@@ -13,12 +13,15 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     02/23/2024 V3.0.30
+!     03/15/2024 V3.0.31
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     03/15/2024:   V3.0.31 - Increased size of vfile and wfile
+!                             variables in Atom_class (TdPA)
 !
 !     02/23/2024:   V3.0.30 - Added ALI_force, init_J_bb, fvmicro,
 !                             allownphys_pop, and mrcj to the
@@ -1047,7 +1050,7 @@
         character(len=10):: file_label
 
         ! Name of the Voigt file
-        character(len=20):: vfile, wfile
+        character(len=520):: vfile, wfile
 #ifdef _OPENMP
         ! Component splitting in absorb and emiss
         logical, dimension(:), allocatable:: omp_comp_1ord

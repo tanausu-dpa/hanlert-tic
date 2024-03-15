@@ -10,12 +10,21 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     10/16/2023 V3.0.9
+!     03/15/2024 V3.0.10
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     03/15/2024:   V3.0.10 - Save Voigt profile files in the output
+!                             folder (TdPA)
+!                           - Use array-stored indexes to run over
+!                             the Normp pointer in the Atom class
+!                             when freeing normalization (TdPA)
+!                           - Use array-stored indexes to run over
+!                             the prof pointer in the LTEline class
+!                             when freeing profiles (TdPA)
 !
 !     10/16/2023:    V3.0.9 - Made LTElines allocatable to satisfy
 !                             memory warnings (TdPA)
@@ -437,14 +446,14 @@
             if (los) then
 
               ! Set filename
-              Atom(ia)%vfile = 'voigt-P-L-'// &
+              Atom(ia)%vfile = trim(Input%Folder)//'voigt-P-L-'// &
                                trim(Atom(ia)%file_label)
 
             ! If quadrature
             else
 
               ! Set filename
-              Atom(ia)%vfile = 'voigt-P-G-'// &
+              Atom(ia)%vfile = trim(Input%folder)//'voigt-P-G-'// &
                                trim(Atom(ia)%file_label)
             end if
 
@@ -638,13 +647,13 @@
             if (los) then
 
               ! Set filename
-              Atom(ia)%vfile = 'voigt-I-L-'// &
+              Atom(ia)%vfile = trim(Input%folder)//'voigt-I-L-'// &
                                trim(Atom(ia)%file_label)
             ! Iterations
             else
 
               ! Set filename
-              Atom(ia)%vfile = 'voigt-I-G-'// &
+              Atom(ia)%vfile = trim(Input%folder)//'voigt-I-G-'// &
                                trim(Atom(ia)%file_label)
 
             end if ! Type of solution
@@ -3151,7 +3160,7 @@
       ! Check prof is allocated
       if (associated(line%prof)) then
         do jdir=1,size(line%prof,2)
-          do iz=line%Rz0,Rz1
+          do iz=lbound(line%prof,1),ubound(line%prof,1)
             if (allocated(line%prof(iz,jdir)%p)) &
               deallocate(line%prof(iz,jdir)%p)
             if (allocated(line%prof(iz,jdir)%comp)) &
@@ -3537,8 +3546,8 @@
       ! Check Normp is not allocated
       if (associated(Atom%Normp)) then
         do jdir=1,size(Atom%Normp,3)
-          do iz=Rz0,Rz1
-            do jtran=1,Atom%ntran
+          do iz=lbound(Atom%Normp,2),ubound(Atom%Normp,2)
+            do jtran=lbound(Atom%Normp,1),ubound(Atom%Normp,1)
               if (allocated(Atom%Normp(jtran,iz,jdir)%prof)) &
                 deallocate(Atom%Normp(jtran,iz,jdir)%prof)
               if (allocated(Atom%Normp(jtran,iz,jdir)%Norm)) &
@@ -4307,8 +4316,8 @@
       ! Check Normp is not allocated
       if (associated(Atom%Normp)) then
         do jdir=1,size(Atom%Normp,3)
-          do iz=Rz0,Rz1
-            do jtran=1,Atom%ntran
+          do iz=lbound(Atom%Normp,2),ubound(Atom%Normp,2)
+            do jtran=lbound(Atom%Normp,1),ubound(Atom%Normp,1)
               if (allocated(Atom%Normp(jtran,iz,jdir)%prof)) then
                 deallocate(Atom%Normp(jtran,iz,jdir)%prof)
               else if (allocated(Atom%Normp(jtran,iz,jdir)%Norm)) then
@@ -5394,7 +5403,7 @@
       ! Check prof is allocated
       if (associated(line%prof)) then
         do jdir=1,size(line%prof,2)
-          do iz=line%Rz0,Rz1
+          do iz=lbound(line%prof,1),ubound(line%prof,1)
             if (allocated(line%prof(iz,jdir)%p)) &
               deallocate(line%prof(iz,jdir)%p)
             if (allocated(line%prof(iz,jdir)%comp)) &
@@ -5592,8 +5601,8 @@
       ! Check Normp is not allocated
       if (associated(Atom%Normp)) then
         do jdir=1,size(Atom%Normp,3)
-          do iz=Rz0,Rz1
-            do jtran=1,Atom%ntran
+          do iz=lbound(Atom%Normp,2),ubound(Atom%Normp,2)
+            do jtran=lbound(Atom%Normp,1),ubound(Atom%Normp,1)
               if (allocated(Atom%Normp(jtran,iz,jdir)%prof)) then
                 deallocate(Atom%Normp(jtran,iz,jdir)%prof)
               else if (allocated(Atom%Normp(jtran,iz,jdir)%Norm)) then
