@@ -13,12 +13,15 @@
 !  Start:
 !     06/22/2022
 !  Last version:
-!     02/23/2024 V3.0.24
+!     03/15/2024 V3.0.25
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     03/15/2024:   V3.0.25 - Actually make the problem static if
+!                             indicated for 1D synthesis (TdPA)
 !
 !     02/23/2024:   V3.0.24 - Added Input%fvmicro argument to rAtmo
 !                             call (TdPA)
@@ -310,6 +313,17 @@
       !
       call rAtmo(Input%atmo,Input%source,Input%ID,Atmo,Input%fvmicro)
       nz = Atmo%nz
+
+      ! Forcing static?
+      if (dyn.and.Input%static) then
+
+        ! Make the problem static
+        dyn = .False.
+        Atmo%vx = 0d0
+        Atmo%vy = 0d0
+        Atmo%vz = 0d0
+
+      end if
 
       !
       ! Read magnetic field data

@@ -12,12 +12,14 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     02/23/2024 V3.2.6
+!     03/15/2024 V3.2.7
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     03/15/2024:    V3.2.7 - Always define rdyn (TdPA)
 !
 !     02/23/2024:    V3.2.6 - Added Atom and LTElines argument to
 !                             SolveJ and added argument Input to
@@ -646,6 +648,8 @@
       ! Shift ID
       if (run_mode.ne.0) gpid = gpid - 1
 #endif
+      ! Original dynamic flag
+      rdyn = dyn
 
       ! Initialize frequency and redistribution pointer
       nullify(Frec%dzao)
@@ -655,9 +659,7 @@
       if (dyn.and.Input%static_int) then
 
         ! Trick the problem
-        rdyn = dyn
         dyn = .False.
-
         Atmo%vxa => Atmo%vx
         Atmo%vya => Atmo%vy
         Atmo%vza => Atmo%vz
