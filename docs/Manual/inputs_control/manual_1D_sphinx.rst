@@ -329,7 +329,7 @@ POLAR_LOS
     
     - floats
 
-  * Description: List of floats with the cosine of the heliocentric angle for which to compute the Stokes parameters formal solution.
+  * Description: List of floats with the cosine of the heliocentric angle for which to compute the Stokes parameters formal solution. If both POLAR_LOS and AXIAL_LOS are absent, no formal solution is carried out and outputs for specific lines of sight are not generated.
 
 AXIAL_LOS
 ---------
@@ -340,7 +340,7 @@ AXIAL_LOS
     
     - floats
 
-  * Description: List of floats with the azimuthal angle, in degrees, for which to compute the Stokes parameters formal solution.
+  * Description: List of floats with the azimuthal angle, in degrees, for which to compute the Stokes parameters formal solution. If both POLAR_LOS and AXIAL_LOS are absent, no formal solution is carried out and outputs for specific lines of sight are not generated.
 
 MODE
 ----
