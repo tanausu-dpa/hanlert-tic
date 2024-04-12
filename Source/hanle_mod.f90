@@ -12,12 +12,15 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     03/15/2024 V3.2.7
+!     04/01/2024 V3.2.8
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     04/01/2024:    V3.2.8 - Call the routine to compute dipole
+!                             strengths in energy basis (TdPA)
 !
 !     03/15/2024:    V3.2.7 - Always define rdyn (TdPA)
 !
@@ -555,6 +558,7 @@
       use setmpi_mod
       use solver_mod
       use solveri_mod
+      use strength_mod
       use types_mod
 
       contains
@@ -2071,6 +2075,15 @@
           umsg = ' - Hamiltonian diagonalized'
           call verbose
         end if
+#ifdef RDIPEV
+        do ia=1,nA
+          call strength_ev(Atom(ia),Flgsg,Bfield)
+        end do
+        if(pid.eq.0) then
+          umsg = ' - Dipole strengths in energy eigenbasis calculated'
+          call verbose
+        end if
+#endif
       else
         do ia=1,nA
           call diagon_B0(Atom(ia))

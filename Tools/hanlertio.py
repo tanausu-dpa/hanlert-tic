@@ -3954,29 +3954,33 @@ class _inversion_in():
         ''' Get verbosity information about the file
         '''
         if self.__info[0] == 0:
-            _error('Only intensity file',0)
+            _verbose('Only intensity file',0)
         else:
-            _error('Full Stokes file',0)
+            _verbose('Full Stokes file',0)
         if self.__info[1] == 0:
-            _error('Single LOS',0)
+            _verbose('Single LOS',0)
         else:
-            _error('Pixelwise LOS',0)
+            _verbose('Pixelwise LOS',0)
         if self.__info[2] == 0:
-            _error('Constant sigma',0)
+            _verbose('No sigma',0)
         elif self.__info[2] == 1:
-            _error('Wavelength dependent constant sigma',0)
+            _verbose('Constant sigma',0)
         elif self.__info[2] == 2:
-            _error('Constant pixelwise sigma',0)
+            _verbose('Wavelength dependent constant sigma',0)
         elif self.__info[2] == 3:
-            _error('Wavelength dependent pixelwise sigma',0)
+            _verbose('Constant pixelwise sigma',0)
+        elif self.__info[2] == 4:
+            _verbose('Wavelength dependent pixelwise sigma',0)
         if self.__info[3] == 0:
-            _error('Constant only intensity diffuse light profile',0)
+            _verbose('No diffuse light profile',0)
         elif self.__info[3] == 1:
-            _error('Constant full Stokes diffuse light profile',0)
+            _verbose('Constant only intensity diffuse light profile',0)
         elif self.__info[3] == 2:
-            _error('Pixelwise only intensity diffuse light profile',0)
+            _verbose('Constant full Stokes diffuse light profile',0)
         elif self.__info[3] == 3:
-            _error('Pixelwise full Stokes diffuse light profile',0)
+            _verbose('Pixelwise only intensity diffuse light profile',0)
+        elif self.__info[3] == 4:
+            _verbose('Pixelwise full Stokes diffuse light profile',0)
 
     def _get_info(self,i=None):
         ''' Get index in information
@@ -4564,7 +4568,7 @@ class _inversion_in():
     def __no_sigma(self):
         ''' Message that there is no sigma
         '''
-        __error('There is no sigma in this file',1)
+        _error('There is no sigma in this file',1)
         return None
 
     def __get_sigma_ct(self):
@@ -4921,7 +4925,7 @@ class _inversion_in():
     def __no_diff(self):
         ''' Message that there is no diffuse light
         '''
-        __error('There is no diffuse light in this file',1)
+        _error('There is no diffuse light in this file',1)
         return None
 
     def __get_diff_ct(self):
@@ -8427,6 +8431,7 @@ class hanlertio_class():
                             self.get_stokesv_plane = self.__get_stokesv15d_p
                             self.get_linear_plane = self.__get_linear15d_p
                             self.get_stokes_plane = self.__get_stokes15d_p
+                            self.get_sigma = self.__get_sigma
                             self.get_sigmai_column = self.__get_sigmai15d_c
                             self.get_sigmaq_column = self.__get_sigmaq15d_c
                             self.get_sigmau_column = self.__get_sigmau15d_c
@@ -8878,6 +8883,9 @@ class hanlertio_class():
     # 15D cols, 15D popbed
     def __get_plane_15dcapd(self,iz,ie=None):
         return self.__object._get_plane(iz,ie)
+    # inversion in
+    def __get_sigma(self):
+        return self.__object._get_sigma()
     # inversion in
     def __get_sigmai15d_c(self,ix=None,iy=None,minl=None,maxl=None):
         return self.__object._get_sigmai_column(ix,iy,minl,maxl)

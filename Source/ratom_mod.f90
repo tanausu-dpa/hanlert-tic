@@ -10,12 +10,15 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     10/04/2023 V3.0.8
+!     04/03/2024 V3.0.9
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     04/03/2024:    V3.0.9 - Set to zero the size of unused nblk when
+!                             initializing the sizes (TdPA)
 !
 !     10/04/2023:    V3.0.8 - Bugfix: The number of M levels in LTE
 !                             lines has to be defined in here, because
@@ -2849,6 +2852,14 @@
 
             end do
 
+            ! Rest of empty space
+            do iM=nM+1,Atom(ia)%nMmax
+
+              ! Size of the block of this M (just one)
+              Atom(ia)%nblk(iM,iterm) = 0
+
+            end do
+
           ! Multiterm
           else
 
@@ -2887,6 +2898,14 @@
               Atom(ia)%nblk(iM,iterm) = i
 
             end do ! iM
+
+            ! Rest of empty space
+            do iM=nM+1,Atom(ia)%nMmax
+
+              ! Size of the block of this M (just one)
+              Atom(ia)%nblk(iM,iterm) = 0
+
+            end do
 
           end if ! Multilevel or multiterm
 

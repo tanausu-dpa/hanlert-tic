@@ -13,12 +13,15 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     03/15/2024 V3.0.31
+!     04/01/2024 V3.0.32
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     04/01/2024:   V3.0.32 - Added rdipev_class (TdPA)
+!                           - Added rdipev to Atom_class (TdPA)
 !
 !     03/15/2024:   V3.0.31 - Increased size of vfile and wfile
 !                             variables in Atom_class (TdPA)
@@ -533,6 +536,7 @@
 !    Phot_class
 !    FST_class
 !    rdip_class
+!    rdipev_class
 !    Jrho_class
 !    irho_class
 !    Atom_class
@@ -934,6 +938,18 @@
 
       end type rdip_class
 
+#ifdef RDIPEV
+!#####################################################################
+
+      !> Structure with the dipole strength for a given transition
+      type rdipev_class
+
+        ! Dipole strength matrix
+        type(rdip_class), dimension(:), allocatable:: rdipev
+
+      end type rdipev_class
+
+#endif
 !#####################################################################
 
       !> Structure with the level-level indexing
@@ -1030,6 +1046,11 @@
 
         ! Dipole strength array
         type(rdip_class), dimension(:), allocatable:: rdip
+
+#ifdef RDIPEV
+        ! Dipole strength array in energy representation
+        type(rdipev_class), dimension(:), allocatable:: rdipev
+#endif
 
         ! Atom indexing
         type(irho_class), dimension(:), allocatable:: irho

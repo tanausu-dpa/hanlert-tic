@@ -15,6 +15,8 @@
 #
 #  Changelog:
 #
+#     04/01/2024:    V1.1.3 - Added the nordipev option (TdPA)
+#
 #     10/16/2023:    V1.1.2 - Added the nofits option (TdPA)
 #
 #     09/29/2023:    V1.1.1 - Removed most of flag packages (TdPA)
@@ -43,6 +45,8 @@ omp_gnu=""
 omp_intel=""
 fits_gnu="-DFITSSUP"
 fits_intel="-DFITSSUP"
+rdipev_gnu="-DRDIPEV"
+rdipev_intel="-DRDIPEV"
 old_mpi=""
 
 for arg in "$@"; do
@@ -103,6 +107,11 @@ for arg in "$@"; do
     --nofits)
     fits_gnu=""
     fits_intel=""
+	;;
+
+    --nordipev)
+    rdipev_gnu=""
+    rdipev_intel=""
 	;;
 
     --oldmpi)
@@ -185,6 +194,7 @@ if [ "$compiler" == "gnu" ]; then
   echo "mods = -J" >> Makefile
   echo "OMPFLAGS = $omp_gnu" >> Makefile
   echo "FITSFLAGS = $fits_gnu" >> Makefile
+  echo "RDIPEVFLAGS = $rdipev_gnu" >> Makefile
 fi
 if [ "$compiler" == "intel" ]; then
   echo "CMP = ifort" >> Makefile
@@ -194,6 +204,7 @@ if [ "$compiler" == "intel" ]; then
   echo "mods = -module " >> Makefile
   echo "OMPFLAGS = $omp_intel" >> Makefile
   echo "FITSFLAGS = $fits_gnu" >> Makefile
+  echo "RDIPEVFLAGS = $rdipev_gnu" >> Makefile
 fi
 echo "LFLAGS = $lflags" >> Makefile
 

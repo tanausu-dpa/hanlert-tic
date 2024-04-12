@@ -12,12 +12,23 @@
 !  Start:
 !     04/27/2017
 !  Last version:
-!     11/29/2023 V3.1.2
+!     04/02/2024 V3.1.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     04/02/2024:    V3.1.4 - Debugged rt1ordNB and rt1ord (TdPA)
+!
+!     04/01/2024:    V3.1.3 - Added rt1ordNB and rt1ord to compute
+!                             together absorption and emission. The
+!                             latter is optional and requires using
+!                             the energy eigenbasis for the dipole
+!                             strength (TdPA)
+!                           - Fixed some comments (TdPA)
+!                           - Carried out one of the operations in
+!                             tempR in emiss and emissNB (TdPA)
 !
 !     11/29/2023:    V3.1.2 - With coherent scattering, wrong use of
 !                             the JKQ tensors with Q < 0 (TdPA)
@@ -364,6 +375,25 @@
 !
 !  Data:
 !
+!  rt1ordNB:
+!    This subroutine calculates the absorption and emission
+!    coefficients without magnetic field.
+!    Units for absorption are cm^-1 (true absorption coefficient)
+!    and needs to be multiplied by the actual atomic density
+!    The output value for emissivity is given in number of photons per
+!    unit interval of time (s) and normalized frequency (in units of
+!    Doppler width), emitted by a unit volume of gas (cm^-3) of unit
+!    atomic density, within one steradian. In order to compute
+!    photometric values of the intensity, the output needs be
+!    multiplied by the actual atomic density.
+!    This routine combines absorbNB and emissNB together
+!
+!  rt1ord:
+!    Like rt1ordNB, but for the magnetic field case.
+!    This routine combines absorb and emiss together, but it makes
+!    use of the energy representation for the dipole strength in order
+!    to achieve an optimal combination
+!
 !  absorb:
 !    This subroutine calculates the absorption coefficients.
 !    Units are cm^-1 (true absorption coefficient)
@@ -479,6 +509,847 @@
 
       contains
 
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Computes the absorption and emission coefficients in absence
+      !! of magnetic fields.\n
+      !!          Atom(Atom_class): Structure with the atomic data\n
+      !!         TB(dcmplx(:,:,:)): Geometry tensors in magnetic field
+      !!                            reference frame\n
+      !!          omega(dfloat(:)): Frequency array\n
+      !!        Flgsg(Fctsg_class): Structure with factorials and
+      !!                            signs\n
+      !!            itran(integer): Index of transition to compute\n
+      !!           itermu(integer): Upper term of transition\n
+      !!           iterml(integer): Lower term of transition\n
+      !!               iz(integer): Height index\n
+      !!              if0(integer): First frequency index for this
+      !!                            transition\n
+      !!              if1(integer): Last frequency index for this
+      !!                            transition\n
+      !!       Norma(Nindex_class): Normalization factors for Voigt\n
+      !!                            profiles or Voigt profiles\n
+      !!                Dw(dfloat): Doppler width of transition\n
+      !!              vfac(dfloat): Doppler shift factor\n
+      !!              absK(dfloat): Unit transformation factor\n
+      !!        aprof(dcmplx(:,:)): Absorption profiles\n
+      !!           eta0(dfloat(:)): Intensity absorptivity\n
+      !!           eta1(dfloat(:)): Q absorptivity\n
+      !!           eta2(dfloat(:)): U absorptivity\n
+      !!           eta3(dfloat(:)): V absorptivity\n
+      !!           rha1(dfloat(:)): Q dichroic absorptivity\n
+      !!           rha2(dfloat(:)): U dichroic absorptivity\n
+      !!           rha3(dfloat(:)): V dichroic absorptivity\n
+      !!           eps0(dfloat(:)): Intensity emissivity\n
+      !!           eps1(dfloat(:)): Q emissivity\n
+      !!           eps2(dfloat(:)): U emissivity\n
+      !!           eps3(dfloat(:)): V emissivity\n
+      !!           rhs1(dfloat(:)): Q 'dichroic' emissivity\n
+      !!           rhs2(dfloat(:)): U 'dichroic' emissivity\n
+      !!           rhs3(dfloat(:)): V 'dichroic' emissivity
+      subroutine rt1ordNB(Atom,TB,omega,Flgsg,itran,itermu,iterml, &
+                         iz,if0,if1,Norma,Dw,vfac,absK,aprof, &
+                         eta0,eta1,eta2,eta3,rha1,rha2,rha3, &
+                         eps0,eps1,eps2,eps3,rhs1,rhs2,rhs3)
+
+      ! I/O
+
+      type(Atom_class), intent(in):: Atom
+      type(Fctsg_class), intent(in):: Flgsg
+      type(Nindex_class), intent(in):: Norma
+      integer, intent(in):: itran, itermu, iterml, iz, if0, if1
+      double precision, intent(in):: Dw, absK, vfac
+      double precision, dimension(:), intent(in):: omega
+      double precision, dimension(if0:if1), intent(out):: eta0
+      double precision, dimension(if0:if1), intent(out):: eta1,rha1
+      double precision, dimension(if0:if1), intent(out):: eta2,rha2
+      double precision, dimension(if0:if1), intent(out):: eta3,rha3
+      double precision, dimension(if0:if1), intent(out):: eps0
+      double precision, dimension(if0:if1), intent(out):: eps1,rhs1
+      double precision, dimension(if0:if1), intent(out):: eps2,rhs2
+      double precision, dimension(if0:if1), intent(out):: eps3,rhs3
+      complex(kind=8), dimension(:,:), intent(in):: aprof
+      complex(kind=8), dimension(0:3,-2:2,0:2), intent(in):: TB
+
+
+      ! Local
+
+      integer:: ifreq,K,iQ,iU,iU1,iL,iL1,iR
+      integer:: Kmin,Kmax
+
+      double precision:: rLu,rLl,S,rJu,rJu1,rJl,rJl1
+      double precision:: f61,f62a,f62e,f63,f64
+      double precision:: eu,el,rK,au,al,aul
+      double precision:: at,Dfreq,vfacw,tempRe,tempRa
+
+      complex(kind=8),dimension(if0:if1):: prof, profK
+
+
+      !
+      ! Initialize variables
+      !
+
+      eta0 = 0d0
+      eta1 = 0d0
+      eta2 = 0d0
+      eta3 = 0d0
+      rha1 = 0d0
+      rha2 = 0d0
+      rha3 = 0d0
+      eps0 = 0d0
+      eps1 = 0d0
+      eps2 = 0d0
+      eps3 = 0d0
+      rhs1 = 0d0
+      rhs2 = 0d0
+      rhs3 = 0d0
+
+      !
+      ! Get terms and transition quantities
+      !
+
+      ! Damping parameters
+      au = Atom%damp(itermu,iz)
+      al = Atom%damp(iterml,iz)
+      aul = Atom%ldamp(itran,iz)
+      at = (au + al + aul)/Dw
+
+      ! Spin
+      S = Atom%Sval(itermu)
+
+      ! Orbital angular momentum
+      rLu = Atom%rLval(itermu)
+      rLl = Atom%rLval(iterml)
+
+      ! Doppler shift in doppler units
+      vfacw = vfac/Dw
+
+!$omp parallel default(none) &
+!$omp private(iU,iU1,iL,Dfreq,ifreq,iL1,K,iQ,rJu,eu,f61,rJl,el) &
+!$omp private(rJl1,rJu1,f63,Kmin,Kmax,rK,iR,f64,f62a,f62e) &
+!$omp private(tempRe,tempRa) &
+!$omp shared(Atom,Flgsg,Dw,at,S,rLu,rLl,vfacw,vpfil,prof,itran) &
+!$omp shared(profk,eta0,eta1,eta2,eta3,TB,Norma,rha1,rha2,rha3) &
+!$omp shared(itermu,iterml,aprof,if0,if1,omega,iz,absK)
+
+      !
+      ! Common part
+      !
+
+      ! For each Ju
+      do iU=1,Atom%nJ(itermu)
+
+        ! Get Ju
+        rJu = Atom%rJval(iU,itermu)
+
+        ! Get eigenvalue upper level
+        eu = Atom%FSfreq(iU,itermu)/Dw
+
+        ! Factor Ju
+        f61 = 2d0*rJu + 1d0
+
+        ! For each Jl
+        do iL=1,Atom%nJ(iterml)
+
+          ! Get Jl
+          rJl = Atom%rJval(iL,iterml)
+
+          ! 6-j
+          f62e = fun6j(rLu,rLl,1d0,rJl,rJu,S,Flgsg)
+
+          if (abs(f62e).lt.TINYJS) cycle
+
+          ! Absorption factor
+          f62a = f62e*f61*Flgsg%sg(nint(1d0+rJu+rJl))* &
+                 sqrt(2d0*rJl+1d0)
+
+          ! Emission factor
+          f62e = f62e*sqrt(f61)*(2d0*rJl+1d0)
+
+          ! Get eigenvalue lower level
+          el = Atom%FSfreq(iL,iterml)/Dw
+
+          !
+          ! Compute profile
+          !
+
+          ! If in file
+          if (vpfil) then
+
+!$omp workshare
+            prof = aprof(:,Atom%i_Vind(itran)%indNB(iL,iU))
+!$omp end workshare
+
+          ! If stored
+          else if (Norma%VRAM) then
+
+!$omp workshare
+            prof = Norma%prof(iL,iU,1,1)%cp
+!$omp end workshare
+
+          ! Not stored
+          else
+
+            ! Shift term
+            Dfreq = eu - el
+
+            ! For each frequency
+!$omp do
+            do ifreq=if0,if1
+
+              ! Calculate profile
+              call voigt(Dfreq - omega(ifreq)*vfacw,at,prof(ifreq))
+
+            end do ! frequencies
+!$omp end do
+
+            ! Normalize profile
+!$omp workshare
+            prof = dcmplx(dble(prof)*Norma%Norm(iL,iU,1,1), &
+                          dimag(prof))
+!$omp end workshare
+
+          end if ! Storing
+
+          !
+          ! Absorption
+          !
+
+          ! For each Jl'
+          do iL1=1,Atom%nJ(iterml)
+
+            ! Get Jl
+            rJl1 = Atom%rJval(iL1,iterml)
+
+            ! 6-j
+            f63 = fun6j(rLu,rLl,1d0,rJl1,rJu,S,Flgsg)
+
+            if (abs(f63).lt.TINYJS) cycle
+
+            f63 = f62a*f63*sqrt(2d0*rJl1+1d0)
+
+            ! Determine the limits in K
+            Kmin = nint(abs(rJl-rJl1))
+            Kmax = min(nint(rJl+rJl1),Atom%Kcut(iterml),2)
+
+            ! For each K
+            do K=Kmin,Kmax
+
+              ! Get the real number
+              rK = dble(K)
+
+              ! For each Q
+              do iQ=-K,K
+
+                ! Get the SEE index
+                iR = Atom%irho(iterml)%Jrho(iL1,iL)%kq(iQ,K)
+
+                ! If flagged as small, skip
+                if (iR.le.0.or.Atom%rhonull(iR,iz)) cycle
+
+                ! Racah algebra
+                f64 = fun6j(1d0,1d0,rK,rJl1,rJl,rJu,Flgsg)
+
+!$omp workshare
+                profk = f64*f63*Flgsg%sg(K)*prof*Atom%crho(iR,iz)
+!$omp end workshare
+
+!$omp workshare
+                ! Absorptivity
+                eta0 = eta0 + dble(TB(0,iQ,K)*profk)
+                eta1 = eta1 + dble(TB(1,iQ,K)*profk)
+                eta2 = eta2 + dble(TB(2,iQ,K)*profk)
+                eta3 = eta3 + dble(TB(3,iQ,K)*profk)
+
+                ! Dispersion
+                rha1 = rha1 + dimag(TB(1,iQ,K)*profk)
+                rha2 = rha2 + dimag(TB(2,iQ,K)*profk)
+                rha3 = rha3 + dimag(TB(3,iQ,K)*profk)
+!$omp end workshare
+
+              end do ! Q
+            end do ! K
+          end do ! iL1
+
+          !
+          ! Emission
+          !
+
+          ! For each Ju'
+          do iU1=1,Atom%nJ(itermu)
+
+            ! Ju'
+            rJu1 = Atom%rJval(iU1,itermu)
+
+            ! 6-j
+            f63 = fun6j(rLu,rLl,1d0,rJl,rJu1,S,Flgsg)
+
+            if (abs(f63).lt.TINYJS) cycle
+
+            f63 = f63*f62e*sqrt(2d0*rJu1+1d0)* &
+                  Flgsg%sg(nint(1d0+rJl+rJu1))
+
+            ! Determine the limits in K
+            Kmin = nint(abs(rJu-rJu1))
+            Kmax = min(nint(rJu+rJu1),Atom%Kcut(itermu),2)
+
+            ! For each K
+            do K=Kmin,Kmax
+
+              ! Get the real number
+              rK = dble(K)
+
+              ! For each Q
+              do iQ=-K,K
+
+                ! Get the SEE index
+                iR = Atom%irho(itermu)%Jrho(iU,iU1)%kq(iQ,K)
+
+                ! If flagged as small, skip
+                if (iR.le.0.or.Atom%rhonull(iR,iz)) cycle
+
+                ! 6-j
+                f64 = fun6j(1d0,1d0,rK,rJu,rJu1,rJl,Flgsg)
+
+!$omp workshare
+                profk = f64*f63*prof*Atom%crho(iR,iz)
+!$omp end workshare
+
+!$omp workshare
+                ! Absorptivity
+                eps0 = eps0 + dble(TB(0,iQ,K)*profK)
+                eps1 = eps1 + dble(TB(1,iQ,K)*profK)
+                eps2 = eps2 + dble(TB(2,iQ,K)*profK)
+                eps3 = eps3 + dble(TB(3,iQ,K)*profK)
+
+                ! Dispersion
+                rhs1 = rhs1 + dimag(TB(1,iQ,K)*profK)
+                rhs2 = rhs2 + dimag(TB(2,iQ,K)*profK)
+                rhs3 = rhs3 + dimag(TB(3,iQ,K)*profK)
+!$omp end workshare
+
+              end do ! Q
+            end do ! K
+          end do ! iU1
+
+          ! Return to common loop
+
+        end do ! iU
+      end do ! iL
+
+      ! Common parts for coefficients
+      tempRe = 1d3*sqrt3*IPI41*(2d0*rLu+1d0)* &
+               Atom%Ecoeff(itermu,iterml)/Dw
+      tempRa = tempRe/absK
+
+      ! Final values
+!$omp workshare
+      eta0 = tempRa*eta0
+      eta1 = tempRa*eta1
+      eta2 = tempRa*eta2
+      eta3 = tempRa*eta3
+      rha1 = tempRa*rha1
+      rha2 = tempRa*rha2
+      rha3 = tempRa*rha3
+      eps0 = tempRe*eps0
+      eps1 = tempRe*eps1
+      eps2 = tempRe*eps2
+      eps3 = tempRe*eps3
+      rhs1 = tempRe*rhs1
+      rhs2 = tempRe*rhs2
+      rhs3 = tempRe*rhs3
+!$omp end workshare
+
+!$omp end parallel
+
+      end subroutine rt1ordNB
+
+#ifdef RDIPEV
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Computes the absorption and emission coefficients.\n
+      !!          Atom(Atom_class): Structure with the atomic data\n
+      !!         TB(dcmplx(:,:,:)): Geometry tensors in magnetic field
+      !!                            reference frame\n
+      !!          omega(dfloat(:)): Frequency array\n
+      !!        Flgsg(Fctsg_class): Structure with factorials and
+      !!                            signs\n
+      !!            itran(integer): Index of transition to compute\n
+      !!           itermu(integer): Upper term of transition\n
+      !!           iterml(integer): Lower term of transition\n
+      !!               iz(integer): Height index\n
+      !!              if0(integer): First frequency index for this
+      !!                            transition\n
+      !!              if1(integer): Last frequency index for this
+      !!                            transition\n
+      !!                            profile\n
+      !!       Norma(Nindex_class): Normalization factors for Voigt\n
+      !!                            profiles or Voigt profiles\n
+      !!                Dw(dfloat): Doppler width of transition\n
+      !!              vfac(dfloat): Doppler shift factor\n
+      !!              absK(dfloat): Unit transformation factor\n
+      !!        aprof(dcmplx(:,:)): Absorption profiles\n
+      !!           eta0(dfloat(:)): Intensity absorptivity\n
+      !!           eta1(dfloat(:)): Q absorptivity\n
+      !!           eta2(dfloat(:)): U absorptivity\n
+      !!           eta3(dfloat(:)): V absorptivity\n
+      !!           rha1(dfloat(:)): Q dichroic absorptivity\n
+      !!           rha2(dfloat(:)): U dichroic absorptivity\n
+      !!           rha3(dfloat(:)): V dichroic absorptivity\n
+      !!           eps0(dfloat(:)): Intensity emissivity\n
+      !!           eps1(dfloat(:)): Q emissivity\n
+      !!           eps2(dfloat(:)): U emissivity\n
+      !!           eps3(dfloat(:)): V emissivity\n
+      !!           rhs1(dfloat(:)): Q 'dichroic' emissivity\n
+      !!           rhs2(dfloat(:)): U 'dichroic' emissivity\n
+      !!           rhs3(dfloat(:)): V 'dichroic' emissivity
+      subroutine rt1ord(Atom,TB,omega,Flgsg,itran,itermu,iterml, &
+                        iz,if0,if1,Norma,Dw,vfac,absK,aprof, &
+                        eta0,eta1,eta2,eta3,rha1,rha2,rha3, &
+                        eps0,eps1,eps2,eps3,rhs1,rhs2,rhs3)
+
+      ! I/O
+
+      type(Atom_class), intent(in):: Atom
+      type(Fctsg_class), intent(in):: Flgsg
+      type(Nindex_class), intent(in):: Norma
+      integer, intent(in):: itran, itermu, iterml, iz, if0, if1
+      double precision, intent(in):: Dw, absK, vfac
+      double precision, dimension(:), intent(in):: omega
+      double precision, dimension(if0:if1), intent(out):: eta0
+      double precision, dimension(if0:if1), intent(out):: eta1,rha1
+      double precision, dimension(if0:if1), intent(out):: eta2,rha2
+      double precision, dimension(if0:if1), intent(out):: eta3,rha3
+      double precision, dimension(if0:if1), intent(out):: eps0
+      double precision, dimension(if0:if1), intent(out):: eps1,rhs1
+      double precision, dimension(if0:if1), intent(out):: eps2,rhs2
+      double precision, dimension(if0:if1), intent(out):: eps3,rhs3
+      complex(kind=8), dimension(:,:), intent(in):: aprof
+      complex(kind=8), dimension(0:3,-2:2,0:2), intent(in):: TB
+
+      ! Local
+
+      logical:: lNCHLT
+
+      integer:: ifreq,K,iq,iq1,iQQ
+      integer:: nMu,nMl,iMu,iMl,iMu1,iMl1
+      integer:: iJl1,iJlb,iJu1,iJub
+      integer:: iU,iU1,kU,kU1,kUb,iL,iL1,kL,kL1,kLb
+
+      double precision:: rLu,rLl,S,rJu,rJu1,rJub,rJl,rJl1,rJlb
+      double precision:: rJumax,rJlmax,rMu,rMu1,rMl,rMl1
+      double precision:: eu,el,rK,QQ,q,q1,au,al,aul,ftmp
+      double precision:: Cu1,Cub,Cl1,Clb
+      double precision:: at,Dfreq,vfacw,tempRe,tempRa
+      double precision:: EVul,EVu1l,EVul1
+
+      complex(kind=8):: tK,rhoc
+      complex(kind=8),dimension(if0:if1):: prof, profK
+
+
+      !
+      ! Initialize variables
+      !
+
+      eta0 = 0d0
+      eta1 = 0d0
+      eta2 = 0d0
+      eta3 = 0d0
+      rha1 = 0d0
+      rha2 = 0d0
+      rha3 = 0d0
+      eps0 = 0d0
+      eps1 = 0d0
+      eps2 = 0d0
+      eps3 = 0d0
+      rhs1 = 0d0
+      rhs2 = 0d0
+      rhs3 = 0d0
+
+      if (NCHLT.and.allocated(Atom%NCHLT)) then
+        lNCHLT = Atom%NCHLT(iz,itran)
+      else
+        lNCHLT = .False.
+      end if
+
+      !
+      ! Get terms and transition quantities
+      !
+
+      ! Damping parameters
+      au = Atom%damp(itermu,iz)
+      al = Atom%damp(iterml,iz)
+      aul = Atom%ldamp(itran,iz)
+      at = (au + al + aul)/Dw
+
+      ! Spin
+      S = Atom%Sval(itermu)
+
+      ! Orbital angular momentum
+      rLu = Atom%rLval(itermu)
+      rLl = Atom%rLval(iterml)
+
+      ! Determine the maximum angular momentum and the number
+      ! of magnetic sublevels for that maximum momentum
+      rJumax = rLu+S
+      nMu = nint(2d0*rJumax+1d0)
+      rJlmax = rLl + S
+      nMl = nint(2d0*rJlmax+1d0)
+
+      ! Doppler shift in doppler units
+      vfacw = vfac/Dw
+
+!$omp parallel default(none) &
+!$omp private(iMu,rMu,iU,eu,iMl,rMl,q,iq,iL,el,Dfreq,ifreq,iMu1) &
+!$omp private(rMu1,iMl1,rMl1,q1,QQ,iq1,iQQ,K,rK,ftmp,tK,kU) &
+!$omp private(iJu,rJu,kL,iJl,rJl,kU1,Cu1,Cl1,iJu1,rJu1,kL1) &
+!$omp private(iJl1,rJl1,kUb,kLb,Cub,Clb,iJub,iJlb,rJub,rJlb) &
+!$omp private(rhoc,tempR,EVul,EVu1l,EVul1) &
+!$omp shared(eta0,eta1,eta2,eta3,rha1,rha2,rha3,at,rLu,rLl,vfacw) &
+!$omp shared(eps0,eps1,eps2,eps3,rhs1,rhs2,rhs3,lNCHLT) &
+!$omp shared(nMu,nMl,rJumax,rJlmax,Atom,vpfil,prof,aprof,Norma) &
+!$omp shared(iterml,itermu,profk,iz,Dw,itran,if0,if1) &
+!$omp shared(omega,Flgsg,TB)
+
+      !
+      ! Common part
+      !
+
+      ! For each Ml
+      do iMl=1,nMl
+
+        ! Value of Ml
+        rMl = -rJlmax + dble(iMl-1)
+
+        ! For each mu_l
+        do iL=1,Atom%nblk(iMl,iterml)
+
+          ! Get eigenvalue lower level
+          el = Atom%eval(iL,iMl,iterml,iz)/Dw
+
+          ! For each Mu
+          do iMu=1,nMu
+
+            ! Value of Mu
+            rMu = -rJumax + dble(iMu-1)
+
+            ! If not pi nor sigma, skip
+            if (abs(rMu-rMl).gt.1.1d0) cycle
+
+            ! Get difference between M momentums in integer
+            q = rMu-rMl
+            iq = nint(q)
+
+            ! For each mu_u
+            do iU=1,Atom%nblk(iMu,itermu) ! sum over mu_u
+
+              ! Get eigenvalue upper level
+              eu = Atom%eval(iU,iMu,itermu,iz)/Dw
+
+              ! Dipole strength
+              EVul = Atom%rdipev(iz)%rdipev(itran)% &
+                          rdip(iq,iU,iL,iMu,iMl)
+
+              ! Check if small
+              if (abs(EVul).lt.TINYEV) cycle
+
+              !
+              ! Compute profile
+              !
+
+              ! If in file
+              if (vpfil) then
+!$omp workshare
+                prof = aprof(:,Atom%i_Vind(itran)%ind(iL,iMl,iU,iMu))
+!$omp end workshare
+              ! If stored
+              else if (Norma%VRAM) then
+!$omp workshare
+                prof = Norma%prof(iL,iU,iMl,iMu)%cp
+!$omp end workshare
+              ! Not stored
+              else
+
+                ! Shift term
+                Dfreq = eu - el + Atom%Dfreq(itran)/Dw
+
+                ! For each frequency
+!$omp do
+                do ifreq=if0,if1
+
+                  ! Calculate profile
+                  call voigt(Dfreq - omega(ifreq)*vfacw,at, &
+                             prof(ifreq))
+
+                end do ! frequencies
+!$omp end do
+                ! Normalize
+!$omp workshare
+                prof = dcmplx(dble(prof)*Norma%Norm(iL,iU,iMl,iMu), &
+                              dimag(prof))
+!$omp end workshare
+
+              end if ! Storing
+
+              ! For each possible K
+              do K=0,2
+
+                ! Get the real number
+                rK = dble(K)
+
+                ! For each Q
+                do iQQ=-K,K
+
+                   ! Get q' index
+                   iq1 = iQQ + iq
+
+                   ! Check selection rules
+                   if (abs(iq1).gt.1) cycle
+
+                   ! Get q' and Q' values
+                   QQ = dble(iQQ)
+                   q1 = dble(iq1)
+
+                  ! Racah algebra
+                  ftmp = fun3j(1d0,1d0,rK,-q,q1,-QQ,Flgsg)
+
+                  ! If not allowed (3j-sym=0) skip
+                  if (abs(ftmp).lt.TINYJS) cycle
+
+                  ftmp = ftmp*Flgsg%sg(iq1+1)*sqrt(2d0*rK+1d0)*EVul
+
+      ! Reset identation
+      !
+      ! Emission
+      !
+
+      ! Initialize tK
+      tK = cZero
+
+      ! For each Mu'
+      do iMu1=1,nMu
+
+        ! Value of Mu'
+        rMu1 = -rJumax + dble(iMu1-1)
+
+        ! Check valid J symbols
+        if (nint(rMu1-rMl).ne.iq1) cycle
+
+        ! For each mu_u'
+        do iU1=1,Atom%nblk(iMu1,itermu)
+
+          ! Get dipole strength
+          EVu1l = Atom%rdipev(iz)%rdipev(itran)% &
+                          rdip(iq1,iU1,iL,iMu1,iMl)
+
+          ! Check if small
+          if (abs(EVu1l).lt.TINYEV) cycle
+
+          ! For each Ju'
+          do kU1=1,Atom%nblk(iMu1,itermu)
+
+            ! Get eigenvector
+            Cu1 = Atom%evec(kU1,iU1,iMu1,itermu,iz)
+
+            ! If coefficient too small, skip
+            if (abs(Cu1).lt.TINYEV) cycle
+
+            ! Get J level index
+            iJu1 = Atom%iJval(kU1,iMu1,itermu)
+
+            ! Get angular momentum
+            rJu1 = Atom%rJval(iJu1,itermu)
+
+            ! Sign
+            Cu1 = Cu1*Flgsg%sg(nint(rJu1 - rMu1))
+
+            ! For each Jub
+            do kUb=1,Atom%nblk(iMu,itermu) ! sum Jub
+
+              ! Get eigenvector for upper level b
+              Cub = Atom%evec(kUb,iU,iMu,itermu,iz)
+
+              ! If coefficient too small, skip
+              if (abs(Cub).lt.TINYEV) cycle
+
+              ! Get J level index
+              iJub = Atom%iJval(kUb,iMu,itermu)
+
+              ! Get angular momentum
+              rJub = Atom%rJval(iJub,itermu)
+
+              ! Sum over (Kl,Ql)
+              call emiss1(Atom,Flgsg,iz,itermu,iJu1, &
+                          iJub,rJu1,rJub,rMu1,rMu,rhoc)
+
+              ! Uncomment the following line for Zeeman
+             !if (iJub.ne.iJu1) rhoc=cZero
+
+              ! If no population, skip
+              if (abs(rhoc).lt.TINYER) cycle
+
+              ! Accumulate into tK
+              tK = ftmp*EVu1l*Cu1*Cub*rhoc + tK
+
+             end do ! kUb
+           end do ! kU1
+         end do ! iU1
+       end do ! iMu1
+
+       ! Add the profile
+!$omp workshare
+       profK = prof*tK
+!$omp end workshare
+
+!$omp workshare
+       ! Emissivity
+       eps0 = eps0 + dble(TB(0,iQQ,K)*profK)
+       eps1 = eps1 + dble(TB(1,iQQ,K)*profK)
+       eps2 = eps2 + dble(TB(2,iQQ,K)*profK)
+       eps3 = eps3 + dble(TB(3,iQQ,K)*profK)
+
+       ! Dispersion
+       rhs1 = rhs1 + dimag(TB(1,iQQ,K)*profK)
+       rhs2 = rhs2 + dimag(TB(2,iQQ,K)*profK)
+       rhs3 = rhs3 + dimag(TB(3,iQQ,K)*profK)
+!$omp end workshare
+
+      !
+      ! Absorption
+      !
+
+      ! Initialize tK
+      tK = cZero
+
+      ! For each Ml'
+      do iMl1=1,nMl
+
+        ! NCHLT
+        if (lNCHLT) then
+          if (iMl1.ne.iMl) cycle
+        end if
+
+        ! Value of Ml'
+        rMl1 = -rJlmax + dble(iMl1-1)
+
+        ! Check valid J symbols
+        if (nint(rMu-rMl1).ne.iq1) cycle
+
+        ! For each mu_l'
+        do iL1=1,Atom%nblk(iMl1,iterml)
+
+          ! Get dipole strength
+          EVul1 = Atom%rdipev(iz)%rdipev(itran)% &
+                          rdip(iq1,iU,iL1,iMu,iMl1)
+
+          ! Check if small
+          if (abs(EVul1).lt.TINYEV) cycle
+
+          ! For each Jl'
+          do kL1=1,Atom%nblk(iMl1,iterml)
+
+            ! Eigenvector
+            Cl1 = Atom%evec(kL1,iL1,iMl1,iterml,iz)
+
+            ! If coefficient too small, skip
+            if (abs(Cl1).lt.TINYEV) cycle
+
+            ! Get J level index
+            iJl1 = Atom%iJval(kL1,iMl1,iterml)
+
+            ! Get angular momentum
+            rJl1 = Atom%rJval(iJl1,iterml)
+
+            ! For each Jlb
+            do kLb=1,Atom%nblk(iMl,iterml)
+
+              ! Get eigenvector for lower level b
+              Clb = Atom%evec(kLb,iL,iMl,iterml,iz)
+
+              ! If coefficient too small, skip
+              if (abs(Clb).lt.TINYEV) cycle
+
+              ! Get J level index
+              iJlb = Atom%iJval(kLb,iMl,iterml)
+
+              ! Get angular momentum
+              rJlb = Atom%rJval(iJlb,iterml)
+
+              ! Sum over (Kl,Ql)
+              call absorb1(Atom,Flgsg,iz,iterml,iJlb, &
+                           iJl1,rJlb,rJl1,rMl,rMl1,0, &
+                           rhoc)
+
+              ! If no population, skip
+              if (abs(rhoc).lt.TINYER) cycle
+
+              ! Accumulate into tK
+              tK = tK + &
+                   ftmp*EVul1*Cl1*Clb*rhoc*Flgsg%sg(nint(rJlb-rMl))
+
+            end do ! kLb
+          end do ! kL1
+        end do ! iL1
+      end do ! iMl1
+
+      ! Add the profile
+!$omp workshare
+      profK = prof*tk
+!$omp end workshare
+
+!$omp workshare
+      ! Absorptivity
+      eta0 = eta0 + dble(TB(0,iQQ,K)*profk)
+      eta1 = eta1 + dble(TB(1,iQQ,K)*profk)
+      eta2 = eta2 + dble(TB(2,iQQ,K)*profk)
+      eta3 = eta3 + dble(TB(3,iQQ,K)*profk)
+
+      ! Dispersion
+      rha1 = rha1 + dimag(TB(1,iQQ,K)*profk)
+      rha2 = rha2 + dimag(TB(2,iQQ,K)*profk)
+      rha3 = rha3 + dimag(TB(3,iQQ,K)*profk)
+!$omp end workshare
+
+                  ! Restore identation
+
+                end do ! iQQ
+              end do ! K
+            end do ! iU
+          end do ! iMu
+        end do ! iL
+      end do ! iMl
+
+      ! Common parts for coefficients
+      tempRe = 1d3*sqrt3*IPI41*(2d0*rLu+1d0)* &
+               Atom%Ecoeff(itermu,iterml)/Dw
+      tempRa = tempRe/absK
+
+      ! Final values
+!$omp workshare
+      eps0 = tempRe*eps0
+      eps1 = tempRe*eps1
+      eps2 = tempRe*eps2
+      eps3 = tempRe*eps3
+      rhs1 = tempRe*rhs1
+      rhs2 = tempRe*rhs2
+      rhs3 = tempRe*rhs3
+      eta0 = tempRa*eta0
+      eta1 = tempRa*eta1
+      eta2 = tempRa*eta2
+      eta3 = tempRa*eta3
+      rha1 = tempRa*rha1
+      rha2 = tempRa*rha2
+      rha3 = tempRa*rha3
+!$omp end workshare
+!$omp end parallel
+
+      end subroutine rt1ord
+
+#endif
 !#####################################################################
 !#####################################################################
 !#####################################################################
@@ -802,7 +1673,7 @@
                             ! Coefficient and sign
                             Clb = Clb*Flgsg%sg(nint(rJlb-rMl))
 
-                            ! Sum over (Ku,Qu)
+                            ! Sum over (Kl,Ql)
                             call absorb1(Atom,Flgsg,iz,iterml,iJlb, &
                                          iJl1,rJlb,rJl1,rMl,rMl1,0, &
                                          rhoc)
@@ -1390,7 +2261,7 @@
         ! Factor Ju
         f61 = 2d0*rJu + 1d0
 
-        ! For each mu_l
+        ! For each Jl
         do iL=1,Atom%nJ(iterml)
 
           ! Get Jl
@@ -1448,7 +2319,7 @@
 
           end if ! Storing
 
-          ! For each mu_l
+          ! For each Jl'
           do iL1=1,Atom%nJ(iterml)
 
             ! Get Jl
@@ -1936,7 +2807,7 @@
 !$omp end workshare
 
 !$omp workshare
-                  ! Absorptivity
+                  ! Emissivity
                   eps0 = eps0 + dble(TB(0,iQQ,K)*profK)
                   eps1 = eps1 + dble(TB(1,iQQ,K)*profK)
                   eps2 = eps2 + dble(TB(2,iQQ,K)*profK)
@@ -1956,8 +2827,8 @@
       end do ! Ml
 
       ! Common part for the two coefficients
-      tempR = 1d8*sqrt3*IPI41*(2d0*rLu+1d0)* &
-              Atom%Ecoeff(itermu,iterml)*(1d-5/Dw)
+      tempR = 1d3*sqrt3*IPI41*(2d0*rLu+1d0)* &
+              Atom%Ecoeff(itermu,iterml)/Dw
 
       ! Final values
 !$omp workshare
@@ -2600,8 +3471,8 @@
       end do ! iL
 
       ! Common part for the two coefficients
-      tempR = 1d8*sqrt3*IPI41*(2d0*rLu+1d0)* &
-              Atom%Ecoeff(itermu,iterml)*(1d-5/Dw)
+      tempR = 1d3*sqrt3*IPI41*(2d0*rLu+1d0)* &
+              Atom%Ecoeff(itermu,iterml)/Dw
 
       ! Final values
 !$omp workshare

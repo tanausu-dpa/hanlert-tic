@@ -11,12 +11,20 @@
 !  Start:
 !     04/27/2017
 !  Last version:
-!     11/16/2023 V3.0.12
+!     04/01/2024 V3.0.13
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     04/01/2024:   V3.0.13 - Added optional (through asserts) call to
+!                             routine to compute the magnetic first
+!                             order radiative transfer coefficients
+!                             together (TdPA)
+!                           - Added call to routine to compute the non
+!                             magnetic first order radiative transfer
+!                             coefficients together (TdPA)
 !
 !     11/16/2023:   V3.0.12 - When doing LOS, AD second order
 !                             emissivity should be called with the
@@ -651,6 +659,22 @@
             ! Add the microt. to Doppler width
             Dw = Atom(ia)%Dfreq(jtran)*sqrt(DwT*DwT + &
                                             Atmo%vmi(iz)**2d0)
+#ifdef RDIPEV
+            !
+            ! First order RT coefficients
+            !
+            call rt1ord(Atom(ia),TBo,Frec%omega,Flgsg, &
+                        jtran,itermu,iterml,iz,if0l,if1l, &
+                        p_Norm,Dw,vfac,absK,p_prof, &
+                        etmp0(if0l:if1l),etmp1(if0l:if1l), &
+                        etmp2(if0l:if1l),etmp3(if0l:if1l), &
+                        rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
+                        rtmp3(if0l:if1l), &
+                        estmp0(if0l:if1l),estmp1(if0l:if1l), &
+                        estmp2(if0l:if1l),estmp3(if0l:if1l), &
+                        rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
+                        rstmp3(if0l:if1l))
+#else
 #ifdef _OPENMP
             ! If dividing in components
             if (Atom(ia)%omp_comp_1ord(jtran)) then
@@ -706,6 +730,7 @@
                         rtmp3(if0l:if1l))
 #ifdef _OPENMP
             end if ! Dividing in components or frequencies
+#endif
 #endif
 
             ! Store absorption profile
@@ -956,26 +981,19 @@
                                             Atmo%vmi(iz)**2d0)
 
             !
-            ! First order emissivity
+            ! Get first order RT coefficients
             !
-            call emissNB(Atom(ia),TBo,Frec%omega,Flgsg, &
-                         jtran,itermu,iterml,iz,if0l,if1l, &
-                         p_Norm,Dw,vfac,p_prof, &
-                         estmp0(if0l:if1l),estmp1(if0l:if1l), &
-                         estmp2(if0l:if1l),estmp3(if0l:if1l), &
-                         rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
-                         rstmp3(if0l:if1l))
-
-            !
-            ! Absorptivity
-            !
-            call absorbNB(Atom(ia),TBo,Frec%omega,Flgsg, &
+            call rt1ordNB(Atom(ia),TBo,Frec%omega,Flgsg, &
                           jtran,itermu,iterml,iz,if0l,if1l, &
                           p_Norm,Dw,vfac,absK,p_prof, &
                           etmp0(if0l:if1l),etmp1(if0l:if1l), &
                           etmp2(if0l:if1l),etmp3(if0l:if1l), &
                           rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
-                          rtmp3(if0l:if1l))
+                          rtmp3(if0l:if1l), &
+                          estmp0(if0l:if1l),estmp1(if0l:if1l), &
+                          estmp2(if0l:if1l),estmp3(if0l:if1l), &
+                          rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
+                          rstmp3(if0l:if1l))
 
             ! Store absorption profile
             data2(iil:iil+nf,1) = etmp0(if0l:if1l)
@@ -1733,6 +1751,22 @@
             ! Add the microt. to Doppler width
             Dw = Atom(ia)%Dfreq(jtran)*sqrt(DwT*DwT + &
                                             Atmo%vmi(iz)**2d0)
+#ifdef RDIPEV
+            !
+            ! First order RT coefficients
+            !
+            call rt1ord(Atom(ia),TBo,Frec%omega,Flgsg, &
+                        jtran,itermu,iterml,iz,if0l,if1l, &
+                        p_Norm,Dw,vfac,absK,p_prof, &
+                        etmp0(if0l:if1l),etmp1(if0l:if1l), &
+                        etmp2(if0l:if1l),etmp3(if0l:if1l), &
+                        rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
+                        rtmp3(if0l:if1l), &
+                        estmp0(if0l:if1l),estmp1(if0l:if1l), &
+                        estmp2(if0l:if1l),estmp3(if0l:if1l), &
+                        rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
+                        rstmp3(if0l:if1l))
+#else
 #ifdef _OPENMP
             ! If dividing in components
             if (Atom(ia)%omp_comp_1ord(jtran)) then
@@ -1787,6 +1821,7 @@
                         rtmp3(if0l:if1l))
 #ifdef _OPENMP
             end if ! Dividing in components or frequencies
+#endif
 #endif
 
 
@@ -1990,27 +2025,19 @@
                                             Atmo%vmi(iz)**2d0)
 
             !
-            ! First order emissivity
+            ! Get first order RT coefficients
             !
-            call emissNB(Atom(ia),TBo,Frec%omega,Flgsg, &
-                         jtran,itermu,iterml,iz,if0l,if1l, &
-                         p_Norm,Dw,vfac,p_prof, &
-                         estmp0(if0l:if1l),estmp1(if0l:if1l), &
-                         estmp2(if0l:if1l),estmp3(if0l:if1l), &
-                         rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
-                         rstmp3(if0l:if1l))
-
-            !
-            ! Absorptivity
-            !
-            call absorbNB(Atom(ia),TBo,Frec%omega,Flgsg, &
+            call rt1ordNB(Atom(ia),TBo,Frec%omega,Flgsg, &
                           jtran,itermu,iterml,iz,if0l,if1l, &
                           p_Norm,Dw,vfac,absK,p_prof, &
                           etmp0(if0l:if1l),etmp1(if0l:if1l), &
                           etmp2(if0l:if1l),etmp3(if0l:if1l), &
                           rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
-                          rtmp3(if0l:if1l))
-
+                          rtmp3(if0l:if1l), &
+                          estmp0(if0l:if1l),estmp1(if0l:if1l), &
+                          estmp2(if0l:if1l),estmp3(if0l:if1l), &
+                          rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
+                          rstmp3(if0l:if1l))
 
             !
             ! Stimulated emission contribution
@@ -2630,6 +2657,69 @@
             ! Add the microt. to Doppler width
             Dw = Atom(ia)%Dfreq(jtran)*sqrt(DwT*DwT + &
                                             Atmo%vmi(iz)**2d0)
+
+#ifdef RDIPEV
+            ! If stimulated
+            if (stm) then
+
+              !
+              ! First order RT coefficients
+              !
+              call rt1ord(Atom(ia),TBo,Frec%omega,Flgsg, &
+                          jtran,itermu,iterml,iz,if0l,if1l, &
+                          p_Norm,Dw,vfac,absK,p_prof, &
+                          etmp0(if0l:if1l),etmp1(if0l:if1l), &
+                          etmp2(if0l:if1l),etmp3(if0l:if1l), &
+                          rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
+                          rtmp3(if0l:if1l), &
+                          estmp0(if0l:if1l),estmp1(if0l:if1l), &
+                          estmp2(if0l:if1l),estmp3(if0l:if1l), &
+                          rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
+                          rstmp3(if0l:if1l))
+
+              ! Correction
+              etmp0(if0l:if1l) = etmp0(if0l:if1l) - &
+                                 estmp0(if0l:if1l)/absK
+
+            ! Not stimulated
+            else
+
+#ifdef _OPENMP
+              ! If dividing in components
+              if (Atom(ia)%omp_comp_1ord(jtran)) then
+
+                !
+                ! Absorptivity
+                !
+                call absorb_c(Atom(ia),TBo,Frec%omega,Flgsg, &
+                              jtran,itermu,iterml,iz,if0l,if1l, &
+                              p_Norm,Dw,vfac,absK,p_prof, &
+                              Atom(ia)%omp_1c(jtran), &
+                              etmp0(if0l:if1l),etmp1(if0l:if1l), &
+                              etmp2(if0l:if1l),etmp3(if0l:if1l), &
+                              rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
+                              rtmp3(if0l:if1l))
+
+              ! Dividing in frequencies
+              else
+#endif
+              !
+              ! Absorptivity
+              !
+              call absorb(Atom(ia),TBo,Frec%omega,Flgsg, &
+                          jtran,itermu,iterml,iz,if0l,if1l, &
+                          p_Norm,Dw,vfac,absK,p_prof, &
+                          etmp0(if0l:if1l),etmp1(if0l:if1l), &
+                          etmp2(if0l:if1l),etmp3(if0l:if1l), &
+                          rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
+                          rtmp3(if0l:if1l))
+#ifdef _OPENMP
+              end if ! Dividing in components or frequencies
+#endif
+            end if ! Stimulated
+
+! No energy eigenbasis
+#else
 #ifdef _OPENMP
             ! If dividing in components
             if (Atom(ia)%omp_comp_1ord(jtran)) then
@@ -2703,6 +2793,8 @@
                 etmp0(if0l:if1l) = etmp0(if0l:if1l) - &
                                    estmp0(if0l:if1l)/absK
             endif ! Stimulated emission
+! energy eigenbasis
+#endif
 
             ! Add the contribution to the absorptivity of this atom
             etaA(if0l:if1l) = etmp0(if0l:if1l) + etaA(if0l:if1l)
@@ -2783,39 +2875,43 @@
             Dw = Atom(ia)%Dfreq(jtran)*sqrt(DwT*DwT + &
                                             Atmo%vmi(iz)**2d0)
 
-            !
-            ! Absorptivity
-            !
-            call absorbNB(Atom(ia),TBo,Frec%omega,Flgsg, &
-                          jtran,itermu,iterml,iz,if0l,if1l, &
-                          p_Norm,Dw,vfac,absK,p_prof, &
-                          etmp0(if0l:if1l),etmp1(if0l:if1l), &
-                          etmp2(if0l:if1l),etmp3(if0l:if1l), &
-                          rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
-                          rtmp3(if0l:if1l))
-
-            !
-            ! Stimulated emission contribution
-            !
-
-            ! If there is stimulated emission
+            ! If stimulated
             if (stm) then
 
               !
-              ! First order emissivity
+              ! Get first order RT coefficients
               !
-              call emissNB(Atom(ia),TBo,Frec%omega,Flgsg, &
-                           jtran,itermu,iterml,iz,if0l,if1l, &
-                           p_Norm,Dw,vfac,p_prof, &
-                           estmp0(if0l:if1l),estmp1(if0l:if1l), &
-                           estmp2(if0l:if1l),estmp3(if0l:if1l), &
-                           rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
-                           rstmp3(if0l:if1l))
+              call rt1ordNB(Atom(ia),TBo,Frec%omega,Flgsg, &
+                            jtran,itermu,iterml,iz,if0l,if1l, &
+                            p_Norm,Dw,vfac,absK,p_prof, &
+                            etmp0(if0l:if1l),etmp1(if0l:if1l), &
+                            etmp2(if0l:if1l),etmp3(if0l:if1l), &
+                            rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
+                            rtmp3(if0l:if1l), &
+                            estmp0(if0l:if1l),estmp1(if0l:if1l), &
+                            estmp2(if0l:if1l),estmp3(if0l:if1l), &
+                            rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
+                            rstmp3(if0l:if1l))
 
+              ! Correction
               etmp0(if0l:if1l) = etmp0(if0l:if1l) - &
                                  estmp0(if0l:if1l)/absK
 
-            endif
+            ! No stimulated
+            else
+
+              !
+              ! Absorptivity
+              !
+              call absorbNB(Atom(ia),TBo,Frec%omega,Flgsg, &
+                            jtran,itermu,iterml,iz,if0l,if1l, &
+                            p_Norm,Dw,vfac,absK,p_prof, &
+                            etmp0(if0l:if1l),etmp1(if0l:if1l), &
+                            etmp2(if0l:if1l),etmp3(if0l:if1l), &
+                            rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
+                            rtmp3(if0l:if1l))
+
+            end if ! Stimulated
 
             ! Add the contribution to the absorptivity of this atom
             etaA(if0l:if1l) = etmp0(if0l:if1l) + etaA(if0l:if1l)
@@ -3133,6 +3229,22 @@
             ! Add the microt. to Doppler width
             Dw = Atom(ia)%Dfreq(jtran)*sqrt(DwT*DwT + &
                                             Atmo%vmi(1)**2d0)
+#ifdef RDIPEV
+            !
+            ! First order RT coefficients
+            !
+            call rt1ord(Atom(ia),TB,Frec%omega,Flgsg, &
+                        jtran,itermu,iterml,1,if0l,if1l, &
+                        p_Norm,Dw,vfac,absK,p_prof, &
+                        etmp0(if0l:if1l),etmp1(if0l:if1l), &
+                        etmp2(if0l:if1l),etmp3(if0l:if1l), &
+                        rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
+                        rtmp3(if0l:if1l), &
+                        estmp0(if0l:if1l),estmp1(if0l:if1l), &
+                        estmp2(if0l:if1l),estmp3(if0l:if1l), &
+                        rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
+                        rstmp3(if0l:if1l))
+#else
 #ifdef _OPENMP
             ! If dividing in components
             if (Atom(ia)%omp_comp_1ord(jtran)) then
@@ -3188,6 +3300,7 @@
                         rtmp3(if0l:if1l))
 #ifdef _OPENMP
             end if ! Dividing in components or frequencies
+#endif
 #endif
 
             !
@@ -3306,26 +3419,41 @@
                                             Atmo%vmi(1)**2d0)
 
             !
-            ! First order emissivity
+            ! Get first order RT coefficients
             !
-            call emissNB(Atom(ia),TB,Frec%omega_ou,Flgsg, &
-                         jtran,itermu,iterml,1,if0l,if1l, &
-                         p_Norm,Dw,vfac,p_prof, &
-                         estmp0(if0l:if1l),estmp1(if0l:if1l), &
-                         estmp2(if0l:if1l),estmp3(if0l:if1l), &
-                         rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
-                         rstmp3(if0l:if1l))
-
-            !
-            ! Absorptivity
-            !
-            call absorbNB(Atom(ia),TB,Frec%omega_ou,Flgsg, &
+            call rt1ordNB(Atom(ia),TB,Frec%omega_ou,Flgsg, &
                           jtran,itermu,iterml,1,if0l,if1l, &
                           p_Norm,Dw,vfac,absK,p_prof, &
                           etmp0(if0l:if1l),etmp1(if0l:if1l), &
                           etmp2(if0l:if1l),etmp3(if0l:if1l), &
                           rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
-                          rtmp3(if0l:if1l))
+                          rtmp3(if0l:if1l), &
+                          estmp0(if0l:if1l),estmp1(if0l:if1l), &
+                          estmp2(if0l:if1l),estmp3(if0l:if1l), &
+                          rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
+                          rstmp3(if0l:if1l))
+
+            !
+            ! First order emissivity
+            !
+           !call emissNB(Atom(ia),TB,Frec%omega_ou,Flgsg, &
+           !             jtran,itermu,iterml,1,if0l,if1l, &
+           !             p_Norm,Dw,vfac,p_prof, &
+           !             estmp0(if0l:if1l),estmp1(if0l:if1l), &
+           !             estmp2(if0l:if1l),estmp3(if0l:if1l), &
+           !             rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
+           !             rstmp3(if0l:if1l))
+
+            !
+            ! Absorptivity
+            !
+           !call absorbNB(Atom(ia),TB,Frec%omega_ou,Flgsg, &
+           !              jtran,itermu,iterml,1,if0l,if1l, &
+           !              p_Norm,Dw,vfac,absK,p_prof, &
+           !              etmp0(if0l:if1l),etmp1(if0l:if1l), &
+           !              etmp2(if0l:if1l),etmp3(if0l:if1l), &
+           !              rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
+           !              rtmp3(if0l:if1l))
 
             !
             ! Stimulated emission contribution

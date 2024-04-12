@@ -11,12 +11,20 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     02/23/2024 V3.0.9
+!     04/02/2024 V3.0.10
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     04/02/2024:   V3.0.10 - Added optional (through asserts) call to
+!                             routine to compute the magnetic first
+!                             order radiative transfer coefficients
+!                             together (TdPA)
+!                           - Added call to routine to compute the non
+!                             magnetic first order radiative transfer
+!                             coefficients together (TdPA)
 !
 !     02/23/2024:    V3.0.9 - Add iterating argument to RTCoeffI which
 !                             determines if the profile and lambda
@@ -2145,16 +2153,56 @@
             Dw = Atom(ia)%Dfreq(jtran)*sqrt(DwT*DwT + &
                                             Atmo%vmi(iz)**2d0)
 
-            !
-            ! First order emissivity
-            !
-            call emiss(Atom(ia),TBo,Frec%omega,Flgsg, &
-                       jtran,itermu,iterml,iz,if0l,if1l, &
-                       p_Norm,Dw,vfac,p_prof, &
-                       estmp0(if0l:if1l),estmp1(if0l:if1l), &
-                       estmp2(if0l:if1l),estmp3(if0l:if1l), &
-                       rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
-                       rstmp3(if0l:if1l))
+#ifdef RDIPEV
+            ! If stimulated
+            if (stm) then
+
+              !
+              ! First order RT coefficients
+              !
+              call rt1ord(Atom(ia),TBo,Frec%omega,Flgsg, &
+                          jtran,itermu,iterml,iz,if0l,if1l, &
+                          p_Norm,Dw,vfac,absK,p_prof, &
+                          etmp0(if0l:if1l),etmp1(if0l:if1l), &
+                          etmp2(if0l:if1l),etmp3(if0l:if1l), &
+                          rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
+                          rtmp3(if0l:if1l), &
+                          estmp0(if0l:if1l),estmp1(if0l:if1l), &
+                          estmp2(if0l:if1l),estmp3(if0l:if1l), &
+                          rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
+                          rstmp3(if0l:if1l))
+
+            ! Not stimulated
+            else
+
+              !
+              ! Absorptivity
+              !
+              call absorb(Atom(ia),TBo,Frec%omega,Flgsg, &
+                          jtran,itermu,iterml,iz,if0l,if1l, &
+                          p_Norm,Dw,vfac,absK,p_prof, &
+                          etmp0(if0l:if1l),etmp1(if0l:if1l), &
+                          etmp2(if0l:if1l),etmp3(if0l:if1l), &
+                          rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
+                          rtmp3(if0l:if1l))
+            end if
+
+#else
+            ! If stimulated
+            if (stm) then
+
+              !
+              ! First order emissivity
+              !
+              call emiss(Atom(ia),TBo,Frec%omega,Flgsg, &
+                         jtran,itermu,iterml,iz,if0l,if1l, &
+                         p_Norm,Dw,vfac,p_prof, &
+                         estmp0(if0l:if1l),estmp1(if0l:if1l), &
+                         estmp2(if0l:if1l),estmp3(if0l:if1l), &
+                         rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
+                         rstmp3(if0l:if1l))
+
+            end if ! Stimulated
 
             !
             ! Absorptivity
@@ -2166,6 +2214,7 @@
                         etmp2(if0l:if1l),etmp3(if0l:if1l), &
                         rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
                         rtmp3(if0l:if1l))
+#endif
 
             ! If MPI
             if (MPID%mpi) then
@@ -2394,26 +2443,40 @@
                                             Atmo%vmi(iz)**2d0)
 
             !
-            ! First order emissivity
-            !
-            call emissNB(Atom(ia),TBo,Frec%omega,Flgsg, &
-                         jtran,itermu,iterml,iz,if0l,if1l, &
-                         p_Norm,Dw,vfac,p_prof, &
-                         estmp0(if0l:if1l),estmp1(if0l:if1l), &
-                         estmp2(if0l:if1l),estmp3(if0l:if1l), &
-                         rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
-                         rstmp3(if0l:if1l))
-
-            !
             ! Absorptivity
             !
-            call absorbNB(Atom(ia),TBo,Frec%omega,Flgsg, &
-                          jtran,itermu,iterml,iz,if0l,if1l, &
-                          p_Norm,Dw,vfac,absK,p_prof, &
-                          etmp0(if0l:if1l),etmp1(if0l:if1l), &
-                          etmp2(if0l:if1l),etmp3(if0l:if1l), &
-                          rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
-                          rtmp3(if0l:if1l))
+
+            ! If stimulated
+            if (stm) then
+
+              ! Get absorption and emission
+              call rt1ordNB(Atom(ia),TBo,Frec%omega,Flgsg, &
+                            jtran,itermu,iterml,iz,if0l,if1l, &
+                            p_Norm,Dw,vfac,absK,p_prof, &
+                            etmp0(if0l:if1l),etmp1(if0l:if1l), &
+                            etmp2(if0l:if1l),etmp3(if0l:if1l), &
+                            rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
+                            rtmp3(if0l:if1l), &
+                            estmp0(if0l:if1l),estmp1(if0l:if1l), &
+                            estmp2(if0l:if1l),estmp3(if0l:if1l), &
+                            rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
+                            rstmp3(if0l:if1l))
+
+            ! Not stimulated
+            else
+
+              !
+              ! Absorptivity
+              !
+              call absorbNB(Atom(ia),TBo,Frec%omega,Flgsg, &
+                            jtran,itermu,iterml,iz,if0l,if1l, &
+                            p_Norm,Dw,vfac,absK,p_prof, &
+                            etmp0(if0l:if1l),etmp1(if0l:if1l), &
+                            etmp2(if0l:if1l),etmp3(if0l:if1l), &
+                            rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
+                            rtmp3(if0l:if1l))
+
+            end if
 
             ! If MPI
             if (MPID%mpi) then

@@ -12,12 +12,19 @@
 !  Start:
 !     04/20/2016
 !  Last version:
-!     03/11/2024 V3.0.21
+!     04/12/2024 V3.0.22
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     04/12/2024:   V3.0.22 - Bugfix: Fixed wrong read of Stokes
+!                             parameters when reading a solution
+!                             from an axial problem into a problem
+!                             that required non-axial Stokes
+!                             parameters. The bug was introduced
+!                             in v3.0.20 (TdPA)
 !
 !     03/11/2024:   V3.0.21 - Removed unnecessary reshapes in cases
 !                             when there was a single dimension with
@@ -1759,8 +1766,7 @@
 
                       ! Fill rest
                       do iph=2,Geom%nph
-                        Stokes(iS,ifreq,iph,ith,iz) = &
-                                             Stokes(iS,ifreq,1,ith,iz)
+                        Stokes(:,:,iph,ith,iz) = Stokes(:,:,1,ith,iz)
                       end do ! azimuthal nodes
 
                     ! Not input axial
@@ -2726,6 +2732,8 @@
                           ! Skip out of limits
                           if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
 
+                          ! Store
+                          if (KSTK) Stokes0(ifreq,iph,ith,iz) = da1
 
                           ! Add contribution to the JKQC integral
                           if (axiali) then
@@ -2831,8 +2839,7 @@
 
                       ! Fill rest
                       do iph=2,GeomI%nph
-                        Stokes0(ifreq,iph,ith,iz) = &
-                                               Stokes0(ifreq,1,ith,iz)
+                        Stokes0(:,iph,ith,iz) = Stokes0(:,1,ith,iz)
                       end do ! azimuthal nodes
 
                     ! Not input axial

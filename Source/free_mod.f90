@@ -12,12 +12,15 @@
 !  Start:
 !     06/28/2022
 !  Last version:
-!     03/15/2024 V3.1.5
+!     04/01/2024 V3.1.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     04/01/2024:    V3.1.6 - Deallocate dipole strength in energy
+!                             basis if it proceeds (TdPA)
 !
 !     03/15/2024:    V3.1.5 - Use array-stored indexes to run over
 !                             the Normp pointer in the Atom class
@@ -194,6 +197,11 @@
 
         ! NCHLT
         if (allocated(Atom(ii)%NCHLT)) deallocate(Atom(ii)%NCHLT)
+
+#ifdef RDIPEV
+        ! Dipole strength energy eigenbasis
+        if (allocated(Atom(ii)%rdipev)) deallocate(Atom(ii)%rdipev)
+#endif
 
       end do ! Atoms
 
@@ -771,6 +779,11 @@
 
         ! NCHLT
         if (allocated(Atom(ii)%NCHLT)) deallocate(Atom(ii)%NCHLT)
+
+#ifdef RDIPEV
+        ! Dipole strength energy eigenbasis
+        if (allocated(Atom(ii)%rdipev)) deallocate(Atom(ii)%rdipev)
+#endif
 
       end do
 

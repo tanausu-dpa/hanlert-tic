@@ -10,12 +10,17 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     11/27/2023 V3.1.1
+!     04/02/2024 V3.1.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     04/02/2024:    V3.1.2 - Wrong matrix multiplication function
+!                             called when the second order integral
+!                             gives unphysical results and linear
+!                             was attempted in the I-Q case (TdPA)
 !
 !     11/27/2023:    V3.1.1 - Improved error verbosity (TdPA)
 !
@@ -337,9 +342,9 @@
             end if
 
             ! Try linear
-            call MatVec(kappaA,psim*SM(0:1,ifreq) + &
-                               psio*SO(0:1,ifreq), &
-                        vector3A)
+            call MatVec_2d(kappaA,psim*SM(0:1,ifreq) + &
+                                  psio*SO(0:1,ifreq), &
+                           vector3A)
 
             ! Compute final Stokes parameters
             StkO(0:1,ifreq) = vector2A + vector3A
