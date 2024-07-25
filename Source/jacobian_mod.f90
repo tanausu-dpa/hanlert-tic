@@ -10,12 +10,15 @@
 !  Start:
 !     02/24/2023
 !  Last version:
-!     09/08/2023 V3.0.7
+!     05/17/2024 V3.0.8
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     05/17/2024:    V3.0.8 - The weights are normalized when defined
+!                             before starting with inversions (TdPA)
 !
 !     09/08/2023:    V3.0.7 - Verbosity update (TdPA)
 !
@@ -117,16 +120,14 @@
             LM_Stru%WeightI = Inf_Stokes%weight(0,:)* &
                               Inf_Stokes%weight(0,:)/ &
                               (Inf_Stokes%Sigma_W(0,:)* &
-                               Inf_Stokes%sigma_W(0,:))/ &
-                              dble(Inf_Stokes%Num_freedomI)
+                               Inf_Stokes%sigma_W(0,:))
 
           ! No wavelength dependent sigma
           else
 
             ! Weight
             LM_Stru%WeightI = Inf_Stokes%weight(0,:)* &
-                              Inf_Stokes%weight(0,:)/ &
-                              dble(Inf_Stokes%Num_freedomI)
+                              Inf_Stokes%weight(0,:)
 
           end if ! Frequency dependent sigma
 
@@ -150,8 +151,7 @@
         if (.not.LM_Stru%Flag_weight) then
 
           ! Weight contribution
-          LM_Stru%weight = Inf_Stokes%Weight*Inf_Stokes%Weight/ &
-                           dble(Inf_Stokes%Num_freedom)
+          LM_Stru%weight = Inf_Stokes%Weight*Inf_Stokes%Weight
 
           ! If wavelength dependent sigma
           if (Inf_Stokes%Sigma_Flag) then

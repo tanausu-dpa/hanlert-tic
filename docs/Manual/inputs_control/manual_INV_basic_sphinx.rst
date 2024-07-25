@@ -728,7 +728,7 @@ AUTO_WEIGHT
 WEIGHT
 ------
 
-  * MANDATORY, ADDITIVE
+  * MANDATORY
 
   * Formats:
     
@@ -740,13 +740,24 @@ WEIGHT
 WEIGHT_FILE
 -----------
 
-  * MANDATORY, ADDITIVE
+  * MANDATORY
 
   * Formats:
     
     - string: file path
 
   * Description: Path, absolute or relative to the running directory, of a file with the wavelengths ranges and weights for Stokes I, Q, U, and V to be used in the inversion. Ignored if AUTO_WEIGHT=Yes. Not mandatory if WEIGHT is specified.
+
+WEIGHT_FACTOR
+-------------
+
+  * OPTIONAL, ADDITIVE
+
+  * Formats:
+    
+    - string + float*3
+
+  * Description: Each entry of this keyword specifies a multiplicative factor for the weights of a given Stokes parameter between two wavelengths. The string must be I, Q, U, or V, the first two floats specify the wavelength range of the weights to enhance in nanometers, and the last one is a non-negative multiplicative factor. If there are several ranges sharing at least one wavelength for the same Stokes parameter, the inversion will be aborted before starting. Ignored if AUTO_WEIGHT=Yes.
 
 INV_INIT
 --------
@@ -1342,17 +1353,6 @@ REGUL_PG
 
   * Description: Type of regulatization and associated weight for the gas pressure.
 
-REGUL_LIMITS
-------------
-
-  * OPTIONAL
-
-  * Formats:
-    
-    - float; default: 0.1
-
-  * Description: Upper limit of the relative weight that the regularization can have with respect to the merit function.
-
 THRH_CHI2
 ---------
 
@@ -1595,6 +1595,17 @@ ATMO_STRAT
     - float*3
 
   * Description: Triplets of number, with the first two specifying a range in logarithmic optical depth in which the sampling step of the atmospheric model for the forward solver must be reduced by a factor given by the third number.
+
+LM_METHOD
+---------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string: Traditional, backtracking; default: backtracking
+
+  * Description: Type of Levenberg-Marquardt method for the inversion minimization.
 
 KEEP_RF
 -------

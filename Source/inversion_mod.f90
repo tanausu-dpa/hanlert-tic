@@ -10,12 +10,20 @@
 !  Start:
 !     02/22/2023
 !  Last version:
-!     11/29/2023 V3.1.10
+!     05/22/2024 V3.1.13
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     05/22/2024:   V3.1.13 - Fixed messages not limited to the
+!                             master (TdPA)
+!
+!     05/20/2024:   V3.1.12 - Removed unused variable (TdPA)
+!
+!     05/17/2024:   V3.1.11 - Degrees of freedom are counted when
+!                             defining the weights and not here (TdPA)
 !
 !     11/29/2023:   V3.1.10 - Masked pixels do not change their
 !                             model atmosphere now (TdPA)
@@ -188,7 +196,7 @@
       type(Atmo_class):: Atmo
       type(Bfield_class):: Bfield,Bfield0
 
-      integer:: i, j
+      integer:: i
 
       double precision, dimension(Input%nvar):: TMP_Weight
 
@@ -224,32 +232,6 @@
         Geom%L_theta(1) = acos(Geom%L_mu(1))
         Geom%L_phi(1) = Inf_Stokes%azimuth
       end if
-
-      ! Initialize number of data points
-      Inf_Stokes%Num_freedomI = 0
-      Inf_Stokes%Num_freedom = 0
-
-      ! Wavelengths
-      do j=1,Inf_Stokes%Num_wavelength
-
-        ! If non-zero intensity weight, add to count
-        if (Inf_Stokes%Weight(0,j).gt.0d0) then
-
-          ! Total
-          Inf_Stokes%Num_freedom = 1 + Inf_Stokes%Num_freedom
-          Inf_Stokes%Num_freedomI = 1 + Inf_Stokes%Num_freedomI
-
-        end if ! Non-zero weight
-
-        ! For each Stokes parameter
-        do i=1,3
-
-          ! If non-zero weight, add to count
-          if (Inf_Stokes%Weight(i,j).gt.0d0) &
-            Inf_Stokes%Num_freedom = 1 + Inf_Stokes%Num_freedom
-
-        end do ! Stokes parameters
-      end do ! Wavelengths
 
       ! If asymmetry nodes
       if (Inf_Nodes%Num_Asymmetry.gt.0) Input%nasym = 1
@@ -371,14 +353,16 @@
           if (maxval(abs(Inf_Nodes%Node(i)%Var)).lt.1d-3) then
 
             ! Verbose
-            if (Inf_Nodes%Btype.eq.0) then
-              write(umsg, '(A)') &
-                ' - Magnetic field inclination re-initialized: '
-              call verboseI(3)
-            else
-              write(umsg, '(A)') &
-                ' - Transversal magnetic field re-initialized: '
-              call verboseI(3)
+            if (pid.eq.0) then
+              if (Inf_Nodes%Btype.eq.0) then
+                write(umsg, '(A)') &
+                  ' - Magnetic field inclination re-initialized: '
+                call verboseI(3)
+              else
+                write(umsg, '(A)') &
+                  ' - Transversal magnetic field re-initialized: '
+                call verboseI(3)
+              end if
             end if
 
             ! Get from Input structure
@@ -397,9 +381,11 @@
           if (maxval(abs(Inf_Nodes%Node(i)%Var)).lt.1d-3) then
 
             ! Verbose
-            write(umsg, '(A)') &
-              ' - Magnetic field azimuth re-initialized: '
-            call verboseI(3)
+            if (pid.eq.0) then
+              write(umsg, '(A)') &
+                ' - Magnetic field azimuth re-initialized: '
+              call verboseI(3)
+            end if
 
             ! Get from Input structure
             call re_set_nodes(Inf_Nodes,i,Input%ini_Bazi)
@@ -417,14 +403,16 @@
           if (maxval(abs(Inf_Nodes%Node(i)%Var)).lt.1d-9/c) then
 
             ! Verbose
-            if (Inf_Nodes%vtype.eq.0) then
-              write(umsg, '(A)') &
-                ' - Velocity X component re-initialized: '
-              call verboseI(3)
-            else
-              write(umsg, '(A)') &
-                ' - Transversal velocity re-initialized: '
-              call verboseI(3)
+            if (pid.eq.0) then
+              if (Inf_Nodes%vtype.eq.0) then
+                write(umsg, '(A)') &
+                  ' - Velocity X component re-initialized: '
+                call verboseI(3)
+              else
+                write(umsg, '(A)') &
+                  ' - Transversal velocity re-initialized: '
+                call verboseI(3)
+              end if
             end if
 
             ! Get from Input structure
@@ -446,9 +434,11 @@
             if (maxval(abs(Inf_Nodes%Node(i)%Var)).lt.1d-3) then
 
               ! Verbose
-              write(umsg, '(A)') &
+              if (pid.eq.0) then
+                write(umsg, '(A)') &
                   ' - Velocity azimuth re-initialized: '
                 call verboseI(3)
+              end if
 
               ! Get from Input structure
               call re_set_nodes(Inf_Nodes,i,Input%ini_vazi)
@@ -461,9 +451,12 @@
             ! If maximum value too small (1d-3)
             if (maxval(abs(Inf_Nodes%Node(i)%Var)).lt.1d-9/c) then
 
-              write(umsg, '(A)') &
+              ! Verbose
+              if (pid.eq.0) then
+                write(umsg, '(A)') &
                   ' - Velocity Y component re-initialized: '
-                  call verboseI(3)
+                call verboseI(3)
+              end if
 
               ! Get from Input structure
               call re_set_nodes(Inf_Nodes,i,Input%ini_vazi*1d-6/c)

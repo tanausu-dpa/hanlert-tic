@@ -1370,6 +1370,727 @@ class _rkq_1D():
 ################################################################################
 ################################################################################
 
+class _jkqnu_1D():
+    ''' Class to manage the frequency dependent radiation field tensors
+        from a 1D synthesis
+    '''
+
+    def __init__(self,filename):
+        ''' Initialize class
+        '''
+
+        # Store filename
+        self.__filename = filename
+
+        # Get header
+        if not self.__head(): return None
+
+        #  Transformation to SI
+        self.__unit_trans = 1e0/299792458e5
+
+        self.__methods = {\
+         'get_filename': \
+          [None,'Get name of the read file'], \
+         'get_nz': \
+          [None,'Get number of height'], \
+         'get_nl': \
+          [None,'Get number of wavelengths'], \
+          'get_lambda': \
+          [{'minl': \
+             'Lower boundary for output wavelength [nm]', \
+            'maxl': \
+             'Upper boundary for output wavelength [nm]'}, \
+           'Get wavelengths in [nm]'], \
+          'get_jkq': \
+          [{'minl': \
+             'Lower boundary for output height', \
+            'maxl': \
+             'Upper boundary for output height'}, \
+           'Get the frequency dependent radiation field tensors'] \
+           }
+
+    def _get_help(self):
+        ''' Return methods dictionary
+        '''
+        return self.__methods
+
+    def __head(self):
+        ''' Reads hanlert 1D JKQnu file head
+        '''
+        try:
+            # Get actual header
+            f = open(self.__filename,'rb')
+            f.seek(2,0)
+            self.__nz = struct.unpack('i',f.read(4))[0]
+            self.__nl = struct.unpack('i',f.read(4))[0]
+            f.close()
+            self.__jump_to_lambda = 10
+            self.__hsize = self.__jump_to_lambda + 8*self.__nl
+            return True
+        except struct.error:
+            raise
+        except:
+            raise
+
+    def _get_filename(self):
+        ''' Get the name of the read file
+        '''
+        return self.__filename
+
+    def _get_nz(self):
+        ''' Get number of heights
+        '''
+        return self.__nz
+
+    def _get_nl(self):
+        ''' Get number of wavelengths
+        '''
+        return self.__nl
+
+    def _get_lambda(self,minl=None,maxl=None):
+        ''' Get lambda from file
+        '''
+        try:
+            f = open(self.__filename,'rb')
+            f.seek(self.__jump_to_lambda,0)
+            omg = np.array(struct.unpack('d'*self.__nl, \
+                                         f.read(8*self.__nl)))
+            lam = 1e2/omg[::-1]
+            if minl is not None:
+                i = np.argmin(np.absolute(lam - minl))
+                lam = lam[i:]
+            if maxl is not None:
+                i = np.argmin(np.absolute(lam - maxl))
+                lam = lam[:i+1]
+            f.close()
+            return lam
+        except struct.error:
+            raise
+        except:
+            raise
+
+    def _get_jkq(self,minl=None,maxl=None):
+        ''' Get frequency integrated radiation field tensors
+        '''
+        # Need lambda?
+        if minl is not None or maxl is not None:
+            lam = self._get_lambda()
+
+        try:
+
+            # Size
+            size = self.__nl*self.__nz*18
+
+            # Read
+            f = open(self.__filename,'rb')
+            f.seek(self.__hsize,0)
+            data = struct.unpack('d'*size,f.read(size*8))
+            data = np.array(data).reshape((self.__nz, \
+                                           self.__nl, \
+                                           9,2))
+            f.close()
+
+            # Adjust wavelength
+            if minl is not None:
+                i = np.argmin(np.absolute(lam - minl))
+                lam = lam[i:]
+                data = data[:,i:,:,:]
+            if maxl is not None:
+                i = np.argmin(np.absolute(lam - maxl))
+                lam = lam[:i+1]
+                data = data[:,:i+1,:,:]
+
+            # Transform
+            data *= self.__unit_trans
+
+            # Get output
+            jkq = {0: {0: data[:,:,0,0]}, \
+                   1: {-1: data[:,:,1,0] + 1j*data[:,:,1,1], \
+                       0: data[:,:,2,0], \
+                       1: data[:,:,3,0] + 1j*data[:,:,3,1]}, \
+                   2: {-2: data[:,:,4,0] + 1j*data[:,:,4,1], \
+                       -1: data[:,:,5,0] + 1j*data[:,:,5,1], \
+                       0: data[:,:,6,0], \
+                       1: data[:,:,7,0] + 1j*data[:,:,7,1], \
+                       2: data[:,:,8,0] + 1j*data[:,:,8,1]}}
+            # Return
+            return jkq
+
+        # Try only intensity
+        except struct.error:
+
+            # Size
+            size = self.__nl*self.__nz
+
+            # Read
+            f = open(self.__filename,'rb')
+            f.seek(self.__hsize,0)
+            data = struct.unpack('d'*size,f.read(size*8))
+            data = np.array(data).reshape((self.__nz, \
+                                           self.__nl))
+            f.close()
+
+            # Adjust wavelength
+            if minl is not None:
+                i = np.argmin(np.absolute(lam - minl))
+                lam = lam[i:]
+                data = data[:,i:]
+            if maxl is not None:
+                i = np.argmin(np.absolute(lam - maxl))
+                lam = lam[:i+1]
+                data = data[:,:i+1]
+
+            # Transform
+            data *= self.__unit_trans
+            nl = lam.size
+            nz = self.__nz
+
+            # Get output
+            jkq = {0: {0: data}, \
+                   1: {-1: np.zeros((nz,nl)), \
+                       0: np.zeros((nz,nl)), \
+                       1: np.zeros((nz,nl))}, \
+                   2: {-2: np.zeros((nz,nl)), \
+                       -1: np.zeros((nz,nl)), \
+                       0: np.zeros((nz,nl)), \
+                       1: np.zeros((nz,nl)), \
+                       2: np.zeros((nz,nl))}}
+            # Return
+            return jkq
+        except:
+            raise
+
+################################################################################
+################################################################################
+################################################################################
+
+class _cols_damp_1D():
+    ''' Class to manage the 1D collisions, damping parameter, and elastic
+        rates files
+    '''
+
+    def __init__(self,filename):
+        ''' Initialize class
+        '''
+
+        # Store filename
+        self.__filename = filename
+
+        # Get header
+        if not self.__head(): return None
+
+        #  Transformation to SI
+       #self.__unit_trans = 1e6
+        #  Remain cgs
+        self.__unit_trans = 1e0
+
+        # Method
+        self.__methods = { \
+         'get_filename': \
+          [None,'Get name of the read file'], \
+         'get_nz': \
+          [None,'Get number of heights in the model atmosphere']}
+        if self.__cols:
+            self.__methods['get_type'] = \
+              [None,'Get the type of collisional rates in the file']
+            self.__methods['get_nl'] = \
+              [None,'Get number of levels or terms']
+            self.__methods['get_dims'] = \
+              [None,' Get number of positions in height axis, atoms, ' + \
+                    'and levels/terms']
+            self.__methods['get_data'] = \
+            [{'ia': 'List of atoms to include in the output', \
+              'i1': 'Initial level/term in the output', \
+              'i2': 'Final level/term in the output'}, \
+            'Extract the collisional rates']
+        else:
+            self.__methods['get_nt'] = \
+              [None,'Get number of transitions']
+            self.__methods['get_dims'] = \
+              [None,' Get number of positions in height axis, atoms, ' + \
+                    'and transitions']
+            if self.__damp:
+                self.__methods['get_data'] = \
+                  [{'ia': 'List of atoms to include in the output', \
+                    'it': 'Transitions in the output'}, \
+                'Extract the damping parameter']
+            else:
+                self.__methods['get_data'] = \
+                  [{'ia': 'List of atoms to include in the output', \
+                    'it': 'Transition in the output'}, \
+                'Extract the elastic rates']
+
+    def _get_help(self):
+        ''' Return methods dictionary
+        '''
+        return self.__methods
+
+    def __head(self):
+        ''' Reads hanlert population/departure coeff. file head
+        '''
+        try:
+
+            # Get actual header
+            f = open(self.__filename,'rb')
+
+            # Skip 1 first letter
+            f.seek(1,0)
+
+            # Read the second for the type of file
+            self.__type = f.read(1).decode('utf-8')
+            self.__cols = self.__type == 'l' or self.__type == 't'
+            if not self.__cols:
+                self.__damp = self.__type == 'a'
+
+            # Get dimensions
+            self.__na = int(struct.unpack('i',f.read(4))[0])
+            self.__nz = int(struct.unpack('i',f.read(4))[0])
+
+            # Initialize entries
+            self.__nn = []
+            self.__siz = []
+
+            # For each atom
+            for ia in range(self.__na):
+
+                # Append size
+                self.__nn.append(int(struct.unpack('i',f.read(4))[0]))
+
+                # Collisions
+                if self.__cols:
+                    self.__siz.append(int(8.*self.__nz*self.__nn[-1]* \
+                                                   self.__nn[-1]))
+                else:
+                    self.__siz.append(int(8.*self.__nz*self.__nn[-1]))
+
+            # Make arrays
+            self.__nn = np.array(self.__nn)
+            self.__siz = np.array(self.__siz)
+
+            # Close file
+            f.close()
+
+            # Size of head
+            self.__head = 10
+
+        except struct.error:
+            return False
+            raise
+        except:
+            raise
+
+        # Return valid
+        return True
+
+    def _get_filename(self):
+        ''' Get the name of the read file
+        '''
+        return self.__filename
+
+    def _get_type(self):
+        ''' Get type of collisions in this file
+        '''
+        if self.__type == 'l':
+            _error('Collisions between level',0)
+        elif self.__type == 't':
+            _error('Collisions between terms',0)
+        else:
+            _error('Type not recognized',1)
+
+    def _get_nl(self):
+        ''' Get number of levels in file
+        '''
+        return self.__nn
+
+    def _get_nt(self,atom=None):
+        ''' Get number of transitions
+        '''
+        try:
+            return self.__nn[atom]
+        except:
+            return self.__nn
+
+    def _get_nz(self):
+        ''' Get number of heights
+        '''
+        return self.__nz
+
+    def _get_dims(self):
+        ''' Get number of positions in height axes, atoms, and levels,
+            terms, or transitions
+        '''
+        return self.__nz, self.__na, self.__nn
+
+    def _get_data(self,ia=None,i1=None,i2=None,it=None):
+        ''' Get collisional rates/dampings for a given pixel
+        '''
+
+        # If var is not None
+        if ia is None:
+            trim = False
+            if self.__cols:
+                if i1 is not None or i2 is not None:
+                    _error('Must specify ia to specify i1 or i2',1)
+            else:
+                if it is not None:
+                    _error('Must specify ia to specify it',1)
+        else:
+            trim = True
+            if not isinstance(ia, list):
+                ivar = [ia]
+            else:
+                ivar = ia.copy()
+            for avar in ivar:
+                if not isinstance(avar, int):
+                    _error('The field ia requires integers',1)
+                    return None
+                if avar < 0 or avar >= self.__na:
+                    _error('The requested atoms ' + avar + \
+                           ' are out of limits, ' + \
+                           'check with get_nlevel',1)
+                    return None
+            if len(ivar) > 1:
+                if self.__cols:
+                    if i1 is not None or i2 is not None:
+                        _error('Must specify only one ia to specify i1 or i2',1)
+                else:
+                    if it is not None:
+                        _error('Must specify only one ia to specify it',1)
+        if self.__cols:
+            if i1 is not None:
+                if not isinstance(i1, int):
+                    _error('The field i1 requires an integer',1)
+                    return None
+                if i1 < 0 or i1 >= self.__nn:
+                    _error('The requested level ' + i1 + \
+                           ' is out of limits, ' + \
+                           'check with get_nl',1)
+                    return None
+            if i2 is not None:
+                if not isinstance(i2, int):
+                    _error('The field i2 requires an integer',1)
+                    return None
+                if i2 < 0 or i2 >= self.__nn:
+                    _error('The requested level ' + i2 + \
+                           ' is out of limits, ' + \
+                           'check with get_nl',1)
+                    return None
+        else:
+            if it is not None:
+                if not isinstance(it, int):
+                    _error('The field it requires an integer',1)
+                    return None
+                if it < 0 or it >= self.__nn:
+                    _error('The requested transition ' + it + \
+                           ' is out of limits, ' + \
+                           'check with get_nt',1)
+                    return None
+
+        # Outputs
+        out = {}
+
+        # Try geeting data
+        try:
+
+            # Open file
+            f = open(self.__filename,'rb')
+
+            # Seek first data points for this column
+            f.seek(self.__head,0)
+
+            # For each atom
+            for ia in range(self.__na):
+
+                # Skip
+                f.seek(4,1)
+
+                # Reading atom?
+                if trim:
+                    if ia in ivar:
+                        f.seek(self.__siz[ia],1)
+                        continue
+
+                # Read data
+                col = struct.unpack('d'*(self.__siz[ia]//8), \
+                                    f.read(self.__siz[ia]))
+
+                # Process
+                if self.__cols:
+                    out[ia] = np.array(col).reshape((self.__nn[ia], \
+                                                     self.__nn[ia], \
+                                                     self.__nz))*1e8
+                else:
+                    out[ia] = np.array(col).reshape((self.__nn[ia], \
+                                                     self.__nz))
+            # Close
+            f.close()
+
+        except:
+            raise
+
+        # Check if trimming
+        if trim:
+            if len(ivar) == 1:
+                if self.__cols:
+                    if i1 is not None or i2 is not None:
+                        if i1 is not None and i2 is not None:
+                            out = out[ivar[0]][i1,i2,:]
+                        elif i1 is not None:
+                            out = out[ivar[0]][i1,:,:]
+                        elif i2 is not None:
+                            out = out[ivar[0]][:,i2,:]
+                else:
+                    if it is not None:
+                        out = out[ivar[0]][it,:,:]
+
+        # Return column
+        return out
+
+################################################################################
+################################################################################
+################################################################################
+
+class _back_1D():
+    ''' Class to manage the 1D background files
+    '''
+
+    def __init__(self,filename):
+        ''' Initialize class
+        '''
+
+        # Store filename
+        self.__filename = filename
+
+        # Get header
+        if not self.__head(): return None
+
+        #  Transformation to SI
+       #self.__unit_trans = 1e0/299792458e3
+        #  Transformation to CGS
+        self.__unit_trans = 1e0/299792458e2
+
+        # Method
+        self.__methods = { \
+         'get_filename': \
+          [None,'Get name of the read file'], \
+         'get_nz': \
+          [None,'Get number of heights in the model atmosphere'], \
+         'get_nd': \
+          [None,'Get number of directions in the model atmosphere'], \
+         'get_nl': \
+          [None,'Get number of wavelengths'], \
+         'get_dims': \
+          [None,'Get number of nodes in the height, direction, and wavelength dimensions'], \
+         'get_vars': \
+          [None,'Get list of continuum variables'], \
+         'get_vars_alias': \
+          [None,'Get list of continuum variables with their aliases'], \
+         'get_vars_units': \
+          [None,'Get list of continuum variables with their ' + \
+                'corresponding units'], \
+          'get_lambda': \
+          [{'minl': \
+             'Lower boundary for output wavelength [nm]', \
+            'maxl': \
+             'Upper boundary for output wavelength [nm]'}, \
+           'Get wavelengths in [nm]'], \
+          'get_data': \
+          [{'minl': \
+             'Lower boundary for output wavelength [nm]', \
+            'maxl': \
+             'Upper boundary for output wavelength [nm]', \
+            'var': \
+             'List of variables to include in the output (see the ' + \
+             'available ones with get_vars_alias()}'}, \
+           'Extract the continuum variables at a particular column']}
+
+    def _get_help(self):
+        ''' Return methods dictionary
+        '''
+        return self.__methods
+
+    def __head(self):
+        ''' Reads hanlert background continuum file head
+        '''
+        debug = False
+        try:
+            # Get actual header
+            f = open(self.__filename,'rb')
+            f.seek(2,0)
+            # Dimensions
+            self.__nl = struct.unpack('i',f.read(4))[0]
+            f.seek(self.__nl*8,1)
+            self.__nz = struct.unpack('i',f.read(4))[0]
+            self.__nd = struct.unpack('i',f.read(4))[0]
+
+        except struct.error:
+            return False
+            raise
+        except:
+            raise
+
+        # Variables
+        self.__nvar = 3
+        self.__vars = [r'$\eta_{\rm c}$',r'$\sigma_{\rm c}$', \
+                       r'$\epsilon{\rm c}$']
+        self.__alias = ['eta','sig','eps']
+        self.__vars_units = ['[m$^{-1}$]','[m$^{-1}$]', \
+                             '[J m$^{-3}$ s$^{-1}$ sr$^{-1}$ Hz$^{-1}$]']
+
+        # Sizes
+        self.__jump_to_lambda = 6
+        self.__head = self.__jump_to_lambda + self.__nl*8 + 8
+        self.__siz = self.__nz*self.__nl*self.__nd*self.__nvar
+
+        # Return valid
+        return True
+
+
+    def _get_filename(self):
+        ''' Get the name of the read file
+        '''
+        return self.__filename
+
+    def _get_nz(self):
+        ''' Get number of heights
+        '''
+        return self.__nz
+
+    def _get_nd(self):
+        ''' Get number of directions
+        '''
+        return self.__nd
+
+    def _get_nl(self):
+        ''' Get number of wavelengths
+        '''
+        return self.__nl
+
+    def _get_dims(self):
+        ''' Get number of positions in height, directions, and wavelength axes
+        '''
+        return self.__nz, self.__nd, self.__nl
+
+    def _get_vars(self):
+        ''' Get variables with node data
+        '''
+        return self.__vars
+
+    def _get_vars_alias(self):
+        ''' Get variables and their alias
+        '''
+        out = []
+        for var,alias in zip(self.__vars,self.__alias):
+            out.append(var+' -> ',alias)
+        return out
+
+    def _get_vars_units(self):
+        ''' Get variables with node data with units
+        '''
+        out = []
+        for var,uni in zip(self.__vars,self.__vars_units):
+            out.append(var+' ['+uni+']')
+        return out
+
+    def _get_lambda(self,minl=None,maxl=None):
+        ''' Get lambda from file
+        '''
+        try:
+            f = open(self.__filename,'rb')
+            f.seek(self.__jump_to_lambda,0)
+            omg = np.array(struct.unpack('d'*self.__nl, \
+                                         f.read(8*self.__nl)))
+            lam = 1e2/omg[::-1]
+            if minl is not None:
+                i = np.argmin(np.absolute(lam - minl))
+                lam = lam[i:]
+            if maxl is not None:
+                i = np.argmin(np.absolute(lam - maxl))
+                lam = lam[:i+1]
+            f.close()
+            return lam
+        except struct.error:
+            raise
+        except:
+            raise
+
+    def _get_data(self,minl=None,maxl=None,var=None):
+        ''' Get background quantities for a given pixel
+        '''
+
+        # If var is not None
+        if var is None:
+            ivar = self.__alias
+        else:
+            if not isinstance(var, list):
+                ivar = [var]
+            else:
+                ivar = var.copy()
+            for evar in ivar:
+                if not isinstance(evar, str):
+                    _error('The field var requires strings',1)
+                    return None
+                if evar not in self.__alias:
+                    _error('The requested variable ' + evar + \
+                           ' is not available, ' + \
+                           'check with get_vars_alias',1)
+                    return None
+
+        # Need lambda?
+        if minl is not None or maxl is not None:
+            lam = self._get_lambda()
+
+        # Size
+        siz = self.__siz*8
+
+        # Try geeting data
+        try:
+
+            # Open file
+            f = open(self.__filename,'rb')
+
+            # Seek first data points for this column
+            f.seek(self.__head,0)
+
+            # Read data
+            col = np.array(struct.unpack('d'*self.__siz, \
+                                         f.read(siz))). \
+                           reshape((self.__nz,self.__nd, \
+                                    self.__nvar,self.__nl))[:,:,:,::-1]
+
+            # Close
+            f.close()
+
+            # Adjust wavelength
+            if minl is not None:
+                i = np.argmin(np.absolute(lam - minl))
+                lam = lam[i:]
+                col = col[:,:,:,i:]
+            if maxl is not None:
+                i = np.argmin(np.absolute(lam - maxl))
+                lam = lam[:i+1]
+                col = col[:,:,:,:i+1]
+
+        except struct.error:
+            raise
+        except:
+            raise
+
+        # Return column
+        out = {}
+        if 'eta' in ivar:
+            out['eta'] = col[:,:,0,:]
+        if 'sig' in ivar:
+            out['sig'] = col[:,:,1,:]
+        if 'eps' in ivar:
+            out['eps'] = col[:,:,2,:]*self.__unit_trans
+
+        return out
+
+################################################################################
+################################################################################
+################################################################################
+
 class _pop_dep_1D():
     ''' Class to manage the 1D population/departure files
     '''
@@ -1410,7 +2131,7 @@ class _pop_dep_1D():
         return self.__methods
 
     def __head(self):
-        ''' Reads hanlert collisional/damping file head
+        ''' Reads hanlert population/departure coeff. file head
         '''
         try:
 
@@ -4041,7 +4762,7 @@ class _inversion_in():
         '''
         try:
             f = open(self.__filename,'rb')
-            f.seek(self.__jump_to_los,0)
+            f.seek(self.__to_los,0)
             th = struct.unpack('d',f.read(8))[0]
             ph = struct.unpack('d',f.read(8))[0]
             f.close()
@@ -4576,7 +5297,7 @@ class _inversion_in():
         '''
         try:
             f = open(self.__filename,'rb')
-            f.seek(self.__jump_to_sigma,0)
+            f.seek(self.__to_sigma,0)
             # Full constant
             if self.__info[2] == 1:
                 if self.__info[0] == 0:
@@ -5207,6 +5928,13 @@ class _inversion_out():
           [None,'Get name of the read file'], \
          'get_polarized': \
           [None,'Get if the inversion included polarization'], \
+         'get_vtype': \
+          [None,'Get the type of reference frame for the velocity vector'], \
+         'get_btype': \
+          [None,'Get the type of reference frame for the magnetic ' + \
+           'field vector'], \
+         'get_jkqin': \
+          [None,'Get if there are inverted ad-hoc JKQ'], \
          'get_nx': \
           [None,'Get number of nodes in the x dimension'], \
          'get_ny': \
@@ -5670,6 +6398,27 @@ class _inversion_out():
         ''' Get if the inversion has polarization
         '''
         return self.__polarization
+
+    def _get_vtype(self):
+        ''' Get the reference frame of the velocity vector
+        '''
+        if self.__vtype == 0:
+            return 'vertical'
+        else:
+            return 'LOS'
+
+    def _get_btype(self):
+        ''' Get the reference frame of the magnetic field vector
+        '''
+        if self.__btype == 0:
+            return 'vertical'
+        else:
+            return 'LOS'
+
+    def _get_jkqin(self):
+        ''' Get if there are jkq tensors in the inversion
+        '''
+        return self.__jkqa
 
     def _get_nx(self):
         ''' Get number of positions in x axis
@@ -6831,7 +7580,7 @@ class _cols_damp_15D():
                'Extract the collisional rates for a particular height index for ' + \
                'the whole field of view']
         # Damping
-        else:
+        elif self.__damp:
             self.__methods['get_nentry'] = \
               [None,'Get number of damping entries']
             self.__methods['get_column'] = \
@@ -6848,6 +7597,25 @@ class _cols_damp_15D():
                 'ie': \
                  'List of entries to include in the output'}, \
                'Extract the dampings for a particular height index for ' + \
+               'the whole field of view']
+        # Elastic rates
+        else:
+            self.__methods['get_nentry'] = \
+              [None,'Get number of elastic rates entries']
+            self.__methods['get_column'] = \
+              [{'ix': \
+                 'Coordinate in the x dimension of the column to extract', \
+                'iy': \
+                 'Coordinate in the y dimension of the column to extract', \
+                'ie': \
+                 'List of entries to include in the output'}, \
+               'Extract the elastic rates for a particular column']
+            self.__methods['get_plane'] = \
+              [{'iz': \
+                 'Coordinate in the height dimension of the atmospheric parameters to extract', \
+                'ie': \
+                 'List of entries to include in the output'}, \
+               'Extract the elastic rates for a particular height index for ' + \
                'the whole field of view']
 
     def _get_help(self):
@@ -6869,6 +7637,8 @@ class _cols_damp_15D():
             # Read the fourth for the type of collisions
             self.__type = f.read(1).decode('utf-8')
             self.__cols = self.__type == 'l' or self.__type == 't'
+            if not self.__cols:
+                self.__damp = self.__type == 'a'
 
             # Get dimensions
             self.__na = int(struct.unpack('i',f.read(4))[0])
@@ -7384,8 +8154,9 @@ class _back_15D():
         try:
             f = open(self.__filename,'rb')
             f.seek(self.__jump_to_lambda,0)
-            lam = np.array(struct.unpack('d'*self.__nl, \
+            omg = np.array(struct.unpack('d'*self.__nl, \
                                          f.read(8*self.__nl)))
+            lam = 1e2/omg[::-1]
             if minl is not None:
                 i = np.argmin(np.absolute(lam - minl))
                 lam = lam[i:]
@@ -7452,7 +8223,8 @@ class _back_15D():
             # Read data
             col = np.array(struct.unpack('f'*siz, \
                                          f.read(self.__column))). \
-                           reshape((self.__nz,self.__nvar,self.__nl))
+                           reshape((self.__nz,self.__nvar, \
+                                    self.__nl))[:,:,::-1]
 
             # Close
             f.close()
@@ -7561,7 +8333,8 @@ class _back_15D():
                     # Read
                     col[ix,iy,:,:] = np.array(struct.unpack('f'*siz, \
                                                             f.read(bsiz))). \
-                                             reshape((self.__nvar,self.__nl))
+                                             reshape((self.__nvar, \
+                                                      self.__nl))[:,::-1]
 
                     # Skip right
                     if right > 0: f.seek(right,1)
@@ -7679,7 +8452,7 @@ class _pop_dep_15D():
         return self.__methods
 
     def __head(self):
-        ''' Reads hanlert collisional/damping file head
+        ''' Reads hanlert populations/departure coeffs. file head
         '''
         try:
 
@@ -8037,11 +8810,6 @@ class hanlertio_class():
   'sp': 'Solution file with polarization', \
   'si': 'Solution file without polarization', \
   'bo': 'Stokes parameters in the quadrature in 1D synthesis', \
-  'ko': 'Frequency dependent radiation field tensors in 1D synthesis', \
-  'ct': 'Term to term collisional rates from 1D synthesis', \
-  'cl': 'Level to level collisional rates from 1D synthesis', \
-  'da': 'Damping parameters from 1D synthesis', \
-  'ba': 'Background continuum from 1D synthesis'}
         '''
         # TODO TODO
 
@@ -8054,6 +8822,7 @@ class hanlertio_class():
                   '2Dct': 'Term to term collisional rates from 1.5D synthesis', \
                   '2Dcl': 'Level to level collisional rates from 1.5D synthesis', \
                   '2Dda': 'Damping parameters from 1.5D synthesis', \
+                  '2Dqe': 'Elastic rates from 1.5D synthesis', \
                   '2Dba': 'Background continuum from 1.5D synthesis', \
                   '2Dbp': 'Atomic populations from 1.5D synthesis', \
                   '2Dbb': 'Departure coefficients from 1.5D synthesis', \
@@ -8075,6 +8844,7 @@ class hanlertio_class():
                   'ct': 'Term to term collisional rates from 1D synthesis', \
                   'cl': 'Level to level collisional rates from 1D synthesis', \
                   'da': 'Damping parameters from 1D synthesis', \
+                  'qe': 'Elastic rates from 1D synthesis', \
                   'ba': 'Background continuum from 1D synthesis'}
 
         # Open the file and get two characters
@@ -8227,6 +8997,74 @@ class hanlertio_class():
 
                     # Not valid class
                     return False
+
+            # jkqnu_1D
+            elif label == 'ko':
+
+                # Load jkq 1D class
+                self.__object = _jkqnu_1D(self.__filename)
+
+                if self.__object is not None:
+
+                    # Methods
+                    self.get_filename = self.__get_filename
+                    self.get_nz = self.__get_nz
+                    self.get_nl = self.__get_nl
+                    self.get_lambda = self.__get_lambda
+                    self.get_jkq = self.__get_jkqnu1d
+
+                    # Valid class
+                    return True
+
+                # Fail
+                else:
+
+                    # Not valid class
+                    return False
+
+            # Background
+            elif label == 'ba':
+
+                # Load background 1D class
+                self.__object = _back_1D(self.__filename)
+
+                if self.__object is not None:
+
+                    # Methods
+                    self.get_filename = self.__get_filename
+                    self.get_nl = self.__get_nl
+                    self.get_nd = self.__get_nd
+                    self.get_nz = self.__get_nz
+                    self.get_dims = self.__get_dims
+                    self.get_vars = self.__get_vars
+                    self.get_vars_alias = self.__get_vars_alias
+                    self.get_vars_units = self.__get_vars_units
+                    self.get_lambda = self.__get_lambda
+                    self.get_data = self.__get_column_1dback
+
+                    # Valid class
+                    return True
+
+            # Collisions, damping, and elastic rates
+            elif label == 'ct' or label == 'cl' or \
+                 label == 'da' or label == 'qe':
+
+                # Load populations and departure 1.5D class
+                self.__object = _cols_damp_1D(self.__filename)
+
+                if self.__object is not None:
+
+                    # Methods
+                    self.get_filename = self.__get_filename
+                    self.get_type = self.__get_type
+                    self.get_nl = self.__get_nl
+                    self.get_nt = self.__get_nt
+                    self.get_nz = self.__get_nz
+                    self.get_dims = self.__get_dims
+                    self.get_data = self.__get_column_1dcdq
+
+                    # Valid class
+                    return True
 
             # Populations and departures
             elif label == 'bp' or label == 'bb':
@@ -8467,6 +9305,9 @@ class hanlertio_class():
                             # Methods
                             self.get_filename = self.__get_filename
                             self.get_polarized = self.__get_polarized
+                            self.get_vtype = self.__get_vtype
+                            self.get_btype = self.__get_btype
+                            self.get_jkqin = self.__get_jkqin
                             self.get_nx = self.__get_nx
                             self.get_ny = self.__get_ny
                             self.get_nz = self.__get_nz
@@ -8492,8 +9333,9 @@ class hanlertio_class():
                             # Valid class
                             return True
 
-                    # collisional rates and damping
-                    elif label == '2Dct' or label == '2Dcl' or label == '2Dda':
+                    # collisional rates, damping, and elastic rates
+                    elif label == '2Dct' or label == '2Dcl' or \
+                         label == '2Dda' or label == '2Deq':
 
                         # Load collisions and damping 1.5D class
                         self.__object = _cols_damp_15D(self.__filename)
@@ -8638,17 +9480,24 @@ class hanlertio_class():
 
     # Parsers
 
-    # stokes 1D, contribution 1D, tau 1D, jkq 1D, rkq 1D, stokes 15D,
-    # contribution 15D, tau 15D, 3D atmos, inversion out, 15D cols,
-    # 15D back, 15D popdep
+    # All
     def __get_filename(self):
         return self.__object._get_filename()
-    # 15D cols, 15D popdep
+    # 1D cols, 1D popdep, 15D cols, 15D popdep
     def __get_type(self):
         return self.__object._get_type()
     # stokes 15D, inversion out
     def __get_polarized(self):
         return self.__object._get_polarized()
+    # inversion out
+    def __get_vtype(self):
+        return self.__object._get_vtype()
+    # inversion out
+    def __get_btype(self):
+        return self.__object._get_btype()
+    # inversion out
+    def __get_jkqin(self):
+        return self.__object._get_jkqin()
     # inversion in
     def __get_info_verb(self):
         return self.__object._get_info_verb()
@@ -8661,10 +9510,10 @@ class hanlertio_class():
     # inversion out
     def __get_vars_fix_units(self):
         return self.__object._get_vars_fix_units()
-    # 3D atmos, inversion out, 15D back
+    # 3D atmos, inversion out, 15D back, 1D back
     def __get_vars(self):
         return self.__object._get_vars()
-    # 3D atmos, inversion out, 15D back
+    # 3D atmos, inversion out, 15D back, 1D back
     def __get_vars_units(self):
         return self.__object._get_vars_units()
     # 3D atmos, 15D back
@@ -8676,10 +9525,14 @@ class hanlertio_class():
     # inversion out
     def __get_vars_atmo_units(self):
         return self.__object._get_vars_atmo_units()
-    # stokes 1D, contribution 1D, tau 1D, 1D popdep, stokes 15D,
-    # contribution 15D, tau15D, inversion in, inversion out, 15D back
+    # stokes 1D, contribution 1D, tau 1D, 1D back, 1D popdep,
+    # jkqnu 1D, stokes 15D, contribution 15D, tau15D, inversion in,
+    # inversion out, 15D back
     def __get_nl(self):
         return self.__object._get_nl()
+    # 1D back
+    def __get_nd(self):
+        return self.__object._get_nd()
     # stokes 15D, contribution 15D, tau15D, inversion in,
     # inversion out, 15D cols, 15D back, 15D popdep
     def __get_nx(self):
@@ -8696,11 +9549,13 @@ class hanlertio_class():
     def __get_nxyz(self):
         return self.__object._get_nxyz()
     # stokes 15D, contribution 15D, tau15D, 3D atmos, inversion in,
-    # inversion out, 15D cols, 15D back, 15D popdep, 1D popdep
+    # inversion out, 15D cols, 15D back, 15D popdep, 1D cols, 1D back,
+    # 1D popdep
     def __get_dims(self):
         return self.__object._get_dims()
-    # contribution 1D, jkq 1D, rkq 1D, 1D popdep, contribution 15D,
-    # 3D atmos, inversion out, 15D cols, 15D back, 15D popdep
+    # contribution 1D, jkq 1D, rkq 1D, jkqnu 1D, 1D popdep,
+    # contribution 15D, 3D atmos, inversion out, 15D cols, 15D back,
+    # 15D popdep
     def __get_nz(self):
         return self.__object._get_nz()
     # 15D cols, 15D popdep
@@ -8709,9 +9564,9 @@ class hanlertio_class():
     # jkq 1D, rkq 1D, 15D cols
     def __get_na(self):
         return self.__object._get_na()
-    # jkq 1D
-    def __get_nt(self):
-        return self.__object._get_nt(atom=None)
+    # jkq 1D, 1D damp
+    def __get_nt(self,atom=None):
+        return self.__object._get_nt(atom)
     # inversion in
     def __get_los(self):
         return self.__object._get_los()
@@ -8733,8 +9588,9 @@ class hanlertio_class():
     # contribution 15D, tau15D
     def __get_mu(self):
         return self.__object._get_mu()
-    # stokes 1D, contribution 1D, tau 1D, stokes 15D,
-    # contribution 15D, tau15D, inversion in, inversion out, 15D back
+    # stokes 1D, contribution 1D, tau 1D, jkqnu 1D, stokes 15D,
+    # contribution 15D, tau15D, inversion in, inversion out
+    # 15D back, 1D back
     def __get_lambda(self,minl=None,maxl=None):
         return self.__object._get_lambda(minl,maxl)
     # contribution 1D, jkq 1D, rkq 1D
@@ -8780,12 +9636,21 @@ class hanlertio_class():
     def __get_jkq1d(self,atom=None,transition=None,k=None,q=None, \
                     minh=None,maxh=None,sti=False):
         return self.__object._get_jkq(atom,transition,k,q,minh,maxh,sti)
+    # jkqnu 1D
+    def __get_jkqnu1d(self,minl=None,maxl=None):
+        return self.__object._get_jkq(minl,maxl)
     # rkq 1D
     def __get_rkq1d(self,atom=None,minh=None,maxh=None):
         return self.__object._get_rkq(atom,minh,maxh)
     # contribution 1D
     def __get_ctr1d(self,minl=None,maxl=None,minh=None,maxh=None):
         return self.__object._get_ctr(minl,maxl,minh,maxh)
+    # 1D cols, damping, qel
+    def __get_column_1dcdq(self,ia=None,i1=None,i2=None,it=None):
+        return self.__object._get_data(ia,i1,i2,it)
+    # 1D back
+    def __get_column_1dback(self,minl=None,maxl=None,var=None):
+        return self.__object._get_data(minl,maxl,var)
     # 1D popdep
     def __get_column_1dcapd(self,ie=None):
         return self.__object._get_data(ie)

@@ -10,12 +10,16 @@
 !  Start:
 !     06/29/2022
 !  Last version:
-!     03/01/2024 V3.0.15
+!     07/18/2024 V3.0.16
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     07/18/2024:   V3.0.16 - Added logic to deal with the 1.5D
+!                             writing of the elastic rates (TdPA)
+!                           - Added subroutine check_qel_limit (TdPA)
 !
 !     03/01/2024:   V3.0.15 - Forgot to account for the inversion
 !                             result models when checking the velocity
@@ -221,6 +225,10 @@
 !
 !  check_damp_limit:
 !    Checks that the specified limits for the damping output
+!  comply with the atomic models
+!
+!  check_qel_limit:
+!    Checks that the specified limits for the elastic rates output
 !  comply with the atomic models
 !
 !  check_pop_limit:
@@ -2176,6 +2184,7 @@
         Input%out_contr = .False.
         Input%keep_cols = .False.
         Input%keep_damp = .False.
+        Input%keep_qel = .False.
         Input%keep_back = .False.
         Input%keep_pop = .False.
         Input%keep_dep = .False.
@@ -2227,6 +2236,21 @@
         ! Header and buffer sizes
         Input%lim_damp%head_size = 24
         Input%lim_damp%buffer_size = Input%lim_damp%nn*4*nz
+
+      end if
+
+
+      !
+      ! Elastic rates
+      !
+      if (Input%keep_qel) then
+
+        ! Set collision limits
+        call set_damp_limit(Input%lim_qel,Atom)
+
+        ! Header and buffer sizes
+        Input%lim_qel%head_size = 24
+        Input%lim_qel%buffer_size = Input%lim_qel%nn*4*nz
 
       end if
 
@@ -2417,6 +2441,59 @@
 !#####################################################################
 !#####################################################################
 
+      !> Check the limits on the 1.5D output (elastic rates)\n
+      !!  buff(IO_helper_class): Structure with IO data\n
+      !!       Atom(Atom_class): Structure with the atomic data
+      subroutine check_qel_limit(buff,Atom)
+
+      ! I/O
+      type(Atom_class), dimension(:), intent(in):: Atom
+      type(IO_helper_class), intent(inout):: buff
+
+      ! Local
+      integer:: ia,iran,it
+
+
+      ! If specified
+      if (buff%nran.gt.0) then
+
+        ! For each range
+        do iran=1,buff%nran
+
+          ! Get atom and levels
+          ia = buff%indx(1,iran)
+          it = buff%indx(2,iran)
+
+          ! Check atom
+          if (ia.gt.nA) then
+            umsg = 'You have specified an atomic index to '//&
+                   'output elastic rates larger '//&
+                   'than the number of atoms'
+            urou = 'check_qel_limit'
+            call aborted
+            return
+          end if
+
+          ! Check terms
+          if (it.gt.Atom(ia)%ntran) then
+            umsg = 'You have specified a transition index to '//&
+                   'output elastic rates larger '//&
+                   'than the number of transitions in the atom'
+            urou = 'check_qel_limit'
+            call aborted
+            return
+          end if
+
+        end do
+
+      end if
+
+      end subroutine check_qel_limit
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
       !> Check the limits on the 1.5D output (population and departure
       !! coefficients)\n
       !!  buff(IO_helper_class): Structure with IO data\n
@@ -2487,6 +2564,9 @@
                               Input%lim_cols_ll,Atom)
       ! Damping
       if (Input%keep_damp) call check_damp_limit(Input%lim_damp,Atom)
+
+      ! Elastic rates
+      if (Input%keep_qel) call check_qel_limit(Input%lim_qel,Atom)
 
       ! Populations
       if (Input%keep_pop.or.Input%keep_dep) &
@@ -2679,6 +2759,27 @@
 
       end if
 
+      ! If storing elastic rates
+      if (Input%keep_qel) then
+
+        ! Try opening elastic rates file
+        open (200,file=trim(Input%folder)//'/qel', status='old', &
+              iostat=ios, access='stream', action='read', &
+              form='unformatted')
+
+        ! If could not open
+        if (ios.ne.0) then
+          umsg = 'There is no existing elastic rates file'
+          call verbose
+          aborting = .True.
+          return
+        end if
+
+        ! Close
+        close(200)
+
+      end if
+
       ! If storing background
       if (Input%keep_back) then
 
@@ -2758,10 +2859,10 @@
 
       end if
 
-      ! If storing background
+      ! If storing atmosphere
       if (Input%keep_atmo) then
 
-        ! Try opening damping file
+        ! Try opening atmosphetic file
         open (200,file=trim(Input%folder)//'/atmo.hrt', &
               status='old', iostat=ios, access='stream', &
               action='read', form='unformatted')
@@ -2782,7 +2883,7 @@
       ! If storing MRC
       if (Input%keep_MRC) then
 
-        ! Try opening damping file
+        ! Try opening MRC file
         open (200,file=trim(Input%folder)//'/MRC', &
               status='old', iostat=ios, access='stream', &
               action='read', form='unformatted')
@@ -3031,6 +3132,28 @@
         write(200) na
         write(200) dims
         write(200) Input%lim_damp%nn
+
+        ! Close
+        close(200)
+
+      end if
+
+
+      !
+      ! Elastic rates
+      !
+      if (Input%keep_qel) then
+
+        ! Open elastic rates file
+        open (200,file=trim(Input%folder)//'/qel', &
+              status='unknown', iostat=ios, access='stream', &
+              action='write', form='unformatted')
+
+        ! Write header
+        write(200) '2Dqe'
+        write(200) na
+        write(200) dims
+        write(200) Input%lim_qel%nn
 
         ! Close
         close(200)

@@ -1477,6 +1477,17 @@ KEEP_DAMP
 
   * Description: Save in a file the damping parameter characteristic of the Voigt profile for the ATOM_FILE model atoms.
 
+KEEP_QEL
+--------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string: Yes, No; default: No
+
+  * Description: Save in a file the elastic rates characteristic of each transition for the ATOM_FILE model atoms.
+
 KEEP_APARAM
 -----------
 

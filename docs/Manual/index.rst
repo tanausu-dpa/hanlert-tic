@@ -49,6 +49,7 @@ project funded by an Advanced Grant of the European Research Council (see the
    physics/index
    parallelization/index
    issues/index
+   faq/index
    publications/index
 
 

@@ -12,12 +12,14 @@
 !  Start:
 !     04/20/2016
 !  Last version:
-!     04/12/2024 V3.0.22
+!     07/18/2024 V3.0.23
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     07/18/2024:   V3.0.23 - Added writeqel for elastic rates (TdPA)
 !
 !     04/12/2024:   V3.0.22 - Bugfix: Fixed wrong read of Stokes
 !                             parameters when reading a solution
@@ -457,6 +459,9 @@
 !
 !  writedamp
 !    Stores damping parameter of active atoms in file
+!
+!  writeqel
+!    Stores elastic rates of active atoms in file
 !
 !  writeback
 !    Stores background continuum quantities in file
@@ -9454,6 +9459,232 @@
       return
 
       end subroutine writedamp
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Writes into file the elastic rates for all active
+      !! atoms.\n
+      !!       Atom(Atom_class): Structure with the atomic data\n
+      !!       Atmo(Atmo_class): Structure with atmospheric data\n
+      !!   folder(character(:)): Path to the output folder\n
+      !!  buff(IO_helper_class(:)): Info about what to store
+      subroutine writeqel(Atom,Atmo,folder,buff)
+
+      ! I/O
+
+      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atmo_class), intent(in):: Atmo
+      type(IO_helper_class), intent(in):: buff
+      character(len=500), intent(in):: folder
+
+      ! Local
+
+      integer:: ierr,ii
+      integer:: iran,ia,iterml,itermu,itran,i,i1,ios
+      double precision, dimension(nz):: Dw, DwT
+
+      integer(kind=MPI_OFFSET_KIND):: offset
+
+      real, dimension(:), allocatable:: buffer
+
+      double precision:: loffset
+
+
+      !
+      ! Slaves just wait
+      !
+      if (pid.gt.0) then
+        call control
+        return
+      end if
+
+      ! Routine name
+      urou = 'writeqel'
+
+
+      !
+      ! 1D
+      !
+      if (run_mode.eq.0) then
+
+        ! Open file to write into
+        open (200,file=trim(folder)//'/qel', status='unknown', &
+              iostat=ios, err=1000, access='stream', action='write', &
+              form='unformatted')
+
+        ! Identification
+        write(200,err=1100) 'qe'
+
+        ! Write number of atoms
+        write(200,err=1100) NA
+
+        ! Write number of heights
+        write(200,err=1100) NZ
+
+        ! For each atom
+        do ia=1,nA
+
+          ! Write number of terms/levels and transitions
+          write(200,err=1100) Atom(ia)%ntran
+
+          ! For each transition
+          do itran=1,Atom(ia)%ntran
+
+            ! Identify involved terms
+            itermu = -1
+            do i=1,Atom(ia)%nMulti-1
+              do i1=i+1,Atom(ia)%nMulti
+                if (Atom(ia)%irad(i,i1).eq.itran) then
+                  iterml = i
+                  itermu = i1
+                  exit
+                end if
+              end do
+              if (itermu.ge.0) exit
+            end do
+
+            write(200,err=1100) Atom(ia)%qel(itran,:)
+
+          end do
+
+        end do ! Atoms
+
+        ! Close files
+        close(200)
+
+      !
+      ! 1.5D
+      !
+      else if (run_mode.eq.1) then
+
+        ! Allocate buffer
+        allocate(buffer(buff%buffer_size/4))
+
+        ! Open file
+        call MPI_FILE_OPEN(MPI_COMM_SELF, &
+                           trim(folder)//'/qel', &
+                           MPI_MODE_WRONLY, MPI_INFO_NULL, funit, &
+                           ierr)
+        if (ierr.ne.0) goto 1000
+
+        !
+        ! Column offset
+        !
+
+        ! Get offset
+        loffset = dble(icoords(3)-1)*dble(buff%buffer_size) + &
+                  dble(buff%head_size)
+        do while(loffset.gt.offlimit)
+          offset = int(offlimit)
+          call MPI_FILE_SEEK(funit, offset, MPI_SEEK_CUR, ierr)
+          if (ierr.ne.0) goto 1010
+          loffset = loffset - offlimit
+        end do
+        offset = int(loffset)
+        call MPI_FILE_SEEK(funit, offset, MPI_SEEK_CUR, ierr)
+        if (ierr.ne.0) goto 1010
+
+        ! Initialize buffer
+        ii = 0
+
+        ! If specified
+        if (buff%nran.gt.0) then
+
+          ! For each entry to write
+          do iran=1,buff%nran
+
+            ! Atom and transition
+            ia = buff%indx(1,iran)
+            itran = buff%indx(2,iran)
+
+            ! Identify involved terms
+            itermu = -1
+            do i=1,Atom(ia)%nMulti-1
+              do i1=i+1,Atom(ia)%nMulti
+                if (Atom(ia)%irad(i,i1).eq.itran) then
+                  iterml = i
+                  itermu = i1
+                  exit
+                end if
+              end do
+              if (itermu.ge.0) exit
+            end do
+
+            ! Advance buffer
+            buffer(ii+1:ii+nz) = real(Atom(ia)%qel(itran,:))
+            ii = ii + nz
+
+          end do ! Ranges
+
+        ! All
+        else
+
+          ! For each atom
+          do ia=1,nA
+
+            ! For each transition
+            do itran=1,Atom(ia)%ntran
+
+              ! Identify involved terms
+              itermu = -1
+              do i=1,Atom(ia)%nMulti-1
+                do i1=i+1,Atom(ia)%nMulti
+                  if (Atom(ia)%irad(i,i1).eq.itran) then
+                    iterml = i
+                    itermu = i1
+                    exit
+                  end if
+                end do
+                if (itermu.ge.0) exit
+              end do
+
+              ! Advance buffer
+              buffer(ii+1:ii+nz) = real(Atom(ia)%qel(itran,:))
+              ii = ii + nz
+
+            end do ! Transitions
+          end do ! Atoms
+
+        end if
+
+        ! Write buffer
+        call MPI_FILE_WRITE(funit,buffer(1),buff%buffer_size/4, &
+                            MPI_REAL,MPI_STATUS_IGNORE,ierr)
+        if (ierr.ne.0) goto 1300
+
+        ! Close file
+        call MPI_FILE_CLOSE(funit, ierr)
+
+      end if
+
+      ! Control
+      call control
+
+      return
+
+1000  umsg = 'Error opening qel file'
+      call abortedS(umsg,urou,-1,.True.,.True.)
+      call control
+      return
+1010  umsg = 'Error seeking qel file'
+      call MPI_FILE_CLOSE(funit, ierr)
+      call abortedS(umsg,urou,-1,.True.,.True.)
+      call control
+      return
+1100  umsg = 'Error writing qel file'
+      close(200)
+      call abortedS(umsg,urou,-1,.True.,.True.)
+      call control
+      return
+1300  umsg = 'Error writing qel file'
+      call MPI_FILE_CLOSE(funit, ierr)
+      call abortedS(umsg,urou,-1,.True.,.True.)
+      call control
+      return
+
+      end subroutine writeqel
 
 !#####################################################################
 !#####################################################################

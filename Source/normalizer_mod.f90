@@ -10,12 +10,18 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     03/15/2024 V3.0.10
+!     05/14/2024 V3.0.11
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     05/14/2024:   V3.0.11 - Added a new argument to the
+!                             normalization subroutine. If this
+!                             argument is true, the routine returns
+!                             after setting up the geometry indexing
+!                             of the relevant structure (TdPA)
 !
 !     03/15/2024:   V3.0.10 - Save Voigt profile files in the output
 !                             folder (TdPA)
@@ -338,10 +344,12 @@
       !!     polarization(logical): Normalizing profiles for
       !!                            polarization problem\n
       !!              los(logical): Normalizing for LOS formal
-      !!                            solutions
+      !!                            solutions\n
+      !!        only_geom(logical): If only entering to set-up
+      !!                            the geometry
       subroutine normalization(Atom,lines,Atmo,Bstrength,Geom,Frec, &
                                Input,Flgsg,MPID,rlimw,lit, &
-                               polarization,los)
+                               polarization,los,only_geom)
 
       ! IO
       type(Atom_class), dimension(:):: Atom
@@ -352,7 +360,7 @@
       type(Input_class):: Input
       type(Fctsg_class):: Flgsg
       type(MPI_class):: MPID
-      logical, intent(in):: polarization, los, lit
+      logical, intent(in):: polarization, los, lit, only_geom
       logical, intent(inout):: rlimw
       double precision, dimension(:), intent(in):: Bstrength
 
@@ -431,6 +439,9 @@
           MPID%VRAM = 0d0
 
         end if
+
+        ! Only geometry?
+        if (only_geom) return
 
         ! For each atom
         do ia=1,nA
@@ -628,6 +639,9 @@
           MPID%VRAM = 0d0
 
         end if
+
+        ! Only geometry?
+        if (only_geom) return
 
         !
         ! Normalize FS profiles

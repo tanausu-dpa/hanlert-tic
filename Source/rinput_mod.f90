@@ -11,12 +11,27 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     02/23/2024 V3.0.23
+!     07/18/2024 V3.0.28
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     07/18/2024:   V3.0.28 - Read Input%keep_qel and
+!                             Input%lim_qel (TdPA)
+!
+!     05/20/2024:   V3.0.27 - Read Input%Regul_factor (TdPA)
+!
+!     05/20/2024:   V3.0.26 - Read Input%Weight_Factor (TdPA)
+!
+!     05/13/2024:   V3.0.25 - Read Input%LM_lam_big_test,
+!                             Input%LM_lam_small_test,
+!                             Input%LM_lam_big_prove, and
+!                             Input%LM_lam_small_prove (TdPA)
+!
+!     05/07/2024:   V3.0.24 - Read Input%LM_Back_Mode and
+!                             Input%Lam_track (TdPA)
 !
 !     02/23/2024:   V3.0.23 - Read Input%fvmicro, Input%init_J_bb,
 !                             Input%mrcj, Input%ALI_force, and
@@ -1408,6 +1423,14 @@
         Input%keep_damp = .False.
       end if
 
+      ! Keep qel
+      read(100,*,err=1100) cdump
+      if(cdump.eq.'Y')then
+        Input%keep_qel = .True.
+      else
+        Input%keep_qel = .False.
+      end if
+
       ! Keep a parameters
       read(100,*,err=1100) cdump
       if(cdump.eq.'Y')then
@@ -1574,6 +1597,16 @@
         end do
       end if
 
+      ! Limit qel output
+      read(100,*,err=1100) Input%lim_qel%nran
+      if (Input%lim_qel%nran.gt.0) then
+        allocate(Input%lim_qel%indx(2,Input%lim_qel%nran))
+        do i1=1,Input%lim_qel%nran
+          read(100,*,err=1100) Input%lim_qel%indx(1,i1)
+          read(100,*,err=1100) Input%lim_qel%indx(2,i1)
+        end do
+      end if
+
       ! Limit back output
       read(100,*,err=1100) Input%lim_back%nran
       if (Input%lim_back%nran.gt.0) then
@@ -1730,6 +1763,21 @@
           if (Input%linv_weight) &
             read(100,'(A)',err=1100) Input%inv_weight
 
+          ! Weight factors
+          read(100,*,err=1100) ios
+
+          ! If weights factor to read
+          if (ios.gt.0) then
+
+            ! Allocate
+            allocate(Input%Weight_Factor(4,ios))
+
+            ! Read entries
+            do i1=1,ios
+              read(100,*,err=1100) Input%Weight_Factor(:,i1)
+            end do
+
+          end if ! Additional factors to read
         end if ! No automatic weights
 
         ! Inversion initialization
@@ -1823,6 +1871,9 @@
 
         ! Regularization limit
         read(100,*,err=1100) Input%Regul_Limit
+
+        ! Regularization factor
+        read(100,*,err=1100) Input%Regul_factor
 
         ! CHI2 Threshold
         read(100,*,err=1100) Input%Threshold_chisq
@@ -2035,6 +2086,33 @@
 
         ! Index of LM method
         read(100,*,err=1100) Input%LM_Method
+
+        ! Index of LM mode for backtracking
+        read(100,*,err=1100) Input%LM_Back_Mode
+
+        ! Value of lambda to check big
+        read(100,*,err=1100) Input%LM_lam_big_test
+
+        ! Value of lambda to check small
+        read(100,*,err=1100) Input%LM_lam_small_test
+
+        ! Value of lambda to prove big
+        read(100,*,err=1100) Input%LM_lam_big_prove
+
+        ! Value of lambda to prove small
+        read(100,*,err=1100) Input%LM_lam_small_prove
+
+        ! Order of tracking
+        read(100,*,err=1100) Input%Lam_track
+        ! Zero or negative not tracking
+        if (Input%Lam_track.lt.1) then
+            Input%Lam_track = 0
+            Input%l_Lam_track = .False.
+        else
+            Input%l_Lam_track = .True.
+            ! Limit is second order
+            if (Input%Lam_track.gt.3) Input%Lam_track = 3
+        end if
 
         ! Range of lambda for LM
         read(100,*,err=1100) Input%Lam_Range

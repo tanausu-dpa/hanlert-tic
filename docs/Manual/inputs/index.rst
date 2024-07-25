@@ -5,6 +5,7 @@ Inputs
 ******
 
 Running HanleRT-TIC requires the set up of several input files:
+
 * :ref:`Control file <input_file>` with the information and configuration of the run.
 * :ref:`Atomic files <atom_file>` with the model atoms to consider.
 * :ref:`Atmospheric file <atmo_file>` with the model atmosphere (not required for the inversion).
@@ -56,7 +57,7 @@ following lists of ``KEYWORDS``.
    point of view, and we prefer to avoid the possibility of losing enormous
    amounts of computing time due to wrong or not optimal configuration
    for series of cycles. Intead, any result file can be used to initialize
-   a new cycle for the same `data file <data_file>`. We encourage the user
+   a new cycle for the same :ref:`data file <data_file>`. We encourage the user
    to check the result of each cycle before launching the next one.
 
 

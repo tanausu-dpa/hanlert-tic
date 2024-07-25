@@ -1,4 +1,4 @@
-import struct
+import struct,copy
 import numpy as np
 
 ######################################################################

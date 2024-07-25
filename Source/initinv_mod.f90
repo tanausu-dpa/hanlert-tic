@@ -10,12 +10,17 @@
 !  Start:
 !     02/23/2023
 !  Last version:
-!     02/19/2024 V3.1.14
+!     05/13/2024 V3.1.15
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     05/13/2024:   V3.1.15 - Added checks for the new lambda
+!                             parameters for the backtracking (TdPA)
+!                           - Bugfix: No longer prints the default
+!                             full wavelength range for weights (TdPA)
 !
 !     02/29/2024:   V3.1.14 - It is no longer necessary to guess the
 !                             temperature and velocity limits for
@@ -201,6 +206,8 @@
 
       ! Local
       character(len=10):: caux
+
+      logical:: check
 
       integer:: ii,jj,kk,ll,ia
 
@@ -670,6 +677,34 @@
         call gabortedv
       end if
 
+      ! Check backtracking
+      if (Input%LM_Method.eq.1) then
+        ! Check desperate
+        if (Input%LM_Back_Mode.eq.1) then
+          ! Check within limits
+          check = Input%LM_lam_big_test.le.Input%Lam_Range(1).or. &
+                  Input%LM_lam_big_prove.le.Input%Lam_Range(1).or. &
+                  Input%LM_lam_small_test.le.Input%Lam_Range(1).or. &
+                  Input%LM_lam_small_prove.le.Input%Lam_Range(1).or. &
+                  Input%LM_lam_big_test.ge.Input%Lam_Range(2).or. &
+                  Input%LM_lam_big_prove.ge.Input%Lam_Range(2).or. &
+                  Input%LM_lam_small_test.ge.Input%Lam_Range(2).or. &
+                  Input%LM_lam_small_prove.ge.Input%Lam_Range(2).or. &
+                  Input%LM_lam_small_prove.ge.Input%LM_lam_big_prove
+          ! Error
+          if (check) then
+            umsg = 'Found a consistency issue between the ranges '// &
+                   'of the lambda parameter and the test and '// &
+                   'prove parameters of the backtracking '// &
+                   'desperate shake-up. Check that the "small" '// &
+                   'variables are smaller than the corresponding '// &
+                   '"big" variables and that all of them are '// &
+                   'strictly between the limits for lambda'
+            urou = 'set_up_inv'
+            call gabortedv
+          end if
+        end if
+      end if
 
 
       !
@@ -727,16 +762,21 @@
           ! Numbers
           else
             do ia=1,Input%Num_weight
-              write(umsg,'(A,2(1x,f9.3),A,4(1x,es10.3))') &
-                '   o Stokes weights between range', &
-                Input%weight(4,ia),Input%weight(5,ia), &
-                ' nm :',Input%weight(0:3,ia)
+              if (Input%weight(5,ia).lt.1d99) then
+                write(umsg,'(A,2(1x,f9.3),A,4(1x,es10.3))') &
+                  '   o Stokes weights between range', &
+                  Input%weight(4,ia),Input%weight(5,ia), &
+                  ' nm :',Input%weight(0:3,ia)
+              else
+                write(umsg,'(A,4(1x,es10.3))') &
+                  '   o Stokes weights :', Input%weight(0:3,ia)
+              end if
               call verboseI(1)
             end do
           end if
         end if
 
-
+       
         if (trim(Input%Inv_init).ne.'NONE') then
           write(umsg,'(A,A)') '   o Restore from file ', &
                                Input%Inv_init
@@ -1154,7 +1194,8 @@
             else
               if (Input%lim_fwhm(ii)%doub(2).lt.1d99) then
                 write(umsg,'(A,A," (",es10.3,",",es10.3,")")') &
-                    '   o PSF from file',trim(Input%fwhm_fil(ii)%str), &
+                    '   o PSF from file', &
+                     trim(Input%fwhm_fil(ii)%str), &
                      Input%lim_fwhm(ii)%doub(1:2)
               else
                 write(umsg,'(A,A)') &

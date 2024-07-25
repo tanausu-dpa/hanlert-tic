@@ -12,12 +12,15 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     04/01/2024 V3.2.8
+!     05/22/2024 V3.2.9
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     05/22/2024:    V3.2.9 - Fixed message not limited to global
+!                             master (TdPA)
 !
 !     04/01/2024:    V3.2.8 - Call the routine to compute dipole
 !                             strengths in energy basis (TdPA)
@@ -1664,12 +1667,26 @@
       !
       ! Formal solution and iterating
       !
-      if (lio.and.Input%iteri_max.ge.Input%iteri_min) then
+      if (lio.and.(Input%iteri_max.ge.Input%iteri_min.or. &
+                   Input%iter_j.gt.0)) then
 
-        ! Normalize first order
-        call normalization(Atom,LTElines,Atmo,Atmo%zeros,GeomI, &
-                           Frec,Input,Flgsg,MPID,rlimw,lio, &
-                           .False.,.False.)
+        ! Need actual normalization
+        if (Input%iteri_max.ge.Input%iteri_min.or. &
+            Input%init_J_bb) then
+
+          ! Normalize first order
+          call normalization(Atom,LTElines,Atmo,Atmo%zeros,GeomI, &
+                             Frec,Input,Flgsg,MPID,rlimw,lio, &
+                             .False.,.False.,.False.)
+
+        else
+
+          ! Only geometry
+          call normalization(Atom,LTElines,Atmo,Atmo%zeros,GeomI, &
+                             Frec,Input,Flgsg,MPID,rlimw,lio, &
+                             .False.,.False.,.True.)
+
+        end if
 
         ! Control
         if (laborted) goto 1000
@@ -1680,7 +1697,8 @@
         !
 
         ! If doing PRD, determine the input frequencies and weights
-        if(Input%iter_ord.eq.2)then
+        if(Input%iter_ord.eq.2.and. &
+           Input%iteri_max.ge.Input%iteri_min)then
 
           call omegabuildinI(Frec,Red,Atom,Atmo,Input,GeomI,MPID, &
                              lio,ofram,.False.)
@@ -1834,7 +1852,7 @@
         !
         call normalization(Atom,LTElines,Atmo,Atmo%zeros,GeomI, &
                            Frec,Input,Flgsg,MPID,rlimw,lio, &
-                           .False.,.True.)
+                           .False.,.True.,.False.)
 
         ! Control
         if (laborted) goto 1000
@@ -2079,7 +2097,7 @@
         do ia=1,nA
           call strength_ev(Atom(ia),Flgsg,Bfield)
         end do
-        if(pid.eq.0) then
+        if(gpid.eq.0) then
           umsg = ' - Dipole strengths in energy eigenbasis calculated'
           call verbose
         end if
@@ -2100,7 +2118,7 @@
       ! Normalize first order
       call normalization(Atom,LTElines,Atmo,Bfield%Bstrength,Geom, &
                          Frec,Input,Flgsg,MPID,rlimw,lp, &
-                         .True.,.False.)
+                         .True.,.False.,.False.)
 
       ! Control
       if (laborted) goto 1000
@@ -2302,7 +2320,7 @@
         ! Normalize first order
         call normalization(Atom,LTElines,Atmo,Bfield%Bstrength,Geom, &
                            Frec,Input,Flgsg,MPID,rlimw, &
-                           lp,.True.,.True.)
+                           lp,.True.,.True.,.False.)
 
         ! Control
         if (laborted) goto 1000

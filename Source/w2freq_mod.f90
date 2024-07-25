@@ -10,12 +10,26 @@
 !  Start:
 !     02/17/2023
 !  Last version:
-!     10/04/2023 V3.0.10
+!     05/20/2024 V3.0.12
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     05/20/2024:   V3.0.12 - Added an additional way of controling
+!                             the weights in the inversion by
+!                             introducing enhancing factors over the
+!                             existing inputs (TdPA)
+!
+!     05/17/2024:   V3.0.11 - The number of degrees of freedom is
+!                             now counted when defining the weights,
+!                             although it is not used anymore (TdPA)
+!                           - New normalization for the weights when
+!                             creating them to keep the order of
+!                             the merit function in the expected
+!                             ranges regardless of the weights in the
+!                             user input (TdPA)
 !
 !     10/04/2023:   V3.0.10 - Verbosity update (TdPA)
 !
@@ -206,6 +220,110 @@
       if (Inf_Stokes%auto_weight) return
 
       !
+      ! If factors
+      if (allocated(Input%Weight_Factor)) then
+
+        ! Run over all entries
+        do i=1,size(Input%Weight_Factor,2)-1
+
+          ! Flag that limits are to be check
+          left = .True.
+
+          ! Run over all other entry
+          do j=i+1,size(Input%Weight_Factor,2)
+
+            ! If Stokes is not the same, skip
+            if (nint(Input%Weight_Factor(1,i)).ne. &
+                nint(Input%Weight_Factor(1,j))) cycle
+
+            ! Get index limits for first if not yet
+            if (left) then
+
+              ! Get indexes
+              il = minloc(abs(omega_in - Input%Weight_Factor(2,i)),1)
+              ir = minloc(abs(omega_in - Input%Weight_Factor(3,i)),1)
+
+              ! Flag that found
+              left = .False.
+
+            end if ! Need to get indexes for first
+
+            ! Get indexes for second
+            nl = minloc(abs(omega_in - Input%Weight_Factor(2,j)),1)
+            nstk = minloc(abs(omega_in - Input%Weight_Factor(3,j)),1)
+
+            ! Check superposition
+            if ((nl.ge.il.and.nl.le.ir).or. &
+                (nstk.ge.il.and.nstk.le.ir)) then
+
+              ! Abort if superposition
+              select case (nint(Input%Weight_Factor(1,i)))
+
+                case (0)
+
+                  ! Abort
+                  write(umsg, &
+                        '(A,2(A,i2,"(",es15.8,",",es15.8,")"))') &
+                         'There is superposition of at least two '// &
+                         'ranges in WEIGHT_FACTOR for Stokes I: ', &
+                         'range ',i,omega_in(il),omega_in(ir), &
+                         ' and range ',j,omega_in(nl),omega_in(nstk)
+
+                case (1)
+
+                  ! Abort
+                  write(umsg, &
+                        '(A,2(A,i2,"(",es15.8,",",es15.8,")"))') &
+                         'There is superposition of at least two '// &
+                         'ranges in WEIGHT_FACTOR for Stokes Q: ', &
+                         'range ',i,omega_in(il),omega_in(ir), &
+                         ' and range ',j,omega_in(nl),omega_in(nstk)
+
+                case (2)
+
+                  ! Abort
+                  write(umsg, &
+                        '(A,2(A,i2,"(",es15.8,",",es15.8,")"))') &
+                         'There is superposition of at least two '// &
+                         'ranges in WEIGHT_FACTOR for Stokes U: ', &
+                         'range ',i,omega_in(il),omega_in(ir), &
+                         ' and range ',j,omega_in(nl),omega_in(nstk)
+
+                case (3)
+
+                  ! Abort
+                  write(umsg, &
+                        '(A,2(A,i2,"(",es15.8,",",es15.8,")"))') &
+                         'There is superposition of at least two '// &
+                         'ranges in WEIGHT_FACTOR for Stokes V: ', &
+                         'range ',i,omega_in(il),omega_in(ir), &
+                         ' and range ',j,omega_in(nl),omega_in(nstk)
+
+                case default
+
+                  ! Abort
+                  write(umsg, &
+                        '(A,2(A,i2,"(",es15.8,",",es15.8,")"))') &
+                         'There is superposition of at least two '// &
+                         'ranges in WEIGHT_FACTOR: ', &
+                         'range ',i,omega_in(il),omega_in(ir), &
+                         ' and range ',j,omega_in(nl),omega_in(nstk)
+              end select
+
+              ! Finish the error
+              urou = 'inversion_weights'
+              call abortedS(umsg,urou,-1,.True.,.True.)
+              call control
+              return
+
+            end if
+
+          end do ! All other entries
+        end do ! All entries
+
+      end if ! If weight factors
+
+      !
       ! If weight from file
       !
       if (Input%linv_weight) then
@@ -359,18 +477,74 @@
 
       end if ! Type of input
 
+
+      !
+      ! Factors
+      if (allocated(Input%Weight_Factor)) then
+
+        ! Run over all entries
+        do i=1,size(Input%Weight_Factor,2)
+
+          ! Get indexes
+          nstk = nint(Input%Weight_Factor(1,i))
+          il = minloc(abs(omega_in - Input%Weight_Factor(2,i)),1)
+          ir = minloc(abs(omega_in - Input%Weight_Factor(3,i)),1)
+
+          ! Apply weight
+          Inf_Stokes%weight(nstk,il:ir) = Input%Weight_Factor(4,i)* &
+                                         Inf_Stokes%weight(nstk,il:ir)
+        end do ! Factor entries
+
+        ! Free
+        deallocate(Input%Weight_Factor)
+
+      end if ! There are input factors
+
+
       !
       ! Sanity check
       !
       if (minval(Inf_Stokes%weight).lt.0d0) then
 
         ! Abort
-        umsg = 'found a negative weight for the inversion'
+        umsg = 'Found a negative weight for the inversion'
         urou = 'inversion_weights'
         call aborted
         return
 
       end if
+
+      !
+      ! Normalization for the weights
+      Inf_Stokes%Weight = Inf_Stokes%Weight/ &
+                          sqrt(sum(Inf_Stokes%Weight* &
+                                   Inf_Stokes%Weight))
+
+      ! Initialize number of data points
+      Inf_Stokes%Num_freedomI = 0
+      Inf_Stokes%Num_freedom = 0
+
+      ! Wavelengths
+      do j=1,Inf_Stokes%Num_wavelength
+
+        ! If non-zero intensity weight, add to count
+        if (Inf_Stokes%Weight(0,j).gt.0d0) then
+
+          ! Total
+          Inf_Stokes%Num_freedom = 1 + Inf_Stokes%Num_freedom
+          Inf_Stokes%Num_freedomI = 1 + Inf_Stokes%Num_freedomI
+
+        end if ! Non-zero weight
+
+        ! For each Stokes parameter
+        do i=1,3
+
+          ! If non-zero weight, add to count
+          if (Inf_Stokes%Weight(i,j).gt.0d0) &
+            Inf_Stokes%Num_freedom = 1 + Inf_Stokes%Num_freedom
+
+        end do ! Stokes parameters
+      end do ! Wavelengths
 
       ! Free
       if (allocated(Input%weight)) deallocate(Input%weight)

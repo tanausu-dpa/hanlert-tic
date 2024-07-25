@@ -1498,6 +1498,17 @@ KEEP_DAMP
 
   * Description: Save in a file the damping parameter characteristic of the Voigt profile for the ATOM_FILE model atoms.
 
+KEEP_QEL
+--------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string: Yes, No; default: No
+
+  * Description: Save in a file the elastic rates characteristic of each transition for the ATOM_FILE model atoms.
+
 KEEP_COLS
 ---------
 
@@ -1684,6 +1695,17 @@ LIM_DAMP
     - string + integer
 
   * Description: Unique identifier of the model atom and index specifying the bound-bound transition whose damping parameter will be included in the output for damping parameters. Transitions not included in the specified ranges will not be included in the output.
+
+LIM_QEL
+-------
+
+  * OPTIONAL, ADDITIVE
+
+  * Formats:
+    
+    - string + integer
+
+  * Description: Unique identifier of the model atom and index specifying the bound-bound transition whose elastic rate will be included in the output for elastic rates. Transitions not included in the specified ranges will not be included in the output.
 
 LIM_BACK
 --------

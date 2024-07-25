@@ -12,12 +12,16 @@
 !  Start:
 !     06/28/2022
 !  Last version:
-!     04/01/2024 V3.1.6
+!     07/18/2024 V3.1.7
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     07/18/2024:    V3.1.7 - Adding deallocation of the elastic rate
+!                             variable whenever the damping is
+!                             deallocated (TdPA)
 !
 !     04/01/2024:    V3.1.6 - Deallocate dipole strength in energy
 !                             basis if it proceeds (TdPA)
@@ -651,6 +655,7 @@
 
         if (allocated(Atom(ii)%damp)) deallocate(Atom(ii)%damp)
         if (allocated(Atom(ii)%ldamp)) deallocate(Atom(ii)%ldamp)
+        if (allocated(Atom(ii)%qel)) deallocate(Atom(ii)%qel)
 
       end do ! Atoms
 
@@ -764,6 +769,7 @@
         ! Damping
         if (allocated(Atom(ii)%damp)) deallocate(Atom(ii)%damp)
         if (allocated(Atom(ii)%ldamp)) deallocate(Atom(ii)%ldamp)
+        if (allocated(Atom(ii)%qel)) deallocate(Atom(ii)%qel)
 
         ! Collisions
         if (allocated(Atom(ii)%Ccoeff)) deallocate(Atom(ii)%Ccoeff)
@@ -799,6 +805,7 @@
         ! Damping
         if (allocated(Atomb(ii)%damp)) deallocate(Atomb(ii)%damp)
         if (allocated(Atomb(ii)%ldamp)) deallocate(Atomb(ii)%ldamp)
+        if (allocated(Atomb(ii)%qel)) deallocate(Atomb(ii)%qel)
 
       end do ! Passive atoms
 

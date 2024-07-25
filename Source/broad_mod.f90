@@ -10,12 +10,14 @@
 !  Start:
 !     04/19/2017
 !  Last version:
-!     09/25/2023 V3.0.5
+!     07/18/2024 V3.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     07/18/2024:    V3.0.6 - Added storage of qel variable (TdPA)
 !
 !     09/25/2023:    V3.0.5 - Changed name of param files (TdPA)
 !
@@ -115,6 +117,8 @@
       ! Allocate the variable to store this damping parameter
       allocate(Atom%ldamp(Atom%ntran,NZ))
       Atom%ldamp = 0d0
+      allocate(Atom%qel(Atom%ntran,NZ))
+      Atom%qel = 0d0
 
       ! Gaussian?
       if (VOITY.eq.3) then
@@ -189,6 +193,9 @@
           ! Add to the line broadening
           Atom%ldamp(itran,:) = Atom%ldamp(itran,:) + &
                                 1d-16*damp/c/(4d0*PI)
+
+          ! Elastic collisions
+          Atom%qel(itran,:) = Atom%qel(itran,:) + damp
 
         end do
       end do

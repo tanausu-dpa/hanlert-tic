@@ -6,6 +6,25 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an
 # Hao Li
 #
+# 07/18/2024: V3.0.41 - Added KEEP_QEL and LIM_QEL (TdPA)
+#
+# 05/28/2024: V3.0.40 - Bugfix: NODES_[var]_METHOD was ignoring
+#                       inputs with multiple words (TdPA)
+#
+# 05/20/2024: V3.0.39 - Added REGUL_FACTOR (TdPA)
+#
+# 05/20/2024: V3.0.38 - Added WEIGHT_FACTOR (TdPA)
+#
+# 05/17/2024: V3.0.37 - Fixed missing space when informing about
+#                       creating the Solution folder in 1.5D (TdPA)
+#
+# 05/13/2024: V3.0.36 - Added LM_LAM_BIG_TEST, LM_LAM_SMALL_TEST,
+#                       LM_LAM_BIG_PROVE, and
+#                       LM_LAM_SMALL_PROVE (TdPA)
+#
+# 05/07/2024: V3.0.35 - Added LM_BACKTRACKING_MODE and
+#                       LM_LAMBDA_TRACK (TdPA)
+#
 # 02/23/2024: V3.0.34 - Added FORCE_MICRO, INIT_J_BB, ITER_MRC_J,
 #                       and ALLOW_NPHYS_POP (TdPA)
 #                     - Activate STATIC and STATIC_INT for 1D (TdPA)
@@ -1225,7 +1244,8 @@ def rInput():
          'LIM_STK','LIM_CTR','LIM_TAU', \
          'LIM_COLS_TT','LIM_COLS_LL','LIM_DAMP','LIM_BACK', \
          'LIM_POP','ATMO_STRAT','WEIGHT','ATOM_NO_WAVE', \
-         'PSF_FWHM','LTE_LINE','K_CUT_TERM','EXCLUDE_PIXEL']
+         'PSF_FWHM','LTE_LINE','K_CUT_TERM','EXCLUDE_PIXEL', \
+         'WEIGHT_FACTOR']
 
   # Inversion variables
   varis = ['B','BT','BP','F','T','VX','VY','VZ','VT','PG', \
@@ -2723,7 +2743,7 @@ def rInput():
     if not exist and not no_folder:
       try:
         os.mkdir(ofolder+'/Solution-folder')
-        verbose(' - Solution folder did not exist, I created' + \
+        verbose(' - Solution folder did not exist, I created ' + \
                 'it for you', ofolder, verbosity)
       except:
         verbose(' # Could not create Solution folder', '', verbosity)
@@ -4429,6 +4449,25 @@ def rInput():
   else:
     f.write('N\n')
 
+  # KEEP_QEL
+  keep_qel = False
+  if rmode >= 0:
+    check = 0
+    if 'KEEP_QEL' in Dictionary:
+      val = Dictionary['KEEP_QEL'][0]
+      if val == 'Y' or val == 'YE' or val == 'YES' or \
+         val == 'S' or val =='SI':
+        f.write('Y\n')
+        check = 1
+        keep_qel = True
+      if val == 'N' or val == 'NO' or val == 'NON':
+        f.write('N\n')
+        check = 1
+    if check == 0:
+      f.write('N\n')
+  else:
+    f.write('N\n')
+
   # KEEP_APARAM
   if rmode == 0:
     check = 0
@@ -4846,6 +4885,38 @@ def rInput():
           doublets.append([ia,it])
         except:
           verbose(' # LIM_DAMP wrong format', \
+                  ofolder, verbosity)
+          abort(f, filename)
+      f.write('{0}\n'.format(NL))
+      for dou in doublets:
+        f.write('{0}\n'.format(dou[0]))
+        f.write('{0}\n'.format(dou[1]))
+    else:
+      f.write('0\n')
+  else:
+    f.write('0\n')
+
+  # LIM_QEL
+  if rmode == 1 and keep_qel:
+    if 'LIM_QEL' in Dictionary:
+      vals = Dictionary['LIM_QEL']
+      NL = len(vals)
+      doublets = []
+      for val in vals:
+        ia = val[0]
+        # Label found?
+        if ia not in atom_lab_act:
+            verbose(' # Label ' + ia + ' in LIM_QEL not ' + \
+                    'found in the list of active atom labels', \
+                    ofolder, verbosity)
+            abort(f, filename)
+        else:
+            ia = atom_lab_act.index(ia) + 1
+        try:
+          it = int(val[1])
+          doublets.append([ia,it])
+        except:
+          verbose(' # LIM_QEL wrong format', \
                   ofolder, verbosity)
           abort(f, filename)
       f.write('{0}\n'.format(NL))
@@ -5285,6 +5356,55 @@ def rInput():
                 'keywords if AUTO_WEIGHT = No', ofolder, verbosity)
         abort(f, filename)
 
+      # WEIGHT_FACTOR
+      conversion = {'I': '0.','Q': '1.','U': '2.','V': '3.'}
+      check = 0
+      if 'WEIGHT_FACTOR' in Dictionary:
+        val = Dictionary['WEIGHT_FACTOR']
+        out = []
+        for lval in val:
+          if lval[0].strip().lower() == 'none': continue
+          if len(lval) == 4:
+            lval[0] = lval[0].strip().upper()
+            if lval[0] not in conversion:
+              verbose(' # Identifier in WEIGHT_FAVOR ' + \
+                      lval[0] + 'not in [I,Q,U,V]', \
+                      ofolder, verbosity)
+              abort(f, filename)
+            lval[0] = conversion[lval[0]]
+            try:
+              l0 = float(lval[1])
+              l1 = float(lval[2])
+              ff = float(lval[3])
+            except ValueError:
+              verbose(' # Arguments in WEIGHT_FACTOR must be ' + \
+                      'one string and three floats', \
+                      ofolder, verbosity)
+              abort(f, filename)
+            except:
+              raise
+            if ff < 0:
+              verbose(' # Factor in WEIGHT_FACTOR must be ' + \
+                      'non-negative', \
+                      ofolder, verbosity)
+              abort(f, filename)
+            if l0 > l1:
+              out.append('{0} {1} {2} {3}\n'.format(lval[0],l1,l0,ff))
+            else:
+              out.append('{0} {1} {2} {3}\n'.format(lval[0],l0,l1,ff))
+          else:
+            verbose(' # Number of elements in WEIGHT_FACTOR ' + \
+                    'not equal to 4 in line: ' + ' '.join(lval), \
+                    ofolder, verbosity)
+            abort(f, filename)
+        check = 1
+        f.write('{0}\n'.format(len(out)))
+        if len(out) > 0:
+          for ou in out:
+            f.write(ou)
+      if check == 0:
+        f.write('0\n')
+
     # INV_INIT
     check = 0
     if 'INV_INIT' in Dictionary:
@@ -5358,7 +5478,7 @@ def rInput():
         if var == 'F':
             f.write('0\n')
             continue
-        val = Dictionary['NODES_'+var+'_METHOD'][0]
+        val = ' '.join(Dictionary['NODES_'+var+'_METHOD'])
         if 'V' in val:
           if 'FIX' in val:
             if 'FIR' in val:
@@ -5635,6 +5755,22 @@ def rInput():
         abort(f, filename)
     if check == 0:
       f.write('0.1\n')
+
+    # REGUL_FACTOR
+    check = 0
+    if 'REGUL_FACTOR' in Dictionary:
+      val = Dictionary['REGUL_FACTOR'][0]
+      try:
+        val = interpret(val)
+        num = float(val)
+        f.write(val+'\n')
+        check = 1
+      except:
+        verbose(' # REGUL_FACTOR must be a float', \
+                ofolder, verbosity)
+        abort(f, filename)
+    if check == 0:
+      f.write('1.0\n')
 
     # THRH_CHI2
     check = 0
@@ -6346,6 +6482,94 @@ def rInput():
         check = 1
     if check == 0:
       f.write('1\n')
+
+    # LM_BACKTRACKING_MODE
+    check = 0
+    if 'LM_BACKTRACKING_MODE' in Dictionary:
+      val = Dictionary['LM_BACKTRACKING_MODE'][0]
+      if val in 'DESPERATION':
+        f.write('1\n')
+        check = 1
+      else:
+        f.write('0\n')
+        check = 1
+    if check == 0:
+      f.write('0\n')
+
+    # LM_LAM_BIG_TEST
+    check = 0
+    if 'LM_LAM_BIG_TEST' in Dictionary:
+      val = Dictionary['LM_LAM_BIG_TEST'][0]
+      try:
+        num = float(val)
+        f.write(val+'\n')
+        check = 1
+      except:
+        msg = ' # LM_LAMBDA_BIG_TEST must be a float'
+        verbose(msg, ofolder, verbosity)
+        abort(f, filename)
+    if check == 0:
+      f.write('0.1\n')
+
+    # LM_LAM_SMALL_TEST
+    check = 0
+    if 'LM_LAM_SMALL_TEST' in Dictionary:
+      val = Dictionary['LM_LAM_SMALL_TEST'][0]
+      try:
+        num = float(val)
+        f.write(val+'\n')
+        check = 1
+      except:
+        msg = ' # LM_LAMBDA_SMALL_TEST must be a float'
+        verbose(msg, ofolder, verbosity)
+        abort(f, filename)
+    if check == 0:
+      f.write('10.\n')
+
+    # LM_LAM_BIG_PROVE
+    check = 0
+    if 'LM_LAM_BIG_PROVE' in Dictionary:
+      val = Dictionary['LM_LAM_BIG_PROVE'][0]
+      try:
+        num = float(val)
+        f.write(val+'\n')
+        check = 1
+      except:
+        msg = ' # LM_LAMBDA_BIG_PROVE must be a float'
+        verbose(msg, ofolder, verbosity)
+        abort(f, filename)
+    if check == 0:
+      f.write('100.\n')
+
+    # LM_LAM_SMALL_PROVE
+    check = 0
+    if 'LM_LAM_SMALL_PROVE' in Dictionary:
+      val = Dictionary['LM_LAM_SMALL_PROVE'][0]
+      try:
+        num = float(val)
+        f.write(val+'\n')
+        check = 1
+      except:
+        msg = ' # LM_LAMBDA_SMALL_PROVE must be a float'
+        verbose(msg, ofolder, verbosity)
+        abort(f, filename)
+    if check == 0:
+      f.write('0.1\n')
+
+    # LM_LAMBDA_TRACK
+    check = 0
+    if 'LM_LAMBDA_TRACK' in Dictionary:
+      val = Dictionary['LM_LAMBDA_TRACK'][0]
+      try:
+        num = int(val)
+        f.write(val+'\n')
+        check = 1
+      except:
+        msg = ' # LM_LAMBDA_TRACK must be an integer'
+        verbose(msg, ofolder, verbosity)
+        abort(f, filename)
+    if check == 0:
+      f.write('0\n')
 
     # LM_LAMBDA_RANG
     check = 0

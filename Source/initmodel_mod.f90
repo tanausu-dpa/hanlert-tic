@@ -10,12 +10,14 @@
 !  Start:
 !     06/16/2023
 !  Last version:
-!     10/16/2023 V3.0.4
+!     07/18/2024 V3.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     07/18/2024:    V3.0.5 - Added call to write elastic rates (TdPA)
 !
 !     10/16/2023:    V3.0.4 - The damping coefficients are now
 !                             calculated in the new broadening
@@ -579,6 +581,10 @@
       ! If keeping damping and master, call writer
       if (Input%keep_damp) call writedamp(Atom,Atmo,Input%folder, &
                                           Input%lim_damp)
+
+      ! If keeping elastic rates and master, call writer
+      if (Input%keep_qel) call writeqel(Atom,Atmo,Input%folder, &
+                                        Input%lim_qel)
 
       ! Control
       if (laborted) return

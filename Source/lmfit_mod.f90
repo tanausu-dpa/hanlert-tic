@@ -10,12 +10,43 @@
 !  Start:
 !     02/22/2023
 !  Last version:
-!     11/27/2023 V3.0.14
+!     05/28/2024 V3.0.19
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     05/28/2024:   V3.0.19 - Moved the deallocation of
+!                             Trial_Synthesis local variables before
+!                             the return in case of error (TdPA)
+!                           - If the forward solution fails during
+!                             a trial in the backtracking, the
+!                             algorithm will try to keep going with
+!                             different lambda parameters. Have not
+!                             checked the generality (TdPA)
+!
+!     05/20/2024:   V3.0.18 - Introduce an additional factor to
+!                             scale regularization penalties (TdPA)
+!
+!     05/13/2024:   V3.0.17 - Completed the "shake-up" of the
+!                             backtracking with parameters that can be
+!                             changed in the input file (TdPA)
+!
+!     05/08/2024:   V3.0.16 - Testing new "shake-ups" to the
+!                             backtracking (TdPA)
+!
+!     05/07/2024:   V3.0.15 - Added the possibility to track the
+!                             lambda constant in the LM optimization
+!                             to decide its initial value in the
+!                             next iteration (TdPA)
+!                           - Added the option to use 'emergency'
+!                             measures when the backtracking gets
+!                             stuck. This option is for experimenting
+!                             and not ready to be documented for
+!                             general use (TdPA)
+!                           - Added predict_lambda and update_lambda
+!                             subroutines (TdPA)
 !
 !     11/27/2023:   V3.0.14 - Wrong initialization of the variable
 !                             to ensure that the error gets
@@ -144,6 +175,12 @@
 !    Lambda_propose_fix:
 !      Propose a lambda factor for the LM
 !
+!    predict_lambda:
+!      Propose the value of lambda for the next iteration
+!
+!    update_lambda:
+!      Update the tracked values of the lambda constant
+!
 !    Nodes_Modify:
 !      Modify the node values according to the SVD solution
 !
@@ -164,6 +201,7 @@
       use free_mod
       use hanlert_mod
       use initmodel_mod
+      use inter_mod
       use iosolution_mod
       use iotic_mod
       use jacobian_mod
@@ -251,6 +289,7 @@
       integer:: indx_iter, indx_rej, i, Num_Broyden, max_iters
 
       double precision:: Chisq_old, Ratio
+      double precision, dimension(:), allocatable:: Lam_track
 
 
       ! Check allocations (in case of previous failure)
@@ -316,6 +355,12 @@
       allocate(LM_Stru%Hessian_og(LM_Stru%Num,LM_Stru%Num))
       allocate(LM_Stru%Jacfvec_og(LM_Stru%Num))
 
+      ! Allocate lambda array
+      if (Input%l_Lam_track) then
+        allocate(Lam_track(Input%Lam_track))
+        Lam_track = 0d0
+      end if
+
       ! Master
       if (pid.eq.0) then
 
@@ -355,6 +400,9 @@
         ! Get regularization
         call Get_Regl_all(Inf_Nodes,.False.,LM_Stru%Rgl)
 
+        ! Factorize
+        LM_Stru%Rgl%Penalty = LM_Stru%Rgl%Penalty*Input%Regul_factor
+
         ! If penalty and limit larger than the minimum penalty
         ! and the regularization limit is larger than the
         ! minimum
@@ -362,7 +410,8 @@
             Input%Regul_Limit.gt.TINYREG) then
 
           ! Update ratio to scale penalty to 0.1*chi2
-          LM_Stru%Rgl%Ratio = Ratio/LM_Stru%Rgl%Penalty*LM_Stru%Chisq
+          LM_Stru%Rgl%Ratio = Ratio/LM_Stru%Rgl%Penalty* &
+                              LM_Stru%Chisq*Input%Regul_factor
 
           ! Keep penalty if the ratio is smaller than 1
           if (LM_Stru%Rgl%Ratio.lt.1d0) LM_Stru%Rgl%Ratio = 1d0
@@ -441,7 +490,15 @@
       Num_Broyden = 0
       LM_Stru%accepted = .False.
       Flag_Convg = .False.
-      LM_Stru%Lambda = 1d-3
+      ! Type of LM method
+      select case(Input%LM_Method)
+        ! Classic
+        case(0)
+          LM_Stru%Lambda = 1d-3
+        ! Backtracking
+        case(1)
+          LM_Stru%Lambda = 1d-1*Input%factoraccept
+      end select
       LM_Stru%Lambda_bounds = Input%Lam_Range
       LM_Stru%Flag_weight = .False.
       LM_Stru%factorreject = Input%factorreject
@@ -466,7 +523,12 @@
       ! Iterate, in principle, to the maximum allowed
       do indx_iter=1,max_iters
 
-        ! If after the first iteration the accepted blag is on,
+        ! Predict lambda
+        if (Input%l_Lam_track) &
+          call predict_lambda(indx_iter,Lam_track, \
+                              Input%Lam_track,LM_Stru)
+
+        ! If after the first iteration the accepted flag is on,
         ! we are doing Broyden and we have not done three already
         if (Input%Broyden.and.LM_Stru%accepted.and. &
             Num_Broyden.lt.3.and.indx_iter.gt.1) then
@@ -844,7 +906,8 @@
 
             ! Update ratio
             Ratio = (Input%Regul_Limit)/ &
-                    LM_Stru%Rgl%Penalty*LM_Stru%Chisq
+                    LM_Stru%Rgl%Penalty*LM_Stru%Chisq* &
+                    Input%Regul_factor
 
             ! Keep ratio at least 1
             if (Ratio.lt.1d0) Ratio = 1d0
@@ -894,6 +957,11 @@
           Chisq_old = LM_Stru%Chisq
 
         end if ! Accepted step
+
+        ! Predict lambda
+        if (Input%l_Lam_track) &
+          call update_lambda(Lam_track,Input%Lam_track, &
+                             LM_Stru%Lambda)
 
       end do ! Iterations
 
@@ -1076,6 +1144,7 @@
       deallocate(Solution,Errors,LM_Stru%Jacfvec,LM_Stru%diag)
       deallocate(LM_Stru%Hessian,LM_Stru%Hessian_og)
       deallocate(LM_Stru%Jacfvec_og)
+      if (Input%l_Lam_track) deallocate(Lam_track)
 
       ! Free solutions
       call free_inv_solution(SolF)
@@ -1698,6 +1767,9 @@
 
       end if ! Type of inversion
 
+      ! Deallocate auxiliar Hessian and Jacobian
+      deallocate(Hessian_new,Jacfvec_new)
+
       ! Error
       if (laborted) return
 
@@ -1705,8 +1777,8 @@
       IF (Inf_Nodes%Regul_Flag) &
         call Get_Regl_all(Inf_Nodes_tmp, .False., LM_Stru%Rgl)
 
-      ! Deallocate auxiliar Hessian and Jacobian
-      deallocate(Hessian_new,Jacfvec_new)
+      ! Factorize
+      LM_Stru%Rgl%Penalty = LM_Stru%Rgl%Penalty*Input%Regul_factor
 
       return
 
@@ -1777,12 +1849,15 @@
       ! Local
       character(len=9):: ID
 
-      logical:: Bracketed, up_first
+      logical:: Bracketed, up_first, converged, changed
+      logical:: second_lap, early_exit
 
       integer, parameter:: Length = 10
-      integer:: indx, Chisq_indx
+      integer, parameter:: Max_fail = 3
+      integer:: indx,jndx,kndx,Chisq_indx,nfail
 
-      double precision:: Lambda_TMP, Chisq_old, Chisq_best, daux
+      double precision:: Chisq_old, Chisq_best, daux
+      double precision:: Lambda_TMP, Penalty_TMP
       double precision, dimension(:), allocatable:: Lambda_array
       double precision, dimension(:), allocatable:: Chisq_array
       double precision, dimension(:), allocatable:: Penalty_array
@@ -1807,313 +1882,594 @@
 
       ! Initialize
       Bracketed = .False.
-      Lambda_array(1) = 0.1
+      early_exit = .False.
+      Penalty_TMP = LM_Stru%Rgl%Penalty
+      Chisq_indx = -1
+      if (Input%l_Lam_track) then
+        Lambda_array(1) = LM_Stru%lambda/LM_Stru%factoraccept
+      else
+        Lambda_array(1) = 0.1
+      end if
+      ! Comply with limits
+      if (Lambda_array(1).lt.LM_Stru%Lambda_bounds(1)) &
+          Lambda_array(1) = LM_Stru%Lambda_bounds(1)
+      if (Lambda_array(1).gt.LM_Stru%Lambda_bounds(2)) &
+          Lambda_array(1) = LM_Stru%Lambda_bounds(2)
+
       chisq_old = LM_Stru%Chisq
       up_first = .True.
       Chisq_best = chisq_old
+      jndx = 1
+      second_lap = .False.
 
-      ! For the hard-coded length
-      do indx=1,Length
+      ! Fake loop
+      do while (.True.)
 
-        ! Master
-        if (pid.eq.0) then
+        ! For the hard-coded length
+        do indx=jndx,Length
 
-          ! Verbose
-          if (gpid.eq.0) then
-            umsg = '------------------------------------'
-            call verbose
-            umsg = '| Trial synthesis for backtracking |'
-            call verbose
-            umsg = '------------------------------------'
-            call verbose
-          end if
-          umsg = ' - Trial synthesis for backtracking'
-          call verboseI(3)
+          ! Master
+          if (pid.eq.0) then
 
-        end if ! Master
+            ! Verbose
+            if (gpid.eq.0) then
+              umsg = '------------------------------------'
+              call verbose
+              umsg = '| Trial synthesis for backtracking |'
+              call verbose
+              umsg = '------------------------------------'
+              call verbose
+            end if
+            umsg = ' - Trial synthesis for backtracking'
+            call verboseI(3)
 
-        ! Try new solution
-        call Trial_Synthesis(LM_Stru, Inf_Nodes, Lambda_array(indx), &
-                             Solution, Atmo, Bfield, Atom, Atomb, &
-                             Mol, Geom, GeomI, Flgsg, Frec, fudge, &
-                             kurucz, MPID, Input, Sol, SolF)
-        if (laborted) return
+          end if ! Master
 
-        ! Get merit function
-        call Merit_function(Inf_Stokes, Sol%Stokes_out, &
-                            Inf_Nodes%Nodes_Type, LM_Stru)
+          ! Initialize failures
+          nfail = 0
 
-        ! If regularizing
-        if (Inf_Nodes%Regul_Flag) then
+          ! Fake loop
+          do while (.True.)
 
-          ! Get actual chi2
-          LM_Stru%Chisq = LM_Stru%Chisq + &
-                          LM_Stru%Rgl%Penalty*LM_Stru%Rgl%Ratio
+            ! Try new solution
+            call Trial_Synthesis(LM_Stru, Inf_Nodes, &
+                                 Lambda_array(indx), Solution, Atmo, &
+                                 Bfield, Atom, Atomb, Mol, Geom, &
+                                 GeomI, Flgsg, Frec, fudge, kurucz, &
+                                 MPID, Input, Sol, SolF)
 
-          ! Store penalty
-          Penalty_array(indx) = LM_Stru%Rgl%Penalty
+            ! If there was an issue with the trial
+            if (laborted) then
 
-        ! No regularizing
-        else
+              ! Verbose
+              if (gpid.eq.0) then
+                umsg = ' # Trial synthesis failed'
+                call verbose
+              end if
+              umsg = ' # Trial synthesis failed'
+              call verboseI(3)
 
-          ! Store penalty (zero)
-          Penalty_array(indx) = 0d0
+              ! Cancel the failure
+              laborted = .False.
 
-        end if ! Regularizing
-
-        ! Save this chi2
-        Chisq_array(indx) = LM_Stru%Chisq
-
-        ! Master
-        if (pid.eq.0) then
-
-          ! Verbose
-          write(umsg,'(A,i2)') ' +'
-          call verboseI(3)
-          write(umsg,'(A,i2)') ' + Trial ',indx
-          call verboseI(3)
-          write(umsg,'(4(3x,A,es15.4))') &
-            'chi2 = ',LM_Stru%Chisq, &
-            'lambda = ',Lambda_array(indx), &
-            'Penalty = ',LM_Stru%Rgl%Penalty, &
-            'Ratio = ',LM_Stru%Rgl%Ratio
-          call verboseI(3)
-
-        end if ! Master
-
-        ! If larger than best
-        if (Chisq_array(indx).gt.Chisq_best) then
-
-          ! If first worse
-          if (up_first) then
-
-            ! Flag found
-            up_first = .False.
-
-            ! If first element
-            if (indx.eq.1) then
-
-              ! Set best
-              call set_best(SolF,.False.,.False.)
-
-              ! Save first as best
-              Chisq_indx = indx
-              Chisq_best = Chisq_array(indx)
-              Stokes_Min = Sol%Stokes_out
-              Solution_Min = Solution
-
-            ! If the second element
-            else if (indx.eq.2) then
-
-              ! Swap values with last
-              daux = Chisq_array(indx)
-              Chisq_array(indx) = Chisq_array(indx-1)
-              Chisq_array(indx-1) = daux
-              daux = Lambda_array(indx)
-              Lambda_array(indx) = Lambda_array(indx-1)
-              Lambda_array(indx-1) = daux
-              daux = Penalty_array(indx)
-              Penalty_array(indx) = Penalty_array(indx-1)
-              Penalty_array(indx-1) = daux
-
-              ! Move best to second position
-              Chisq_indx = indx
-
-            ! Not any of the first two
-            else
-
-              ! It is bracketed, we can leave
-              Bracketed = .True.
-              exit
-
-            end if ! Index
-
-            ! Get next lambda
-            Lambda_array(indx+1) = Lambda_array(indx)* &
+              ! Skip this lambda
+              Lambda_array(indx) = Lambda_array(indx)* &
                                    LM_Stru%factorreject
 
-          ! Is the worse result
+              ! Check no other equal
+              do while (.True.)
+
+                ! Flag
+                changed = .False.
+
+                ! Check
+                do kndx=1,indx-1
+
+                  ! Repeated
+                  if (abs(Lambda_array(kndx) - &
+                          Lambda_array(indx)).lt.1d-3) then
+                    ! Flag, edit, and leave
+                    changed = .True.
+                    Lambda_array(indx) = Lambda_array(indx)* &
+                                         LM_Stru%factorreject
+                    exit
+                  end if ! Repeated
+                end do ! Check older lambda
+
+                ! Loop again?
+                if (changed) continue
+
+                ! Leave
+                exit
+
+              end do ! Check repetition
+
+              ! If Lambda went beyond limits, leave
+              if (Lambda_array(indx).lt. &
+                  LM_Stru%Lambda_bounds(1).or. &
+                  Lambda_array(indx).gt. &
+                  LM_Stru%Lambda_bounds(2)) then
+                  
+                ! Verbose
+                if (gpid.eq.0) then
+                  umsg = ' # Could not find new lambda to try with'
+                  call verbose
+                end if
+                umsg = ' # Could not find new lambda to try with'
+                call verboseI(3)
+
+                ! Exit trials
+                early_exit = .True.
+                exit
+
+              end if
+
+              ! Add to count
+              nfail = nfail + 1
+
+              ! If beyond saving
+              if (nfail.ge.Max_fail) return
+
+              ! Verbose
+              if (gpid.eq.0) then
+                umsg = ' # Try new lambda value'
+                call verbose
+              end if
+              umsg = ' # Try new lambda value'
+              call verboseI(3)
+
+              ! Try again
+              continue
+
+            end if ! Failed the Trial
+
+            ! Exit the fake loop
+            exit
+
+          end do ! Fake loop
+
+          ! If ealy exit, leave
+          if (early_exit) exit
+
+          ! Get merit function
+          call Merit_function(Inf_Stokes, Sol%Stokes_out, &
+                              Inf_Nodes%Nodes_Type, LM_Stru)
+
+          ! If regularizing
+          if (Inf_Nodes%Regul_Flag) then
+
+            ! Get actual chi2
+            LM_Stru%Chisq = LM_Stru%Chisq + &
+                            LM_Stru%Rgl%Penalty*LM_Stru%Rgl%Ratio
+
+            ! Store penalty
+            Penalty_array(indx) = LM_Stru%Rgl%Penalty
+
+          ! No regularizing
           else
 
-            ! If index is beyond the second
-            if (indx.ge.3) then
+            ! Store penalty (zero)
+            Penalty_array(indx) = 0d0
 
-                ! It is bracketed
+          end if ! Regularizing
+
+          ! Save this chi2
+          Chisq_array(indx) = LM_Stru%Chisq
+
+          ! Master
+          if (pid.eq.0) then
+
+            ! Verbose
+            write(umsg,'(A,i2)') ' +'
+            call verboseI(3)
+            write(umsg,'(A,i2)') ' + Trial ',indx
+            call verboseI(3)
+            write(umsg,'(4(3x,A,es15.4))') &
+              'chi2 = ',LM_Stru%Chisq, &
+              'lambda = ',Lambda_array(indx), &
+              'Penalty = ',LM_Stru%Rgl%Penalty, &
+              'Ratio = ',LM_Stru%Rgl%Ratio
+            call verboseI(3)
+
+          end if ! Master
+
+          ! If larger than best
+          if (Chisq_array(indx).gt.Chisq_best) then
+
+            ! If first worse
+            if (up_first) then
+
+              ! Flag found
+              up_first = .False.
+
+              ! If first element
+              if (indx.eq.1) then
+
+                ! Set best
+                call set_best(SolF,.False.,.False.)
+
+                ! Save first as best
+                Chisq_indx = indx
+                Chisq_best = Chisq_array(indx)
+                Stokes_Min = Sol%Stokes_out
+                Solution_Min = Solution
+
+              ! If the second element
+              else if (indx.eq.2) then
+
+                ! Swap values with last
+                daux = Chisq_array(indx)
+                Chisq_array(indx) = Chisq_array(indx-1)
+                Chisq_array(indx-1) = daux
+                daux = Lambda_array(indx)
+                Lambda_array(indx) = Lambda_array(indx-1)
+                Lambda_array(indx-1) = daux
+                daux = Penalty_array(indx)
+                Penalty_array(indx) = Penalty_array(indx-1)
+                Penalty_array(indx-1) = daux
+
+                ! Move best to second position
+                Chisq_indx = indx
+
+              ! Not any of the first two
+              else
+
+                ! It is bracketed, we can leave
                 Bracketed = .True.
                 exit
 
-            ! Otherwise
+              end if ! Index
+
+              ! Get next lambda
+              Lambda_array(indx+1) = Lambda_array(indx)* &
+                                     LM_Stru%factorreject
+
+            ! Is the worse result
             else
 
-                ! It is not bracketed
-                Bracketed = .False.
-                exit
+             !! If index is beyond the second
+             !if (indx.ge.3) then
 
-            end if ! Index
-          end if ! First or second worst result
+             !    ! It is bracketed
+             !    Bracketed = .True.
+             !    exit
 
-        ! If is an improvement
-        else
+             !! Otherwise
+             !else
 
-          ! Set best
-          call set_best(SolF,.False.,.False.)
+             !    ! It is not bracketed
+             !    Bracketed = .False.
+             !    exit
 
-          ! Store new best Stokes and solution
-          Stokes_Min = Sol%Stokes_out
-          Solution_Min = Solution
+             !end if ! Index
 
-          ! If first not found
-          if (up_first) then
+              ! If index is beyond the second and it was
+              ! improvement at some point
+              if (indx.ge.3.and.Chisq_indx.ne.1) then
 
-            ! Tried two steps
-            if (indx.ge.3) then
+                  ! It is bracketed
+                  Bracketed = .True.
+                  exit
 
-              ! Check maximum relative change below
-              ! a small number
-              if ((Chisq_best-Chisq_array(indx))/ &
-                  Chisq_best.lt.1d-2) then
+              end if ! Index
 
-                ! Update best index and chi2
-                Chisq_indx = indx
-                Chisq_best = Chisq_array(indx)
+              ! Get next lambda
+              Lambda_array(indx+1) = Lambda_array(indx)* &
+                                     LM_Stru%factorreject
 
-                ! Not bracketed
-                Bracketed = .False.
-                exit
+            end if ! First worst result
 
-              end if ! Small maximum relative change
-            end if ! Tried already two steps
-
-            ! Reduce lambda
-            Lambda_array(indx+1) = Lambda_array(indx)/ &
-                                   LM_Stru%factoraccept
-
-          ! First already found
+          ! If is an improvement
           else
 
-            ! Increment
-            Lambda_array(indx+1) = Lambda_array(indx)* &
-                                   LM_Stru%factorreject
+            ! Set best
+            call set_best(SolF,.False.,.False.)
 
-          end if ! Found the first worse result
+            ! Store new best Stokes and solution
+            Stokes_Min = Sol%Stokes_out
+            Solution_Min = Solution
 
-          ! Update best index and chi2
-          Chisq_indx = indx
-          Chisq_best = Chisq_array(indx)
+            ! If first not found
+            if (up_first) then
 
-        end if ! Improvement or not
+              ! Tried two steps
+              if (indx.ge.3) then
 
-        ! If Lambda went beyond limits, leave
-        if (Lambda_array(indx+1).lt.LM_Stru%Lambda_bounds(1).or. &
-            Lambda_array(indx+1).gt.LM_Stru%Lambda_bounds(2)) exit
+                ! Check maximum relative change below
+                ! a small number
+                if ((Chisq_best-Chisq_array(indx))/ &
+                    Chisq_best.lt.1d-2) then
 
-      end do ! Try up to Length steps
+                  ! Update best index and chi2
+                  Chisq_indx = indx
+                  Chisq_best = Chisq_array(indx)
+
+                  ! Not bracketed
+                  Bracketed = .False.
+                  exit
+
+                end if ! Small maximum relative change
+              end if ! Tried already two steps
+
+              ! Reduce lambda
+              Lambda_array(indx+1) = Lambda_array(indx)/ &
+                                     LM_Stru%factoraccept
+
+            ! First already found
+            else
+
+              ! Increment
+              Lambda_array(indx+1) = Lambda_array(indx)* &
+                                     LM_Stru%factorreject
+
+            end if ! Found the first worse result
+
+            ! Update best index and chi2
+            Chisq_indx = indx
+            Chisq_best = Chisq_array(indx)
+
+          end if ! Improvement or not
+
+          ! If Lambda went beyond limits, leave
+          if (Lambda_array(indx+1).lt.LM_Stru%Lambda_bounds(1).or. &
+              Lambda_array(indx+1).gt.LM_Stru%Lambda_bounds(2)) exit
+
+        end do ! Try up to Length steps
 
 
-      ! If variation is bracketed
-      if (Bracketed) then
-
-        ! Master
-        if (pid.eq.0) then
-          umsg = ' + Lambda bracketed'
-          call verboseI(3)
-        end if
-
-        ! Parabolic interpolation
-        call Parabolic(Lambda_array, Chisq_array, Chisq_indx, &
-                       Lambda_TMP)
-
-        ! Master
-        if (pid.eq.0) then
-
-          ! Verbose
-          if (gpid.eq.0) then
-            umsg = '-------------------------------------------------'
-            call verbose
-            umsg = '| Trial synthesis for interpolated backtracking |'
-            call verbose
-            umsg = '-------------------------------------------------'
-            call verbose
-          end if
-          umsg = ' - Trial synthesis for interpolated backtracking'
-          call verboseI(3)
-
-        end if ! Master
-
-        ! Try new solution
-        call Trial_Synthesis(LM_Stru, Inf_Nodes, Lambda_TMP, &
-                             Solution, Atmo, Bfield, Atom, Atomb, &
-                             Mol, Geom, GeomI, Flgsg, Frec, fudge, &
-                             kurucz, MPID, Input, Sol, SolF)
-        if (laborted) return
-
-        ! Get merit function
-        call Merit_function(Inf_Stokes, Sol%Stokes_out, &
-                            Inf_Nodes%Nodes_Type, LM_Stru)
-
-        ! Regularize
-        if (Inf_Nodes%Regul_Flag) LM_Stru%Chisq = LM_Stru%Chisq + &
-                                                LM_Stru%Rgl%Penalty* &
-                                                LM_Stru%Rgl%Ratio
-
-        ! If new chi2 is better than the best in backtracking
-        if (LM_Stru%Chisq.lt.Chisq_array(Chisq_indx)) then
-
-          ! Set best
-          call set_best(SolF,.False.,.False.)
-
-          ! New best
-          Stokes_Min = Sol%Stokes_out
-          Solution_Min = Solution
-          LM_Stru%Lambda = Lambda_TMP
+        ! If variation is bracketed
+        if (Bracketed) then
 
           ! Master
           if (pid.eq.0) then
-            write(umsg,'(A)') &
-               ' - Improved chi2 with parabolic interpolation'
-            call verboseI(3)
-            write(umsg,'(3(A,es15.4))') &
-              '   chi2: ',LM_Stru%chisq,'   <', &
-              Chisq_array(Chisq_indx), &
-              '   lambda:',LM_Stru%Lambda
+            umsg = ' + Lambda bracketed'
             call verboseI(3)
           end if
 
-        ! If it did not improve
+          ! Parabolic interpolation
+          call Parabolic(Lambda_array, Chisq_array, Chisq_indx, &
+                         Lambda_TMP)
+
+          ! Master
+          if (pid.eq.0) then
+
+            ! Verbose
+            if (gpid.eq.0) then
+              umsg = '---------------------------------------'// &
+                     '----------'
+              call verbose
+              umsg = '| Trial synthesis for interpolated '// &
+                     'backtracking |'
+              call verbose
+              umsg = '----------------------------------------'// &
+                     '---------'
+              call verbose
+            end if
+            umsg = ' - Trial synthesis for interpolated backtracking'
+            call verboseI(3)
+
+          end if ! Master
+
+          ! Try new solution
+          call Trial_Synthesis(LM_Stru, Inf_Nodes, Lambda_TMP, &
+                               Solution, Atmo, Bfield, Atom, Atomb, &
+                               Mol, Geom, GeomI, Flgsg, Frec, fudge, &
+                               kurucz, MPID, Input, Sol, SolF)
+
+          ! If failed
+          if (laborted) then
+
+            ! Cancel the failure
+            laborted = .False.
+
+            ! Verbose
+            if (gpid.eq.0) then
+              umsg = ' # Trial synthesis failed'
+              call verbose
+            end if
+            umsg = ' # Trial synthesis failed'
+            call verboseI(3)
+
+            ! Exagerate new chi2
+            LM_Stru%Chisq = Chisq_array(Chisq_indx)*1d4
+
+          ! Did not fail
+          else
+
+            ! Get merit function
+            call Merit_function(Inf_Stokes, Sol%Stokes_out, &
+                                Inf_Nodes%Nodes_Type, LM_Stru)
+
+            ! Regularize
+            if (Inf_Nodes%Regul_Flag) &
+              LM_Stru%Chisq = LM_Stru%Chisq + LM_Stru%Rgl%Penalty* &
+                                              LM_Stru%Rgl%Ratio
+
+          end if
+
+          ! If new chi2 is better than the best in backtracking
+          if (LM_Stru%Chisq.lt.Chisq_array(Chisq_indx)) then
+
+            ! Set best
+            call set_best(SolF,.False.,.False.)
+
+            ! New best
+            Stokes_Min = Sol%Stokes_out
+            Solution_Min = Solution
+            LM_Stru%Lambda = Lambda_TMP
+
+            ! Master
+            if (pid.eq.0) then
+              write(umsg,'(A)') &
+                 ' - Improved chi2 with parabolic interpolation'
+              call verboseI(3)
+              write(umsg,'(3(A,es15.4))') &
+                '   chi2: ',LM_Stru%chisq,'   <', &
+                Chisq_array(Chisq_indx), &
+                '   lambda:',LM_Stru%Lambda
+              call verboseI(3)
+            end if
+
+          ! If it did not improve
+          else
+
+            ! Keep best from steps before
+            LM_Stru%Lambda = Lambda_array(Chisq_indx)
+            LM_Stru%Rgl%Penalty = Penalty_array(Chisq_indx)
+            LM_Stru%Chisq = Chisq_array(Chisq_indx)
+
+            ! Master
+            if (pid.eq.0) then
+              write(umsg,'(A)') &
+                 ' - Chi2 did not improve with parabolic '// &
+                 'interpolation'
+              call verboseI(3)
+              write(umsg,'(A,es15.4)') &
+                '   lambda:',LM_Stru%Lambda
+              call verboseI(3)
+            end if
+
+          end if ! The interpolation improved the result
+
+        ! Variation not bracketed
         else
 
-          ! Keep best from steps before
-          LM_Stru%Lambda = Lambda_array(Chisq_indx)
-          LM_Stru%Rgl%Penalty = Penalty_array(Chisq_indx)
-          LM_Stru%Chisq = Chisq_array(Chisq_indx)
-
           ! Master
           if (pid.eq.0) then
-            write(umsg,'(A)') &
-               ' - Chi2 did not improve with parabolic interpolation'
-            call verboseI(3)
-            write(umsg,'(A,es15.4)') &
-              '   lambda:',LM_Stru%Lambda
+            umsg = ' + Lambda not bracketed'
             call verboseI(3)
           end if
 
-        end if ! The interpolation improved the result
+          ! If could not find
+          if (Chisq_indx.lt.1) then
 
-      ! Variation not bracketed
-      else
+            ! Just take the last
+            LM_Stru%Rgl%Penalty = Penalty_TMP
+            LM_Stru%Chisq = chisq_old
 
-        ! Master
-        if (pid.eq.0) then
-          umsg = ' + Lambda not bracketed'
-          call verboseI(3)
-        end if
+          ! If could find
+          else
 
-        ! Just take the best
-        LM_Stru%Lambda = Lambda_array(Chisq_indx)
-        LM_Stru%Rgl%Penalty = Penalty_array(Chisq_indx)
-        LM_Stru%Chisq = Chisq_array(Chisq_indx)
+            ! Just take the best
+            LM_Stru%Lambda = Lambda_array(Chisq_indx)
+            LM_Stru%Rgl%Penalty = Penalty_array(Chisq_indx)
+            LM_Stru%Chisq = Chisq_array(Chisq_indx)
 
-      end if ! Bracketed variation
+          end if ! Could find something
+
+        end if ! Bracketed variation
+
+        ! If desperate
+        if (Input%LM_Back_Mode.eq.1.and..not.second_lap) then
+
+          ! Check convergence here
+          call Convergence_Check(Input, Chisq_old, &
+                                 LM_Stru%Chisq, converged)
+
+          ! If Chi2 did not improve or the improvement is
+          ! too minor
+          if (LM_Stru%Chisq.ge.Chisq_old.or. &
+              (LM_Stru%Chisq.lt.Chisq_old.and.converged)) then
+
+            ! Get last index
+            if (indx.gt.Length) indx = Length
+
+            ! If the minimum lambda was rather big or the
+            ! maximum rather small, restart with the opposite
+            if (minval(Lambda_array(1:indx)).gt. &
+                Input%LM_lam_big_test.or. &
+                maxval(Lambda_array(1:indx)).lt. &
+                Input%LM_lam_small_test) then
+
+              ! Get best
+              Penalty_array(1) = Penalty_array(Chisq_indx)
+              Chisq_array(1) = Chisq_array(Chisq_indx)
+              Lambda_array(1) = Lambda_array(Chisq_indx)
+
+              ! Restart
+              Penalty_array(2:indx) = 0d0
+              Chisq_array(2:indx) = 0d0
+              Lambda_array(3:indx) = 0d0
+              up_first = .True.
+              jndx = 2
+
+              ! If the minimum lambda was rather big, restart
+              ! with something smaller
+              if (minval(Lambda_array(1:indx)).gt. &
+                  Input%LM_lam_big_test) then
+
+                ! Next lambda
+                Lambda_array(2) = Input%LM_lam_small_prove
+
+                ! Master
+                if (pid.eq.0) then
+
+                  ! Verbose
+                  write(umsg,'(A,i2)') ' +'
+                  call verboseI(3)
+                  umsg = ' + Failed to improve the fit. '// &
+                         'The lambda values may be too large, '// &
+                         'restarting backtracking with smaller '// &
+                         'values'
+                  call verboseI(3)
+                  write(umsg,'(A,i2)') ' + Trial ',1
+                  call verboseI(3)
+                  write(umsg,'(4(3x,A,es15.4))') &
+                    'chi2 = ',Chisq_array(1), &
+                    'lambda = ',Lambda_array(1), &
+                    'Penalty = ',Penalty_array(1)
+                  call verboseI(3)
+
+                end if ! Master
+
+                ! Restart
+                second_lap = .True.
+                cycle
+
+              end if ! Minimum lambda rather big
+
+              ! If the maximum lambda was rather small, restart
+              ! with something larger
+              if (maxval(Lambda_array(1:indx)).lt. &
+                  Input%LM_lam_small_test) then
+
+                ! Next lambda
+                Lambda_array(2) = Input%LM_lam_big_prove
+
+                ! Master
+                if (pid.eq.0) then
+
+                  ! Verbose
+                  write(umsg,'(A,i2)') ' +'
+                  call verboseI(3)
+                  umsg = ' + Failed to improve the fit. '// &
+                         'The lambda values may be too small, '// &
+                         'restarting backtracking with larger '// &
+                         'values'
+                  call verboseI(3)
+                  write(umsg,'(A,i2)') ' + Trial ',1
+                  call verboseI(3)
+                  write(umsg,'(4(3x,A,es15.4))') &
+                    'chi2 = ',Chisq_array(1), &
+                    'lambda = ',Lambda_array(1), &
+                    'Penalty = ',Penalty_array(1)
+                  call verboseI(3)
+
+                end if ! Master
+
+                ! Restart
+                second_lap = .True.
+                cycle
+
+              end if ! Maximum lambda rather small
+            end if ! Single regime lambda
+          end if ! Failed to improve significantly
+        end if ! Desperate to reduce chi2
+
+        ! Break the fake loop
+        exit
+
+      end do
 
       ! Free memory
       deallocate(Lambda_array,Chisq_array,Solution,Penalty_array)
@@ -2154,6 +2510,288 @@
       return
 
       end subroutine Lambda_propose_fix
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Predict the next value for lambda\n
+      !!        iter(integer): Current iteration\n
+      !!       track(dble(:)): Lambda history\n
+      !!      ntrack(integer): Size of information stored\n
+      !! LM_Stru(LMFIT_class): Structure with Jacobian and
+      !!                       other LM quantities
+      subroutine predict_lambda(iter,track,ntrack,LM_Stru)
+
+      ! IO
+      integer, intent(in):: iter,ntrack
+      double precision, dimension(:), intent(in):: track
+      type(LMFIT_class), intent(inout):: LM_Stru
+
+      ! Local
+      double precision:: d1,d2,d3
+      double precision, dimension(ntrack):: x,a,b,c
+
+
+      ! If first iteration, skip
+      if (iter.eq.1) return
+
+      ! Cases
+      select case (ntrack)
+
+        ! Constant
+        case (1)
+
+          ! Get new lambda
+          LM_Stru%Lambda = track(1)
+
+          ! Master
+          if (pid.eq.0) then
+
+            ! Verbose
+            write(umsg,'(A,1x,es15.4)')  &
+              ' - Tracking lambda:',track(1)
+
+            if (gpid.eq.0) then
+              call verboseI(0)
+              call verboseI(4)
+            else
+              call verboseI(0)
+              if (vlevel.eq.0) call verboseI(3)
+            end if
+          end if
+
+          ! Sanity check
+          if (LM_Stru%Lambda.lt.LM_Stru%Lambda_bounds(1)) &
+            LM_Stru%Lambda = LM_Stru%Lambda_bounds(1)
+          if (LM_Stru%Lambda.gt.LM_Stru%Lambda_bounds(2)) &
+            LM_Stru%Lambda = LM_Stru%Lambda_bounds(2)
+
+        ! Linear
+        case (2)
+
+          ! One one iteration
+          if (iter.lt.3) then
+
+            ! Get new lambda
+            LM_Stru%Lambda = track(2)
+
+            ! Master
+            if (pid.eq.0) then
+
+              ! Verbose
+              write(umsg,'(A,1x,es15.4)')  &
+                ' - Tracking lambda:',track(2)
+
+              if (gpid.eq.0) then
+                call verboseI(0)
+                call verboseI(4)
+              else
+                call verboseI(0)
+                if (vlevel.eq.0) call verboseI(3)
+              end if
+            end if
+
+          ! At least two iterations
+          else
+
+            ! Get new lambda
+            LM_Stru%Lambda = 2*track(2) - track(1)
+
+            ! Master
+            if (pid.eq.0) then
+
+              ! Verbose
+              write(umsg,'(A,2(1x,es15.4),A,es15.4)')  &
+                ' - Tracking lambda:',track(1),track(2), &
+                ' -> ',LM_Stru%Lambda
+
+              if (gpid.eq.0) then
+                call verboseI(0)
+                call verboseI(4)
+              else
+                call verboseI(0)
+                if (vlevel.eq.0) call verboseI(3)
+              end if
+            end if
+
+          end if
+
+          ! Sanity check
+          if (LM_Stru%Lambda.lt.LM_Stru%Lambda_bounds(1)) &
+            LM_Stru%Lambda = LM_Stru%Lambda_bounds(1)
+          if (LM_Stru%Lambda.gt.LM_Stru%Lambda_bounds(2)) &
+            LM_Stru%Lambda = LM_Stru%Lambda_bounds(2)
+
+        ! Parabolic
+        case (3)
+
+          ! One one iteration
+          if (iter.lt.3) then
+
+            ! Get new lambda
+            LM_Stru%Lambda = track(3)
+
+            ! Master
+            if (pid.eq.0) then
+
+              ! Verbose
+              write(umsg,'(A,1x,es15.4)')  &
+                ' - Tracking lambda:',track(3)
+
+              if (gpid.eq.0) then
+                call verboseI(0)
+                call verboseI(4)
+              else
+                call verboseI(0)
+                if (vlevel.eq.0) call verboseI(3)
+              end if
+            end if
+
+            ! Sanity check
+            if (LM_Stru%Lambda.lt.LM_Stru%Lambda_bounds(1).or.&
+                LM_Stru%Lambda.gt.LM_Stru%Lambda_bounds(2)) &
+                LM_Stru%Lambda = track(3)
+
+          ! Only two iterations
+          else if (iter.lt.4) then
+
+            ! Get new lambda
+            LM_Stru%Lambda = 2*track(3) - track(2)
+
+            ! Master
+            if (pid.eq.0) then
+
+              ! Verbose
+              write(umsg,'(A,2(1x,es15.4),A,es15.4)')  &
+                ' - Tracking lambda:',track(2),track(3), &
+                ' -> ',LM_Stru%Lambda
+
+              if (gpid.eq.0) then
+                call verboseI(0)
+                call verboseI(4)
+              else
+                call verboseI(0)
+                if (vlevel.eq.0) call verboseI(3)
+              end if
+            end if
+
+            ! Sanity check
+            if (LM_Stru%Lambda.lt.LM_Stru%Lambda_bounds(1).or.&
+                LM_Stru%Lambda.gt.LM_Stru%Lambda_bounds(2)) &
+                LM_Stru%Lambda = track(3)
+
+          ! At least three iterations
+          else
+
+            ! Prepare spline
+            x = (/ 0d0,1d0,2d0 /)
+            call spline(x,track,a,b,c,ntrack)
+
+            ! Get new lambda
+            LM_Stru%Lambda = track(3) + a(3) + b(3) + c(3)
+
+            ! Master
+            if (pid.eq.0) then
+
+              ! Verbose
+              write(umsg,'(A,3(1x,es15.4),A,es15.4)')  &
+                ' - Tracking lambda:',track(1),track(2), &
+                track(3),' -> ',LM_Stru%Lambda
+
+              if (gpid.eq.0) then
+                call verboseI(0)
+                call verboseI(4)
+              else
+                call verboseI(0)
+                if (vlevel.eq.0) call verboseI(3)
+              end if
+            end if
+
+            ! Sanity check
+            if (LM_Stru%Lambda.lt.LM_Stru%Lambda_bounds(1).or.&
+                LM_Stru%Lambda.gt.LM_Stru%Lambda_bounds(2)) then
+                LM_Stru%Lambda = track(3)
+            else
+
+              ! Check derivatives
+              d1 = track(2) - track(1)
+              d2 = track(3) - track(2)
+              d3 = LM_Stru%Lambda - track(2)
+
+              ! If derivative changed sign in a monotonic case
+              if (d3*d2.lt.0d0.and.d3*d1.lt.0d0) then
+
+                ! If derivative became negative
+                if (d3.lt.0d0) then
+
+                  ! Check minimum
+                  if (LM_Stru%Lambda.lt.track(1)) &
+                    LM_Stru%Lambda = track(1)
+
+                ! If  derivative became positive
+                else
+
+                  ! Check maximum
+                  if (LM_Stru%Lambda.gt.track(1)) &
+                    LM_Stru%Lambda = track(1)
+
+                end if ! Derivative sign
+              end if ! Inversion of monotonicity
+            end if ! Sanity
+          end if ! Number of iterations
+
+      end select ! Type of prediction
+
+      ! Master
+      if (pid.eq.0) then
+
+        ! Verbose
+        write(umsg,'(A,1x,es15.4)')  &
+          ' - New lambda:',LM_Stru%Lambda
+
+        if (gpid.eq.0) then
+          call verboseI(0)
+          call verboseI(4)
+        else
+          call verboseI(0)
+          if (vlevel.eq.0) call verboseI(3)
+        end if
+      end if
+
+      return
+
+      end subroutine predict_lambda
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Update the tracking of lambda\n
+      !!       track(dble(:)): Lambda history\n
+      !!      ntrack(integer): Size of information stored\n
+      !!       lambda(double): The Lambda factor
+      subroutine update_lambda(track,ntrack,lambda)
+
+      ! IO
+      integer, intent(in):: ntrack
+      double precision, intent(in):: Lambda
+      double precision, dimension(:), intent(inout):: track
+
+      ! Local
+      integer:: i
+
+      ! Slide
+      do i=1,ntrack-1
+        track(i) = track(i+1)
+      end do
+
+      ! Add
+      track(ntrack) = lambda
+
+      return
+
+      end subroutine update_lambda
 
 !#####################################################################
 !#####################################################################

@@ -1953,6 +1953,19 @@ KEEP_DAMP
 
   * Description: Save in a file the damping parameter characteristic of the Voigt profile for the ATOM_FILE model atoms.
 
+KEEP_QEL
+--------
+
+  * OPTIONAL
+
+  * Modes: 1D, 15D, CLE
+
+  * Formats:
+    
+    - string: Yes, No; default: No
+
+  * Description: Save in a file the elastic rates characteristic of each transition for the ATOM_FILE model atoms.
+
 KEEP_APARAM
 -----------
 
@@ -2200,6 +2213,19 @@ LIM_DAMP
 
   * Description: Unique identifier of the model atom and index specifying the bound-bound transition whose damping parameter will be included in the output for damping parameters. Transitions not included in the specified ranges will not be included in the output.
 
+LIM_QEL
+-------
+
+  * OPTIONAL, ADDITIVE
+
+  * Modes: 15D
+
+  * Formats:
+    
+    - string + integer
+
+  * Description: Unique identifier of the model atom and index specifying the bound-bound transition whose elastic rate will be included in the output for elastic rates. Transitions not included in the specified ranges will not be included in the output.
+
 LIM_BACK
 --------
 
@@ -2411,7 +2437,7 @@ AUTO_WEIGHT
 WEIGHT
 ------
 
-  * MANDATORY, ADDITIVE
+  * MANDATORY
 
   * Modes: INV
 
@@ -2425,7 +2451,7 @@ WEIGHT
 WEIGHT_FILE
 -----------
 
-  * MANDATORY, ADDITIVE
+  * MANDATORY
 
   * Modes: INV
 
@@ -2434,6 +2460,19 @@ WEIGHT_FILE
     - string: file path
 
   * Description: Path, absolute or relative to the running directory, of a file with the wavelengths ranges and weights for Stokes I, Q, U, and V to be used in the inversion. Ignored if AUTO_WEIGHT=Yes. Not mandatory if WEIGHT is specified.
+
+WEIGHT_FACTOR
+-------------
+
+  * OPTIONAL, ADDITIVE
+
+  * Modes: INV
+
+  * Formats:
+    
+    - string + float*3
+
+  * Description: Each entry of this keyword specifies a multiplicative factor for the weights of a given Stokes parameter between two wavelengths. The string must be I, Q, U, or V, the first two floats specify the wavelength range of the weights to enhance in nanometers, and the last one is a non-negative multiplicative factor. If there are several ranges sharing at least one wavelength for the same Stokes parameter, the inversion will be aborted before starting. Ignored if AUTO_WEIGHT=Yes.
 
 INV_INIT
 --------
@@ -3413,15 +3452,15 @@ REGUL_J22I
 REGUL_LIMITS
 ------------
 
-  * OPTIONAL
+  * MANDATORY, ADVANCED
 
   * Modes: INV
 
   * Formats:
     
-    - float; default: 0.1
+    - float; default: 1.0
 
-  * Description: Upper limit of the relative weight that the regularization can have with respect to the merit function.
+  * Description: Additional factor to the regularization penalties.
 
 THRH_CHI2
 ---------
@@ -4502,6 +4541,97 @@ BROYDEN_LM
     - string: Yes, No; default: No
 
   * Description: Use Broyden's algorithm in the profile fitting.
+
+LM_METHOD
+---------
+
+  * OPTIONAL
+
+  * Modes: INV
+
+  * Formats:
+    
+    - string: Traditional, backtracking; default: backtracking
+
+  * Description: Type of Levenberg-Marquardt method for the inversion minimization.
+
+LM_BACKTRACKING_MODE
+--------------------
+
+  * OPTIONAL, ADVANCED
+
+  * Modes: INV
+
+  * Formats:
+    
+    - string: desperation or nothing; default: nothing
+
+  * Description: If "desperation" mode is activated, if the backtracking method (see LM_METHOD) gets stuck, it will inspect if the lambda values in the trials pertain to a certain regime and will force more trials in a different one.
+
+LM_LAM_BIG_TEST
+---------------
+
+  * OPTIONAL, ADVANCED
+
+  * Modes: INV
+
+  * Formats:
+    
+    - float; default: 0.1
+
+  * Description: Value that the minimum lambda in trials must surpass to be considered in the big regime in the backtracking when LM_BACKTRACKING_MODE is desperate. Must be within the limits specified in LM_LAMBDA_RANG.
+
+LM_LAM_SMALL_TEST
+-----------------
+
+  * OPTIONAL, ADVANCED
+
+  * Modes: INV
+
+  * Formats:
+    
+    - float; default: 10.
+
+  * Description: Value that the maximum lambda in trials must not surpass to be considered in the small regime in the backtracking when LM_BACKTRACKING_MODE is desperate. Must be within the limits specified in LM_LAMBDA_RANG.
+
+LM_LAM_BIG_PROVE
+----------------
+
+  * OPTIONAL, ADVANCED
+
+  * Modes: INV
+
+  * Formats:
+    
+    - float; default: 100.
+
+  * Description: Value for the lambda in the next trial when forcing the big lambda regime in the backtracking when LM_BACKTRACKING_MODE is desperate.
+
+LM_LAM_SMALL_PROVE
+------------------
+
+  * OPTIONAL, ADVANCED
+
+  * Modes: INV
+
+  * Formats:
+    
+    - float; default: 0.1
+
+  * Description: Value for the lambda in the next trial when forcing the small lambda regime in the backtracking when LM_BACKTRACKING_MODE is desperate.
+
+LM_LAMBDA_TRACK
+---------------
+
+  * OPTIONAL, ADVANCED
+
+  * Modes: INV
+
+  * Formats:
+    
+    - integer; default: 0
+
+  * Description: Specifies the amount of lambda values stored and used to choose the initial lambda for the current iteration. 0 means that no data is stored and the lambda value starts the same always. When 1, the initial lambda is the best of the previous iteration. When 2, the new lambda is linearly extrapolated. When 3, the new lambda is extrapolated with cubic splines. When extrapolating, the limits in LM_LAMBDA_RANG are respected. When 3, if the derivative changes sign the new value cannot overshoot the existing values.
 
 LM_LAMBDA_RANG
 --------------

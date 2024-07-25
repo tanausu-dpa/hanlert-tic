@@ -13,12 +13,28 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     04/01/2024 V3.0.32
+!     07/18/2024 V3.0.37
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     05/20/2024:   V3.0.37 - Added qel to Atom_class (TdPA)
+!                           - Added lim_qel and keep_qel to the type
+!                             Input_class (TdPA)
+!
+!     05/20/2024:   V3.0.36 - Added Regul_factor to Input_class (TdPA)
+!
+!     05/20/2024:   V3.0.35 - Added Weight_Factor to the type
+!                             Input_class (TdPA)
+!
+!     05/13/2024:   V3.0.34 - Added LM_lam_big_test,
+!                             LM_lam_small_test, LM_lam_big_prove, and
+!                             LM_lam_small_prove to Input_class (TdPA)
+!
+!     05/07/2024:   V3.0.33 - Added l_Lam_track and LM_Back_Mode to
+!                             Input_class (TdPA)
 !
 !     04/01/2024:   V3.0.32 - Added rdipev_class (TdPA)
 !                           - Added rdipev to Atom_class (TdPA)
@@ -1188,11 +1204,12 @@
         ! transition rates matrix, arguments for the Van der Waals
         ! Broadening, collisional transition-wise damping,
         ! populations, lte populations, departure coefficient,
-        ! lower and upper frequency limit weights for master
+        ! lower and upper frequency limit weights for master, elastic
+        ! rates
         double precision, dimension(:,:), allocatable:: damp, &
                           FSfreq, rJval, Ecoeff, Norm, NormS, &
                           broad_args, ldamp, popu, populte, depar, &
-                          MW0, MW1
+                          MW0, MW1, qel
 
         ! Inelastic collisional terms rates for allowed transitions
         ! between terms and transition rates between levels
@@ -1748,7 +1765,7 @@
         type(IO_helper_class):: lim_stk,lim_ctr,lim_tau, &
                                 lim_cols_tt,lim_cols_ll, &
                                 lim_damp,lim_back,lim_pop, &
-                                lim_atmo
+                                lim_atmo,lim_qel
 
         ! Structure with FWHM info
         type(FWHM_helper_class), dimension(:), allocatable:: lim_fwhm
@@ -1783,7 +1800,7 @@
         ! if polarization with magnetic field must be done in
         ! two steps, if excluded pixels, if truncating tau or height
         ! restriction, force ALI iterations, initialize radiation
-        ! field with bound-bound transitions
+        ! field with bound-bound transitions, keep elastic rates
         logical:: AV, appendMRC, appendMRCI, out_contr, out_tau1, &
                   store, storeI, Pcorr, Raman, keepIsol, &
                   NG, keep_back, keep_damp, keep_cols, bfieldn, &
@@ -1795,7 +1812,7 @@
                   skip_disk, lspect_input, rest_tau, rest_z, AVI, &
                   static_int, linv_weight, keep_coll, keep_mpil, &
                   keep_mpidl, two_step_pol, lexcl, rest_tau_strc, &
-                  rest_z_strc, ALI_force, init_J_bb
+                  rest_z_strc, ALI_force, init_J_bb, keep_qel
 
         ! If asymmetry input
         logical, dimension(2):: lasym
@@ -1945,10 +1962,12 @@
         ! equilibrium), if return fractional polarization, if
         ! project the magnetic field, if using previous solution
         ! for RF calculation keep the response functions, if JKQ
-        ! (assymetries) must be in the output
+        ! (assymetries) must be in the output, if tracking the
+        ! value of lambda between iterations in backtracking
         logical:: Broyden, FITSFILE, Sigma_neglect, auto_weight, &
                   centered, Pos_Correction, hydroeq, Fractional, &
-                  Projection, Popuinit, Keep_RF, out_jkqa
+                  Projection, Popuinit, Keep_RF, out_jkqa, &
+                  l_Lam_track
 
         ! Flag to modify variable in the inversion, flag for
         ! the regularization of each variable
@@ -1967,11 +1986,12 @@
         ! interpolation method, type of magnetic field vector,
         ! type of velocity vector type of SVD, index where the
         ! extension ends in filenames, number of the weights, type
-        ! of input atmosphere
+        ! of input atmosphere, order of the lambda tracking between
+        ! iterations in backtracking, Backtracking mode when stuck
         integer:: Num_Iter, Type_Inversion, Err_Type, &
                   Atmo_Input, LM_Method, Init_Thermal, &
                   Interpolation, btype, vtype, SVD_type, fits_index, &
-                  Num_Weight, atmoin_type
+                  Num_Weight, atmoin_type, Lam_track, LM_Back_Mode
 
         ! Output file sizes
         integer:: s_inv_h, s_inv_atmo, s_inv_atmo_c, &
@@ -1996,12 +2016,15 @@
         ! small, factor to decrease lambda when LM iteration
         ! accepted, factor to increase lambda when LM iteration
         ! rejected, diffuse light factor, initial vz or vpos if
-        ! input too small, initial vy or azimuth if input too small
+        ! input too small, initial vy or azimuth if input too small,
+        ! Factor to regularization
         double precision:: Threshold_chisq, Chisq_fraction,  &
                            Regul_Limit, Threshold_svd, Pg_bound, &
                            Max_Step, ini_Bpos, ini_Bazi, &
                            factoraccept, factorreject, f_diff, &
-                           ini_vpos, ini_vazi
+                           ini_vpos, ini_vazi, LM_lam_big_test, &
+                           LM_lam_small_test, LM_lam_big_prove, &
+                           LM_lam_small_prove, Regul_factor
 
         ! scale for each parameter, perturbation for each parameter,
         ! minimum relative perturbation
@@ -2014,14 +2037,17 @@
         ! Weight of the regularization function for each variable
         double precision, dimension(:), allocatable:: Regul_weight
 
+        ! Made-up stratification from inputs
+        double precision, dimension(:), allocatable:: Atmo_strat_done
+
         ! Weights for each Stokes
         double precision, dimension(:,:), allocatable:: Weight
 
         ! Data to specify atmospheric stratification modifications
         double precision, dimension(:,:), allocatable:: Atmo_strat
 
-        ! Made-up stratification from inputs
-        double precision, dimension(:), allocatable:: Atmo_strat_done
+        ! Additional weight factor
+        double precision, dimension(:,:), allocatable:: Weight_Factor
 
       end type Input_class
 
