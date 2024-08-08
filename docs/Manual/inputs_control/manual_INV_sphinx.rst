@@ -3336,6 +3336,17 @@ KEEP_RF
 
   * Description: Include the numerical response functions in the solution file.
 
+STOREINV_STEP
+-------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - integer; default: -1
+
+  * Description: If positive, the inversion solution will be stored in the file when the iteration index in the polarized problem is a multiple of this input.
+
 FORCE_OBS_FREQ
 --------------
 

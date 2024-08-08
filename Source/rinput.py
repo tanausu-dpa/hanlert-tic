@@ -6,6 +6,9 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an
 # Hao Li
 #
+# 08/08/2024: V3.0.42 - Added STOREINV_STEP (TdPA)
+#                     - Bugfix: LIM_QEL had to be additive (TdPA)
+#
 # 07/18/2024: V3.0.41 - Added KEEP_QEL and LIM_QEL (TdPA)
 #
 # 05/28/2024: V3.0.40 - Bugfix: NODES_[var]_METHOD was ignoring
@@ -1243,7 +1246,7 @@ def rInput():
          'ATOM_POPU', 'ATOM_ION','ATOM_FIX_POP_LTERM', \
          'LIM_STK','LIM_CTR','LIM_TAU', \
          'LIM_COLS_TT','LIM_COLS_LL','LIM_DAMP','LIM_BACK', \
-         'LIM_POP','ATMO_STRAT','WEIGHT','ATOM_NO_WAVE', \
+         'LIM_POP','LIM_QEL','ATMO_STRAT','WEIGHT','ATOM_NO_WAVE', \
          'PSF_FWHM','LTE_LINE','K_CUT_TERM','EXCLUDE_PIXEL', \
          'WEIGHT_FACTOR']
 
@@ -6682,6 +6685,22 @@ def rInput():
         check = 1
     if check == 0:
       f.write('N\n')
+
+    # STOREINV_STEP
+    check = 0
+    valid = 0
+    if 'STOREINV_STEP' in Dictionary:
+      check = 1
+      val = Dictionary['STOREINV_STEP'][0]
+      if val.isdigit():
+        val = int(val)
+        if val > 0:
+          f.write('{0:7d}\n'.format(val))
+          valid = 1
+    if valid == 0 and check == 1:
+      f.write('{0:7d}\n'.format(-1))
+    if check == 0:
+      f.write('{0:7d}\n'.format(-1))
 
     # FORCE_OBS_FREQ
     check = 0

@@ -12,12 +12,15 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     02/20/2024 V3.0.15
+!     08/08/2024 V3.0.16
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     08/08/2024:   V3.0.16 - Force at least two iterations if doing
+!                             AD starting from AA (TdPA)
 !
 !     02/20/2024:   V3.0.15 - Bugfix: Wrong initial index in the
 !                             tau1 calculation when restricting
@@ -1909,6 +1912,15 @@
           end if
         end if
 
+        ! We can swith now to AD if we had AV input
+        if (tbAD) then
+          AV = .False.
+          tbAD = .False.
+          PRAM = RPRAM
+          ! Force at least two iterations
+          goout = .False.
+        end if
+
 
         !
         ! Save partial solution
@@ -1928,13 +1940,6 @@
           call control
           if (laborted) goto 2000
 
-        end if
-
-        ! We can swith now to AD if we had AV input
-        if (tbAD) then
-          AV = .False.
-          tbAD = .False.
-          PRAM = RPRAM
         end if
 
         !
@@ -3489,6 +3494,15 @@
           end if
         end if
 
+        ! We can swith now to AD if we had AV input
+        if (tbAD) then
+          AV = .False.
+          tbAD = .False.
+          PRAM = RPRAM
+          ! Force at least two iterations
+          goout = .False.
+        end if
+
         !
         ! Save partial solution
         !
@@ -3506,13 +3520,6 @@
           call control
           if (laborted) goto 2000
 
-        end if
-
-        ! We can swith now to AD if we had AV input
-        if (tbAD) then
-          AV = .False.
-          tbAD = .False.
-          PRAM = RPRAM
         end if
 
         !
@@ -4483,23 +4490,6 @@
           endif ! Apply NG
         endif ! Doing NG acceleration
 
-        ! We can swith now to AD if we had AV input
-        if (tbAD) then
-          AV = .False.
-          tbAD = .False.
-          PRAM = RPRAM
-        end if
-
-        ! Save data of this steps if proceeds
-        if(Input%store.and.mod(iter,Input%store_step).eq.0)then
-
-          write(iterS,'(i0.4)') iter
-          call writesol(Input,iterS,Frec%omega,Geom,Flgsg, &
-                        Bfield,Atom,Atmo%z,Stokes_n,JKQ_n, &
-                        JKQS_n,JKQC)
-
-        end if
-
         !
         !  Calculate MRC
         !
@@ -4552,6 +4542,25 @@
         if (MRC%values(2,1).le.Input%mrc_i.and. &
             MRC%values(2,2).le.Input%mrc_p) &
           goout = .True.
+
+        ! We can swith now to AD if we had AV input
+        if (tbAD) then
+          AV = .False.
+          tbAD = .False.
+          PRAM = RPRAM
+          ! Force at least two iterations
+          goout = .False.
+        end if
+
+        ! Save data of this steps if proceeds
+        if(Input%store.and.mod(iter,Input%store_step).eq.0)then
+
+          write(iterS,'(i0.4)') iter
+          call writesol(Input,iterS,Frec%omega,Geom,Flgsg, &
+                        Bfield,Atom,Atmo%z,Stokes_n,JKQ_n, &
+                        JKQS_n,JKQC)
+
+        end if
 
         ! Shift the new values into the proper variables
 !$omp parallel default(none) &

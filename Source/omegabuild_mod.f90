@@ -12,12 +12,18 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     02/29/2023 V3.0.19
+!     08/08/2024 V3.0.20
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     08/08/2024:   V3.0.20 - Bugfix: There was a logical mistake when
+!                             allocating space for the redistribution
+!                             function in the only intensity case,
+!                             with angle-dependent redistribution, in
+!                             an static atmosphere (TdPA)
 !
 !     02/29/2023:   V3.0.19 - Bugfix: the array skip_scatt was not
 !                             being deallocated after its use, and
@@ -5745,7 +5751,7 @@
                   end do ! heights
                 end do ! output directions
 
-                ! Free skip_scat
+                ! Free skip_scatt
                 deallocate(skip_scatt)
 
               ! If not storing in RAM
@@ -7876,8 +7882,8 @@
             ! Predict size of next block
             nn = sum(p_frec%mfreq)
 
-            ! If angle-dependent
-            if (.not.AVI) then
+            ! If angle-dependent and dynamic
+            if (.not.AVI.and.dyn) then
 
               ! Check if forward
               if (ffjtran.eq.ffitran.and. &
@@ -7887,25 +7893,20 @@
                 nfs = 0
               end if
 
-              ! If dynamic extra dimensions, if static just
-              ! frequencies
-              if (dyn) then
+              ! For axial problems
+              if (axiali) then
 
-                ! For axial problems
-                if (axiali) then
+                ! Size is just polar
+                nn = nn*Geom%nTh
 
-                  ! Size is just polar
-                  nn = nn*Geom%nTh
+              ! For non-axial problems
+              else
 
-                ! For non-axial problems
-                else
+                ! Skip forward rayleigh
+                nn = nn*(Geom%nTh*Geom%nPh2 - nfs)
 
-                  ! Skip forward rayleigh
-                  nn = nn*(Geom%nTh*Geom%nPh2 - nfs)
-
-                end if ! Axial
-              end if ! Dynamic
-            end if ! AD
+              end if ! Axial
+            end if ! AD and dynamic
 
             ! Predict aditional frequency
             SRAM = 16d-6*dble(nn)
@@ -8387,15 +8388,16 @@
 
                       ! Get index
                       indxf = Frec%indx(ffjtran,ia,iz,jbdir)
-                      if (Frec%dzao(indxf)%nran.lt.1) cycle
-
-                      ! Get index
                       indx = Red%indx(ffjtran,ia,iz,jdir)
 
                       ! Initialize
                       do iti=1,Atom(ia)%trano(ffktran)%nt
                         Red%dzao(indx)%trani(iti)%RAM = .False.
                       end do
+
+                      ! If no range, skip
+                      if (Frec%dzao(indxf)%nran.lt.1) cycle
+
 #ifdef _OPENMP
                       ! If multi-thread
                       if (omp) then

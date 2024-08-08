@@ -11,12 +11,15 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     07/18/2024 V3.0.28
+!     08/08/2024 V3.0.29
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     08/08/2024:   V3.0.29 - Read Input%storeinv_step and setup
+!                             Input%storeinv (TdPA)
 !
 !     07/18/2024:   V3.0.28 - Read Input%keep_qel and
 !                             Input%lim_qel (TdPA)
@@ -2155,6 +2158,15 @@
           Input%Keep_RF = .True.
         else
           Input%Keep_RF = .False.
+        end if
+
+        ! Steps between storing solution
+        read(100,*,err=1100) Input%storeinv_step
+        if(Input%storeinv_step.lt.1)then
+          Input%storeinv = .False.
+          Input%storeinv_step = 1
+        else
+          Input%storeinv = .True.
         end if
 
         ! Force inversion frequencies

@@ -253,7 +253,7 @@ we need the full path up to one level above the *bin* directory (identical for t
 *yaml* file would read::
 
   spack:
-    specs: [gcc@9.5.0, openmpi@9.5.0, openblas, cfitsio]
+    specs: [gcc@9.5.0, openmpi%gcc@9.5.0, openblas, cfitsio]
     concretizer:
       unify: true
     view: true

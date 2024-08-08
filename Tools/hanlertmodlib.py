@@ -187,6 +187,8 @@ class invi_class():
                                      self.__ny_data))
                     return False
 
+        return True
+
 ######################################################################
 ######################################################################
 
@@ -195,7 +197,7 @@ class invi_class():
         '''
 
         # Leave if no numpy
-        if not isinstance(data, np.array):
+        if not isinstance(data, np.ndarray):
             print('The wavelength must be a numpy array')
             return False
 
@@ -213,7 +215,7 @@ class invi_class():
         self.__nl_wave = data.size
 
         # Sanity check
-        if not self.__sanitycheck():
+        if not self.__sanity_check():
             self.__nl_wave = None
             return False
 
@@ -231,7 +233,7 @@ class invi_class():
         '''
 
         # Leave if no numpy
-        if not isinstance(data, np.array):
+        if not isinstance(data, np.ndarray):
             print('The LOS data must be a numpy array')
             return False
         # Sanity check
@@ -279,7 +281,7 @@ class invi_class():
             self.__ny_los = 1
 
             # Sanity check
-            if not self.__sanitycheck():
+            if not self.__sanity_check():
                 self.__nx_los = None
                 self.__ny_los = None
                 self.__ilos = None
@@ -363,7 +365,7 @@ class invi_class():
             self.__ny_los = shape[jy]
 
             # Sanity check
-            if not self.__sanitycheck():
+            if not self.__sanity_check():
                 self.__nx_los = None
                 self.__ny_los = None
                 self.__ilos = None
@@ -389,7 +391,7 @@ class invi_class():
         '''
 
         # Leave if no numpy
-        if not isinstance(data, np.array):
+        if not isinstance(data, np.ndarray):
             print('The data must be a numpy array')
             return False
         # Sanity check
@@ -443,7 +445,7 @@ class invi_class():
             self.__tdata = 1
 
             # Sanity check
-            if not self.__sanitycheck():
+            if not self.__sanity_check():
                 self.__nx_data = None
                 self.__ny_data = None
                 self.__nl_data = None
@@ -514,7 +516,7 @@ class invi_class():
             self.__tdata = 1
 
             # Sanity check
-            if not self.__sanitycheck():
+            if not self.__sanity_check():
                 self.__nx_data = None
                 self.__ny_data = None
                 self.__nl_data = None
@@ -634,7 +636,7 @@ class invi_class():
             self.__tdata = 1
 
             # Sanity check
-            if not self.__sanitycheck():
+            if not self.__sanity_check():
                 self.__nx_data = None
                 self.__ny_data = None
                 self.__nl_data = None
@@ -787,7 +789,7 @@ class invi_class():
             self.__tdata = 1
 
             # Sanity check
-            if not self.__sanitycheck():
+            if not self.__sanity_check():
                 self.__nx_data = None
                 self.__ny_data = None
                 self.__nl_data = None
@@ -816,7 +818,7 @@ class invi_class():
         '''
 
         # Leave if no numpy
-        if not isinstance(data, np.array):
+        if not isinstance(data, np.ndarray):
             print('The data must be a numpy array')
             return False
         # Sanity check
@@ -888,7 +890,7 @@ class invi_class():
                 self.__nstk_sig = 4
 
                 # Sanity check
-                if not self.__sanitycheck():
+                if not self.__sanity_check():
                     self.__isig = 0
                     self.__nx_sig = None
                     self.__ny_sig = None
@@ -958,7 +960,7 @@ class invi_class():
                 self.__nstk_sig = shape[jstk]
 
                 # Sanity check
-                if not self.__sanitycheck():
+                if not self.__sanity_check():
                     self.__isig = 0
                     self.__nx_sig = None
                     self.__ny_sig = None
@@ -1068,7 +1070,7 @@ class invi_class():
                 self.__nstk_sig = shape[jstk]
 
                 # Sanity check
-                if not self.__sanitycheck():
+                if not self.__sanity_check():
                     self.__isig = 0
                     self.__nx_sig = None
                     self.__ny_sig = None
@@ -1222,7 +1224,7 @@ class invi_class():
                 self.__nstk_sig = shape[jstk]
 
                 # Sanity check
-                if not self.__sanitycheck():
+                if not self.__sanity_check():
                     self.__isig = 0
                     self.__nx_sig = None
                     self.__ny_sig = None
@@ -1277,7 +1279,7 @@ class invi_class():
                     self.__nstk_sig = 1
 
                 # Sanity check
-                if not self.__sanitycheck():
+                if not self.__sanity_check():
                     self.__isig = 0
                     self.__nx_sig = None
                     self.__ny_sig = None
@@ -1350,7 +1352,7 @@ class invi_class():
                 self.__nstk_sig = 1
 
                 # Sanity check
-                if not self.__sanitycheck():
+                if not self.__sanity_check():
                     self.__isig = 0
                     self.__nx_sig = None
                     self.__ny_sig = None
@@ -1459,7 +1461,7 @@ class invi_class():
                 self.__nstk_sig = 1
 
                 # Sanity check
-                if not self.__sanitycheck():
+                if not self.__sanity_check():
                     self.__isig = 0
                     self.__nx_sig = None
                     self.__ny_sig = None
@@ -1493,7 +1495,7 @@ class invi_class():
         '''
 
         # Leave if no numpy
-        if not isinstance(data, np.array):
+        if not isinstance(data, np.ndarray):
             print('The data must be a numpy array')
             return False
         # Sanity check
@@ -1604,7 +1606,7 @@ class invi_class():
                 self.__nstk_dif = shape[jstk]
 
                 # Sanity check
-                if not self.__sanitycheck():
+                if not self.__sanity_check():
                     self.__idif = 0
                     self.__nx_dif = None
                     self.__ny_dif = None
@@ -1754,7 +1756,7 @@ class invi_class():
                 self.__nstk_dif = shape[jstk]
 
                 # Sanity check
-                if not self.__sanitycheck():
+                if not self.__sanity_check():
                     self.__idif = 0
                     self.__nx_dif = None
                     self.__ny_dif = None
@@ -1794,7 +1796,7 @@ class invi_class():
                 self.__nstk_dif = 1
 
                 # Sanity check
-                if not self.__sanitycheck():
+                if not self.__sanity_check():
                     self.__idif = 0
                     self.__nx_dif = None
                     self.__ny_dif = None
@@ -1900,7 +1902,7 @@ class invi_class():
                 self.__nstk_dif = 1
 
                 # Sanity check
-                if not self.__sanitycheck():
+                if not self.__sanity_check():
                     self.__idif = 0
                     self.__nx_dif = None
                     self.__ny_dif = None
@@ -1933,7 +1935,7 @@ class invi_class():
         '''
 
         # A last sanity check
-        if not self.__sanitycheck():
+        if not self.__sanity_check():
             return False
 
         # Check there is LOS
@@ -1983,7 +1985,7 @@ class invi_class():
             f.write(struct.pack('i',istk))
 
             # Info mu
-            f.write(struct.pack('i',imu))
+            f.write(struct.pack('i',self.__ilos))
 
             # Info sigma
             f.write(struct.pack('i',self.__isig))

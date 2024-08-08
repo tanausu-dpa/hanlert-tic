@@ -10,12 +10,14 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     12/12/2023 V3.0.1
+!     08/08/2024 V3.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     08/08/2024:    V3.0.2 - Removed unused variables (TdPA)
 !
 !     12/12/2023:    V3.0.1 - Added PB0 subroutine (TdPA)
 !
@@ -306,10 +308,9 @@
 
       ! Local
 
-      integer:: nM,iM,iJ,iJ1,idJ,i,i1,j,j1,INFO
+      integer:: nM,iM,iJ,i
 
-      double precision:: rL,S,rM,rJ,rJ1,rJm,rJmin,rJmax
-      double precision:: pS,pJ,pJ1,comm
+      double precision:: rL,S,rM,rJ,rJm,rJmin,rJmax
 
       ! Get term quantities
       rL = Atom%rLval(iterm)

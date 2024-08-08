@@ -13,14 +13,17 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     07/18/2024 V3.0.37
+!     08/08/2024 V3.0.38
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     05/20/2024:   V3.0.37 - Added qel to Atom_class (TdPA)
+!     08/08/2024:   V3.0.38 - Added storeinv and storeinv_step to
+!                             Input_class (TdPA)
+!
+!     07/18/2024:   V3.0.37 - Added qel to Atom_class (TdPA)
 !                           - Added lim_qel and keep_qel to the type
 !                             Input_class (TdPA)
 !
@@ -1963,11 +1966,12 @@
         ! project the magnetic field, if using previous solution
         ! for RF calculation keep the response functions, if JKQ
         ! (assymetries) must be in the output, if tracking the
-        ! value of lambda between iterations in backtracking
+        ! value of lambda between iterations in backtracking,
+        ! if storing incomplete inversion results
         logical:: Broyden, FITSFILE, Sigma_neglect, auto_weight, &
                   centered, Pos_Correction, hydroeq, Fractional, &
                   Projection, Popuinit, Keep_RF, out_jkqa, &
-                  l_Lam_track
+                  l_Lam_track, storeinv
 
         ! Flag to modify variable in the inversion, flag for
         ! the regularization of each variable
@@ -1987,11 +1991,13 @@
         ! type of velocity vector type of SVD, index where the
         ! extension ends in filenames, number of the weights, type
         ! of input atmosphere, order of the lambda tracking between
-        ! iterations in backtracking, Backtracking mode when stuck
+        ! iterations in backtracking, Backtracking mode when stuck,
+        ! number of steps between saving inversion data
         integer:: Num_Iter, Type_Inversion, Err_Type, &
                   Atmo_Input, LM_Method, Init_Thermal, &
                   Interpolation, btype, vtype, SVD_type, fits_index, &
-                  Num_Weight, atmoin_type, Lam_track, LM_Back_Mode
+                  Num_Weight, atmoin_type, Lam_track, LM_Back_Mode, &
+                  storeinv_step
 
         ! Output file sizes
         integer:: s_inv_h, s_inv_atmo, s_inv_atmo_c, &

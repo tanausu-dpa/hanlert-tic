@@ -6335,6 +6335,7 @@ class _inversion_out():
             except struct.error:
 
                 self.__is_RF = False
+                self.__jump_to_rf = 0
 
             except:
 
@@ -6342,6 +6343,7 @@ class _inversion_out():
 
         else:
 
+            self.__jump_to_rf = 0
             self.__is_RF = False
 
         # Close file
@@ -7411,8 +7413,8 @@ class _inversion_out():
         if not isinstance(var, str):
             _error('The field var requires a string',1)
             return None
-        if evar not in self.__vars:
-            _error('The requested variable ' + evar + \
+        if var not in self.__vars:
+            _error('The requested variable ' + var + \
                    ' is not available, ' + \
                    'check with get_vars',1)
             return None
@@ -9738,7 +9740,7 @@ class hanlertio_class():
         return self.__object._get_plane_atmo(iz,var)
     # inversion out
     def __get_node(self,var):
-        return self.__object._get_plane_node(var)
+        return self.__object._get_node(var)
     # 15D back
     def __get_plane_back(self,iz,minl=None,maxl=None,var=None):
         return self.__object._get_plane(iz,minl,maxl,var)

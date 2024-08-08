@@ -852,6 +852,7 @@
 
       !> Deallocate solutions in inversion pixel\n
       !!  Sol(Solution_F_class): Class with the data of the RT
+      !!                         solution
       subroutine free_inv_solution(Sol)
 
       ! I/O

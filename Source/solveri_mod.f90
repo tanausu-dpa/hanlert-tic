@@ -12,12 +12,15 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     02/23/2024 V3.0.17
+!     08/08/2024 V3.0.18
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     08/08/2024:   V3.0.17 - Force at least two iterations if doing
+!                             AD starting from AA (TdPA)
 !
 !     02/23/2024:   V3.0.17 - Manage the force ALI option (TdPA)
 !                           - Change the format and header for the
@@ -746,7 +749,7 @@
       ! Trick to have AV input for AD calculation
       if (tbAD) then
         AVI = .True.
-        if (.not.ADT) IRAM = .False.
+        if (ADT) IRAM = .False.
       end if
 
       ! Store if it was PRD (first iteration always CRD unless we are
@@ -2438,13 +2441,6 @@
           end if ! Communication
         endif ! NG acceleration
 
-        ! We can swith now to AD if we had AV input
-        if (tbAD.and.ADT) then
-          AVI = .False.
-          tbAD = .False.
-          IRAM = RIRAM
-        end if
-
 
         !
         !  Calculate MRC
@@ -2466,7 +2462,17 @@
           ! but we want PRD
           if (iter.eq.Input%iteri_min.and.PRDl.and. &
             MRC%values(2,1).lt.1d-16) goout = .False.
+          ! If going to AD from AA
+          if (iter.eq.Input%iteri_min.and.tbAD.and.ADT) &
+            goout = .False.
 
+        end if
+
+        ! We can swith now to AD if we had AV input
+        if (tbAD.and.ADT) then
+          AVI = .False.
+          tbAD = .False.
+          IRAM = RIRAM
         end if
 
         ! Only the global Master does
@@ -2827,7 +2833,7 @@
       ! Trick to have AV input for AD calculation
       if (tbAD) then
         AVI = .True.
-        if (.not.ADT) IRAM = .False.
+        if (ADT) IRAM = .False.
       end if
 
       ! Store if it was PRD (first iteration always CRD unless we are
@@ -4475,13 +4481,6 @@
           end if ! Communication
         endif ! NG acceleration
 
-        ! We can swith now to AD if we had AV input
-        if (tbAD.and.ADT) then
-          AVI = .False.
-          tbAD = .False.
-          IRAM = RIRAM
-        end if
-
 
         !
         !  Calculate MRC
@@ -4503,7 +4502,17 @@
           ! but we want PRD
           if (iter.eq.Input%iteri_min.and.PRDl.and. &
             MRC%values(2,1).lt.1d-16) goout = .False.
+          ! If going to AD from AA
+          if (iter.eq.Input%iteri_min.and.tbAD.and.ADT) &
+            goout = .False.
 
+        end if
+
+        ! We can swith now to AD if we had AV input
+        if (tbAD.and.ADT) then
+          AVI = .False.
+          tbAD = .False.
+          IRAM = RIRAM
         end if
 
         ! Global Máster
@@ -4843,7 +4852,7 @@
       ! Trick to have AV input for AD calculation
       if (tbAD) then
         AVI = .True.
-        if (.not.ADT) IRAM = .False.
+        if (ADT) IRAM = .False.
       end if
 
       ! Store if it was PRD (first iteration always CRD)
@@ -5715,25 +5724,6 @@
           end if ! Applying NG in this iteration
         endif ! Doing NG acceleration
 
-        ! We can swith now to AD if we had AV input
-        if (tbAD.and.ADT) then
-          AVI = .False.
-          tbAD = .False.
-          IRAM = RIRAM
-        end if
-
-        ! Save data of this steps if proceeds
-        if(Input%storei.and.mod(iter,Input%storei_step).eq.0)then
-
-          ! Only the master writes
-          write(iterS,'(i0.4)') iter
-          call writesolI(Input,iterS,Frec%omega,Geom, &
-         !               Atom,Atmo%z,Stokes,J00,J00S,J00C,J00P, &
-                         Atom,Atmo%z,Stokes,J00,J00,J00C,J00P, &
-                         .False.)
-
-        end if
-
 
         !
         !  Calculate MRC
@@ -5780,6 +5770,16 @@
         ! If in the mandatory non-PRD
         if (iter.le.Input%PRD_delay) goout = .False.
 
+        ! If going to AD from AA
+        if (iter.eq.Input%iteri_min.and.tbAD.and.ADT) goout = .False.
+
+        ! We can swith now to AD if we had AV input
+        if (tbAD.and.ADT) then
+          AVI = .False.
+          tbAD = .False.
+          IRAM = RIRAM
+        end if
+
         ! Recover PRD variable
         if (iter.eq.Input%PRD_delay) PRD = PRDl
 
@@ -5789,6 +5789,18 @@
           ! Don't leave and activate ALI
           goout = .False.
           force_ALI = .True.
+
+        end if
+
+        ! Save data of this steps if proceeds
+        if(Input%storei.and.mod(iter,Input%storei_step).eq.0)then
+
+          ! Only the master writes
+          write(iterS,'(i0.4)') iter
+          call writesolI(Input,iterS,Frec%omega,Geom, &
+         !               Atom,Atmo%z,Stokes,J00,J00S,J00C,J00P, &
+                         Atom,Atmo%z,Stokes,J00,J00,J00C,J00P, &
+                         .False.)
 
         end if
 

@@ -10,12 +10,16 @@
 !  Start:
 !     02/22/2023
 !  Last version:
-!     05/28/2024 V3.0.19
+!     08/08/2024 V3.0.20
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     05/28/2024:   V3.0.20 - Added the routine write_result_inv and
+!                             added the option to save non-finished
+!                             inversion results (TdPA)
 !
 !     05/28/2024:   V3.0.19 - Moved the deallocation of
 !                             Trial_Synthesis local variables before
@@ -159,6 +163,9 @@
 !
 !    LMFIT:
 !      Levenberg-Marquardt fit of Stokes parameters
+!
+!    write_result_inv:
+!      Output the results of the inversion into the Result file
 !
 !    Convergence_Check:
 !      Check if LM problem is converged
@@ -522,6 +529,21 @@
 
       ! Iterate, in principle, to the maximum allowed
       do indx_iter=1,max_iters
+
+        ! Check if writing
+        if (Input%storeinv.and.indx_iter.gt.1) then
+
+          ! Check module
+          if (mod(indx_iter-1,Input%storeinv_step).eq.0) then
+
+            ! Write to files
+            call write_result_inv(Atom,Atomb,Mol,GeomI,Geom,Frec, &
+                                  fudge,MPID,Atmo,Bfield,Input, &
+                                  Inf_Stokes,Inf_Nodes,Sol,SolF, &
+                                  LM_Stru,saving,.False.)
+
+          end if
+        end if
 
         ! Predict lambda
         if (Input%l_Lam_track) &
@@ -1013,14 +1035,124 @@
       !
       ! Write the results into file
       !
+      call write_result_inv(Atom,Atomb,Mol,GeomI,Geom,Frec, &
+                            fudge,MPID,Atmo,Bfield,Input, &
+                            Inf_Stokes,Inf_Nodes,Sol,SolF, &
+                            LM_Stru,saving,.True.)
+
+
+      ! If thermal inversion
+      if (Inf_Nodes%Nodes_Type.eq.0) then
+
+        ! Deallocate intensity quantities
+        deallocate(LM_Stru%ResidualI)
+        deallocate(LM_Stru%WeightI)
+        deallocate(LM_Stru%JacobianI)
+
+      ! If magnetic
+      else
+
+        ! Deallocate polarization quantities
+        deallocate(LM_Stru%Residual)
+        deallocate(LM_Stru%Weight)
+        deallocate(LM_Stru%Jacobian)
+
+      end if ! Type of inversion
+
+      ! Free memory
+      deallocate(Solution,Errors,LM_Stru%Jacfvec,LM_Stru%diag)
+      deallocate(LM_Stru%Hessian,LM_Stru%Hessian_og)
+      deallocate(LM_Stru%Jacfvec_og)
+      if (Input%l_Lam_track) deallocate(Lam_track)
+
+      ! Free solutions
+      call free_inv_solution(SolF)
+
+      return
+
+      end subroutine LMFIT
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Write result of inversion\n
+      !!           Atom(Atom_class): Structure with the atomic data\n
+      !!          Atomb(Atom_class): Structure with the atomic data
+      !!                             for background opacities\n
+      !!             Mol(Mol_class): Structure with the molecule
+      !!                             data\n
+      !!       Geom(Geometry_class): Structure with the geometry
+      !!                             data\n
+      !!      GeomI(Geometry_class): Structure with the geometry data
+      !!                             for the intensity problem\n
+      !!    Frec(Frequency_class): Structure with frequency data\n
+      !!         fudge(fudge_class): Structure with fudge data\n
+      !!            MPID(MPI_class): Structure with MPI data
+      !!        Atmo_in(Atmo_class): Structure with atmospheric data\n
+      !!       Bfield(Bfield_class): Structure with the vertical
+      !!                             magnetic field data\n
+      !!         Input(Input_class): Structure with settings data\n
+      !!   Inf_Stokes(Stokes_class): Structure with Stokes parameters
+      !!                             data\n
+      !!     Inf_Nodes(Nodes_class): Structure with nodes data\n
+      !!        Sol(Solution_class): Class with the data of the RT
+      !!                             solution\n
+      !!     SolF(Solution_F_class): Class with the data of the RT
+      !!                             solution\n
+      !!       LM_Stru(LMFIT_class): Structure with Jacobian and
+      !!                             other LM quantities\n
+      !!            saving(logical): If the result is to be stored\n
+      !!            ifinal(logical): If the inversion is finished
+      subroutine write_result_inv(Atom,Atomb,Mol,GeomI,Geom,Frec, &
+                                  fudge,MPID,Atmo_in,Bfield,Input, &
+                                  Inf_Stokes,Inf_Nodes,Sol,SolF, &
+                                  LM_Stru,saving,ifinal)
+
+      ! IO
+      type(Atom_class), dimension(:):: Atom
+      type(Atom_class), dimension(:), allocatable:: Atomb
+      type(Mol_class), dimension(:), allocatable:: Mol
+      type(Geometry_class):: GeomI, Geom
+      type(Frequency_class):: Frec
+      type(fudge_class):: fudge
+      type(MPI_class):: MPID
+      type(Atmo_class), intent(inout):: Atmo_in
+      type(Bfield_class), intent(inout):: Bfield
+      type(Input_class), intent(inout):: Input
+      type(Stokes_class), intent(inout):: Inf_Stokes
+      type(Nodes_class), intent(inout):: Inf_Nodes
+      type(Solution_class), intent(inout):: Sol
+      type(LMFIT_class), intent(inout):: LM_Stru
+      type(Solution_F_class):: SolF
+      logical, intent(in):: saving
+      logical, intent(in):: ifinal
+
+      ! Local
+      type(Atmo_class):: Atmo
 
       ! Control
       call control
 
-      !
-      ! Prepare output model atmosphere
-      call setup_Atmo_ouinv(Atom,Atomb,Mol,Atmo,MPID,Input,fudge)
+      ! If final
+      if (ifinal) then
 
+        ! Prepare output model atmosphere
+        call setup_Atmo_ouinv(Atom,Atomb,Mol,Atmo_in,MPID,Input,fudge)
+
+        ! Get a copy of model atmosphere
+        call cAtmo(Atmo_in,Atmo)
+
+      ! If not final
+      else
+
+        ! Get a copy of model atmosphere
+        call cAtmo(Atmo_in,Atmo)
+
+        ! Prepare output model atmosphere
+        call setup_Atmo_ouinv(Atom,Atomb,Mol,Atmo,MPID,Input,fudge)
+
+      end if
 
       ! Not aborted
       if (.not.laborted) then
@@ -1078,7 +1210,7 @@
             else if (Inf_Nodes%Nodes_type.ne.0) then
 
               ! Write Stokes
-              call writestk(Input%folder,0,0,Frec%omega,GeomI, &
+              call writestk(Input%folder,0,0,Frec%omega,Geom, &
                             SolF%e_Stk_b(:,:,1,1),Input%lim_stk)
               if (laborted) exit
 
@@ -1122,36 +1254,12 @@
         end if ! Master saving
       end if ! Not aborting
 
-      ! If thermal inversion
-      if (Inf_Nodes%Nodes_Type.eq.0) then
-
-        ! Deallocate intensity quantities
-        deallocate(LM_Stru%ResidualI)
-        deallocate(LM_Stru%WeightI)
-        deallocate(LM_Stru%JacobianI)
-
-      ! If magnetic
-      else
-
-        ! Deallocate polarization quantities
-        deallocate(LM_Stru%Residual)
-        deallocate(LM_Stru%Weight)
-        deallocate(LM_Stru%Jacobian)
-
-      end if ! Type of inversion
-
-      ! Free memory
-      deallocate(Solution,Errors,LM_Stru%Jacfvec,LM_Stru%diag)
-      deallocate(LM_Stru%Hessian,LM_Stru%Hessian_og)
-      deallocate(LM_Stru%Jacfvec_og)
-      if (Input%l_Lam_track) deallocate(Lam_track)
-
-      ! Free solutions
-      call free_inv_solution(SolF)
+      ! Wipe the copy clean
+      call free_Atmo(Atmo,.True.)
 
       return
 
-      end subroutine LMFIT
+      end subroutine write_result_inv
 
 !#####################################################################
 !#####################################################################

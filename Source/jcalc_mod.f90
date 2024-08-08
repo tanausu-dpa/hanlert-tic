@@ -10,12 +10,17 @@
 !  Start:
 !     04/26/2017
 !  Last version:
-!     09/29/2023 V3.0.5
+!     08/08/2024 V3.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     08/08/2024:    V3.0.6 - Bugfix: Wrong index in the term- and
+!                             transition-wise K cut limits which was
+!                             a problem when running with more than
+!                             one non-LTE atom (TdPA)
 !
 !     09/29/2023:    V3.0.5 - Updated to term- and transition-wise
 !                             K cut limits (TdPA)
@@ -578,7 +583,7 @@
           end if
 
           ! For each K
-          do K=0,Atom(ia)%Krad(jtran)
+          do K=0,Atom(ia)%Krad(itran)
 
             ! For each Q
             do iQ=0,K
@@ -614,7 +619,7 @@
             end if
 
             ! For each K
-            do K=0,Atom(ia)%Krad(jtran)
+            do K=0,Atom(ia)%Krad(itran)
 
               ! For each Q
               do iQ=0,K
@@ -645,7 +650,7 @@
           end if
 
           ! For each K
-          do K=0,Atom(ia)%Krad(jtran)
+          do K=0,Atom(ia)%Krad(itran)
 
             ! For each Q
             do iQ=0,K
