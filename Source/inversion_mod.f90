@@ -10,12 +10,15 @@
 !  Start:
 !     02/22/2023
 !  Last version:
-!     05/22/2024 V3.1.13
+!     09/23/2024 V3.1.14
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     09/23/2024:   V3.1.14 - Added abort at the beginning in case of
+!                             previous error (TdPA)
 !
 !     05/22/2024:   V3.1.13 - Fixed messages not limited to the
 !                             master (TdPA)
@@ -200,6 +203,9 @@
 
       double precision, dimension(Input%nvar):: TMP_Weight
 
+
+      ! Already broken
+      if (laborted) return
 
       ! Print current pixel
       if (pid.eq.0) then

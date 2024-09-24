@@ -10,12 +10,16 @@
 !  Start:
 !     02/22/2023
 !  Last version:
-!     08/08/2024 V3.0.20
+!     09/23/2024 V3.0.21
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     09/23/2024:   V3.0.21 - Added a sanity check for inversions
+!                             that fail to compute the initial value
+!                             of the merit function (TdPA)
 !
 !     05/28/2024:   V3.0.20 - Added the routine write_result_inv and
 !                             added the option to save non-finished
@@ -396,6 +400,19 @@
       ! Compute merit function
       call Merit_function(Inf_Stokes, Sol%Stokes_out, &
                           Inf_Nodes%Nodes_Type,LM_Stru)
+
+      ! Check NaN
+      if (isnan(LM_Stru%Chisq)) then
+
+        ! Aborting
+        umsg = 'The first value of the merit function (without '// &
+               'penalties) is NaN. Check that there are no '// &
+               'zeros in the "sigma" values in the data'
+        urou = 'LMFIT'
+        call aborted
+        return
+
+      end if
 
       ! If regularizing
       if (Inf_Nodes%Regul_Flag) then

@@ -10,12 +10,15 @@
 !  Start:
 !     11/14/2022
 !  Last version:
-!     11/24/2022 V3.0.0
+!     09/23/2024 V3.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     09/23/2024:    V3.0.1 - Changed MPI tags to comply with the
+!                             standard (TdPA)
 !
 !     11/24/2022:    V3.0.0 - First version (TdPA)
 !
@@ -581,7 +584,7 @@
                             ios)
               if (Atom(ia)%nphot.gt.0) &
                 call MPI_RECV(fspecin(1), Atom(ia)%nphot, &
-                              MPI_LOGICAL, iproc, 1000000+iproc, &
+                              MPI_LOGICAL, iproc, 1+iproc, &
                               MPI_COMM_RT, MPI_STATUS_IGNORE, &
                               ios)
 
@@ -615,7 +618,7 @@
                           MPI_LOGICAL, 0, pid, MPI_COMM_RT, ios)
             if (Atom(ia)%nphot.gt.0) &
               call MPI_SEND(Atom(ia)%bfspecin(1), Atom(ia)%nphot, &
-                            MPI_LOGICAL, 0, 1000000+pid, &
+                            MPI_LOGICAL, 0, 1+pid, &
                             MPI_COMM_RT, ios)
 
             ! Receive from leader

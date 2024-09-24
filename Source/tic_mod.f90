@@ -10,12 +10,15 @@
 !  Start:
 !     02/16/2023
 !  Last version:
-!     03/01/2024 V3.1.16
+!     09/23/2024 V3.1.17
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     09/23/2024:   V3.1.17 - Changed MPI tags to comply with the
+!                             standard (TdPA)
 !
 !     03/01/2024:   V3.1.16 - Fixed call to get_lims (TdPA)
 !
@@ -1354,7 +1357,7 @@
 
                   ! Test if slave in the group is sending something
                   call MPI_IPROBE(MPID%ltslave(ip), &
-                                  4000000+MPID%ltslave(ip), &
+                                  4+MPID%ltslave(ip), &
                                   MPI_COMM_WORLD, receiving, &
                                   MPI_STATUS_IGNORE, ierr)
 
@@ -1364,7 +1367,7 @@
                     ! Receive the ping
                     call MPI_RECV(int_buff(1), 3, MPI_INTEGER, &
                                   MPID%ltslave(ip), &
-                                  4000000+MPID%ltslave(ip), &
+                                  4+MPID%ltslave(ip), &
                                   MPI_COMM_WORLD, &
                                   MPI_STATUS_IGNORE, ierr)
 
@@ -1502,7 +1505,7 @@
               ! Send signal to node
               call MPI_SEND(int_buff(1), 4, MPI_INTEGER, &
                             MPID%ltslave(ip), &
-                            2000000+MPID%ltslave(ip), &
+                            2+MPID%ltslave(ip), &
                             MPI_COMM_WORLD, ierr)
 
               ! If failed
@@ -1518,7 +1521,7 @@
                             s_transfer_buffer, &
                             MPI_DOUBLE_PRECISION, &
                             MPID%ltslave(ip), &
-                            3000000+MPID%ltslave(ip), &
+                            3+MPID%ltslave(ip), &
                             MPI_COMM_WORLD, ierr)
 
               ! If failed
@@ -1540,7 +1543,7 @@
 
               ! Test if slave in the group is sending something
               call MPI_IPROBE(MPID%ltslave(ip), &
-                              4000000+MPID%ltslave(ip), &
+                              4+MPID%ltslave(ip), &
                               MPI_COMM_WORLD, receiving, &
                               MPI_STATUS_IGNORE, ierr)
 
@@ -1556,7 +1559,7 @@
                   ! Receive the ping
                   call MPI_RECV(int_buff(1), 3, MPI_INTEGER, &
                                 MPID%ltslave(ip), &
-                                4000000+MPID%ltslave(ip), &
+                                4+MPID%ltslave(ip), &
                                 MPI_COMM_WORLD, &
                                 MPI_STATUS_IGNORE, ierr)
 
@@ -1603,7 +1606,7 @@
             ! send termination signal
             call MPI_SEND(int_buff(1), 4, MPI_INTEGER, &
                           MPID%ltslave(iproc), &
-                          2000000+MPID%ltslave(iproc), &
+                          2+MPID%ltslave(iproc), &
                           MPI_COMM_WORLD, ierr)
 
             ! If it fails
@@ -1634,7 +1637,7 @@
 
                 ! Wait for signal
                 call MPI_RECV(int_buff(1), 4, MPI_INTEGER, 0, &
-                              2000000+gpid, MPI_COMM_WORLD, &
+                              2+gpid, MPI_COMM_WORLD, &
                               MPI_STATUS_IGNORE, ierr)
 
                 ! If it fails
@@ -1650,7 +1653,7 @@
                 call MPI_RECV(p_transfer_buffer(1), &
                               s_transfer_buffer, &
                               MPI_DOUBLE_PRECISION, &
-                              0, 3000000+gpid, MPI_COMM_WORLD, &
+                              0, 3+gpid, MPI_COMM_WORLD, &
                               MPI_STATUS_IGNORE, ierr)
 
                 ! If it fails
@@ -1847,7 +1850,7 @@
               ! Try until achieved
               do while (.True.)
                 call MPI_SEND(icoords(1),3,MPI_INTEGER,0, &
-                              4000000+gpid,MPI_COMM_WORLD,ierr)
+                              4+gpid,MPI_COMM_WORLD,ierr)
                 if (ierr.ne.0) cycle
                 exit
               end do

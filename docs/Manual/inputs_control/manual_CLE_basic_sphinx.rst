@@ -185,6 +185,17 @@ R_STAR
 
   * Description: Stellar radius in cm.
 
+NEGLECT_CONTINUUM
+-----------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string Yes, No; default: No
+
+  * Description: Neglect continuum contribution to the radiative transfer coefficients.
+
 ABUND
 -----
 

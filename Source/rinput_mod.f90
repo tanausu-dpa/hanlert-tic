@@ -11,12 +11,14 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     08/08/2024 V3.0.29
+!     09/23/2024 V3.0.30
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     09/23/2024:   V3.0.30 - Read Input%add_cont_cle (TdPA)
 !
 !     08/08/2024:   V3.0.29 - Read Input%storeinv_step and setup
 !                             Input%storeinv (TdPA)
@@ -546,6 +548,14 @@
 
       ! R_star
       read(100,*,err=1100) Input%R_star
+
+      ! Neglect continuum in CLE
+      read(100,*,err=1100) cdump
+      if(cdump.eq.'Y')then
+        Input%add_cont_cle = .False.
+      else
+        Input%add_cont_cle = .True.
+      endif
 
       ! File with partition functions
       read(100,'(A)',err=1100) Input%pf

@@ -12,12 +12,19 @@
 !  Start:
 !     04/20/2016
 !  Last version:
-!     07/18/2024 V3.0.23
+!     09/23/2024 V3.0.24
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     09/23/2024:   V3.0.24 - Changed MPI tags to comply with the
+!                             standard (TdPA)
+!                           - Changed the format in the writing of
+!                             atmospheric models in ASCII to the
+!                             recommended ratio between digits and
+!                             decimals (TdPA)
 !
 !     07/18/2024:   V3.0.23 - Added writeqel for elastic rates (TdPA)
 !
@@ -624,7 +631,7 @@
 
             ! Receive label
             call MPI_RECV(ilabel, 1, MPI_INTEGER, &
-                          MPID%recv, 1000000+pid, &
+                          MPID%recv, 1+pid, &
                           MPI_COMM_RT, MPI_STATUS_IGNORE, ierr)
 
           end if ! No Master
@@ -635,7 +642,7 @@
             ! Send label
             call MPI_ISEND(ilabel, 1, MPI_INTEGER, &
                            MPID%lsend(istep), &
-                           1000000+MPID%lsend(istep), &
+                           1+MPID%lsend(istep), &
                            MPI_COMM_RT, MPID%requestA(istep,6), &
                            ierr)
           end do ! sends
@@ -756,7 +763,7 @@
 
               ! Receive dimensions
               call MPI_RECV(ibuff(1), 8, MPI_INTEGER, &
-                            MPID%recv, 2000000+pid, &
+                            MPID%recv, 2+pid, &
                             MPI_COMM_RT, MPI_STATUS_IGNORE, &
                             ierr)
 
@@ -768,7 +775,7 @@
               ! Send dimensions
               call MPI_ISEND(ibuff(1), 8, MPI_INTEGER, &
                              MPID%lsend(istep), &
-                             2000000+MPID%lsend(istep), &
+                             2+MPID%lsend(istep), &
                              MPI_COMM_RT, MPID%requestA(istep,7), &
                              ierr)
 
@@ -1065,14 +1072,14 @@
                 ! Receive n
                 call MPI_RECV(Atom(ia)%n(1), nsize, &
                               MPI_DOUBLE_PRECISION, &
-                              MPID%recv, 2000000+pid, &
+                              MPID%recv, 2+pid, &
                               MPI_COMM_RT, MPI_STATUS_IGNORE, &
                               ierr)
 
                 ! Receive rhoKQ
                 call MPI_RECV(Atom(ia)%crho(1,Rz0), rsize, &
                               MPI_DOUBLE_COMPLEX, &
-                              MPID%recv, 3000000+pid, &
+                              MPID%recv, 3+pid, &
                               MPI_COMM_RT, MPI_STATUS_IGNORE, &
                               ierr)
 
@@ -1085,7 +1092,7 @@
                 call MPI_ISEND(Atom(ia)%n(1), nsize, &
                                MPI_DOUBLE_PRECISION, &
                                MPID%lsend(istep), &
-                               2000000+MPID%lsend(istep), &
+                               2+MPID%lsend(istep), &
                                MPI_COMM_RT, &
                                MPID%requestA(istep,6), &
                                ierr)
@@ -1094,7 +1101,7 @@
                 call MPI_ISEND(Atom(ia)%crho(1,Rz0), rsize, &
                                MPI_DOUBLE_COMPLEX, &
                                MPID%lsend(istep), &
-                               3000000+MPID%lsend(istep), &
+                               3+MPID%lsend(istep), &
                                MPI_COMM_RT, &
                                MPID%requestA(istep,1), &
                                ierr)
@@ -1268,7 +1275,7 @@
               ! Receive JKQ
               call MPI_RECV(JKQ(-2,0,1,Rz0), jsize, &
                             MPI_DOUBLE_COMPLEX,  &
-                            MPID%recv, 4000000+pid, &
+                            MPID%recv, 4+pid, &
                             MPI_COMM_RT, MPI_STATUS_IGNORE, &
                             ierr)
 
@@ -1281,7 +1288,7 @@
               call MPI_ISEND(JKQ(-2,0,1,Rz0), jsize, &
                              MPI_DOUBLE_COMPLEX, &
                              MPID%lsend(istep), &
-                             4000000+MPID%lsend(istep), &
+                             4+MPID%lsend(istep), &
                              MPI_COMM_RT, &
                              MPID%requestA(istep,2), ierr)
 
@@ -1390,7 +1397,7 @@
                 ! Receive JKQ
                 call MPI_RECV(JKQS(-2,0,1,Rz0), jsize, &
                               MPI_DOUBLE_COMPLEX,  &
-                              MPID%recv, 5000000+pid, &
+                              MPID%recv, 5+pid, &
                               MPI_COMM_RT, MPI_STATUS_IGNORE, &
                               ierr)
 
@@ -1403,7 +1410,7 @@
                 call MPI_ISEND(JKQS(-2,0,1,Rz0), jsize, &
                                MPI_DOUBLE_COMPLEX, &
                                MPID%lsend(istep), &
-                               5000000+MPID%lsend(istep), &
+                               5+MPID%lsend(istep), &
                                MPI_COMM_RT, &
                                MPID%requestA(istep,3), ierr)
 
@@ -1496,7 +1503,7 @@
                   ! Receive JKQC
                   call MPI_RECV(JKQC(-2,0,1,Rz0), csize, &
                                 MPI_DOUBLE_COMPLEX, &
-                                MPID%recv, 6000000+pid, &
+                                MPID%recv, 6+pid, &
                                 MPI_COMM_RT, MPI_STATUS_IGNORE, &
                                 ierr)
 
@@ -1509,7 +1516,7 @@
                   call MPI_ISEND(JKQC(-2,0,1,Rz0), csize, &
                                  MPI_DOUBLE_COMPLEX, &
                                  MPID%lsend(istep), &
-                                 6000000+MPID%lsend(istep), &
+                                 6+MPID%lsend(istep), &
                                  MPI_COMM_RT, &
                                  MPID%requestA(istep,4), ierr)
 
@@ -1700,7 +1707,7 @@
                     ! Receive JKQC
                     call MPI_RECV(JKQC(-2,0,1,Rz0), csize, &
                                   MPI_DOUBLE_COMPLEX, &
-                                  MPID%recv, 6000000+pid, &
+                                  MPID%recv, 6+pid, &
                                   MPI_COMM_RT, &
                                   MPI_STATUS_IGNORE, &
                                   ierr)
@@ -1714,7 +1721,7 @@
                     call MPI_ISEND(JKQC(-2,0,1,Rz0), csize, &
                                    MPI_DOUBLE_COMPLEX, &
                                    MPID%lsend(istep), &
-                                   6000000+MPID%lsend(istep), &
+                                   6+MPID%lsend(istep), &
                                    MPI_COMM_RT, &
                                    MPID%requestA(istep,4), &
                                    ierr)
@@ -1827,7 +1834,7 @@
                     ! Receive Stokes
                     call MPI_RECV(Stokes(0,1,1,1,Rz0), ssize, &
                                   MPI_DOUBLE_PRECISION, &
-                                  MPID%recv, 6000000+pid, &
+                                  MPID%recv, 6+pid, &
                                   MPI_COMM_RT, &
                                   MPI_STATUS_IGNORE, &
                                   ierr)
@@ -1841,7 +1848,7 @@
                     call MPI_ISEND(Stokes(0,1,1,1,Rz0), ssize, &
                                    MPI_DOUBLE_PRECISION, &
                                    MPID%lsend(istep), &
-                                   6000000+MPID%lsend(istep), &
+                                   6+MPID%lsend(istep), &
                                    MPI_COMM_RT, &
                                    MPID%requestA(istep,4), ierr)
 
@@ -2001,7 +2008,7 @@
 
               ! Receive dimenions
               call MPI_RECV(ibuff(1), 8, MPI_INTEGER, &
-                            MPID%recv, 2000000+pid, &
+                            MPID%recv, 2+pid, &
                             MPI_COMM_RT, MPI_STATUS_IGNORE, &
                             ierr)
 
@@ -2013,7 +2020,7 @@
               ! Send dimensions
               call MPI_ISEND(ibuff(1), 8, MPI_INTEGER, &
                              MPID%lsend(istep), &
-                             2000000+MPID%lsend(istep), &
+                             2+MPID%lsend(istep), &
                              MPI_COMM_RT, MPID%requestA(istep,7), &
                              ierr)
 
@@ -2252,14 +2259,14 @@
                 ! Receive n
                 call MPI_RECV(Atom(ia)%n(1), nsize, &
                               MPI_DOUBLE_PRECISION, &
-                              MPID%recv, 2000000+pid, &
+                              MPID%recv, 2+pid, &
                               MPI_COMM_RT, MPI_STATUS_IGNORE, &
                               ierr)
 
                 ! Receive rho00
                 call MPI_RECV(Atom(ia)%crho(1,Rz0), rsize, &
                               MPI_DOUBLE_COMPLEX, &
-                              MPID%recv, 3000000+pid, &
+                              MPID%recv, 3+pid, &
                               MPI_COMM_RT, MPI_STATUS_IGNORE, &
                               ierr)
 
@@ -2272,7 +2279,7 @@
                 call MPI_ISEND(Atom(ia)%n(1), nsize, &
                                MPI_DOUBLE_PRECISION, &
                                MPID%lsend(istep), &
-                               2000000+MPID%lsend(istep), &
+                               2+MPID%lsend(istep), &
                                MPI_COMM_RT, &
                                MPID%requestA(istep,6), &
                                ierr)
@@ -2281,7 +2288,7 @@
                 call MPI_ISEND(Atom(ia)%crho(1,Rz0), rsize, &
                                MPI_DOUBLE_COMPLEX, &
                                MPID%lsend(istep), &
-                               3000000+MPID%lsend(istep), &
+                               3+MPID%lsend(istep), &
                                MPI_COMM_RT, &
                                MPID%requestA(istep,1), &
                                ierr)
@@ -2396,7 +2403,7 @@
               ! Receive J00
               call MPI_RECV(J00(1,Rz0), jsize, &
                             MPI_DOUBLE_PRECISION,  &
-                            MPID%recv, 4000000+pid, &
+                            MPID%recv, 4+pid, &
                             MPI_COMM_RT, MPI_STATUS_IGNORE, &
                             ierr)
 
@@ -2409,7 +2416,7 @@
               call MPI_ISEND(J00(1,Rz0), jsize, &
                              MPI_DOUBLE_PRECISION, &
                              MPID%lsend(istep), &
-                             4000000+MPID%lsend(istep), &
+                             4+MPID%lsend(istep), &
                              MPI_COMM_RT, &
                              MPID%requestA(istep,2), ierr)
 
@@ -2472,7 +2479,7 @@
          !      ! Receive J00S
          !      call MPI_RECV(J00S(1,Rz0), jsize, &
          !                    MPI_DOUBLE_PRECISION,  &
-         !                    MPID%recv, 5000000+pid, &
+         !                    MPID%recv, 5+pid, &
          !                    MPI_COMM_RT, MPI_STATUS_IGNORE, &
          !                    ierr)
 
@@ -2485,7 +2492,7 @@
          !      call MPI_ISEND(J00S(1,Rz0), jsize, &
          !                     MPI_DOUBLE_PRECISION, &
          !                     MPID%lsend(istep), &
-         !                     5000000+MPID%lsend(istep), &
+         !                     5+MPID%lsend(istep), &
          !                     MPI_COMM_RT, &
          !                     MPID%requestA(istep,3), ierr)
 
@@ -2558,7 +2565,7 @@
               ! Receive J00 for b-f transitions
               call MPI_RECV(J00P(1,1,Rz0), psize, &
                             MPI_DOUBLE_PRECISION,  &
-                            MPID%recv, 6000000+pid, &
+                            MPID%recv, 6+pid, &
                             MPI_COMM_RT, MPI_STATUS_IGNORE, &
                             ierr)
 
@@ -2571,7 +2578,7 @@
               call MPI_ISEND(J00P(1,1,Rz0), psize, &
                              MPI_DOUBLE_PRECISION, &
                              MPID%lsend(istep), &
-                             6000000+MPID%lsend(istep), &
+                             6+MPID%lsend(istep), &
                              MPI_COMM_RT, &
                              MPID%requestA(istep,5), ierr)
 
@@ -2635,7 +2642,7 @@
                   ! Receive J00C
                   call MPI_RECV(J00C(1,Rz0), csize, &
                                 MPI_DOUBLE_PRECISION,  &
-                                MPID%recv, 7000000+pid, &
+                                MPID%recv, 7+pid, &
                                 MPI_COMM_RT, MPI_STATUS_IGNORE, &
                                 ierr)
 
@@ -2648,7 +2655,7 @@
                   call MPI_ISEND(J00C(1,Rz0), csize, &
                                  MPI_DOUBLE_PRECISION, &
                                  MPID%lsend(istep), &
-                                 7000000+MPID%lsend(istep), &
+                                 7+MPID%lsend(istep), &
                                  MPI_COMM_RT, &
                                  MPID%requestA(istep,4), ierr)
 
@@ -2779,7 +2786,7 @@
                     ! Receive J00C
                     call MPI_RECV(J00C(1,Rz0), csize, &
                                   MPI_DOUBLE_PRECISION,  &
-                                  MPID%recv, 7000000+pid, &
+                                  MPID%recv, 7+pid, &
                                   MPI_COMM_RT, &
                                   MPI_STATUS_IGNORE, ierr)
 
@@ -2792,7 +2799,7 @@
                     call MPI_ISEND(J00C(1,Rz0), csize, &
                                    MPI_DOUBLE_PRECISION, &
                                    MPID%lsend(istep), &
-                                   7000000+MPID%lsend(istep), &
+                                   7+MPID%lsend(istep), &
                                    MPI_COMM_RT, &
                                    MPID%requestA(istep,4), ierr)
 
@@ -2895,7 +2902,7 @@
 
                     call MPI_RECV(Stokes0(1,1,1,Rz0), ssize, &
                                   MPI_DOUBLE_PRECISION,  &
-                                  MPID%recv, 7000000+pid, &
+                                  MPID%recv, 7+pid, &
                                   MPI_COMM_RT, &
                                   MPI_STATUS_IGNORE, ierr)
 
@@ -2907,7 +2914,7 @@
                     call MPI_ISEND(Stokes0(1,1,1,Rz0), ssize, &
                                    MPI_DOUBLE_PRECISION, &
                                    MPID%lsend(istep), &
-                                   7000000+MPID%lsend(istep), &
+                                   7+MPID%lsend(istep), &
                                    MPI_COMM_RT, &
                                    MPID%requestA(istep,4), ierr)
 
@@ -10353,18 +10360,18 @@
       ! Scale
       if (ztau) then
         zfac = 1d0
-        write(200,'(A,1x,es22.16)',err=1100) &
+        write(200,'(A,1x,es23.16)',err=1100) &
           'TAU SCALE',1d2/Atmo%tfreq
       else
         zfac = 1d-5
-        write(200,'(A,1x,es22.16)',err=1100) &
+        write(200,'(A,1x,es23.16)',err=1100) &
           'HEIGHT SCALE',1d2/Atmo%tfreq
       end if
 
       ! Log g
       write(200,'(A)',err=1100) '*'
       write(200,'(A)',err=1100) '* LG G'
-      write(200,'(2x,es22.16)',err=1100) Atmo%logg
+      write(200,'(2x,es23.16)',err=1100) Atmo%logg
 
       ! Height nodes
       write(200,'(A)',err=1100) '*'
@@ -10417,7 +10424,7 @@
 
         ! For every height
         do iz=1,nZ
-          write(200,'(6(1x,es16.10))',err=1100) Atmo%nh(iz,:)
+          write(200,'(6(1x,es17.10))',err=1100) Atmo%nh(iz,:)
         end do
 
         ! Helium populations
@@ -10428,7 +10435,7 @@
 
           ! For every height
           do iz=1,nZ
-            write(200,'(4(1x,es16.10))',err=1100) Atmo%nhe(iz,:)
+            write(200,'(4(1x,es17.10))',err=1100) Atmo%nhe(iz,:)
           end do
 
         end if ! Helium populations present

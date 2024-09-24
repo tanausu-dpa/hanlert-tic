@@ -223,7 +223,7 @@ is equal to one for every frequency of the problem for
 the specified lines of sight (see **POLAR_LOS** and
 **AXIAL_LOS** keywords in
 :ref:`control file <inputs_control>`) if the keyword
-**TAU** is set to *Yes* in the
+**TAU1** is set to *Yes* in the
 :ref:`control file <inputs_control>`.
 The name of the files has the format **Tau_X_Y**,
 with **X** and **Y** the indexes of the polar and azimuthal

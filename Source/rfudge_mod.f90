@@ -10,12 +10,14 @@
 !  Start:
 !     06/27/2022
 !  Last version:
-!     06/29/2022 V3.0.0
+!     09/23/2024 V3.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     09/23/2024:    V3.0.1 - Fixed wrong communicator (TdPA)
 !
 !     06/29/2022:    V3.0.0 - Initial version (TdPA)
 !
@@ -75,7 +77,7 @@
                                   ' '//ID//' '//verbosef)
 
         ! Wait for the master to finish with python
-        call MPI_BARRIER(MPI_COMM_RT, ierr)
+        call MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
         ! Open temporal file with fudge data
         open (100,file='tmp_fud_'//ID,status='old',iostat=ios, &

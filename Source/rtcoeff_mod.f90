@@ -11,12 +11,16 @@
 !  Start:
 !     04/27/2017
 !  Last version:
-!     04/01/2024 V3.0.13
+!     09/23/2024 V3.0.14
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     09/23/2024:   V3.0.14 - Added add_cont_cle argument to
+!                             RTCoeff_CLE, that allows skipping the
+!                             continuum contribution (TdPA)
 !
 !     04/01/2024:   V3.0.13 - Added optional (through asserts) call to
 !                             routine to compute the magnetic first
@@ -3049,10 +3053,11 @@
       !!        spect(spect_class): Structure with the input spectra
       !!                            data\n
       !!         Cont(dfloat(:,:)): Background opacity data\n
+      !!     add_cont_cle(logical): Include continuum contributions\n
       !!        data1(dfloat(:,:)): Radiation transfer coefficients
       subroutine RTCoeff_CLE(Frec,Atom,Atmo,MPID,Flgsg,Geom,GeomP, &
                              Bfield,TS,TB,if0,if1,JKQ,JKQC,spect, &
-                             Cont,data1)
+                             Cont,add_cont_cle,data1)
 
       ! I/O
 
@@ -3065,6 +3070,7 @@
       type(Coronapoint_class), intent(in):: GeomP
       type(Bfield_class), intent(in):: Bfield
       type(Spect_class), intent(in):: spect
+      logical, intent(in):: add_cont_cle
       integer, intent(in):: if0,if1
       double precision, dimension(if0:if1,3):: Cont
       double precision, dimension(0:3,if0:if1,0:4):: data1
@@ -3110,38 +3116,50 @@
       ! Continuum contribution
       !
 
-      ! Absorptivity
-      data1(0,:,0) = Cont(:,1)
+      ! If including continuum
+      if (add_cont_cle) then
 
-      ! For each Stokes parameter
-      do iS=0,3
+        ! Absorptivity
+        data1(0,:,0) = Cont(:,1)
 
-        ! Reset integral
-        intgr = .0D0
+        ! For each Stokes parameter
+        do iS=0,3
 
-        !
-        ! Compute the sum over K and Q of TKQ*JKQ(k)
-        !
+          ! Reset integral
+          intgr = .0D0
 
-        ! For each K
-        do K=0,Krad
+          !
+          ! Compute the sum over K and Q of TKQ*JKQ(k)
+          !
 
-          ! For each Q
-          do iQ=-K,K
+          ! For each K
+          do K=0,Krad
 
-            ! Add contribution to the integral
-            intgr = intgr + dble(TS(iS,iQ,K)*JKQC(iQ,K,if0:if1))
+            ! For each Q
+            do iQ=-K,K
 
-          end do ! Q
-        end do ! K
+              ! Add contribution to the integral
+              intgr = intgr + dble(TS(iS,iQ,K)*JKQC(iQ,K,if0:if1))
 
-        ! Emissivity by scattering
-        data1(iS,:,4) = intgr*Cont(:,2)
+            end do ! Q
+          end do ! K
 
-      end do ! Stokes parameters
+          ! Emissivity by scattering
+          data1(iS,:,4) = intgr*Cont(:,2)
 
-      ! Add thermal emissivity
-      data1(0,:,4) = data1(0,:,4) + cont(:,3)
+        end do ! Stokes parameters
+
+        ! Add thermal emissivity
+        data1(0,:,4) = data1(0,:,4) + cont(:,3)
+
+      ! No continuum
+      else
+
+        ! Zero
+        data1(0,:,0) = 0d0
+        data1(:,:,4) = 0d0
+
+      end if
 
 
       !

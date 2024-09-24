@@ -10,12 +10,15 @@
 !  Start:
 !     10/xx/2022
 !  Last version:
-!     10/16/2023 V3.0.4
+!     09/23/2024 V3.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     09/23/2024:    V3.0.5 - Added option to skip the continuum
+!                             calculation (TdPA)
 !
 !     10/16/2023:    V3.0.4 - Added argument to setphotoTEI (TdPA)
 !
@@ -353,9 +356,10 @@
       !
       ! Calculate background continuum quantities
       !
-      call background(Atom,Atomb,Mol,Atmo,fudge,kurucz, &
-                      Input,Frec%omega,Cont,GeomS, &
-                      MPID,Flgsg)
+      if (Input%add_cont_cle) &
+        call background(Atom,Atomb,Mol,Atmo,fudge,kurucz, &
+                        Input,Frec%omega,Cont,GeomS, &
+                        MPID,Flgsg)
 
       ! Control
       if (laborted) goto 1000
@@ -403,7 +407,8 @@
       !
       call RTcoeff_CLE(Frec,Atom,Atmo,MPID,Flgsg,Geom,GeomP,Bfield, &
                        TS,TB,if0,if1,JKQ,JKQC(:,:,if0:if1),spect, &
-                       Cont%c(:,:,1,1),data1(:,:,0:4))
+                       Cont%c(:,:,1,1),Input%add_cont_cle, &
+                       data1(:,:,0:4))
 
       !
       ! Boundary radiation

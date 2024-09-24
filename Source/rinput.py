@@ -6,6 +6,8 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an
 # Hao Li
 #
+# 09/23/2024: V3.0.43 - Added NEGLECT_CONTINUUM (TdPA)
+#
 # 08/08/2024: V3.0.42 - Added STOREINV_STEP (TdPA)
 #                     - Bugfix: LIM_QEL had to be additive (TdPA)
 #
@@ -2051,6 +2053,23 @@ def rInput():
       f.write('6.95700d10\n')
   else:
     f.write('0d0\n')
+
+  # NEGLECT_CONTINUUM
+  if rmode == 2:
+    check = 0
+    if 'NEGLECT_CONTINUUM' in Dictionary:
+      val = Dictionary['NEGLECT_CONTINUUM'][0]
+      if val == 'Y' or val == 'YE' or val == 'YES' or \
+         val == 'S' or val =='SI':
+        f.write('Y\n')
+        check = 1
+      if val == 'N' or val == 'NO' or val == 'NON':
+        f.write('N\n')
+        check = 1
+    if check == 0:
+      f.write('N\n')
+  else:
+    f.write('N\n')
 
   # PARFUN
   if 'PARFUN' in Dictionary:

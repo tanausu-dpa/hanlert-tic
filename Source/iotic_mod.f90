@@ -10,12 +10,16 @@
 !  Start:
 !     02/22/2023
 !  Last version:
-!     01/29/2024 V3.0.19
+!     09/23/2024 V3.0.20
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     09/23/2024:   V3.0.20 - Check that the noise values are valid
+!                             to avoid wasting time due to mistakes
+!                             in the data file (TdPA)
 !
 !     01/29/2024:   V3.0.19 - Do not account for electron mass density
 !                             option in the model atmosphere (TdPA)
@@ -1768,6 +1772,38 @@
           end do
 
         end if ! Type of sigma
+
+        ! For each Stokes parameter
+        do istk=0,nstk
+
+          ! Check positive
+          if (minval(Inf_Stokes%Sigma_W(istk,:)).le.0d0) then
+
+            ! Verbose
+            if (istk.eq.0) then
+                umsg = 'At least one "sigma" value for '// &
+                       'intensity is not positive'
+            else if (istk.eq.1) then
+                umsg = 'At least one "sigma" value for '// &
+                       'Q is not positive'
+            else if (istk.eq.2) then
+                umsg = 'At least one "sigma" value for '// &
+                       'U is not positive'
+            else if (istk.eq.3) then
+                umsg = 'At least one "sigma" value for '// &
+                       'V is not positive'
+            end if
+            urou = 'set_up_data_frombuffer'
+            call aborted
+            exit
+
+          end if
+
+        end do ! For each Stokes parameter
+
+        ! Share
+        call control
+
       end if ! If there is sigma at all
 
 

@@ -15,6 +15,8 @@
 #
 #  Changelog:
 #
+#     09/23/2024:    V1.1.4 - Fixed wrong intel compiler (TdPA)
+#
 #     04/01/2024:    V1.1.3 - Added the nordipev option (TdPA)
 #
 #     10/16/2023:    V1.1.2 - Added the nofits option (TdPA)
@@ -167,7 +169,7 @@ for arg in "$@"; do
         echo '  --medium                use conservative optimization:'
         echo '                             gnu: -O2 -funroll-loops -funsafe-loop-optimizations -fgcse-sm -fgcse-las -fgcse-after-reload'
         echo '                           intel: -O2 -funroll-loops'
-        echo '  --medium3               use conservative optimization:'
+        echo '  --medium3               use less aggresive optimization:'
         echo '                             gnu: -O3 -funroll-loops -funsafe-loop-optimizations -fgcse-sm -fgcse-las -fgcse-after-reload'
         echo '                           intel: -O3 -funroll-loops'
         echo '  --soft                  use safe optimization:'
@@ -197,7 +199,7 @@ if [ "$compiler" == "gnu" ]; then
   echo "RDIPEVFLAGS = $rdipev_gnu" >> Makefile
 fi
 if [ "$compiler" == "intel" ]; then
-  echo "CMP = ifort" >> Makefile
+  echo "CMP = mpiifort" >> Makefile
   echo "OPT = -c $opt_intel $opt_report_intel $fits_intel $omp_intel $old_mpi -cpp -implicitnone -o" >> Makefile
   echo "OPT_LOW = -c $opt_low_intel $opt_report_intel $fits_intel $omp_intel -cpp -implicitnone -o" >> Makefile
   echo "OPT_HI = -c $opt_hi_intel $opt_report_intel $fits_intel $omp_intel -cpp -implicitnone -o" >> Makefile

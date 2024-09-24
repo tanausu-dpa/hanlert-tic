@@ -13,12 +13,14 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     08/08/2024 V3.0.38
+!     09/23/2024 V3.0.39
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     09/23/2024:   V3.0.39 - Added add_cont_cle to Input_class (TdPA)
 !
 !     08/08/2024:   V3.0.38 - Added storeinv and storeinv_step to
 !                             Input_class (TdPA)
@@ -1803,7 +1805,8 @@
         ! if polarization with magnetic field must be done in
         ! two steps, if excluded pixels, if truncating tau or height
         ! restriction, force ALI iterations, initialize radiation
-        ! field with bound-bound transitions, keep elastic rates
+        ! field with bound-bound transitions, keep elastic rates,
+        ! add the continuum to RT coefficients in CLE
         logical:: AV, appendMRC, appendMRCI, out_contr, out_tau1, &
                   store, storeI, Pcorr, Raman, keepIsol, &
                   NG, keep_back, keep_damp, keep_cols, bfieldn, &
@@ -1815,7 +1818,8 @@
                   skip_disk, lspect_input, rest_tau, rest_z, AVI, &
                   static_int, linv_weight, keep_coll, keep_mpil, &
                   keep_mpidl, two_step_pol, lexcl, rest_tau_strc, &
-                  rest_z_strc, ALI_force, init_J_bb, keep_qel
+                  rest_z_strc, ALI_force, init_J_bb, keep_qel, &
+                  add_cont_cle
 
         ! If asymmetry input
         logical, dimension(2):: lasym

@@ -120,6 +120,11 @@ are required:
    and *openblas*. Please, report about incompatibilities that you find with other
    software combinations.
 
+.. warning::
+   At the date of September 2024, the intel mpiifx compiler changes the behavior
+   of polarization calculation when used with *-O2* or *-O3*. If using an intel
+   compiler, mpiifort is recommended.
+
 There are several ways to acquire and install all these dependencies.
 
 * In supercomputers, all these libraries are readily available. For example, in
@@ -328,6 +333,15 @@ by running ``./configure --help``. The most crucial fields to consider are:
    If dealing with an old version of the OpenMPI library (older than version 3.0),
    it is required to run the configuration with the ``--oldmpi`` option or the code
    will not compile.
+
+.. warning::
+   At the date of September 2024, the intel mpiifx compiler changes the behavior
+   of polarization calculation when used with *-O2* or *-O3*. If using an intel
+   compiler, mpiifort (default in the configure) is recommended.
+
+   When using the mpiifort compiler with optimization, some modules can take
+   a really long time to compile. It is thus recommended to specify no optimization
+   in those modules by specifying *--flags_low=-O0*.
 
 2. **Compilation**
 

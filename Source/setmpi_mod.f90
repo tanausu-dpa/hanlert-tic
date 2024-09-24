@@ -10,12 +10,15 @@
 !  Start:
 !     04/19/2017
 !  Last version:
-!     02/19/2024 V3.0.14
+!     09/23/2024 V3.0.15
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     09/23/2024:   V3.0.15 - Changed MPI tags to comply with the
+!                             standard (TdPA)
 !
 !     02/19/2024:   V3.0.14 - Bugfix: The wrong geometrical structure
 !                             was being used to re-evaluate the size
@@ -2118,11 +2121,11 @@
                           MPI_STATUS_IGNORE, ierr)
             ! Receive sizes
             call MPI_RECV(Frec%Mntfreqi(0), nproc, MPI_INTEGER, &
-                          MPID%recv, 1000000+pid, MPI_COMM_RT, &
+                          MPID%recv, 1+pid, MPI_COMM_RT, &
                           MPI_STATUS_IGNORE, ierr)
             ! Receive sizes
             call MPI_RECV(Frec%Mnpfreq(0), nproc, MPI_INTEGER, &
-                          MPID%recv, 2000000+pid, MPI_COMM_RT, &
+                          MPID%recv, 2+pid, MPI_COMM_RT, &
                           MPI_STATUS_IGNORE, ierr)
 
           end if ! No Master
@@ -2136,13 +2139,11 @@
                            MPI_COMM_RT, MPID%requestA(istep,1), &
                            ierr)
             call MPI_ISEND(Frec%Mntfreqi(0), nproc, MPI_INTEGER, &
-                           MPID%lsend(istep), &
-                           1000000+MPID%lsend(istep), &
+                           MPID%lsend(istep), 1+MPID%lsend(istep), &
                            MPI_COMM_RT, MPID%requestA(istep,2), &
                            ierr)
             call MPI_ISEND(Frec%Mnpfreq(0), nproc, MPI_INTEGER, &
-                           MPID%lsend(istep), &
-                           2000000+MPID%lsend(istep), &
+                           MPID%lsend(istep), 2+MPID%lsend(istep), &
                            MPI_COMM_RT, MPID%requestA(istep,3), &
                            ierr)
           end do ! sends

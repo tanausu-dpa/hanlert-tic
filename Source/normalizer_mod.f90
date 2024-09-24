@@ -10,12 +10,17 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     05/14/2024 V3.0.11
+!     09/23/2024 V3.0.12
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     09/23/2024:   V3.0.12 - Changed the format in the writing of
+!                             atmospheric models in ASCII to the
+!                             recommended ratio between digits and
+!                             decimals (TdPA)
 !
 !     05/14/2024:   V3.0.11 - Added a new argument to the
 !                             normalization subroutine. If this
@@ -3932,7 +3937,7 @@
         do jdir=1,nrdir
           read(200, err=1100) d1
           if (abs(d1-Atom%dsize(jdir)).gt.TINYO) then
-            write(umsg,'(A,1x,es21.15,1x,es21.15)') &
+            write(umsg,'(A,1x,es22.15,1x,es22.15)') &
               ' # Directional sizes do not coincide:', &
               d1,Atom%dsize(jdir)
             call verbose
@@ -3946,7 +3951,7 @@
         do iz=1,nz
           read(200, err=1100) d1
           if (abs(d1-Atom%zsize(iz)).gt.TINYO) then
-            write(umsg,'(A,1x,es21.15,1x,es21.15)') &
+            write(umsg,'(A,1x,es22.15,1x,es22.15)') &
               ' # Height sizes do not coincide:',d1,Atom%zsize(iz)
             nonvalid = .True.
             call verbose
@@ -3980,7 +3985,7 @@
 
           read(200, err=1100) d1
           if (abs(d1-Atom%tsize(jtran)).gt.TINYO) then
-            write(umsg,'(A,1x,es21.15,1x,es21.15)') &
+            write(umsg,'(A,1x,es22.15,1x,es22.15)') &
                ' # Transition sizes without field do not coincide:', &
                d1,Atom%tsize(jtran)
             call verbose
@@ -3990,7 +3995,7 @@
 
           read(200, err=1100) d1
           if (abs(d1-Atom%tBsize(jtran)).gt.TINYO) then
-            write(umsg,'(A,1x,es21.15,1x,es21.15)') &
+            write(umsg,'(A,1x,es22.15,1x,es22.15)') &
                 ' # Transition sizes with field do not coincide:', &
                 d1,Atom%tBsize(jtran)
             call verbose
@@ -4005,7 +4010,7 @@
         do ifreq=1,nfreq
           read(200, err=1100) d1
           if (abs(d1-Frec%omega(ifreq)).gt.TINYO) then
-            write(umsg,'(A,1x,es21.15,1x,es21.15)') &
+            write(umsg,'(A,1x,es22.15,1x,es22.15)') &
                 ' # Frequencies do not coincide:',d1,Frec%omega(ifreq)
             call verbose
             nonvalid = .True.
@@ -5813,7 +5818,7 @@
         do jdir=1,nodir
           read(200, err=1100) d1
           if (abs(d1-Atom%dsize(jdir)).gt.TINYO) then
-            write(umsg,'(A,1x,es21.15,1x,es21.15)') &
+            write(umsg,'(A,1x,es22.15,1x,es22.15)') &
               ' # Directional sizes do not coincide:', &
               d1,Atom%dsize(jdir)
             call verbose
@@ -5827,7 +5832,7 @@
         do iz=1,nz
           read(200, err=1100) d1
           if (abs(d1-Atom%zsize(iz)).gt.TINYO) then
-            write(umsg,'(A,1x,es21.15,1x,es21.15)') &
+            write(umsg,'(A,1x,es22.15,1x,es22.15)') &
               ' # Height sizes do not coincide:',d1,Atom%zsize(iz)
             nonvalid = .True.
             call verbose
@@ -5870,7 +5875,7 @@
 
             read(200, err=1100) d1
             if (abs(d1-Atom%tsize(ktran)).gt.TINYO) then
-              write(umsg,'(A,1x,es21.15,1x,es21.15)') &
+              write(umsg,'(A,1x,es22.15,1x,es22.15)') &
                   ' # Transition sizes do not coincide:', &
                   d1,Atom%tsize(ktran)
               call verbose
@@ -5887,7 +5892,7 @@
         do ifreq=1,nfreq
           read(200, err=1100) d1
           if (abs(d1-Frec%omega(ifreq)).gt.TINYO) then
-            write(umsg,'(A,1x,es21.15,1x,es21.15)') &
+            write(umsg,'(A,1x,es22.15,1x,es22.15)') &
                 ' # Frequencies do not coincide:',d1,Frec%omega(ifreq)
             call verbose
             nonvalid = .True.
