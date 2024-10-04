@@ -152,6 +152,28 @@ SPECT_INPUT
 
   * Description: Path, absolute or relative to the running directory, of the file with the spectra for the incoming radiation.
 
+USE_ALLEN
+---------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string: Yes/No
+
+  * Description: Use Allen's tabulation to determine the intensity of the star.
+
+FLAT_CLE_IN
+-----------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string: Yes/No
+
+  * Description: Assume that the radiation is exactly flat when computing the JKQ (only when no input spectra is provided).
+
 CHIANTI_PATH
 ------------
 

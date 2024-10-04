@@ -10,12 +10,17 @@
 !  Start:
 !     11/24/2022
 !  Last version:
-!     11/24/2022 V3.0.0
+!     10/04/2022 V3.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/04/2024:    V3.0.1 - Allocate a dummy tau array to avoid
+!                             Valgrind warnings (TdPA)
+!                           - Added background illumination to the
+!                             optically thin slab obtion (TdPA)
 !
 !     11/24/2022:    V3.0.0 - First version (TdPA)
 !
@@ -172,6 +177,9 @@
       ! Allocate tau if in output
       if (Input%out_tau1) then
         allocate(tau(MPID%nf(pid)))
+        tau = 0d0
+      else
+        allocate(tau(1))
         tau = 0d0
       end if
 
@@ -514,7 +522,8 @@
 
             ! For each stokes parameter
             do m=0,3
-              data1O(m,:,5) = data1O(m,:,4)*(data1O(0,:,0) + vacuum)
+              data1O(m,:,5) = data1O(m,:,5) + &
+                              data1O(m,:,4)*(data1O(0,:,0) + vacuum)
             end do
 
             ! Pointer
@@ -576,7 +585,7 @@
 1000  nullify(p_StkO)
       deallocate(data1O)
       nullify(data1O)
-      if (Input%out_tau1) deallocate(tau)
+      deallocate(tau)
 
       ! Give back the dimensionality
       nz = nx

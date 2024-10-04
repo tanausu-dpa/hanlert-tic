@@ -2,7 +2,7 @@
 #####################################################################
 #
 #  Last version:
-#     05/07/2024 V3.0.17
+#     10/04/2024 V3.0.18
 #
 #####################################################################
 #####################################################################
@@ -304,7 +304,8 @@ SolverI = $(obj_dir)hanle_mod.o
 Spec = $(obj_dir)hanlert_mod.o
 Stens = $(obj_dir)gauss_mod.o $(obj_dir)getrtcle_mod.o \
 		$(obj_dir)jcalccle_mod.o
-Strength = $(obj_dir)hanle_mod.o $(obj_dir)hanlert.o
+Strength = $(obj_dir)getrtcle_mod.o $(obj_dir)hanle_mod.o \
+		   $(obj_dir)hanlert.o
 SVD = $(obj_dir)lmfit_mod.o
 TIC = $(obj_dir)hanlert.o
 Types = $(obj_dir)hanlert.o $(obj_dir)background_mod.o \

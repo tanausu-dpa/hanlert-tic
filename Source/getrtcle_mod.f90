@@ -10,12 +10,27 @@
 !  Start:
 !     10/xx/2022
 !  Last version:
-!     09/23/2024 V3.0.5
+!     10/04/2024 V3.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/04/2024:    V3.0.6 - Bugfix: when aborting before reaching
+!                             the geometry part, do not direct to the
+!                             deallocation of the geometrical
+!                             tensor pointer (TdPA)
+!                           - Bugfix: One of the abortion points
+!                             had a return instead of a jump
+!                             forward (TdPA)
+!                           - Bugfix: Missing the call to strength_ev
+!                             when using RDIPEV (TdPA)
+!                           - Allocate a dummy continuum when not
+!                             using it to avoid Valgrind errors (TdPA)
+!                           - Added new arguments to getSEEJ (TdPA)
+!                           - Added the call to the new option for
+!                             background radiation (TdPA)
 !
 !     09/23/2024:    V3.0.5 - Added option to skip the continuum
 !                             calculation (TdPA)
@@ -70,6 +85,7 @@
       use rtcoeff_mod
       use see_mod
       use stens_mod
+      use strength_mod
       use types_mod
 
       contains
@@ -160,6 +176,7 @@
       complex(kind=8), dimension(0:3,-2:2,0:2), target:: TS
       complex(kind=8), dimension(:,:,:), pointer:: TB
 
+
       !
       ! Initialize
       !
@@ -185,7 +202,7 @@
       if (Input%nM.gt.0) call preparemol(Mol,Input%nM)
 
       ! Control
-      if (laborted) goto 1000
+      if (laborted) goto 1001
 
       !
       ! Get the local frame quantities
@@ -210,7 +227,11 @@
         do ia=1,nA
           call diagon(Atom(ia),Bfield,Input%zeeman_mode,Flgsg)
         end do
-
+#ifdef RDIPEV
+        do ia=1,nA
+          call strength_ev(Atom(ia),Flgsg,Bfield)
+        end do
+#endif
       ! No field
       else
 
@@ -219,7 +240,7 @@
       end if
 
       ! Control
-      if (laborted) return
+      if (laborted) goto 1000
 
       !
       ! Compute hydrogen/electron number density if not in input
@@ -356,10 +377,15 @@
       !
       ! Calculate background continuum quantities
       !
-      if (Input%add_cont_cle) &
+      if (Input%add_cont_cle) then
         call background(Atom,Atomb,Mol,Atmo,fudge,kurucz, &
                         Input,Frec%omega,Cont,GeomS, &
                         MPID,Flgsg)
+      ! Dummy
+      else
+        allocate(Cont%c(1,1,1,1))
+        Cont%c = 0d0
+      end if
 
       ! Control
       if (laborted) goto 1000
@@ -378,7 +404,8 @@
       !
       ! Get radiation field
       !
-      call getSEEJ(Atom,Atmo,Input%T_rad,Bfield,Flgsg,Frec,spect, &
+      call getSEEJ(Atom,Atmo,Input%T_rad,Input%use_allen, &
+                   Input%flat_cle_in,Bfield,Flgsg,Frec,spect, &
                    Geom,GeomP,MPID,JKQC,JKQ,Jphot)
 
       !
@@ -428,6 +455,14 @@
                                   Atmo%vx(1),Atmo%vy(1),Atmo%vz(1), &
                                   GeomP,spect,data1(:,:,5))
 
+          ! If using Allen quantities
+          else if (Input%use_allen) then
+
+            ! Get background from Allen tabulation
+            call get_bottom_allen(Atmo,Frec%omega_ou(if0:if1), &
+                                  Atmo%vx(1),Atmo%vy(1),Atmo%vz(1), &
+                                  GeomP,data1(:,:,5))
+
           ! No input spectra, then Planckian
           else
 
@@ -443,7 +478,7 @@
 
       ! Free TB
 1000  if (Bfield%Bstrength(1).gt.TINYB) deallocate(TB)
-      nullify(TB)
+1001  nullify(TB)
 
       ! Free memory allocated for this node
       call free_cle_node(Atom,Atomb,Mol,Atmo,Bfield,Geom)

@@ -107,7 +107,7 @@
 !#####################################################################
 !#####################################################################
 
-      !> Returns Stokes parameters at the upper boundary\n
+      !> Returns Stokes parameters at the bottom boundary\n
       !!   omega(dfloat(:)): Frequency array\n
       !!          T(dfloat): Temperature\n
       !!         vx(dfloat): Velocity along X\n

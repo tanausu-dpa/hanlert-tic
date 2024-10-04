@@ -3409,9 +3409,9 @@
 
       !> Create the CLE files so the slaves can write later\n
       !!      Input(Input_class): Structure with settings data\n
+      !!           mode(integer): Type of atmospheric model\n
       !!            y(double(:)): Y axis\n
       !!            z(double(:)): Z axis\n
-      !!           mode(integer): Type of atmospheric model\n
       !!        dims(integer(:)): Dimensions in atmospheric file\n
       !!   Frec(Frequency_class): Structure with frequency data
       subroutine create_io_CLE_files(Input,mode,y,z,dims,Frec)

@@ -11,12 +11,15 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     09/23/2024 V3.0.30
+!     10/04/2024 V3.0.31
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/04/2024:   V3.0.31 - Read Input%use_allen and
+!                             Input%flat_cle_in (TdPA)
 !
 !     09/23/2024:   V3.0.30 - Read Input%add_cont_cle (TdPA)
 !
@@ -539,6 +542,22 @@
 
       ! File with input spectra
       read(100,'(A)',err=1100) Input%spect_input
+
+      ! Use Allen tabulation for intensity
+      read(100,*,err=1100) cdump
+      if(cdump.eq.'Y')then
+        Input%use_allen = .True.
+      else
+        Input%use_allen = .False.
+      endif
+
+      ! Assume fully flat spectrum at input (if no input spectra)
+      read(100,*,err=1100) cdump
+      if(cdump.eq.'Y')then
+        Input%flat_cle_in = .True.
+      else
+        Input%flat_cle_in = .False.
+      endif
 
       ! Path to CHIANTI database
       read(100,'(A)',err=1100) Input%chianti_path

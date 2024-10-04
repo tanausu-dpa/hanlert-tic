@@ -12,12 +12,17 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     10/31/2023 V3.0.6
+!     10/04/2024 V3.0.7
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/04/2024:    V3.0.7 - The CLE branch was missing the
+!                             definition of the size of the quadrature
+!                             for intensity (unused) and the dummy
+!                             arrays for the LOS (TdPA)
 !
 !     10/31/2023:    V3.0.6 - Store sine and cosine of the scattering
 !                             angle for the angle-averaged integral
@@ -176,6 +181,8 @@
         ! Translate into Geom indexes
         Geom%nTh = Input%nTh
         Geom%nPh = Input%nPh
+        GeomI%nTh = Geom%nTh
+        GeomI%nPh = Geom%nPh
 
         ! Allocate Needed quantities
         allocate(Geom%V_gauss(Geom%nTh))
@@ -192,7 +199,9 @@
         Geom%W_gauss = Geom%W_gauss/sum(Geom%W_gauss)
 
         ! Dummy LOS angles
-        allocate(Geom%L_theta(Geom%nTh))
+        allocate(Geom%L_theta(1))
+        allocate(Geom%L_mu(1))
+        allocate(Geom%L_phi(1))
         Geom%L_mu(1) = 0d0
         Geom%L_theta(1) = 0d0
         Geom%L_phi(1) = 0d0

@@ -12,12 +12,16 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     08/08/2024 V3.0.20
+!     10/04/2024 V3.0.21
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/04/2024:   V3.0.21 - Bugfix: in refitfrec, the inversemap
+!                             call needed to be after the sanity
+!                             check of the index to check (TdPA)
 !
 !     08/08/2024:   V3.0.20 - Bugfix: There was a logical mistake when
 !                             allocating space for the redistribution
@@ -9209,12 +9213,12 @@
               ! Find lower
               do while (kf0.lt.1)
                 jf0 = jf0 + 1
-                kf0 = invmapping(jf0)
                 if (jf0.gt.nfreq) then
                   jf0 = -1
                   kf0 = -1
                   exit
                 end if
+                kf0 = invmapping(jf0)
               end do
 
               ! Bad?
@@ -9223,12 +9227,12 @@
               ! Find upper
               do while (kf1.lt.1)
                 jf1 = jf1 - 1
-                kf1 = invmapping(jf1)
                 if (jf1.lt.1) then
                   jf1 = -1
                   kf1 = -1
                   exit
                 end if
+                kf1 = invmapping(jf1)
               end do
 
               ! Bad?

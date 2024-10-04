@@ -11,12 +11,17 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     02/23/2024 V3.0.15
+!     10/04/2024 V3.0.16
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/04/2024:   V3.0.16 - In CLE, point the velocity pointers to
+!                             the zero array is static in input (TdPA)
+!                           - The slab model now expects the velocity
+!                             in polar coordinates (TdPA)
 !
 !     02/23/2024:   V3.0.15 - Added the possibility to force a
 !                             constant microturbulence value (TdPA)
@@ -1998,7 +2003,14 @@
       if (Input%fvmicro.ge.0d0) Atmo%vmi = Input%fvmicro
 
       ! Velocity
-      if (.not.Input%static) then
+      if (Input%static) then
+
+        Atmo%vx => Atmo%zeros
+        Atmo%vy => Atmo%zeros
+        Atmo%vz => Atmo%zeros
+        dyn = .False.
+
+      else
 
         i0 = Atmo%iv*Atmo%d0
         Atmo%vx => buffer(i0+iz:i0+iz)
@@ -2007,24 +2019,47 @@
         i0 = i0 + Atmo%d0
         Atmo%vz => buffer(i0+iz:i0+iz)
 
-        ! Check if dynamic (yes if > 1m/s)
-        if (maxval(Atmo%vx*Atmo%vx + Atmo%vy*Atmo%vy + &
-                   Atmo%vz*Atmo%vz).gt.1d-6) then
+        ! Slab
+        if (Atmo%mode.eq.1) then
 
-          dyn = .True.
+          ! Check if dynamic (yes if > 1m/s)
+          if (maxval(Atmo%vx).gt.1d-6) then
 
-          ! Unit conversions
-          ! Divide velocities by c (1d5*1d-11/cbar)
-          Atmo%vx = Atmo%vx*1d-6/c
-          Atmo%vy = Atmo%vy*1d-6/c
-          Atmo%vz = Atmo%vz*1d-6/c
+            dyn = .True.
 
-        ! Not dynamic
+            ! Unit conversions
+            ! Divide velocities by c (1d5*1d-11/cbar)
+            Atmo%vx = Atmo%vx*1d-6/c
+
+          ! Not dynamic
+          else
+
+            dyn = .False.
+
+          end if ! dynamics
+
+        ! No slab
         else
 
-          dyn = .False.
+          ! Check if dynamic (yes if > 1m/s)
+          if (maxval(Atmo%vx*Atmo%vx + Atmo%vy*Atmo%vy + &
+                     Atmo%vz*Atmo%vz).gt.1d-6) then
 
-        end if ! dynamics
+            dyn = .True.
+
+            ! Unit conversions
+            ! Divide velocities by c (1d5*1d-11/cbar)
+            Atmo%vx = Atmo%vx*1d-6/c
+            Atmo%vy = Atmo%vy*1d-6/c
+            Atmo%vz = Atmo%vz*1d-6/c
+
+          ! Not dynamic
+          else
+
+            dyn = .False.
+
+          end if ! dynamics
+        end if ! Model type
 
 
       end if

@@ -12,12 +12,15 @@
 !  Start:
 !     04/20/2016
 !  Last version:
-!     09/23/2024 V3.0.24
+!     10/04/2024 V3.0.25
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/04/2024:   V3.0.25 - Removed unused variables in writeqel
+!                             subroutine (TdPA)
 !
 !     09/23/2024:   V3.0.24 - Changed MPI tags to comply with the
 !                             standard (TdPA)
@@ -9490,7 +9493,6 @@
 
       integer:: ierr,ii
       integer:: iran,ia,iterml,itermu,itran,i,i1,ios
-      double precision, dimension(nz):: Dw, DwT
 
       integer(kind=MPI_OFFSET_KIND):: offset
 

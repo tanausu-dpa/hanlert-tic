@@ -11,12 +11,14 @@
 !  Start:
 !     04/27/2017
 !  Last version:
-!     09/23/2024 V3.0.14
+!     10/04/2024 V3.0.15
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/04/2024:   V3.0.15 - Allocate a dummy p_prof in CLE (TdPA)
 !
 !     09/23/2024:   V3.0.14 - Added add_cont_cle argument to
 !                             RTCoeff_CLE, that allows skipping the
@@ -3104,6 +3106,9 @@
       !
       nullify(p_Norm,p_prof)
 
+      ! Dummy
+      allocate(p_prof(1,1))
+
       ! If there are dynamics
       if (dyn) then
         ct = cos(GeomP%geom(1))
@@ -3642,6 +3647,7 @@
       data1(3,:,4) = data1(3,:,4)/(data1(0,:,0) + vacuum)
 
       ! Nullify pointers
+      deallocate(p_prof)
       if (associated(p_prof)) nullify(p_prof)
       if (associated(p_norm)) nullify(p_norm)
 

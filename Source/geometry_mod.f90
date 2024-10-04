@@ -10,12 +10,19 @@
 !  Start:
 !     10/xx/2022
 !  Last version:
-!     11/24/2022 V3.0.0
+!     10/04/2024 V3.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/04/2024:    V3.0.1 - The height in the slab models is now
+!                             expected to not include the stellar
+!                             radius (TdPA)
+!                           - The slab model now expects the velocity
+!                             in polar coordinates in the local
+!                             reference frame (TdPA)
 !
 !     11/24/2022:    V3.0.0 - First version (TdPA)
 !
@@ -225,7 +232,7 @@
       else if (mode.eq.1) then
 
         h = x
-        r = h
+        r = h + 1d0
         GeomP%theta = Atmo%ypos
         GeomP%phi = 0d0
 
@@ -247,6 +254,14 @@
         Bfield%Bstrength = Atmo%bx(1)
         Bfield%Btheta = Atmo%by(1)
         Bfield%Bphi = Atmo%bz(1)
+
+        vl(1) = Atmo%vx(1)
+        vl(2) = Atmo%vy(1)
+        vl(3) = Atmo%vz(1)
+
+        Atmo%vx(1) = vl(1)*sin(vl(2))*cos(vl(3))
+        Atmo%vy(1) = vl(1)*sin(vl(2))*sin(vl(3))
+        Atmo%vz(1) = vl(1)*cos(vl(2))
 
       end if
 

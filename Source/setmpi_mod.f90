@@ -10,12 +10,16 @@
 !  Start:
 !     04/19/2017
 !  Last version:
-!     09/23/2024 V3.0.15
+!     10/04/2024 V3.0.16
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/04/2024:   V3.0.16 - Bugfix: when not splitting frequencies
+!                             in CLE, the output frequency axis was
+!                             not being corrrectly defined (TdPA)
 !
 !     09/23/2024:   V3.0.15 - Changed MPI tags to comply with the
 !                             standard (TdPA)
@@ -1663,9 +1667,9 @@
         ! Limiting ranges
         else
 
-          MPID%inf(0) = Input%lim_stk%nn
-          MPID%iif0(0) = 1
-          MPID%iif1(0) = Input%lim_stk%nn
+          MPID%nf(0) = Input%lim_stk%nn
+          MPID%if0(0) = 1
+          MPID%if1(0) = Input%lim_stk%nn
 
         end if
 

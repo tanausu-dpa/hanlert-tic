@@ -6,6 +6,8 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an
 # Hao Li
 #
+# 10/04/2024: V3.0.44 - Added USE_ALLEN and FLAT_CLE_IN (TdPA)
+#
 # 09/23/2024: V3.0.43 - Added NEGLECT_CONTINUUM (TdPA)
 #
 # 08/08/2024: V3.0.42 - Added STOREINV_STEP (TdPA)
@@ -1998,6 +2000,40 @@ def rInput():
       f.write('NONE\n')
   else:
     f.write('NONE\n')
+
+  # USE_ALLEN
+  if rmode == 2:
+    check = 0
+    if 'USE_ALLEN' in Dictionary:
+      val = Dictionary['USE_ALLEN'][0]
+      if val == 'Y' or val == 'YE' or val == 'YES' or \
+         val == 'S' or val =='SI':
+        f.write('Y\n')
+        check = 1
+      if val == 'N' or val == 'NO' or val == 'NON':
+        f.write('N\n')
+        check = 1
+    if check == 0:
+      f.write('N\n')
+  else:
+    f.write('N\n')
+
+  # FLAT_CLE_IN
+  if rmode == 2:
+    check = 0
+    if 'FLAT_CLE_IN' in Dictionary:
+      val = Dictionary['FLAT_CLE_IN'][0]
+      if val == 'Y' or val == 'YE' or val == 'YES' or \
+         val == 'S' or val =='SI':
+        f.write('Y\n')
+        check = 1
+      if val == 'N' or val == 'NO' or val == 'NON':
+        f.write('N\n')
+        check = 1
+    if check == 0:
+      f.write('N\n')
+  else:
+    f.write('N\n')
 
   # CHIANTI_PATH
   if rmode == 2:

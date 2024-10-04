@@ -1085,7 +1085,7 @@ class _jkq_1D():
                         if q is not None:
 
                             # Get index
-                            jq = q + 2 - k
+                            jq = q + 2
 
                             # Trim
                             jkq = jkq[jq,:,:]
@@ -8762,6 +8762,788 @@ class _pop_dep_15D():
 ################################################################################
 ################################################################################
 
+class _stokes_CLE():
+    ''' Class to manage emergent Stokes parameters from CLE synthesis
+    '''
+
+    def __init__(self,filename):
+        ''' Initialize class
+        '''
+
+        # Store filename
+        self.__filename = filename
+
+        # Get header
+        if not self.__head(): return None
+
+        #  Transformation to SI
+        self.__unit_trans = 1e0/299792458e5
+
+        # Method
+        self.__methods = {
+         'get_filename': \
+          [None,'Get name of the read file'], \
+         'get_type': \
+          [None,'Get type of model'], \
+         'get_nx': \
+          [None,'Get number of nodes in the x dimension'], \
+         'get_ny': \
+          [None,'Get number of nodes in the y dimension'], \
+         'get_nxy': \
+          [None,'Get number of nodes in the x and y dimensions'], \
+         'get_nl': \
+          [None,'Get number of wavelengths'], \
+         'get_dims': \
+          [None,'Get number of nodes in the x, y, and wavelength dimensions'], \
+         'get_lambda': \
+          [{'minl': \
+             'Lower boundary for output wavelength [nm]', \
+            'maxl': \
+             'Upper boundary for output wavelength [nm]'}, \
+           'Get wavelengths in [nm]'], \
+         'get_geometry': \
+          [None,'Get geometric data'], \
+         'get_stokesi_column': \
+          [{'ix': \
+             'Coordinate in the x dimension of the column to extract', \
+            'iy': \
+             'Coordinate in the y dimension of the column to extract', \
+            'minl': \
+             'Lower boundary for output wavelength [nm]', \
+            'maxl': \
+             'Upper boundary for output wavelength [nm]'}, \
+           'Extract Stokes I at a particular column'], \
+         'get_stokesq_column': \
+          [{'ix': \
+             'Coordinate in the x dimension of the column to extract', \
+            'iy': \
+             'Coordinate in the y dimension of the column to extract', \
+            'minl': \
+             'Lower boundary for output wavelength [nm]', \
+            'maxl': \
+             'Upper boundary for output wavelength [nm]', \
+            'fractional': \
+             'True to normalize to intensity, [SI] otherwise]'}, \
+           'Extract Stokes Q at a particular column'], \
+         'get_stokesu_column': \
+          [{'ix': \
+             'Coordinate in the x dimension of the column to extract', \
+            'iy': \
+             'Coordinate in the y dimension of the column to extract', \
+            'minl': \
+             'Lower boundary for output wavelength [nm]', \
+            'maxl': \
+             'Upper boundary for output wavelength [nm]', \
+            'fractional': \
+             'True to normalize to intensity, [SI] otherwise]'}, \
+           'Extract Stokes U at a particular column'], \
+         'get_stokesv_column': \
+          [{'ix': \
+             'Coordinate in the x dimension of the column to extract', \
+            'iy': \
+             'Coordinate in the y dimension of the column to extract', \
+            'minl': \
+             'Lower boundary for output wavelength [nm]', \
+            'maxl': \
+             'Upper boundary for output wavelength [nm]', \
+            'fractional': \
+             'True to normalize to intensity, [SI] otherwise]'}, \
+           'Extract Stokes V at a particular column'], \
+         'get_linear_column': \
+          [{'ix': \
+             'Coordinate in the x dimension of the column to extract', \
+            'iy': \
+             'Coordinate in the y dimension of the column to extract', \
+            'minl': \
+             'Lower boundary for output wavelength [nm]', \
+            'maxl': \
+             'Upper boundary for output wavelength [nm]', \
+            'fractional': \
+             'True to normalize to intensity, [SI] otherwise]'}, \
+           'Extract total linear polarization at a particular column'], \
+         'get_stokes_column': \
+          [{'ix': \
+             'Coordinate in the x dimension of the column to extract', \
+            'iy': \
+             'Coordinate in the y dimension of the column to extract', \
+            'minl': \
+             'Lower boundary for output wavelength [nm]', \
+            'maxl': \
+             'Upper boundary for output wavelength [nm]', \
+            'fractional': \
+             'True to normalize to intensity, [SI] otherwise]'}, \
+           'Extract the full Stokes vector at a particular column'], \
+          'get_plane_stk': \
+          [{'il': \
+             'Coordinate in the wavelength dimension of the Stokes parameters to extract', \
+            'var': \
+             'List of variables to include in the output'}, \
+           'Extract Stokes parameters at a given wavelength position for ' + \
+           'the whole field of view'], \
+         'get_stokesi_plane': \
+          [{'il': \
+             'Coordinate in the wavelength dimension to extract'}, \
+           'Extract Stokes I at a particular wavelength index for ' + \
+           'the whole field of view'], \
+         'get_stokesq_plane': \
+          [{'il': \
+             'Coordinate in the wavelength dimension to extract', \
+            'fractional': \
+             'True to normalize to intensity, [SI] otherwise]'}, \
+           'Extract Stokes Q at a particular wavelength index for ' + \
+           'the whole field of view'], \
+         'get_stokesu_plane': \
+          [{'il': \
+             'Coordinate in the wavelength dimension to extract', \
+            'fractional': \
+             'True to normalize to intensity, [SI] otherwise]'}, \
+           'Extract Stokes U at a particular wavelength index for ' + \
+           'the whole field of view'], \
+         'get_stokesv_plane': \
+          [{'il': \
+             'Coordinate in the wavelength dimension to extract', \
+            'fractional': \
+             'True to normalize to intensity, [SI] otherwise]'}, \
+           'Extract Stokes V at a particular wavelength index for ' + \
+           'the whole field of view'], \
+         'get_linear_plane': \
+          [{'il': \
+             'Coordinate in the wavelength dimension to extract', \
+            'fractional': \
+             'True to normalize to intensity, [SI] otherwise]'}, \
+           'Extract total linear polarization at a particular wavelength ' + \
+           'index for the whole field of view'], \
+         'get_stokes_plane': \
+          [{'il': \
+             'Coordinate in the wavelength dimension to extract', \
+            'fractional': \
+             'True to normalize to intensity, [SI] otherwise]'}, \
+           'Extract the full Stokes vector at a particular wavelength index for ' + \
+           'the whole field of view']}
+
+    def _get_help(self):
+        ''' Return methods dictionary
+        '''
+        return self.__methods
+
+    def __head(self):
+        ''' Reads hanlert 1.5D emergence file head
+        '''
+        debug = False
+        try:
+            # Get actual header
+            f = open(self.__filename,'rb')
+            f.seek(4,0)
+            # Mode
+            self.__mode = struct.unpack('i',f.read(4))[0]
+            # Wavelength
+            self.__nl = struct.unpack('i',f.read(4))[0]
+            # Lambda
+            self.__jump_to_lambda = 4*3
+            f.seek(self.__nl*8,1)
+            #
+            # Geometry
+            #
+            self.__jump_to_geometry = self.__jump_to_lambda + \
+                                      8*self.__nl
+            # Cartesian
+            if self.__mode == 0:
+                self.__nx = struct.unpack('i',f.read(4))[0]
+                f.seek(self.__nx*8,1)
+                self.__ny = struct.unpack('i',f.read(4))[0]
+                f.seek(self.__ny*8,1)
+                self.__head = self.__jump_to_geometry + \
+                              8*(1 + self.__nx + self.__ny)
+            # Slab or not cartesian
+            else:
+                self.__nx = struct.unpack('i',f.read(4))[0]
+                self.__ny = 1
+                self.__head = self.__jump_to_geometry + 4 + \
+                              self.__nx*8*2
+            self.__column_size = 16*self.__nl
+            # Head
+        except struct.error:
+            raise
+        except:
+            raise
+
+        # Close file
+        f.close()
+
+        # Get real size
+        real_size = os.path.getsize(self.__filename)
+
+        # Expected size cartesian
+        if self.__mode == 0:
+            expectedsize = self.__head + \
+                           self.__nl*self.__nx*self.__ny*4
+        # Expected size slab or non-cartesian
+        else:
+            expectedsize = self.__head + \
+                           self.__nx*self.__ny*(16 + \
+                           self.__nl*4*8)
+
+        # If intensity size
+        if real_size == expectedsize:
+
+            self.__complete = True
+
+        # Incomplete file
+        else:
+
+            self.__complete = False
+            msg = f'I have guessed that this is ' + \
+                  f'an incomplete file'
+                _error(msg,0)
+
+        # Return valid
+        return True
+
+    def _get_filename(self):
+        ''' Get the name of the read file
+        '''
+        return self.__filename
+
+    def _get_type(self):
+        ''' Get the type of model
+        '''
+        if self.__mode == 0:
+            return 'Cartesian'
+        elif self.__mode == 1:
+            return 'Slab'
+        elif self.__mode == 2:
+            return 'Non-Cartesian'
+        else:
+            return 'Unknown'
+
+    def _get_polarized(self):
+        ''' Get if there is polarization
+        '''
+        return self.__mode > 1
+
+    def _get_nx(self):
+        ''' Get number of positions in x axis
+        '''
+        return self.__nx
+
+    def _get_ny(self):
+        ''' Get number of positions in y axis
+        '''
+        return self.__ny
+
+    def _get_nxy(self):
+        ''' Get number of positions and x and y axes
+        '''
+        return self.__nx, self.__ny
+
+    def _get_nl(self):
+        ''' Get number of wavelengths
+        '''
+        return self.__nl
+
+    def _get_dims(self):
+        ''' Get number of positions in x, y, and wavelength axes
+        '''
+        return self.__nx, self.__ny, self.__nl
+
+    def _get_lambda(self,minl=None,maxl=None):
+        ''' Get lambda from file
+        '''
+        try:
+            f = open(self.__filename,'rb')
+            f.seek(self.__jump_to_lambda,0)
+            omg = np.array(struct.unpack('d'*self.__nl, \
+                                          f.read(8*self.__nl)))
+            lam = 1e2/omg[::-1]
+            if minl is not None:
+                i = np.argmin(np.absolute(lam - minl))
+                lam = lam[i:]
+            if maxl is not None:
+                i = np.argmin(np.absolute(lam - maxl))
+                lam = lam[:i+1]
+            f.close()
+            return lam
+        except struct.error:
+            raise
+        except:
+            raise
+
+    def __get_geometry(self):
+        ''' Return data about geometry
+        '''
+        try:
+            f = open(self.__filename,'rb')
+            f.seek(self.__jump_to_geometry,0)
+            # Cartesian
+            if self.__mode == 0:
+                f.seek(4,1)
+                x = np.array(struct.unpack('d'*self.__nx, \
+                                           f.read(self.__nx*8)))
+                f.seek(4,1)
+                y = np.array(struct.unpack('d'*self.__ny, \
+                                           f.read(self.__ny*8)))
+            # Slab or non-cartesian
+            else:
+                f.seek(4,1)
+                x = np.empty((self.__nx))
+                y = np.empty((self.__nx))
+                for ixy in range(self.__nx*self.__ny):
+                    x[ixy] = struct.unpack('d',f.read(8))[0]
+                    y[ixy] = struct.unpack('d',f.read(8))[0]
+            return x,y
+        except struct.error:
+            raise
+        except:
+            raise
+
+    def __get_gen_column(self,ix,iy,minl=None,maxl=None,fractional=False,indx=[0]):
+        ''' Generic read of Stokes parameters column
+        '''
+
+        # Get size to read
+        siz = self.__nl
+        bsiz = siz*4
+
+        # Output
+        out = [None,None,None,None]
+
+        # Need lambda?
+        if minl is not None or maxl is not None:
+            lam = self._get_lambda()
+
+        # Try geeting data
+        try:
+
+            # Open file
+            f = open(self.__filename,'rb')
+
+            # Seek first data points for this column
+            f.seek(self.__head + iy*self.__column_size + \
+                   self.__ny*ix*self.__column_size,0)
+
+            # Intensity
+            if 0 in indx or fractional:
+
+                # Get intensity
+                stkI = np.array(struct.unpack('f'*siz, \
+                                              f.read(bsiz)))[::-1]
+
+                # Out?
+                if 0 in indx:
+                    out[0] = stkI
+
+            # No intensity
+            else:
+
+                # Skip
+                f.seek(bsiz,1)
+
+            # Q, U, and V
+            for j in range(1,4):
+
+                # To output
+                if j in indx:
+
+                    # Read Stokes
+                    out[j] = np.array(struct.unpack('f'*siz, \
+                                                     f.read(bsiz)))[::-1]
+                else:
+
+                    # Skip
+                    f.seek(bsiz,1)
+
+                # Manage units
+                if fractional and j in indx:
+                    out[j] /= stkI
+
+            # Adjust wavelength
+            if minl is not None:
+                i = np.argmin(np.absolute(lam - minl))
+                lam = lam[i:]
+                for j in indx:
+                    out[j] = out[j][i:]
+            if maxl is not None:
+                i = np.argmin(np.absolute(lam - maxl))
+                lam = lam[:i+1]
+                for j in indx:
+                    out[j] = out[j][:i+1]
+
+            # Units
+            if fractional:
+                if 0 in indx:
+                    out[0] *= self.__unit_trans
+            else:
+                for j in indx:
+                    out[j] *= self.__unit_trans
+
+        # Failed
+        except struct.error:
+
+            # If the file is complete, the error is more severe,
+            # let it crash
+            if self.__complete:
+                raise
+
+            # Incomplete file, may be missing data
+            else:
+
+                # Warn
+                msg = 'Could not read, may be due to the file being ' + \
+                      'not complete'
+                _error(msg,0)
+
+                # Generate zeros
+                for j in indx:
+                    out[j] = np.zeros((self.__nl))
+
+        # Others
+        except:
+            raise
+
+        # Close file
+        f.close()
+
+        # Return
+        return out
+
+    def _get_stokesi_column(self,ix,iy,minl=None,maxl=None):
+        ''' Get intensity profile at a given column
+        '''
+
+        # Valid?
+        if not isinstance(ix, int) and not isinstance(ix, npint):
+           _error('ix must be an integer',1)
+           return None
+        if not isinstance(iy, int) and not isinstance(iy, npint):
+           _error('iy must be an integer',1)
+           return None
+        if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
+           _error('The requested column is out of bounds',1)
+           return None
+
+        return self.__get_gen_column(ix,iy,minl,maxl,False,[0])[0]
+
+    def _get_stokesq_column(self,ix,iy,minl=None,maxl=None,fractional=False):
+        ''' Get Stokes Q profile at a given column
+        '''
+
+        # Mode?
+        if self.__mode == 1:
+           return np.zeros(self.__nl)
+
+        # Valid?
+        if not isinstance(ix, int) and not isinstance(ix, npint):
+           _error('ix must be an integer',1)
+           return None
+        if not isinstance(iy, int) and not isinstance(iy, npint):
+           _error('iy must be an integer',1)
+           return None
+        if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
+           _error('The requested column is out of bounds',1)
+           return None
+
+        return self.__get_gen_column(ix,iy,minl,maxl,fractional,[1])[1]
+
+    def _get_stokesu_column(self,ix,iy,minl=None,maxl=None,fractional=False):
+        ''' Get Stokes U profile at a given column
+        '''
+
+        # Mode?
+        if self.__mode == 1:
+           return np.zeros(self.__nl)
+
+        # Valid?
+        if not isinstance(ix, int) and not isinstance(ix, npint):
+           _error('ix must be an integer',1)
+           return None
+        if not isinstance(iy, int) and not isinstance(iy, npint):
+           _error('iy must be an integer',1)
+           return None
+        if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
+           _error('The requested column is out of bounds',1)
+           return None
+
+        return self.__get_gen_column(ix,iy,minl,maxl,fractional,[2])[2]
+
+    def _get_stokesv_column(self,ix,iy,minl=None,maxl=None,fractional=False):
+        ''' Get Stokes V profile at a given column
+        '''
+
+        # Mode?
+        if self.__mode == 1:
+           return np.zeros(self.__nl)
+
+        # Valid?
+        if not isinstance(ix,int) and not isinstance(ix, npint):
+           _error('ix must be an integer',1)
+           return None
+        if not isinstance(iy,int) and not isinstance(iy, npint):
+           _error('iy must be an integer',1)
+           return None
+        if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
+           _error('The requested column is out of bounds',1)
+           return None
+
+        return self.__get_gen_column(ix,iy,minl,maxl,fractional,[3])[3]
+
+    def _get_linear_column(self,ix,iy,minl=None,maxl=None,fractional=False):
+        ''' Get Stokes V profile at a given column
+        '''
+
+        # Mode?
+        if self.__mode == 1:
+           return np.zeros(self.__nl)
+
+        # Valid?
+        if not isinstance(ix,int) and not isinstance(ix, npint):
+           _error('ix must be an integer',1)
+           return None
+        if not isinstance(iy,int) and not isinstance(iy, npint):
+           _error('iy must be an integer',1)
+           return None
+        if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
+           _error('The requested column is out of bounds',1)
+           return None
+
+        qu = self.__get_gen_column(ix,iy,minl,maxl,fractional,[1,2])
+        return np.sqrt(qu[1]*qu[1] + qu[2]*qu[2])
+
+    def _get_stokes_column(self,ix,iy,minl=None,maxl=None,fractional=False):
+        ''' Get Stokes parameter at a given column
+        '''
+
+        # Mode?
+        if self.__mode == 1:
+           _error('The file is only intensity',1)
+           return None
+
+        # Valid?
+        if not isinstance(ix,int) and not isinstance(ix, npint):
+           _error('ix must be an integer',1)
+           return None
+        if not isinstance(iy,int) and not isinstance(iy, npint):
+           _error('iy must be an integer',1)
+           return None
+        if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
+           _error('The requested column is out of bounds',1)
+           return None
+
+        iquv = self.__get_gen_column(ix,iy,minl,maxl,fractional,[0,1,2,3])
+        return np.stack((iquv[0],iquv[1],iquv[2],iquv[3]))
+
+
+    def __get_gen_plane(self,il,fractional=False,indx=[0]):
+        ''' Generic read of Stokes parameters plane
+        '''
+
+        # Get size to read
+        left = il*4
+        right = (self.__nl - il - 1)*4
+        full = self.__nl*4
+        abort = False
+
+        # Output
+        out = [None,None,None,None]
+
+        # For each index requested
+        for j in indx:
+            out[j] = np.empty((self.__nx,self.__ny))
+
+        # Open file
+        f = open(self.__filename,'rb')
+
+        # Seek to data
+        f.seek(self.__head,0)
+
+        # For each column
+        for ix in range(self.__nx):
+            for iy in range(self.__ny):
+
+                # Jump
+                if (self.__geom_size>0):
+                    f.seek(self.__geom_size,1)
+
+                # Try geeting data
+                try:
+
+                    # Intensity
+                    if 0 in indx or fractional:
+
+                        # Get intensity
+                        if left > 0: f.seek(left,1)
+                        stkI = struct.unpack('f',f.read(4))[0]
+                        if right > 0: f.seek(right,1)
+
+                        # Out?
+                        if 0 in indx:
+                            out[0][ix,iy] = stkI
+
+                    # No intensity
+                    else:
+
+                        # Skip
+                        f.seek(full,1)
+
+                    # Q, U, and V
+                    for j in range(1,4):
+
+                        # To output
+                        if j in indx:
+
+                            # Get Stokes
+                            if left > 0: f.seek(left,1)
+                            out[j][ix,iy] = struct.unpack('f',f.read(4))[0]
+                            if right > 0: f.seek(right,1)
+
+                        # No output
+                        else:
+
+                            # Skip
+                            f.seek(full,1)
+
+                        # Manage units
+                        if fractional and j in indx:
+                            out[j][ix,iy] /= stkI
+
+                # Reading error
+                except struct.error:
+
+                    # If the file is complete, the error is more severe, let it crash
+                    if self.__complete:
+                        raise
+
+                    # Incomplete file, may be missing data
+                    else:
+
+                        # Warn
+                        msg = 'Could not read, may be due to the file being not complete'
+                        _error(msg,0)
+
+                        # Generate zeros
+                        for j in indx:
+                            out[j][ix,iy:self.__ny] = 0.0
+                        abort = True
+                        break
+
+                except:
+                    raise
+
+            # We are leaving
+            if abort:
+                for j in indx:
+                    out[j][ix+1:self.__nx,:] = 0.0
+                break
+
+        # Units
+        if fractional:
+            if 0 in indx:
+                out[0] *= self.__unit_trans
+        else:
+            for j in indx:
+                out[j] *= self.__unit_trans
+
+        # Close file
+        f.close()
+
+        # Return
+        return out
+
+    def _get_stokesi_plane(self,il):
+        ''' Get intensity profile at a given wavelength for the FoV
+        '''
+
+        # Valid?
+        if not isinstance(il, int) and not isinstance(il, npint):
+           _error('il must be an integer',1)
+           return None
+        if il < 0 or il >= self.__nl:
+           _error('The requested wavelength is out of bounds',1)
+           return None
+
+        jl = self.__nl - il - 1
+        return self.__get_gen_plane(jl,False,[0])[0]
+
+    def _get_stokesq_plane(self,il,fractional=False):
+        ''' Get Stokes Q profile at a given wavelength for the FoV
+        '''
+
+        # Valid?
+        if not isinstance(il, int) and not isinstance(il, npint):
+           _error('il must be an integer',1)
+           return None
+        if il < 0 or il >= self.__nl:
+           _error('The requested wavelength is out of bounds',1)
+           return None
+
+        jl = self.__nl - il - 1
+        return self.__get_gen_plane(jl,fractional,[1])[1]
+
+    def _get_stokesu_plane(self,il,fractional=False):
+        ''' Get Stokes U profile at a given wavelength for the FoV
+        '''
+
+        # Valid?
+        if not isinstance(il, int) and not isinstance(il, npint):
+           _error('il must be an integer',1)
+           return None
+        if il < 0 or il >= self.__nl:
+           _error('The requested wavelength is out of bounds',1)
+           return None
+
+        jl = self.__nl - il - 1
+        return self.__get_gen_plane(jl,fractional,[2])[2]
+
+    def _get_stokesv_plane(self,il,fractional=False):
+        ''' Get Stokes V profile at a given wavelength for the FoV
+        '''
+
+        # Valid?
+        if not isinstance(il, int) and not isinstance(il, npint):
+           _error('il must be an integer',1)
+           return None
+        if il < 0 or il >= self.__nl:
+           _error('The requested wavelength is out of bounds',1)
+           return None
+
+        jl = self.__nl - il - 1
+        return self.__get_gen_plane(jl,fractional,[3])[3]
+
+    def _get_linear_plane(self,il,fractional=False):
+        ''' Get Stokes V profile at a given wavelength for the FoV
+        '''
+
+        # Valid?
+        if not isinstance(il, int) and not isinstance(il, npint):
+           _error('il must be an integer',1)
+           return None
+        if il < 0 or il >= self.__nl:
+           _error('The requested wavelength is out of bounds',1)
+           return None
+
+        jl = self.__nl - il - 1
+        qu = self.__get_gen_plane(jl,fractional,[1,2])
+        return np.sqrt(qu[1]*qu[1] + qu[2]*qu[2])
+
+    def _get_stokes_plane(self,il,fractional=False):
+        ''' Get Stokes profiles at a given wavelength for the FoV
+        '''
+
+        # Valid?
+        if not isinstance(il, int) and not isinstance(il, npint):
+           _error('il must be an integer',1)
+           return None
+        if il < 0 or il >= self.__nl:
+           _error('The requested wavelength is out of bounds',1)
+           return None
+
+        jl = self.__nl - il - 1
+        iquv = self.__get_gen_plane(jl,fractional,[0,1,2,3])
+        return np.stack((iquv[0],iquv[1],iquv[2],iquv[3]))
+
+################################################################################
+################################################################################
+################################################################################
+
 class hanlertio_class():
     ''' Class to manage files in the input or output of the HanleRT
         code
@@ -8806,7 +9588,6 @@ class hanlertio_class():
 
         # TODO TODO
         '''
-  'CLEe': 'Emergent Stokes parameters from CLE synthesis', \
   'CLEt': 'Optical depth from CLE synthesis', \
   'MRC': 'Maximum relative change from 1.5D synthesis', \
   'sp': 'Solution file with polarization', \
@@ -9413,6 +10194,40 @@ class hanlertio_class():
                             # Valid class
                             return True
 
+                    # CLE Stokes
+                    elif label == 'CLEe':
+
+                        # Load populations and departure 1.5D class
+                        self.__object = _stokes_CLE(self.__filename)
+
+                        if self.__object is not None:
+
+                            # Methods
+                            self.get_filename = self.__get_filename
+                            self.get_type = self.__get_type
+                            self.get_nx = self.__get_nx
+                            self.get_ny = self.__get_ny
+                            self.get_nxy = self.__get_nxy
+                            self.get_nl = self.__get_nl
+                            self.get_dims = self.__get_dims
+                            self.get_lambda = self.__get_lambda
+                            self.get_geometry = self.__get_geometry
+                            self.get_stokesi_column = self.__get_stokesi15d_c
+                            self.get_stokesq_column = self.__get_stokesq15d_c
+                            self.get_stokesu_column = self.__get_stokesu15d_c
+                            self.get_stokesv_column = self.__get_stokesv15d_c
+                            self.get_stokes_column = self.__get_stokes15d_c
+                            self.get_linear_column = self.__get_linear15d_c
+                            self.get_stokesi_plane = self.__get_stokesi15d_p
+                            self.get_stokesq_plane = self.__get_stokesq15d_p
+                            self.get_stokesu_plane = self.__get_stokesu15d_p
+                            self.get_stokesv_plane = self.__get_stokesv15d_p
+                            self.get_stokes_plane = self.__get_stokes15d_p
+                            self.get_linear_plane = self.__get_linear15d_p
+
+                            # Valid class
+                            return True
+
                     # Fail
                     else:
 
@@ -9595,6 +10410,9 @@ class hanlertio_class():
     # 15D back, 1D back
     def __get_lambda(self,minl=None,maxl=None):
         return self.__object._get_lambda(minl,maxl)
+    # CLEe
+    def __get_geometry(self):
+        return self.__object._get_geometry()
     # contribution 1D, jkq 1D, rkq 1D
     def __get_height(self,minh=None,maxh=None):
         return self.__object._get_height(minh,maxh)

@@ -13,12 +13,15 @@
 !  Start:
 !     04/17/2017
 !  Last version:
-!     09/23/2024 V3.0.39
+!     10/04/2024 V3.0.40
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/04/2024:   V3.0.40 - Added use_allen and flat_cle_in to
+!                             Input_class (TdPA)
 !
 !     09/23/2024:   V3.0.39 - Added add_cont_cle to Input_class (TdPA)
 !
@@ -1806,7 +1809,10 @@
         ! two steps, if excluded pixels, if truncating tau or height
         ! restriction, force ALI iterations, initialize radiation
         ! field with bound-bound transitions, keep elastic rates,
-        ! add the continuum to RT coefficients in CLE
+        ! add the continuum to RT coefficients in CLE, use the
+        ! Allen quantities for incoming intensity in CLE, assume
+        ! flat spectrum when computing input JKQ in CLE if no input
+        ! spectra
         logical:: AV, appendMRC, appendMRCI, out_contr, out_tau1, &
                   store, storeI, Pcorr, Raman, keepIsol, &
                   NG, keep_back, keep_damp, keep_cols, bfieldn, &
@@ -1819,7 +1825,7 @@
                   static_int, linv_weight, keep_coll, keep_mpil, &
                   keep_mpidl, two_step_pol, lexcl, rest_tau_strc, &
                   rest_z_strc, ALI_force, init_J_bb, keep_qel, &
-                  add_cont_cle
+                  add_cont_cle, use_allen, flat_cle_in
 
         ! If asymmetry input
         logical, dimension(2):: lasym

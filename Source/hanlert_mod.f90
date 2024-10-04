@@ -13,12 +13,17 @@
 !  Start:
 !     06/22/2022
 !  Last version:
-!     09/23/2024 V3.0.26
+!     10/04/2024 V3.0.27
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/04/2024:   V3.0.27 - Allocate dummy axis arrays when not
+!                             used to avoid Valgrind errors (TdPA)
+!                           - Initialize the flag for aborting a
+!                             singular run before starting (TdPA)
 !
 !     09/23/2024:   V3.0.26 - Changed MPI tags to comply with the
 !                             standard (TdPA)
@@ -2116,6 +2121,13 @@
             y = y/Input%R_star
             z = z/Input%R_star
           end if
+        ! Slag or non-cartesian
+        else
+          ! Initialize for valgrind
+          allocate(x(1),y(1),z(1))
+          x = 0d0
+          y = 0d0
+          z = 0d0
         end if
       end if
 
@@ -2569,6 +2581,9 @@
           else
             buffer_ion => buffer(ioffset+1:sizeA)
           end if
+
+          ! Clean state
+          laborted = .False.
 
           !
           ! Call solver with correct arguments

@@ -10,12 +10,23 @@
 !  Start:
 !     10/xx/2022
 !  Last version:
-!     09/29/2023 V3.0.2
+!     10/04/2024 V3.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     10/04/2024:    V3.0.3 - Added an option to get the radiation
+!                             intensity from Allen's tabulation (TdPA)
+!                           - Added the option to assume that the
+!                             input radiation is perfectly flat when
+!                             computing the JKQ (TdPA)
+!                           - Added get_gottom_allen and getI
+!                             subroutines (TdPA)
+!                           - Bugfix: There was a bug in the
+!                             interpolation of the CLV parameters
+!                             in get_CLV (TdPA)
 !
 !     09/29/2023:    V3.0.2 - Updated to transition-wise K cut
 !                             limits (TdPA)
@@ -39,6 +50,12 @@
 !
 !    get_bottom_spect
 !      Get boundary condition from input radiation file
+!
+!    get_bottom_allen
+!      Get boundary condition from Allen's tabulation
+!
+!    getI
+!      Get radiation intensity from Allen's tabulation
 !
 !    get_CLV
 !      Get CLV coefficients for a given frequency from Allen
@@ -71,6 +88,8 @@
       !!       Atom(Atom_class): Structure with the atomic data\n
       !!       Atmo(Atmo_class): Structure with atmospheric data\n
       !!           Trad(dfloat): Radiation temperature for star\n
+      !!     use_allen(logical): Use Allen tabulation for input\n
+      !!   flat_cle_in(logical): Assume flat input\n
       !!   Bfield(Bfield_class): Structure with magnetic field data\n
       !!     Flgsg(Fctsg_class): Structure with factorials and signs\n
       !!  Frec(Frequency_class): Structure with frequency data\n
@@ -85,8 +104,9 @@
       !!                         over absorption profile\n
       !!     JPhot(dfloat(:,:)): Mean intensity integrated with
       !!                         photoionizations
-      subroutine getSEEJ(Atom,Atmo,Trad,Bfield,Flgsg,Frec,spect, &
-                         Geom,GeomP,MPID,JKQC,JKQ,Jphot)
+      subroutine getSEEJ(Atom,Atmo,Trad,use_allen,flat_cle_in, &
+                         Bfield,Flgsg,Frec,spect,Geom,GeomP,MPID, &
+                         JKQC,JKQ,Jphot)
 
       ! I/O
 
@@ -99,6 +119,7 @@
       type(Atmo_class), intent(in):: Atmo
       type(Bfield_class), intent(in):: Bfield
       type(MPI_class), intent(in):: MPID
+      logical, intent(in):: use_allen,flat_cle_in
       double precision, intent(in):: Trad
       double precision, dimension(nxphot,2), intent(out):: Jphot
       complex(kind=8), dimension(-2:2,0:2,nxtran), intent(out):: JKQ
@@ -1127,100 +1148,154 @@
           ! Flattened line index
           ktran = jtran + Atom(ia)%tshift
 
-          ! Identify involved terms
-          itermu = Atom(ia)%fst(jtran)%itermu
-          iterml = Atom(ia)%fst(jtran)%iterml
+          !
+          ! Flat
+          !
+          if (flat_cle_in) then
 
-          ! Damping
-          al = Atom(ia)%damp(iterml,1)
-          au = Atom(ia)%damp(itermu,1)
-          aul = Atom(ia)%ldamp(jtran,1)
+            ! Get frequency of transition
+            Dfreq = Atom(ia)%Dfreq(jtran)
 
-          ! Initialize sum of weights
-          Tfeta = 0d0
-
-          ! For each FS transition
-          do fjtran=1,Atom(ia)%fst(jtran)%nt
-
-            ! Idenfity involved levels
-            iJu = Atom(ia)%fst(jtran)%ilevelu(fjtran)
-            iJl = Atom(ia)%fst(jtran)%ilevell(fjtran)
-
-            ! Degeneration
-            gl = 2d0*Atom(ia)%rJval(iJl,iterml) + 1d0
-
-            ! Get the sequential index of this FS transition
-            ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
-
-            ! Get flattened line index
-            ffktran = ffjtran + Atom(ia)%tfshift
-
-            ! Get frequency of FS transition
-            Dfreq = Atom(ia)%FSfreq(iJu,itermu) - &
-                    Atom(ia)%FSfreq(iJl,iterml)
-
-            ! Add the microturbulence to Doppler width
-            Dw = Dfreq*sqrt(DwT*DwT + vmi*vmi)
-
-            ! Scale Dfreq to Dw
-            Dfreq = Dfreq/Dw
-
-            ! Absorptibity factor
-            feta = Dfreq*Atom(ia)%fst(jtran)%Blu(iJl,iJu)*gl
-
-            ! Add to total factor
-            Tfeta = Tfeta + feta
-
-            ! Add profile scale to feta
-            feta = feta*1d-5*sqrt(IPI)/Dw
-
-            ! Total damping
-            at = (al + au + aul)/Dw
-
-            ! Initialize CLV search index
+            ! Get CLV
             ljfreq = -1
+            call getCLV(Dfreq,ljfreq,u1,u2)
 
-            ! For each frequency
-            do ifreq=jf0,jf1
+            ! Get radiation from Allen
+            if (use_allen) then
 
-              ! If first point
-              if (ifreq.eq.lf0) then
-                WA = W0*feta
-              ! Last point
-              else if (ifreq.eq.lf1) then
-                WA = W1*feta
-              ! Any other
-              else
-                WA = Frec%W_freq(ifreq)*feta
-              end if
+              ! Get Allen
+              ljfreq = -1
+              call getI(Dfreq,ljfreq,I0)
 
-              ! Get profile
-              call voigtI(Dfreq - Frec%omega(ifreq),at,prof)
+            ! Get radiation from Planck
+            else
 
-              ! Scale profile
-              WA = WA*prof
+              ! Get Planck
+              I0 = planck(Dfreq,Trad)
 
-              ! Get CLV
-              call getCLV(Frec%omega(ifreq),ljfreq,u1,u2)
+            end if
 
-              ! Get radiation
-              I0 = planck(Frec%omega(ifreq),Trad)
+            ! Set value
+            JKQ(0,0,ktran) = I0*0.5d0*(GeomP%CLV(1) + &
+                                       GeomP%CLV(2)*u1 + &
+                                       GeomP%CLV(3)*u2)
+            JKQ(0,2,ktran) = I0*0.25d0*(GeomP%CLV(4) + &
+                                        GeomP%CLV(5)*u1 + &
+                                        GeomP%CLV(6)*u2)/sqrt(2d0)
 
-              ! Contribution
-              JKQ(0,0,ktran) = JKQ(0,0,ktran) + WA*I0* &
-                               0.5d0*(GeomP%CLV(1) + &
-                                      GeomP%CLV(2)*u1 + &
-                                      GeomP%CLV(3)*u2)
-              JKQ(0,2,ktran) = JKQ(0,2,ktran) + WA*I0* &
-                              0.25d0*(GeomP%CLV(4) + &
-                                      GeomP%CLV(5)*u1 + &
-                                      GeomP%CLV(6)*u2)/sqrt(2d0)
-            end do ! Frequencies
-          end do ! FS transitions
+          !
+          ! No flat
+          !
+          else
 
-          ! Normalize
-          Tfeta = 1d0/Tfeta
-          JKQ(0,0:2,ktran) = JKQ(0,0:2,ktran)*Tfeta
+            ! Identify involved terms
+            itermu = Atom(ia)%fst(jtran)%itermu
+            iterml = Atom(ia)%fst(jtran)%iterml
+
+            ! Damping
+            al = Atom(ia)%damp(iterml,1)
+            au = Atom(ia)%damp(itermu,1)
+            aul = Atom(ia)%ldamp(jtran,1)
+
+            ! Initialize sum of weights
+            Tfeta = 0d0
+
+            ! For each FS transition
+            do fjtran=1,Atom(ia)%fst(jtran)%nt
+
+              ! Idenfity involved levels
+              iJu = Atom(ia)%fst(jtran)%ilevelu(fjtran)
+              iJl = Atom(ia)%fst(jtran)%ilevell(fjtran)
+
+              ! Degeneration
+              gl = 2d0*Atom(ia)%rJval(iJl,iterml) + 1d0
+
+              ! Get the sequential index of this FS transition
+              ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
+
+              ! Get flattened line index
+              ffktran = ffjtran + Atom(ia)%tfshift
+
+              ! Get frequency of FS transition
+              Dfreq = Atom(ia)%FSfreq(iJu,itermu) - &
+                      Atom(ia)%FSfreq(iJl,iterml)
+
+              ! Add the microturbulence to Doppler width
+              Dw = Dfreq*sqrt(DwT*DwT + vmi*vmi)
+
+              ! Scale Dfreq to Dw
+              Dfreq = Dfreq/Dw
+
+              ! Absorptibity factor
+              feta = Dfreq*Atom(ia)%fst(jtran)%Blu(iJl,iJu)*gl
+
+              ! Add to total factor
+              Tfeta = Tfeta + feta
+
+              ! Add profile scale to feta
+              feta = feta*1d-5*sqrt(IPI)/Dw
+
+              ! Total damping
+              at = (al + au + aul)/Dw
+
+              ! Initialize CLV search index
+              ljfreq = -1
+              cljfreq = -1
+
+              ! For each frequency
+              do ifreq=jf0,jf1
+
+                ! If first point
+                if (ifreq.eq.lf0) then
+                  WA = W0*feta
+                ! Last point
+                else if (ifreq.eq.lf1) then
+                  WA = W1*feta
+                ! Any other
+                else
+                  WA = Frec%W_freq(ifreq)*feta
+                end if
+
+                ! Get profile
+                call voigtI(Dfreq - Frec%omega(ifreq),at,prof)
+
+                ! Scale profile
+                WA = WA*prof
+
+                ! Get CLV
+                call getCLV(Frec%omega(ifreq),ljfreq,u1,u2)
+
+                ! Get radiation from Allen
+                if (use_allen) then
+
+                  ! Get Allen
+                  call getI(Frec%omega(ifreq),cljfreq,I0)
+
+                ! Get radiation from Planck
+                else
+
+                  ! Get Planck
+                  I0 = planck(Frec%omega(ifreq),Trad)
+
+                end if
+
+                ! Contribution
+                JKQ(0,0,ktran) = JKQ(0,0,ktran) + WA*I0* &
+                                 0.5d0*(GeomP%CLV(1) + &
+                                        GeomP%CLV(2)*u1 + &
+                                        GeomP%CLV(3)*u2)
+                JKQ(0,2,ktran) = JKQ(0,2,ktran) + WA*I0* &
+                                0.25d0*(GeomP%CLV(4) + &
+                                        GeomP%CLV(5)*u1 + &
+                                        GeomP%CLV(6)*u2)/sqrt(2d0)
+              end do ! Frequencies
+            end do ! FS transitions
+
+            ! Normalize
+            Tfeta = 1d0/Tfeta
+            JKQ(0,0:2,ktran) = JKQ(0,0:2,ktran)*Tfeta
+
+          end if ! Flat input
 
         end do ! Transition
 
@@ -1283,8 +1358,19 @@
             ! Get exu
             exu = c3*diexp(c0*Frec%omega(ifreq))
 
-            ! Radiation
-            I0 = planck(Frec%omega(ifreq),Trad)
+            ! Get radiation from Allen
+            if (use_allen) then
+
+              ! Get Allen
+              call getI(Frec%omega(ifreq),cljfreq,I0)
+
+            ! Get radiation from Planck
+            else
+
+              ! Get Planck
+              I0 = planck(Frec%omega(ifreq),Trad)
+
+            end if
 
             ! Geometry
             call getCLV(Frec%omega(ifreq),ljfreq,u1,u2)
@@ -1350,7 +1436,8 @@
 !#####################################################################
 !#####################################################################
 
-      !> Get Stokes parameters coming from disk\n
+      !> Get Stokes parameters coming from disk from input
+      !! tabulation\n
       !!       Atmo(Atmo_class): Structure with atmospheric data\n
       !!       omega(dfloat(:)): Frequency array\n
       !!             vx(dfloat): Velocity vector along X\n
@@ -1570,6 +1657,221 @@
 !#####################################################################
 !#####################################################################
 
+      !> Get Stokes parameters coming from disk from Allen's
+      !! tabulation\n
+      !!       Atmo(Atmo_class): Structure with atmospheric data\n
+      !!       omega(dfloat(:)): Frequency array\n
+      !!             vx(dfloat): Velocity vector along X\n
+      !!             vy(dfloat): Velocity vector along Y\n
+      !!             vz(dfloat): Velocity vector along Z\n
+      !!  GeomP(Geometry_class): Structure with geometry data\n
+      !!    Stokes(dfloat(:,:)): Stokes parameters
+      subroutine get_bottom_allen(Atmo,omega,vx,vy,vz,GeomP,stokes)
+
+      ! I/O
+
+      type(Atmo_class), intent(in):: Atmo
+      type(Coronapoint_class), intent(in):: GeomP
+      double precision, intent(in):: vx,vy,vz
+      double precision, dimension(:), intent(in):: omega
+      double precision, dimension(:,:):: stokes
+
+      ! Local
+
+      integer:: nf,ifreq,cljfreq,ljfreq
+
+      double precision:: mu_disk,u1,u2,I0
+      double precision:: ct,st,cc,sc,vfac,omegain
+
+      ! Zero polarization
+      stokes(2:4,:) = 0d0
+
+      ! If dynamic
+      if (dyn) then
+
+        ! Get angles
+        ct = cos(GeomP%geom(1))
+        st = sin(GeomP%geom(1))
+        cc = cos(GeomP%geom(2))
+        sc = sin(GeomP%geom(3))
+
+        ! Get Doppler factor
+        vfac = 1d0 + vz*ct + &
+                     vx*st*cc + &
+                     vy*st*sc
+      ! Static
+      else
+
+        ! No Doppler factor
+        vfac = 1d0
+
+      end if
+
+      ! Get dize of omega
+      nf = size(omega)
+
+      ! Get the polar nodes on the disk
+      mu_disk = sqrt(Atmo%ypos*Atmo%ypos + Atmo%zpos*Atmo%zpos)
+      if (mu_disk.ge.1d0) then
+        mu_disk = 0d0
+      else
+        mu_disk = sqrt(1d0 - mu_disk*mu_disk)
+      end if
+
+      !
+      ! Now integrate in relevant frequencies
+      !
+
+      ! Last searched frequency
+      ljfreq = -1
+      cljfreq = -1
+
+      ! For each frequency
+      do ifreq=1,nf
+
+        ! Get displaced source frequency
+        omegain = omega(ifreq)*vfac
+
+        ! Get Allen data
+        call getCLV(omegain,ljfreq,u1,u2)
+        call getI(omegain,cljfreq,I0)
+
+        ! Save intensity
+        stokes(1,ifreq) = I0*(1d0 - &
+                              (1d0 - mu_disk)*u1 - &
+                              (1d0 - mu_disk*mu_disk)*u2)
+
+      end do ! Outputs frequencies
+
+      end subroutine get_bottom_allen
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Get intensity from Allen for a given frequency\n
+      !!     freq(dfloat): Frequency to interpolate into
+      !!  ifreq0(integer): Frequency index to start search\n
+      !!     Inte(dfloat): Intensity
+      subroutine getI(freq,ifreq0,Inte)
+
+      ! I/O
+
+      integer, intent(inout):: ifreq0
+      double precision, intent(in):: freq
+      double precision, intent(out):: Inte
+
+
+      ! Parameters
+
+      integer, parameter:: NN = 43
+      double precision, dimension(NN), parameter:: &
+        xi = (/ 0.2d0,0.22d0,0.24d0,0.26d0,0.28d0,0.3d0,0.32d0, &
+                0.34d0,0.36d0,0.37d0,0.38d0,0.39d0,0.4d0,0.41d0, &
+                0.42d0,0.43d0,0.44d0,0.45d0,0.46d0,0.48d0,0.5d0, &
+                0.55d0,0.6d0,0.65d0,0.7d0,0.75d0,0.8d0,0.9d0,1d0, &
+                1.1d0,1.2d0,1.4d0,1.6d0,1.8d0,2d0,2.5d0,3d0,4d0,5d0, &
+                6d0,8d0,10d0,12d0 /) !mum
+     !double precision, dimension(NN), parameter:: &
+     !  yi = (/ 0.06d0,0.21d0,0.29d0,0.6d0,1.3d0,2.45d0,3.25d0, &
+     !          3.77d0,4.13d0,4.23d0,4.63d0,4.95d0,5.15d0,5.26d0, &
+     !          5.28d0,5.24d0,5.19d0,5.1d0,5d0,4.79d0,4.55d0,4.02d0, &
+     !          3.52d0,3.06d0,2.69d0,2.28d0,2.03d0,1.57d0,1.26d0, &
+     !          1.01d0,0.81d0,0.53d0,0.36d0,0.238d0,0.16d0,0.078d0, &
+     !          0.041d0,0.0142d0,0.0062d0,0.0032d0,0.00095d0, &
+     !          0.00035d0,0.00018d0 /)
+     !  ! Intensity [10^10 erg s^-1 cm^-2 sr^-1 micron^-1]
+
+     !! # Convert units to cgs in Hz bandwidth
+     !! yI *= 1e10*xI*xI/(c.c*1e4) (c.c = c in cm/s -> c*1d11)
+     !! Stokes factor (MKS to HanleRT) 299792458e5 (c*1d14)
+     !double precision, parameter:: conv = 1d6!*xI*xI
+
+      double precision, dimension(NN), parameter:: &
+        yi = (/ 2.4d3,1.0164d4,1.6704d4,4.056d4,1.0192d5,2.205d5, &
+                3.328d5,4.35812d5,5.35248d5,5.79087d5,6.68572d5, &
+                7.52895d5,8.24d5,8.84206d5,9.31392d5,9.68876d5, &
+                1.004784d6,1.03275d6,1.058d6,1.103616d6,1.1375d6, &
+                1.21605d6,1.2672d6,1.29285d6,1.3181d6,1.2825d6, &
+                1.2992d6,1.2717d6,1.26d6,1.2221d6,1.1664d6, &
+                1.0388d6,9.216d5,7.7112d5,6.4d5,4.875d5,3.69d5, &
+                2.272d5,1.55d5,1.152d5,6.08d4,3.5d4,2.592d4 /)
+        ! Intensity HanleRT units
+
+      ! Local
+
+      integer:: ifreq
+
+      double precision:: lamb,dxs,dx,dy!,yl,yr
+
+      ! Get lambda in microns
+      lamb = 1d-1/freq
+
+      ! Below lower limit
+      if (lamb.le.xi(1)) then
+
+        ifreq0 = 1
+       !Inte = yi(1)*xi(1)*xi(1)
+        Inte = yi(1)
+
+      ! Above upper limit
+      else if (lamb.ge.xi(NN)) then
+
+        ifreq0 = NN
+       !Inte = yi(NN)*xi(NN)*xi(NN)
+        Inte = yi(NN)
+
+      ! In range
+      else
+
+        ! Negative index
+        if (ifreq0.lt.0) then
+
+          ! Search
+          ifreq0 = minloc(abs(xi - lamb),1)
+
+          ! If above
+          if (xi(ifreq0).lt.lamb) ifreq0 = ifreq0 + 1
+
+        end if
+
+        ! For available frequencies
+        do ifreq=ifreq0,2,-1
+
+          ! If between two of them, interpolate
+          if (lamb.gt.xi(ifreq-1).and.lamb.le.xi(ifreq)) then
+
+            ifreq0 = ifreq
+
+            ! scale
+           !yl = yi(ifreq-1)*xi(ifreq-1)*xi(ifreq-1)
+           !yr = yi(ifreq)*xi(ifreq)*xi(ifreq)
+
+            dxs = lamb - xi(ifreq-1)
+            dx = xi(ifreq) - xi(ifreq-1)
+
+           !dy = yr - yl
+            dy = yi(ifreq) - yi(ifreq-1)
+           !Inte = yl + dxs*dy/dx
+            Inte = yi(ifreq-1) + dxs*dy/dx
+
+            exit
+
+          end if
+
+        end do ! Available frequencies
+
+      end if ! In range?
+
+      ! Scale
+     !Inte = Inte*conv
+
+      end subroutine getI
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
       !> Get CLV coefficients from Allen for a given frequency\n
       !!     freq(dfloat): Frequency to interpolate into
       !!  ifreq0(integer): Frequency index to start search\n
@@ -1647,10 +1949,10 @@
             dx = xi(ifreq) - xi(ifreq-1)
 
             dy = yi1(ifreq) - yi1(ifreq-1)
-            u1 = yi1(ifreq-1) + dxs*dy*dx
+            u1 = yi1(ifreq-1) + dxs*dy/dx
 
             dy = yi2(ifreq) - yi2(ifreq-1)
-            u2 = yi2(ifreq-1) + dxs*dy*dx
+            u2 = yi2(ifreq-1) + dxs*dy/dx
 
             exit
 
