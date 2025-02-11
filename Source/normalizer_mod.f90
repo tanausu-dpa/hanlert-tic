@@ -5039,6 +5039,7 @@
 
                     Atom%Normp(jtran,iz,jdir)%prof(jj,1,1,1)%p = &
                          Atom%Normp(jtran,iz,jdir)%prof(jj,1,1,1)%p/d1
+
                   end if
 
                 end do ! FS transitions

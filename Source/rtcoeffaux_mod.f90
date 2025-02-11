@@ -12,12 +12,16 @@
 !  Start:
 !     04/27/2017
 !  Last version:
-!     04/02/2024 V3.1.4
+!     02/11/2025 V3.1.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/11/2025:    V3.1.5 - Bugfix: failing to consider forward
+!                             scattering for Raman scattering in
+!                             the second order emissivity (TdPA)
 !
 !     04/02/2024:    V3.1.4 - Debugged rt1ordNB and rt1ord (TdPA)
 !
@@ -5595,7 +5599,7 @@
                     Geom%V_CScatt(ish1).ge.1d0) cycle
 
                 ! Check backward
-                if (Geom%V_CScatt(ish1).le.-1d0) then
+                if (Geom%V_SScatt(ish1).le.0d0) then
                   stype = 1
                 else
                   stype = 0
@@ -7840,7 +7844,7 @@
                     Geom%V_CScatt(ish1).ge.1d0) cycle
 
                 ! Check backward
-                if (Geom%V_CScatt(ish1).le.-1d0) then
+                if (Geom%V_SScatt(ish1).le.0d0) then
                   stype = 1
                 else
                   stype = 0

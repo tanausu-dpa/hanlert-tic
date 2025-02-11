@@ -7040,7 +7040,6 @@
                            Cont%ndir,Cont%c(:,:,:,p), &
                            Stokes(:,:,:,op),data1P(:,0:1))
 
-
             ! Point to the data
             p_K0M  => data1M(:,0)
             p_SM   => data1M(:,1)

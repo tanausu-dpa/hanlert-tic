@@ -4258,7 +4258,7 @@
         ! Solve SEE
         !
 #ifdef DEBUGJKQ
-      if (pid.eq.0) call dump_jkq(Atom,Bfield,Flgsg,JKQ,JKQS, &
+      if (pid.eq.0) call dump_jkq(Atom,Bfield,Flgsg,JKQ_n,JKQS_n, &
                                   Input%folder,iter)
 #endif
 

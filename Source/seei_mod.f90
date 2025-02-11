@@ -281,7 +281,7 @@
       call SEbuildI(Atom,JRad,JRadS,Jphot,STcoeff,iz,tid)
 
 #ifdef DEBUGSEE
-      call dump_see(Atom,STcoeff,INPUT%folder,iz,.False.)
+      if (pid.eq.0)call dump_see(Atom,STcoeff,INPUT%folder,iz,.False.)
 #endif
 
       !
@@ -290,7 +290,7 @@
       if (lALI) call ALIbuildI(Atom,Atom0,LamL,LamP,STcoeff,iz)
 
 #ifdef DEBUGSEE
-      if (lALI) call dump_see(Atom,STcoeff,INPUT%folder,iz,.True.)
+      if (lALI.and.pid.eq.0) call dump_see(Atom,STcoeff,INPUT%folder,iz,.True.)
 #endif
 
       !

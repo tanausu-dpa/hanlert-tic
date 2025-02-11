@@ -12,12 +12,16 @@
 !  Start:
 !     04/18/2017
 !  Last version:
-!     10/04/2024 V3.0.21
+!     02/11/2025 V3.0.22
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/11/2025:   V3.0.22 - Bugfix: using wrong resonance frequency
+!                             when checking for coherent wings in
+!                             the intensity branch (TdPA)
 !
 !     10/04/2024:   V3.0.21 - Bugfix: in refitfrec, the inversemap
 !                             call needed to be after the sanity
@@ -6994,7 +6998,7 @@
       if (Input%cohwi) then
 
         ! Check distance
-        if (abs(nut - Frec%omega(ifreq)*vfac).lt.red_cohwW) then
+        if (abs(nutout - Frec%omega(ifreq)*vfac).lt.red_cohwW) then
           cohw = .False.
         else
           cohw = .True.
@@ -7056,7 +7060,7 @@
       ! Non-coherent wings
       else
 
-        if (abs(nut - Frec%omega(ifreq)*vfac).le.red_coreW) then
+        if (abs(nutout - Frec%omega(ifreq)*vfac).le.red_coreW) then
           core = .True.
         else
           core = .False.

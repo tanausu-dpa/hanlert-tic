@@ -10,12 +10,16 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     04/02/2024 V3.1.2
+!     02/11/2025 V3.1.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/11/2025:    V3.1.3 - Bugfix: wrong division by absorptivity
+!                             when calculating the contribution
+!                             function in the RT axial case (TdPA)
 !
 !     04/02/2024:    V3.1.2 - Wrong matrix multiplication function
 !                             called when the second order integral
@@ -823,10 +827,8 @@
           !
           ! Compute contribution function
           !
-          Contr(0,ifreq) = (SO(0,ifreq) - &
-                            vector1(0))*exu*dtau/K0O(0,ifreq)
-          Contr(1,ifreq) = (SO(1,ifreq) - &
-                            vector1(1))*exu*dtau/K0O(0,ifreq)
+          Contr(0,ifreq) = (SO(0,ifreq) - vector1(0))*exu*dtau
+          Contr(1,ifreq) = (SO(1,ifreq) - vector1(1))*exu*dtau
           Contr(2,ifreq) = 0d0
           Contr(3,ifreq) = 0d0
 

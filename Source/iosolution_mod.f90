@@ -12,12 +12,16 @@
 !  Start:
 !     04/20/2016
 !  Last version:
-!     10/04/2024 V3.0.25
+!     02/11/2025 V3.0.26
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/11/2025:   V3.0.26 - Bugfix: wrong split between the AD and
+!                             AV reading of the spectra in the
+!                             Solution file (TdPA)
 !
 !     10/04/2024:   V3.0.25 - Removed unused variables in writeqel
 !                             subroutine (TdPA)
@@ -1542,14 +1546,14 @@
           ! If input is AD
           else
 
-            !
-            ! Currently doing AV or not PRD, no need to read Stokes
-            ! Therefore, no need to keep Stokes
-            !
-            if (.not.KSTK.or..not.(dyn.or..not.AV)) then
+            ! If master
+            if (pid.eq.0) then
 
-              ! Master
-              if(pid.eq.0)then
+              !
+              ! Currently doing AV or not PRD, no need to read Stokes
+              ! Therefore, no need to keep Stokes
+              !
+              if (.not.KSTK.or..not.(dyn.or..not.AV)) then
 
                 ! Initialize
                 JKQC = cZero
@@ -1579,13 +1583,13 @@
                           if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
 
                           ! Store
-                          if (KSTK) Stokes(iS,ifreq,iph,ith,iz) = da1
+                          if (KSTK) Stokes(iS,ifreq,1,ith,iz) = da1
 
                           ! For each K
                           do K=0,Krad
 
                             ! Sum over Stokes parameters of Stk*TKQ
-                            integr = da1*Geom%TS(iS,0,K,iph,ith)
+                            integr = da1*Geom%TS(iS,0,K,1,ith)
 
                             ! Add contribution to the JKQC integral
                             JKQC(0,K,ifreq,iz) = &
@@ -1690,64 +1694,13 @@
                   end do
                 end if
 
-              end if ! Master
+              !
+              ! Currently doing AD
+              !
+              else
 
-              ! If there are slaves
-              if (MPID%mpi) then
-
-                ! Control
-                call control
-                if (laborted) return
-
-                csize = 15*nfreq*RnZ
-
-                ! Alternative bcast
-                if (MPID%altbcast) then
-
-                  ! If not master, receive first
-                  if (pid.ne.0) then
-
-                    ! Receive JKQC
-                    call MPI_RECV(JKQC(-2,0,1,Rz0), csize, &
-                                  MPI_DOUBLE_COMPLEX, &
-                                  MPID%recv, 6+pid, &
-                                  MPI_COMM_RT, &
-                                  MPI_STATUS_IGNORE, &
-                                  ierr)
-
-                  end if ! No Master
-
-                  ! For each send
-                  do istep=1,MPID%nsend
-
-                    ! Send JKQC
-                    call MPI_ISEND(JKQC(-2,0,1,Rz0), csize, &
-                                   MPI_DOUBLE_COMPLEX, &
-                                   MPID%lsend(istep), &
-                                   6+MPID%lsend(istep), &
-                                   MPI_COMM_RT, &
-                                   MPID%requestA(istep,4), &
-                                   ierr)
-
-                  end do ! Sends
-
-                ! Normal bcast
-                else
-
-                  call MPI_BCAST(JKQC(-2,0,1,Rz0), csize, &
-                                 MPI_DOUBLE_COMPLEX, 0, &
-                                 MPI_COMM_RT, ierr)
-
-                end if ! Type of bcast
-              end if ! MPI
-
-            !
-            ! Currently doing AD
-            !
-            else
-
-              ! Master
-              if(pid.eq.0)then
+                ! Initialize
+                JKQC = cZero
 
                 ! For each height
                 do iz=1,nZ
@@ -1815,17 +1768,76 @@
                     end if ! Input axial
 
                   end do ! polar nodes
+
+                  !
+                  ! Calculate JKQC from Stokes
+                  !
+
+                  ! For each frequency
+                  do ifreq=1,nfreq
+
+                    ! For each K
+                    do K=0,Krad
+
+                      ! For each Q
+                      do iQ=0,K
+
+                        ! For each polar direction
+                        do ith=1,Geom%nTh
+
+                          ! For each azimuthal direction
+                          do iph=1,Geom%nPh
+
+                            ! Sum over Stokes parameters of Stokes*TKQ
+                            integr = sum(Stokes(:,ifreq,iph,ith,iz)* &
+                                       Geom%TS(:,iQ,K,iph,ith))
+
+                            ! Add contribution to the JKQC integral
+                            JKQC(iQ,K,ifreq,iz) =  &
+                                               JKQC(iQ,K,ifreq,iz) + &
+                                 integr*Geom%W_mu(ith)*Geom%W_mux(iph)
+
+                          end do ! azimuthal nodes
+                        end do ! polar nodes
+                      end do ! Q
+                    end do ! K
+                  end do ! frequencies
                 end do ! heights
 
-              end if ! Master
+                ! Complete
+                do K=1,Krad
+                  do iQ=1,K
+                    JKQC(-iQ,K,:,Rz0:Rz1) = Flgsg%sg(iQ)* &
+                                          conjg(JKQC(iQ,K,:,Rz0:Rz1))
+                  end do
+                end do
 
-              ! If there are slaves
-              if (MPID%mpi) then
+                !
+                ! Q!=0 JKQC
+                !
 
-                ! Control
-                call control
-                if (laborted) return
+                ! If the input was axial or we are doing axial
+                if(Geom%axial.or.inaxial)then
 
+                  ! Kill the Q!=0 components
+                  JKQC(-2:-1,1:2,:,:) = cZero
+                  JKQC(1:2,1:2,:,:) = cZero
+
+                endif ! axiality
+              end if ! Read AD or AV
+            end if ! Master
+
+            ! If there are slaves
+            if (MPID%mpi) then
+
+              ! Control
+              call control
+              if (laborted) return
+
+              ! Slaves require Stokes
+              if (PRD.and.(dyn.or..not.AV)) then
+
+                ! Buffer size
                 ssize = 4*nfreq*Geom%nTh*Geom%nPh*Rnz
 
                 ! Alternative bcast
@@ -1865,69 +1877,50 @@
                                  MPI_COMM_RT, ierr)
 
                 end if ! Type of bcast
-              end if ! MPI
+              end if ! Slaves require Stokes
 
-              !
-              ! Calculate JKQC from Stokes
-              !
+              ! Buffer size
+              csize = 15*nfreq*RnZ
 
-              JKQC = cZero
+              ! Alternative bcast
+              if (MPID%altbcast) then
 
-              ! For each height
-              do iz=Rz0,Rz1
+                ! If not master, receive first
+                if (pid.ne.0) then
 
-                ! For each frequency
-                do ifreq=1,nfreq
+                  ! Receive JKQC
+                  call MPI_RECV(JKQC(-2,0,1,Rz0), csize, &
+                                MPI_DOUBLE_COMPLEX, &
+                                MPID%recv, 6+pid, &
+                                MPI_COMM_RT, &
+                                MPI_STATUS_IGNORE, &
+                                ierr)
 
-                  ! For each K
-                  do K=0,Krad
+                end if ! No Master
 
-                    ! For each Q
-                    do iQ=0,K
+                ! For each send
+                do istep=1,MPID%nsend
 
-                      ! For each polar direction
-                      do ith=1,Geom%nTh
+                  ! Send JKQC
+                  call MPI_ISEND(JKQC(-2,0,1,Rz0), csize, &
+                                 MPI_DOUBLE_COMPLEX, &
+                                 MPID%lsend(istep), &
+                                 6+MPID%lsend(istep), &
+                                 MPI_COMM_RT, &
+                                 MPID%requestA(istep,4), &
+                                 ierr)
 
-                        ! For each azimuthal direction
-                        do iph=1,Geom%nPh
+                end do ! Sends
 
-                          ! Sum over Stokes parameters of Stokes*TKQ
-                          integr = sum(Stokes(:,ifreq,iph,ith,iz)* &
-                                     Geom%TS(:,iQ,K,iph,ith))
+              ! Normal bcast
+              else
 
-                          ! Add contribution to the JKQC integral
-                          JKQC(iQ,K,ifreq,iz) = JKQC(iQ,K,ifreq,iz) &
-                               + integr*Geom%W_mu(ith)*Geom%W_mux(iph)
+                call MPI_BCAST(JKQC(-2,0,1,Rz0), csize, &
+                               MPI_DOUBLE_COMPLEX, 0, &
+                               MPI_COMM_RT, ierr)
 
-                        end do ! azimuthal nodes
-                      end do ! polar nodes
-                    end do ! Q
-                  end do ! K
-                end do ! frequencies
-              end do ! heights
-
-              ! Complete
-              do K=1,Krad
-                do iQ=1,K
-                  JKQC(-iQ,K,:,Rz0:Rz1) = Flgsg%sg(iQ)* &
-                                          conjg(JKQC(iQ,K,:,Rz0:Rz1))
-                end do
-              end do
-
-            end if ! Doing AV or AD
-
-            !
-            ! Q!=0 JKQC
-            !
-
-            ! If the input was axial or we are doing axial
-            if(Geom%axial.or.inaxial)then
-
-              ! Kill the Q!=0 components
-              JKQC(-2:-1,1:2,:,:) = cZero
-              JKQC(1:2,1:2,:,:) = cZero
-
-            endif ! axiality
+              end if ! Type of bcast
+            end if ! There are slaves
           end if ! Input AV or AD
         end if ! Can read Stokes
 
@@ -2681,15 +2674,16 @@
           ! If input is AD
           else
 
-            !
-            ! Currently doing AV without velocities, no need to
-            ! read Stokes
-            !
-            if (.not.KSTK.or..not.(dyn.or..not.AV)) then
+            ! Master
+            if(pid.eq.0)then
 
-              ! Master
-              if(pid.eq.0)then
+              !
+              ! Currently doing AV without velocities, no need to
+              ! read Stokes
+              !
+              if (.not.KSTK.or..not.(dyn.or..not.AV)) then
 
+                ! Initialize
                 J00C = 0d0
 
                 ! For each height
@@ -2769,62 +2763,13 @@
                   end do ! Polar
                 end do ! Height
 
-              end if ! Master
+              !
+              ! Currently doing AD
+              !
+              else
 
-              ! If there are slaves
-              if (MPID%mpi) then
-
-                ! Control
-                call control
-                if (laborted) return
-
-                csize = nfreq*RnZ
-
-                ! Alternative bcast
-                if (MPID%altbcast) then
-
-                  ! If not master, receive first
-                  if (pid.ne.0) then
-
-                    ! Receive J00C
-                    call MPI_RECV(J00C(1,Rz0), csize, &
-                                  MPI_DOUBLE_PRECISION,  &
-                                  MPID%recv, 7+pid, &
-                                  MPI_COMM_RT, &
-                                  MPI_STATUS_IGNORE, ierr)
-
-                  end if ! No master
-
-                  ! For each send
-                  do istep=1,MPID%nsend
-
-                    ! Send J00C
-                    call MPI_ISEND(J00C(1,Rz0), csize, &
-                                   MPI_DOUBLE_PRECISION, &
-                                   MPID%lsend(istep), &
-                                   7+MPID%lsend(istep), &
-                                   MPI_COMM_RT, &
-                                   MPID%requestA(istep,4), ierr)
-
-                  end do ! Sends
-
-                ! Normal bcast
-                else
-
-                  call MPI_BCAST(J00C(1,Rz0), csize, &
-                                 MPI_DOUBLE_PRECISION, 0, &
-                                 MPI_COMM_RT, ierr)
-
-                end if ! Type of bcast
-              end if ! MPI
-
-            !
-            ! Currently doing AD
-            !
-            else
-
-              ! Master
-              if(pid.eq.0)then
+                ! Initialize
+                J00C = 0d0
 
                 ! For each height
                 do iz=1,nZ
@@ -2884,17 +2829,41 @@
                     end if ! Input axial
 
                   end do ! polar nodes
+
+                  ! For each frequency
+                  do ifreq=1,nfreq
+
+                    ! For each polar direction
+                    do ith=1,GeomI%nTh
+
+                      ! For each azimuthal direction
+                      do iph=1,GeomI%nPh
+
+                        ! Add contribution to the JKQC integral
+                        J00C(ifreq,iz) = J00C(ifreq,iz) + &
+                                         Stokes0(ifreq,iph,ith,iz)* &
+                                         GeomI%W_mu(ith)* &
+                                         GeomI%W_mux(iph)
+
+                      end do ! azimuthal nodes
+                    end do ! polar nodes
+                  end do ! frequencies
                 end do ! heights
 
-              end if ! Master
+              end if ! Read AD or AV
+            end if ! Master
 
-              ! If there are slaves
-              if (MPID%mpi) then
+            ! If there are slaves
+            if (MPID%mpi) then
 
-                ! Control
-                call control
-                if (laborted) return
+              ! Control
+              call control
+              if (laborted) return
 
+              ! Slaves require Stokes
+              if (PRD.and.(dyn.or..not.AV)) then
+
+                ! Buffer size
                 ssize = nfreq*GeomI%nTh*GeomI%nPh*Rnz
 
                 ! Alternative bcast
@@ -2931,38 +2900,48 @@
                                  MPI_COMM_RT, ierr)
 
                 end if ! Type of bcast
-              end if ! MPI
+              end if ! Slaves require Stokes
 
-              !
-              ! Calculate JKQC from Stokes
-              !
+              ! Buffer size
+              csize = nfreq*RnZ
 
-              J00C = 0d0
+              ! Alternative bcast
+              if (MPID%altbcast) then
 
-              ! For each height
-              do iz=Rz0,Rz1
+                ! If not master, receive first
+                if (pid.ne.0) then
 
-                ! For each frequency
-                do ifreq=1,nfreq
+                  ! Receive J00C
+                  call MPI_RECV(J00C(1,Rz0), csize, &
+                                MPI_DOUBLE_PRECISION,  &
+                                MPID%recv, 7+pid, &
+                                MPI_COMM_RT, &
+                                MPI_STATUS_IGNORE, ierr)
 
-                  ! For each polar direction
-                  do ith=1,GeomI%nTh
+                end if ! No master
 
-                    ! For each azimuthal direction
-                    do iph=1,GeomI%nPh
+                ! For each send
+                do istep=1,MPID%nsend
 
-                      ! Add contribution to the JKQC integral
-                      J00C(ifreq,iz) = J00C(ifreq,iz) + &
-                                       Stokes0(ifreq,iph,ith,iz)* &
-                                       GeomI%W_mu(ith)* &
-                                       GeomI%W_mux(iph)
+                  ! Send J00C
+                  call MPI_ISEND(J00C(1,Rz0), csize, &
+                                 MPI_DOUBLE_PRECISION, &
+                                 MPID%lsend(istep), &
+                                 7+MPID%lsend(istep), &
+                                 MPI_COMM_RT, &
+                                 MPID%requestA(istep,4), ierr)
 
-                    end do ! azimuthal nodes
-                  end do ! polar nodes
-                end do ! frequencies
-              end do ! heights
+                end do ! Sends
 
-            end if ! Doing AV or AD
+              ! Normal bcast
+              else
+
+                call MPI_BCAST(J00C(1,Rz0), csize, &
+                               MPI_DOUBLE_PRECISION, 0, &
+                               MPI_COMM_RT, ierr)
+
+              end if ! Type of bcast
+            end if ! MPI
           end if ! Input AV or AD
         end if ! Can read Stokes
       end if ! Type of input

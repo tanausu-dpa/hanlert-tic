@@ -2131,6 +2131,9 @@
       call setomp_magn(Atom,Bfield%Bstrength)
 #endif
 
+#ifdef DEBUGRHOKQ
+        if (pid.eq.0) call dump_rho(Atom,Input%folder,-3)
+#endif
       ! If we solved in intensity, convert multiterm Jbar into
       ! multilevel. Also, if we read a solution only in intensity
       if ((lio.and..not.lie.and.(lp.or.lpe)).or. &
@@ -2140,9 +2143,6 @@
         l1 = NCHLT
         if (NCHLT) NCHLT = .False.
 
-#ifdef DEBUGRHOKQ
-        if (pid.eq.0) call dump_rho(Atom,Input%folder,-3)
-#endif
         ! Call
         call JKQgenerate(Atom,Rho_old,Atmo,Frec,Geom, &
                          MPID,Input,Flgsg,Input%Pcorr,Bfield,rnPh, &

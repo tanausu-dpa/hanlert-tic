@@ -12,12 +12,16 @@
 !  Start:
 !     04/20/2017
 !  Last version:
-!     11/24/2023 V3.1.1
+!     02/11/2025 V3.1.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
+!
+!     02/11/2025:    V3.1.2 - Bugfix: failing to consider forward
+!                             scattering for Raman scattering in
+!                             the second order emissivity (TdPA)
 !
 !     11/24/2023:    V3.1.1 - Enter calculation of Warr2 and
 !                             deallocation of p_warr2 pointer only if
@@ -1762,7 +1766,7 @@
                       Geom%V_CScatt(ish1).ge.1d0) cycle
 
                   ! Check backward
-                  if (Geom%V_CScatt(ish1).le.-1d0) then
+                  if (Geom%V_SScatt(ish1).le.0d0) then
                     stype = 1
                   else
                     stype = 0
@@ -2793,7 +2797,6 @@
         if (x.ge.omega(nfreq)-TINYO) then
 
           getStkinInu = Stokes(nfreq)
-
           return
 
         ! If within boundaries, look for where
@@ -2807,7 +2810,6 @@
             if (abs(x - omega(jfreq)).lt.TINYO) then
 
               getStkinInu = Stokes(jfreq)
-
               return
 
             ! If the input is between this
@@ -2821,7 +2823,6 @@
 
               getStkinInu = dx*dy/(omega(jfreq+1) - omega(jfreq)) + &
                             Stokes(jfreq)
-
               return
 
             end if ! Check output frequency
@@ -2837,7 +2838,6 @@
         if (x.le.omega(1)+TINYO) then
 
           getStkinInu = Stokes(1)
-
           return
 
         ! If within boundaries, look for where
@@ -2851,7 +2851,6 @@
             if (abs(x - omega(jfreq)).lt.TINYO) then
 
               getStkinInu = Stokes(jfreq)
-
               return
 
             ! If the input is between this
@@ -2865,7 +2864,6 @@
 
               getStkinInu = dx*dy/(omega(jfreq) - omega(jfreq-1)) + &
                             Stokes(jfreq-1)
-
               return
 
             end if ! Check output frequency
