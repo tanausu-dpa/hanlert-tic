@@ -6,62 +6,19 @@
 !
 !  Authors:
 !     Hao Li (IAC)
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     02/23/2023
+!     23/02/2023
 !  Last version:
-!     10/17/2023 V3.1.5
+!     13/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     10/17/2023:    V3.1.5 - Bugfix: Missing exit condition when
-!                             providing PSF for a range not in the
-!                             data (TdPA)
-!
-!     10/04/2023:    V3.1.4 - Bugfix: the deallocations of unused
-!                             arrays in the non-gaussian PSF case
-!                             were being done in the gaussian case,
-!                             resulting in the deallcoation of not
-!                             allocated arrays (TdPA)
-!
-!     09/19/2023:    V3.1.3 - Bugfix: Wrong index for the Gaussian
-!                             FWHM (HL)
-!
-!     08/25/2023:    V3.1.2 - Bugfix: Wrong last index when
-!                             normalizing PSF kernel (TdPA)
-!
-!     08/24/2023:    V3.1.1 - Added a skip if there are no output
-!                             frequencies for a PSF range (TdPA)
-!
-!     08/24/2023:    V3.1.0 - Added the possibility of non-gaussian
-!                             PSF which are to be read from a
-!                             provided file path (TdPA)
-!
-!     07/03/2023:    V3.0.2 - Removed PSF_StokesI and generalized
-!                             PSF_Stokes instead (TdPA)
-!                           - Changed the approach to the range
-!                             limitation for the PSF application
-!                             by defining input and output index
-!                             limits (TdPA)
-!                           - Added cut_stk in order to crop the
-!                             emergent Stokes profiles to store
-!                             only what is being inverted (TdPA)
-!                           - Added set_psf_ranges to define the
-!                             limits in index for the application
-!                             of the PSF convolution (TdPA)
-!
-!     06/13/2023:    V3.0.1 - Update to reduce the calling of error
-!                             function (HL)
-!                           - Update for multi waveleng ranges (HL)
-!                           - The wavelength in Sol changed to nm (HL)
-!
-!     03/08/2023:    V3.0.0 - First working version (TdPA)
-!
-!     02/23/2023:    V0.0.0 - Started from 12/05/2020
-!                             TIC@pdf_mod.f90 revision (TdPA)
+!     13/12/2024:    V4.0.0 - Removed references to threads in the
+!                             calls to abortedS (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -71,13 +28,25 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    PSF_Stokes:
-!      Apply spectral convolution with a gaussian to Stokes profiles
+!  PSF_Stokes
+!    Apply spectral convolution to the Stokes profiles
 !
-!    Profiles_Out:
-!      Postprocessing of the emergent Stokes profiles
+!  Profiles_Out
+!    Process the emergent Stokes profiles for the inversion
+!
+!  cut_stk
+!    Slice the Stokes parameters to only include the requested
+!  grid points
+!
+!  set_psf_ranges
+!    Prepare the ranges to apply the PSF
 !
 !#####################################################################
 !#####################################################################
@@ -94,30 +63,33 @@
 !#####################################################################
 !#####################################################################
 
-      !> Apply spectral convolution with a gaussian to Stokes
-      !! profiles\n
-      !!  FWHM(FWHM_helper_class): Structure with ranges and PSF\n
-      !!               n(integer): Dimension of wavelength axis\n
-      !!            nstk(integer): Last index Stokes dimension\n
-      !! Stokes(double(0:nstk,n)): Stokes parameters\n
-      !!        lambda(double(n)): Wavelength axis
+      !> Apply spectral convolution to the Stokes profiles\n
+      !!  FWHM(FWHM_helper_class): Structure with the data on the
+      !!                           spectral PSF\n
+      !!               n(integer): Dimension of the wavelength axis\n
+      !!            nstk(integer): Last index in Stokes dimension\n
+      !!      Stokes(double(:,:)): Stokes parameters\n
+      !!        lambda(double(:)): Wavelength axis
       subroutine PSF_Stokes(FWHM,n,nstk,Stokes,lambda)
 
-      ! IO
+      ! I/O
+
       type(FWHM_helper_class), dimension(:), intent(inout):: FWHM
       integer, intent(in):: n,nstk
       double precision, dimension(n), intent(in):: lambda
       double precision, dimension(0:nstk,n), intent(inout):: Stokes
 
       ! Local
-      integer:: i, j, k, iran, il, ir, inl, inr, ifreq0
-      integer:: lfirst, last
-      double precision:: Sigma, Sigma2, Sigma20, dt, dt2
+
+      integer:: i,j,k,iran,il,ir,inl,inr,ifreq0,lfirst,last
+
+      double precision:: Sigma,Sigma2,Sigma20,dt,dt2
       double precision, dimension(0:nstk,n):: Stokes_tmp
       double precision, dimension(:), allocatable:: twave
       double precision, dimension(:,:), allocatable:: aStokes
 
-      ! Get wavelength axis and reversed copy of Stokes
+
+      ! Copy Stokes parameters
       Stokes_tmp = Stokes
 
       ! For each FWHM range
@@ -126,7 +98,7 @@
         ! Skip if not to apply
         if (FWHM(iran)%indx(2).lt.1) cycle
 
-        ! If gaussian
+        ! If Gaussian
         if (FWHM(iran)%gaussian) then
 
           ! Skip if not to apply
@@ -143,7 +115,7 @@
           inl = FWHM(iran)%indx(3)
           inr = FWHM(iran)%indx(4)
 
-          ! Initialize Stokes output
+          ! Initialize Stokes output in relevant range
           Stokes(:,il:ir) = 0d0
 
           ! For each output wavelength
@@ -170,9 +142,10 @@
               Stokes(:,i) = 0.5d0*Stokes_tmp(:,inr)* &
                             (1d0 - &
                              erf((lambda(inr)-lambda(i)-dt)/Sigma2))
-            end if
 
-            ! For all wavelengths (except last)
+            end if ! 20 sigmas to any limit
+
+            ! For all wavelengths (except extremes)
             do j=inl+1,inr-1
 
               ! If closer than 20 sigmas to the output
@@ -210,14 +183,16 @@
           ! Initialize Stokes output
           Stokes(:,il:ir) = 0d0
 
-
           ! If need to initialize
           if (FWHM(iran)%toinit) then
 
-            ! Allocate space for auxiliars to interpolation
+            ! Allocate space for auxiliars for interpolation
             allocate(FWHM(iran)%indx1(FWHM(iran)%nfreq,il:ir))
             allocate(FWHM(iran)%indx2(FWHM(iran)%nfreq,il:ir))
             allocate(FWHM(iran)%idx(FWHM(iran)%nfreq,il:ir))
+            MRAMc = MRAMc + 1d-6*sizeof(FWHM(iran)%indx1)
+            MRAMc = MRAMc + 1d-6*sizeof(FWHM(iran)%indx2)
+            MRAMc = MRAMc + 1d-6*sizeof(FWHM(iran)%idx)
 
             ! Flag initialized
             FWHM(iran)%toinit = .False.
@@ -358,26 +333,33 @@
 !#####################################################################
 !#####################################################################
 
-      !> Process the emergent Stokes profiles\n
-      !!    Frec(Frequency_class): Structure with frequency data\n
-      !!      Sol(Solution_class): Class with the data of the RT
-      !!                           solution\n
-      !!   e_stk(double(:,:,:,:)): Emergent Stokes parameters\n
-      !!             lpe(logical): If polarization\n
-      !! buff(IO_helper_class(:)): Info about what to store\n
-      !!  FWHM(FWHM_helper_class): Structure with ranges and PSF
+      !> Process the emergent Stokes profiles for the inversion\n
+      !!     Frec(Frequency_class): Structure with frequency data\n
+      !!       Sol(Solution_class): Structure with the frequency and
+      !!                            synthetic Stokes parameters in the
+      !!                            frequency range of the inverted
+      !!                            data\n
+      !!    e_stk(double(:,:,:,:)): Emergent Stokes parameters\n
+      !!              lpe(logical): If polarization\n
+      !!  buff(IO_helper_class(:)): Information on what needs to be
+      !!                            stored of the relevant variable\n
+      !!   FWHM(FWHM_helper_class): Structure with the data on the
+      !!                            spectral PSF
       subroutine Profiles_Out(Frec,Sol,e_stk,lpe,buff,FWHM)
 
-      ! IO
+      ! I/O
+
       type(IO_helper_class), intent(in):: buff
-      type(FWHM_helper_class), dimension(:), allocatable, &
-                                                  intent(inout):: FWHM
+      type(FWHM_helper_class), dimension(:), &
+                               allocatable, intent(inout):: FWHM
       type(Frequency_class), intent(in):: Frec
       type(Solution_class), intent(inout):: Sol
       logical, intent(in):: lpe
-      double precision, dimension(:,:,:,:), allocatable:: e_stk
+      double precision, dimension(:,:,:,:), &
+                        allocatable, intent(inout):: e_stk
 
       ! Local
+
       logical:: cut,PSF
 
       integer:: nstk
@@ -399,11 +381,13 @@
         ! If polarization
         if (lpe) then
 
+          ! Last index is 3 for V
           nstk = 3
 
         ! Intensity
         else
 
+          ! Last index is 0 for I
           nstk = 0
 
         end if
@@ -416,13 +400,13 @@
         allocate(c_stk(0:nstk,nfreq,1,1))
         c_stk = e_stk(0:nstk,nfreq:1:-1,1:1,1:1)
 
-        ! If FWHM
+        ! If FWHM, apply PSF
         if (PSF) call PSF_Stokes(FWHM,nfreq,nstk,c_stk,lambda)
 
         ! Interpolate into observations axis
-        call Intpol_Lin_stk(lambda, c_stk, 4, nstk+1, &
-                            nfreq, Sol%omega_input, &
-                            Sol%Stokes_out, Sol%Num_Wavelength)
+        call Intpol_Lin_stk(lambda,c_stk,4,nstk+1, &
+                            nfreq,Sol%omega_input, &
+                            Sol%Stokes_out,Sol%Num_Wavelength)
 
         ! Cut Stokes
         if (cut) then
@@ -433,7 +417,7 @@
           ! Cut
           call cut_stk(e_stk,c_stk,buff,nstk)
 
-        end if
+        end if ! Cut Stokes
 
         ! Free
         deallocate(c_stk,lambda)
@@ -452,20 +436,25 @@
 !#####################################################################
 !#####################################################################
 
-      !> Process the emergent Stokes profiles\n
-      !!   o_stk(double(:,:,:,:)): Cut emergent Stokes parameters\n
-      !!   i_stk(double(:,:,:,:)): Full emergent Stokes parameters\n
-      !! buff(IO_helper_class(:)): Info about what to store\n
-      !!            nstk(integer): Polarization last index
+      !> Slice the Stokes parameters to only include the requested
+      !! grid points\n
+      !!    o_stk(double(:,:,:,:)): Cut emergent Stokes parameters\n
+      !!    i_stk(double(:,:,:,:)): Full emergent Stokes parameters\n
+      !!  buff(IO_helper_class(:)): Information on what needs to be
+      !!                            stored of the relevant variable\n
+      !!             nstk(integer): Polarization last index
       subroutine cut_stk(o_stk,i_stk,buff,nstk)
 
-      ! IO
+      ! I/O
+
       type(IO_helper_class), intent(in):: buff
       integer, intent(in):: nstk
       double precision, dimension(:,:,:,:), intent(in):: i_stk
-      double precision, dimension(:,:,:,:), allocatable:: o_stk
+      double precision, dimension(:,:,:,:), &
+                        allocatable, intent(inout):: o_stk
 
       ! Local
+
       integer:: iran,ii,i0,i1,nn
 
 
@@ -479,7 +468,7 @@
       ! For each entry to write
       do iran=1,buff%nran
 
-        ! Atom and transition
+        ! Range and size
         i0 = buff%indx(1,iran)
         i1 = buff%indx(2,iran)
         nn = i1-i0+1
@@ -498,21 +487,28 @@
 !#####################################################################
 !#####################################################################
 
-      !> Prepare the ranges to apply the PSF later\n
-      !!   Inf_Stokes(Stokes_class): Structure with the Stokes data\n
-      !! buff(FWHM_helper_class(:)): Info about ranges\n
-      !!     files(strarr_class(:)): Kernel filenames\n
-      !!        omega_in(double(:)): Frequency axis from data\n
-      !!           omega(double(:)): Frequency axis for RT
+      !> Prepare the ranges to apply the PSF\n
+      !!  Inf_Stokes(Stokes_class): Structure with inversion Stokes
+      !!                            parameters data\n
+      !!   buff(FWHM_helper_class): Structure with the data on the
+      !!                            spectral PSF\n
+      !!    files(strarr_class(:)): PSF kernel filenames\n
+      !!       omega_in(double(:)): Frequency axis from data\n
+      !!          omega(double(:)): Frequency axis for radiation
+      !!                            transfer
       subroutine set_psf_ranges(Inf_Stokes,buff,files,omega_in,omega)
 
       ! I/O
+
       type(Stokes_class), intent(in):: Inf_Stokes
-      type(FWHM_helper_class), dimension(:), allocatable:: buff
-      type(strarr_class), dimension(:), allocatable:: files
+      type(FWHM_helper_class), dimension(:), &
+                               allocatable, intent(inout):: buff
+      type(strarr_class), dimension(:), &
+                          allocatable, intent(inout):: files
       double precision, dimension(:), intent(in):: omega_in,omega
 
       ! Local
+
       logical:: left,right
 
       integer:: ir,ir1,irl,irr,ileft,iright,ifreq,ios
@@ -523,16 +519,20 @@
       ! If no PSF, skip
       if (.not.allocated(buff)) return
 
-      ! Allocate indexes (1 and 2 for in, 3 and 4 for out)
+      ! For each range
       do ir=1,buff(1)%nn
+
+        ! Allocate indexes (1 and 2 for in, 3 and 4 for out)
         allocate(buff(ir)%indx(4))
+        MRAMc = MRAMc + 1d-6*sizeof(buff(ir)%indx)
         buff(ir)%indx(1) = nfreq + 1
         buff(ir)%indx(3) = buff(ir)%indx(1)
         buff(ir)%indx(2) = 0
         buff(ir)%indx(4) = 0
-      end do
 
-      ! Get wavelength axis
+      end do ! Ranges
+
+      ! Get radiation transfer wavelength axis
       allocate(lambda(nfreq))
       lambda = 1d2/omega(nfreq:1:-1)
 
@@ -641,9 +641,11 @@
           ! Read size of array
           read(200,err=1100) buff(ir)%nfreq
 
-          ! Allocate
+          ! Allocate space for wavelength and kernel
           allocate(buff(ir)%wave(buff(ir)%nfreq))
           allocate(buff(ir)%kernel(buff(ir)%nfreq))
+          MRAMc = MRAMc + 1d-6*sizeof(buff(ir)%wave)
+          MRAMc = MRAMc + 1d-6*sizeof(buff(ir)%kernel)
 
           ! Read wavelengths and kernel
           read(200,err=1100) buff(ir)%wave
@@ -727,6 +729,8 @@
           if (buff(ir)%indx(1).gt.buff(ir)%indx(2)) then
 
             ! Free memory and continue with next
+            MRAMc = MRAMc - 1d-6*sizeof(buff(ir)%wave)
+            MRAMc = MRAMc - 1d-6*sizeof(buff(ir)%kernel)
             deallocate(buff(ir)%wave,buff(ir)%kernel)
             cycle
 
@@ -778,13 +782,13 @@
 
 1000  write(umsg,'(A,1x,i2)') 'Error opening PSF file',ir
       urou = 'set_psf_ranges'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1100  write(umsg,'(A,1x,i2)') 'Error reading PSF file',ir
       urou = 'set_psf_ranges'
       close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 

@@ -5,29 +5,20 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     04/20/2017
+!     20/04/2017
 !  Last version:
-!     11/24/2022 V3.0.2
+!     28/11/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     11/24/2022:    V3.0.2 - Skip computing the velocity shift if
-!                             the dynamic flag is off (TdPA)
-!
-!     07/27/2022:    V3.0.1 - Renamed MPI to MPID (TdPA)
-!
-!     06/29/2022:    V3.0.0 - To implement the 1.5D case Atmo%v has
-!                             changed to Atmo%vx,%vy, and %vz (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!
-!     04/20/2017:    V1.0.0 - First version (TdPA)
+!     28/11/2024:    V4.0.0 - Significantly simplified what is done
+!                             in the subroutines, now expecting more
+!                             processed arguments (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -37,22 +28,24 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!  top:
-!    This subroutine initializes the top boundary
+!  top
+!    Define Stokes parameters at the upper boundary
 !
-!  bottom:
-!    This subroutine initializes the bottom boundary
+!  topI
+!    Define intensity at the upper boundary
 !
-!  topI:
-!    This subroutine initializes the top boundary for only intensity
+!  bottom
+!    Define Stokes parameters at the bottom boundary
 !
-!  bottomI:
-!    This subroutine initializes the bottom boundary for only
-!  intensity
-!
-!  Planckian function (k-units)
+!  bottomI
+!    Define intensity at the bottom boundary
 !
 !#####################################################################
 !#####################################################################
@@ -69,17 +62,18 @@
 !#####################################################################
 !#####################################################################
 
-      !> Returns Stokes parameters at the upper boundary\n
-      !!      MPID(MPI_class): Structure with MPI data\n
-      !!     Stk(dfloat(:,:)): Stokes parameters at upper boundary
-      subroutine top(MPID,Stk)
+      !> Define Stokes parameters at the upper boundary\n
+      !!      if0(integer): Lower limit index for frequency\n
+      !!      if1(integer): Upper limit index for frequency\n
+      !!  Stk(double(:,:)): Stokes parameters at the upper boundary
+      subroutine top(if0,if1,Stk)
 
       ! I/O
 
-      type(MPI_class), intent(in):: MPID
-      double precision, dimension(0:3,MPID%if0(pid):MPID%if1(pid)), &
-                        intent(out):: Stk
+      integer, intent(in):: if0,if1
+      double precision, dimension(0:3,if0:if1), intent(out):: Stk
 
+      ! Vacuum on top
       Stk = 0d0
 
       end subroutine top
@@ -88,17 +82,18 @@
 !#####################################################################
 !#####################################################################
 
-      !> Returns intensity at the upper boundary\n
-      !!    MPID(MPI_class): Structure with MPI data\n
-      !!     Stk(dfloat(:)): Intensity at upper boundary
-      subroutine topI(MPID,Stk)
+      !> Define intensity at the upper boundary\n
+      !!    if0(integer): Lower limit index for frequency\n
+      !!    if1(integer): Upper limit index for frequency\n
+      !!  Stk(double(:)): Intensity at upper boundary
+      subroutine topI(if0,if1,Stk)
 
       ! I/O
 
-      type(MPI_class), intent(in):: MPID
-      double precision, dimension(MPID%if0(pid):MPID%if1(pid)), &
-                        intent(out):: Stk
+      integer, intent(in):: if0,if1
+      double precision, dimension(if0:if1),intent(out):: Stk
 
+      ! Vacuum on top
       Stk = 0d0
 
       end subroutine topI
@@ -107,62 +102,37 @@
 !#####################################################################
 !#####################################################################
 
-      !> Returns Stokes parameters at the bottom boundary\n
-      !!   omega(dfloat(:)): Frequency array\n
-      !!          T(dfloat): Temperature\n
-      !!         vx(dfloat): Velocity along X\n
-      !!         vy(dfloat): Velocity along Y\n
-      !!         vz(dfloat): Velocity along Z\n
-      !!         mu(dfloat): Cosine of polar angle\n
-      !!        mux(dfloat): Cosine of azimuth\n
-      !!     muy_in(dfloat): Sign of sin of azimuth\n
-      !!    MPID(MPI_class): Structure with MPI data\n
-      !!   Stk(dfloat(:,:)): Stokes parameters at bottom boundary
-      subroutine bottom(omega,T,vx,vy,vz,mu,mux,muy_in,MPID,Stk)
+      !> Define Stokes parameters at the bottom boundary\n
+      !!  omega(double(:)): Frequency array\n
+      !!         T(double): Temperature\n
+      !!      vfac(double): Doppler shift factor\n
+      !!      if0(integer): Lower limit index for frequency\n
+      !!      if1(integer): Upper limit index for frequency\n
+      !!  Stk(double(:,:)): Stokes parameters at bottom boundary
+      subroutine bottom(omega,T,vfac,if0,if1,Stk)
 
       ! I/O
 
-      type(MPI_class), intent(in):: MPID
-      double precision, intent(in):: T,mu,mux,muy_in,vx,vy,vz
+      integer, intent(in):: if0,if1
+      double precision, intent(in):: T,vfac
       double precision, dimension(:), intent(in):: omega
-      double precision, dimension(0:3,MPID%if0(pid):MPID%if1(pid)), &
-                        intent(out):: Stk
+      double precision, dimension(0:3,if0:if1), intent(out):: Stk
 
       ! Local
 
       integer:: ifreq
 
-      double precision:: muy,ct,st,cc,sc,vfac
-
 
       ! Initialize
       Stk = 0d0
 
-      ! Calculate Doppler shift factor
-      if (dyn) then
+      ! For every frequency
+      do ifreq=if0,if1
 
-        ct = mu
-        st = sqrt(1d0 - ct*ct)
-        cc = mux
-        muy = muy_in
-        if (abs(muy).lt.1d-8) muy = 1d0
-        sc = muy*sqrt(1d0 - cc*cc)/abs(muy)
-
-        vfac = 1d0 - vx*st*cc - vy*st*sc - vz*ct
-
-      ! Static
-      else
-
-        vfac = 1d0
-
-      end if
-
-      ! Make the boundary planckian
-      do ifreq=MPID%if0(pid),MPID%if1(pid)
-
+        ! Make the boundary planckian [k-units]
         Stk(0,ifreq) = planck(omega(ifreq)*vfac,T)
 
-      end do
+      end do ! Frequencies
 
       end subroutine bottom
 
@@ -170,59 +140,34 @@
 !#####################################################################
 !#####################################################################
 
-      !> Returns intensity at the upper boundary\n
-      !!  omega(dfloat(:)): Frequency array\n
-      !!         T(dfloat): Temperature\n
-      !!        vx(dfloat): Velocity along X\n
-      !!        vy(dfloat): Velocity along Y\n
-      !!        vz(dfloat): Velocity along Z\n
-      !!        mu(dfloat): Cosine of polar angle\n
-      !!       mux(dfloat): Cosine of azimuth\n
-      !!    muy_in(dfloat): Sign of sin of azimuth\n
-      !!   MPID(MPI_class): Structure with MPI data\n
-      !!    Stk(dfloat(:)): Intensity at bottom boundary
-      subroutine bottomI(omega,T,vx,vy,vz,mu,mux,muy_in,MPID,Stk)
+      !> Define intensity at the bottom boundary\n
+      !!  omega(double(:)): Frequency array\n
+      !!         T(double): Temperature\n
+      !!      vfac(double): Doppler shift\n
+      !!      if0(integer): Lower limit index for frequency\n
+      !!      if1(integer): Upper limit index for frequency\n
+      !!    Stk(double(:)): Intensity at bottom boundary
+      subroutine bottomI(omega,T,vfac,if0,if1,Stk)
 
       ! I/O
 
-      type(MPI_class), intent(in):: MPID
-      double precision, intent(in):: T,mu,mux,muy_in,vx,vy,vz
+      integer, intent(in):: if0,if1
+      double precision, intent(in):: T,vfac
       double precision, dimension(:), intent(in)::  omega
-      double precision, dimension(MPID%if0(pid):MPID%if1(pid)), &
-                        intent(out):: Stk
+      double precision, dimension(if0:if1), intent(out):: Stk
 
       ! Local
 
       integer:: ifreq
 
-      double precision:: muy,ct,st,cc,sc,vfac
 
+      ! For each frequency
+      do ifreq=if0,if1
 
-      ! Calculate Doppler shift factor
-      if (dyn) then
-
-        ct = mu
-        st = sqrt(1d0 - ct*ct)
-        cc = mux
-        muy = muy_in
-        if (abs(muy).lt.1d-8) muy = 1d0
-        sc = muy*sqrt(1d0 - cc*cc)/abs(muy)
-
-        vfac = 1d0 - vx*st*cc - vy*st*sc - vz*ct
-
-      ! Static
-      else
-
-        vfac = 1d0
-
-      end if
-
-      ! Make the boundary planckian
-      do ifreq=MPID%if0(pid),MPID%if1(pid)
-
+        ! Make the boundary planckian [k-units]
         Stk(ifreq) = planck(omega(ifreq)*vfac,T)
 
-      end do
+      end do ! Frequencies
 
       end subroutine bottomI
 

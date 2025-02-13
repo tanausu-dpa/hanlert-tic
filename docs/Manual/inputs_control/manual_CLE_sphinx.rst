@@ -84,7 +84,7 @@ ATOM_FIX_POP
     
     - string: a single word and unique label
 
-  * Description: The model atom with the corresponding label will kept their initial populations fixed when solving the iterative problem. These populations are calculated in LTE unless ATOM_POPU is specified for the same model atom.
+  * Description: The model atom with the corresponding label will keep their initial populations fixed when solving the iterative problem. These populations are calculated in LTE unless ATOM_POPU is specified for the same model atom.
 
 ATOM_FIX_POP_LTERM
 ------------------
@@ -95,7 +95,7 @@ ATOM_FIX_POP_LTERM
     
     - string: a single word and unique label
 
-  * Description: The model atom with the corresponding label will kept the initial populations of the ground level/term fixed when solving the iterative problem. These populations are calculated in LTE unless ATOM_POPU is specified for the same model atom.
+  * Description: The model atom with the corresponding label will keep the initial populations of the ground level/term fixed when solving the iterative problem. These populations are calculated in LTE unless ATOM_POPU is specified for the same model atom.
 
 ATOM_ZERO_ION
 -------------
@@ -458,7 +458,7 @@ RAM_LIMIT
     
     - integer; default: -1
 
-  * Description: Maximum amount of Megabytes which can be allocated in the form of Voigt profiles, photoionization pre-calculated quantities, interpolation precalculated quantities (partial frequency redistribution), or redistribution functions. Negative means no limit (NOT RECOMMENDED for complex problems).
+  * Description: Maximum amount of Megabytes which can be allocated per CPU, used to limit the amount of Voigt and redistribution profiles to store in RAM. The counting is not perfect, so be conservative if there is a RAM limit.
 
 RAMAN
 -----
@@ -503,6 +503,17 @@ REDI_COHW
     - float / string: No; Default: RED_COHW
 
   * Description: Doppler widths from the line center from where to assume that the scattering is fully coherent in only intensity problems.
+
+RED_INT_MODE
+------------
+
+  * OPTIONAL, ADVANCED
+
+  * Formats:
+    
+    - string: Linear, Splines; default: Splines
+
+  * Description: Type of interpolation of the second order emissivity when transforming from the comoving to the observer's reference frame.
 
 RED_NODE
 --------
@@ -879,17 +890,6 @@ ITER_2ORD
 
   * Description: Account for partial frequency redistribution effects.
 
-BCAST_MODE
-----------
-
-  * OPTIONAL, ADVANCED
-
-  * Formats:
-    
-    - string: BROADCAST, ALTSEND; default: BROADCAST
-
-  * Description: Type of algorithm for message passing interface broadcasting.
-
 ALLOW_NPHYS_STK
 ---------------
 
@@ -1098,39 +1098,6 @@ CHEM_PROTECT_ALL
     - string: Yes, No; default: No
 
   * Description: Do not let the chemical equilibrium to change the atomic number density of any atom.
-
-MPIDETAIL
----------
-
-  * OPTIONAL, ADVANCED
-
-  * Formats:
-    
-    - string: file path
-
-  * Description: Path, absolute or relative to the running directory, of a MPI detail file from a previous run.
-
-OPERFORM
---------
-
-  * OPTIONAL, ADVANCED
-
-  * Formats:
-    
-    - string: file path
-
-  * Description: Path, absolute or relative to the running directory, of a performance detail file from a previous run.
-
-MPISTKIP
---------
-
-  * OPTIONAL, ADVANCED
-
-  * Formats:
-    
-    - string: Yes, No
-
-  * Description: Skip the first iteration when trying to optimize the distribution of frequencies between processes.
 
 VERBOSE
 -------

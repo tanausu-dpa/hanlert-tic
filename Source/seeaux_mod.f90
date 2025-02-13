@@ -5,63 +5,19 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !     Roberto Casini (HAO)
 !  Start:
-!     04/26/2017
+!     26/04/2017
 !  Last version:
-!     09/29/2023 V3.0.2
+!     19/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     09/29/2023:    V3.0.2 - Updated to term- and transition-wise
-!                             K cut limits (TdPA)
-!
-!     02/01/2023:    V3.0.1 - Bugfix: The expected dimension of the
-!                             Jrad array in rS and rA was nxtran, but
-!                             it should be just the dimension for the
-!                             current atom (TdPA)
-!
-!     06/29/2022:    V3.0.0 - Changed global version (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!                           - Added a double precision K in the
-!                             forbidden collisional transfer rates
-!                             with polarization (TdPA)
-!
-!     17/02/2021:    V1.1.3 - Added polarization transfer for
-!                             forbidden collisions (TdPA)
-!
-!     08/03/2018:    V1.1.2 - Introduced the Kcut on rA and tA (TdPA)
-!
-!     10/30/2017:    V1.1.1 - Decided that tAFC and tSFC are zero for
-!                             K!=0, as they are not a dipole type
-!                             transition (TdPA)
-!
-!     10/25/2017:    V1.1.0 - In tAFC and tSFC, missing the 6j that
-!                             corresponds to K!=0 (TdPA)
-!
-!     10/24/2017:    V1.0.3 - In rAFC, start loop from the next level,
-!                             does not affect results because it was
-!                             adding 0 (TdPA)
-!
-!     09/08/2017:    V1.0.2 - The relaxation rates for forbidden
-!                             collisions do not take into account
-!                             ionizing collisions if it is not a
-!                             rho00 case (TdPA)
-!
-!     05/05/2017:    V1.0.1 - The factor variable was outside of the
-!                             term loop in rAC and rSC, and it should
-!                             be inside to be properly reset for each
-!                             collisional transition (TdPA)
-!                           - The multilevel collisional relaxation
-!                             rates only add contributions that are
-!                             considered forbidden (TdPA)
-!
-!     04/26/2017:    V1.0.0 - First version (TdPA)
+!     19/12/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -71,56 +27,78 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    This module contains the routines to calculate the rates for the
-!  SEE
+!  rE
+!    Relaxation rate for spontaneous emission
 !
-!  rE:
-!    Relaxation spontaneous rate.
-!  tE:
-!    Spontaneous emission transition rate.
-!  tS:
-!    Stimulated emission transition rate.
-!  tSC:
-!    Up-down collisional transition rate.
-!  tA:
-!    Absorption transition rate.
-!  tAC:
-!    Down-up collisional transition rate.
-!  rS:
-!    Relaxation stimulated rate.
-!  rA:
-!    Relaxation absorption rate.
-!  rSC:
-!    Relaxation rates for superelastic collisions (isotropic)
-!  rAC:
-!    Relaxation rates for inelastic collisions (isotropic)
-!  tSFC:
-!    Transition rates for up-down collision (forbidden)
-!  tAFC:
-!    Transition rates for down-up collision (forbidden)
-!  rSFC:
-!    Relaxation rates for superelastic forbidden collisions
-!  rAFC:
-!    Relaxation rates for inelastic forbidden collisions
-!  rEP:
-!    Relaxation b-f spontaneous rate.
-!  tEP:
-!    Spontaneous emission b-f transition rate.
-!  tSP:
-!    Stimulated emission b-f transition rate.
-!  tAP:
-!    Absorption b-f transition rate.
-!  rSP:
-!    Relaxation b-f stimulated rate.
-!  rAP:
-!    Relaxation b-f absorption rate.
-!  GammaF:
-!    Used in MK
-!  MK:
-!    Off-diagonal magnetic kernel of the SEE
+!  rS
+!    Relaxation rate for stimulated emission
 !
+!  rA
+!    Relaxation rate for absorption
+!
+!  tE
+!    Transition rate for spontaneous emission
+!
+!  tS
+!    Transition rate for stimulated emission
+!
+!  tA
+!    Transition rate for absorption
+!
+!  rSC
+!    Relaxation rate for isotropic superelastic collisions
+!
+!  rAC
+!    Relaxation rate for isotropic inelastic collisions
+!
+!  tSC
+!    Transition rate for isotropic superelastic collisions
+!
+!  tAC
+!    Transition rate for isotropic inelastic collisions
+!
+!  rSFC
+!    Relaxation rate for isotropic forbidden superelastic collisions
+!
+!  rAFC
+!    Relaxation rate for isotropic forbidden inelastic collisions
+!
+!  tSFC
+!    Transition rate for isotropic forbidden superelastic collisions
+!
+!  tAFC
+!    Transition rate for isotropic forbidden inelastic collisions
+!
+!  rEP
+!    Relaxation rate for bound-free spontaneous emission
+!
+!  rSP
+!    Relaxation rate for bound-free stimulated emission
+!
+!  rAP
+!    Relaxation rate for bound-free absorption
+!
+!  tEP
+!    Transition rate for bound-free spontaneous emission
+!
+!  tSP
+!    Transition rate for bound-free stimulated emission
+!
+!  tAP
+!    Transition rate for bound-free absorption
+!
+!  GammaF
+!    Gamma in the magnetic kernel for the multi-term atom
+!
+!  MK
+!    Magnetic kernel of a multi-term atom
 !
 !#####################################################################
 !#####################################################################
@@ -138,9 +116,9 @@
 !#####################################################################
 
       !> Relaxation rate for spontaneous emission\n
-      !!        iterm(integer): Term index\n
-      !!   Ecoeff(dfloat(:,:)): Einstein coefficient data\n
-      !!       rEcoeff(dfloat): Spontaneous emission relaxation rate
+      !!       iterm(integer): Term index\n
+      !!  Ecoeff(double(:,:)): Einstein coefficient data\n
+      !!      rEcoeff(double): Spontaneous emission relaxation rate
       subroutine rE(iterm,Ecoeff,rEcoeff)
 
       ! I/O
@@ -153,11 +131,16 @@
 
       integer:: iterml
 
+      ! Initialize
       rEcoeff = 0d0
 
+      ! For each lower term
       do iterml=1,iterm-1
+
+        ! Add Aul
         rEcoeff = rEcoeff + Ecoeff(iterm,iterml)
-      end do
+
+      end do ! Lower terms
 
       end subroutine rE
 
@@ -165,331 +148,30 @@
 !#####################################################################
 !#####################################################################
 
-      !> Transition rate for spontaneous emission\n
-      !!            rL(dfloat): Orbital angular momentum L\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJ1(dfloat): Angular momentum J'\n
-      !!            rK(dfloat): Multipolar component K\n
-      !!           rLL(dfloat): Orbital angular momentum L'\n
-      !!           rJJ(dfloat): Angular momentum J''\n
-      !!          rJJ1(dfloat): Angular momentum J'''\n
-      !!             S(dfloat): Spin S\n
-      !!        Ecoeff(dfloat): Einstein coefficient data\n
-      !!    Flgsg(Fctsg_class): Structure with factorials and
-      !!                        signs\n
-      !!       tEcoeff(dfloat): Spontaneous emission transition rate
-      subroutine tE(rL,rJ,rJ1,rK,rLL,rJJ,rJJ1,S,Ecoeff,Flgsg,tEcoeff)
-
-      ! I/O
-
-      type(Fctsg_class), intent(in):: Flgsg
-      double precision, intent(in):: rL,rJ,rJ1,rK,S
-      double precision, intent(in):: rLL,rJJ,rJJ1
-      double precision, intent(in):: Ecoeff
-      double precision, intent(out):: tEcoeff
-
-      tEcoeff = Flgsg%sg(1+nint(rK+rJ1+rJJ1))* &
-                (2d0*rLL+1d0)*Ecoeff* &
-                sqrt((2d0*rJ+1d0)*(2d0*rJ1+1d0)* &
-                (2d0*rJJ+1d0)*(2d0*rJJ1+1d0))* &
-                fun6j(rJ,rJ1,rK,rJJ1,rJJ,1d0,Flgsg)* &
-                fun6j(rLL,rL,1d0,rJ,rJJ,S,Flgsg)* &
-                fun6j(rLL,rL,1d0,rJ1,rJJ1,S,Flgsg)
-
-      end subroutine tE
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
-      !> Transition rate for stimulated emission\n
-      !!            rL(dfloat): Orbital angular momentum L\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJ1(dfloat): Angular momentum J'\n
-      !!            rK(dfloat): Multipolar component K\n
-      !!             Q(dfloat): Multipolar component Q\n
-      !!           rLL(dfloat): Orbital angular momentum L'\n
-      !!           rJJ(dfloat): Angular momentum J''\n
-      !!          rJJ1(dfloat): Angular momentum J'''\n
-      !!           rKK(dfloat): Multipolar component K'\n
-      !!            QQ(dfloat): Multipolar component Q'\n
-      !!             S(dfloat): Spin S\n
-      !!        Ecoeff(dfloat): Einstein coefficient data\n
-      !!   RadJS(complex(:,:)): Radiation field tensor integrated over
-      !!                        emission profile\n
-      !!          mKr(integer): Maximum radiative multipole\n
-      !!    Flgsg(Fctsg_class): Structure with factorials and
-      !!                        signs\n
-      !!       tScoeff(dfloat): Stimulated emission transfer rate
-      subroutine tS(rL,rJ,rJ1,rK,Q, &
-                    rLL,rJJ,rJJ1,rKK,QQ,S, &
-                    Ecoeff,RadJS,mKr,Flgsg,tScoeff)
-
-      ! I/O
-
-      type(Fctsg_class), intent(in):: Flgsg
-      integer, intent(in):: mKr
-      double precision, intent(in):: rL,rJ,rJ1,rK,Q,S
-      double precision, intent(in):: rLL,rJJ,rJJ1,rKK,QQ
-      double precision, intent(in):: Ecoeff
-      complex(kind=8), dimension(-2:2,0:2), intent(in):: RadJS
-      complex(kind=8), intent(out):: tScoeff
-
-      ! Local
-
-      integer:: Kr,iQr
-
-      double precision:: rKr,Qr
-
-      complex(kind=8):: tmp,tmp1
-
-
-      tmp = 0d0
-
-      do Kr=0,mKr
-
-        rKr = dble(Kr)
-
-        tmp1 = 0d0
-
-        do iQr=-Kr,Kr
-
-          Qr = dble(iQr)
-
-          tmp1 = fun3j(rK,rKK,rKr,-Q,QQ,-Qr,Flgsg)*RadJS(iQr,Kr) + &
-                 tmp1
-
-        end do
-
-        tmp = Flgsg%sg(Kr)*sqrt(2d0*rKr+1d0)* &
-              fun9j(rJ,rJJ,1d0,rJ1,rJJ1,1d0,rK,rKK,rKr,Flgsg)*tmp1 + &
-              tmp
-
-      end do
-
-      tScoeff = Flgsg%sg(nint(rKK+QQ+rJJ1-rJJ))* &
-                (2d0*rL+1d0)*Ecoeff* &
-                sqrt(3d0*(2d0*rJ+1d0)*(2d0*rJ1+1d0)* &
-                (2d0*rJJ+1d0)*(2d0*rJJ1+1d0)* &
-                (2d0*rK+1d0)*(2d0*rKK+1d0))* &
-                fun6j(rL,rLL,1d0,rJJ,rJ,S,Flgsg)* &
-                fun6j(rL,rLL,1d0,rJJ1,rJ1,S,Flgsg)*tmp
-
-      end subroutine tS
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
-      !> Transition rate for collision up-down\n
-      !!            rL(dfloat): Orbital angular momentum L\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJ1(dfloat): Angular momentum J'\n
-      !!            rK(dfloat): Multipolar component K\n
-      !!             Q(dfloat): Multipolar component Q\n
-      !!           rLL(dfloat): Orbital angular momentum L'\n
-      !!           rJJ(dfloat): Angular momentum J''\n
-      !!          rJJ1(dfloat): Angular momentum J'''\n
-      !!           rKK(dfloat): Multipolar component K'\n
-      !!            QQ(dfloat): Multipolar component Q'\n
-      !!             S(dfloat): Spin S\n
-      !!        Ccoeff(dfloat): Collisional rate data\n
-      !!    Flgsg(Fctsg_class): Structure with factorials and
-      !!                        signs\n
-      !!      tSCcoeff(dfloat): Collisional transition rate
-      subroutine tSC(rL,rJ,rJ1,rK,Q,rLL,rJJ,rJJ1,rKK,QQ,S, &
-                     Ccoeff,Flgsg,tSCcoeff)
-
-      ! I/O
-
-      type(Fctsg_class), intent(in):: Flgsg
-      double precision, intent(in):: rL,rJ,rJ1,rK,Q,S
-      double precision, intent(in):: rLL,rJJ,rJJ1,rKK,QQ
-      double precision, intent(in):: Ccoeff
-      double precision, intent(out):: tSCcoeff
-
-      ! Local
-
-      double precision:: tmp
-
-      tSCcoeff = 0d0
-
-      if (abs(rK-rKK).gt..4d0) return
-
-      tmp = fun3j(rK,rKK,0d0,-Q,QQ,0d0,Flgsg)* &
-            fun9j(rJ,rJJ,1d0,rJ1,rJJ1,1d0,rK,rKK,0d0,Flgsg)
-
-      tSCcoeff = Flgsg%sg(nint(rKK+QQ+rJJ1-rJJ))* &
-                 (2d0*rLL+1d0)*Ccoeff* &
-                 sqrt(3d0*(2d0*rJ+1d0)*(2d0*rJ1+1d0)* &
-                 (2d0*rJJ+1d0)*(2d0*rJJ1+1d0)* &
-                 (2d0*rK+1d0)*(2d0*rKK+1d0))* &
-                 fun6j(rL,rLL,1d0,rJJ,rJ,S,Flgsg)* &
-                 fun6j(rL,rLL,1d0,rJJ1,rJ1,S,Flgsg)*tmp
-
-      end subroutine tSC
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
-      !> Transition rate for absorption\n
-      !!            rL(dfloat): Orbital angular momentum L\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJ1(dfloat): Angular momentum J'\n
-      !!            rK(dfloat): Multipolar component K\n
-      !!             Q(dfloat): Multipolar component Q\n
-      !!           rLL(dfloat): Orbital angular momentum L'\n
-      !!           rJJ(dfloat): Angular momentum J''\n
-      !!          rJJ1(dfloat): Angular momentum J'''\n
-      !!           rKK(dfloat): Multipolar component K'\n
-      !!            QQ(dfloat): Multipolar component Q'\n
-      !!             S(dfloat): Spin S\n
-      !!   Ecoeff(dfloat(:,:)): Einstein coefficient data\n
-      !!    RadJ(complex(:,:)): Radiation field tensor integrated over
-      !!                        absorption profile\n
-      !!          mKr(integer): Maximum radiative multipole\n
-      !!          mKc(integer): Maximum atomic multipole\n
-      !!    Flgsg(Fctsg_class): Structure with factorials and
-      !!                        signs\n
-      !!       tAcoeff(dfloat): Absorption transfer rate
-      subroutine tA(rL,rJ,rJ1,rK,Q, &
-                    rLL,rJJ,rJJ1,rKK,QQ,S, &
-                    Ecoeff,RadJ,mKr,mKc,Flgsg,tAcoeff)
-
-      ! I/O
-
-      type(Fctsg_class), intent(in):: Flgsg
-      integer, intent(in):: mKr,mKc
-      double precision, intent(in):: rL,rJ,rJ1,rK,Q,S
-      double precision, intent(in):: rLL,rJJ,rJJ1,rKK,QQ
-      double precision, intent(in):: Ecoeff
-      complex(kind=8), dimension(-2:2,0:2), intent(in):: RadJ
-      complex(kind=8), intent(out):: tAcoeff
-
-      ! Local
-
-      integer:: Kr,iQr
-
-      double precision:: rKr,Qr
-
-      complex(kind=8):: tmp,tmp1
-
-
-      tmp = 0d0
-
-      do Kr=0,mKr
-
-        rKr = dble(Kr)
-
-        if(nint(rKr+rKK).gt.mKc)cycle
-
-        tmp1 = 0d0
-
-        do iQr=-Kr,Kr
-
-          Qr = dble(iQr)
-
-          tmp1 = fun3j(rK,rKK,rKr,-Q,QQ,-Qr,Flgsg)*RadJ(iQr,Kr) + tmp1
-
-        end do
-
-        tmp = sqrt(2d0*rKr+1d0)* &
-              fun9j(rJ,rJJ,1d0,rJ1,rJJ1,1d0,rK,rKK,rKr,Flgsg)*tmp1 + &
-              tmp
-
-      end do
-
-      tAcoeff = Flgsg%sg(nint(rKK+QQ+rJJ1-rJJ))* &
-                (2d0*rLL+1d0)*Ecoeff* &
-                sqrt(3d0*(2d0*rJ+1d0)*(2d0*rJ1+1d0)* &
-                (2d0*rJJ+1d0)*(2d0*rJJ1+1d0)* &
-                (2d0*rK+1d0)*(2d0*rKK+1d0))* &
-                fun6j(rL,rLL,1d0,rJJ,rJ,S,Flgsg)* &
-                fun6j(rL,rLL,1d0,rJJ1,rJ1,S,Flgsg)*tmp
-
-      end subroutine tA
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
-      !> Transition rate for collision down-up\n
-      !!            rL(dfloat): Orbital angular momentum L\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJ1(dfloat): Angular momentum J'\n
-      !!            rK(dfloat): Multipolar component K\n
-      !!             Q(dfloat): Multipolar component Q\n
-      !!           rLL(dfloat): Orbital angular momentum L'\n
-      !!           rJJ(dfloat): Angular momentum J''\n
-      !!          rJJ1(dfloat): Angular momentum J'''\n
-      !!           rKK(dfloat): Multipolar component K'\n
-      !!            QQ(dfloat): Multipolar component Q'\n
-      !!             S(dfloat): Spin S\n
-      !!        Ccoeff(dfloat): Collisional rate data\n
-      !!    Flgsg(Fctsg_class): Structure with factorials and
-      !!                        signs\n
-      !!      tACcoeff(dfloat): Collisional transition rate
-      subroutine tAC(rL,rJ,rJ1,rK,Q,rLL,rJJ,rJJ1,rKK,QQ,S, &
-                     Ccoeff,Flgsg,tACcoeff)
-
-      ! I/O
-
-      type(Fctsg_class), intent(in):: Flgsg
-      double precision, intent(in):: rL,rJ,rJ1,rK,Q,S
-      double precision, intent(in):: rLL,rJJ,rJJ1,rKK,QQ
-      double precision, intent(in):: Ccoeff
-      double precision, intent(out):: tACcoeff
-
-      ! Local
-
-      double precision tmp
-
-      tACcoeff = 0d0
-
-      if (abs(rK-rKK).gt..4d0) return
-
-      tmp = fun3j(rK,rKK,0d0,-Q,QQ,0d0,Flgsg)* &
-            fun9j(rJ,rJJ,1d0,rJ1,rJJ1,1d0,rK,rKK,0d0,Flgsg)
-
-      tACcoeff = Flgsg%sg(nint(rKK+QQ+rJJ1-rJJ))* &
-                 (2d0*rLL+1d0)*Ccoeff* &
-                 sqrt(3d0*(2d0*rJ+1d0)*(2d0*rJ1+1d0)* &
-                 (2d0*rJJ+1d0)*(2d0*rJJ1+1d0)* &
-                 (2d0*rK+1d0)*(2d0*rKK+1d0))* &
-                 fun6j(rL,rLL,1d0,rJJ,rJ,S,Flgsg)* &
-                 fun6j(rL,rLL,1d0,rJJ1,rJ1,S,Flgsg)*tmp
-
-      end subroutine tAC
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
       !> Relaxation rate for stimulated emission\n
-      !!        iterm(integer): Term index\n
-      !!      irad(integer(:)): Transition indexes\n
-      !!        ntran(integer): Number of transitions\n
-      !!      rLval(dfloat(:)): Orbital angular momentum values\n
-      !!            rL(dfloat): Orbital angular momentum L\n
-      !!             S(dfloat): Spin S\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJ1(dfloat): Angular momentum J'\n
-      !!            rK(dfloat): Multipolar component K\n
-      !!             Q(dfloat): Multipolar component Q\n
-      !!           rJJ(dfloat): Angular momentum J''\n
-      !!          rJJ1(dfloat): Angular momentum J'''\n
-      !!           rKK(dfloat): Multipolar component K'\n
-      !!            QQ(dfloat): Multipolar component Q'\n
-      !!           zJ(logical): Bool with diagonality J,J''\n
-      !!          zJ1(logical): Bool with diagonality J',J'''\n
-      !!     Ecoeff(dfloat(:)): Einstein coefficient data\n
-      !! RadJS(complex(:,:,:)): Radiation field tensor integrated over
-      !!                        emission profile\n
-      !!       mKr(integer(:)): Maximum radiative multipole\n
-      !!    Flgsg(Fctsg_class): Structure with factorials and
-      !!                        signs\n
-      !!       rScoeff(dfloat): Stimulated emission relaxation rate
+      !!         iterm(integer): Term index\n
+      !!       irad(integer(:)): Transition indexes\n
+      !!         ntran(integer): Number of transitions\n
+      !!       rLval(double(:)): Orbital angular momentum values\n
+      !!             rL(double): Orbital angular momentum L\n
+      !!              S(double): Spin S\n
+      !!             rJ(double): Angular momentum J\n
+      !!            rJ1(double): Angular momentum J'\n
+      !!             rK(double): Multipolar component K\n
+      !!              Q(double): Multipolar component Q\n
+      !!            rJJ(double): Angular momentum J''\n
+      !!           rJJ1(double): Angular momentum J'''\n
+      !!            rKK(double): Multipolar component K'\n
+      !!             QQ(double): Multipolar component Q'\n
+      !!            zJ(logical): Bool with diagonality J,J''\n
+      !!           zJ1(logical): Bool with diagonality J',J'''\n
+      !!      Ecoeff(double(:)): Einstein coefficient data\n
+      !!  RadJS(dcomplx(:,:,:)): Radiation field tensors integrated
+      !!                         over the emission profile\n
+      !!        mKr(integer(:)): Maximum radiative multipole\n
+      !!     Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                         J-symbols\n
+      !!        rScoeff(double): Stimulated emission relaxation rate
       subroutine rS(iterm,irad,ntran,rLval,rL,S,rJ,rJ1,rK,Q,rJJ, &
                     rJJ1,rKK,QQ,zJ,zJ1,Ecoeff,RadJS,mKr,Flgsg,rScoeff)
 
@@ -515,57 +197,73 @@
       complex(kind=8):: tmp,tmp1,tmp2,factor
 
 
+      ! Initialize
       tmp = 0d0
 
+      ! For each lower term
       do iterml=1,iterm-1
 
+        ! Get transition index
         itran = irad(iterml)
 
-        if (itran.ne.0) then
+        ! Skip not valid
+        if (itran.le.0) cycle
 
-          rLl = rLval(iterml)
+        ! Get orbital momenta
+        rLl = rLval(iterml)
 
-          tmp1 = 0d0
+        ! Initialize second sum
+        tmp1 = 0d0
 
-          do Kr=0,mKr(itran)
+        ! For each radiative multipole
+        do Kr=0,mKr(itran)
 
-            rKr = dble(Kr)
+          ! Get real K value
+          rKr = dble(Kr)
 
-            tmp2 = 0d0
+          ! Initialize third sum
+          tmp2 = 0d0
 
-            do iQr=-Kr,Kr
+          ! For all possible Q values
+          do iQr=-Kr,Kr
 
-              Qr=dble(iQr)
+            ! Get real Q value
+            Qr=dble(iQr)
 
-              tmp2 = fun3j(rK,rKK,rKr,Q,-QQ,Qr,Flgsg)* &
-                     RadJS(iQr,Kr,itran) + tmp2
+            ! Add contribution
+            tmp2 = fun3j(rK,rKK,rKr,Q,-QQ,Qr,Flgsg)* &
+                   RadJS(iQr,Kr,itran) + tmp2
 
-            end do
+          end do ! Qr values
 
-            factor = 0d0
+          ! Initialize factor
+          factor = 0d0
 
-            if (zJ) factor = sqrt((2d0*rJ1+1d0)*(2d0*rJJ1+1d0))* &
-                             fun6j(rL,rL,rKr,rJJ1,rJ1,S,Flgsg)* &
-                             fun6j(rK,rKK,rKr,rJJ1,rJ1,rJ,Flgsg)
+          ! If diagonal in J
+          if (zJ) factor = sqrt((2d0*rJ1+1d0)*(2d0*rJJ1+1d0))* &
+                           fun6j(rL,rL,rKr,rJJ1,rJ1,S,Flgsg)* &
+                           fun6j(rK,rKK,rKr,rJJ1,rJ1,rJ,Flgsg)
 
-            if (zJ1) factor = Flgsg%sg(nint(rJJ-rJ1+rK+rKK+rKr))* &
-                              sqrt((2d0*rJ+1d0)*(2d0*rJJ+1d0))* &
-                              fun6j(rL,rL,rKr,rJJ,rJ,S,Flgsg)* &
-                              fun6j(rK,rKK,rKr,rJJ,rJ,rJ1,Flgsg) + &
-                              factor
+          ! If diagonal in J'
+          if (zJ1) factor = Flgsg%sg(nint(rJJ-rJ1+rK+rKK+rKr))* &
+                            sqrt((2d0*rJ+1d0)*(2d0*rJJ+1d0))* &
+                            fun6j(rL,rL,rKr,rJJ,rJ,S,Flgsg)* &
+                            fun6j(rK,rKK,rKr,rJJ,rJ,rJ1,Flgsg) + &
+                            factor
 
-            tmp1 = .5d0*factor*Flgsg%sg(Kr)*sqrt(2d0*rKr+1d0)* &
-                    fun6j(rL,rL,rKr,1d0,1d0,rLl,Flgsg)*tmp2 + tmp1
+           ! Add to second sum
+          tmp1 = .5d0*factor*Flgsg%sg(Kr)*sqrt(2d0*rKr+1d0)* &
+                  fun6j(rL,rL,rKr,1d0,1d0,rLl,Flgsg)*tmp2 + tmp1
 
-          end do
+        end do ! Kr values
 
-          tmp = Flgsg%sg(nint(rLl+rJ-S))*(2d0*rLl+1d0)* &
-                Ecoeff(iterml)*tmp1 + tmp
+        ! Add to first sum
+        tmp = Flgsg%sg(nint(rLl+rJ-S))*(2d0*rLl+1d0)* &
+              Ecoeff(iterml)*tmp1 + tmp
 
-        end if
+      end do ! Lower terms
 
-      end do
-
+      ! Complete rate
       rScoeff = Flgsg%sg(1+nint(QQ))* &
                 sqrt(3d0*(2d0*rK+1d0)*(2d0*rKK+1d0))*tmp
 
@@ -579,31 +277,30 @@
       !!        iterm(integer): Term index\n
       !!      irad(integer(:)): Transition indexes\n
       !!        ntran(integer): Number of transitions\n
-      !!      rLval(dfloat(:)): Orbital angular momentum values\n
+      !!      rLval(double(:)): Orbital angular momentum values\n
       !!       nMulti(integer): Number of terms in the atom\n
-      !!            rL(dfloat): Orbital angular momentum L\n
-      !!             S(dfloat): Spin S\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJ1(dfloat): Angular momentum J'\n
-      !!            rK(dfloat): Multipolar component K\n
-      !!             Q(dfloat): Multipolar component Q\n
-      !!           rJJ(dfloat): Angular momentum J''\n
-      !!          rJJ1(dfloat): Angular momentum J'''\n
-      !!           rKK(dfloat): Multipolar component K'\n
-      !!            QQ(dfloat): Multipolar component Q'\n
+      !!            rL(double): Orbital angular momentum L\n
+      !!             S(double): Spin S\n
+      !!            rJ(double): Angular momentum J\n
+      !!           rJ1(double): Angular momentum J'\n
+      !!            rK(double): Multipolar component K\n
+      !!             Q(double): Multipolar component Q\n
+      !!           rJJ(double): Angular momentum J''\n
+      !!          rJJ1(double): Angular momentum J'''\n
+      !!           rKK(double): Multipolar component K'\n
+      !!            QQ(double): Multipolar component Q'\n
       !!           zJ(logical): Bool with diagonality J,J''\n
       !!          zJ1(logical): Bool with diagonality J',J'''\n
-      !!     Ecoeff(dfloat(:)): Einstein coefficient data\n
-      !!  RadJ(complex(:,:,:)): Radiation field tensor integrated over
-      !!                        absorption profile\n
+      !!     Ecoeff(double(:)): Einstein coefficient data\n
+      !!  RadJ(dcomplx(:,:,:)): Radiation field tensors integrated
+      !!                        over the absorption profile\n
       !!       mKr(integer(:)): Maximum radiative multipole\n
       !!       mKc(integer(:)): Maximum atomic multipole\n
-      !!    Flgsg(Fctsg_class): Structure with factorials and
-      !!                        signs\n
-      !!       rAcoeff(dfloat): Absorption relaxation rate
+      !!    Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                        J-symbols\n
+      !!       rAcoeff(double): Absorption relaxation rate
       subroutine rA(iterm,irad,ntran,rLval,nMulti, &
-                    rL,S,rJ,rJ1,rK,Q, &
-                    rJJ,rJJ1,rKK,QQ, &
+                    rL,S,rJ,rJ1,rK,Q,rJJ,rJJ1,rKK,QQ, &
                     zJ,zJ1,Ecoeff,RadJ,mKr,mKc,Flgsg,rAcoeff)
 
       ! I/O
@@ -628,57 +325,75 @@
       complex(kind=8):: tmp,tmp1,tmp2,factor
 
 
+      ! Initialize
       tmp = 0d0
 
+      ! For every upper term
       do itermu=iterm+1,nMulti
 
+        ! Get transition index
         itran = irad(itermu)
 
-        if (itran.ne.0) then
+        ! Skip invalid transition
+        if (itran.le.0) cycle
 
-          rLu = rLval(itermu)
+        ! Get orbitan angular momentum
+        rLu = rLval(itermu)
 
-          tmp1 = 0d0
+        ! Initialize second sum
+        tmp1 = 0d0
 
-          do Kr=0,mKr(itran)
+        ! For each possible radiation multipole
+        do Kr=0,mKr(itran)
 
-            rKr = dble(Kr)
+          ! Get real value of multipole
+          rKr = dble(Kr)
 
-            if(nint(rKr+rKK).gt.max(mKc(iterm),mKc(itermu))) cycle
+          ! Check J symbol rules
+          if (nint(rKr+rKK).gt.max(mKc(iterm),mKc(itermu))) cycle
 
-            tmp2 = 0d0
+          ! Initialize third sum
+          tmp2 = 0d0
 
-            do iQr=-Kr,Kr
+          ! For every possible Q
+          do iQr=-Kr,Kr
 
-              Qr = dble(iQr)
+            ! Get real Q value
+            Qr = dble(iQr)
 
-              tmp2 = fun3j(rK,rKK,rKr,Q,-QQ,Qr,Flgsg)* &
-                     RadJ(iQr,Kr,itran) + tmp2
-            end do
+            ! Add contribution to sum
+            tmp2 = fun3j(rK,rKK,rKr,Q,-QQ,Qr,Flgsg)* &
+                   RadJ(iQr,Kr,itran) + tmp2
 
-            factor = 0d0
+          end do ! Qr values
 
-            if (zJ) factor = sqrt((2d0*rJ1+1d0)*(2d0*rJJ1+1d0))* &
-                             fun6j(rL,rL,rKr,rJJ1,rJ1,S,Flgsg)* &
-                             fun6j(rK,rKK,rKr,rJJ1,rJ1,rJ,Flgsg)
+          ! Initialize factor
+          factor = 0d0
 
-            if (zJ1) factor = Flgsg%sg(nint(rJJ-rJ1+rK+rKK+rKr))* &
-                              sqrt((2d0*rJ+1d0)*(2d0*rJJ+1d0))* &
-                              fun6j(rL,rL,rKr,rJJ,rJ,S,Flgsg)* &
-                              fun6j(rK,rKK,rKr,rJJ,rJ,rJ1,Flgsg) + &
-                              factor
+          ! If diagonal in J
+          if (zJ) factor = sqrt((2d0*rJ1+1d0)*(2d0*rJJ1+1d0))* &
+                           fun6j(rL,rL,rKr,rJJ1,rJ1,S,Flgsg)* &
+                           fun6j(rK,rKK,rKr,rJJ1,rJ1,rJ,Flgsg)
 
-            tmp1 = factor*sqrt(2d0*rKr+1d0)* &
-                   fun6j(rL,rL,rKr,1d0,1d0,rLu,Flgsg)*tmp2 + tmp1
+          ! If diagonal in J'
+          if (zJ1) factor = Flgsg%sg(nint(rJJ-rJ1+rK+rKK+rKr))* &
+                            sqrt((2d0*rJ+1d0)*(2d0*rJJ+1d0))* &
+                            fun6j(rL,rL,rKr,rJJ,rJ,S,Flgsg)* &
+                            fun6j(rK,rKK,rKr,rJJ,rJ,rJ1,Flgsg) + &
+                            factor
 
-          end do
+          ! Add contribution to second sum
+          tmp1 = factor*sqrt(2d0*rKr+1d0)* &
+                 fun6j(rL,rL,rKr,1d0,1d0,rLu,Flgsg)*tmp2 + tmp1
 
-          tmp = Flgsg%sg(nint(rLu+rJ-S))*Ecoeff(itermu)*tmp1 + tmp
+        end do ! Kr values
 
-        end if
+        ! Add contribution to first sum
+        tmp = Flgsg%sg(nint(rLu+rJ-S))*Ecoeff(itermu)*tmp1 + tmp
 
-      end do
+      end do ! Upper terms
 
+      ! Complete rate
       rAcoeff = .5d0*Flgsg%sg(1+nint(QQ))*(2d0*rL+1d0)* &
                 sqrt(3d0*(2d0*rK+1d0)*(2d0*rKK+1d0))*tmp
 
@@ -688,26 +403,242 @@
 !#####################################################################
 !#####################################################################
 
-      !> Relaxation rate for superelastic collisions (isotropic)\n
-      !!        iterm(integer): Term index\n
-      !!      icol(integer(:)): Transition indexes\n
-      !!      rLval(dfloat(:)): Orbital angular momentum values\n
-      !!            rL(dfloat): Orbital angular momentum L\n
-      !!             S(dfloat): Spin S\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJ1(dfloat): Angular momentum J'\n
-      !!            rK(dfloat): Multipolar component K\n
-      !!             Q(dfloat): Multipolar component Q\n
-      !!           rJJ(dfloat): Angular momentum J''\n
-      !!          rJJ1(dfloat): Angular momentum J'''\n
-      !!           rKK(dfloat): Multipolar component K'\n
-      !!            QQ(dfloat): Multipolar component Q'\n
-      !!           zJ(logical): Bool with diagonality J,J''\n
-      !!          zJ1(logical): Bool with diagonality J',J'''\n
-      !!     Ccoeff(dfloat(:)): Collisional rates data\n
-      !!    Flgsg(Fctsg_class): Structure with factorials and
-      !!                        signs\n
-      !!      rSCcoeff(dfloat): Collisional relaxation rate
+      !> Transition rate for spontaneous emission\n
+      !!          rL(double): Orbital angular momentum L\n
+      !!          rJ(double): Angular momentum J\n
+      !!         rJ1(double): Angular momentum J'\n
+      !!          rK(double): Multipolar component K\n
+      !!         rLL(double): Orbital angular momentum L'\n
+      !!         rJJ(double): Angular momentum J''\n
+      !!        rJJ1(double): Angular momentum J'''\n
+      !!           S(double): Spin S\n
+      !!      Ecoeff(double): Einstein coefficient data\n
+      !!  Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                      J-symbols\n
+      !!     tEcoeff(double): Spontaneous emission transition rate
+      subroutine tE(rL,rJ,rJ1,rK,rLL,rJJ,rJJ1,S,Ecoeff,Flgsg,tEcoeff)
+
+      ! I/O
+
+      type(Fctsg_class), intent(in):: Flgsg
+      double precision, intent(in):: rL,rJ,rJ1,rK,S
+      double precision, intent(in):: rLL,rJJ,rJJ1
+      double precision, intent(in):: Ecoeff
+      double precision, intent(out):: tEcoeff
+
+      ! Get rate
+      tEcoeff = Flgsg%sg(1+nint(rK+rJ1+rJJ1))* &
+                (2d0*rLL+1d0)*Ecoeff* &
+                sqrt((2d0*rJ+1d0)*(2d0*rJ1+1d0)* &
+                (2d0*rJJ+1d0)*(2d0*rJJ1+1d0))* &
+                fun6j(rJ,rJ1,rK,rJJ1,rJJ,1d0,Flgsg)* &
+                fun6j(rLL,rL,1d0,rJ,rJJ,S,Flgsg)* &
+                fun6j(rLL,rL,1d0,rJ1,rJJ1,S,Flgsg)
+
+      end subroutine tE
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Transition rate for stimulated emission\n
+      !!           rL(double): Orbital angular momentum L\n
+      !!           rJ(double): Angular momentum J\n
+      !!          rJ1(double): Angular momentum J'\n
+      !!           rK(double): Multipolar component K\n
+      !!            Q(double): Multipolar component Q\n
+      !!          rLL(double): Orbital angular momentum L'\n
+      !!          rJJ(double): Angular momentum J''\n
+      !!         rJJ1(double): Angular momentum J'''\n
+      !!          rKK(double): Multipolar component K'\n
+      !!           QQ(double): Multipolar component Q'\n
+      !!            S(double): Spin S\n
+      !!       Ecoeff(double): Einstein coefficient data\n
+      !!  RadJS(dcomplx(:,:)): Radiation field tensor integrated over
+      !!                       the emission profile\n
+      !!         mKr(integer): Maximum radiative multipole\n
+      !!   Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                       J-symbols\n
+      !!      tScoeff(double): Stimulated emission transfer rate
+      subroutine tS(rL,rJ,rJ1,rK,Q,rLL,rJJ,rJJ1,rKK,QQ,S, &
+                    Ecoeff,RadJS,mKr,Flgsg,tScoeff)
+
+      ! I/O
+
+      type(Fctsg_class), intent(in):: Flgsg
+      integer, intent(in):: mKr
+      double precision, intent(in):: rL,rJ,rJ1,rK,Q,S
+      double precision, intent(in):: rLL,rJJ,rJJ1,rKK,QQ
+      double precision, intent(in):: Ecoeff
+      complex(kind=8), dimension(-2:2,0:2), intent(in):: RadJS
+      complex(kind=8), intent(out):: tScoeff
+
+      ! Local
+
+      integer:: Kr,iQr
+
+      double precision:: rKr,Qr
+
+      complex(kind=8):: tmp,tmp1
+
+
+      ! Initialize sum
+      tmp = 0d0
+
+      ! For each radiation multipole
+      do Kr=0,mKr
+
+        ! Ger real Kr value
+        rKr = dble(Kr)
+
+        ! Initialize second sum
+        tmp1 = 0d0
+
+        ! For each possible multipole
+        do iQr=-Kr,Kr
+
+          ! Get real Qr value
+          Qr = dble(iQr)
+
+          ! Add contribution to second sum
+          tmp1 = fun3j(rK,rKK,rKr,-Q,QQ,-Qr,Flgsg)*RadJS(iQr,Kr) + &
+                 tmp1
+
+        end do ! Qr values
+
+        ! Add contribution to sum
+        tmp = Flgsg%sg(Kr)*sqrt(2d0*rKr+1d0)* &
+              fun9j(rJ,rJJ,1d0,rJ1,rJJ1,1d0,rK,rKK,rKr,Flgsg)*tmp1 + &
+              tmp
+
+      end do ! Kr values
+
+      ! Complete rate
+      tScoeff = Flgsg%sg(nint(rKK+QQ+rJJ1-rJJ))* &
+                (2d0*rL+1d0)*Ecoeff* &
+                sqrt(3d0*(2d0*rJ+1d0)*(2d0*rJ1+1d0)* &
+                (2d0*rJJ+1d0)*(2d0*rJJ1+1d0)* &
+                (2d0*rK+1d0)*(2d0*rKK+1d0))* &
+                fun6j(rL,rLL,1d0,rJJ,rJ,S,Flgsg)* &
+                fun6j(rL,rLL,1d0,rJJ1,rJ1,S,Flgsg)*tmp
+
+      end subroutine tS
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Transition rate for absorption\n
+      !!           rL(double): Orbital angular momentum L\n
+      !!           rJ(double): Angular momentum J\n
+      !!          rJ1(double): Angular momentum J'\n
+      !!           rK(double): Multipolar component K\n
+      !!            Q(double): Multipolar component Q\n
+      !!          rLL(double): Orbital angular momentum L'\n
+      !!          rJJ(double): Angular momentum J''\n
+      !!         rJJ1(double): Angular momentum J'''\n
+      !!          rKK(double): Multipolar component K'\n
+      !!           QQ(double): Multipolar component Q'\n
+      !!            S(double): Spin S\n
+      !!  Ecoeff(double(:,:)): Einstein coefficient data\n
+      !!   RadJ(dcomplx(:,:)): Radiation field tensor integrated over
+      !!                       the absorption profile\n
+      !!         mKr(integer): Maximum radiative multipole\n
+      !!         mKc(integer): Maximum atomic multipole\n
+      !!   Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                       J-symbols\n
+      !!      tAcoeff(double): Absorption transfer rate
+      subroutine tA(rL,rJ,rJ1,rK,Q, &
+                    rLL,rJJ,rJJ1,rKK,QQ,S, &
+                    Ecoeff,RadJ,mKr,mKc,Flgsg,tAcoeff)
+
+      ! I/O
+
+      type(Fctsg_class), intent(in):: Flgsg
+      integer, intent(in):: mKr,mKc
+      double precision, intent(in):: rL,rJ,rJ1,rK,Q,S
+      double precision, intent(in):: rLL,rJJ,rJJ1,rKK,QQ
+      double precision, intent(in):: Ecoeff
+      complex(kind=8), dimension(-2:2,0:2), intent(in):: RadJ
+      complex(kind=8), intent(out):: tAcoeff
+
+      ! Local
+
+      integer:: Kr,iQr
+
+      double precision:: rKr,Qr
+
+      complex(kind=8):: tmp,tmp1
+
+
+      ! Initialize sum
+      tmp = 0d0
+
+      ! For each radiation tensor multipole
+      do Kr=0,mKr
+
+        ! Get real Kr value
+        rKr = dble(Kr)
+
+        ! Check J symbol rules
+        if (nint(rKr+rKK).gt.mKc) cycle
+
+        ! Initialize second sum
+        tmp1 = 0d0
+
+        ! For possible Q values
+        do iQr=-Kr,Kr
+
+          ! Get real Qr value
+          Qr = dble(iQr)
+
+          ! Add contribution to second sum
+          tmp1 = fun3j(rK,rKK,rKr,-Q,QQ,-Qr,Flgsg)*RadJ(iQr,Kr) + tmp1
+
+        end do ! Qr values
+
+        ! Add contribution to sum
+        tmp = sqrt(2d0*rKr+1d0)* &
+              fun9j(rJ,rJJ,1d0,rJ1,rJJ1,1d0,rK,rKK,rKr,Flgsg)*tmp1 + &
+              tmp
+
+      end do ! Kr values
+
+      ! Complete rate
+      tAcoeff = Flgsg%sg(nint(rKK+QQ+rJJ1-rJJ))* &
+                (2d0*rLL+1d0)*Ecoeff* &
+                sqrt(3d0*(2d0*rJ+1d0)*(2d0*rJ1+1d0)* &
+                (2d0*rJJ+1d0)*(2d0*rJJ1+1d0)* &
+                (2d0*rK+1d0)*(2d0*rKK+1d0))* &
+                fun6j(rL,rLL,1d0,rJJ,rJ,S,Flgsg)* &
+                fun6j(rL,rLL,1d0,rJJ1,rJ1,S,Flgsg)*tmp
+
+      end subroutine tA
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Relaxation rate for isotropic superelastic collisions\n
+      !!      iterm(integer): Term index\n
+      !!    icol(integer(:)): Transition indexes\n
+      !!    rLval(double(:)): Orbital angular momentum values\n
+      !!          rL(double): Orbital angular momentum L\n
+      !!           S(double): Spin S\n
+      !!          rJ(double): Angular momentum J\n
+      !!         rJ1(double): Angular momentum J'\n
+      !!          rK(double): Multipolar component K\n
+      !!           Q(double): Multipolar component Q\n
+      !!         rJJ(double): Angular momentum J''\n
+      !!        rJJ1(double): Angular momentum J'''\n
+      !!         rKK(double): Multipolar component K'\n
+      !!          QQ(double): Multipolar component Q'\n
+      !!         zJ(logical): Bool with diagonality J,J''\n
+      !!        zJ1(logical): Bool with diagonality J',J'''\n
+      !!   Ccoeff(double(:)): Collisional rates data\n
+      !!  Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                      J-symbols\n
+      !!    rSCcoeff(double): Collisional relaxation rate
       subroutine rSC(iterm,icol,rLval,rL,S,rJ,rJ1,rK,Q,rJJ,rJJ1, &
                      rKK,QQ,zJ,zJ1,Ccoeff,Flgsg,rSCcoeff)
 
@@ -730,42 +661,51 @@
       double precision:: rLl,tmp,factor
 
 
+      ! Initialize rate
       rSCcoeff = 0d0
 
+      ! Check J symbol rules
       if (abs(rK-rKK).gt..4d0) return
 
+      ! Initialize sum
       tmp = 0d0
 
+      ! For each lower term
       do iterml=1,iterm-1
 
-        if (icol(iterml).ne.0) then
+        ! Skip if no rate
+        if (icol(iterml).le.0) cycle
 
-          rLl = rLval(iterml)
+        ! Get orbital angular momentum
+        rLl = rLval(iterml)
 
-          factor = 0d0
+        ! Initialize factor
+        factor = 0d0
 
-          if (zJ) factor = sqrt((2d0*rJ1+1d0)*(2d0*rJJ1+1d0))* &
-                           fun6j(rL,rL,0d0,rJJ1,rJ1,S,Flgsg)* &
-                           fun6j(rK,rKK,0d0,rJJ1,rJ1,rJ,Flgsg)
+        ! If diagonal in J
+        if (zJ) factor = sqrt((2d0*rJ1+1d0)*(2d0*rJJ1+1d0))* &
+                         fun6j(rL,rL,0d0,rJJ1,rJ1,S,Flgsg)* &
+                         fun6j(rK,rKK,0d0,rJJ1,rJ1,rJ,Flgsg)
 
-          if (zJ1) factor = Flgsg%sg(nint(rJJ-rJ1+rK+rKK))* &
-                            sqrt((2d0*rJ+1d0)*(2d0*rJJ+1d0))* &
-                            fun6j(rL,rL,0d0,rJJ,rJ,S,Flgsg)* &
-                            fun6j(rK,rKK,0d0,rJJ,rJ,rJ1,Flgsg) + &
-                            factor
+        ! If diagonal in J'
+        if (zJ1) factor = Flgsg%sg(nint(rJJ-rJ1+rK+rKK))* &
+                          sqrt((2d0*rJ+1d0)*(2d0*rJJ+1d0))* &
+                          fun6j(rL,rL,0d0,rJJ,rJ,S,Flgsg)* &
+                          fun6j(rK,rKK,0d0,rJJ,rJ,rJ1,Flgsg) + &
+                          factor
 
-          if (iterml.eq.iterm) factor = factor*.5d0
+        ! If same term, introduce factor
+        if (iterml.eq.iterm) factor = factor*.5d0
 
-          tmp = Flgsg%sg(nint(rLl+rJ-S))* &
-                Ccoeff(iterml)*factor* &
-                fun3j(rK,rKK,0d0,Q,-QQ,0d0,Flgsg)* &
-                fun6j(rL,rL,0d0,1d0,1d0,rLl,Flgsg) + tmp
+        ! Add contribution to sum
+        tmp = Flgsg%sg(nint(rLl+rJ-S))* &
+              Ccoeff(iterml)*factor* &
+              fun3j(rK,rKK,0d0,Q,-QQ,0d0,Flgsg)* &
+              fun6j(rL,rL,0d0,1d0,1d0,rLl,Flgsg) + tmp
 
-        end if
+      end do ! Lower terms
 
-
-      end do
-
+      ! Complete rate
       rSCcoeff = .5d0*Flgsg%sg(1+nint(QQ))*(2d0*rL+1d0)* &
                  sqrt(3d0*(2d0*rK+1d0)*(2d0*rKK+1d0))*tmp
 
@@ -775,27 +715,27 @@
 !#####################################################################
 !#####################################################################
 
-      !> Relaxation rate for inelastic collisions (isotropic)\n
-      !!        iterm(integer): Term index\n
-      !!      icol(integer(:)): Transition indexes\n
-      !!      rLval(dfloat(:)): Orbital angular momentum values\n
-      !!       nMulti(integer): Number of terms in the atom\n
-      !!            rL(dfloat): Orbital angular momentum L\n
-      !!             S(dfloat): Spin S\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJ1(dfloat): Angular momentum J'\n
-      !!            rK(dfloat): Multipolar component K\n
-      !!             Q(dfloat): Multipolar component Q\n
-      !!           rJJ(dfloat): Angular momentum J''\n
-      !!          rJJ1(dfloat): Angular momentum J'''\n
-      !!           rKK(dfloat): Multipolar component K'\n
-      !!            QQ(dfloat): Multipolar component Q'\n
-      !!           zJ(logical): Bool with diagonality J,J''\n
-      !!          zJ1(logical): Bool with diagonality J',J'''\n
-      !!     Ccoeff(dfloat(:)): Collisional rate data\n
-      !!    Flgsg(Fctsg_class): Structure with factorials and
-      !!                        signs\n
-      !!      rACcoeff(dfloat): Collisional relaxation rate
+      !> Relaxation rate for isotropic inelastic collisions\n
+      !!      iterm(integer): Term index\n
+      !!    icol(integer(:)): Transition indexes\n
+      !!    rLval(double(:)): Orbital angular momentum values\n
+      !!     nMulti(integer): Number of terms in the atom\n
+      !!          rL(double): Orbital angular momentum L\n
+      !!           S(double): Spin S\n
+      !!          rJ(double): Angular momentum J\n
+      !!         rJ1(double): Angular momentum J'\n
+      !!          rK(double): Multipolar component K\n
+      !!           Q(double): Multipolar component Q\n
+      !!         rJJ(double): Angular momentum J''\n
+      !!        rJJ1(double): Angular momentum J'''\n
+      !!         rKK(double): Multipolar component K'\n
+      !!          QQ(double): Multipolar component Q'\n
+      !!         zJ(logical): Bool with diagonality J,J''\n
+      !!        zJ1(logical): Bool with diagonality J',J'''\n
+      !!   Ccoeff(double(:)): Collisional rate data\n
+      !!  Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                      J-symbols\n
+      !!    rACcoeff(double): Collisional relaxation rate
       subroutine rAC(iterm,icol,rLval,nMulti,rL,S,rJ,rJ1,rK,Q,rJJ, &
                      rJJ1,rKK,QQ,zJ,zJ1,Ccoeff,Flgsg,rACcoeff)
 
@@ -818,39 +758,48 @@
       double precision:: rLu,tmp,factor
 
 
+      ! Initialize rate
       rACcoeff = 0d0
 
+      ! Check J symbol rule
       if (abs(rK-rKK).gt..4d0) return
 
+      ! Initialize sum
       tmp = 0d0
 
+      ! For every upper term
       do itermu=iterm+1,nMulti
 
-        if (icol(itermu).ne.0) then
+        ! Skip if no valid collision
+        if (icol(itermu).le.0) cycle
 
-          rLu = rLval(itermu)
+        ! Get orbital angular momentum
+        rLu = rLval(itermu)
 
-          factor = 0d0
+        ! Initialize factor
+        factor = 0d0
 
-          if (zJ) factor = sqrt((2d0*rJ1+1d0)*(2d0*rJJ1+1d0))* &
-                           fun6j(rL,rL,0d0,rJJ1,rJ1,S,Flgsg)* &
-                           fun6j(rK,rKK,0d0,rJJ1,rJ1,rJ,Flgsg)
+        ! If diagonal in J
+        if (zJ) factor = sqrt((2d0*rJ1+1d0)*(2d0*rJJ1+1d0))* &
+                         fun6j(rL,rL,0d0,rJJ1,rJ1,S,Flgsg)* &
+                         fun6j(rK,rKK,0d0,rJJ1,rJ1,rJ,Flgsg)
 
-          if (zJ1) factor = Flgsg%sg(nint(rJJ-rJ1+rK+rKK))* &
-                            sqrt((2d0*rJ+1d0)*(2d0*rJJ+1d0))* &
-                            fun6j(rL,rL,0d0,rJJ,rJ,S,Flgsg)* &
-                            fun6j(rK,rKK,0d0,rJJ,rJ,rJ1,Flgsg) + &
-                            factor
+        ! If diagonal in J'
+        if (zJ1) factor = Flgsg%sg(nint(rJJ-rJ1+rK+rKK))* &
+                          sqrt((2d0*rJ+1d0)*(2d0*rJJ+1d0))* &
+                          fun6j(rL,rL,0d0,rJJ,rJ,S,Flgsg)* &
+                          fun6j(rK,rKK,0d0,rJJ,rJ,rJ1,Flgsg) + &
+                          factor
 
-          tmp = Flgsg%sg(nint(rLu+rJ-S))* &
-                Ccoeff(itermu)*factor* &
-                fun3j(rK,rKK,0d0,Q,-QQ,0d0,Flgsg)* &
-                fun6j(rL,rL,0d0,1d0,1d0,rLu,Flgsg) + tmp
+        ! Add to sum
+        tmp = Flgsg%sg(nint(rLu+rJ-S))* &
+              Ccoeff(itermu)*factor* &
+              fun3j(rK,rKK,0d0,Q,-QQ,0d0,Flgsg)* &
+              fun6j(rL,rL,0d0,1d0,1d0,rLu,Flgsg) + tmp
 
-        end if
+      end do ! Upper terms
 
-      end do
-
+      ! Complete rate
       rACcoeff = .5d0*Flgsg%sg(1+nint(QQ))*(2d0*rL+1d0)* &
                  sqrt(3d0*(2d0*rK+1d0)*(2d0*rKK+1d0))*tmp
 
@@ -860,149 +809,128 @@
 !#####################################################################
 !#####################################################################
 
-      !> Transition rate for up-down collision (forbidden)\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJJ(dfloat): Angular momentum J'\n
-      !!            rK(dfloat): Multipolar component K\n
-      !!       CcoeffJ(dfloat): Collisional rate data\n
-      !!    Flgsg(Fctsg_class): Structure with factorials and
-      !!                        signs\n
-      !!         fcol(logical): Include transfer rate for K != 0\n
-      !!      tSCcoeff(dfloat): Collisional transition rate
-      subroutine tSFC(rJ,rJJ,rK,CcoeffJ,Flgsg,fcol,tSCcoeff)
+      !> Transition rate for isotropic superelastic collisions\n
+      !!          rL(double): Orbital angular momentum L\n
+      !!          rJ(double): Angular momentum J\n
+      !!         rJ1(double): Angular momentum J'\n
+      !!          rK(double): Multipolar component K\n
+      !!           Q(double): Multipolar component Q\n
+      !!         rLL(double): Orbital angular momentum L'\n
+      !!         rJJ(double): Angular momentum J''\n
+      !!        rJJ1(double): Angular momentum J'''\n
+      !!         rKK(double): Multipolar component K'\n
+      !!          QQ(double): Multipolar component Q'\n
+      !!           S(double): Spin S\n
+      !!      Ccoeff(double): Collisional rate data\n
+      !!  Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                      J-symbols\n
+      !!    tSCcoeff(double): Collisional transition rate
+      subroutine tSC(rL,rJ,rJ1,rK,Q,rLL,rJJ,rJJ1,rKK,QQ,S, &
+                     Ccoeff,Flgsg,tSCcoeff)
 
       ! I/O
+
       type(Fctsg_class), intent(in):: Flgsg
-      logical, intent(in):: fcol
-      double precision, intent(in):: rJ,rJJ,rK,CcoeffJ
+      double precision, intent(in):: rL,rJ,rJ1,rK,Q,S
+      double precision, intent(in):: rLL,rJJ,rJJ1,rKK,QQ
+      double precision, intent(in):: Ccoeff
       double precision, intent(out):: tSCcoeff
 
       ! Local
 
-      integer:: K,Ktilde
-      double precision:: rKtilde, f6j
+      double precision:: tmp
 
-      K = nint(rK)
 
-      ! Population transfer
-      if (K.eq.0) then
+      ! Initialize rate
+      tSCcoeff = 0d0
 
-        tSCcoeff=sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))*CcoeffJ
+      ! Check J symbol rule
+      if (abs(rK-rKK).gt..4d0) return
 
-      ! Polarization transfer allowed
-      else if (fcol) then
+      ! Get J symbols
+      tmp = fun3j(rK,rKK,0d0,-Q,QQ,0d0,Flgsg)* &
+            fun9j(rJ,rJJ,1d0,rJ1,rJJ1,1d0,rK,rKK,0d0,Flgsg)
 
-        ! Get K tilde
-        Ktilde = nint(abs(rJ - rJJ))
+      ! Get rate
+      tSCcoeff = Flgsg%sg(nint(rKK+QQ+rJJ1-rJJ))* &
+                 (2d0*rLL+1d0)*Ccoeff* &
+                 sqrt(3d0*(2d0*rJ+1d0)*(2d0*rJ1+1d0)* &
+                 (2d0*rJJ+1d0)*(2d0*rJJ1+1d0)* &
+                 (2d0*rK+1d0)*(2d0*rKK+1d0))* &
+                 fun6j(rL,rLL,1d0,rJJ,rJ,S,Flgsg)* &
+                 fun6j(rL,rLL,1d0,rJJ1,rJ1,S,Flgsg)*tmp
 
-        ! Ktilde >= 1
-        if (Ktilde.lt.1) Ktilde = 1
-
-        rKtilde = dble(Ktilde)
-
-        f6j = fun6j(rJ,rJ,0d0,rJJ,rJJ,rKtilde,Flgsg)
-
-        ! If invalid 6J
-        if (abs(f6j).lt.TINYJS) then
-
-          tSCcoeff = 0d0
-
-        else
-
-          tSCcoeff=sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))* &
-                   Flgsg%sg(K)*CcoeffJ* &
-                   fun6j(rJ,rJ,rK,rJJ,rJJ,rKtilde,Flgsg)/f6j
-
-        end if
-
-      ! No polarization transfer allowed
-      else
-
-        tSCcoeff = 0d0
-
-      end if
-
-      end subroutine tSFC
+      end subroutine tSC
 
 !#####################################################################
 !#####################################################################
 !#####################################################################
 
-      !> Transition rate for down-up collision (forbidden)\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJJ(dfloat): Angular momentum J'\n
-      !!            rK(dfloat): Multipolar component K\n
-      !!       CcoeffJ(dfloat): Collisional rate data\n
-      !!    Flgsg(Fctsg_class): Structure with factorials and
-      !!                        signs\n
-      !!         fcol(logical): Include transfer rate for K != 0\n
-      !!      tACcoeff(dfloat): Collisional transition rate
-      subroutine tAFC(rJ,rJJ,rK,CcoeffJ,Flgsg,fcol,tACcoeff)
+      !> Transition rate for isotropic inelastic collisions\n
+      !!          rL(double): Orbital angular momentum L\n
+      !!          rJ(double): Angular momentum J\n
+      !!         rJ1(double): Angular momentum J'\n
+      !!          rK(double): Multipolar component K\n
+      !!           Q(double): Multipolar component Q\n
+      !!         rLL(double): Orbital angular momentum L'\n
+      !!         rJJ(double): Angular momentum J''\n
+      !!        rJJ1(double): Angular momentum J'''\n
+      !!         rKK(double): Multipolar component K'\n
+      !!          QQ(double): Multipolar component Q'\n
+      !!           S(double): Spin S\n
+      !!      Ccoeff(double): Collisional rate data\n
+      !!  Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                      J-symbols\n
+      !!    tACcoeff(double): Collisional transition rate
+      subroutine tAC(rL,rJ,rJ1,rK,Q,rLL,rJJ,rJJ1,rKK,QQ,S, &
+                     Ccoeff,Flgsg,tACcoeff)
 
       ! I/O
+
       type(Fctsg_class), intent(in):: Flgsg
-      logical, intent(in):: fcol
-      double precision, intent(in):: rJ,rJJ,rK,CcoeffJ
+      double precision, intent(in):: rL,rJ,rJ1,rK,Q,S
+      double precision, intent(in):: rLL,rJJ,rJJ1,rKK,QQ
+      double precision, intent(in):: Ccoeff
       double precision, intent(out):: tACcoeff
 
       ! Local
 
-      integer:: K, Ktilde
-      double precision:: rKtilde, f6j
+      double precision tmp
 
-      K = nint(rK)
 
-      ! Population transfer
-      if (K.eq.0) then
+      ! Initialize rate
+      tACcoeff = 0d0
 
-        tACcoeff = sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))*CcoeffJ
+      ! Check J symbol rule
+      if (abs(rK-rKK).gt..4d0) return
 
-      ! Polarization transfer allowed
-      else if (fcol) then
+      ! Get J symbols
+      tmp = fun3j(rK,rKK,0d0,-Q,QQ,0d0,Flgsg)* &
+            fun9j(rJ,rJJ,1d0,rJ1,rJJ1,1d0,rK,rKK,0d0,Flgsg)
 
-        ! Get K tilde
-        Ktilde = nint(abs(rJ - rJJ))
+      ! Get rate
+      tACcoeff = Flgsg%sg(nint(rKK+QQ+rJJ1-rJJ))* &
+                 (2d0*rLL+1d0)*Ccoeff* &
+                 sqrt(3d0*(2d0*rJ+1d0)*(2d0*rJ1+1d0)* &
+                 (2d0*rJJ+1d0)*(2d0*rJJ1+1d0)* &
+                 (2d0*rK+1d0)*(2d0*rKK+1d0))* &
+                 fun6j(rL,rLL,1d0,rJJ,rJ,S,Flgsg)* &
+                 fun6j(rL,rLL,1d0,rJJ1,rJ1,S,Flgsg)*tmp
 
-        ! Ktilde >= 1
-        if (Ktilde.lt.1) Ktilde = 1
-
-        rKtilde = dble(Ktilde)
-
-        f6j = fun6j(rJ,rJ,0d0,rJJ,rJJ,rKtilde,Flgsg)
-
-        ! If invalid 6J
-        if (abs(f6j).lt.TINYJS) then
-
-          tACcoeff = 0d0
-
-        else
-
-          tACcoeff=sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))* &
-                   Flgsg%sg(K)*CcoeffJ* &
-                   fun6j(rJ,rJ,rK,rJJ,rJJ,rKtilde,Flgsg)/f6j
-
-        end if
-
-      ! No polarization transfer allowed
-      else
-
-        tACcoeff = 0d0
-
-      end if
-
-      end subroutine tAFC
+      end subroutine tAC
 
 !#####################################################################
 !#####################################################################
 !#####################################################################
 
-      !> Relaxation rate for superelastic forbidden collisions\n
-      !!       ilevel(integer): Level index\n
-      !!            K(integer): Multipolar component K\n
-      !!             Q(dfloat): Multipolar component Q\n
-      !!    CcoeffJ(dfloat(:)): Collisional rates data\n
-      !!     cflag(integer(:)): Forbidden collision flag\n
-      !!      rSCcoeff(dfloat): Collisional relaxation rate
+      !> Relaxation rate for isotropic forbidden superelastic
+      !! collisions\n
+      !!     ilevel(integer): Level index\n
+      !!          K(integer): Multipolar component K\n
+      !!           Q(double): Multipolar component Q\n
+      !!  CcoeffJ(double(:)): Collisional rates data\n
+      !!   cflag(integer(:)): Forbidden collision flag\n
+      !!    rSCcoeff(double): Collisional relaxation rate
       subroutine rSFC(ilevel,K,CcoeffJ,cflag,rSCcoeff)
 
       ! I/O
@@ -1016,16 +944,22 @@
 
       integer:: ilevell
 
+
+      ! Initialize rate
       rSCcoeff = 0d0
 
+      ! For every lower level
       do ilevell=1,ilevel-1
 
+        ! If the transition is not forbidden or if the multipole is
+        ! not zero, skip
         if (cflag(ilevell).lt.1.or. &
             (cflag(ilevell).gt.1.and.K.ne.0)) cycle
 
+        ! Add to rate
         rSCcoeff = rSCcoeff + CcoeffJ(ilevell)
 
-      end do
+      end do ! Lower levels
 
       end subroutine rSFC
 
@@ -1033,13 +967,14 @@
 !#####################################################################
 !#####################################################################
 
-      !> Relaxation rate for inelastic forbidden collisions\n
-      !!       ilevel(integer): Level index\n
-      !!            K(integer): Multipolar component K\n
-      !!       nlevel(integer): Number of levels in atomic model\n
-      !!    CcoeffJ(dfloat(:)): Collisional rates data\n
-      !!     cflag(integer(:)): Forbidden collision flag\n
-      !!      rACcoeff(dfloat): Collisional relaxation rate
+      !> Relaxation rate for isotropic forbidden inelastic
+      !! collisions\n
+      !!     ilevel(integer): Level index\n
+      !!          K(integer): Multipolar component K\n
+      !!     nlevel(integer): Number of levels in atomic model\n
+      !!  CcoeffJ(double(:)): Collisional rates data\n
+      !!   cflag(integer(:)): Forbidden collision flag\n
+      !!    rACcoeff(double): Collisional relaxation rate
       subroutine rAFC(ilevel,K,nlevel,CcoeffJ,cflag,rACcoeff)
 
       ! I/O
@@ -1053,16 +988,21 @@
 
       integer:: ilevelu
 
+
+      ! Initialize rate
       rACcoeff = 0d0
 
+      ! For every upper level
       do ilevelu=ilevel+1,nlevel
 
+        ! If not forbidden or if multipole is not zero, skip
         if (cflag(ilevelu).lt.1.or. &
             (cflag(ilevelu).gt.1.and.K.ne.0)) cycle
 
+        ! Add contribution
         rACcoeff = rACcoeff + CcoeffJ(ilevelu)
 
-      end do
+      end do ! Upper levels
 
       end subroutine rAFC
 
@@ -1070,12 +1010,172 @@
 !#####################################################################
 !#####################################################################
 
-      !> Relaxation rate for spontaneous recombination\n
-      !!       ilevel(integer): Level index\n
-      !!     iphot(integer(:)): Transition indexes\n
-      !!      phot(Phot_class): Structure with photoionization data\n
-      !!           iz(integer): Height index\n
-      !!      rEPcoeff(dfloat): Recombination relaxation rate
+      !> Transition rate for isotropic forbidden superelastic
+      !! collisions\n
+      !!          rJ(double): Angular momentum J\n
+      !!         rJJ(double): Angular momentum J'\n
+      !!          rK(double): Multipolar component K\n
+      !!     CcoeffJ(double): Collisional rate data\n
+      !!  Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                      J-symbols\n
+      !!       fcol(logical): Include transfer rate for K != 0\n
+      !!    tSCcoeff(double): Collisional transition rate
+      subroutine tSFC(rJ,rJJ,rK,CcoeffJ,Flgsg,fcol,tSCcoeff)
+
+      ! I/O
+
+      type(Fctsg_class), intent(in):: Flgsg
+      logical, intent(in):: fcol
+      double precision, intent(in):: rJ,rJJ,rK,CcoeffJ
+      double precision, intent(out):: tSCcoeff
+
+      ! Local
+
+      integer:: K,Ktilde
+
+      double precision:: rKtilde, f6j
+
+
+      ! Get integer K
+      K = nint(rK)
+
+      ! If population transfer
+      if (K.eq.0) then
+
+        ! Get rate
+        tSCcoeff=sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))*CcoeffJ
+
+      ! If polarization transfer allowed
+      else if (fcol) then
+
+        ! Get K tilde
+        Ktilde = nint(abs(rJ - rJJ))
+
+        ! Ktilde >= 1
+        if (Ktilde.lt.1) Ktilde = 1
+
+        ! Get real K tilde
+        rKtilde = dble(Ktilde)
+
+        ! Get 6J
+        f6j = fun6j(rJ,rJ,0d0,rJJ,rJJ,rKtilde,Flgsg)
+
+        ! If invalid 6J
+        if (abs(f6j).lt.TINYJS) then
+
+          ! No rate
+          tSCcoeff = 0d0
+
+        ! Valid 6J
+        else
+
+          ! Get rate
+          tSCcoeff=sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))* &
+                   Flgsg%sg(K)*CcoeffJ* &
+                   fun6j(rJ,rJ,rK,rJJ,rJJ,rKtilde,Flgsg)/f6j
+
+        end if ! Valid 6J
+
+      ! No polarization transfer allowed
+      else
+
+        ! No rate
+        tSCcoeff = 0d0
+
+      end if ! Multipole or allowed polarization transfer
+
+      end subroutine tSFC
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Transition rate for isotropic forbidden inelastic
+      !! collisions\n
+      !!          rJ(double): Angular momentum J\n
+      !!         rJJ(double): Angular momentum J'\n
+      !!          rK(double): Multipolar component K\n
+      !!     CcoeffJ(double): Collisional rate data\n
+      !!  Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                      J-symbols\n
+      !!       fcol(logical): Include transfer rate for K != 0\n
+      !!    tACcoeff(double): Collisional transition rate
+      subroutine tAFC(rJ,rJJ,rK,CcoeffJ,Flgsg,fcol,tACcoeff)
+
+      ! I/O
+
+      type(Fctsg_class), intent(in):: Flgsg
+      logical, intent(in):: fcol
+      double precision, intent(in):: rJ,rJJ,rK,CcoeffJ
+      double precision, intent(out):: tACcoeff
+
+      ! Local
+
+      integer:: K, Ktilde
+
+      double precision:: rKtilde, f6j
+
+
+      ! Get integer K value
+      K = nint(rK)
+
+      ! IF population transfer
+      if (K.eq.0) then
+
+        ! Get transfer rate
+        tACcoeff = sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))*CcoeffJ
+
+      ! If polarization transfer allowed
+      else if (fcol) then
+
+        ! Get K tilde
+        Ktilde = nint(abs(rJ - rJJ))
+
+        ! Ktilde >= 1
+        if (Ktilde.lt.1) Ktilde = 1
+
+        ! Get real value of K tilde
+        rKtilde = dble(Ktilde)
+
+        ! Get 6J symbol
+        f6j = fun6j(rJ,rJ,0d0,rJJ,rJJ,rKtilde,Flgsg)
+
+        ! If invalid 6J
+        if (abs(f6j).lt.TINYJS) then
+
+          ! No rate
+          tACcoeff = 0d0
+
+        ! Valid 6J
+        else
+
+          ! Get rate
+          tACcoeff=sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))* &
+                   Flgsg%sg(K)*CcoeffJ* &
+                   fun6j(rJ,rJ,rK,rJJ,rJJ,rKtilde,Flgsg)/f6j
+
+        end if ! Valid 6J
+
+      ! No polarization transfer allowed
+      else
+
+        ! No rate
+        tACcoeff = 0d0
+
+      end if ! Population transfer or allowed polarization transfer
+
+      end subroutine tAFC
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Relaxation rate for bound-free spontaneous emission\n
+      !!    ilevel(integer): Level index\n
+      !!  iphot(integer(:)): Transition indexes\n
+      !!   phot(Phot_class): Structure with photoionization data\n
+      !!        iz(integer): Height index\n
+      !!   rEPcoeff(double): Recombination relaxation rate
       subroutine rEP(ilevel,iphot,phot,iz,rEPcoeff)
 
       ! I/O
@@ -1089,17 +1189,23 @@
 
       integer:: ilevell, itran
 
+
+      ! Initialize rate
       rEPcoeff = 0d0
 
+      ! For every lower level
       do ilevell=1,ilevel-1
 
+        ! Get transition index
         itran = iphot(ilevell)
 
+        ! If not valid, skip
         if (itran.lt.1) cycle
 
+        ! Add to rate
         rEPcoeff = rEPcoeff + phot(itran)%TEI(iz)
 
-      end do
+      end do ! Lower levels
 
       end subroutine rEP
 
@@ -1107,74 +1213,11 @@
 !#####################################################################
 !#####################################################################
 
-      !> Transfer rate for spontaneous recombination\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJJ(dfloat): Angular momentum J'\n
-      !!         Intgr(dfloat): Photoionization intensity integral\n
-      !!      tEPcoeff(dfloat): Spontaneous recombination transfer
-      !!                        rate
-      subroutine tEP(rJ,rJJ,Intgr,tEPcoeff)
-
-      ! I/O
-
-      double precision, intent(in):: Intgr,rJ,rJJ
-      double precision, intent(out):: tEPcoeff
-
-      tEPcoeff = Intgr*sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))
-
-      end subroutine tEP
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
-      !> Transfer rate for stimulated recombination\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJJ(dfloat): Angular momentum J'\n
-      !!         Intgr(dfloat): Photoionization intensity integral\n
-      !!      tSPcoeff(dfloat): Stimulated recombination transfer
-      !!                        rate
-      subroutine tSP(rJ,rJJ,Intgr,tSPcoeff)
-
-      ! I/O
-
-      double precision, intent(in):: Intgr,rJ,rJJ
-      double precision, intent(out):: tSPcoeff
-
-      tSPcoeff = Intgr*sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))
-
-      end subroutine tSP
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
-      !> Transfer rate for photoionization\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJJ(dfloat): Angular momentum J'\n
-      !!         Intgr(dfloat): Photoionization intensity integral\n
-      !!      tAPcoeff(dfloat): Photoionization transfer rate
-      subroutine tAP(rJ,rJJ,Intgr,tAPcoeff)
-
-      ! I/O
-
-      double precision, intent(in):: Intgr,rJ,rJJ
-      double precision, intent(out):: tAPcoeff
-
-      tAPcoeff = Intgr*sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))
-
-      end subroutine tAP
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
-      !> Relaxation rate for stimulated recombination\n
-      !!       ilevel(integer): Level index\n
-      !!     iphot(integer(:)): Transition indexes\n
-      !!      Intgr(dfloat(:)): Photoionization intensity integral\n
-      !!      rSPcoeff(dfloat): Stimulated recombination relaxation
-      !!                        rate
+      !> Relaxation rate for bound-free stimulated emission\n
+      !!    ilevel(integer): Level index\n
+      !!  iphot(integer(:)): Transition indexes\n
+      !!   Intgr(double(:)): Photoionization intensity integral\n
+      !!   rSPcoeff(double): Stimulated recombination relaxation rate
       subroutine rSP(ilevel,iphot,Intgr,rSPcoeff)
 
       ! I/O
@@ -1188,17 +1231,23 @@
 
       integer:: ilevell,itran
 
+
+      ! Initialize rate
       rSPcoeff = 0d0
 
+      ! For every lower level
       do ilevell=1,ilevel-1
 
+        ! Get transition index
         itran = iphot(ilevell)
 
+        ! Skip if not valid transition
         if (itran.lt.1) cycle
 
+        ! Add to rate
         rSPcoeff = rSPcoeff + Intgr(itran)
 
-      end do
+      end do ! Lower levels
 
       end subroutine rSP
 
@@ -1206,12 +1255,12 @@
 !#####################################################################
 !#####################################################################
 
-      !> Relaxation rate for photoionization\n
-      !!       ilevel(integer): Level index\n
-      !!     iphot(integer(:)): Transition indexes\n
-      !!       nlevel(integer): Number of levels in atomic model\n
-      !!      Intgr(dfloat(:)): Photoionization intensity integral\n
-      !!      rAPcoeff(dfloat): Photoionization relaxation rate
+      !> Relaxation rate for bound-free absorption\n
+      !!    ilevel(integer): Level index\n
+      !!  iphot(integer(:)): Transition indexes\n
+      !!    nlevel(integer): Number of levels in atomic model\n
+      !!   Intgr(double(:)): Photoionization intensity integral\n
+      !!   rAPcoeff(double): Photoionization relaxation rate
       subroutine rAP(ilevel,iphot,nlevel,Intgr,rAPcoeff)
 
       ! I/O
@@ -1225,17 +1274,23 @@
 
       integer:: ilevelu,itran
 
+
+      ! Initialize rate
       rAPcoeff = 0d0
 
+      ! For every upper level
       do ilevelu=ilevel+1,nlevel
 
+        ! Get transition index
         itran = iphot(ilevelu)
 
+        ! Skip if no valid transition
         if (itran.lt.1) cycle
 
+        ! Add to rate
         rAPcoeff = rAPcoeff + Intgr(itran)
 
-      end do
+      end do ! Upper levels
 
       end subroutine rAP
 
@@ -1243,14 +1298,80 @@
 !#####################################################################
 !#####################################################################
 
-      !> Gamma in the magnetic kernel\n
-      !!            rL(dfloat): Orbital angular momentum L\n
-      !!             S(dfloat): Spin S\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJJ(dfloat): Angular momentum J'\n
-      !!           zJ(logical): Bool with diagonality J,J'\n
-      !!    Flgsg(Fctsg_class): Structure with factorials and
-      !!                        signs
+      !> Transition rate for bound-free spontaneous emission\n
+      !!        rJ(double): Angular momentum J\n
+      !!       rJJ(double): Angular momentum J'\n
+      !!     Intgr(double): Photoionization intensity integral\n
+      !!  tEPcoeff(double): Spontaneous recombination transfer rate
+      subroutine tEP(rJ,rJJ,Intgr,tEPcoeff)
+
+      ! I/O
+
+      double precision, intent(in):: Intgr,rJ,rJJ
+      double precision, intent(out):: tEPcoeff
+
+
+      ! Get rate
+      tEPcoeff = Intgr*sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))
+
+      end subroutine tEP
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Transition rate for bound-free stimulated emission\n
+      !!        rJ(double): Angular momentum J\n
+      !!       rJJ(double): Angular momentum J'\n
+      !!     Intgr(double): Photoionization intensity integral\n
+      !!  tSPcoeff(double): Stimulated recombination transfer rate
+      subroutine tSP(rJ,rJJ,Intgr,tSPcoeff)
+
+      ! I/O
+
+      double precision, intent(in):: Intgr,rJ,rJJ
+      double precision, intent(out):: tSPcoeff
+
+
+      ! Get rate
+      tSPcoeff = Intgr*sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))
+
+      end subroutine tSP
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Transition rate for bound-free absorption\n
+      !!        rJ(double): Angular momentum J\n
+      !!       rJJ(double): Angular momentum J'\n
+      !!     Intgr(double): Photoionization intensity integral\n
+      !!  tAPcoeff(double): Photoionization transfer rate
+      subroutine tAP(rJ,rJJ,Intgr,tAPcoeff)
+
+      ! I/O
+
+      double precision, intent(in):: Intgr,rJ,rJJ
+      double precision, intent(out):: tAPcoeff
+
+
+      ! Get rate
+      tAPcoeff = Intgr*sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))
+
+      end subroutine tAP
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Gamma in the magnetic kernel for the multi-term atom\n
+      !!          rL(double): Orbital angular momentum L\n
+      !!           S(double): Spin S\n
+      !!          rJ(double): Angular momentum J\n
+      !!         rJJ(double): Angular momentum J'\n
+      !!         zJ(logical): Bool with diagonality J,J'\n
+      !!  Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                      J-symbols
       function GammaF(rL,S,rJ,rJJ,zJ,Flgsg)
 
       ! I/O
@@ -1264,11 +1385,13 @@
       double precision GammaF
 
 
+      ! Get gamma always active contribution
       GammaF = Flgsg%sg(nint(rL+S+rJ)+1)* &
                sqrt((2d0*rJ+1d0)*(2d0*rJJ+1d0)* &
                S*(S+1d0)*(2d0*S+1d0))* &
                fun6j(rJ,rJJ,1d0,S,S,rL,Flgsg)
 
+      ! If diagonal in J, add other term
       if (zJ) GammaF = sqrt(rJ*(rJ+1d0)*(2d0*rJ+1d0)) + GammaF
 
       end function GammaF
@@ -1277,25 +1400,25 @@
 !#####################################################################
 !#####################################################################
 
-      !> Off-diagonal magnetic kernel\n
-      !!            rL(dfloat): Orbital angular momentum L\n
-      !!             S(dfloat): Spin S\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJ1(dfloat): Angular momentum J'\n
-      !!            rK(dfloat): Multipolar component K\n
-      !!           rJJ(dfloat): Angular momentum J''\n
-      !!          rJJ1(dfloat): Angular momentum J'''\n
-      !!           rKK(dfloat): Multipolar component K'\n
-      !!             Q(dfloat): Multipolar component Q\n
-      !!           zJ(logical): Bool with diagonality J,J''\n
-      !!          zJ1(logical): Bool with diagonality J',J'''\n
-      !!           zK(logical): Bool with diagonality K,K'\n
-      !!           dFS(dfloat): Fine structure energy difference\n
-      !!        larmor(dfloat): Magnetic field in larmor frequency
-      !!                        units\n
-      !!    Flgsg(Fctsg_class): Structure with factorials and
-      !!                        signs\n
-      !!      rMKcoeff(dfloat): Magnetic kernel
+      !> Magnetic kernel of a multi-term atom\n
+      !!          rL(double): Orbital angular momentum L\n
+      !!           S(double): Spin S\n
+      !!          rJ(double): Angular momentum J\n
+      !!         rJ1(double): Angular momentum J'\n
+      !!          rK(double): Multipolar component K\n
+      !!         rJJ(double): Angular momentum J''\n
+      !!        rJJ1(double): Angular momentum J'''\n
+      !!         rKK(double): Multipolar component K'\n
+      !!           Q(double): Multipolar component Q\n
+      !!         zJ(logical): Bool with diagonality J,J''\n
+      !!        zJ1(logical): Bool with diagonality J',J'''\n
+      !!         zK(logical): Bool with diagonality K,K'\n
+      !!         dFS(double): Fine structure energy difference\n
+      !!      larmor(double): Magnetic field in larmor frequency
+      !!                      units\n
+      !!  Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                      J-symbols\n
+      !!    rMKcoeff(double): Magnetic kernel
       subroutine MK(rL,S,rJ,rJ1,rK,rJJ,rJJ1,rKK,Q, &
                     zJ,zJ1,zK,dFS,larmor,Flgsg,rMKcoeff)
 
@@ -1311,20 +1434,28 @@
 
       double precision:: tmp
 
+
+      ! Initialize rate
       rMKcoeff = 0d0
+
+      ! Initialize sum
       tmp = 0d0
 
+      ! If diagonal in J
       if (zJ) tmp = Flgsg%sg(nint(rK-rKK))* &
                     GammaF(rL,S,rJJ1,rJ1,zJ1,Flgsg)* &
                     fun6j(rK,rKK,1d0,rJJ1,rJ1,rJ,Flgsg)
 
+      ! If diagonal in J'
       if (zJ1) tmp = GammaF(rL,S,rJ,rJJ,zJ,Flgsg)* &
                      fun6j(rK,rKK,1d0,rJJ,rJ,rJ1,Flgsg) + tmp
 
+      ! If diagonal in any of the two
       if (zJ.or.zJ1) rMKcoeff = larmor*Flgsg%sg(nint(rJ+rJ1-Q))* &
                                 sqrt((2d0*rK+1d0)*(2d0*rKK+1d0))* &
                                 fun3j(rK,rKK,1d0,-Q,Q,0d0,Flgsg)*tmp
 
+      ! If diagonal in both and in K
       if (zJ.and.zJ1.and.zK) rMKcoeff = dFS + rMKcoeff
 
       end subroutine MK

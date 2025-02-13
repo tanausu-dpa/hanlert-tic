@@ -5,132 +5,43 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     04/19/2017
+!     19/04/2017
 !  Last version:
-!     07/03/2023 V3.1.0
+!     28/11/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     07/03/2023:    V3.1.0 - The calculation of the continuum
-!                             opacity at the reference frequency has
-!                             its own subroutine now (TdPA)
-!
-!     11/24/2022:    V3.0.3 - Added an exception to not remove the
-!                             continuum data from the master if we
-!                             are running CLE (TdPA)
-!
-!     07/27/2022:    V3.0.2 - Renamed MPI to MPID (TdPA)
-!
-!     07/13/2022:    V3.0.1 - Changed the arguments in kurucz_bb call
-!                             to accomodate other changes (TdPA)
-!
-!     06/29/2022:    V3.0.0 - To implement the 1.5D case the following
-!                             changes were needed:
-!                              o Now fudge factor and Kurucz lines
-!                                are inputs to avoid reading the files
-!                                repeatedly.
-!                              o Consequently, the reading of the
-!                                fudge and Kurucz files have been
-!                                moved elsewhere.
-!                              o The fudge is interpolated every
-!                                time, though, as it is likely
-!                                relatively lightweight.
-!                              o Atmo%v has changed to Atmo%vx,%vy,
-!                                and %vz.
-!                             (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!                           - Removed domain decomposition (TdPA)
-!                           - Moved up the allocation of RT
-!                             coefficients (TdPA)
-!
-!     09/24/2020:    V1.3.7 - When defining the vfac array for the
-!                             bound-bound background contributions,
-!                             the whole velocity vector was casted,
-!                             instead of the portion in the relevant
-!                             domain. Error found and solution
-!                             proposed by David Afonso, IAC (TdPA)
-!
-!     09/11/2020:    V1.3.6 - Added memory counter for background
-!                             quantities (TdPA)
-!
-!     05/11/2020:    V1.3.5 - Removed indexes in kurucz_bb call (TdPA)
-!
-!     03/05/2020:    V1.3.4 - kurucz_bb now asks for the total
-!                             hydrogen density, also non-atomic (TdPA)
-!                           - When the index where the hydrogen is
-!                             stored is found in active or passive
-!                             atoms, the complementary index is set
-!                             to -1 to avoid undefined (TdPA)
-!
-!     12/17/2019:    V1.3.3 - Bugfix: The Thomson scattering for the
-!                             reference frequency was using a
-!                             quantity defined after its use (TdPA)
-!
-!     12/10/2019:    V1.3.2 - Always compute reference continuum
-!                             opacity to transform to the other
-!                             vertical axis (TdPA)
-!
-!     11/19/2019:    V1.3.1 - Removed checks in allocate and
-!                             deallocate calls (TdPA)
-!
-!     09/13/2019:    V1.3.0 - When the height scale is in tau units,
-!                             compute the absorptivity of the
-!                             reference wavelength, only continuum,
-!                             without b-b transitions (TdPA)
-!
-!     08/09/2019:    V1.2.2 - Option to skip bound-bound transitions
-!                             without modifying the models (TdPA)
-!
-!     07/23/2019:    V1.2.1 - Moved Kurucz lines outside the
-!                             background atom loop (TdPA)
-!
-!     04/08/2019:    V1.2.0 - Added possibility to add opacity from
-!                             Kurucz line files (TdPA)
-!
-!     02/20/2019:    V1.1.0 - Changed verbosity (TdPA)
-!                           - fudge read checks for success and unit
-!                             is now 100 (TdPA)
-!
-!     11/28/2018:    V1.0.5 - Fix of doxygen comment (TdPA)
-!
-!     07/10/2018:    V1.0.4 - Need to pass Flgsg to back_bb (TdPA)
-!
-!     12/18/2017:    V1.0.3 - Bugfix: Two of the options to compute
-!                             Doppler width for background atoms used
-!                             the helium index (TdPA)
-!
-!     09/14/2017:    V1.0.2 - Added a path and ID to the file (TdPA)
-!
-!     06/12/2017:    V1.0.1 - Removed Cont%l (TdPA)
-!
-!     04/19/2017:    V1.0.0 - Started coding (TdPA)
+!     28/11/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
 !
 !  Known bugs:
 !
-!    Not a bug itself, but never tested it with velocities
+!#####################################################################
+!#####################################################################
+!
+!  To do:
+!
+!     Manage the need for directional dependency in a more clever way
 !
 !#####################################################################
 !#####################################################################
 !
 !  Data:
 !
-!  background:
-!    Calculates the continuum opacity, scattering coefficient, and
+!  background
+!    Computes background absortivity, scattering coefficient, and
 !  emissivity
 !
-!  chi_freq:
-!    Calculates the continuum opacity at the reference frequency,
-!  neglecting b-b transitions
+!  chi_freq
+!    Computes background absortivity, scattering coefficient, and
+!  emissivity at a single frequency neglecting b-b transitions
 !
 !#####################################################################
 !#####################################################################
@@ -142,7 +53,7 @@
       use commons_mod
       use inter_mod
       use kurucz_mod
-      use parameters_mod , ONLY : vacuum
+      use parameters_mod , ONLY : vacuum , TINYVEL
       use planck_mod
       use types_mod
 
@@ -152,22 +63,23 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes background quantities\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!         Atomb(Atom_class): Structure with the atomic data for
-      !!                            background opacities\n
-      !!            Mol(Mol_class): Structure with the molecule data\n
-      !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !!        fudge(fudge_class): Structure with fudge data\n
-      !!      kurucz(kurucz_class): Structure with Kurucz line data\n
-      !!        Input(Input_class): Structure with settings data\n
-      !!          omega(dfloat(:)): Frequency array\n
-      !!     Cont(Continuum_class): Structure with background opacity
-      !!                            data\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!        Flgsg(Fctsg_class): Structure with factorials and
-      !!                            signs
+      !> Computes background absortivity, scattering coefficient, and
+      !! emissivity\n
+      !!    Atom(Atom_class(:)): Structures with atomic data\n
+      !!   Atomb(Atom_class(:)): Structures with atomic data for
+      !!                         background atoms\n
+      !!      Mol(Mol_class(:)): Structures with molecular data\n
+      !!       Atmo(Atmo_class): Structure with atmospheric data\n
+      !!     fudge(fudge_class): Structure with fudge data\n
+      !!   kurucz(kurucz_class): Structure with Kurucz line data\n
+      !!     Input(Input_class): Structure with configuration data\n
+      !!       omega(double(:)): Frequency array\n
+      !!  Cont(Continuum_class): Structure with background opacity
+      !!                         data\n
+      !!   Geom(Geometry_class): Structure with geometric data\n
+      !!        MPID(MPI_class): Structure with MPI data\n
+      !!     Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                         J-symbols\n
       subroutine background(Atom,Atomb,Mol,Atmo,fudge,kurucz,Input, &
                             omega,Cont,Geom,MPID,Flgsg)
 
@@ -176,13 +88,13 @@
       type(Atom_class), dimension(:), intent(in):: Atom
       type(Atom_class), dimension(:), intent(in):: Atomb
       type(Mol_class), dimension(:), intent(in):: Mol
-      type(Atmo_class), intent(inout):: Atmo
+      type(Atmo_class), intent(in):: Atmo
       type(fudge_class), intent(in):: fudge
-      type(Input_class):: Input
-      type(kurucz_class):: kurucz
-      type(Continuum_class):: Cont
-      type(Geometry_class):: Geom
-      type(MPI_class):: MPID
+      type(Input_class), intent(in):: Input
+      type(kurucz_class), intent(in):: kurucz
+      type(Continuum_class), intent(inout):: Cont
+      type(Geometry_class), intent(in):: Geom
+      type(MPI_class), intent(in):: MPID
       type(Fctsg_class), intent(in):: Flgsg
       double precision, dimension(:), intent(in):: omega
 
@@ -190,26 +102,24 @@
 
       type(Continuum_class):: Cont_aux
 
-      logical:: lH, lHe, lOH, lCH, lH2, nfline, fline, fkline
+      logical:: lH,lHe,lOH,lCH,lH2,nfline,fline,fkline
 
       integer:: if0,if1,ith,iph
       integer:: iaH,iabH,iaHe,iabHe,imOH,imCH, imH2
-      integer:: ia,imol,ifreq,iz,idir,jdir
-      integer:: ndir
+      integer:: ia,imol,ifreq,iz,idir,jdir,ndir
       integer, dimension(:), allocatable:: ithV,iphV,ithLV,iphLV
 
-      double precision:: freq, DwT
-      double precision:: ct, st, cc, sc
+      double precision:: freq,DwT,ct,st,cc,sc
       double precision, dimension(3):: fudge_fact
-      double precision, dimension(:), allocatable:: eta, sig, eps, &
-                                                    bplanck, vfac
+      double precision, dimension(:), allocatable:: eta,sig,eps, &
+                                                    bplanck,vfac
 
 
       ! Routine name
       urou = 'background'
 
       ! The master does not care about the continuum
-      ! unless is in CLE mode
+      ! unless it is in CLE mode
       if (MPID%mpi.and.pid.eq.0.and.run_mode.ne.2) then
         call control
         return
@@ -225,6 +135,8 @@
       ! Allocate the continuum structure, we assume first that
       ! we will not need the extra directions
       allocate(Cont%c(if0:if1,3,1,nz))
+
+      ! Initialize
       Cont%c = 0d0
 
       ! Check if H is not being calculated (if it is not active)
@@ -345,9 +257,10 @@
           end do
         end do
 
-      ! If there are no velocities, we have isotropy
+      ! If there are no velocities
       else
 
+        ! Isotropy
         ndir = 1
         vfac = 1d0
 
@@ -360,10 +273,13 @@
       !
       ! Add Thomson scattering
       !
+
+      ! Get scattering coefficient
       call Thomson(Atmo%ne,1,nz,sig)
       do iz=1,nz
         Cont%c(:,2,1,iz) = sig(iz)
       end do
+
 
       !
       ! Initialize nfline, flag to indicates that we haven't find any
@@ -373,7 +289,7 @@
 
 
       !
-      ! The rest of contributions depends on frequencies
+      ! The rest of contributions depend on frequencies
       !
 
       ! For each output frequency
@@ -382,17 +298,24 @@
         ! Current frequency
         freq = omega(ifreq)
 
-        ! Get the fudge factors for this frequency
+        ! If there are fudge factors
         if (fudge%nfreq_f.gt.0) then
+
+          ! Interpolate them linearly
           call linear(fudge%fudge_v(:,1),fudge%fudge_v(:,2), &
                       1d2/freq,fudge_fact(1))
           call linear(fudge%fudge_v(:,1),fudge%fudge_v(:,3), &
                       1d2/freq,fudge_fact(2))
           call linear(fudge%fudge_v(:,1),fudge%fudge_v(:,4), &
                       1d2/freq,fudge_fact(3))
+
+        ! No fudge factors
         else
+
+          ! Set factors to 1
           fudge_fact = 1d0
-        end if
+
+        end if ! There are fudge factors
 
 
         ! Calculate the Planck function for each height at this
@@ -561,11 +484,11 @@
             Cont%c(ifreq,2,1,iz) = Cont%c(ifreq,2,1,iz) + sig(iz)
           end do
 
-        end if
+        end if ! H active or not
 
 
         !
-        ! Compute HeI Rayleigh contribution
+        ! Compute He I Rayleigh contribution
         !
 
         ! If He is not active
@@ -589,7 +512,7 @@
               Cont%c(ifreq,2,1,iz) = Cont%c(ifreq,2,1,iz) + sig(iz)
             end do
 
-          end if
+          end if ! There is actual helium
 
         ! If He is active
         else
@@ -609,7 +532,7 @@
             Cont%c(ifreq,2,1,iz) = Cont%c(ifreq,2,1,iz) + sig(iz)
           end do
 
-        end if
+        end if ! Active He
 
 
         !
@@ -637,7 +560,7 @@
             Cont%c(ifreq,2,1,iz) = Cont%c(ifreq,2,1,iz) + sig(iz)
           end do
 
-        end if
+        end if ! H2 is present
 
 
         !
@@ -694,10 +617,13 @@
               ! factor
               if (dyn) then
 
+                ! Get polar index
                 ith = ithv(idir)
 
+                ! If LOS index
                 if (ith.lt.0) then
 
+                  ! Get real indexes and trigonometry
                   ith = ithlv(idir)
                   iph = iphlv(idir)
                   ct = Geom%L_mu(ith)
@@ -705,25 +631,47 @@
                   cc = cos(Geom%L_phi(iph))
                   sc = sin(Geom%L_phi(iph))
 
+                ! If quadrature index
                 else
 
+                  ! Complete the indexes and get trigonometry
                   iph = iphv(idir)
                   ct = Geom%V_mu(ith)
                   st = sqrt(1d0 - ct*ct)
                   cc = Geom%v_mux(iph)
                   sc = Geom%v_muy(iph)*sqrt(1d0 - cc*cc)
 
-                end if
+                end if ! LOS/quadrature index
 
-                vfac(:) = 1d0 - atmo%vx*st*cc - &
-                                atmo%vy*st*sc - &
-                                atmo%vz*ct
+                ! Check velocity amplitude
+                vfac = sqrt(Atmo%vx*Atmo%vx + Atmo%vy*Atmo%vy + &
+                            Atmo%vz*Atmo%vz)
+
+                ! For every height
+                do iz=1,nz
+
+                  ! If velocity
+                  if (vfac(iz).gt.TINYVEL) then
+
+                    vfac(iz) = 1d0 - atmo%vx(iz)*st*cc - &
+                                     atmo%vy(iz)*st*sc - &
+                                     atmo%vz(iz)*ct
+
+                  ! No velocity
+                  else
+
+                    vfac(iz) = 1d0
+
+                  end if ! Velocity at this height
+
+                end do ! Heights
 
               end if ! There are velocities
 
-              ! If it is the hardwired HI model
+              ! If it is the hard.coded HI model
               if (Atomb(ia)%cust) then
 
+                ! Get bound-bound contribution
                 call backH_bb(freq,Atomb(ia),Atmo%T, &
                               Atmo%vmi,DwT,vfac,1,nz, &
                               fline,eta,eps)
@@ -731,6 +679,7 @@
               ! It is a read model atom
               else
 
+                ! Get bound-bound contribution
                 call back_bb(freq,Atomb(ia),Flgsg,Atmo%T, &
                              Atmo%vmi,DwT,vfac,1,nz, &
                              fline,eta,eps)
@@ -778,14 +727,17 @@
             ! If we read Kurucz lines
             if (Kurucz%ntran.ge.1) then
 
+              ! Get bound-bound contributions
               call kurucz_bb(freq,Kurucz,Atmo,vfac, &
                              1,nz,fkline,eta,eps)
 
+            ! No Kurucz lines
             else
 
+              ! Flag as not lines found
               fkline = .False.
 
-            end if
+            end if ! Kurucz data read
 
             ! If we found a line for the first time and there are
             ! velocities
@@ -810,7 +762,7 @@
               ! Flag that we already found a line
               nfline = .False.
 
-            end if
+            end if ! First time we find a line
 
             ! If there was a line in the kurucz list, add its
             ! contributions
@@ -842,6 +794,13 @@
 
       end do ! Frequencies
 
+      ! Count memory in background quantities
+      BRAMc = 1d-6*sizeof(Cont%c)
+
+      ! Free
+      deallocate(eta,sig,eps,bplanck,vfac)
+      if (dyn) deallocate(ithv,iphv,ithlv,iphlv)
+
       ! Control
       call control
 
@@ -851,20 +810,20 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes continuum opacity at a single frequency\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!         Atomb(Atom_class): Structure with the atomic data for
-      !!                            background opacities\n
-      !!            Mol(Mol_class): Structure with the molecule data\n
-      !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !!        fudge(fudge_class): Structure with fudge data\n
-      !!      kurucz(kurucz_class): Structure with Kurucz line data\n
-      !!        Input(Input_class): Structure with settings data\n
-      !!              freq(dfloat): Frequency\n
-      !!            chi(dfloat(:)): Background opacity\n
-      !!              iz0(integer): First height index\n
-      !!              iz1(integer): Last height index\n
-      !!      skip_master(logical): If master can skip
+      !> Computes background absortivity, scattering coefficient, and
+      !! emissivity at a single frequency neglecting b-b transitions\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atoms\n
+      !!     Mol(Mol_class(:)): Structures with molecular data\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data\n
+      !!    fudge(fudge_class): Structure with fudge data\n
+      !!    Input(Input_class): Structure with configuration data\n
+      !!          freq(double): Frequency\n
+      !!        chi(double(:)): Background opacity\n
+      !!          iz0(integer): First height index to consider\n
+      !!          iz1(integer): Last height index to consider\n
+      !!  skip_master(logical): If master can skip this
       subroutine chi_freq(Atom,Atomb,Mol,Atmo,fudge, &
                           Input,freq,chi,iz0,iz1,skip_master)
 
@@ -873,23 +832,24 @@
       type(Atom_class), dimension(:), intent(in):: Atom
       type(Atom_class), dimension(:), intent(in):: Atomb
       type(Mol_class), dimension(:), intent(in):: Mol
-      type(Atmo_class), intent(inout):: Atmo
+      type(Atmo_class), intent(in):: Atmo
       type(fudge_class), intent(in):: fudge
-      type(Input_class):: Input
+      type(Input_class), intent(in):: Input
       logical, intent(in):: skip_master
       integer, intent(in):: iz0,iz1
       double precision, intent(in):: freq
       double precision, dimension(:), intent(out):: chi
 
       ! Local
-      logical:: lH, lHe, lOH, lCH, lH2
 
-      integer:: iaH,iabH,iaHe,iabHe,imOH,imCH, imH2
+      logical:: lH,lHe,lOH,lCH,lH2
+
+      integer:: iaH,iabH,iaHe,iabHe,imOH,imCH,imH2
       integer:: ia,imol,ifreq,lnz
 
       double precision:: DwT
       double precision, dimension(3):: fudge_fact
-      double precision, dimension(:), allocatable:: eta, sig, eps
+      double precision, dimension(:), allocatable:: eta,sig,eps
 
 
       ! The master does not care about the continuum
@@ -986,17 +946,24 @@
         end do
       end if
 
-      ! Get the fudge factors for this frequency
+      ! If there are fudge factors
       if (fudge%nfreq_f.gt.0) then
+
+        ! Interpolate them linearly
         call linear(fudge%fudge_v(:,1),fudge%fudge_v(:,2), &
                     1d2/freq,fudge_fact(1))
         call linear(fudge%fudge_v(:,1),fudge%fudge_v(:,3), &
                     1d2/freq,fudge_fact(2))
         call linear(fudge%fudge_v(:,1),fudge%fudge_v(:,4), &
                     1d2/freq,fudge_fact(3))
+
+      ! No fudge factors
       else
+
+        ! Set factors to 1
         fudge_fact = 1d0
-      end if
+
+      end if ! There are fudge factors
 
 
       ! Add Thomson scattering
@@ -1110,7 +1077,7 @@
         call rayleigh(freq,ifreq,Atom(iaH),DwT,iz0,iz1,1,sig)
         chi(1:lnz) = chi(1:lnz) + sig(iz0:iz1)*fudge_fact(2)
 
-      end if
+      end if ! H active or not
 
 
       !
@@ -1154,7 +1121,7 @@
         call rayleigh(freq,ifreq,Atom(iaHe),DwT,iz0,iz1,1,sig)
         chi(1:lnz) = chi(1:lnz) + sig(iz0:iz1)*fudge_fact(2)
 
-      end if
+      end if ! He active or not
 
 
       !
@@ -1176,7 +1143,7 @@
         call rayleigh_H2(freq,Mol(imH2)%n,iz0,iz1,sig)
         chi(1:lnz) = chi(1:lnz) + sig(iz0:iz1)*fudge_fact(2)
 
-      end if
+      end if ! There is H2
 
 
       !
@@ -1190,10 +1157,13 @@
         call back_bf(freq,Atomb(ia),Atmo%T,iz0,iz1,eta,eps)
         chi(1:lnz) = chi(1:lnz) + eta(iz0:iz1)*fudge_fact(3)
 
-      end do
+      end do ! Background atoms
 
       ! Add vaccum value
       chi(1:lnz) = chi(1:lnz) + vacuum
+
+      ! Free
+      deallocate(eta,sig,eps)
 
       ! Control
       call control

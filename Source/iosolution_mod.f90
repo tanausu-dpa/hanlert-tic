@@ -5,402 +5,21 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Contributors:
-!     Hao Li (IAC)
+!     Hao Li (IAC/NSSCC)
 !  Start:
-!     04/20/2016
+!     20/04/2016
 !  Last version:
-!     02/11/2025 V3.0.26
+!     13/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     02/11/2025:   V3.0.26 - Bugfix: wrong split between the AD and
-!                             AV reading of the spectra in the
-!                             Solution file (TdPA)
-!
-!     10/04/2024:   V3.0.25 - Removed unused variables in writeqel
-!                             subroutine (TdPA)
-!
-!     09/23/2024:   V3.0.24 - Changed MPI tags to comply with the
-!                             standard (TdPA)
-!                           - Changed the format in the writing of
-!                             atmospheric models in ASCII to the
-!                             recommended ratio between digits and
-!                             decimals (TdPA)
-!
-!     07/18/2024:   V3.0.23 - Added writeqel for elastic rates (TdPA)
-!
-!     04/12/2024:   V3.0.22 - Bugfix: Fixed wrong read of Stokes
-!                             parameters when reading a solution
-!                             from an axial problem into a problem
-!                             that required non-axial Stokes
-!                             parameters. The bug was introduced
-!                             in v3.0.20 (TdPA)
-!
-!     03/11/2024:   V3.0.21 - Removed unnecessary reshapes in cases
-!                             when there was a single dimension with
-!                             a non fixed index (TdPA)
-!                           - Bugfix: Fixed out of bounds when writing
-!                             the contribution function when limiting
-!                             the height indexes. Because the variable
-!                             for the contribution function has
-!                             implicit dimensions, it is necessary to
-!                             shift the indexing (TdPA)
-!
-!     02/20/2024:   V3.0.20 - Improved algorithm to read radiation
-!                             field. It is more readable and may fix
-!                             potential undetected issues (TdPA)
-!
-!     02/19/2024:   V3.0.19 - Bugfix: wrong logic when reading Stokes
-!                             parameters for a non axially-symmetric
-!                             solution without keeping the Stokes
-!                             parameters, also when computing the
-!                             corresponding tensors (TdPA)
-!                           - Bugfix: wrong pointer for J00P when
-!                             sharing in readsol when restricting
-!                             heights (TdPA)
-!
-!     02/16/2024:   V3.0.18 - Bugfix: wrong name file when storing
-!                             solution variables without storing the
-!                             solution file in 1.5DS mode (TdPA)
-!
-!     02/14/2024:   V3.0.17 - RAM variable for radiation does not
-!                             assume not initialized (TdPA)
-!
-!     09/29/2023:   V3.0.16 - Updated to term- and transition-wise
-!                             K cut limits (TdPA)
-!                           - Avoid computing tensor components
-!                             with negative Q values (TdPA)
-!
-!     09/25/2023:   V3.0.15 - Change names for population and
-!                             departure coefficient files (TdPA)
-!
-!     08/07/2023:   V3.0.14 - readsol now returns if the Stokes
-!                             parameters could be read (TdPA)
-!                           - Use czero to initialize instead of the
-!                             explicit 0+j0 (TdPA)
-!
-!     07/05/2023:   V3.0.13 - Bugfix: There was no writing of Stokes
-!                             parameters in the inversion if it was
-!                             intensity only (TdPA)
-!                           - Bugfix: Forgot to code in the writing
-!                             of the contribution function in the
-!                             inversion when the height range is
-!                             not cropped (TdPA)
-!
-!     07/03/2023:   V3.0.12 - Added getsol, setsol, setstk, setstkI,
-!                             setctr, setctrI, and settau to manage
-!                             the input/output of the solution of
-!                             the forward problem when running
-!                             inversions (TdPA)
-!                           - Added an explicit branch for the
-!                             inversion when writing the emerging
-!                             Stokes parameters (TdPA)
-!                           - Added writectrI_inv, writectr_inv, and
-!                             writetau_inv to store in file the
-!                             contribution function and height of
-!                             optical depth equal to one for the
-!                             inversion (TdPA)
-!                           - Bugfix: Wrong upper limit for Stokes in
-!                             readsol when not reading the full
-!                             Stokes array in the polarization
-!                             problem (TdPA)
-!
-!     04/25/2023:   V3.0.11 - Bugfix: When saving the intensity
-!                             solution file, the definition of AV_int
-!                             was the opposite as it should be (TdPA)
-!
-!     03/21/2023:   V3.0.10 - Bugfix: When saving the intensity
-!                             solution file, the branches to store
-!                             Stokes or J00C were interchanged (TdPA)
-!
-!     03/08/2023:    V3.0.9 - When readsol fails to open or read the
-!                             indicated input file, it writes the
-!                             path in the error message (TdPA)
-!
-!     02/14/2023:    V3.0.8 - The inversion also calls readsol,
-!                             writesol, writesolI, writestk,
-!                             writestokI, writectr, writectrI,
-!                             writetau, and writeatmo  so it had to
-!                             be taken into consideration for
-!                             selecting the filename (HL)
-!                           - The total population is not updated
-!                             in readsol for the inversion mode (HL)
-!                           - Readsol accounts for the split in
-!                             quadratures (TdPA)
-!                           - writesolI uses axiali (TdPA)
-!                           - Added GeomI exclusive for use in the
-!                             intensity problem (TdPA)
-!
-!     11/24/2022:    V3.0.7 - Added write_CLEgeom and write_CLE
-!                             subroutines (TdPA)
-!
-!     11/10/2022:    V3.0.6 - Bugfix: The populations of the regions
-!                             outside of the RT height range are
-!                             not normalized (TdPA)
-!                           - Bugfix: There was a departure
-!                             coefficient writing that was directed
-!                             to the population file unit (TdPA)
-!
-!     10/26/2022:    V3.0.5 - Changed the indexing of atomic levels
-!                             in Atom (TdPA)
-!
-!     10/25/2022:    V3.0.4 - Implemented the height axis restriction
-!                             option (TdPA)
-!                           - Changed unit numbers in writesol and
-!                             writesolI so they are unique (TdPA)
-!                           - Bugfix: The offset when writing the
-!                             emergent intensity (intensity only case)
-!                             had jumps 4 times larger than it should.
-!                             It also wrote 16 times more characters
-!                             than it should. Fixed both sizes (TdPA)
-!
-!     07/27/2022:    V3.0.3 - Renamed MPI to MPID (TdPA)
-!                           - Removed MPI%ierr variable (TdPA)
-!                           - funit is now global (TdPA)
-!
-!     07/08/2022:    V3.0.2 - Bugfix: When the output is limited, in
-!                             the contribution function the order
-!                             height-frequency must be imposed with
-!                             an unoptimal additional loop (TdPA)
-!                           - Bugfix: Collisions between a term with
-!                             itself, or a level with itself, should
-!                             not be filtered out in the output (TdPA)
-!                           - Bugfix: tau was not being stored in the
-!                             atmospheric file when height was the
-!                             input (TdPA)
-!                           - The atmospheric model is now stored in
-!                             double precision (TdPA)
-!                           - Changed the name of the solution folder
-!                             for the 1.5D case (TdPA)
-!
-!     06/30/2022:    V3.0.1 - Bugfixes: Quick changes while preparing
-!                             the last commit led to mistakes. Solved
-!                             some typos, a missing allocation, and
-!                             a wrong label in goto (TdPA)
-!
-!     06/29/2022:    V3.0.0 - To implement the 1.5D case the following
-!                             changes were needed:
-!                              o readsol, writesol, and writesolI now
-!                                choose the solution file path and
-!                                filename depending on the run type.
-!                              o The first two inputs in writesol and
-!                                writesolI have been changed to the
-!                                Input structure.
-!                              o Writing the rhoKQ, JKQ, Stokesout,
-!                                .pop, and .dep files, and even the
-!                                solution file is technically optional
-!                                now.
-!                              o Added returns for when we need to
-!                                abort the run.
-!                              o Changed the MPI communicator from
-!                                MPI_COMM_WORLD to MPI_COMM_RT.
-!                              o Added an additional input for
-!                                writestk, writestkI, writectr,
-!                                writectrI, writetau, writecols,
-!                                writedamp, writeback, and writeatmo
-!                                so they can handle 1.5D writing.
-!                             (TdPA)
-!
-!     04/07/2022:    V2.0.3 - Added the possibility to write the
-!                             frequency dependent radiation field
-!                             tensors as part of saving the solution
-!                             file (TdPA)
-!
-!     09/30/2021:    V2.0.2 - Needed to change behaviour when reading
-!                             Stokes in an axial problem while keeping
-!                             Stokes parameters (TdPA)
-!
-!     03/23/2021:    V2.0.1 - Changed call to abortedS (TdPA)
-!
-!     03/18/2021:    V2.0.1 - Removed redundant call to control in
-!                             writeback (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!                           - Removed domain decomposition (TdPA)
-!                           - Removed many control calls (TdPA)
-!
-!     01/12/2021:   V1.7.14 - Use KSTK to deal with the radiation
-!                             field part when reading and writing
-!                             the solution file (TdPA)
-!
-!     09/11/2020:   V1.7.13 - Added RAM counters for radiation field
-!                             quantities (TdPA)
-!                           - Store departure coefficients in its
-!                             own file (TdPA)
-!
-!     07/10/2020:   V1.7.12 - Bugfix: Error in allocation of Stokes
-!                             when reading an angle-averaged solution
-!                             with PRD and dynamics (TdPA)
-!
-!     05/11/2020:   V1.7.11 - Bugfix: In readsol, the master was
-!                             sending the wrong amount of elements
-!                             for the populations and there was an
-!                             extra argument in the isend call for
-!                             the density matrix, both when there was
-!                             domain decomposition (TdPA)
-!                           - The writeback routine now also writes
-!                             the frequency vector in the background
-!                             quantities file (TdPA)
-!
-!     04/14/2020:   V1.7.10 - Bugfix: Since 11/13/2019, 1.11.0 version
-!                             of rtcoeffiaux_mod, it was necessary to
-!                             initialize the Atom(:)%popu when reading
-!                             the density matrix Atom(:)%crho (TdPA)
-!
-!     03/05/2020:    V1.7.9 - Avoided extra space when saving file
-!                             with populations for elements with a
-!                             single letter (TdPA)
-!                           - Changed format of atmos.dat, added
-!                             column for atomic H density (TdPA)
-!                           - Added routine wAtmo (TdPA)
-!
-!     12/17/2019:    V1.7.8 - Added continuum opacity to the output
-!                             atmosphere (TdPA)
-!                           - Fixed header of atmospheric file (TdPA)
-!
-!     12/10/2019:    V1.7.7 - Completed the writeatmo routine (TdPA)
-!
-!     11/19/2019:    V1.7.6 - Removed checks in allocate and
-!                             deallocate calls (TdPA)
-!
-!     10/31/2019:    V1.7.5 - J00S need to be allocated even if not
-!                             used due to the term correction (TdPA)
-!
-!     09/26/2019:    V1.7.4 - Added writeatmo (TdPA)
-!
-!     09/13/2019:    V1.7.3 - Changed condition to write and read
-!                             Stokes instead of JKQ, as the angle-
-!                             average case with velocities requires
-!                             the former now (TdPA)
-!
-!     08/19/2019:    V1.7.2 - Ignoring the reading of J00S. Commented
-!                             the reading and the communication among
-!                             CPU (TdPA)
-!                           - Bugfix: Wrong message when the number of
-!                             polar directions in the run and in the
-!                             read solution file were different (TdPA)
-!
-!     08/16/2019:    V1.7.1 - Bugfix: was using a bad identifier for
-!                             MPI without domain decomposition, was
-!                             checking MPI%nsend.gt.0 instead of
-!                             MPI%mpi (TdPA)
-!
-!     05/08/2019:    V1.7.0 - Got rid of the (atomic,transition) pair
-!                             of indexes in every radiation tensor and
-!                             now they have been compressed in just
-!                             one dimension (TdPA)
-!
-!     04/16/2019:    V1.6.2 - Introduced back the normal broadcasting
-!                             from mpi (TdPA)
-!
-!     03/12/2019:    V1.6.1 - Bugfix: Did not change two of the write
-!                             statements to the new units (TdPA)
-!
-!     02/20/2019:    V1.6.0 - New verbosity (TdPA)
-!                           - Now uses units in the hundreds (TdPA)
-!                           - Now uses specific TINY variables (TdPA)
-!
-!     01/23/2019:    V1.5.2 - Read JKQC when the solution has
-!                             different number of angles if it was
-!                             angle-averaged (TdPA)
-!
-!     11/19/2018:    V1.5.1 - Writedamp prints full damping for each
-!                             transition (TdPA)
-!                           - Added identificators for collision,
-!                             damping, and background files (TdPA)
-!
-!     11/06/2018:    V1.5.0 - Added writecols, writedamp, and
-!                             writeback (TdPA)
-!
-!     10/01/2018:    V1.4.6 - When storing the intensity solution, it
-!                             also saves JoutI, RhooutI, and
-!                             StokesoutI (TdPA)
-!
-!     09/06/2018:    V1.4.5 - Bugfix: When not doing PRD it did not
-!                             make sense to check the AV variable. Now
-!                             AV at writing and inAV at reading depend
-!                             on both booleans (TdPA)
-!                           - Possibility to write the intensity
-!                             solution with a different name so the
-!                             polarization solution does not overwrite
-!                             it (TdPA)
-!
-!     07/30/2018:    V1.4.4 - Bugfix: When reading and applying cut on
-!                             K do not try to rotate rhoKQ that does
-!                             not exist (TdPA)
-!
-!     06/01/2018:    V1.4.3 - Do not display warning about the way of
-!                             reading Stokes parameters if not going
-!                             to read them anyways (TdPA)
-!
-!     05/31/2018:    V1.4.2 - Missing space in warning about reading
-!                             non-axial solution as initialization of
-!                             an axial problem (TdPA)
-!                           - Bugfix: When the problem was axial and
-!                             the solution was not, the reading of
-!                             Stokes parameters was wrong, because it
-!                             did not read the full azimuth and
-!                             assigned the wrong Stokes for different
-!                             polar angles (TdPA)
-!
-!     05/16/2018:    V1.4.1 - Stokes has dimension nPh, instead of
-!                             nPh2, in the azimuthal index (TdPA)
-!                           - Modified readsol to account for that
-!                             index change (TdPA)
-!
-!     10/24/2017:    V1.4.0 - Writes the population file too (TdPA)
-!
-!     10/09/2017:    V1.3.1 - Forgot to share the total population for
-!                             each atom (TdPA)
-!
-!     09/27/2017:    V1.3.0 - Implemented send_tree algorithm to
-!                             avoid the terrible scaling of the native
-!                             mpi_bcast (TdPA)
-!
-!     09/22/2017:    V1.2.0 - Possibility to limit K (TdPA)
-!                           - Bugfix: In writesolI, was not writting
-!                             J, was not defined (TdPA)
-!
-!     09/13/2017:    V1.1.2 - Bugfix: rhonull for population when
-!                             reading intensity solution was set to
-!                             .True. by comparing with TINY15,
-!                             instead with 0 (TdPA)
-!
-!     09/12/2017:    V1.1.1 - Bugfix: The writing of rhooutI was
-!                             wrong (TdPA)
-!                           - Not writing logical rhonull, but a proxy
-!                             integer (TdPA)
-!
-!     08/04/2017:    V1.1.0 - Only the master reads, the others just
-!                             recieve (TdPA)
-!
-!     07/06/2017:    V1.0.4 - Bugfix: Because dimensions are not
-!                             specified, the Stokes look for the
-!                             contribution function must go from 1 to
-!                             4, instead of from 0 to 3 (TdPA)
-!
-!     06/29/2017:    V1.0.3 - Bugfix: When reading from intensity
-!                             solution every rhonull was made True
-!                             (TdPA)
-!
-!     06/22/2017:    V1.0.2 - Redone writesolI (TdPA)
-!                           - Now the code can read multilevel or
-!                             multiterm solutions (TdPA)
-!
-!     05/26/2017:    V1.0.1 - Bugfix: There was a iz limited by the
-!                             CPU limits in readsol, it should take
-!                             all the nodes (TdPA)
-!                           - Bugfix: JKQC was only being stored if
-!                             there was stimulated emission, a copy
-!                             and paste bug (TdPA)
-!
-!     04/20/2017:    V1.0.0 - First version (TdPA)
+!     13/12/2024:    V4.0.0 - Removed references to threads in the
+!                             calls to abortedS (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -410,81 +29,99 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
 !  readsol
-!    Restores rhoKQ, JKQ and Stokes from files
+!    Read a file with an existing self-consistent solution
 !
 !  getsol
-!    Restores rhoKQ, JKQ and Stokes from RAM
+!    Restore the self-consistent solution from RAM
 !
 !  setsol
-!    Stores rhoKQ, JKQ and Stokes in RAM
+!    Save the self-consistent solution in RAM
 !
 !  writesol
-!    Stores rhoKQ, JKQ and Stokes in file
+!    Save the self-consistent solution in a file
 !
 !  writesolI
-!    Stores rhoKQ, JKQ and Stokes from solverI in file
+!    Save the self-consistent solution for the intensity problem in a
+!  file
 !
 !  writestk
-!    Stores emergent Stokes in file
+!    Save the emergent Stokes parameters in a file
 !
 !  writestkI
-!    Stores emergent Stokes from emergenceI in file
+!    Save the emergent intensity in a file
+!
+!  setstk
+!    Save the emergent Stokes parameters in RAM
+!
+!  setstkI
+!    Save the emergent intensity in RAM
 !
 !  write_CLEgeom
-!    Write the geometry of a LOS in CLE in file
+!    Write the position of the LOS in the CLE problem in a file
 !
 !  write_CLE
-!    Write emergent Stokes and optical depth in CLE in file
+!    Write the emergent Stokes and optical depth in the CLE problem in
+!  a file
 !
 !  writectr
-!    Stores contribution function in file
+!    Save the contribution function of a synthesis run in a file
 !
 !  writectr_inv
-!    Stores contribution function from inversion in file
+!    Save the contribution function of an inversion run in a file
 !
 !  writectrI
-!    Stores contribution function from emergenceI in file
+!    Save the intensity contribution function of a synthesis run in a
+!  file
 !
 !  writectrI_inv
-!    Stores contribution function from intensity inversion in file
+!    Save the intensity contribution function of an inversion run in a
+!  file
 !
 !  setctr
-!    Stores contribution function in RAM
+!    Save the contribution function in RAM
 !
 !  setctrI
-!    Stores contribution function for intensity in RAM
+!    Save the intensity contribution function in RAM
 !
 !  writetau
-!    Stores height where optical depth is equal to one in file
+!    Save the height of optical depth equal to one of a synthesis run
+!  in a file
 !
 !  writetau_inv
-!    Stores height where optical depth is equal to one from inversion
-!  in file
+!    Save the height of optical depth equal to one of an inversion run
+!  in a file
 !
 !  settau
-!    Stores height where optical depth is equal to one in RAM
-!  in file
+!    Save the height where the optical depth is equal to one in RAM
 !
 !  writecols
-!    Stores inelastic collisions of active atoms in file
+!    Save inelastic collisional rates of active atoms in a file
 !
 !  writedamp
-!    Stores damping parameter of active atoms in file
+!    Save damping parameter of active atoms in a file
 !
 !  writeqel
-!    Stores elastic rates of active atoms in file
+!    Save elastic collisional rates of active atoms in a file
 !
 !  writeback
-!    Stores background continuum quantities in file
+!    Save background opacity, scattering coefficient, and emissivity
+!  in a file
 !
 !  writeatmo
-!    Stores atmospheric data in ASCII file atmos.dat
+!    Write the model atmosphere in a file. The file is in ASCII for
+!  a 1D synthesis and in binary for a 1.5D synthesis, with the same
+!  format than the corresponding input for the latter
 !
 !  wAtmo
-!    Writes an updated atmospheric file ready to be used by HanleRT
+!    Write a 1D model atmosphere in a file in the 1D synthesis format
 !
 !#####################################################################
 !#####################################################################
@@ -503,35 +140,37 @@
 !#####################################################################
 !#####################################################################
 
-      !> Reads a file with a solution calculated in a previous run of
-      !! the code.\n
-      !!    filename(character(:)): Name of the file to read\n
-      !!     GeomI(Geometry_class): Structure with geometry data for
-      !!                            the intensity problem\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!        Flgsg(Fctsg_class): Structure with factorials and
-      !!                            signs\n
-      !!      Bfield(Bfield_blass): Structure with magnetic field
-      !!                            data\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !! Stokes(dfloat(:,:,:,:,:)): Stokes parameters\n
-      !!    JKQ(dcomplex(:,:,:,:)): Radiation field tensors integrated
-      !!                            over absorption profile\n
-      !!   JKQS(dcomplex(:,:,:,:)): Radiation field tensors integrated
-      !!                            over emission profile\n
-      !!   JKQC(dcomplex(:,:,:,:)): Radiation field tensors with
-      !!                            frequency dependence\n
-      !!  Stokes0(dfloat(:,:,:,:)): Intensity\n
-      !!          J00(dfloat(:,:)): Mean intensity integrated over
-      !!                            absorption profile\n
-      !!         J00S(dfloat(:,:)): Mean intensity integrated over
-      !!                            emission profile\n
-      !!         J00C(dfloat(:,:)): Mean intensity with frequency
-      !!                            dependence\n
-      !!       J00P(dfloat(:,:,:)): Intensity integrals in the
-      !!                            photoionization rates
-      subroutine readsol(filename,GeomI,Geom,MPID,Flgsg,Bfield,Atom, &
+      !> Read a file with an existing self-consistent solution\n
+      !!     filename(character(:)): Name of the file to read\n
+      !!      GeomI(Geometry_class): Structure with geometric data for
+      !!                             the intensity problem\n
+      !!       Geom(Geometry_class): Structure with geometric data\n
+      !!         Flgsg(Fctsg_class): Structure with factorials, signs,
+      !!                             and J-symbols\n
+      !!       Bfield(Bfield_class): Structure with magnetic field
+      !!                             data\n
+      !!        Atom(Atom_class(:)): Structures with atomic data\n
+      !!       read_stokes(logical): If the frequency dependent
+      !!                             radiation field could be read\n
+      !!  Stokes(double(:,:,:,:,:)): Stokes parameters\n
+      !!     JKQ(dcomplex(:,:,:,:)): Radiation field tensors
+      !!                             integrated over the absorption
+      !!                             profile\n
+      !!    JKQS(dcomplex(:,:,:,:)): Radiation field tensors
+      !!                             integrated over the emission
+      !!                             profile\n
+      !!    JKQC(dcomplex(:,:,:,:)): Radiation field tensors with
+      !!                             frequency dependence\n
+      !!   Stokes0(double(:,:,:,:)): Intensity\n
+      !!           J00(double(:,:)): Mean intensity integrated over
+      !!                             the absorption profile\n
+      !!          J00S(double(:,:)): Mean intensity integrated over
+      !!                             the emission profile\n
+      !!          J00C(double(:,:)): Mean intensity with frequency
+      !!                             dependence\n
+      !!        J00P(double(:,:,:)): Intensity integrals in the
+      !!                             photoionization rates
+      subroutine readsol(filename,GeomI,Geom,Flgsg,Bfield,Atom, &
                          read_stokes, &
                          Stokes,JKQ,JKQS,JKQC, &
                          Stokes0,J00,J00S,J00C,J00P)
@@ -542,18 +181,26 @@
       type(Geometry_class), intent(in):: Geom,GeomI
       type(Fctsg_class), intent(in):: Flgsg
       type(Bfield_class), intent(in):: Bfield
-      type(MPI_class), intent(inout):: MPID
       character(len=500), intent(in):: filename
       logical, intent(out):: read_stokes
-      double precision,dimension(:,:,:,:), allocatable:: Stokes0
-      double precision,dimension(:,:,:,:,:), allocatable:: Stokes
-      double precision,dimension(:,:), allocatable:: J00
-      double precision,dimension(:,:), allocatable:: J00S
-      double precision,dimension(:,:), allocatable:: J00C
-      double precision,dimension(:,:,:), allocatable:: J00P
-      complex(kind=8),dimension(:,:,:,:), allocatable:: JKQ
-      complex(kind=8),dimension(:,:,:,:), allocatable:: JKQS
-      complex(kind=8),dimension(:,:,:,:), allocatable:: JKQC
+      double precision, dimension(:,:,:,:), &
+                        allocatable, intent(out):: Stokes0
+      double precision, dimension(:,:,:,:,:), &
+                        allocatable, intent(out):: Stokes
+      double precision, dimension(:,:), &
+                        allocatable, intent(out):: J00
+      double precision, dimension(:,:), &
+                        allocatable, intent(out):: J00S
+      double precision, dimension(:,:), &
+                        allocatable, intent(out):: J00C
+      double precision, dimension(:,:,:), &
+                        allocatable, intent(out):: J00P
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(out):: JKQ
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(out):: JKQS
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(out):: JKQC
 
       ! Local
 
@@ -562,25 +209,24 @@
 
       logical:: inaxial,instm,inAV
 
-      integer:: ios,ia,iz,ifreq,i,ith,iph,iS,itran,jtran,istep
+      integer:: ios,ia,iz,ifreq,i,ith,iph,idir,iS,itran,jtran
       integer:: it,iJ,iJ1,K,iQ,iR,iR0,iR1
       integer:: ia1,ia2,ia3,ia4,ia5
       integer:: ilabel,inaxial_int,instm_int,inAV_int
-      integer:: iproc,rsize,jsize,psize,csize,ssize,nsize
+      integer:: rsize,jsize,psize,csize,ssize,nsize
       integer, dimension(:), allocatable:: ibuff
 
       double precision:: rJ,rJ1,da1,da2,rho0
 
       complex(kind=8):: integr
-      complex(kind=8),dimension(-2:2,0:2,nz):: JKQaux
-      complex(kind=8),dimension(-nkx:nkx,nz):: rhoKQaux
+      complex(kind=8), dimension(-2:2,0:2,Rz0:Rz1):: JKQaux
+      complex(kind=8), dimension(-nkx:nkx,Rz0:Rz1):: rhoKQaux
+
 
       ! Routine name
       urou = 'readsol'
 
-      !
-      ! Open file
-      !
+      ! Master
       if (pid.eq.0) then
 
         !
@@ -605,88 +251,67 @@
                 status='unknown', iostat=ios, err=1000, &
                 access='stream', action='read', form='unformatted')
 
-        end if
+        end if ! 1D/1.5D
       end if ! Master
 
 
       !
       ! Dimensions, can be use for error handling
       !
+
+      ! Master
       if (pid.eq.0) then
+
+        ! Read label
         read (200,err=1100) label
+
+        ! If polarization
         if (label.eq.'sp') then
+
+          ! Flag as 0
           ilabel = 0
+
+        ! If intensity
         else if (label.eq.'si') then
+
+          ! Flag as 1
           ilabel = 1
+
+        ! None
         else
+
+          ! Flag as error
           ilabel = -1
-        end if
-      end if
+
+        end if ! Label
+      end if ! Master
 
       ! If MPI
-      if (MPID%mpi) then
+      if (nproc.gt.1) then
 
         ! Control
         call control
         if (laborted) return
 
-        ! Alternative bcast
-        if (MPID%altbcast) then
-
-          ! If not master, receive first
-          if (pid.ne.0) then
-
-            ! Receive label
-            call MPI_RECV(ilabel, 1, MPI_INTEGER, &
-                          MPID%recv, 1+pid, &
-                          MPI_COMM_RT, MPI_STATUS_IGNORE, ierr)
-
-          end if ! No Master
-
-          ! For each send
-          do istep=1,MPID%nsend
-
-            ! Send label
-            call MPI_ISEND(ilabel, 1, MPI_INTEGER, &
-                           MPID%lsend(istep), &
-                           1+MPID%lsend(istep), &
-                           MPI_COMM_RT, MPID%requestA(istep,6), &
-                           ierr)
-          end do ! sends
-
-          ! For each slave to send
-          do iproc=1,MPID%nsend
-
-            ! Wait for everyone to receive the radiation data before
-            ! continuing
-            call MPI_WAIT(MPID%requestA(iproc,6), &
-                          MPI_STATUS_IGNORE,ierr)
-
-          end do
-
-        ! Normal bcast
-        else
-
-          call MPI_BCAST(ilabel, 1, MPI_INTEGER, 0, MPI_COMM_RT, &
-                         ierr)
-
-        end if ! Type of bcast
+        ! Share label
+        call MPI_BCAST(ilabel, 1, MPI_INTEGER, 0, MPI_COMM_RT, ierr)
 
       end if ! MPI
 
       ! Important to check the file label
       if(ilabel.ne.0.and.ilabel.ne.1) then
+
+        ! Issue error
         umsg = 'The specified solution file does '// &
                'not have the correct ID of a solution file'
         call aborted
         return
-      end if
 
-      !
-      ! Allocate J00 for photoionizations (common for both)
-      !
+      end if ! Wrong label
+
+      ! Allocate J00 for photoionizations (common for both pathts)
       allocate(J00P(nxphot,2,Rz0:Rz1))
-      MPID%RRAM = MPID%RRAM + 8d-6*dble(2*nxphot*Rnz)
+      RRAMc = RRAMc + 1d-6*sizeof(J00P)
 
       !
       ! Polarization read
@@ -700,37 +325,43 @@
         ! Allocations
         !
 
-        ! If we are doing angle averaged, we only need one height,
-        ! we allocate two to store the emergence in the quadrature
+        ! If keeping Stokes parameters
         if (KSTK) then
+
+          ! Allocate full height range
           allocate(Stokes(0:3,nfreq,Geom%nPh,Geom%nTh,Rz0:Rz1))
           giz0 = Rz0
           giz1 = Rz1
-          MPID%RRAM = MPID%RRAM + &
-                      8d-6*dble(4*nfreq*Geom%nph*Geom%nth*Rnz)
+
+        ! Not keeping Stokes parameters
         else
+
+          ! Allocate two height nodes
           allocate(Stokes(0:3,nfreq,Geom%nPh,Geom%nTh,Rz0:Rz0+1))
           giz0 = Rz0
           giz1 = Rz0+1
-          MPID%RRAM = MPID%RRAM + &
-                      8d-6*dble(4*nfreq*Geom%nph*Geom%nth*2)
-        end if
+
+        end if ! Keep Stokes
+
+        ! Count memory
+        RRAMc = RRAMc + 1d-6*sizeof(Stokes)
 
         ! JKQ for absorptivity
         allocate(JKQ(-2:2,0:2,nxtran,Rz0:Rz1))
+        RRAMc = RRAMc + 1d-6*sizeof(JKQ)
 
         ! JKQ for stimulated emission
         allocate(JKQS(-2:2,0:2,nxtran,Rz0:Rz1))
+        RRAMc = RRAMc + 1d-6*sizeof(JKQS)
 
         ! JKQ frequency dependent
         allocate(JKQC(-2:2,0:2,nfreq,Rz0:Rz1))
-
-        ! Allocated memory
-        MPID%RRAM = MPID%RRAM + &
-                    8d-6*dble(Rnz*2*5*3*(2*nxtran + nfreq))
+        RRAMc = RRAMc + 1d-6*sizeof(JKQC)
 
         ! If the master
         if (pid.eq.0) then
+
+          ! Read solution metadata
           read (200,err=1100) ia1
           read (200,err=1100) ia2
           read (200,err=1100) ia3
@@ -739,11 +370,13 @@
           read (200,err=1100) inaxial_int
           read (200,err=1100) instm_int
           read (200,err=1100) inAV_int
-        end if
+
+        end if ! Master
 
         ! If doing MPI
-        if (MPID%mpi) then
+        if (nproc.gt.1) then
 
+          ! Allocate transfer buffer
           allocate(ibuff(8))
 
           ! Control
@@ -752,6 +385,8 @@
 
           ! If the master
           if (pid.eq.0) then
+
+            ! Store metadata in buffer
             ibuff(1) = ia1
             ibuff(2) = ia2
             ibuff(3) = ia3
@@ -760,44 +395,17 @@
             ibuff(6) = inaxial_int
             ibuff(7) = instm_int
             ibuff(8) = inAV_int
-          end if
 
-          ! Alternative bcast
-          if (MPID%altbcast) then
+          end if ! Master
 
-            ! If not master, receive first
-            if (pid.ne.0) then
+          ! Share metadata
+          call MPI_BCAST(ibuff(1), 8, MPI_INTEGER, 0, &
+                         MPI_COMM_RT, ierr)
 
-              ! Receive dimensions
-              call MPI_RECV(ibuff(1), 8, MPI_INTEGER, &
-                            MPID%recv, 2+pid, &
-                            MPI_COMM_RT, MPI_STATUS_IGNORE, &
-                            ierr)
-
-            end if ! No Master
-
-            ! For each send
-            do istep=1,MPID%nsend
-
-              ! Send dimensions
-              call MPI_ISEND(ibuff(1), 8, MPI_INTEGER, &
-                             MPID%lsend(istep), &
-                             2+MPID%lsend(istep), &
-                             MPI_COMM_RT, MPID%requestA(istep,7), &
-                             ierr)
-
-            end do ! sends
-
-          ! Normal bcast
-          else
-
-            call MPI_BCAST(ibuff(1), 8, MPI_INTEGER, 0, &
-                           MPI_COMM_RT, ierr)
-
-          end if ! Type of bcast
-
-          ! If a slave
+          ! Slave
           if (pid.ne.0) then
+
+            ! Extract metadata
             ia1 = ibuff(1)
             ia2 = ibuff(2)
             ia3 = ibuff(3)
@@ -806,46 +414,20 @@
             inaxial_int = ibuff(6)
             instm_int = ibuff(7)
             inAV_int = ibuff(8)
+
           end if ! slave
-
-          ! If alternative bcast
-          if (MPID%altbcast) then
-
-            ! For each slave to send
-            do iproc=1,MPID%nsend
-
-              ! Wait for everyone to receive the radiation data before
-              ! continuing
-              call MPI_WAIT(MPID%requestA(iproc,7), &
-                            MPI_STATUS_IGNORE,ierr)
-
-            end do
-
-          end if ! Alternative bcast
         end if ! MPI
 
         ! Convert to logical
-        if(inaxial_int.eq.1)then
-          inaxial = .True.
-        else
-          inaxial = .False.
-        end if
+        inaxial = inaxial_int.eq.1
 
         ! Convert to logical
-        if(instm_int.eq.1)then
-          instm = .True.
-        else
-          instm = .False.
-        end if
+        instm = instm_int.eq.1
 
         ! Convert to logical
-        if(inAV_int.eq.1)then
-          inAV = .True.
-        else
-          inAV = .False.
-        end if
+        inAV = inAV_int.eq.1
 
-        ! Flag to read stokes parameter
+        ! Flag to read stokes parameter, initialize true
         read_stokes = .True.
 
         !
@@ -854,87 +436,131 @@
 
         ! Check height nodes
         if (ia2.ne.nz) then
+
+          ! Issue error
           umsg = 'Solution file with different number of '// &
                  'heights.'
           call aborted
           return
-        end if
+
+        end if ! Wrong height nodes
 
         ! Check number of atoms
         if (ia5.ne.nA) then
+
+          ! Issue error
           umsg = 'Solution file with different number of '// &
                  'atoms.'
           call aborted
           return
-        end if
+
+        end if ! Wrong number of atoms
 
         ! Check number of frequencies, this one does not produce an
         ! abortion
         if (ia1.ne.nfreq) then
+
+          ! Master
           if (pid.eq.0) then
+
+            ! Issue warning
             umsg = ' - Warning: Number of frequencies in '// &
                    'solution file different than in system; '// &
                    'ignoring Stokes and J^K_Q(nu).'
             call verbose
-          end if
+
+          end if ! Master
+
+          ! Cannot read frequency dependent data
           read_stokes = .False.
-        end if
+
+        end if ! Wrong number of frequencies
 
         ! Check polar nodes, this one does not produce an abortion
         if (ia3.ne.Geom%nTh.and.read_stokes.and..not.inAV) then
+
+          ! Master
           if (pid.eq.0) then
+
+            ! Issue warning
             umsg = ' - Warning: Number of polar directions in '// &
                    'solution file different than in system; '// &
                    'ignoring Stokes.'
             call verbose
-          end if
+
+          end if ! Master
+
+          ! Cannot read frequency dependent data
           read_stokes = .False.
-        end if
+
+        end if ! Wrong number of polar nodes
 
         ! Check azimuthal nodes, this one does not produce an abortion
         if (ia4.ne.Geom%nPh.and.(ia4.ne.1.and.Geom%nPh.ne.1).and. &
             read_stokes.and..not.inAV) then
+
+          ! Master
           if (pid.eq.0) then
+
+            ! Issue warning
             umsg = ' - Warning: Number of azimuths in '// &
                    'solution file different than in system '// &
                    'and is not axial, ignoring Stokes.'
             call verbose
-          end if
+
+          end if ! Master
+
+          ! Cannot read frequency dependent data
           read_stokes = .False.
-        end if
+
+        end if ! Wrong number of azimuthal nodes
 
         ! Check azimuthal nodes for AD redistribution, this one does
         ! not produce an abortion
         if (ia4.ne.Geom%nPh2.and.(ia4.ne.1).and. &
             read_stokes.and..not.inAV) then
+
+          ! Master
           if (pid.eq.0) then
+
+            ! Issue warning
             umsg = ' - Warning: Number of azimuths in '// &
                    'solution file different than in system '// &
                    'for eps^(2) and is not axial, ignoring Stokes.'
             call verbose
-          end if
-          read_stokes = .False.
-        end if
 
-        ! Warning when reading non axial from AD for axial AD
+          end if ! Master
+
+          ! Cannot read frequency dependent data
+          read_stokes = .False.
+
+        end if ! Wrong number of azimuthal nodes for AD PRD
+
+        ! Warning when reading non-axial from AD for axial AD
         if (.not.inaxial.and.axial.and.(.not.(AV.and..not.dyn)).and. &
             .not.inAV.and.read_stokes.and.pid.eq.0) then
+
+          ! Issue warning
           umsg = ' - Warning: The Solution contains '// &
                  'non-axial Stokes parameters, but we are ' // &
                  'assuming axial symmetry. Only the first '// &
                  'azimuth will be read.'
           call verbose
-        end if
 
-        ! Warning when reading non axial from AD for axial AV
+        end if ! Reading non-axial for axial
+
+        ! Warning when reading non-axial from AD for axial AV
         if (.not.inaxial.and.axial.and.(AV.and..not.dyn).and. &
             .not.inAV.and.read_stokes.and.pid.eq.0) then
+
+          ! Issue warning
           umsg = ' - Warning: The Solution contains '// &
                  'non-axial Stokes parameters, but we are ' // &
                  'assuming axial symmetry. Only the first '// &
                  'azimuth will be read to compute JKQC.'
           call verbose
-        end if
+
+        end if ! Reading non-axial AD for axial AV
 
 
         !
@@ -944,23 +570,6 @@
         ! For each atom
         do ia=1,nA
 
-          ! If alternative bcast
-          if (MPID%mpi.and.MPID%altbcast) then
-
-            ! For each slave
-            do iproc=1,MPID%nsend
-
-              ! Wait for everyone to receive the radiation data before
-              ! continuing and reset the buffers
-              call MPI_WAIT(MPID%requestA(iproc,1), &
-                            MPI_STATUS_IGNORE,ierr)
-              call MPI_WAIT(MPID%requestA(iproc,6), &
-                            MPI_STATUS_IGNORE,ierr)
-
-            end do ! Processors
-
-          end if ! Alternative Bcast
-
           ! Only the master reads
           if (pid.eq.0) then
 
@@ -969,11 +578,13 @@
 
               ! Read population at this height
               read (200,err=1100) da1
+
+              ! If synthesis, get atomic population
               if (run_mode.ge.0) Atom(ia)%n(iz) = da1
 
             end do ! heights
 
-            ! For each terms
+            ! For each term
             do it=1,Atom(ia)%nMulti
 
               ! For each level
@@ -1004,19 +615,21 @@
                         ! Read real and imaginary parts
                         read (200,err=1100) da1,da2
 
+                        ! If out of considered height range, skip
                         if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
 
+                        ! If not neglecting this multipole
                         if (K.le.Atom(ia)%Kcut(it)) then
 
+                          ! Save
                           Atom(ia)%crho(iR,iz) = dcmplx(da1,da2)
 
                           ! Auxiliar variable for rotation
                           rhoKQaux(iQ,iz) = Atom(ia)%crho(iR,iz)
 
-                        end if
+                        end if ! Not neglecting this multipole
 
                       end do ! heights
-
                     end do ! Q
 
                     !
@@ -1037,12 +650,17 @@
                                     Bfield%Btheta(iz), &
                                     Bfield%Bphi(iz),1)
 
-                          ! Store the rotated result in the rhoKQ
-                          ! array
+                          ! For each Q
                           do iQ=-K,K
+
+                            ! Get index
                             iR = Atom(ia)%irho(it)% &
                                           Jrho(iJ1,iJ)%kq(iQ,K)
+
+                            ! Store the rotated result in the rhoKQ
+                            ! array
                             Atom(ia)%crho(iR,iz) = rhoKQaux(iQ,iz)
+
                           end do ! Q
 
                         end if ! There is B field
@@ -1060,75 +678,26 @@
 
 
           ! If there are slaves
-          if (MPID%mpi) then
+          if (nproc.gt.1) then
 
             ! Control
             call control
             if (laborted) return
 
+            ! Get buffer sizes
             nsize = nZ
-
             rsize = Atom(ia)%ndim*RnZ
 
-            ! Alternative bcast
-            if (MPID%altbcast) then
+            ! Send n
+            call MPI_BCAST(Atom(ia)%n(1), nsize, &
+                           MPI_DOUBLE_PRECISION, 0, &
+                           MPI_COMM_RT, ierr)
 
-              ! If not master, receive first
-              if (pid.ne.0) then
+            ! Send rho
+            call MPI_BCAST(Atom(ia)%crho(1,Rz0), rsize, &
+                           MPI_DOUBLE_COMPLEX, 0, &
+                           MPI_COMM_RT, ierr)
 
-                ! Receive n
-                call MPI_RECV(Atom(ia)%n(1), nsize, &
-                              MPI_DOUBLE_PRECISION, &
-                              MPID%recv, 2+pid, &
-                              MPI_COMM_RT, MPI_STATUS_IGNORE, &
-                              ierr)
-
-                ! Receive rhoKQ
-                call MPI_RECV(Atom(ia)%crho(1,Rz0), rsize, &
-                              MPI_DOUBLE_COMPLEX, &
-                              MPID%recv, 3+pid, &
-                              MPI_COMM_RT, MPI_STATUS_IGNORE, &
-                              ierr)
-
-              end if ! No Master
-
-              ! For each send
-              do istep=1,MPID%nsend
-
-                ! Send n
-                call MPI_ISEND(Atom(ia)%n(1), nsize, &
-                               MPI_DOUBLE_PRECISION, &
-                               MPID%lsend(istep), &
-                               2+MPID%lsend(istep), &
-                               MPI_COMM_RT, &
-                               MPID%requestA(istep,6), &
-                               ierr)
-
-                ! Send goout
-                call MPI_ISEND(Atom(ia)%crho(1,Rz0), rsize, &
-                               MPI_DOUBLE_COMPLEX, &
-                               MPID%lsend(istep), &
-                               3+MPID%lsend(istep), &
-                               MPI_COMM_RT, &
-                               MPID%requestA(istep,1), &
-                               ierr)
-
-              end do ! sends
-
-            ! Normal bcast
-            else
-
-              ! Send n
-              call MPI_BCAST(Atom(ia)%n(1), nsize, &
-                             MPI_DOUBLE_PRECISION, 0, &
-                             MPI_COMM_RT, ierr)
-
-              ! Send rho
-              call MPI_BCAST(Atom(ia)%crho(1,Rz0), rsize, &
-                             MPI_DOUBLE_COMPLEX, 0, &
-                             MPI_COMM_RT, ierr)
-
-            end if ! Type of bcast
           end if ! MPI
 
         end do ! atoms
@@ -1187,7 +756,6 @@
                         Atom(ia)%rhonull(iR,iz) = .True.
 
                     end do ! heights
-
                   end do ! Q
                 end do ! K
               end do ! J'
@@ -1226,6 +794,11 @@
 
                       ! Read real and imaginary parts of JKQ
                       read (200,err=1100) da1,da2
+
+                      ! If out of considered height range, skip
+                      if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+
+                      ! Save in auxiliary
                       JKQaux(iQ,K,iz) = dcmplx(da1,da2)
 
                     end do ! heights
@@ -1234,13 +807,14 @@
                 ! Out of cut
                 else
 
-                  ! Jump
+                  ! Jump data
                   iQ = (2*K+1)*nZ*16
                   call fseek(200,iQ,1)
+
+                  ! Set to zero
                   JKQaux(:,K,:) = cZero
 
-                end if
-
+                end if ! K cut
               end do ! K
 
               !
@@ -1255,8 +829,8 @@
 
                 ! If there is magnetic field, rotate
                 if (Bfield%Bstrength(iz).gt.TINYB) &
-                call fieldB(JKQ(:,:,jtran,iz),1,Flgsg, &
-                            Bfield%Btheta(iz),Bfield%Bphi(iz),1)
+                  call fieldB(JKQ(:,:,jtran,iz),1,Flgsg, &
+                              Bfield%Btheta(iz),Bfield%Bphi(iz),1)
 
               end do ! heights
             end do ! transitions
@@ -1265,51 +839,20 @@
         end if ! Master
 
         ! If there are slaves
-        if (MPID%mpi) then
+        if (nproc.gt.1) then
 
           ! Control
           call control
           if (laborted) return
 
+          ! Buffer size
           jsize = 15*nxtran*RnZ
 
-          ! Alternative bcast
-          if (MPID%altbcast) then
+          ! Share JKQ
+          call MPI_BCAST(JKQ(-2,0,1,Rz0), jsize, &
+                         MPI_DOUBLE_COMPLEX, 0, &
+                         MPI_COMM_RT, ierr)
 
-            ! If not master, receive first
-            if (pid.ne.0) then
-
-              ! Receive JKQ
-              call MPI_RECV(JKQ(-2,0,1,Rz0), jsize, &
-                            MPI_DOUBLE_COMPLEX,  &
-                            MPID%recv, 4+pid, &
-                            MPI_COMM_RT, MPI_STATUS_IGNORE, &
-                            ierr)
-
-            end if ! No Master
-
-            ! For each send
-            do istep=1,MPID%nsend
-
-              ! Send JKQ
-              call MPI_ISEND(JKQ(-2,0,1,Rz0), jsize, &
-                             MPI_DOUBLE_COMPLEX, &
-                             MPID%lsend(istep), &
-                             4+MPID%lsend(istep), &
-                             MPI_COMM_RT, &
-                             MPID%requestA(istep,2), ierr)
-
-            end do ! Sends
-
-          ! Normal bcast
-          else
-
-            ! Share JKQ
-            call MPI_BCAST(JKQ(-2,0,1,Rz0), jsize, &
-                           MPI_DOUBLE_COMPLEX, 0, &
-                           MPI_COMM_RT, ierr)
-
-          end if ! Type of bcast
         end if ! MPI
 
         ! If there is stimulated emission in the input
@@ -1342,9 +885,11 @@
                         ! Read real and imaginary parts of JKQS
                         read (200,err=1100) da1,da2
 
-                        ! If in this process domain, register
-                        if (stm) JKQaux(iQ,K,iz) = dcmplx(da1,da2)
+                        ! If out of considered height range, skip
+                        if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
 
+                        ! If stimulated emission, store
+                        if (stm) JKQaux(iQ,K,iz) = dcmplx(da1,da2)
 
                       end do ! heights
                     end do ! Q
@@ -1355,14 +900,16 @@
                     ! Jump
                     iQ = (2*K+1)*nZ*16
                     call fseek(200,iQ,1)
+
+                    ! Set to zero
                     JKQaux(:,K,:) = cZero
 
-                  end if
+                  end if ! K cut
 
                 end do ! K
 
                 !
-                ! Rotate JKQ
+                ! Rotate JKQS
                 !
 
                 ! If we are currently doing stimulated emission
@@ -1376,67 +923,40 @@
 
                     ! If there is magnetic field, rotate
                     if (Bfield%Bstrength(iz).gt.TINYB) &
-                    call fieldB(JKQS(:,:,jtran,iz),1,Flgsg, &
-                                Bfield%Btheta(iz),Bfield%Bphi(iz),1)
+                      call fieldB(JKQS(:,:,jtran,iz),1,Flgsg, &
+                                  Bfield%Btheta(iz),Bfield%Bphi(iz),1)
 
                   end do ! heights
+
                 end if ! stimulated emission
+
               end do ! transitions
             end do ! atoms
 
           end if ! Master
 
           ! If there are slaves
-          if (MPID%mpi) then
+          if (nproc.gt.1) then
 
             ! Control
             call control
             if (laborted) return
 
+            ! Buffer size
             jsize = 15*nxtran*RnZ
 
-            ! Alternative bcast
-            if (MPID%altbcast) then
+            ! Share
+            call MPI_BCAST(JKQS(-2,0,1,Rz0), jsize, &
+                           MPI_DOUBLE_COMPLEX, 0, &
+                           MPI_COMM_RT, ierr)
 
-              ! If not master, receive first
-              if (pid.ne.0) then
-
-                ! Receive JKQ
-                call MPI_RECV(JKQS(-2,0,1,Rz0), jsize, &
-                              MPI_DOUBLE_COMPLEX,  &
-                              MPID%recv, 5+pid, &
-                              MPI_COMM_RT, MPI_STATUS_IGNORE, &
-                              ierr)
-
-              end if ! No Master
-
-              ! For each send
-              do istep=1,MPID%nsend
-
-                ! Send JKQ
-                call MPI_ISEND(JKQS(-2,0,1,Rz0), jsize, &
-                               MPI_DOUBLE_COMPLEX, &
-                               MPID%lsend(istep), &
-                               5+MPID%lsend(istep), &
-                               MPI_COMM_RT, &
-                               MPID%requestA(istep,3), ierr)
-
-              end do ! Sends
-
-            ! Normal bcast
-            else
-
-              call MPI_BCAST(JKQS(-2,0,1,Rz0), jsize, &
-                             MPI_DOUBLE_COMPLEX, 0, &
-                             MPI_COMM_RT, ierr)
-
-            end if ! Type of bcast
           end if ! MPI
 
         ! No stimulated emission in the input
         else
 
-          if(stm)JKQS = JKQ
+          ! Just copy JKQ data then
+          if (stm) JKQS = JKQ
 
         end if ! Stimulated emission in the input
 
@@ -1471,7 +991,11 @@
 
                         ! Read real and imaginary parts of JKQS
                         read (200,err=1100) da1,da2
+
+                        ! Skip if out of range
                         if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+
+                        ! Store
                         JKQC(iQ,K,ifreq,iz) = dcmplx(da1,da2)
 
                       end do ! Q
@@ -1482,9 +1006,11 @@
                       ! Jump
                       iQ = (2*K+1)*16
                       call fseek(200,iQ,1)
+
+                      ! Put to zero
                       JKQC(:,K,ifreq,iz) = cZero
 
-                    end if
+                    end if ! K cut
 
                   end do ! K
                 end do ! frequency
@@ -1493,50 +1019,20 @@
             end if ! Master
 
             ! If there are slaves
-            if (MPID%mpi) then
+            if (nproc.gt.1) then
 
               ! Control
               call control
               if (laborted) return
 
+              ! Buffer size
               csize = 15*nfreq*RnZ
 
-              ! Alternative bcast
-              if (MPID%altbcast) then
+              ! Share
+              call MPI_BCAST(JKQC(-2,0,1,Rz0), csize, &
+                             MPI_DOUBLE_COMPLEX, 0, &
+                             MPI_COMM_RT, ierr)
 
-                ! If not master, receive first
-                if (pid.ne.0) then
-
-                  ! Receive JKQC
-                  call MPI_RECV(JKQC(-2,0,1,Rz0), csize, &
-                                MPI_DOUBLE_COMPLEX, &
-                                MPID%recv, 6+pid, &
-                                MPI_COMM_RT, MPI_STATUS_IGNORE, &
-                                ierr)
-
-                end if ! No Master
-
-                ! For each send
-                do istep=1,MPID%nsend
-
-                  ! Send JKQC
-                  call MPI_ISEND(JKQC(-2,0,1,Rz0), csize, &
-                                 MPI_DOUBLE_COMPLEX, &
-                                 MPID%lsend(istep), &
-                                 6+MPID%lsend(istep), &
-                                 MPI_COMM_RT, &
-                                 MPID%requestA(istep,4), ierr)
-
-                end do ! Sends
-
-              ! Normal bcast
-              else
-
-                call MPI_BCAST(JKQC(-2,0,1,Rz0), csize, &
-                               MPI_DOUBLE_COMPLEX, 0, &
-                               MPI_COMM_RT, ierr)
-
-              end if
             end if ! MPI
 
             ! If we are doing angle dependent, the first iteration
@@ -1546,7 +1042,7 @@
           ! If input is AD
           else
 
-            ! If master
+            ! If Master
             if (pid.eq.0) then
 
               !
@@ -1561,11 +1057,17 @@
                 ! For each height
                 do iz=1,nZ
 
+                  ! Initialize directions
+                  idir = 0
+
                   ! For each polar direction
                   do ith=1,Geom%nTh
 
                     ! Axial input
                     if (inaxial) then
+
+                      ! Add one direction
+                      idir = idir + 1
 
                       ! For each frequency
                       do ifreq=1,nfreq
@@ -1589,7 +1091,7 @@
                           do K=0,Krad
 
                             ! Sum over Stokes parameters of Stk*TKQ
-                            integr = da1*Geom%TS(iS,0,K,1,ith)
+                            integr = da1*Geom%TS(iS,0,K,idir)
 
                             ! Add contribution to the JKQC integral
                             JKQC(0,K,ifreq,iz) = &
@@ -1600,22 +1102,28 @@
                         end do ! Stokes
                       end do ! frequencies
 
-                      ! Skip if out of limits
-                      if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+                      ! If storing, and in limits
+                      if (KSTK.and.iz.ge.Rz0.and.iz.le.Rz1) then
 
-                      ! If storing, fill rest
-                      if (KSTK) then
+                        ! Fill other azimuths
                         do iph=2,Geom%nph
                           Stokes(:,:,iph,ith,iz) = &
                                                   Stokes(:,:,1,ith,iz)
                         end do
-                      end if
+
+                      end if ! Storing and in limits
+
+                      ! Remove one direction and add azimuth size
+                      idir = idir - 1 + Geom%nPh2
 
                     ! Not axial input
                     else
 
                       ! For each azimuthal direction
                       do iph=1,ia4
+
+                        ! Advance direction
+                        idir = idir + 1
 
                         ! For each frequency
                         do ifreq=1,nfreq
@@ -1643,7 +1151,7 @@
                               do K=0,Krad
 
                                 ! Sum over Stk parameters of Stk*TKQ
-                                integr = da1*Geom%TS(iS,0,K,iph,ith)
+                                integr = da1*Geom%TS(iS,0,K,idir)
 
                                 ! Add contribution to the JKQC int.
                                 JKQC(0,K,ifreq,iz) = &
@@ -1662,7 +1170,7 @@
 
                                   ! Sum over Stk parameters of Stk*TKQ
                                   integr = da1* &
-                                           Geom%TS(iS,iQ,K,iph,ith)
+                                           Geom%TS(iS,iQ,K,idir)
 
                                   ! Add contribution to the JKQC
                                   JKQC(iQ,K,ifreq,iz) = &
@@ -1675,24 +1183,37 @@
                               end do ! K
 
                             end if ! Axial
+
                           end do ! Stokes
                         end do ! frequencies
                       end do ! azimuthal nodes
+
+                      ! If axial, advance direction index
+                      if (axial) &
+                        idir = idir - 1 + Geom%nPh2
 
                     end if ! In axial
 
                   end do ! polar nodes
                 end do ! heights
 
-                ! Complete
+                ! Complete if not axial
                 if (.not.axial) then
+
+                  ! K
                   do K=1,Krad
+
+                    ! Q
                     do iQ=1,K
+
+                      ! Conjugation properties
                       JKQC(-iQ,K,:,Rz0:Rz1) = Flgsg%sg(iQ)* &
                                            conjg(JKQC(iQ,K,:,Rz0:Rz1))
-                    end do
-                  end do
-                end if
+
+                    end do ! Q
+                  end do ! K
+
+                end if ! Non-axial
 
               !
               ! Currently doing AD
@@ -1732,9 +1253,12 @@
                       ! Skip out of limits
                       if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
 
-                      ! Fill rest
+                      ! Rest of azimuths
                       do iph=2,Geom%nph
+
+                        ! Fill
                         Stokes(:,:,iph,ith,iz) = Stokes(:,:,1,ith,iz)
+
                       end do ! azimuthal nodes
 
                     ! Not input axial
@@ -1769,10 +1293,6 @@
 
                   end do ! polar nodes
 
-                  !
-                  ! Calculate JKQC from Stokes
-                  !
-
                   ! For each frequency
                   do ifreq=1,nfreq
 
@@ -1782,15 +1302,21 @@
                       ! For each Q
                       do iQ=0,K
 
+                        ! Initialize direction
+                        idir = 0
+
                         ! For each polar direction
                         do ith=1,Geom%nTh
 
                           ! For each azimuthal direction
                           do iph=1,Geom%nPh
 
+                            ! Advance direction
+                            idir = idir + 1
+
                             ! Sum over Stokes parameters of Stokes*TKQ
                             integr = sum(Stokes(:,ifreq,iph,ith,iz)* &
-                                       Geom%TS(:,iQ,K,iph,ith))
+                                         Geom%TS(:,iQ,K,idir))
 
                             ! Add contribution to the JKQC integral
                             JKQC(iQ,K,ifreq,iz) =  &
@@ -1798,19 +1324,33 @@
                                  integr*Geom%W_mu(ith)*Geom%W_mux(iph)
 
                           end do ! azimuthal nodes
+
+                          ! If axial, advance more
+                          if (axial) &
+                            idir = idir - 1 + Geom%nPh2
+
                         end do ! polar nodes
                       end do ! Q
                     end do ! K
                   end do ! frequencies
                 end do ! heights
 
-                ! Complete
+                !
+                ! Complete rest of multi-poles
+                !
+
+                ! K
                 do K=1,Krad
+
+                  ! Q
                   do iQ=1,K
+
+                    ! Conjugation properties
                     JKQC(-iQ,K,:,Rz0:Rz1) = Flgsg%sg(iQ)* &
-                                          conjg(JKQC(iQ,K,:,Rz0:Rz1))
-                  end do
-                end do
+                                           conjg(JKQC(iQ,K,:,Rz0:Rz1))
+
+                  end do ! Q
+                end do ! K
 
                 !
                 ! Q!=0 JKQC
@@ -1828,7 +1368,7 @@
             end if ! Master
 
             ! If there are slaves
-            if (MPID%mpi) then
+            if (nproc.gt.1) then
 
               ! Control
               call control
@@ -1840,90 +1380,24 @@
                 ! Buffer size
                 ssize = 4*nfreq*Geom%nTh*Geom%nPh*Rnz
 
-                ! Alternative bcast
-                if (MPID%altbcast) then
+                ! Share
+                call MPI_BCAST(Stokes(0,1,1,1,Rz0), ssize, &
+                               MPI_DOUBLE_PRECISION, 0, &
+                               MPI_COMM_RT, ierr)
 
-                  ! If not master, receive first
-                  if (pid.ne.0) then
-
-                    ! Receive Stokes
-                    call MPI_RECV(Stokes(0,1,1,1,Rz0), ssize, &
-                                  MPI_DOUBLE_PRECISION, &
-                                  MPID%recv, 6+pid, &
-                                  MPI_COMM_RT, &
-                                  MPI_STATUS_IGNORE, &
-                                  ierr)
-
-                  end if ! No Master
-
-                  ! For each send
-                  do istep=1,MPID%nsend
-
-                    ! Send Stokes
-                    call MPI_ISEND(Stokes(0,1,1,1,Rz0), ssize, &
-                                   MPI_DOUBLE_PRECISION, &
-                                   MPID%lsend(istep), &
-                                   6+MPID%lsend(istep), &
-                                   MPI_COMM_RT, &
-                                   MPID%requestA(istep,4), ierr)
-
-                  end do ! Sends
-
-                ! Normal bcast
-                else
-
-                  call MPI_BCAST(Stokes(0,1,1,1,Rz0), ssize, &
-                                 MPI_DOUBLE_PRECISION, 0, &
-                                 MPI_COMM_RT, ierr)
-
-                end if ! Type of bcast
               end if ! Slaves require Stokes
 
               ! Buffer size
               csize = 15*nfreq*RnZ
 
-              ! Alternative bcast
-              if (MPID%altbcast) then
+              ! Share
+              call MPI_BCAST(JKQC(-2,0,1,Rz0), csize, &
+                             MPI_DOUBLE_COMPLEX, 0, &
+                             MPI_COMM_RT, ierr)
 
-                ! If not master, receive first
-                if (pid.ne.0) then
-
-                  ! Receive JKQC
-                  call MPI_RECV(JKQC(-2,0,1,Rz0), csize, &
-                                MPI_DOUBLE_COMPLEX, &
-                                MPID%recv, 6+pid, &
-                                MPI_COMM_RT, &
-                                MPI_STATUS_IGNORE, &
-                                ierr)
-
-                end if ! No Master
-
-                ! For each send
-                do istep=1,MPID%nsend
-
-                  ! Send JKQC
-                  call MPI_ISEND(JKQC(-2,0,1,Rz0), csize, &
-                                 MPI_DOUBLE_COMPLEX, &
-                                 MPID%lsend(istep), &
-                                 6+MPID%lsend(istep), &
-                                 MPI_COMM_RT, &
-                                 MPID%requestA(istep,4), &
-                                 ierr)
-
-                end do ! Sends
-
-              ! Normal bcast
-              else
-
-                call MPI_BCAST(JKQC(-2,0,1,Rz0), csize, &
-                               MPI_DOUBLE_COMPLEX, 0, &
-                               MPI_COMM_RT, ierr)
-
-              end if ! Type of bcast
             end if ! There are slaves
           end if ! Input AV or AD
         end if ! Can read Stokes
-
 
       !
       ! INTENSITY READ
@@ -1934,37 +1408,46 @@
         ! Allocations
         !
 
-        ! If we are doing angle averaged, we only need one height,
-        ! we allocate two to store the emergence in the quadrature
+        ! If keeping Stokes parameters
         if (KSTK) then
+
+          ! Allocate whole height axis
           allocate(Stokes0(nfreq,GeomI%nPh,GeomI%nTh,Rz0:Rz1))
           giz0 = Rz0
           giz1 = Rz1
-          MPID%RRAM = MPID%RRAM + &
-                      8d-6*dble(nfreq*GeomI%nPh*GeomI%nTh*Rnz)
+
+        ! Not keeping Stokes
         else
+
+          ! Allocate only two height nodes
           allocate(Stokes0(nfreq,GeomI%nPh,GeomI%nTh,Rz0:Rz0+1))
           giz0 = Rz0
           giz1 = Rz0+1
-          MPID%RRAM = MPID%RRAM + &
-                      8d-6*dble(nfreq*GeomI%nPh*GeomI%nTh*2)
-        end if
+
+        end if ! Keeping Stokes
+
+        ! Memory count
+        RRAMc = RRAMc + 1d-6*sizeof(Stokes0)
+
+        ! Initialize
         Stokes0 = 0d0
 
         ! J00 for absorptivity
         allocate(J00(nxt,Rz0:Rz1))
+        RRAMc = RRAMc + 1d-6*sizeof(J00)
 
         ! J00 for stimulated emission
         allocate(J00S(nxt,Rz0:Rz1))
+        RRAMc = RRAMc + 1d-6*sizeof(J00S)
 
         ! J00 frequency dependent
         allocate(J00C(nfreq,Rz0:Rz1))
-
-        ! Allocated memory
-        MPID%RRAM = MPID%RRAM + 8d-6*dble(Rnz*(2*nxt + nfreq))
+        RRAMc = RRAMc + 1d-6*sizeof(J00C)
 
         ! If the master
         if (pid.eq.0) then
+
+          ! Read metadata
           read (200,err=1100) ia1
           read (200,err=1100) ia2
           read (200,err=1100) ia3
@@ -1973,19 +1456,23 @@
           read (200,err=1100) inaxial_int
           read (200,err=1100) instm_int
           read (200,err=1100) inAV_int
-        end if
+
+        end if ! Master
 
         ! If doing MPI
-        if (MPID%mpi) then
+        if (nproc.gt.1) then
 
+          ! Allocate buffer
           allocate(ibuff(8))
 
           ! Control
           call control
           if (laborted) return
 
-          ! If the master
+          ! Master
           if (pid.eq.0) then
+
+            ! Save metadata in buffer
             ibuff(1) = ia1
             ibuff(2) = ia2
             ibuff(3) = ia3
@@ -1994,44 +1481,17 @@
             ibuff(6) = inaxial_int
             ibuff(7) = instm_int
             ibuff(8) = inAV_int
-          end if
 
-          ! Alternative bcast
-          if (MPID%altbcast) then
+          end if ! Master
 
-            ! If not master, receive first
-            if (pid.ne.0) then
-
-              ! Receive dimenions
-              call MPI_RECV(ibuff(1), 8, MPI_INTEGER, &
-                            MPID%recv, 2+pid, &
-                            MPI_COMM_RT, MPI_STATUS_IGNORE, &
-                            ierr)
-
-            end if ! No Master
-
-            ! For each send
-            do istep=1,MPID%nsend
-
-              ! Send dimensions
-              call MPI_ISEND(ibuff(1), 8, MPI_INTEGER, &
-                             MPID%lsend(istep), &
-                             2+MPID%lsend(istep), &
-                             MPI_COMM_RT, MPID%requestA(istep,7), &
-                             ierr)
-
-            end do ! sends
-
-          ! Normal bcast
-          else
-
-            call MPI_BCAST(ibuff(1), 8, MPI_INTEGER, 0, &
-                           MPI_COMM_RT, ierr)
-
-          end if ! Type of bcast
+          ! Share
+          call MPI_BCAST(ibuff(1), 8, MPI_INTEGER, 0, &
+                         MPI_COMM_RT, ierr)
 
           ! If a slave
           if (pid.ne.0) then
+
+            ! Get metadata from buffer
             ia1 = ibuff(1)
             ia2 = ibuff(2)
             ia3 = ibuff(3)
@@ -2040,46 +1500,20 @@
             inaxial_int = ibuff(6)
             instm_int = ibuff(7)
             inAV_int = ibuff(8)
+
           end if ! slave
-
-          ! Alternative bcast
-          if (MPID%altbcast) then
-
-            ! For each slave to send
-            do iproc=1,MPID%nsend
-
-                ! Wait for everyone to receive the radiation data
-                ! before continuing
-                call MPI_WAIT(MPID%requestA(iproc,7), &
-                              MPI_STATUS_IGNORE,ierr)
-
-            end do
-
-          end if ! Alternative bcast
         end if ! MPI
 
         ! Convert to logical
-        if(inaxial_int.eq.1)then
-          inaxial = .True.
-        else
-          inaxial = .False.
-        end if
+        inaxial = inaxial_int.eq.1
 
         ! Convert to logical
-        if(instm_int.eq.1)then
-          instm = .True.
-        else
-          instm = .False.
-        end if
+        instm = instm_int.eq.1
 
         ! Convert to logical
-        if(inAV_int.eq.1)then
-          inAV = .True.
-        else
-          inAV = .False.
-        end if
+        inAV = inAV_int.eq.1
 
-        ! Flag to read stokes parameter
+        ! Flag to read stokes parameter, initialize true
         read_stokes = .True.
 
         !
@@ -2088,111 +1522,138 @@
 
         ! Check height nodes
         if (ia2.ne.nz) then
+
+          ! Issue error
           umsg = 'Solution file with different number of '// &
                  'heights.'
           call aborted
           return
-        end if
+
+        end if ! Wrong height nodes
 
         ! Check number of atoms
         if (ia5.ne.nA) then
+
+          ! Issue error
           umsg = 'Solution file with different number of '// &
                  'atoms.'
           call aborted
           return
-        end if
+
+        end if ! Wrong number of atoms
 
         ! Check number of frequencies, this one does not produce an
         ! abortion
         if (ia1.ne.nfreq) then
+
+          ! Master
           if (pid.eq.0) then
+
+            ! Issue warning
             umsg = ' - Warning: Number of frequencies in '// &
                    'solution file different than in system; '// &
                    'ignoring Stokes and J^K_Q(nu).'
             call verbose
-          end if
+
+          end if ! Master
+
+          ! Cannot read frequency dependent data
           read_stokes = .False.
-        end if
+
+        end if ! Wrong number of frequencies
 
         ! Check polar nodes, this one does not produce an abortion
         if (ia3.ne.GeomI%nTh.and.read_stokes) then
+
+          ! Master
           if (pid.eq.0) then
+
+            ! Issue warning
             umsg = ' - Warning: Number of polar directions in '// &
                    'solution file different than in system; '// &
                    'ignoring Stokes.'
             call verbose
-          end if
+
+          end if ! Master
+
+          ! Cannot read frequency dependent data
           read_stokes = .False.
-        end if
+
+        end if ! Wrong number of polar nodes
 
         ! Check azimuthal nodes, this one does not produce an abortion
         if (ia4.ne.GeomI%nPh.and.(ia4.ne.1.and.GeomI%nPh.ne.1).and. &
-            read_stokes) then
+            read_stokes.and..not.inAV) then
+
+          ! Master
           if (pid.eq.0) then
+
+            ! Issue warning
             umsg = ' - Warning: Number of azimuths in '// &
                    'solution file different than in system '// &
                    'and is not axial, ignoring Stokes.'
             call verbose
-          end if
+
+          end if ! Master
+
+          ! Cannot read frequency dependent data
           read_stokes = .False.
-        end if
+
+        end if ! Wrong number of azimuthal nodes
 
         ! Check azimuthal nodes for AD redistribution, this one does
         ! not produce an abortion
         if (ia4.ne.GeomI%nPh2.and.(ia4.ne.1).and. &
-            read_stokes) then
+            read_stokes.and..not.inAV) then
+
+          ! Master
           if (pid.eq.0) then
+
+            ! Issue warning
             umsg = ' - Warning: Number of azimuths in '// &
                    'solution file different than in system '// &
                    'for eps^(2) and is not axial, ignoring Stokes.'
             call verbose
-          end if
+
+          end if ! Master
+
+          ! Cannot read frequency dependent data
           read_stokes = .False.
-        end if
+
+        end if ! Wrong number of azimuthal nodes for AD PRD
 
         ! Warning when reading non axial from AD for axial AD
         if (.not.inaxial.and.axiali.and.(.not.(AVI.and..not.dyn)) &
             .and..not.inAV.and.read_stokes.and.pid.eq.0) then
+
+          ! Issue warning
           umsg = ' - Warning: The Solution contains '// &
                  'non-axial Stokes parameters, but we are ' // &
                  'assuming axial symmetry. Only the first '// &
                  'azimuth will be read.'
           call verbose
-        end if
+
+        end if ! Reading non-axial for axial
 
         ! Warning when reading non axial from AD for axial AV
         if (.not.inaxial.and.axiali.and.(AVI.and..not.dyn).and. &
             .not.inAV.and.read_stokes.and.pid.eq.0) then
+
+          ! Issue warning
           umsg = ' - Warning: The Solution contains '// &
                  'non-axial Stokes parameters, but we are ' // &
                  'assuming axial symmetry. Only the first '// &
                  'azimuth will be read to compute J00C.'
           call verbose
-        end if
+
+        end if ! Reading non-axial AD for axial AV
 
         !
-        ! Population and RhoKQ
+        ! Population and Rho00
         !
 
         ! For each atom
         do ia=1,nA
-
-          ! If alternative bcast
-          if (MPID%mpi.and.MPID%altbcast) then
-
-            ! For each slave
-            do iproc=1,MPID%nsend
-
-              ! Wait for everyone to receive the radiation data before
-              ! continuing and reset the buffers
-              call MPI_WAIT(MPID%requestA(iproc,1), &
-                            MPI_STATUS_IGNORE,ierr)
-              call MPI_WAIT(MPID%requestA(iproc,6), &
-                            MPI_STATUS_IGNORE,ierr)
-
-            end do ! Processors
-
-          end if ! Domain decomposition
 
           ! Only the master reads
           if (pid.eq.0) then
@@ -2205,6 +1666,8 @@
 
               ! Read population at this height
               read (200,err=1100) da1
+
+              ! If synthesis, save in atomic population
               if (run_mode.ge.0) Atom(ia)%n(iz) = da1
 
             end do ! heights
@@ -2226,7 +1689,11 @@
 
                   ! Read real and imaginary parts
                   read (200,err=1100) da1
+
+                  ! Skip if out of considered range
                   if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+
+                  ! Save
                   Atom(ia)%crho(iR,iz) = dcmplx(da1,0d0)
 
                 end do ! heights
@@ -2236,75 +1703,26 @@
           end if ! Master
 
           ! If there are slaves
-          if (MPID%mpi) then
+          if (nproc.gt.1) then
 
             ! Control
             call control
             if (laborted) return
 
+            ! Buffer sizes
             nsize = nZ
-
             rsize = Atom(ia)%ndim*RnZ
 
-            ! Alternative bcast
-            if (MPID%altbcast) then
+            ! Share n
+            call MPI_BCAST(Atom(ia)%n(1), nsize, &
+                           MPI_DOUBLE_PRECISION, 0, &
+                           MPI_COMM_RT, ierr)
 
-              ! If not master, receive first
-              if (pid.ne.0) then
+            ! Share rho00
+            call MPI_BCAST(Atom(ia)%crho(1,Rz0), rsize, &
+                           MPI_DOUBLE_COMPLEX, 0, &
+                           MPI_COMM_RT, ierr)
 
-                ! Receive n
-                call MPI_RECV(Atom(ia)%n(1), nsize, &
-                              MPI_DOUBLE_PRECISION, &
-                              MPID%recv, 2+pid, &
-                              MPI_COMM_RT, MPI_STATUS_IGNORE, &
-                              ierr)
-
-                ! Receive rho00
-                call MPI_RECV(Atom(ia)%crho(1,Rz0), rsize, &
-                              MPI_DOUBLE_COMPLEX, &
-                              MPID%recv, 3+pid, &
-                              MPI_COMM_RT, MPI_STATUS_IGNORE, &
-                              ierr)
-
-              end if ! No Master
-
-              ! For each send
-              do istep=1,MPID%nsend
-
-                ! Send n
-                call MPI_ISEND(Atom(ia)%n(1), nsize, &
-                               MPI_DOUBLE_PRECISION, &
-                               MPID%lsend(istep), &
-                               2+MPID%lsend(istep), &
-                               MPI_COMM_RT, &
-                               MPID%requestA(istep,6), &
-                               ierr)
-
-                ! Send rho00
-                call MPI_ISEND(Atom(ia)%crho(1,Rz0), rsize, &
-                               MPI_DOUBLE_COMPLEX, &
-                               MPID%lsend(istep), &
-                               3+MPID%lsend(istep), &
-                               MPI_COMM_RT, &
-                               MPID%requestA(istep,1), &
-                               ierr)
-
-              end do ! sends
-
-            ! Normal bcast
-            else
-
-              ! Share n
-              call MPI_BCAST(Atom(ia)%n(1), nsize, &
-                             MPI_DOUBLE_PRECISION, 0, &
-                             MPI_COMM_RT, ierr)
-
-              ! Share rho00
-              call MPI_BCAST(Atom(ia)%crho(1,Rz0), rsize, &
-                             MPI_DOUBLE_COMPLEX, 0, &
-                             MPI_COMM_RT, ierr)
-
-            end if ! bcast type
           end if ! MPI
 
         end do ! atoms
@@ -2372,7 +1790,11 @@
 
                 ! Read real and imaginary parts of JKQ
                 read (200,err=1100) da1
+
+                ! Skip if out of considered range
                 if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+
+                ! Save
                 J00(jtran,iz) = da1
 
               end do ! heights
@@ -2382,55 +1804,24 @@
         end if ! Master
 
         ! If there are slaves
-        if (MPID%mpi) then
+        if (nproc.gt.1) then
 
           ! Control
           call control
           if (laborted) return
 
+          ! Buffer size
           jsize = nxt*RnZ
 
-          ! Alternative bcast
-          if (MPID%altbcast) then
-
-            ! If not master, receive first
-            if (pid.ne.0) then
-
-              ! Receive J00
-              call MPI_RECV(J00(1,Rz0), jsize, &
-                            MPI_DOUBLE_PRECISION,  &
-                            MPID%recv, 4+pid, &
-                            MPI_COMM_RT, MPI_STATUS_IGNORE, &
-                            ierr)
-
-            end if ! No Master
-
-            ! For each send
-            do istep=1,MPID%nsend
-
-              ! Send J00
-              call MPI_ISEND(J00(1,Rz0), jsize, &
-                             MPI_DOUBLE_PRECISION, &
-                             MPID%lsend(istep), &
-                             4+MPID%lsend(istep), &
-                             MPI_COMM_RT, &
-                             MPID%requestA(istep,2), ierr)
-
-            end do ! Sends
-
-          ! Normal bcast
-          else
-
-            call MPI_BCAST(J00(1,Rz0), jsize, &
-                           MPI_DOUBLE_PRECISION, 0, &
-                           MPI_COMM_RT, &
-                           ierr)
-
-          end if ! Type of bcast
+          ! Share
+          call MPI_BCAST(J00(1,Rz0), jsize, &
+                         MPI_DOUBLE_PRECISION, 0, &
+                         MPI_COMM_RT, &
+                         ierr)
         end if ! MPI
 
         ! If there is stimulated emission in the input
-        if(instm)then
+        if (instm) then
 
           ! Only the master reads
           if (pid.eq.0) then
@@ -2449,7 +1840,11 @@
 
                   ! Read real and imaginary parts of JKQ
                   read (200,err=1100) da1
+
+                  ! Skip if out of considered range
                   if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+
+                  ! If stimulated emission, save
                   if (stm) J00S(jtran,iz) = da1
 
                 end do ! heights
@@ -2458,58 +1853,30 @@
 
           end if ! Master
 
-         !! If there are slaves
-         !if (MPID%mpi) then
+          ! If there are slaves
+          if (nproc.gt.1) then
 
-         !  ! Control
-         !  call control
+            ! Control
+            call control
 
-         !  jsize = nxt*RnZ
+            ! Buffer size
+            jsize = nxt*RnZ
 
-         !  ! Alternative bcast
-         !  if (MPID%altbcast) then
+            ! Share
+            call MPI_BCAST(J00S(1,Rz0), jsize, &
+                           MPI_DOUBLE_PRECISION, 0, &
+                           MPI_COMM_RT, ierr)
 
-         !    ! If not master, receive first
-         !    if (pid.ne.0) then
-
-         !      ! Receive J00S
-         !      call MPI_RECV(J00S(1,Rz0), jsize, &
-         !                    MPI_DOUBLE_PRECISION,  &
-         !                    MPID%recv, 5+pid, &
-         !                    MPI_COMM_RT, MPI_STATUS_IGNORE, &
-         !                    ierr)
-
-         !    end if ! No Master
-
-         !    ! For each send
-         !    do istep=1,MPID%nsend
-
-         !      ! Send J00S
-         !      call MPI_ISEND(J00S(1,Rz0), jsize, &
-         !                     MPI_DOUBLE_PRECISION, &
-         !                     MPID%lsend(istep), &
-         !                     5+MPID%lsend(istep), &
-         !                     MPI_COMM_RT, &
-         !                     MPID%requestA(istep,3), ierr)
-
-         !    end do ! Sends
-
-         !  ! Normal bcast
-         !  else
-
-         !    call MPI_BCAST(J00S(1,Rz0), jsize, &
-         !                   MPI_DOUBLE_PRECISION, 0, &
-         !                   MPI_COMM_RT, ierr)
-
-         !  end if ! Type of bcast
-         !end if ! MPI
+          end if ! MPI
 
         ! No stimulated emission in the input
-       !else
+        else
 
-       !  if(stm)J00S = J00
+          ! Just copy J00 if necessary
+          if (stm) J00S = J00
 
         end if ! Stimulated emission in the input
+
 
         !
         ! J00P
@@ -2530,10 +1897,14 @@
               ! For each height
               do iz=1,nZ
 
-                ! Read real and imaginary parts of JKQ
+                ! Read photoionization rates
                 read (200,err=1100) da1
                 read (200,err=1100) da2
+
+                ! If out of considered range, skip
                 if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+
+                ! Save
                 J00P(jtran,1,iz) = da1
                 J00P(jtran,2,iz) = da2
 
@@ -2544,50 +1915,20 @@
         end if ! Master
 
         ! If there are slaves
-        if (MPID%mpi) then
+        if (nproc.gt.1) then
 
           ! Control
           call control
           if (laborted) return
 
+          ! Buffer size
           psize = nxphot*2*RnZ
 
-          ! Alternative bcast
-          if (MPID%altbcast) then
+          ! Share
+          call MPI_BCAST(J00P(1,1,Rz0), psize, &
+                         MPI_DOUBLE_PRECISION, 0, &
+                         MPI_COMM_RT, ierr)
 
-            ! If not master, receive first
-            if (pid.ne.0) then
-
-              ! Receive J00 for b-f transitions
-              call MPI_RECV(J00P(1,1,Rz0), psize, &
-                            MPI_DOUBLE_PRECISION,  &
-                            MPID%recv, 6+pid, &
-                            MPI_COMM_RT, MPI_STATUS_IGNORE, &
-                            ierr)
-
-            end if ! No master
-
-            ! For each send
-            do istep=1,MPID%nsend
-
-              ! Send J00P
-              call MPI_ISEND(J00P(1,1,Rz0), psize, &
-                             MPI_DOUBLE_PRECISION, &
-                             MPID%lsend(istep), &
-                             6+MPID%lsend(istep), &
-                             MPI_COMM_RT, &
-                             MPID%requestA(istep,5), ierr)
-
-            end do ! Sends
-
-          ! Normal bcast
-          else
-
-            call MPI_BCAST(J00P(1,1,Rz0), psize, &
-                           MPI_DOUBLE_PRECISION, 0, &
-                           MPI_COMM_RT, ierr)
-
-          end if ! Type of bcast
         end if ! MPI
 
 
@@ -2612,7 +1953,11 @@
 
                   ! Read real and imaginary parts of JKQS
                   read (200,err=1100) da1
+
+                  ! Skip if out of considered range
                   if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+
+                  ! Save
                   J00C(ifreq,iz) = da1
 
                 end do ! frequency
@@ -2621,50 +1966,20 @@
             end if ! Master
 
             ! If there are slaves
-            if (MPID%mpi) then
+            if (nproc.gt.1) then
 
               ! Control
               call control
               if (laborted) return
 
+              ! Buffer size
               csize = nfreq*RnZ
 
-              ! Alternative bcast
-              if (MPID%altbcast) then
+              ! Share
+              call MPI_BCAST(J00C(1,Rz0), csize, &
+                             MPI_DOUBLE_PRECISION, 0, &
+                             MPI_COMM_RT, ierr)
 
-                ! If not master, receive first
-                if (pid.ne.0) then
-
-                  ! Receive J00C
-                  call MPI_RECV(J00C(1,Rz0), csize, &
-                                MPI_DOUBLE_PRECISION,  &
-                                MPID%recv, 7+pid, &
-                                MPI_COMM_RT, MPI_STATUS_IGNORE, &
-                                ierr)
-
-                end if ! No master
-
-                ! For each send
-                do istep=1,MPID%nsend
-
-                  ! Send J00C
-                  call MPI_ISEND(J00C(1,Rz0), csize, &
-                                 MPI_DOUBLE_PRECISION, &
-                                 MPID%lsend(istep), &
-                                 7+MPID%lsend(istep), &
-                                 MPI_COMM_RT, &
-                                 MPID%requestA(istep,4), ierr)
-
-                end do ! Sends
-
-              ! Normal bcast
-              else
-
-                call MPI_BCAST(J00C(1,Rz0), csize, &
-                               MPI_DOUBLE_PRECISION, 0, &
-                               MPI_COMM_RT, ierr)
-
-              end if ! Type of bcast
             end if ! MPI
 
             ! If we are doing angle dependent, the first iteration
@@ -2675,7 +1990,7 @@
           else
 
             ! Master
-            if(pid.eq.0)then
+            if (pid.eq.0) then
 
               !
               ! Currently doing AV without velocities, no need to
@@ -2716,12 +2031,18 @@
                       ! Skip if out of limits
                       if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
 
-                      ! If storing, fill rest
+                      ! If storing
                       if (KSTK) then
+
+                        ! For the rest of azimuths
                         do iph=2,GeomI%nph
+
+                          ! Fill
                           Stokes0(:,iph,ith,iz) = Stokes0(:,1,ith,iz)
-                        end do
-                      end if
+
+                        end do ! Rest of azimuths
+
+                      end if ! Storing Stokes
 
                     ! Not axial input
                     else
@@ -2744,16 +2065,21 @@
                           ! Store
                           if (KSTK) Stokes0(ifreq,iph,ith,iz) = da1
 
-                          ! Add contribution to the JKQC integral
+                          ! Add contribution to the J00C integral
                           if (axiali) then
 
+                            ! Integrate
                             J00C(ifreq,iz) = J00C(ifreq,iz) + &
                                              da1*GeomI%W_mu(ith)
+
+                          ! Non axial
                           else
+
+                            ! Integrate
                             J00C(ifreq,iz) = J00C(ifreq,iz) + da1* &
                                              GeomI%W_mu(ith)* &
                                              GeomI%W_mux(iph)
-                          end if
+                          end if ! Axial
 
                         end do ! Frequencies
                       end do ! Input azimuths
@@ -2764,7 +2090,7 @@
                 end do ! Height
 
               !
-              ! Currently doing AD
+              ! Doing AD or keeping Stokes
               !
               else
 
@@ -2797,9 +2123,12 @@
                       ! Skip out of limits
                       if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
 
-                      ! Fill rest
+                      ! Rest of azimuths
                       do iph=2,GeomI%nph
+
+                        ! Fill
                         Stokes0(:,iph,ith,iz) = Stokes0(:,1,ith,iz)
+
                       end do ! azimuthal nodes
 
                     ! Not input axial
@@ -2830,6 +2159,9 @@
 
                   end do ! polar nodes
 
+                  ! Skip out of limits
+                  if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
+
                   ! For each frequency
                   do ifreq=1,nfreq
 
@@ -2850,11 +2182,11 @@
                   end do ! frequencies
                 end do ! heights
 
-              end if ! Read AD or AV
+              end if ! Read AV or AD
             end if ! Master
 
-            ! If there are slaves
-            if (MPID%mpi) then
+            ! If MPI
+            if (nproc.gt.1) then
 
               ! Control
               call control
@@ -2866,81 +2198,20 @@
                 ! Buffer size
                 ssize = nfreq*GeomI%nTh*GeomI%nPh*Rnz
 
-                ! Alternative bcast
-                if (MPID%altbcast) then
-
-                  ! If not master, receive first
-                  if (pid.ne.0) then
-
-                    call MPI_RECV(Stokes0(1,1,1,Rz0), ssize, &
-                                  MPI_DOUBLE_PRECISION,  &
-                                  MPID%recv, 7+pid, &
-                                  MPI_COMM_RT, &
-                                  MPI_STATUS_IGNORE, ierr)
-
-                  end if ! No master
-
-                  ! For each send
-                  do istep=1,MPID%nsend
-
-                    call MPI_ISEND(Stokes0(1,1,1,Rz0), ssize, &
-                                   MPI_DOUBLE_PRECISION, &
-                                   MPID%lsend(istep), &
-                                   7+MPID%lsend(istep), &
-                                   MPI_COMM_RT, &
-                                   MPID%requestA(istep,4), ierr)
-
-                  end do ! Sends
-
-                ! Normal bcast
-                else
-
-                  call MPI_BCAST(Stokes0(1,1,1,Rz0), ssize, &
-                                 MPI_DOUBLE_PRECISION, 0, &
-                                 MPI_COMM_RT, ierr)
-
-                end if ! Type of bcast
-              end if ! Slaves require Stokes
+                ! Share
+                call MPI_BCAST(Stokes0(1,1,1,Rz0), ssize, &
+                               MPI_DOUBLE_PRECISION, 0, &
+                               MPI_COMM_RT, ierr)
+              end if
 
               ! Buffer size
               csize = nfreq*RnZ
 
-              ! Alternative bcast
-              if (MPID%altbcast) then
+              ! Share
+              call MPI_BCAST(J00C(1,Rz0), csize, &
+                             MPI_DOUBLE_PRECISION, 0, &
+                             MPI_COMM_RT, ierr)
 
-                ! If not master, receive first
-                if (pid.ne.0) then
-
-                  ! Receive J00C
-                  call MPI_RECV(J00C(1,Rz0), csize, &
-                                MPI_DOUBLE_PRECISION,  &
-                                MPID%recv, 7+pid, &
-                                MPI_COMM_RT, &
-                                MPI_STATUS_IGNORE, ierr)
-
-                end if ! No master
-
-                ! For each send
-                do istep=1,MPID%nsend
-
-                  ! Send J00C
-                  call MPI_ISEND(J00C(1,Rz0), csize, &
-                                 MPI_DOUBLE_PRECISION, &
-                                 MPID%lsend(istep), &
-                                 7+MPID%lsend(istep), &
-                                 MPI_COMM_RT, &
-                                 MPID%requestA(istep,4), ierr)
-
-                end do ! Sends
-
-              ! Normal bcast
-              else
-
-                call MPI_BCAST(J00C(1,Rz0), csize, &
-                               MPI_DOUBLE_PRECISION, 0, &
-                               MPI_COMM_RT, ierr)
-
-              end if ! Type of bcast
             end if ! MPI
           end if ! Input AV or AD
         end if ! Can read Stokes
@@ -2949,44 +2220,18 @@
       ! Close unit
       if (pid.eq.0) close (200)
 
-      ! If alternative bcast
-      if (MPID%mpi.and.MPID%altbcast) then
-
-        ! For each slave
-        do iproc=1,MPID%nsend
-
-          ! Wait for everyone to receive the radiation data before
-          ! continuing and reset the buffers
-          call MPI_WAIT(MPID%requestA(iproc,1), &
-                        MPI_STATUS_IGNORE,ierr)
-          call MPI_WAIT(MPID%requestA(iproc,2), &
-                        MPI_STATUS_IGNORE,ierr)
-          call MPI_WAIT(MPID%requestA(iproc,3), &
-                        MPI_STATUS_IGNORE,ierr)
-          call MPI_WAIT(MPID%requestA(iproc,4), &
-                        MPI_STATUS_IGNORE,ierr)
-          if (ilabel.eq.1) &
-          call MPI_WAIT(MPID%requestA(iproc,5), &
-                        MPI_STATUS_IGNORE,ierr)
-          call MPI_WAIT(MPID%requestA(iproc,6), &
-                        MPI_STATUS_IGNORE,ierr)
-
-        end do ! Processors
-
-      end if ! Domain decomposition
-
       ! Control
       call control
 
       return
 
 1000  umsg = 'Error opening solution file '//trim(filename)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1100  umsg = 'Error reading solution file '//trim(filename)
       close(100)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 
@@ -2996,36 +2241,42 @@
 !#####################################################################
 !#####################################################################
 
-      !> Prepare the arrays from a previous solution in RAM.\n
-      !!    SolF(Solution_F_class): Class with solution data\n
-      !!     GeomI(Geometry_class): Structure with geometry data for
-      !!                            the intensity problem\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!        Flgsg(Fctsg_class): Structure with factorials and
-      !!                            signs\n
-      !!      Bfield(Bfield_blass): Structure with magnetic field
-      !!                            data\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !! Stokes(dfloat(:,:,:,:,:)): Stokes parameters\n
-      !!    JKQ(dcomplex(:,:,:,:)): Radiation field tensors integrated
-      !!                            over absorption profile\n
-      !!   JKQS(dcomplex(:,:,:,:)): Radiation field tensors integrated
-      !!                            over emission profile\n
-      !!   JKQC(dcomplex(:,:,:,:)): Radiation field tensors with
-      !!                            frequency dependence\n
-      !!  Stokes0(dfloat(:,:,:,:)): Intensity\n
-      !!          J00(dfloat(:,:)): Mean intensity integrated over
-      !!                            absorption profile\n
-      !!         J00S(dfloat(:,:)): Mean intensity integrated over
-      !!                            emission profile\n
-      !!         J00C(dfloat(:,:)): Mean intensity with frequency
-      !!                            dependence\n
-      !!       J00P(dfloat(:,:,:)): Intensity integrals in the
-      !!                            photoionization rates\n
-      !!        intensity(logical): Need to fetch intensity
-      !!                            solution
-      subroutine getsol(SolF,GeomI,Geom,MPID,Flgsg,Bfield,Atom, &
+      !> Restore the self-consistent solution from RAM\n
+      !!     SolF(Solution_F_class): Structure with the solution of
+      !!                             the self-consistent problem and
+      !!                             the corresponding emergent
+      !!                             profiles, contribution function,
+      !!                             and height for optical depth
+      !!                             equal to one\n
+      !!      GeomI(Geometry_class): Structure with geometric data for
+      !!                             the intensity problem\n
+      !!       Geom(Geometry_class): Structure with geometric data\n
+      !!         Flgsg(Fctsg_class): Structure with factorials, signs,
+      !!                             and J-symbols\n
+      !!       Bfield(Bfield_class): Structure with magnetic field
+      !!                             data\n
+      !!        Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Stokes(double(:,:,:,:,:)): Stokes parameters\n
+      !!     JKQ(dcomplex(:,:,:,:)): Radiation field tensors
+      !!                             integrated over the absorption
+      !!                             profile\n
+      !!    JKQS(dcomplex(:,:,:,:)): Radiation field tensors
+      !!                             integrated over the emission
+      !!                             profile\n
+      !!    JKQC(dcomplex(:,:,:,:)): Radiation field tensors with
+      !!                             frequency dependence\n
+      !!   Stokes0(double(:,:,:,:)): Intensity\n
+      !!           J00(double(:,:)): Mean intensity integrated over
+      !!                             the absorption profile\n
+      !!          J00S(double(:,:)): Mean intensity integrated over
+      !!                             the emission profile\n
+      !!          J00C(double(:,:)): Mean intensity with frequency
+      !!                             dependence\n
+      !!        J00P(double(:,:,:)): Intensity integrals in the
+      !!                             photoionization rates\n
+      !!         intensity(logical): Need to fetch intensity
+      !!                             solution
+      subroutine getsol(SolF,GeomI,Geom,Flgsg,Bfield,Atom, &
                         Stokes,JKQ,JKQS,JKQC, &
                         Stokes0,J00,J00S,J00C,J00P, &
                         intensity)
@@ -3036,18 +2287,26 @@
       type(Geometry_class), intent(in):: Geom,GeomI
       type(Fctsg_class), intent(in):: Flgsg
       type(Bfield_class), intent(in):: Bfield
-      type(MPI_class), intent(inout):: MPID
       type(Solution_F_class), intent(in):: SolF
       logical, intent(in):: intensity
-      double precision,dimension(:,:,:,:), allocatable:: Stokes0
-      double precision,dimension(:,:,:,:,:), allocatable:: Stokes
-      double precision,dimension(:,:), allocatable:: J00
-      double precision,dimension(:,:), allocatable:: J00S
-      double precision,dimension(:,:), allocatable:: J00C
-      double precision,dimension(:,:,:), allocatable:: J00P
-      complex(kind=8),dimension(:,:,:,:), allocatable:: JKQ
-      complex(kind=8),dimension(:,:,:,:), allocatable:: JKQS
-      complex(kind=8),dimension(:,:,:,:), allocatable:: JKQC
+      double precision, dimension(:,:,:,:), &
+                        allocatable, intent(inout):: Stokes0
+      double precision, dimension(:,:,:,:,:), &
+                        allocatable, intent(inout):: Stokes
+      double precision, dimension(:,:), &
+                        allocatable, intent(inout):: J00
+      double precision, dimension(:,:), &
+                        allocatable, intent(inout):: J00S
+      double precision, dimension(:,:), &
+                        allocatable, intent(inout):: J00C
+      double precision, dimension(:,:,:), &
+                        allocatable, intent(inout):: J00P
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(inout):: JKQ
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(inout):: JKQS
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(inout):: JKQC
 
       ! Local
 
@@ -3055,7 +2314,7 @@
 
       double precision:: rJ,rJ1,rho0
 
-      complex(kind=8),dimension(-nkx:nkx,nz):: rhoKQaux
+      complex(kind=8), dimension(-nkx:nkx,nz):: rhoKQaux
 
 
       ! Routine name
@@ -3070,37 +2329,42 @@
         ! Allocations
         !
 
-        ! If we are doing angle averaged, we only need one height,
-        ! we allocate two to store the emergence in the quadrature
+        ! If keeping Stokes
         if (KSTK) then
+
+          ! Allocate full height range
           allocate(Stokes0(nfreq,GeomI%nPh,GeomI%nTh,Rz0:Rz1))
           giz0 = Rz0
           giz1 = Rz1
-          MPID%RRAM = MPID%RRAM + &
-                      8d-6*dble(nfreq*GeomI%nph*GeomI%nTh*Rnz)
+
+        ! Not keeping Stokes
         else
+
+          ! Allocate only two heights
           allocate(Stokes0(nfreq,GeomI%nPh,GeomI%nTh,Rz0:Rz0+1))
           giz0 = Rz0
           giz1 = Rz0+1
-          MPID%RRAM = MPID%RRAM + &
-                      8d-6*dble(nfreq*GeomI%nph*GeomI%nTh*2)
+
         end if
+
+        ! Count memory
+        RRAMc = RRAMc + 1d-6*sizeof(Stokes)
 
         ! J00 for absorptivity
         allocate(J00(nxt,Rz0:Rz1))
+        RRAMc = RRAMc + 1d-6*sizeof(J00)
 
         ! J00 for stimulated emission
         allocate(J00S(nxt,Rz0:Rz1))
+        RRAMc = RRAMc + 1d-6*sizeof(J00S)
 
         ! J00 frequency dependent
         allocate(J00C(nfreq,Rz0:Rz1))
+        RRAMc = RRAMc + 1d-6*sizeof(J00C)
 
         ! J00 for photoionizations
         allocate(J00P(nxphot,2,Rz0:Rz1))
-
-        ! Compute allocated memory
-        MPID%RRAM = MPID%RRAM + 8d-6*dble(Rnz*(nxphot*2 + &
-                                          2*nxt + nfreq))
+        RRAMc = RRAMc + 1d-6*sizeof(J00P)
 
         ! Master
         if (pid.eq.0) then
@@ -3111,17 +2375,22 @@
             ! Save
             Stokes0 = dble(SolF%i_StkI_b(:,:,:,Rz0:Rz1))
 
-            ! And share
-            if (MPID%mpi) then
-            psize = nfreq*GeomI%nph*GeomI%nth*Rnz
-            call MPI_BCAST(Stokes0(1,1,1,Rz0), psize, &
-                           MPI_DOUBLE_PRECISION, 0, &
-                           MPI_COMM_RT, ierr)
-            end if
+            ! If MPI
+            if (nproc.gt.1) then
+
+              ! Buffer size
+              psize = nfreq*GeomI%nph*GeomI%nth*Rnz
+
+              ! Share
+              call MPI_BCAST(Stokes0(1,1,1,Rz0), psize, &
+                             MPI_DOUBLE_PRECISION, 0, &
+                             MPI_COMM_RT, ierr)
+            end if ! MPI
 
           ! Otherwise
           else
 
+            ! Initialize
             Stokes0 = 0d0
 
           end if
@@ -3129,35 +2398,47 @@
           ! J00 bar
           J00 = SolF%i_J00_b(:,Rz0:Rz1)
 
-          ! Share
-          if (MPID%mpi) then
-          psize = nxt*RnZ
-          call MPI_BCAST(J00(1,Rz0), psize, &
-                         MPI_DOUBLE_PRECISION, 0, &
-                         MPI_COMM_RT, ierr)
-          end if
+          ! MPI
+          if (nproc.gt.1) then
+
+            ! Buffer size
+            psize = nxt*RnZ
+
+            ! Share
+            call MPI_BCAST(J00(1,Rz0), psize, &
+                           MPI_DOUBLE_PRECISION, 0, &
+                           MPI_COMM_RT, ierr)
+          end if ! MPI
 
           ! J00 photo
           J00P = SolF%i_J00P_b(:,:,Rz0:Rz1)
 
-          ! Share
-          if (MPID%mpi) then
-          psize = nxphot*2*Rnz
-          call MPI_BCAST(J00P(1,1,Rz0), psize, &
-                         MPI_DOUBLE_PRECISION, 0, &
-                         MPI_COMM_RT, ierr)
-          end if
+          ! MPI
+          if (nproc.gt.1) then
+
+            ! Buffer size
+            psize = nxphot*2*Rnz
+
+            ! Share
+            call MPI_BCAST(J00P(1,1,Rz0), psize, &
+                           MPI_DOUBLE_PRECISION, 0, &
+                           MPI_COMM_RT, ierr)
+          end if ! MPI
 
           ! J00 freq. dependent
           J00C = SolF%i_J00C_b(:,Rz0:Rz1)
 
-          ! Share
-          if (MPID%mpi) then
-          psize = nfreq*Rnz
-          call MPI_BCAST(J00C(1,Rz0), psize, &
-                         MPI_DOUBLE_PRECISION, 0, &
-                         MPI_COMM_RT, ierr)
-          end if
+          ! MPI
+          if (nproc.gt.1) then
+
+            ! Buffer size
+            psize = nfreq*Rnz
+
+            ! Share
+            call MPI_BCAST(J00C(1,Rz0), psize, &
+                           MPI_DOUBLE_PRECISION, 0, &
+                           MPI_COMM_RT, ierr)
+          end if ! MPI
 
         ! Slaves
         else
@@ -3165,8 +2446,10 @@
           ! If keeping Stokes
           if (KSTK) then
 
-            ! Get
+            ! Buffer size
             psize = nfreq*GeomI%nph*GeomI%nth*Rnz
+
+            ! Get from Master
             call MPI_BCAST(Stokes0(1,1,1,Rz0), psize, &
                            MPI_DOUBLE_PRECISION, 0, &
                            MPI_COMM_RT, ierr)
@@ -3174,23 +2457,24 @@
           ! Otherwise
           else
 
+            ! Initialize
             Stokes0 = 0d0
 
           end if
 
-          ! Get
+          ! J00
           psize = nxt*RnZ
           call MPI_BCAST(J00(1,Rz0), psize, &
                          MPI_DOUBLE_PRECISION, 0, &
                          MPI_COMM_RT, ierr)
 
-          ! Get
+          ! J00P
           psize = nxphot*2*Rnz
           call MPI_BCAST(J00P(1,1,Rz0), psize, &
                          MPI_DOUBLE_PRECISION, 0, &
                          MPI_COMM_RT, ierr)
 
-          ! Get
+          ! J00C
           psize = nfreq*Rnz
           call MPI_BCAST(J00C(1,Rz0), psize, &
                          MPI_DOUBLE_PRECISION, 0, &
@@ -3219,13 +2503,17 @@
           ! And share populations
           !
 
-          ! Share
-          if (MPID%mpi) then
-          psize = Rnz*Atom(ia)%nlevel
-          call MPI_BCAST(Atom(ia)%popu(1,Rz0), psize, &
-                         MPI_DOUBLE_PRECISION, 0, &
-                         MPI_COMM_RT, ierr)
-          end if
+          ! MPI
+          if (nproc.gt.1) then
+
+            ! Buffer size
+            psize = Rnz*Atom(ia)%nlevel
+
+            ! Share
+            call MPI_BCAST(Atom(ia)%popu(1,Rz0), psize, &
+                           MPI_DOUBLE_PRECISION, 0, &
+                           MPI_COMM_RT, ierr)
+          end if ! MPI
 
           ! For each height
           do iz=Rz0,Rz1
@@ -3251,9 +2539,9 @@
                 ! Define population
                 Atom(ia)%popu(i,iz) = Atom(ia)%popu(i,iz)*rJ
 
-              end do
-            end do
-          end do
+              end do ! Level
+            end do ! Term
+          end do ! Height
 
 
           !
@@ -3279,6 +2567,7 @@
               ! Get component index
               iR = Atom(ia)%irho(it)%Jrho(iJ,iJ)%kq(0,0)
 
+              ! For each height
               do iz=Rz0,Rz1
 
                 ! If rhoKQ/rho00 is lesser than double precision
@@ -3294,37 +2583,42 @@
       ! Polarization
       else
 
-        ! If we are doing angle averaged, we only need one height,
-        ! we allocate two to store the emergence in the quadrature
+        ! If storing Stokes parameters
         if (KSTK) then
+
+          ! Allocate whole height range
           allocate(Stokes(0:3,nfreq,Geom%nPh,Geom%nTh,Rz0:Rz1))
           giz0 = Rz0
           giz1 = Rz1
-          MPID%RRAM = MPID%RRAM + &
-                      8d-6*dble(4*nfreq*Geom%nPh*Geom%nTh*Rnz)
+
+        ! Not storing Stokes
         else
+
+          ! Allocate just two nodes
           allocate(Stokes(0:3,nfreq,Geom%nPh,Geom%nTh,Rz0:Rz0+1))
           giz0 = Rz0
           giz1 = Rz0+1
-          MPID%RRAM = MPID%RRAM + &
-                      8d-6*dble(4*nfreq*Geom%nPh*Geom%nTh*2)
-        end if
+
+        end if ! Storing Stokes
+
+        ! Memory count
+        RRAMc = RRAMc + 1d-6*sizeof(Stokes)
 
         ! JKQ for absorptivity
         allocate(JKQ(-2:2,0:2,nxtran,Rz0:Rz1))
+        RRAMc = RRAMc + 1d-6*sizeof(JKQ)
 
         ! JKQ for stimulated emission
         allocate(JKQS(-2:2,0:2,nxtran,Rz0:Rz1))
+        RRAMc = RRAMc + 1d-6*sizeof(JKQS)
 
         ! JKQ frequency dependent
         allocate(JKQC(-2:2,0:2,nfreq,Rz0:Rz1))
+        RRAMc = RRAMc + 1d-6*sizeof(JKQC)
 
         ! J00 for photoionizations
         allocate(J00P(nxphot,2,Rz0:Rz1))
-
-        ! Compute allocated memory
-        MPID%RRAM = MPID%RRAM + 8d-6*dble(Rnz*(nxphot*2 + &
-                                          2*5*3*(2*nxtran + nfreq)))
+        RRAMc = RRAMc + 1d-6*sizeof(J00P)
 
         ! Master
         if (pid.eq.0) then
@@ -3335,17 +2629,22 @@
             ! Save
             Stokes = SolF%i_Stk_b(:,:,:,:,Rz0:Rz1)
 
-            ! And share
-            if (MPID%mpi) then
-            psize = 4*nfreq*Geom%nph*Geom%nth*Rnz
-            call MPI_BCAST(Stokes(0,1,1,1,Rz0), psize, &
-                           MPI_DOUBLE_PRECISION, 0, &
-                           MPI_COMM_RT, ierr)
-            end if
+            ! MPI
+            if (nproc.gt.1) then
+
+              ! Buffer size
+              psize = 4*nfreq*Geom%nph*Geom%nth*Rnz
+
+              ! Share
+              call MPI_BCAST(Stokes(0,1,1,1,Rz0), psize, &
+                             MPI_DOUBLE_PRECISION, 0, &
+                             MPI_COMM_RT, ierr)
+            end if ! MPI
 
           ! Otherwise
           else
 
+            ! Initialize
             Stokes = 0d0
 
           end if
@@ -3367,24 +2666,28 @@
             do itran=1,nxtran
 
               ! Rotate
-              if (Bfield%Bstrength(iz).gt.TINYB) &
               call fieldB(JKQ(:,:,itran,iz),1,Flgsg, &
                           Bfield%Btheta(iz),Bfield%Bphi(iz),1)
 
             end do ! Transitions
           end do ! heights
 
-          ! Share
-          if (MPID%mpi) then
-          psize = 15*nxtran*RnZ
-          call MPI_BCAST(JKQ(-2,0,1,Rz0), psize, &
-                         MPI_DOUBLE_COMPLEX, 0, &
-                         MPI_COMM_RT, ierr)
-          end if
+          ! MPI
+          if (nproc.gt.1) then
 
-          ! JKQS bar
+            ! Buffer size
+            psize = 15*nxtran*RnZ
+
+            ! Share
+            call MPI_BCAST(JKQ(-2,0,1,Rz0), psize, &
+                           MPI_DOUBLE_COMPLEX, 0, &
+                           MPI_COMM_RT, ierr)
+          end if ! MPI
+
+          ! If stimulated emission
           if (stm) then
 
+            ! JKQS bar
             JKQS = SolF%i_JKQS_b(:,:,:,Rz0:Rz1)
 
             !
@@ -3407,25 +2710,33 @@
               end do ! Transitions
             end do ! heights
 
-            ! Share
-            if (MPID%mpi) then
-            psize = 15*nxtran*RnZ
-            call MPI_BCAST(JKQS(-2,0,1,Rz0), psize, &
-                           MPI_DOUBLE_COMPLEX, 0, &
-                           MPI_COMM_RT, ierr)
-            end if
+            ! MPI
+            if (nproc.gt.1) then
+
+              ! Buffer size
+              psize = 15*nxtran*RnZ
+
+              ! Share
+              call MPI_BCAST(JKQS(-2,0,1,Rz0), psize, &
+                             MPI_DOUBLE_COMPLEX, 0, &
+                             MPI_COMM_RT, ierr)
+            end if ! MPI
           end if ! Stimulated emission
 
           ! JKQ freq. dependent
           JKQC = SolF%i_JKQC_b(:,:,:,Rz0:Rz1)
 
-          ! Share
-          if (MPID%mpi) then
-          psize = 15*nfreq*Rnz
-          call MPI_BCAST(JKQC(-2,0,1,Rz0), psize, &
-                         MPI_DOUBLE_COMPLEX, 0, &
-                         MPI_COMM_RT, ierr)
-          end if
+          ! MPI
+          if (nproc.gt.1) then
+
+            ! Buffer size
+            psize = 15*nfreq*Rnz
+
+            ! Share
+            call MPI_BCAST(JKQC(-2,0,1,Rz0), psize, &
+                           MPI_DOUBLE_COMPLEX, 0, &
+                           MPI_COMM_RT, ierr)
+          end if ! MPI
 
         ! Slaves
         else
@@ -3433,8 +2744,10 @@
           ! If keeping Stokes
           if (KSTK) then
 
-            ! Get
+            ! Buffer size
             psize = 4*nfreq*Geom%nph*Geom%nth*Rnz
+
+            ! Receive
             call MPI_BCAST(Stokes(0,1,1,1,Rz0), psize, &
                            MPI_DOUBLE_PRECISION, 0, &
                            MPI_COMM_RT, ierr)
@@ -3442,11 +2755,12 @@
           ! Otherwise
           else
 
+            ! Initialize
             Stokes = 0d0
 
           end if
 
-          ! Get
+          ! JKQ
           psize = 15*nxtran*RnZ
           call MPI_BCAST(JKQ(-2,0,1,Rz0), psize, &
                          MPI_DOUBLE_COMPLEX, 0, &
@@ -3455,7 +2769,7 @@
           ! If stimulatted
           if (stm) then
 
-            ! Get
+            ! JKQS
             psize = 15*nxtran*RnZ
             call MPI_BCAST(JKQS(-2,0,1,Rz0), psize, &
                            MPI_DOUBLE_COMPLEX, 0, &
@@ -3463,7 +2777,7 @@
 
           end if ! Stimulated emission
 
-          ! Get
+          ! JKQC
           psize = 15*nfreq*Rnz
           call MPI_BCAST(JKQC(-2,0,1,Rz0), psize, &
                          MPI_DOUBLE_COMPLEX, 0, &
@@ -3480,7 +2794,7 @@
           ! Master
           if (pid.eq.0) then
 
-            ! For each terms
+            ! For each term
             do it=1,Atom(ia)%nMulti
 
               ! For each level
@@ -3508,17 +2822,20 @@
                       ! For each height
                       do iz=1,nZ
 
+                        ! Skip is not in range
                         if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
 
+                        ! If considered multipole
                         if (K.le.Atom(ia)%Kcut(it)) then
 
+                          ! Save
                           Atom(ia)%crho(iR,iz) = &
                                         SolF%i_rhoes_b(ia)%crho(iR,iz)
 
                           ! Auxiliar variable for rotation
                           rhoKQaux(iQ,iz) = Atom(ia)%crho(iR,iz)
 
-                        end if
+                        end if ! Considered multipole
 
                       end do ! heights
                     end do ! Q
@@ -3527,13 +2844,13 @@
                     ! Rotate rhoKQ
                     !
 
-                    ! Only if above the limit
+                    ! Only if not above the limit
                     if (K.le.Atom(ia)%Kcut(it)) then
 
                       ! For each height in the CPU domain
                       do iz=Rz0,Rz1
 
-                        ! If there is magnetic field
+                        ! Skip if no magnetic field
                         if (Bfield%Bstrength(iz).le.TINYB) cycle
 
                         ! Rotate the rhoKQ in the auxiliar variable
@@ -3541,11 +2858,16 @@
                                   Bfield%Btheta(iz), &
                                   Bfield%Bphi(iz),1)
 
-                        ! Store the rotated result in the rhoKQ
-                        ! array
+                        ! For every Q
                         do iQ=-K,K
+
+                          ! Get index
                           iR = Atom(ia)%irho(it)%Jrho(iJ1,iJ)%kq(iQ,K)
+
+                          ! Store the rotated result in the rhoKQ
+                          ! array
                           Atom(ia)%crho(iR,iz) = rhoKQaux(iQ,iz)
+
                         end do ! Q
                       end do ! heights
 
@@ -3558,13 +2880,17 @@
 
           end if ! Master/slave
 
-          ! Share
-          if (MPID%mpi) then
+          ! MPI
+          if (nproc.gt.1) then
+
+            ! Buffer size
             psize = Atom(ia)%ndim*Rnz
+
+            ! Share
             call MPI_BCAST(Atom(ia)%crho(1,Rz0), psize, &
                            MPI_DOUBLE_COMPLEX, 0, &
                            MPI_COMM_RT, ierr)
-          end if
+          end if ! MPI
 
 
           !
@@ -3618,7 +2944,6 @@
                         Atom(ia)%rhonull(iR,iz) = .True.
 
                     end do ! heights
-
                   end do ! Q
                 end do ! K
               end do ! J'
@@ -3634,31 +2959,38 @@
 !#####################################################################
 !#####################################################################
 
-      !> Store the solution in the SolF structure.\n
-      !!    SolF(Solution_F_class): Class with solution data\n
-      !!        Flgsg(Fctsg_class): Structure with factorials and
-      !!                            signs\n
-      !!      Bfield(Bfield_blass): Structure with magnetic field
-      !!                            data\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !! Stokes(dfloat(:,:,:,:,:)): Stokes parameters\n
-      !!    JKQ(dcomplex(:,:,:,:)): Radiation field tensors integrated
-      !!                            over absorption profile\n
-      !!   JKQS(dcomplex(:,:,:,:)): Radiation field tensors integrated
-      !!                            over emission profile\n
-      !!   JKQC(dcomplex(:,:,:,:)): Radiation field tensors with
-      !!                            frequency dependence\n
-      !!  Stokes0(dfloat(:,:,:,:)): Intensity\n
-      !!          J00(dfloat(:,:)): Mean intensity integrated over
-      !!                            absorption profile\n
-      !!         J00S(dfloat(:,:)): Mean intensity integrated over
-      !!                            emission profile\n
-      !!         J00C(dfloat(:,:)): Mean intensity with frequency
-      !!                            dependence\n
-      !!       J00P(dfloat(:,:,:)): Intensity integrals in the
-      !!                            photoionization rates\n
-      !!        intensity(logical): Need to store just the intensity
-      !!                            solution
+      !> Save the self-consistent solution in RAM\n
+      !!     SolF(Solution_F_class): Structure with the solution of
+      !!                             the self-consistent problem and
+      !!                             the corresponding emergent
+      !!                             profiles, contribution function,
+      !!                             and height for optical depth
+      !!                             equal to one\n
+      !!         Flgsg(Fctsg_class): Structure with factorials, signs,
+      !!                             and J-symbols\n
+      !!       Bfield(Bfield_class): Structure with magnetic field
+      !!                             data\n
+      !!        Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Stokes(double(:,:,:,:,:)): Stokes parameters\n
+      !!     JKQ(dcomplex(:,:,:,:)): Radiation field tensors
+      !!                             integrated over the absorption
+      !!                             profile\n
+      !!    JKQS(dcomplex(:,:,:,:)): Radiation field tensors
+      !!                             integrated over the emission
+      !!                             profile\n
+      !!    JKQC(dcomplex(:,:,:,:)): Radiation field tensors with
+      !!                             frequency dependence\n
+      !!   Stokes0(double(:,:,:,:)): Intensity\n
+      !!           J00(double(:,:)): Mean intensity integrated over
+      !!                             the absorption profile\n
+      !!          J00S(double(:,:)): Mean intensity integrated over
+      !!                             the emission profile\n
+      !!          J00C(double(:,:)): Mean intensity with frequency
+      !!                             dependence\n
+      !!        J00P(double(:,:,:)): Intensity integrals in the
+      !!                             photoionization rates\n
+      !!         intensity(logical): Need to store just the intensity
+      !!                             solution
       subroutine setsol(SolF,Flgsg,Bfield,Atom, &
                         Stokes,JKQ,JKQS,JKQC, &
                         Stokes0,J00,J00S,J00C,J00P, &
@@ -3666,20 +2998,29 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), intent(in):: Atom
       type(Fctsg_class), intent(in):: Flgsg
       type(Bfield_class), intent(in):: Bfield
       type(Solution_F_class), intent(inout):: SolF
       logical, intent(in):: intensity
-      double precision,dimension(:,:,:,:), allocatable:: Stokes0
-      double precision,dimension(:,:,:,:,:), allocatable:: Stokes
-      double precision,dimension(:,:), allocatable:: J00
-      double precision,dimension(:,:), allocatable:: J00S
-      double precision,dimension(:,:), allocatable:: J00C
-      double precision,dimension(:,:,:), allocatable:: J00P
-      complex(kind=8),dimension(:,:,:,:), allocatable:: JKQ
-      complex(kind=8),dimension(:,:,:,:), allocatable:: JKQS
-      complex(kind=8),dimension(:,:,:,:), allocatable:: JKQC
+      double precision, dimension(:,:,:,:),  &
+                        allocatable, intent(in):: Stokes0
+      double precision, dimension(:,:,:,:,:), &
+                        allocatable, intent(in):: Stokes
+      double precision, dimension(:,:), &
+                        allocatable, intent(in):: J00
+      double precision, dimension(:,:), &
+                        allocatable, intent(in):: J00S
+      double precision, dimension(:,:), &
+                        allocatable, intent(in):: J00C
+      double precision, dimension(:,:,:), &
+                        allocatable, intent(in):: J00P
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(in):: JKQ
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(in):: JKQS
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(in):: JKQC
 
       ! Local
 
@@ -3687,10 +3028,10 @@
 
       double precision:: rJ,rJ1
 
-      complex(kind=8),dimension(-nkx:nkx,nz):: rhoKQaux
+      complex(kind=8), dimension(-nkx:nkx,nz):: rhoKQaux
 
 
-      ! Only master
+      ! Only master, rest can leave
       if (pid.gt.0) return
 
 
@@ -3796,6 +3137,7 @@
                       ! If out of bounds
                       if (iz.lt.Rz0.or.iz.gt.Rz1) then
 
+                        ! Set to zero
                         rhoKQaux(-K:K,iz) = cZero
 
                       ! In bounds
@@ -3852,12 +3194,15 @@
 
           ! Out of limits
           if (iz.lt.Rz0.or.iz.gt.Rz1) then
+
+            ! Set to zero and skip
             SolF%i_JKQ(:,:,:,iz) = cZero
             if (stm) SolF%i_JKQS(:,:,:,iz) = cZero
             cycle
-          end if
 
-          ! Store
+          end if ! Out of limits
+
+          ! Store JKQ and JKQS
           SolF%i_JKQ(:,:,:,iz) = JKQ(:,:,:,iz)
           if (stm) SolF%i_JKQS(:,:,:,iz) = JKQS(:,:,:,iz)
 
@@ -3870,18 +3215,20 @@
               ! Rotate
               call fieldB(SolF%i_JKQ(:,:,itran,iz),1,Flgsg, &
                           -Bfield%Btheta(iz),-Bfield%Bphi(iz),-1)
+
+              ! If stimulated emission, rotate
               if (stm) &
               call fieldB(SolF%i_JKQS(:,:,itran,iz),1,Flgsg, &
                           -Bfield%Btheta(iz),-Bfield%Bphi(iz),-1)
 
-            end do
+            end do ! Transitions
 
           end if ! Magnetic field
 
         end do ! Heights
 
         !
-        ! Radiation field tensors
+        ! JKQC radiation field tensors
         !
         SolF%i_JKQC(:,:,:,1:Rz0-1) = cZero
         SolF%i_JKQC(:,:,:,Rz1+1:nz) = cZero
@@ -3898,34 +3245,40 @@
 
       end if ! Polarization/intensity
 
+      return
+
+      ! Fake assing to deceive the compiler
+      rJ = J00S(1,1)
+
       end subroutine setsol
 
 !#####################################################################
 !#####################################################################
 !#####################################################################
 
-      !> Writes a file with the computed solution that can be read
-      !! by the code as initialization, and separate files for the
-      !! radiation field and density tensors.\n
-      !!        Input(Input_class): Structure with settings data\n
-      !!        suff(character(:)): Suffix for the file names of the
-      !!                            radiation field and density matrix
-      !!                            files\n
-      !!          omega(dfloat(:)): Frequency array\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!        Flgsg(Fctsg_class): Structure with factorials and
-      !!                            signs\n
-      !!      Bfield(Bfield_blass): Structure with magnetic field
-      !!                            data\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!              z(dfloat(:)): Heights array\n
-      !! Stokes(dfloat(:,:,:,:,:)): Stokes parameters\n
-      !!    JKQ(dcomplex(:,:,:,:)): Radiation field tensors integrated
-      !!                            over absorption profile\n
-      !!   JKQS(dcomplex(:,:,:,:)): Radiation field tensors integrated
-      !!                            over emission profile\n
-      !!   JKQC(dcomplex(:,:,:,:)): Radiation field tensors with
-      !!                            frequency dependence
+      !> Save the self-consistent solution in a file\n
+      !!         Input(Input_class): Structure with configuration
+      !!                             data\n
+      !!         suff(character(:)): Suffix for the file names of the
+      !!                             radiation field and density
+      !!                             matrix files\n
+      !!           omega(double(:)): Frequency array\n
+      !!       Geom(Geometry_class): Structure with geometric data\n
+      !!         Flgsg(Fctsg_class): Structure with factorials, signs,
+      !!                             and J-symbols\n
+      !!       Bfield(Bfield_class): Structure with magnetic field
+      !!                             data\n
+      !!        Atom(Atom_class(:)): Structures with atomic data\n
+      !!               z(double(:)): Height array\n
+      !!  Stokes(double(:,:,:,:,:)): Stokes parameters\n
+      !!     JKQ(dcomplex(:,:,:,:)): Radiation field tensors
+      !!                             integrated over the absorption
+      !!                             profile\n
+      !!    JKQS(dcomplex(:,:,:,:)): Radiation field tensors
+      !!                             integrated over the emission
+      !!                             profile\n
+      !!    JKQC(dcomplex(:,:,:,:)): Radiation field tensors with
+      !!                             frequency dependence
       subroutine writesol(Input,suff,omega,Geom, &
                           Flgsg,Bfield,Atom,z,Stokes,JKQ,JKQS,JKQC)
 
@@ -3956,34 +3309,32 @@
       character(len=8):: scoord
       character(len=500):: filename
 
-      logical:: saveJKQnu, saverKQ, saveJKQ, saveP
-      logical::  saveD, saveS, saveSol
+      logical:: saveJKQnu,saverKQ,saveJKQ,saveP,saveD,saveS,saveSol
       logical:: laux
 
-      integer:: ierr,ii,iab,iran
-      integer:: ios,ia,iz,ifreq,i,ith,iph,iS,itran,jtran
-      integer:: it,iJ,iJ1,K,iQ,iR
-      integer:: axial_int,stm_int,AV_int
-
+      integer:: ierr,ii,iab,iran,ios,ia,iz,ifreq,i,ith,iph,iS,itran
+      integer:: jtran,it,iJ,iJ1,K,iQ,iR,axial_int,stm_int,AV_int
       integer(kind=MPI_OFFSET_KIND):: offset
 
       real, dimension(:), allocatable:: buffer
 
       double precision:: rJ,rJ1,loffset
 
-      complex(kind=8),dimension(-2:2,0:2,nz):: JKQaux
-      complex(kind=8),dimension(-nkx:nkx,nz):: rhoKQaux
+      complex(kind=8), dimension(-2:2,0:2,nz):: JKQaux
+      complex(kind=8), dimension(-nkx:nkx,nz):: rhoKQaux
 
-      !
-      ! Slaves just wait
-      !
+
+      ! Slaves
       if (pid.gt.0) then
+
+        ! Control
         call control
         return
-      end if
+
+      end if ! Slaves
 
       !
-      ! Translate
+      ! Shorter name and compute bools
       !
       filename = Input%folder
       saveSol = Input%keep_sol
@@ -3995,12 +3346,15 @@
       saveJKQnu = Input%keep_jkqnu.and.(suff.eq.'NONE'.or. &
                                         run_mode.eq.0)
 
-      ! If not writing anything, come back
+      ! If not writing anything
       if (.not.(saveSol.or.saveP.or.saveD.or.saverKQ.or.saveJKQ.or. &
                 saveS.or.saveJKQnu)) then
+
+        ! Leave
         call control
         return
-      end if
+
+      end if ! Not writing
 
       ! Routine name
       urou = 'writesol'
@@ -4009,16 +3363,14 @@
       ! Open files
       !
 
-      ! Get LOS index string
+      ! Get LOS index string if 1.5D synthesis
       if (run_mode.eq.1) write(scoord,'(I0.8)') icoords(3)
 
-      !
-      ! To write the solution
-      !
+      ! If writing solution
       if (saveSol) then
 
-        ! If 1D and inversion
-        if (run_mode.le.0) then
+        ! If 1D
+        if (run_mode.eq.0) then
 
           ! Open solution file
           open (200,file=trim(filename)//'/Solution', &
@@ -4037,63 +3389,85 @@
 
         end if ! 1D vs 1.5D
 
-      end if
+      end if ! Writing solution
 
       ! If saving JKQ
       if (saveJKQ) then
 
         ! To write the final JKQ
         if (suff.eq.'NONE') then
-          ! If 1D or inversion
-          if (run_mode.le.0) then
+
+          ! If 1D
+          if (run_mode.eq.0) then
+
+            ! Open file
             open (300,file=trim(filename)//'/Jout', &
                   status='unknown', iostat=ios, err=1002, &
                   access='stream', action='write', &
                   form='unformatted')
+
           ! 1.5D
           else if (run_mode.eq.1) then
+
+            ! Open file
             open (300,file=trim(filename)// &
                   '/Solution-folder/Jout-'//scoord,&
                   status='unknown', iostat=ios, err=1002, &
                   access='stream', action='write', &
                   form='unformatted')
-          end if
+
+          end if ! 1D vs 1.5D
+
         ! With suffix
         else
-            open (300,file=trim(filename)//'/Jout_'//suff, &
-                  status='unknown', iostat=ios, err=1002, &
-                  access='stream', action='write', &
-                  form='unformatted')
-        end if
 
-      end if
+          ! Open for 1D
+          open (300,file=trim(filename)//'/Jout_'//suff, &
+                status='unknown', iostat=ios, err=1002, &
+                access='stream', action='write', &
+                form='unformatted')
+
+        end if ! Final or intermediate
+      end if ! Saving JKQ
 
       ! If saving rhoKQ
       if (saverKQ) then
 
         ! To write the final rhoKQ
         if (suff.eq.'NONE') then
-          ! If 1D or inversion
-          if (run_mode.le.0) then
+
+          ! If 1D
+          if (run_mode.eq.0) then
+
+            ! Open file
             open (400,file=trim(filename)//'/Rhoout', &
                   status='unknown', iostat=ios, err=1003, &
                   access='stream', action='write', &
                   form='unformatted')
+
           ! If 1.5D
           else if (run_mode.eq.1) then
+
+            ! Open file
             open (400,file=trim(filename)// &
                   '/Solution-folder/Rhoout-'// &
                   scoord, status='unknown', iostat=ios, err=1003, &
                   access='stream', action='write', &
                   form='unformatted')
-          end if
+
+          end if ! 1D vs 1.5D
+
+        ! Intermediate file
         else
+
+          ! Open for 1D
           open (400,file=trim(filename)//'/Rhoout_'//suff, &
                 status='unknown', iostat=ios, err=1003, &
                 access='stream', action='write', &
                 form='unformatted')
-        end if
-      end if
+
+        end if ! Final or intermediate file
+      end if ! Saving rhoKQ
 
       !
       ! Convert logicals to integers
@@ -4101,23 +3475,23 @@
 
       ! Axial symmetry
       if(Geom%axial)then
-          axial_int = 1
+        axial_int = 1
       else
-          axial_int = 0
+        axial_int = 0
       end if
 
       ! Stimulated emission
       if(stm)then
-          stm_int = 1
+        stm_int = 1
       else
-          stm_int = 0
+        stm_int = 0
       end if
 
       ! Angle averaged redistribution function
       if (KSTK) then
-          AV_int = 0
+        AV_int = 0
       else
-          AV_int = 1
+        AV_int = 1
       end if
 
       !
@@ -4127,23 +3501,23 @@
       ! If saving solution
       if (saveSol) then
 
-        ! Solution file
-        write (200,err=1100) 'sp'
-        write (200,err=1100) nfreq
-        write (200,err=1100) nZ
-        write (200,err=1100) Geom%nTh
-        write (200,err=1100) Geom%nPh
-        write (200,err=1100) nA
-        write (200,err=1100) axial_int
-        write (200,err=1100) stm_int
-        write (200,err=1100) AV_int
+        ! Solution file metadata
+        write(200,err=1100) 'sp'
+        write(200,err=1100) nfreq
+        write(200,err=1100) nZ
+        write(200,err=1100) Geom%nTh
+        write(200,err=1100) Geom%nPh
+        write(200,err=1100) nA
+        write(200,err=1100) axial_int
+        write(200,err=1100) stm_int
+        write(200,err=1100) AV_int
 
-      end if
+      end if ! Saving solution
 
       ! If saving JKQ
       if (saveJKQ) then
 
-        ! JKQ file
+        ! JKQ file metadata
         write(300,err=1102) 'bj'
         write(300,err=1102) stm
         write(300,err=1102) nZ
@@ -4151,24 +3525,27 @@
         write(300,err=1102) nxtran
         write(300,err=1102) z
 
-      end if
+      end if ! Saving JKQ
 
       ! If saving rhoKQ
       if (saverKQ) then
 
-        ! rhoKQ file
+        ! rhoKQ file metadata
         write(400,err=1103) 'br'
         write(400,err=1103) nZ
         write(400,err=1103) nA
         write(400,err=1103) z
 
-      end if
+      end if ! Saving rhoKQ
 
-      ! If 1.5D, prepare pop y dep buffers
+      ! If 1.5D
       if (run_mode.eq.1) then
+
+        ! If saving population or departure, prepare buffers
         if (saveP.or.saveD) &
           allocate(buffer(maxval(Input%lim_pop%nbuff)/4))
-      end if
+
+      end if ! 1.5D synthesis
 
 
       !
@@ -4178,440 +3555,152 @@
       ! Only if saving anything
       if (saveSol.or.saveP.or.saveD.or.saverKQ) then
 
-      !
-      ! Population and rhoKQ
-
-      ! For each atom
-      do ia=1,nA
-
         !
-        ! If saving population or departure coeff.
-        !
-        if (saveP.or.saveD) then
+        ! Population and rhoKQ
+
+        ! For each atom
+        do ia=1,nA
 
           !
-          ! If 1D
+          ! If saving population or departure coeff.
           !
-          if (run_mode.eq.0) then
+          if (saveP.or.saveD) then
 
-            ! If writing populations
-            if (saveP) then
+            !
+            ! If 1D
+            !
+            if (run_mode.eq.0) then
 
-              ! To write the populations
-              open (500,file=trim(filename)//'/'// &
-                    trim(Atom(ia)%file_label)//'.pop', &
-                    status='unknown',iostat=ios, err=1004, &
-                    access='stream', action='write', &
-                    form='unformatted')
+              ! If writing populations
+              if (saveP) then
 
-              write(500,err=1104) 'bp'
-              write(500,err=1104) nZ
-              write(500,err=1104) Atom(ia)%nlevel
+                ! To write the populations
+                open (500,file=trim(filename)//'/'// &
+                      trim(Atom(ia)%file_label)//'.pop', &
+                      status='unknown',iostat=ios, err=1004, &
+                      access='stream', action='write', &
+                      form='unformatted')
 
-            end if
+                ! Metadata
+                write(500,err=1104) 'bp'
+                write(500,err=1104) nZ
+                write(500,err=1104) Atom(ia)%nlevel
 
-            ! If writing departure c.
-            if (saveD) then
+              end if ! Saving population
 
-              ! To write departure c.
-              open (600,file=trim(filename)//'/'// &
-                    trim(Atom(ia)%file_label)//'.dep', &
-                    status='unknown',iostat=ios, err=1005, &
-                    access='stream', action='write', &
-                    form='unformatted')
+              ! If writing departure c.
+              if (saveD) then
 
-              write(600,err=1105) 'bb'
-              write(600,err=1105) nZ
-              write(600,err=1105) Atom(ia)%nlevel
+                ! To write departure c.
+                open (600,file=trim(filename)//'/'// &
+                      trim(Atom(ia)%file_label)//'.dep', &
+                      status='unknown',iostat=ios, err=1005, &
+                      access='stream', action='write', &
+                      form='unformatted')
 
-            end if
+                ! Metadata
+                write(600,err=1105) 'bb'
+                write(600,err=1105) nZ
+                write(600,err=1105) Atom(ia)%nlevel
 
-            ! For each height
-            do iz=1,nZ
+              end if ! Saving depature coeff.
 
-              ! If out of bounds
-              if (iz.lt.Rz0.or.iz.gt.Rz1) then
+              ! For each height
+              do iz=1,nZ
 
-                ! For each level
-                do it=1,Atom(ia)%nlevel
+                ! If out of bounds
+                if (iz.lt.Rz0.or.iz.gt.Rz1) then
 
-                  ! Write populations
-                  if (saveP) &
-                    write (500,err=1104) Atom(ia)%popu(it,iz)
-                  ! Write departure
-                  if (saveD) &
-                    write (600,err=1104) Atom(ia)%popu(it,iz)/ &
-                                         Atom(ia)%populte(it,iz)
+                  ! For each level
+                  do it=1,Atom(ia)%nlevel
 
-                end do
-
-              ! In bounds
-              else
-
-                ! For each term
-                do it=1,Atom(ia)%nMulti
-
-                  ! For each level J within the term
-                  do iJ=1,Atom(ia)%nJ(it)!,1,-1
-
-                    ! Get J value and level index
-                    rJ = Atom(ia)%rJval(iJ,it)
-                    i = Atom(ia)%irho(it)%irho_ij(iJ)
-                    iR = Atom(ia)%irho(it)%Jrho(iJ,iJ)%kq(0,0)
-
-                    ! Write populations
+                    ! Write populations if requested
                     if (saveP) &
-                      write (500,err=1104) Atom(ia)%n(iz)* &
-                                       sqrt(2d0*rJ+1d0)* &
-                                       dble(Atom(ia)%crho(iR,iz))
+                      write(500,err=1104) Atom(ia)%popu(it,iz)
 
-                    ! Write departure coeff
+                    ! Write departure if requested
                     if (saveD) &
-                      write (600,err=1105) Atom(ia)%n(iz)* &
-                                       sqrt(2d0*rJ+1d0)* &
-                                       dble(Atom(ia)%crho(iR,iz))/ &
-                                       Atom(ia)%populte(i,iz)
+                      write(600,err=1104) Atom(ia)%popu(it,iz)/ &
+                                          Atom(ia)%populte(it,iz)
+
                   end do ! Levels
-                end do ! Terms
 
-              end if ! Height bounds
+                ! In bounds
+                else
 
-            end do ! Heights
+                  ! For each term
+                  do it=1,Atom(ia)%nMulti
 
-            if (saveP) close(500)
-            if (saveD) close(600)
+                    ! For each level J within the term
+                    do iJ=1,Atom(ia)%nJ(it)!,1,-1
 
-          !
-          ! If 1.5D
-          !
-          else if (run_mode.eq.1) then
+                      ! Get J value and level index
+                      rJ = Atom(ia)%rJval(iJ,it)
+                      i = Atom(ia)%irho(it)%irho_ij(iJ)
+                      iR = Atom(ia)%irho(it)%Jrho(iJ,iJ)%kq(0,0)
 
-            ! Populations
-            if (saveP.and.Input%lim_pop%nbuff(ia).gt.0) then
+                      ! Write populations if requested
+                      if (saveP) &
+                        write(500,err=1104) Atom(ia)%n(iz)* &
+                                         sqrt(2d0*rJ+1d0)* &
+                                         dble(Atom(ia)%crho(iR,iz))
 
-              ! Open file to write the populations
-              call MPI_FILE_OPEN(MPI_COMM_SELF, &
+                      ! Write departure coeff if requested
+                      if (saveD) &
+                        write(600,err=1105) Atom(ia)%n(iz)* &
+                                         sqrt(2d0*rJ+1d0)* &
+                                         dble(Atom(ia)%crho(iR,iz))/ &
+                                         Atom(ia)%populte(i,iz)
+                    end do ! Levels
+                  end do ! Terms
+
+                end if ! Height bounds
+
+              end do ! Heights
+
+              ! Close files if opened
+              if (saveP) close(500)
+              if (saveD) close(600)
+
+            !
+            ! If 1.5D
+            !
+            else if (run_mode.eq.1) then
+
+              ! Populations
+              if (saveP.and.Input%lim_pop%nbuff(ia).gt.0) then
+
+                ! Open file to write the populations
+                call MPI_FILE_OPEN(MPI_COMM_SELF, &
                                  trim(filename)//'/'// &
                                  trim(Atom(ia)%file_label)//'.pop', &
                                  MPI_MODE_WRONLY, MPI_INFO_NULL, &
                                  funit, ierr)
-              if (ierr.ne.0) goto 1004
-
-              !
-              ! Column offset
-              !
-
-              ! Get offset
-              loffset = dble(icoords(3)-1)* &
-                        dble(Input%lim_pop%nbuff(ia)) + &
-                        dble(Input%lim_pop%head_size)
-              do while(loffset.gt.offlimit)
-                offset = int(offlimit)
-                call MPI_FILE_SEEK(funit, offset, MPI_SEEK_CUR, ierr)
-                if (ierr.ne.0) goto 1014
-                loffset = loffset - offlimit
-              end do
-              offset = int(loffset)
-              call MPI_FILE_SEEK(funit, offset, MPI_SEEK_CUR, ierr)
-              if (ierr.ne.0) goto 1014
-
-              ! Initialize buffer
-              ii = 0
-
-              ! If specified
-              if (Input%lim_pop%nran.gt.0) then
-
-                ! For each height
-                do iz=1,nz
-
-                  ! If out of bounds
-                  if (iz.lt.Rz0.or.iz.gt.Rz1) then
-
-                    ! For each entry to write
-                    do iran=1,Input%lim_pop%nran
-
-                      ! Atom and transition
-                      iab = Input%lim_pop%indx(1,iran)
-                      if (ia.ne.iab) cycle
-                      i = Input%lim_pop%indx(2,iran)
-
-                      ! Advance buffer
-                      ii = ii + 1
-                      buffer(ii) = real(Atom(ia)%popu(i,iz))
-
-                    end do ! Entries
-
-                  ! In bounds
-                  else
-
-                    ! For each entry to write
-                    do iran=1,Input%lim_pop%nran
-
-                      ! Atom and transition
-                      iab = Input%lim_pop%indx(1,iran)
-                      if (ia.ne.iab) cycle
-                      i = Input%lim_pop%indx(2,iran)
-
-                      ! Get necessary data
-                      it = Atom(ia)%term(i)
-                      iJ = Atom(ia)%sublevel(i)
-                      rJ = Atom(ia)%rJval(iJ,it)
-                      iR = Atom(ia)%irho(it)%Jrho(iJ,iJ)%kq(0,0)
-
-                      ! Advance buffer
-                      ii = ii + 1
-                      buffer(ii) = real(Atom(ia)%n(iz)* &
-                                        sqrt(2d0*rJ+1d0)* &
-                                        dble(Atom(ia)%crho(iR,iz)))
-
-                    end do ! Ranges to print
-
-                  end if ! Height bounds
-
-                end do ! Heights
-
-              ! Everything
-              else
-
-                ! For each height
-                do iz=1,nz
-
-                  ! If out of bounds
-                  if (iz.lt.Rz0.or.iz.gt.Rz1) then
-
-                    ! For each level
-                    do it=1,Atom(ia)%nlevel
-
-                      ! Write populations
-                      ii = ii + 1
-                      buffer(ii) = real(Atom(ia)%popu(it,iz))
-                    end do ! Levels
-
-                  ! In bounds
-                  else
-
-                    ! For each term
-                    do it=1,Atom(ia)%nMulti
-
-                      ! For each level J within the term
-                      do iJ=1,Atom(ia)%nJ(it)!,1,-1
-
-                        ! Get J value and level index
-                        rJ = Atom(ia)%rJval(iJ,it)
-                        iR = Atom(ia)%irho(it)%Jrho(iJ,iJ)%kq(0,0)
-
-                        ! Write populations
-                        ii = ii + 1
-                        buffer(ii) = real(Atom(ia)%n(iz)* &
-                                          sqrt(2d0*rJ+1d0)* &
-                                          dble(Atom(ia)%crho(iR,iz)))
-                      end do ! Levels
-                    end do ! Terms
-
-                  end if ! Height bounds
-
-                end do ! Heights
-
-              end if ! Specific or everything
-
-              ! Write buffer
-              call MPI_FILE_WRITE(funit,buffer(1), &
-                                  Input%lim_pop%nbuff(ia)/4, &
-                                  MPI_REAL,MPI_STATUS_IGNORE,ierr)
-              if (ierr.ne.0) goto 1304
-
-            end if! Saving populations
-
-            ! Departure coefficients
-            if (saveD.and.Input%lim_pop%nbuff(ia).gt.0) then
-
-              ! Open file to write the populations
-              call MPI_FILE_OPEN(MPI_COMM_SELF, &
-                                 trim(filename)//'/'// &
-                                 trim(Atom(ia)%file_label)//'.dep', &
-                                 MPI_MODE_WRONLY, MPI_INFO_NULL, &
-                                 funit, ierr)
-              if (ierr.ne.0) goto 1005
-
-              !
-              ! Column offset
-              !
-
-              ! Get offset
-              loffset = dble(icoords(3)-1)* &
-                        dble(Input%lim_pop%nbuff(ia)) + &
-                        dble(Input%lim_pop%head_size)
-              do while(loffset.gt.offlimit)
-                offset = int(offlimit)
-                call MPI_FILE_SEEK(funit, offset, MPI_SEEK_CUR, ierr)
-                if (ierr.ne.0) goto 1015
-                loffset = loffset - offlimit
-              end do
-              offset = int(loffset)
-              call MPI_FILE_SEEK(funit, offset, MPI_SEEK_CUR, ierr)
-              if (ierr.ne.0) goto 1015
-
-              ! Initialize buffer
-              ii = 0
-
-              ! If specified
-              if (Input%lim_pop%nran.gt.0) then
-
-                ! For each height
-                do iz=1,nz
-
-                  ! If out of bounds
-                  if (iz.lt.Rz0.or.iz.gt.Rz1) then
-
-                    ! For each entry to write
-                    do iran=1,Input%lim_pop%nran
-
-                      ! Atom and transition
-                      iab = Input%lim_pop%indx(1,iran)
-                      if (ia.ne.iab) cycle
-                      i = Input%lim_pop%indx(2,iran)
-
-                      ! Advance buffer
-                      ii = ii +1
-                      buffer(ii) = real(Atom(ia)%popu(i,iz)/ &
-                                        Atom(ia)%populte(i,iz))
-
-                    end do ! Ranges to print
-
-                  ! In bounds
-                  else
-
-                    ! For each entry to write
-                    do iran=1,Input%lim_pop%nran
-
-                      ! Atom and transition
-                      iab = Input%lim_pop%indx(1,iran)
-                      if (ia.ne.iab) cycle
-                      i = Input%lim_pop%indx(2,iran)
-
-                      ! Get necessary data
-                      it = Atom(ia)%term(i)
-                      iJ = Atom(ia)%sublevel(i)
-                      rJ = Atom(ia)%rJval(iJ,it)
-                      iR = Atom(ia)%irho(it)%Jrho(iJ,iJ)%kq(0,0)
-
-                      ! Advance buffer
-                      ii = ii +1
-                      buffer(ii) = real(Atom(ia)%n(iz)* &
-                                        sqrt(2d0*rJ+1d0)* &
-                                        dble(Atom(ia)%crho(iR,iz))/ &
-                                        Atom(ia)%populte(i,iz))
-
-                    end do ! Ranges to print
-
-                  end if ! Height bounds
-
-                end do ! Height
-
-              ! Everything
-              else
-
-                ! Each height
-                do iz=1,nz
-
-                  ! If out of bounds
-                  if (iz.lt.Rz0.or.iz.gt.Rz1) then
-
-                    ! For each term
-                    do it=1,Atom(ia)%nlevel
-
-                      ! Write populations
-                      ii = ii + 1
-                      buffer(ii) = real(Atom(ia)%popu(it,iz)/ &
-                                        Atom(ia)%populte(i,iz))
-
-                    end do ! Levels
-
-                  ! In bounds
-                  else
-
-                    ! For each term
-                    do it=1,Atom(ia)%nMulti
-
-                      ! For each level J within the term
-                      do iJ=1,Atom(ia)%nJ(it)!,1,-1
-
-                        ! Get J value and level index
-                        rJ = Atom(ia)%rJval(iJ,it)
-                        i = Atom(ia)%irho(it)%irho_ij(iJ)
-                        iR = Atom(ia)%irho(it)%Jrho(iJ,iJ)%kq(0,0)
-
-                        ! Write populations
-                        ii = ii + 1
-                        buffer(ii) = real(Atom(ia)%n(iz)* &
-                                         sqrt(2d0*rJ+1d0)* &
-                                         dble(Atom(ia)%crho(iR,iz))/ &
-                                         Atom(ia)%populte(i,iz))
-
-                      end do ! Levels
-                    end do ! Terms
-
-                  end if ! Height bounds
-
-                end do ! Heights
-
-              end if ! Specific or everything
-
-              ! Write buffer
-              call MPI_FILE_WRITE(funit,buffer(1), &
-                                  Input%lim_pop%nbuff(ia)/4, &
-                                  MPI_REAL,MPI_STATUS_IGNORE,ierr)
-              if (ierr.ne.0) goto 1305
-
-            end if! Saving populations
-
-          end if! 1D vs 1.5D
-        end if ! Saving populations or departure coefficients
-
-        ! Write the population of the atom into solution
-        if (saveSol) write (200,err=1100) Atom(ia)%n
-
-        ! Saving rhoKQ
-        if (saverKQ) then
-
-          ! Write the population of the atom into rhoKQ files
-          write (400,err=1103) Atom(ia)%n
-
-          ! Write number of terms to rhoKQ file
-          write (400,err=1103) Atom(ia)%nMulti
-
-        end if
-
-        ! For each term
-        do it=1,Atom(ia)%nMulti
-
-          ! Write number of levels to rhoKQ file
-          if (saverKQ) write(400,err=1103) Atom(ia)%nJ(it)
-
-          ! For each level J within the term
-          do iJ=1,Atom(ia)%nJ(it)!,1,-1
-
-            ! Get J value
-            rJ = Atom(ia)%rJval(iJ,it)
-
-            ! For each J value within the term
-            do iJ1=1,Atom(ia)%nJ(it)!,1,-1
-
-              ! Get J value
-              rJ1 = Atom(ia)%rJval(iJ1,it)
-
-              ! Write J values in rhoKQ file
-              if (saverKQ) then
-                write (400,err=1103) nint(2d0*rJ)
-                write (400,err=1103) nint(2d0*rJ1)
-              end if
-
-              ! For each K
-              do K=nint(abs(rJ-rJ1)),nint(rJ+rJ1)
+                if (ierr.ne.0) goto 1004
 
                 !
-                ! Rotate rhoKQ nto the vertical reference frame
-                if (K.le.Atom(ia)%Kcut(it)) then
+                ! Column offset
+                !
+
+                ! Get offset
+                loffset = dble(icoords(3)-1)* &
+                          dble(Input%lim_pop%nbuff(ia)) + &
+                          dble(Input%lim_pop%head_size)
+                do while(loffset.gt.offlimit)
+                  offset = int(offlimit)
+                  call MPI_FILE_SEEK(funit,offset,MPI_SEEK_CUR,ierr)
+                  if (ierr.ne.0) goto 1014
+                  loffset = loffset - offlimit
+                end do
+                offset = int(loffset)
+                call MPI_FILE_SEEK(funit,offset,MPI_SEEK_CUR,ierr)
+                if (ierr.ne.0) goto 1014
+
+                ! Initialize buffer
+                ii = 0
+
+                ! If specified ranges
+                if (Input%lim_pop%nran.gt.0) then
 
                   ! For each height
                   do iz=1,nz
@@ -4619,174 +3708,457 @@
                     ! If out of bounds
                     if (iz.lt.Rz0.or.iz.gt.Rz1) then
 
-                      rhoKQaux(-K:K,iz) = cZero
+                      ! For each entry to write
+                      do iran=1,Input%lim_pop%nran
+
+                        ! Atom
+                        iab = Input%lim_pop%indx(1,iran)
+
+                        ! This atom not included, skip
+                        if (ia.ne.iab) cycle
+
+                        ! Level
+                        i = Input%lim_pop%indx(2,iran)
+
+                        ! Advance buffer
+                        ii = ii + 1
+
+                        ! Save
+                        buffer(ii) = real(Atom(ia)%popu(i,iz))
+
+                      end do ! Entries
 
                     ! In bounds
                     else
 
-                      ! For each Q
-                      do iQ=-K,K
+                      ! For each entry to write
+                      do iran=1,Input%lim_pop%nran
 
-                        ! Get the rhoKQ index
-                        iR = Atom(ia)%irho(it)%Jrho(iJ1,iJ)%kq(iQ,K)
+                        ! Atom
+                        iab = Input%lim_pop%indx(1,iran)
 
-                        ! Store the corresponding rhoKQ into an
-                        ! auxiliar variable
-                        rhoKQaux(iQ,iz) = Atom(ia)%crho(iR,iz)
+                        ! Skip if not this atom
+                        if (ia.ne.iab) cycle
 
-                      end do ! Q
+                        ! Level
+                        i = Input%lim_pop%indx(2,iran)
 
-                      ! If there is non-zero magnetic field, rotate
-                      if (Bfield%Bstrength(iz).gt.TINYB) &
-                        call rhoB(rhoKQaux(-K:K,iz),1,K,Flgsg, &
-                                 -Bfield%Btheta(iz), &
-                                 -Bfield%Bphi(iz),-1)
+                        ! Get necessary data
+                        it = Atom(ia)%term(i)
+                        iJ = Atom(ia)%sublevel(i)
+                        rJ = Atom(ia)%rJval(iJ,it)
+                        iR = Atom(ia)%irho(it)%Jrho(iJ,iJ)%kq(0,0)
+
+                        ! Advance buffer
+                        ii = ii + 1
+
+                        ! Save
+                        buffer(ii) = real(Atom(ia)%n(iz)* &
+                                          sqrt(2d0*rJ+1d0)* &
+                                          dble(Atom(ia)%crho(iR,iz)))
+
+                      end do ! Ranges to print
 
                     end if ! Height bounds
 
-                  end do ! heights
+                  end do ! Heights
 
-                  ! For each Q
-                  do iQ=-K,K
-
-                    ! Get the index
-                    iR = Atom(ia)%irho(it)%Jrho(iJ1,iJ)%kq(iQ,K)
-
-                    ! For each height
-                    do iz=1,nZ
-
-                      ! Write rhoKQ into rhoKQ file, and the null flag
-                      if (saverKQ) then
-                        write (400,err=1103) dble(rhoKQaux(iQ,iz))
-                        write (400,err=1103) dimag(rhoKQaux(iQ,iz))
-                        ! If out of bounds
-                        if (iz.lt.Rz0.or.iz.gt.Rz1) then
-                          write (400,err=1103) ione
-                        ! In bounds
-                        else
-                          if (Atom(ia)%rhonull(iR,iz)) then
-                            write (400,err=1103) ione
-                          else
-                            write (400,err=1103) izero
-                          end if
-                        end if ! Height bounds
-                      end if
-
-                      ! Write rhoKQ into solution file
-                      if (saveSol) &
-                        write (200,err=1100) dble(rhoKQaux(iQ,iz)), &
-                                             dimag(rhoKQaux(iQ,iz))
-
-                    end do ! heights
-                  end do ! Q
-
+                ! Everything
                 else
 
-                  ! For each Q
-                  do iQ=-K,K
+                  ! For each height
+                  do iz=1,nz
+
+                    ! If out of bounds
+                    if (iz.lt.Rz0.or.iz.gt.Rz1) then
+
+                      ! For each level
+                      do it=1,Atom(ia)%nlevel
+
+                        ! Advance index
+                        ii = ii + 1
+
+                        ! Save
+                        buffer(ii) = real(Atom(ia)%popu(it,iz))
+
+                      end do ! Levels
+
+                    ! In bounds
+                    else
+
+                      ! For each term
+                      do it=1,Atom(ia)%nMulti
+
+                        ! For each level J within the term
+                        do iJ=1,Atom(ia)%nJ(it)!,1,-1
+
+                          ! Get J value and level index
+                          rJ = Atom(ia)%rJval(iJ,it)
+                          iR = Atom(ia)%irho(it)%Jrho(iJ,iJ)%kq(0,0)
+
+                          ! Advance index
+                          ii = ii + 1
+
+                          ! Save
+                          buffer(ii) = real(Atom(ia)%n(iz)* &
+                                          sqrt(2d0*rJ+1d0)* &
+                                          dble(Atom(ia)%crho(iR,iz)))
+                        end do ! Levels
+                      end do ! Terms
+
+                    end if ! Height bounds
+
+                  end do ! Heights
+
+                end if ! Specific or everything
+
+                ! Write buffer
+                call MPI_FILE_WRITE(funit,buffer(1), &
+                                    Input%lim_pop%nbuff(ia)/4, &
+                                    MPI_REAL,MPI_STATUS_IGNORE,ierr)
+                if (ierr.ne.0) goto 1304
+
+              end if ! Saving populations
+
+              ! Departure coefficients
+              if (saveD.and.Input%lim_pop%nbuff(ia).gt.0) then
+
+                ! Open file to write the populations
+                call MPI_FILE_OPEN(MPI_COMM_SELF, &
+                                 trim(filename)//'/'// &
+                                 trim(Atom(ia)%file_label)//'.dep', &
+                                 MPI_MODE_WRONLY, MPI_INFO_NULL, &
+                                 funit, ierr)
+                if (ierr.ne.0) goto 1005
+
+                !
+                ! Column offset
+                !
+
+                ! Get offset
+                loffset = dble(icoords(3)-1)* &
+                          dble(Input%lim_pop%nbuff(ia)) + &
+                          dble(Input%lim_pop%head_size)
+                do while(loffset.gt.offlimit)
+                  offset = int(offlimit)
+                  call MPI_FILE_SEEK(funit,offset,MPI_SEEK_CUR,ierr)
+                  if (ierr.ne.0) goto 1015
+                  loffset = loffset - offlimit
+                end do
+                offset = int(loffset)
+                call MPI_FILE_SEEK(funit,offset,MPI_SEEK_CUR,ierr)
+                if (ierr.ne.0) goto 1015
+
+                ! Initialize buffer
+                ii = 0
+
+                ! If specified
+                if (Input%lim_pop%nran.gt.0) then
+
+                  ! For each height
+                  do iz=1,nz
+
+                    ! If out of bounds
+                    if (iz.lt.Rz0.or.iz.gt.Rz1) then
+
+                      ! For each entry to write
+                      do iran=1,Input%lim_pop%nran
+
+                        ! Atom
+                        iab = Input%lim_pop%indx(1,iran)
+
+                        ! Skip if not this atom
+                        if (ia.ne.iab) cycle
+
+                        ! Level
+                        i = Input%lim_pop%indx(2,iran)
+
+                        ! Advance buffer
+                        ii = ii +1
+
+                        ! Save
+                        buffer(ii) = real(Atom(ia)%popu(i,iz)/ &
+                                          Atom(ia)%populte(i,iz))
+
+                      end do ! Ranges to print
+
+                    ! In bounds
+                    else
+
+                      ! For each entry to write
+                      do iran=1,Input%lim_pop%nran
+
+                        ! Atom
+                        iab = Input%lim_pop%indx(1,iran)
+
+                        ! Skip if not this atom
+                        if (ia.ne.iab) cycle
+
+                        ! Level
+                        i = Input%lim_pop%indx(2,iran)
+
+                        ! Get necessary data
+                        it = Atom(ia)%term(i)
+                        iJ = Atom(ia)%sublevel(i)
+                        rJ = Atom(ia)%rJval(iJ,it)
+                        iR = Atom(ia)%irho(it)%Jrho(iJ,iJ)%kq(0,0)
+
+                        ! Advance buffer
+                        ii = ii +1
+
+                        ! Save
+                        buffer(ii) = real(Atom(ia)%n(iz)* &
+                                        sqrt(2d0*rJ+1d0)* &
+                                        dble(Atom(ia)%crho(iR,iz))/ &
+                                        Atom(ia)%populte(i,iz))
+
+                      end do ! Ranges to print
+
+                    end if ! Height bounds
+
+                  end do ! Height
+
+                ! Everything
+                else
+
+                  ! Each height
+                  do iz=1,nz
+
+                    ! If out of bounds
+                    if (iz.lt.Rz0.or.iz.gt.Rz1) then
+
+                      ! For each term
+                      do it=1,Atom(ia)%nlevel
+
+                        ! Advance index
+                        ii = ii + 1
+
+                        ! Save
+                        buffer(ii) = real(Atom(ia)%popu(it,iz)/ &
+                                          Atom(ia)%populte(i,iz))
+
+                      end do ! Levels
+
+                    ! In bounds
+                    else
+
+                      ! For each term
+                      do it=1,Atom(ia)%nMulti
+
+                        ! For each level J within the term
+                        do iJ=1,Atom(ia)%nJ(it)!,1,-1
+
+                          ! Get J value and level index
+                          rJ = Atom(ia)%rJval(iJ,it)
+                          i = Atom(ia)%irho(it)%irho_ij(iJ)
+                          iR = Atom(ia)%irho(it)%Jrho(iJ,iJ)%kq(0,0)
+
+                          ! Advance index
+                          ii = ii + 1
+
+                          ! Save
+                          buffer(ii) = real(Atom(ia)%n(iz)* &
+                                         sqrt(2d0*rJ+1d0)* &
+                                         dble(Atom(ia)%crho(iR,iz))/ &
+                                         Atom(ia)%populte(i,iz))
+
+                        end do ! Levels
+                      end do ! Terms
+
+                    end if ! Height bounds
+
+                  end do ! Heights
+
+                end if ! Specific or everything
+
+                ! Write buffer
+                call MPI_FILE_WRITE(funit,buffer(1), &
+                                    Input%lim_pop%nbuff(ia)/4, &
+                                    MPI_REAL,MPI_STATUS_IGNORE,ierr)
+                if (ierr.ne.0) goto 1305
+
+              end if! Saving populations
+
+            end if! 1D vs 1.5D
+          end if ! Saving populations or departure coefficients
+
+          ! Write the population of the atom into solution
+          if (saveSol) write(200,err=1100) Atom(ia)%n
+
+          ! Saving rhoKQ
+          if (saverKQ) then
+
+            ! Write the population of the atom into rhoKQ files
+            write(400,err=1103) Atom(ia)%n
+
+            ! Write number of terms to rhoKQ file
+            write(400,err=1103) Atom(ia)%nMulti
+
+          end if
+
+          ! For each term
+          do it=1,Atom(ia)%nMulti
+
+            ! Write number of levels to rhoKQ file
+            if (saverKQ) write(400,err=1103) Atom(ia)%nJ(it)
+
+            ! For each level J within the term
+            do iJ=1,Atom(ia)%nJ(it)!,1,-1
+
+              ! Get J value
+              rJ = Atom(ia)%rJval(iJ,it)
+
+              ! For each J value within the term
+              do iJ1=1,Atom(ia)%nJ(it)!,1,-1
+
+                ! Get J value
+                rJ1 = Atom(ia)%rJval(iJ1,it)
+
+                ! Write J values in rhoKQ file
+                if (saverKQ) then
+                  write(400,err=1103) nint(2d0*rJ)
+                  write(400,err=1103) nint(2d0*rJ1)
+                end if
+
+                ! For each K
+                do K=nint(abs(rJ-rJ1)),nint(rJ+rJ1)
+
+                  ! If included multipole
+                  if (K.le.Atom(ia)%Kcut(it)) then
 
                     ! For each height
-                    do iz=1,nZ
+                    do iz=1,nz
 
-                      ! Write rhoKQ into rhoKQ file, and the null flag
-                      if (saverKQ) then
-                        write (400,err=1103) dzero
-                        write (400,err=1103) dzero
-                        write (400,err=1103) ione
-                      end if
-                      ! Write rhoKQ into solution file
-                      if (saveSol) &
-                        write (200,err=1100) dzero,dzero
+                      ! If out of bounds
+                      if (iz.lt.Rz0.or.iz.gt.Rz1) then
+
+                        ! Set to zero
+                        rhoKQaux(-K:K,iz) = cZero
+
+                      ! In bounds
+                      else
+
+                        ! For each Q
+                        do iQ=-K,K
+
+                          ! Get the rhoKQ index
+                          iR = Atom(ia)%irho(it)%Jrho(iJ1,iJ)%kq(iQ,K)
+
+                          ! Store the corresponding rhoKQ into an
+                          ! auxiliar variable
+                          rhoKQaux(iQ,iz) = Atom(ia)%crho(iR,iz)
+
+                        end do ! Q
+
+                        ! If there is non-zero magnetic field, rotate
+                        if (Bfield%Bstrength(iz).gt.TINYB) &
+                          call rhoB(rhoKQaux(-K:K,iz),1,K,Flgsg, &
+                                   -Bfield%Btheta(iz), &
+                                   -Bfield%Bphi(iz),-1)
+
+                      end if ! Height bounds
 
                     end do ! heights
-                  end do ! Q
 
-                end if ! K<=Kcut
+                    ! For each Q
+                    do iQ=-K,K
 
-              end do ! K
-            end do ! J'
-          end do ! J
-        end do ! Terms
-      end do ! Atoms
+                      ! Get the index
+                      iR = Atom(ia)%irho(it)%Jrho(iJ1,iJ)%kq(iQ,K)
 
-      end if
+                      ! For each height
+                      do iz=1,nZ
+
+                        ! If saving rhoKQ
+                        if (saverKQ) then
+
+                          ! Write rhoKQ into rhoKQ file, and the null
+                          write(400,err=1103) dble(rhoKQaux(iQ,iz))
+                          write(400,err=1103) dimag(rhoKQaux(iQ,iz))
+
+                          ! If out of bounds
+                          if (iz.lt.Rz0.or.iz.gt.Rz1) then
+
+                            ! Write a one for null
+                            write(400,err=1103) ione
+
+                          ! In bounds
+                          else
+
+                            ! If null
+                            if (Atom(ia)%rhonull(iR,iz)) then
+
+                              ! Write one
+                              write(400,err=1103) ione
+
+                            ! If not null
+                            else
+
+                              ! Write a zero
+                              write(400,err=1103) izero
+
+                            end if ! Null value
+                          end if ! Height bounds
+                        end if ! Saving rhoKQ
+
+                        ! Write rhoKQ into solution file
+                        if (saveSol) &
+                          write(200,err=1100) &
+                                           dble(rhoKQaux(iQ,iz)), &
+                                           dimag(rhoKQaux(iQ,iz))
+
+                      end do ! heights
+                    end do ! Q
+
+                  ! Not included multipole
+                  else
+
+                    ! For each Q
+                    do iQ=-K,K
+
+                      ! For each height
+                      do iz=1,nZ
+
+                        ! If saving rhoKQ
+                        if (saverKQ) then
+
+                          ! Write rhoKQ into rhoKQ file, and the null
+                          ! flag
+                          write(400,err=1103) dzero
+                          write(400,err=1103) dzero
+                          write(400,err=1103) ione
+
+                        end if ! Saving rhoKQ
+
+                        ! Write rhoKQ into solution file
+                        if (saveSol) &
+                          write(200,err=1100) dzero,dzero
+
+                      end do ! heights
+                    end do ! Q
+
+                  end if ! K<=Kcut
+
+                end do ! K
+              end do ! J'
+            end do ! J
+          end do ! Terms
+        end do ! Atoms
+
+      end if ! Saving rhoKQ or the solution file
 
 
       !
       ! JKQ
 
-      ! Only if saving anything
+      ! Only if saving anything in this block
       if (saveSol.or.saveJKQ) then
-
-      ! For each atom
-      do ia=1,nA
-
-        ! Write number of transitions in JKQ file
-        if (saveJKQ) write(300,err=1102) Atom(ia)%ntran
-
-        ! For each transition
-        do itran=1,Atom(ia)%ntran
-
-          ! Apply atomic shift
-          jtran = itran + Atom(ia)%tshift
-
-          !
-          ! Rotate JKQ
-
-          ! For each height
-          do iz=1,nz
-
-            ! If out of bounds
-            if (iz.lt.Rz0.or.iz.gt.Rz1) then
-
-              JKQaux(:,:,iz) = cZero
-
-            ! In bounds
-            else
-
-              ! get the jkq into an auxiliar variable
-              JKQaux(:,:,iz) = JKQ(:,:,jtran,iz)
-
-              ! If there is a non-zero magnetic field, rotate
-              ! into the vertical reference frame
-              if (Bfield%Bstrength(iz).gt.TINYB) &
-              call fieldB(JKQaux(:,:,iz),1,Flgsg,-Bfield%Btheta(iz), &
-                          -Bfield%Bphi(iz),-1)
-
-            end if ! Height bounds
-
-          end do ! heights
-
-          ! For each K
-          do K=0,2
-
-            ! For each Q
-            do iQ=-K,K
-
-              ! For each height
-              do iz=1,nZ
-
-                ! Write the JKQ into the JKQ file
-                if (saveJKQ) &
-                  write(300,err=1102) dble(JKQaux(iQ,K,iz)), &
-                                      dimag(JKQaux(iQ,K,iz))
-
-                ! Write the JKQ into the solution file
-                if (saveSol) &
-                  write(200,err=1100) dble(JKQaux(iQ,K,iz)), &
-                                      dimag(JKQaux(iQ,K,iz))
-
-              end do ! heights
-            end do ! Q
-          end do ! K
-        end do ! transitions
-      end do ! Atoms
-
-      ! If there is stimulated emission, write JKQS
-      if(stm)then
 
         ! For each atom
         do ia=1,nA
+
+          ! Write number of transitions in JKQ file
+          if (saveJKQ) write(300,err=1102) Atom(ia)%ntran
 
           ! For each transition
           do itran=1,Atom(ia)%ntran
@@ -4803,20 +4175,21 @@
               ! If out of bounds
               if (iz.lt.Rz0.or.iz.gt.Rz1) then
 
+                ! Set to zero
                 JKQaux(:,:,iz) = cZero
 
               ! In bounds
               else
 
                 ! get the jkq into an auxiliar variable
-                JKQaux(:,:,iz) = JKQS(:,:,jtran,iz)
+                JKQaux(:,:,iz) = JKQ(:,:,jtran,iz)
 
                 ! If there is a non-zero magnetic field, rotate
                 ! into the vertical reference frame
                 if (Bfield%Bstrength(iz).gt.TINYB) &
-                call fieldB(JKQaux(:,:,iz),1,Flgsg, &
-                            -Bfield%Btheta(iz), &
-                            -Bfield%Bphi(iz),-1)
+                  call fieldB(JKQaux(:,:,iz),1,Flgsg, &
+                              -Bfield%Btheta(iz), &
+                              -Bfield%Bphi(iz),-1)
 
               end if ! Height bounds
 
@@ -4831,25 +4204,90 @@
                 ! For each height
                 do iz=1,nZ
 
-                  ! Write the JKQS into the JKQ file
+                  ! Write the JKQ into the JKQ file
                   if (saveJKQ) &
-                    write (300,err=1102) dble(JKQaux(iQ,K,iz)), &
-                                         dimag(JKQaux(iQ,K,iz))
+                    write(300,err=1102) dble(JKQaux(iQ,K,iz)), &
+                                        dimag(JKQaux(iQ,K,iz))
 
-                  ! Write the JKQS into the solution file
+                  ! Write the JKQ into the solution file
                   if (saveSol) &
-                    write (200,err=1100) dble(JKQaux(iQ,K,iz)), &
-                                         dimag(JKQaux(iQ,K,iz))
+                    write(200,err=1100) dble(JKQaux(iQ,K,iz)), &
+                                        dimag(JKQaux(iQ,K,iz))
 
                 end do ! heights
               end do ! Q
             end do ! K
           end do ! transitions
-        end do ! atoms
+        end do ! Atoms
 
-      end if ! stimulated emission
+        ! If there is stimulated emission, write JKQS
+        if(stm)then
+
+          ! For each atom
+          do ia=1,nA
+
+            ! For each transition
+            do itran=1,Atom(ia)%ntran
+
+              ! Apply atomic shift
+              jtran = itran + Atom(ia)%tshift
+
+              !
+              ! Rotate JKQ
+
+              ! For each height
+              do iz=1,nz
+
+                ! If out of bounds
+                if (iz.lt.Rz0.or.iz.gt.Rz1) then
+
+                  ! Set to zero
+                  JKQaux(:,:,iz) = cZero
+
+                ! In bounds
+                else
+
+                  ! Get the Jkq into an auxiliar variable
+                  JKQaux(:,:,iz) = JKQS(:,:,jtran,iz)
+
+                  ! If there is a non-zero magnetic field, rotate
+                  ! into the vertical reference frame
+                  if (Bfield%Bstrength(iz).gt.TINYB) &
+                    call fieldB(JKQaux(:,:,iz),1,Flgsg, &
+                                -Bfield%Btheta(iz), &
+                                -Bfield%Bphi(iz),-1)
+
+                end if ! Height bounds
+
+              end do ! heights
+
+              ! For each K
+              do K=0,2
+
+                ! For each Q
+                do iQ=-K,K
+
+                  ! For each height
+                  do iz=1,nZ
+
+                    ! Write the JKQS into the JKQ file
+                    if (saveJKQ) &
+                      write(300,err=1102) dble(JKQaux(iQ,K,iz)), &
+                                           dimag(JKQaux(iQ,K,iz))
+
+                    ! Write the JKQS into the solution file
+                    if (saveSol) &
+                      write(200,err=1100) dble(JKQaux(iQ,K,iz)), &
+                                           dimag(JKQaux(iQ,K,iz))
+
+                  end do ! heights
+                end do ! Q
+              end do ! K
+            end do ! transitions
+          end do ! atoms
+
+        end if ! stimulated emission
       end if ! Saving anything
-
 
       !
       ! Radiation field solution
@@ -4858,119 +4296,126 @@
       ! Saving solution
       if (saveSol) then
 
-      !
-      ! Keeping full Stokes
-      if (KSTK) then
+        !
+        ! Keeping full Stokes
+        if (KSTK) then
 
-        ! For each height
-        do iz=1,nZ
+          ! For each height
+          do iz=1,nZ
 
-          ! If out of bounds
-          if (iz.lt.Rz0.or.iz.gt.Rz1) then
+            ! If out of bounds
+            if (iz.lt.Rz0.or.iz.gt.Rz1) then
 
-            ! For each degree of freedom
-            do ith=1,Geom%nTh
-            do iph=1,Geom%nPh
-            do ifreq=1,nfreq
-            do iS=0,3
+              ! For each degree of freedom
+              do ith=1,Geom%nTh
+                do iph=1,Geom%nPh
+                  do ifreq=1,nfreq
+                    do iS=0,3
 
-              ! Write 0
-              write (200,err=1100) dzero
+                      ! Write 0
+                      write(200,err=1100) dzero
 
-            end do
-            end do
-            end do
-            end do
+                    end do
+                  end do
+                end do
+              end do
 
-          ! In bounds
-          else
+            ! In bounds
+            else
 
-            ! For each polar direction
-            do ith=1,Geom%nTh
+              ! For each polar direction
+              do ith=1,Geom%nTh
 
-              ! For each azimuthal direction
-              do iph=1,Geom%nPh
+                ! For each azimuthal direction
+                do iph=1,Geom%nPh
 
-                ! For each frequency
-                do ifreq=1,nfreq
+                  ! For each frequency
+                  do ifreq=1,nfreq
 
-                  ! For each Stokes parameter
-                  do iS=0,3
+                    ! For each Stokes parameter
+                    do iS=0,3
 
-                    ! Write Stokes parameter into the solution file
-                    write (200,err=1100) Stokes(iS,ifreq,iph,ith,iz)
+                      ! Write Stokes parameter into the solution file
+                      write(200,err=1100) Stokes(iS,ifreq,iph,ith,iz)
 
-                  end do ! Stokes parameters
-                end do ! Frequencies
-              end do ! azimuthal directions
-            end do ! polar directions
+                    end do ! Stokes parameters
+                  end do ! Frequencies
+                end do ! azimuthal directions
+              end do ! polar directions
 
-          end if ! Height bounds
+            end if ! Height bounds
 
-        end do ! heights
+          end do ! heights
 
-      ! Not keeping Stokes
-      else
+        ! Not keeping Stokes
+        else
 
-        ! For each height
-        do iz=1,nZ
+          ! For each height
+          do iz=1,nZ
 
-          ! If out of bounds
-          if (iz.lt.Rz0.or.iz.gt.Rz1) then
+            ! If out of bounds
+            if (iz.lt.Rz0.or.iz.gt.Rz1) then
 
-            ! For each degree of freedom
-            do ifreq=1,nfreq
-            do K=0,2
-            do iQ=-K,K
+              ! For each degree of freedom
+              do ifreq=1,nfreq
+                do K=0,2
+                  do iQ=-K,K
 
-              ! Write 0 0
-              write (200,err=1100) dzero,dzero
+                    ! Write 0 0
+                    write(200,err=1100) dzero,dzero
 
-            end do
-            end do
-            end do
+                  end do
+                end do
+              end do
 
-          ! In bounds
-          else
+            ! In bounds
+            else
 
-            ! For each frequency
-            do ifreq=1,nfreq
+              ! For each frequency
+              do ifreq=1,nfreq
 
-              ! For each K
-              do K=0,2
+                ! For each K
+                do K=0,2
 
-                ! For each Q
-                do iQ=-K,K
+                  ! For each Q
+                  do iQ=-K,K
 
-                  ! Write the JKQ(k) into the solution file
-                  write (200,err=1100) dble(JKQC(iQ,K,ifreq,iz)), &
-                                       dimag(JKQC(iQ,K,ifreq,iz))
+                    ! Write the JKQ(k) into the solution file
+                    write(200,err=1100) dble(JKQC(iQ,K,ifreq,iz)), &
+                                         dimag(JKQC(iQ,K,ifreq,iz))
 
-                end do ! Q
-              end do ! K
-            end do ! frequencies
+                  end do ! Q
+                end do ! K
+              end do ! frequencies
 
-          end if ! Height bounds
+            end if ! Height bounds
 
-        end do ! heights
+          end do ! heights
 
-      end if ! AV or AD
+        end if ! AV or AD
 
-      !
-      ! Close files
-      !
-      close (200)
+        !
+        ! Close files
+        !
+        close (200)
 
       end if ! Saving solution
 
+      ! Close files if opened
       if (saveJKQ) close (300)
       if (saverKQ) close (400)
 
-      ! Check if storing anything else
+      ! If not storing anything else
       if (.not.saveJKQnu.and..not.saveS) then
+
+        ! Free
+        if (allocated(buffer)) deallocate(buffer)
+
+        ! Control
         call control
         return
-      end if
+
+      end if ! Not storing anything else
 
 
       !
@@ -4980,53 +4425,67 @@
       ! If there is no suffix
       if (suff.eq.'NONE') then
 
-        ! Open file
+        ! Saving Stokes
         if (saveS) then
+
           ! If 1D
           if (run_mode.eq.0) then
+
+            ! Open file
             open (250,file=trim(filename)//'/Stokesout', &
                   status='unknown', iostat=ios, err=1001, &
                   access='stream', action='write', &
                   form='unformatted')
+
           ! If 1.5D
           else if (run_mode.eq.1) then
+
+            ! Open file
             open (250,file=trim(filename)// &
                   '/Solution-folder/Stokesout-'//scoord, &
                   status='unknown', iostat=ios, err=1001, &
                   access='stream', action='write', &
                   form='unformatted')
-          end if
-        end if
+
+          end if ! 1D vs 1.5D
+        end if ! Saving Stokes
 
         ! JKQnu file
         if (saveJKQnu) then
+
           ! If 1D
           if (run_mode.eq.0) then
+
+            ! Open file
             open (350,file=trim(filename)//'/JKQnuout', &
                   status='unknown', iostat=ios, err=1006, &
                   access='stream', action='write', &
                   form='unformatted')
+
           ! If 1.5D
           else if (run_mode.eq.1) then
+
+            ! Open file
             open (350,file=trim(filename)// &
                   '/Solution-folder/JKQnuout-'//scoord, &
                   status='unknown', iostat=ios, err=1006, &
                   access='stream', action='write', &
                   form='unformatted')
-          end if
-        end if
+
+          end if ! 1D vs 1.5D
+        end if ! Saving JKQnu
 
       ! If there is suffix
       else
 
-        ! Open file
+        ! Saving Stokes, open 1D file
         if (saveS) &
           open (250,file=trim(filename)//'/Stokesout_'//suff, &
                 status='unknown', iostat=ios, err=1001, &
                 access='stream', action='write', &
                 form='unformatted')
 
-        ! JKQnu file
+        ! Saving JKQnu file, open 1D file
         if (saveJKQnu) &
           open (350,file=trim(filename)//'/JKQnuout_'//suff, &
                 status='unknown', iostat=ios, err=1006, &
@@ -5035,18 +4494,23 @@
 
       end if ! suffix
 
-
-      !
-      ! Write flag and dimensions
-      !
+      ! Saving Stokes
       if (saveS) then
+
+        ! Write flag and dimensions
         write(250,err=1101) 'bo'
         write(250,err=1101) Nfreq
+
       end if
+
+      ! Saving JKQnu
       if (saveJKQnu) then
+
+        ! Write flag and dimensions
         write(350,err=1106) 'ko'
         write(350,err=1106) nz
         write(350,err=1106) nfreq
+
       end if
 
       !
@@ -5084,7 +4548,7 @@
 
       end if ! Stokes out file
 
-      ! JKQ(nu) file
+      ! JKQnu file
       if (saveJKQnu) then
 
         ! For each height
@@ -5095,14 +4559,14 @@
 
             ! For each degree of freedom
             do ifreq=1,nfreq
-            do K=0,2
-            do iQ=-K,K
+              do K=0,2
+                do iQ=-K,K
 
-              ! Write 0
-              write(350,err=1106) dzero,dzero
+                  ! Write 0
+                  write(350,err=1106) dzero,dzero
 
-            end do
-            end do
+                end do
+              end do
             end do
 
           ! In bounds
@@ -5110,8 +4574,10 @@
 
             ! For each frequency
             do ifreq=1,nfreq
+
               ! For each K multipole
               do K=0,2
+
                 ! For each Q multipole
                 do iQ=-K,K
 
@@ -5125,13 +4591,15 @@
           end if ! Height bounds
 
         end do ! Height
-      end if ! JKQ(nu) file
 
-      !
-      ! Close the Stokesout file
-      !
+      end if ! JKQnu file
+
+      ! Close opened files
       if (saveS) close(250)
       if (saveJKQnu) close(350)
+
+      ! Free
+      if (allocated(buffer)) deallocate(buffer)
 
       ! Control
       call control
@@ -5139,7 +4607,7 @@
       return
 
 1000  umsg = 'Error opening solution file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1100  umsg = 'Error writing solution file'
@@ -5148,91 +4616,91 @@
       if (laux) close(300)
       inquire(unit=400, opened=laux)
       if (laux) close(400)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1001  umsg = 'Error opening Stokesout file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1101  umsg = 'Error writing Stokesout file'
       close(250)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1002  umsg = 'Error opening Jout file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1102  umsg = 'Error writing Jout file'
       close(300)
       if (saveSol) close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1003  umsg = 'Error opening Rout file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1103  umsg = 'Error writing Rout file'
       close(400)
       if (saveSol) close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1004  umsg = 'Error opening Population file'
       close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1014  umsg = 'Error seeking Population file'
       if (saveSol) close(200)
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1104  umsg = 'Error writing Population file'
       close(500)
       if (saveSol) close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1304  umsg = 'Error writing Population file'
       if (saveSol) close(200)
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1005  umsg = 'Error opening Departure file'
       if (saveSol) close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1015  umsg = 'Error seeking Departure file'
       if (saveSol) close(200)
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1105  umsg = 'Error writing Departure file'
       close(600)
       if (saveSol) close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1305  umsg = 'Error writing Departure file'
       if (saveSol) close(200)
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1006  umsg = 'Error opening JKQnuout file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1106  umsg = 'Error writing JKQnuout file'
       close(350)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 
@@ -5242,35 +4710,35 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes a file with the computed solution that can be read
-      !! by the code as initialization, and separate files for the
-      !! radiation field and density tensors. This is the version
-      !! for only intensity.\n
-      !!        Input(Input_class): Structure with settings data\n
-      !!        suff(character(:)): Suffix for the file names of the
-      !!                            radiation field and density matrix
-      !!                            files\n
-      !!          omega(dfloat(:)): Frequency array\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!              z(dfloat(:)): Heights array\n
-      !!   Stokes(dfloat(:,:,:,:)): Intensity\n
-      !!          J00(dfloat(:,:)): Mean intensity integrated over
-      !!                            absorption profile\n
-      !!         J00S(dfloat(:,:)): Mean intensity integrated over
-      !!                            emission profile\n
-      !!         J00C(dfloat(:,:)): Mean intensity with frequency
-      !!                            dependence\n
-      !!       J00P(dfloat(:,:,:)): Intensity integrals in the
-      !!                            photoionization rates
-      !!             keep(logical): Determines the name of the
-      !!                            Solution file
-      subroutine writesolI(Input,suff,omega,Geom, &
-                           Atom,z,Stokes,J00,J00S,J00C,J00P,keep)
+      !> Save the self-consistent solution for the intensity problem
+      !! in a file\n
+      !!       Input(Input_class): Structure with configuration data\n
+      !!       suff(character(:)): Suffix for the file names of the
+      !!                           radiation field and density matrix
+      !!                           files\n
+      !!         omega(double(:)): Frequency array\n
+      !!     Geom(Geometry_class): Structure with geometric data\n
+      !!      Atom(Atom_class(:)): Structures with atomic data\n
+      !!             z(double(:)): Height array\n
+      !!  Stokes(double(:,:,:,:)): Intensity\n
+      !!         J00(double(:,:)): Mean intensity integrated over the
+      !!                           absorption profile\n
+      !!        J00S(double(:,:)): Mean intensity integrated over the
+      !!                           emission profile\n
+      !!        J00C(double(:,:)): Mean intensity with frequency
+      !!                           dependence\n
+      !!      J00P(double(:,:,:)): Intensity integrals in the
+      !!                           photoionization rates\n
+      !!            keep(logical): If the solution file should have a
+      !!                           different name to avoid being
+      !!                           overwriten by the polarized
+      !!                           solution
+      subroutine writesolI(Input,suff,omega,Geom,Atom,z, &
+                           Stokes,J00,J00S,J00C,J00P,keep)
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), intent(in):: Atom
       type(Input_class), intent(in):: Input
       type(Geometry_class), intent(in):: Geom
       character(len=4), intent(in):: suff
@@ -5278,14 +4746,15 @@
       double precision, dimension(:), intent(in):: omega,z
       double precision, dimension(nfreq,Geom%nPh,Geom%nTh,giz0:giz1),&
                         intent(in):: Stokes
-      double precision,dimension(nxt,Rz0:Rz1), intent(in):: J00, J00S
-      double precision,dimension(nfreq,Rz0:Rz1), intent(in):: J00C
-      double precision,dimension(nxphot,2,Rz0:Rz1), intent(in):: J00P
+      double precision, dimension(nxt,Rz0:Rz1), intent(in):: J00, J00S
+      double precision, dimension(nfreq,Rz0:Rz1), intent(in):: J00C
+      double precision, dimension(nxphot,2,Rz0:Rz1), intent(in):: J00P
 
       ! Local
 
       integer, parameter:: izero = 0
       integer, parameter:: ione = 1
+
       double precision, parameter:: dzero = 0d0
 
       character(len=8):: scoord
@@ -5295,12 +4764,8 @@
       logical:: saveP, saveD, saveS, saveSol
       logical:: laux
 
-      integer:: ierr,ii,iab
-      integer:: ios,ia,iz,ifreq,i,ith,iph,itran,jtran
-      integer:: K,iQ,iR,it,iJ,iran
-      integer:: axial_int,stm_int,AV_int
-
-
+      integer:: ierr,ii,iab,K,iQ,iR,it,iJ,iran,ios,ia,iz,ifreq,i
+      integer:: axial_int,stm_int,AV_int,ith,iph,itran,jtran
       integer(kind=MPI_OFFSET_KIND):: offset
 
       real, dimension(:), allocatable:: buffer
@@ -5308,16 +4773,17 @@
       double precision:: rJ,loffset
 
 
-      !
-      ! Slaves just wait
-      !
+      ! Slaves
       if (pid.gt.0) then
+
+        ! Control
         call control
         return
-      end if
+
+      end if ! Slaves
 
       !
-      ! Translate
+      ! Shorter name and compute bools
       !
       filename = Input%folder
       saveSol = Input%keep_sol
@@ -5329,12 +4795,15 @@
       saveJ00nu = Input%keep_jkqnu.and. &
                   (suff.eq.'NONE'.or.run_mode.eq.0)
 
-      ! If not writing anything, come back
+      ! If not writing anything
       if (.not.(saveSol.or.saveP.or.saveD.or.saverKQ.or.saveJKQ.or. &
                 saveS.or.saveJ00nu)) then
+
+        ! Leave
         call control
         return
-      end if
+
+      end if ! Not writing
 
       ! Routine name
       urou = 'writesolI'
@@ -5343,130 +4812,191 @@
       ! Open files
       !
 
-      ! Get LOS index string
+      ! Get LOS index string if 1.5D synthesis
       if (run_mode.eq.1) write(scoord,'(I0.8)') icoords(3)
 
-      ! Writing solution
+      ! If writing solution
       if (saveSol) then
 
-        ! If 1D or inversion
-        if (run_mode.le.0) then
+        ! If 1D
+        if (run_mode.eq.0) then
 
-          ! To write the solution
+          ! If different name
           if (keep) then
+
+            ! Open solution file
             open (200,file=trim(filename)//'/SolutionI', &
                   status='unknown', iostat=ios, err=1000, &
                   access='stream', action='write', form='unformatted')
+
+          ! Usual name
           else
+
+            ! Open solution file
             open (200,file=trim(filename)//'/Solution', &
                   status='unknown', iostat=ios, err=1000, &
                   access='stream', action='write', form='unformatted')
-          end if
+
+          end if ! File name
 
         ! If 1.5D
         else if (run_mode.eq.1) then
 
-          ! Get LOS index
-          write(scoord,'(I0.8)') icoords(3)
-
-          ! To write the solution
+          ! If different name
           if (keep) then
+
+            ! Open solution file
             open (200,file=trim(filename)// &
                   '/Solution-folder/SolutionI-'//scoord, &
                   status='unknown', iostat=ios, err=1000, &
                   access='stream', action='write', form='unformatted')
+
+          ! Usual name
           else
+
+            ! Open solution file
             open (200,file=trim(filename)// &
                   '/Solution-folder/Solution-'//scoord, &
                   status='unknown', iostat=ios, err=1000, &
                   access='stream', action='write', form='unformatted')
-          end if
+
+          end if ! File name
 
         end if ! 1D vs 1.5D
       end if ! Saving solution file
 
       ! If saving JKQ
       if (saveJKQ) then
+
         ! To write the final JKQ
         if (suff.eq.'NONE') then
-          ! If 1D or inversion
-          if (run_mode.le.0) then
+
+          ! If 1D
+          if (run_mode.eq.0) then
+
+            ! If different name
             if (keep) then
+
+              ! Open file
               open (300,file=trim(filename)//'/JoutI', &
                     status='unknown', iostat=ios, err=1002, &
                     access='stream', action='write', &
                     form='unformatted')
+
+            ! If 1.5D
             else
+
+              ! Open file
               open (300,file=trim(filename)//'/Jout', &
                     status='unknown', iostat=ios, err=1002, &
                     access='stream', action='write', &
                     form='unformatted')
-            end if ! Keep intensity sol.
+
+            end if ! File name
+
           ! If 1.5D
           else if (run_mode.eq.1) then
+
+            ! If different name
             if (keep) then
+
+              ! Open file
               open (300,file=trim(filename)// &
                     '/Solution-folder/JoutI-'//scoord, &
                     status='unknown', iostat=ios, err=1002, &
                     access='stream', action='write', &
                     form='unformatted')
+
+            ! Usual name
             else
+
+              ! Open file
               open (300,file=trim(filename)// &
                     '/Solution-folder/Jout-'//scoord, &
                     status='unknown', iostat=ios, err=1002, &
                     access='stream', action='write', &
                     form='unformatted')
-            end if ! Keep intentisy sol.
+
+            end if ! File name
           end if ! 1D vs 1.5D
+
         ! Not final JKQ
         else
+
+          ! Open file
           open (300,file=trim(filename)//'/Jout_'//suff, &
                 status='unknown', iostat=ios, err=1002, &
                 access='stream', action='write', &
                 form='unformatted')
-        end if ! Final
+
+        end if ! Final solution
       end if ! Saving JKQ
 
       ! If saving rhoKQ
       if (saverKQ) then
+
         ! To write the final rhoKQ
         if (suff.eq.'NONE') then
-          ! If 1D or inversion
-          if (run_mode.le.0) then
+
+          ! If 1D
+          if (run_mode.eq.0) then
+
+            ! If different name
             if (keep) then
+
+              ! Open file
               open (400,file=trim(filename)//'/RhooutI', &
                     status='unknown', iostat=ios, err=1003, &
                     access='stream', action='write', &
                     form='unformatted')
+
+            ! Usual name
             else
+
+              ! Open file
               open (400,file=trim(filename)//'/Rhoout', &
                     status='unknown', iostat=ios, err=1003, &
                     access='stream', action='write', &
                     form='unformatted')
-            end if ! Keep intensity sol.
+
+            end if ! File name
+
           ! If 1.5D
           else if (run_mode.eq.1) then
+
+            ! If different name
             if (keep) then
+
+              ! Open file
               open (400,file=trim(filename)// &
                     '/Solution-folder/RhooutI-'//scoord, &
                     status='unknown', iostat=ios, err=1003, &
                     access='stream', action='write', &
                     form='unformatted')
+
+            ! Usual name
             else
+
+              ! Open file
               open (400,file=trim(filename)// &
                     '/Solution-folder/Rhoout-'//scoord, &
                     status='unknown', iostat=ios, err=1003, &
                     access='stream', action='write', &
                     form='unformatted')
-            end if ! Keep intensity sol.
+
+            end if ! File name
           end if ! 1D vs 1.5D
+
         ! Not final rhoKQ
         else
+
+          ! Open file
           open (400,file=trim(filename)//'/Rhoout_'//suff, &
                 status='unknown', iostat=ios, err=1003, &
                 access='stream', action='write', &
                 form='unformatted')
-        end if
+
+        end if ! Final solution
       end if ! Saving rhoKQ
 
       !
@@ -5501,23 +5031,23 @@
       ! If saving solution
       if (saveSol) then
 
-        ! Solution file
-        write (200,err=1100) 'si'
-        write (200,err=1100) nfreq
-        write (200,err=1100) nZ
-        write (200,err=1100) Geom%nTh
-        write (200,err=1100) Geom%nPh
-        write (200,err=1100) nA
-        write (200,err=1100) axial_int
-        write (200,err=1100) stm_int
-        write (200,err=1100) AV_int
+        ! Solution file metadata
+        write(200,err=1100) 'si'
+        write(200,err=1100) nfreq
+        write(200,err=1100) nZ
+        write(200,err=1100) Geom%nTh
+        write(200,err=1100) Geom%nPh
+        write(200,err=1100) nA
+        write(200,err=1100) axial_int
+        write(200,err=1100) stm_int
+        write(200,err=1100) AV_int
 
-      end if
+      end if ! Saving solution
 
       ! If saving JKQ
       if (saveJKQ) then
 
-        ! JKQ file
+        ! JKQ file metadata
         write(300,err=1102) 'bj'
         write(300,err=1102) stm
         write(300,err=1102) nZ
@@ -5525,511 +5055,568 @@
         write(300,err=1102) nxt
         write(300,err=1102) z
 
-      end if
+      end if ! Saving JKQ
 
       ! If saving rhoKQ
       if (saverKQ) then
 
-        ! rhoKQ file
+        ! rhoKQ file metadata
         write(400,err=1103) 'br'
         write(400,err=1103) nZ
         write(400,err=1103) nA
         write(400,err=1103) z
 
-      end if
+      end if ! Saving rhoKQ
 
-      ! If 1.5D, prepare pop y dep buffers
+      ! If 1.5D
       if (run_mode.eq.1) then
+
+        ! If saving population or departure, prepare buffers
         if (saveP.or.saveD) &
           allocate(buffer(maxval(Input%lim_pop%nbuff)/4))
-      end if
+
+      end if ! 1.5D synthesis
 
       !
       ! Write the data
       !
 
-      ! If saving anything
+      ! Only if saving anything
       if (saveSol.or.saverKQ.or.saveP.or.saveD) then
 
-      !
-      ! Population and rhoKQ
-
-      ! For each atom
-      do ia=1,nA
-
         !
-        ! If saving population or departure coeff.
-        !
-        if (saveP.or.saveD) then
+        ! Population and rhoKQ
+
+        ! For each atom
+        do ia=1,nA
 
           !
-          ! If 1D
+          ! If saving population or departure coeff.
           !
-          if (run_mode.eq.0) then
+          if (saveP.or.saveD) then
 
-            ! If writing populations
-            if (saveP) then
+            !
+            ! If 1D
+            !
+            if (run_mode.eq.0) then
 
-              ! To write the populations
-              open (500,file=trim(filename)//'/'// &
-                    trim(Atom(ia)%file_label)//'.pop', &
-                    status='unknown',iostat=ios, err=1004, &
-                    access='stream', action='write', &
-                    form='unformatted')
+              ! If writing populations
+              if (saveP) then
 
-              write(500,err=1104) 'bp'
-              write(500,err=1104) nZ
-              write(500,err=1104) Atom(ia)%nlevel
+                ! To write the populations
+                open (500,file=trim(filename)//'/'// &
+                      trim(Atom(ia)%file_label)//'.pop', &
+                      status='unknown',iostat=ios, err=1004, &
+                      access='stream', action='write', &
+                      form='unformatted')
 
-            end if
+                ! Metadata
+                write(500,err=1104) 'bp'
+                write(500,err=1104) nZ
+                write(500,err=1104) Atom(ia)%nlevel
 
-            ! If writing departure c.
-            if (saveD) then
+              end if ! Saving populations
 
-              ! To write departure c.
-              open (600,file=trim(filename)//'/'// &
-                    trim(Atom(ia)%file_label)//'.dep', &
-                    status='unknown',iostat=ios, err=1005, &
-                    access='stream', action='write', &
-                    form='unformatted')
+              ! If writing departure c.
+              if (saveD) then
 
-              write(600,err=1105) 'bb'
-              write(600,err=1105) nZ
-              write(600,err=1105) Atom(ia)%nlevel
+                ! To write departure c.
+                open (600,file=trim(filename)//'/'// &
+                      trim(Atom(ia)%file_label)//'.dep', &
+                      status='unknown',iostat=ios, err=1005, &
+                      access='stream', action='write', &
+                      form='unformatted')
 
-            end if
+                ! Metadata
+                write(600,err=1105) 'bb'
+                write(600,err=1105) nZ
+                write(600,err=1105) Atom(ia)%nlevel
 
-            ! For each height
-            do iz=1,nZ
+              end if ! Saving departure coeff.
 
-              ! If out of bounds
-              if (iz.lt.Rz0.or.iz.gt.Rz1) then
+              ! For each height
+              do iz=1,nZ
 
-                ! For each term
-                do i=1,Atom(ia)%nlevel
+                ! If out of bounds
+                if (iz.lt.Rz0.or.iz.gt.Rz1) then
 
-                  ! Write populations
-                  if (saveP) &
-                    write (500,err=1104) Atom(ia)%popu(i,iz)
+                  ! For each level
+                  do i=1,Atom(ia)%nlevel
 
-                  ! Write departure coeff
-                  if (saveD) &
-                    write (600,err=1105) Atom(ia)%popu(i,iz)/ &
-                                         Atom(ia)%populte(i,iz)
+                    ! Write populations if requested
+                    if (saveP) &
+                      write(500,err=1104) Atom(ia)%popu(i,iz)
 
-                end do ! Levels
+                    ! Write departure coeff if requested
+                    if (saveD) &
+                      write(600,err=1105) Atom(ia)%popu(i,iz)/ &
+                                           Atom(ia)%populte(i,iz)
+                  end do ! Levels
 
-              ! If in bounds
-              else
+                ! If in bounds
+                else
 
-                ! For each term
-                do i=1,Atom(ia)%nlevel
+                  ! For each level
+                  do i=1,Atom(ia)%nlevel
 
-                  ! Get J
-                  rJ = Atom(ia)%rJval(Atom(ia)%sublevel(i), &
-                       Atom(ia)%term(i))
-                  iR = Atom(ia)%irho(Atom(ia)%term(i))% &
-                                Jrho(Atom(ia)%sublevel(i), &
-                                     Atom(ia)%sublevel(i))%kq(0,0)
+                    ! Get J and KQ index
+                    rJ = Atom(ia)%rJval(Atom(ia)%sublevel(i), &
+                         Atom(ia)%term(i))
+                    iR = Atom(ia)%irho(Atom(ia)%term(i))% &
+                                  Jrho(Atom(ia)%sublevel(i), &
+                                       Atom(ia)%sublevel(i))%kq(0,0)
 
-                  ! Write populations
-                  if (saveP) &
-                    write (500,err=1104) Atom(ia)%n(iz)* &
-                                         sqrt(2d0*rJ+1d0)* &
-                                         dble(Atom(ia)%crho(iR,iz))
+                    ! Write populations if requested
+                    if (saveP) &
+                      write(500,err=1104) Atom(ia)%n(iz)* &
+                                          sqrt(2d0*rJ+1d0)* &
+                                          dble(Atom(ia)%crho(iR,iz))
 
-                  ! Write departure coeff
-                  if (saveD) &
-                    write (600,err=1105) Atom(ia)%n(iz)* &
+                    ! Write departure coeff if requested
+                    if (saveD) &
+                      write(600,err=1105) Atom(ia)%n(iz)* &
                                          sqrt(2d0*rJ+1d0)* &
                                          dble(Atom(ia)%crho(iR,iz))/ &
                                          Atom(ia)%populte(i,iz)
+                  end do ! Levels
 
-                end do ! Levels
+                end if ! Height bounds
 
-              end if ! Height bounds
+              end do ! Heights
 
-            end do ! Heights
+              ! Close files if opened
+              if (saveP) close(500)
+              if (saveD) close(600)
 
-            if (saveP) close(500)
-            if (saveD) close(600)
+            !
+            ! If 1.5D
+            !
+            else if (run_mode.eq.1) then
 
-          !
-          ! If 1.5D
-          !
-          else if (run_mode.eq.1) then
+              ! Populations
+              if (saveP.and.Input%lim_pop%nbuff(ia).gt.0) then
 
-            ! Populations
-            if (saveP.and.Input%lim_pop%nbuff(ia).gt.0) then
-
-              ! Open file to write the populations
-              call MPI_FILE_OPEN(MPI_COMM_SELF, &
+                ! Open file to write the populations
+                call MPI_FILE_OPEN(MPI_COMM_SELF, &
                                  trim(filename)//'/'// &
                                  trim(Atom(ia)%file_label)//'.pop', &
                                  MPI_MODE_WRONLY, MPI_INFO_NULL, &
                                  funit, ierr)
-              if (ierr.ne.0) goto 1004
+                if (ierr.ne.0) goto 1004
 
-              !
-              ! Column offset
-              !
+                !
+                ! Column offset
+                !
 
-              ! Get offset
-              loffset = dble(icoords(3)-1)* &
-                        dble(Input%lim_pop%nbuff(ia)) + &
-                        dble(Input%lim_pop%head_size)
-              do while(loffset.gt.offlimit)
-                offset = int(offlimit)
-                call MPI_FILE_SEEK(funit, offset, MPI_SEEK_CUR, ierr)
+                ! Get offset
+                loffset = dble(icoords(3)-1)* &
+                          dble(Input%lim_pop%nbuff(ia)) + &
+                          dble(Input%lim_pop%head_size)
+                do while(loffset.gt.offlimit)
+                  offset = int(offlimit)
+                  call MPI_FILE_SEEK(funit,offset,MPI_SEEK_CUR,ierr)
+                  if (ierr.ne.0) goto 1014
+                  loffset = loffset - offlimit
+                end do
+                offset = int(loffset)
+                call MPI_FILE_SEEK(funit,offset,MPI_SEEK_CUR,ierr)
                 if (ierr.ne.0) goto 1014
-                loffset = loffset - offlimit
-              end do
-              offset = int(loffset)
-              call MPI_FILE_SEEK(funit, offset, MPI_SEEK_CUR, ierr)
-              if (ierr.ne.0) goto 1014
 
-              ! Initialize buffer
-              ii = 0
+                ! Initialize buffer
+                ii = 0
 
-              ! If specified
-              if (Input%lim_pop%nran.gt.0) then
+                ! If specified
+                if (Input%lim_pop%nran.gt.0) then
 
-                ! For each height
-                do iz=1,nz
+                  ! For each height
+                  do iz=1,nz
 
-                  ! If out of bounds
-                  if (iz.lt.Rz0.or.iz.gt.Rz1) then
+                    ! If out of bounds
+                    if (iz.lt.Rz0.or.iz.gt.Rz1) then
 
-                    ! For each entry to write
-                    do iran=1,Input%lim_pop%nran
+                      ! For each entry to write
+                      do iran=1,Input%lim_pop%nran
 
-                      ! Atom and transition
-                      iab = Input%lim_pop%indx(1,iran)
-                      if (ia.ne.iab) cycle
-                      i = Input%lim_pop%indx(2,iran)
+                        ! Atom
+                        iab = Input%lim_pop%indx(1,iran)
 
-                      ! Advance buffer
-                      ii = ii + 1
-                      buffer(ii) = real(Atom(ia)%popu(i,iz))
-                    end do ! Ranges to print
+                        ! This atom not included, skip
+                        if (ia.ne.iab) cycle
 
-                  ! In bounds
-                  else
+                        ! Level
+                        i = Input%lim_pop%indx(2,iran)
 
-                    ! For each entry to write
-                    do iran=1,Input%lim_pop%nran
+                        ! Advance buffer
+                        ii = ii + 1
 
-                      ! Atom and transition
-                      iab = Input%lim_pop%indx(1,iran)
-                      if (ia.ne.iab) cycle
-                      i = Input%lim_pop%indx(2,iran)
+                        ! Save
+                        buffer(ii) = real(Atom(ia)%popu(i,iz))
 
-                      ! Get necessary data
-                      it = Atom(ia)%term(i)
-                      iJ = Atom(ia)%sublevel(i)
-                      rJ = Atom(ia)%rJval(iJ,it)
-                      iR = Atom(ia)%irho(it)%Jrho(iJ,iJ)%kq(0,0)
+                      end do ! Ranges to print
 
-                      ! Advance buffer
-                      ii = ii + 1
-                      buffer(ii) = real(Atom(ia)%n(iz)* &
-                                        sqrt(2d0*rJ+1d0)* &
-                                        dble(Atom(ia)%crho(iR,iz)))
-                    end do ! Ranges to print
+                    ! In bounds
+                    else
 
-                  end if ! Height bounds
+                      ! For each entry to write
+                      do iran=1,Input%lim_pop%nran
 
-                end do ! Heights
+                        ! Atom
+                        iab = Input%lim_pop%indx(1,iran)
 
-              ! Everything
-              else
+                        ! Skip if not this atom
+                        if (ia.ne.iab) cycle
 
-                ! For each height
-                do iz=1,nz
+                        ! Level
+                        i = Input%lim_pop%indx(2,iran)
 
-                  ! If out of bounds
-                  if (iz.lt.Rz0.or.iz.gt.Rz1) then
+                        ! Get necessary data
+                        it = Atom(ia)%term(i)
+                        iJ = Atom(ia)%sublevel(i)
+                        rJ = Atom(ia)%rJval(iJ,it)
+                        iR = Atom(ia)%irho(it)%Jrho(iJ,iJ)%kq(0,0)
 
-                    ! For each level
-                    do i=1,Atom(ia)%nlevel
+                        ! Advance buffer
+                        ii = ii + 1
 
-                      ! Write populations
-                      ii = ii + 1
-                      buffer(ii) = real(Atom(ia)%popu(i,iz))
-                    end do ! Levels
+                        ! Save
+                        buffer(ii) = real(Atom(ia)%n(iz)* &
+                                          sqrt(2d0*rJ+1d0)* &
+                                          dble(Atom(ia)%crho(iR,iz)))
 
-                  ! In bounds
-                  else
+                      end do ! Ranges to print
 
-                    ! For each level
-                    do i=1,Atom(ia)%nlevel
+                    end if ! Height bounds
 
-                      ! Get necessary data
-                      it = Atom(ia)%term(i)
-                      iJ = Atom(ia)%sublevel(i)
-                      rJ = Atom(ia)%rJval(iJ,it)
-                      iR = Atom(ia)%irho(it)%Jrho(iJ,iJ)%kq(0,0)
+                  end do ! Heights
 
-                      ! Write populations
-                      ii = ii + 1
-                      buffer(ii) = real(Atom(ia)%n(iz)* &
-                                        sqrt(2d0*rJ+1d0)* &
-                                        dble(Atom(ia)%crho(iR,iz)))
-                    end do ! Levels
+                ! Everything
+                else
 
-                  end if ! Height bounds
+                  ! For each height
+                  do iz=1,nz
 
-                end do ! Heights
+                    ! If out of bounds
+                    if (iz.lt.Rz0.or.iz.gt.Rz1) then
 
-              end if ! Specific or everything
+                      ! For each level
+                      do i=1,Atom(ia)%nlevel
 
-              ! Write buffer
-              call MPI_FILE_WRITE(funit,buffer(1), &
-                                  Input%lim_pop%nbuff(ia)/4, &
-                                  MPI_REAL,MPI_STATUS_IGNORE,ierr)
-              if (ierr.ne.0) goto 1304
+                        ! Write populations
+                        ii = ii + 1
 
-            end if! Saving populations
+                        ! Save
+                        buffer(ii) = real(Atom(ia)%popu(i,iz))
 
-            ! Departure coefficients
-            if (saveD.and.Input%lim_pop%nbuff(ia).gt.0) then
+                      end do ! Levels
 
-              ! Open file to write the populations
-              call MPI_FILE_OPEN(MPI_COMM_SELF, &
+                    ! In bounds
+                    else
+
+                      ! For each level
+                      do i=1,Atom(ia)%nlevel
+
+                        ! Get necessary data
+                        it = Atom(ia)%term(i)
+                        iJ = Atom(ia)%sublevel(i)
+                        rJ = Atom(ia)%rJval(iJ,it)
+                        iR = Atom(ia)%irho(it)%Jrho(iJ,iJ)%kq(0,0)
+
+                        ! Advance index
+                        ii = ii + 1
+
+                        ! Save
+                        buffer(ii) = real(Atom(ia)%n(iz)* &
+                                          sqrt(2d0*rJ+1d0)* &
+                                          dble(Atom(ia)%crho(iR,iz)))
+                      end do ! Levels
+
+                    end if ! Height bounds
+
+                  end do ! Heights
+
+                end if ! Specific or everything
+
+                ! Write buffer
+                call MPI_FILE_WRITE(funit,buffer(1), &
+                                    Input%lim_pop%nbuff(ia)/4, &
+                                    MPI_REAL,MPI_STATUS_IGNORE,ierr)
+                if (ierr.ne.0) goto 1304
+
+              end if ! Saving populations
+
+              ! Departure coefficients
+              if (saveD.and.Input%lim_pop%nbuff(ia).gt.0) then
+
+                ! Open file to write the populations
+                call MPI_FILE_OPEN(MPI_COMM_SELF, &
                                  trim(filename)//'/'// &
                                  trim(Atom(ia)%file_label)//'.dep', &
                                  MPI_MODE_WRONLY, MPI_INFO_NULL, &
                                  funit, ierr)
-              if (ierr.ne.0) goto 1005
+                if (ierr.ne.0) goto 1005
 
-              !
-              ! Column offset
-              !
+                !
+                ! Column offset
+                !
 
-              ! Get offset
-              loffset = dble(icoords(3)-1)* &
-                        dble(Input%lim_pop%nbuff(ia)) + &
-                        dble(Input%lim_pop%head_size)
-              do while(loffset.gt.offlimit)
-                offset = int(offlimit)
-                call MPI_FILE_SEEK(funit, offset, MPI_SEEK_CUR, ierr)
+                ! Get offset
+                loffset = dble(icoords(3)-1)* &
+                          dble(Input%lim_pop%nbuff(ia)) + &
+                          dble(Input%lim_pop%head_size)
+                do while(loffset.gt.offlimit)
+                  offset = int(offlimit)
+                  call MPI_FILE_SEEK(funit,offset,MPI_SEEK_CUR,ierr)
+                  if (ierr.ne.0) goto 1015
+                  loffset = loffset - offlimit
+                end do
+                offset = int(loffset)
+                call MPI_FILE_SEEK(funit,offset,MPI_SEEK_CUR,ierr)
                 if (ierr.ne.0) goto 1015
-                loffset = loffset - offlimit
-              end do
-              offset = int(loffset)
-              call MPI_FILE_SEEK(funit, offset, MPI_SEEK_CUR, ierr)
-              if (ierr.ne.0) goto 1015
 
-              ! Initialize buffer
-              ii = 0
+                ! Initialize buffer
+                ii = 0
 
-              ! If specified
-              if (Input%lim_pop%nran.gt.0) then
+                ! If specified
+                if (Input%lim_pop%nran.gt.0) then
 
-                ! For each height
-                do iz=1,nz
+                  ! For each height
+                  do iz=1,nz
 
-                  ! If out of bounds
-                  if (iz.lt.Rz0.or.iz.gt.Rz1) then
+                    ! If out of bounds
+                    if (iz.lt.Rz0.or.iz.gt.Rz1) then
 
-                    ! For each entry to write
-                    do iran=1,Input%lim_pop%nran
+                      ! For each entry to write
+                      do iran=1,Input%lim_pop%nran
 
-                      ! Atom and transition
-                      iab = Input%lim_pop%indx(1,iran)
-                      if (ia.ne.iab) cycle
-                      i = Input%lim_pop%indx(2,iran)
+                        ! Atom
+                        iab = Input%lim_pop%indx(1,iran)
 
-                      ! Advance buffer
-                      ii = ii + 1
-                      buffer(ii) = real(Atom(ia)%popu(i,iz)/ &
-                                        Atom(ia)%populte(i,iz))
-                    end do ! Ranges to print
+                        ! Skip if not this atom
+                        if (ia.ne.iab) cycle
 
-                  ! In bounds
-                  else
+                        ! Level
+                        i = Input%lim_pop%indx(2,iran)
 
-                    ! For each entry to write
-                    do iran=1,Input%lim_pop%nran
+                        ! Advance buffer
+                        ii = ii + 1
 
-                      ! Atom and transition
-                      iab = Input%lim_pop%indx(1,iran)
-                      if (ia.ne.iab) cycle
-                      i = Input%lim_pop%indx(2,iran)
+                        ! Save
+                        buffer(ii) = real(Atom(ia)%popu(i,iz)/ &
+                                          Atom(ia)%populte(i,iz))
 
-                      ! Get necessary data
-                      it = Atom(ia)%term(i)
-                      iJ = Atom(ia)%sublevel(i)
-                      rJ = Atom(ia)%rJval(iJ,it)
-                      iR = Atom(ia)%irho(it)%Jrho(iJ,iJ)%kq(0,0)
+                      end do ! Ranges to print
 
-                      ! Advance buffer
-                      ii = ii + 1
-                      buffer(ii) = real(Atom(ia)%n(ii)* &
+                    ! In bounds
+                    else
+
+                      ! For each entry to write
+                      do iran=1,Input%lim_pop%nran
+
+                        ! Atom
+                        iab = Input%lim_pop%indx(1,iran)
+
+                        ! Skip if not this atom
+                        if (ia.ne.iab) cycle
+
+                        ! Level
+                        i = Input%lim_pop%indx(2,iran)
+
+                        ! Get necessary data
+                        it = Atom(ia)%term(i)
+                        iJ = Atom(ia)%sublevel(i)
+                        rJ = Atom(ia)%rJval(iJ,it)
+                        iR = Atom(ia)%irho(it)%Jrho(iJ,iJ)%kq(0,0)
+
+                        ! Advance buffer
+                        ii = ii + 1
+
+                        ! Save
+                        buffer(ii) = real(Atom(ia)%n(ii)* &
                                         sqrt(2d0*rJ+1d0)* &
                                         dble(Atom(ia)%crho(iR,iz))/ &
                                         Atom(ia)%populte(i,iz))
-                    end do ! Ranges to print
 
-                  end if ! Height bounds
+                      end do ! Ranges to print
 
-                end do ! Heights
+                    end if ! Height bounds
 
-              ! Everything
-              else
+                  end do ! Heights
 
-                ! For each height
-                do iz=1,nz
+                ! Everything
+                else
 
-                  ! If out of bounds
-                  if (iz.lt.Rz0.or.iz.gt.Rz1) then
+                  ! For each height
+                  do iz=1,nz
 
-                    ! For each level
-                    do i=1,Atom(ia)%nlevel
+                    ! If out of bounds
+                    if (iz.lt.Rz0.or.iz.gt.Rz1) then
 
-                      ! Write populations
-                      ii = ii + 1
-                      buffer(ii) = real(Atom(ia)%popu(i,iz)/ &
-                                        Atom(ia)%populte(i,iz))
-                    end do ! Levels
+                      ! For each level
+                      do i=1,Atom(ia)%nlevel
 
-                  ! In bounds
-                  else
+                        ! Advance index
+                        ii = ii + 1
 
-                    ! For each level
-                    do i=1,Atom(ia)%nlevel
+                        ! Save
+                        buffer(ii) = real(Atom(ia)%popu(i,iz)/ &
+                                          Atom(ia)%populte(i,iz))
 
-                      ! Get necessary data
-                      it = Atom(ia)%term(i)
-                      iJ = Atom(ia)%sublevel(i)
-                      rJ = Atom(ia)%rJval(iJ,it)
-                      iR = Atom(ia)%irho(it)%Jrho(iJ,iJ)%kq(0,0)
+                      end do ! Levels
 
-                      ! Write populations
-                      ii = ii + 1
-                      buffer(ii) = real(Atom(ia)%n(iz)* &
+                    ! In bounds
+                    else
+
+                      ! For each level
+                      do i=1,Atom(ia)%nlevel
+
+                        ! Get necessary data
+                        it = Atom(ia)%term(i)
+                        iJ = Atom(ia)%sublevel(i)
+                        rJ = Atom(ia)%rJval(iJ,it)
+                        iR = Atom(ia)%irho(it)%Jrho(iJ,iJ)%kq(0,0)
+
+                        ! Advance index
+                        ii = ii + 1
+
+                        ! Save
+                        buffer(ii) = real(Atom(ia)%n(iz)* &
                                         sqrt(2d0*rJ+1d0)* &
                                         dble(Atom(ia)%crho(iR,iz))/ &
                                         Atom(ia)%populte(i,iz))
-                    end do ! Levels
+                      end do ! Levels
 
-                  end if ! Height bounds
+                    end if ! Height bounds
 
-                end do ! Heights
+                  end do ! Heights
 
-              end if ! Specific or everything
+                end if ! Specific or everything
 
-              ! Write buffer
-              call MPI_FILE_WRITE(funit,buffer(1), &
-                                  Input%lim_pop%nbuff(ia)/4, &
-                                  MPI_REAL,MPI_STATUS_IGNORE,ierr)
-              if (ierr.ne.0) goto 1305
+                ! Write buffer
+                call MPI_FILE_WRITE(funit,buffer(1), &
+                                    Input%lim_pop%nbuff(ia)/4, &
+                                    MPI_REAL,MPI_STATUS_IGNORE,ierr)
+                if (ierr.ne.0) goto 1305
 
-            end if! Saving populations
+              end if ! Saving populations
+            end if! 1D vs 1.5D
+          end if ! Saving populations or departure coefficients
 
-          end if! 1D vs 1.5D
-        end if ! Saving populations or departure coefficients
+          ! Write the population of the atom into solution file
+          if (saveSol) write(200,err=1100) Atom(ia)%n
 
-        ! Write the population of the atom into solution file
-        if (saveSol) write (200,err=1100) Atom(ia)%n
-
-        ! Saving rhoKQ
-        if (saverKQ) then
-
-          ! Write the population of the atom into rhoKQ file
-          write (400,err=1100) Atom(ia)%n
-
-          ! Write number of terms to rhoKQ file
-          write (400,err=1103) Atom(ia)%nlevel
-
-        end if
-
-        ! For each term
-        do i=1,Atom(ia)%nlevel
-
-          ! Write number of levels to rhoKQ file
-          if (saverKQ) write (400,err=1103) 1
-
-          ! Get J value and level index
-          iR = Atom(ia)%irho(Atom(ia)%term(i))% &
-                        Jrho(Atom(ia)%sublevel(i), &
-                             Atom(ia)%sublevel(i))%kq(0,0)
-
-          ! Get J
-          rJ = Atom(ia)%rJval(Atom(ia)%sublevel(i),Atom(ia)%term(i))
-
-          ! Write J values in rhoKQ file
+          ! Saving rhoKQ
           if (saverKQ) then
-            write (400,err=1103) nint(2d0*rJ)
-            write (400,err=1103) nint(2d0*rJ)
+
+            ! Write the population of the atom into rhoKQ file
+            write(400,err=1100) Atom(ia)%n
+
+            ! Write number of terms to rhoKQ file
+            write(400,err=1103) Atom(ia)%nlevel
+
           end if
 
-          ! For each K
-          do K=0,nint(2d0*rJ)
+          ! For each term
+          do i=1,Atom(ia)%nlevel
 
-            ! For each Q
-            do iQ=-K,K
+            ! Write number of levels to rhoKQ file
+            if (saverKQ) write(400,err=1103) 1
 
-              if (K.lt.1) then
+            ! Get J value and level index
+            rJ = Atom(ia)%rJval(Atom(ia)%sublevel(i),Atom(ia)%term(i))
+            iR = Atom(ia)%irho(Atom(ia)%term(i))% &
+                          Jrho(Atom(ia)%sublevel(i), &
+                               Atom(ia)%sublevel(i))%kq(0,0)
 
-                ! For each height
-                do iz=1,nZ
+            ! Write J values in rhoKQ file
+            if (saverKQ) then
+              write(400,err=1103) nint(2d0*rJ)
+              write(400,err=1103) nint(2d0*rJ)
+            end if
 
-                  ! If out of bounds
-                  if (iz.lt.Rz0.or.iz.gt.Rz1) then
+            ! For each K
+            do K=0,nint(2d0*rJ)
 
-                    ! Write rhoKQ into rhoKQ file, and the null flag
-                    if (saverKQ) then
-                      write (400,err=1103) dzero,dzero
-                      write (400,err=1103) ione
-                    end if
+              ! For each Q
+              do iQ=-K,K
 
-                    ! Write rhoKQ into solution file
-                    if (saveSol) &
-                      write (200,err=1100) dzero
+                ! If population
+                if (K.lt.1) then
 
-                  ! In bounds
-                  else
+                  ! For each height
+                  do iz=1,nZ
 
-                    ! Write rhoKQ into rhoKQ file, and the null flag
-                    if (saverKQ) then
-                      write (400,err=1103) dble(Atom(ia)%crho(iR,iz))
-                      write (400,err=1103) dzero
-                      if (Atom(ia)%rhonull(iR,iz)) then
-                        write (400,err=1103) ione
-                      else
-                        write (400,err=1103) izero
+                    ! If out of bounds
+                    if (iz.lt.Rz0.or.iz.gt.Rz1) then
+
+                      ! Write zero rhoKQ into rhoKQ file, and the null
+                      ! flag
+                      if (saverKQ) then
+                        write(400,err=1103) dzero,dzero
+                        write(400,err=1103) ione
                       end if
-                    end if
 
-                    ! Write rhoKQ into solution file
-                    if (saveSol) &
-                      write (200,err=1100) dble(Atom(ia)%crho(iR,iz))
+                      ! Write zero rhoKQ into solution file
+                      if (saveSol) &
+                        write(200,err=1100) dzero
 
-                  end if ! Height bounds
+                    ! In bounds
+                    else
 
-                end do ! heights
+                      ! If saving rhoKQ
+                      if (saverKQ) then
 
-              else
+                        ! Write rhoKQ into rhoKQ file, and the null
+                        ! flag
+                        write(400,err=1103) dble(Atom(ia)%crho(iR,iz))
+                        write(400,err=1103) dzero
 
-                ! For each height
-                do iz=1,nZ
+                        ! If null
+                        if (Atom(ia)%rhonull(iR,iz)) then
 
-                  ! Write rhoKQ into rhoKQ file, and the null flag
-                  if (saverKQ) then
-                    write (400,err=1103) dzero
-                    write (400,err=1103) dzero
-                    write (400,err=1103) ione
-                  end if
+                          ! Write one
+                          write(400,err=1103) ione
 
-                end do ! heights
+                        ! Not null
+                        else
 
-              end if
+                          ! Write zero
+                          write(400,err=1103) izero
 
-            end do ! Q
-          end do ! K
-        end do ! Levels
-      end do ! Atoms
+                        end if ! If rho00 is null
+                      end if ! If writing rhoKQ
+
+                      ! Write rhoKQ into solution file if requested
+                      if (saveSol) &
+                        write(200,err=1100) dble(Atom(ia)%crho(iR,iz))
+
+                    end if ! Height bounds
+
+                  end do ! heights
+
+                ! K>0 multipole
+                else
+
+                  ! For each height
+                  do iz=1,nZ
+
+                    ! If saving rhoKQ
+                    if (saverKQ) then
+
+                      ! Write rhoKQ into rhoKQ file, and the null flag
+                      write(400,err=1103) dzero
+                      write(400,err=1103) dzero
+                      write(400,err=1103) ione
+
+                    end if ! Saving rhoKQ
+
+                  end do ! heights
+
+                end if ! Multipole
+
+              end do ! Q
+            end do ! K
+          end do ! Levels
+        end do ! Atoms
 
       end if ! Saving rho or Solution
 
@@ -6037,71 +5624,14 @@
       !
       ! J00
 
-      ! If saving anything
+      ! Only if saving anything in this block
       if (saveSol.or.saveJKQ) then
-
-      ! For each atom
-      do ia=1,nA
-
-        ! Write number of transitions in JKQ file
-        if (saveJKQ) write(300,err=1102) Atom(ia)%nftran
-
-        ! For each transition
-        do itran=1,Atom(ia)%nftran
-
-          ! Apply atomic shift
-          jtran = itran + Atom(ia)%tfshift
-
-          ! For each height
-          do iz=1,nZ
-
-            ! If out of bounds
-            if (iz.lt.Rz0.or.iz.gt.Rz1) then
-
-              ! Write the JKQ into the JKQ file
-              if (saveJKQ) write(300,err=1102) dzero,dzero
-
-              ! Write the JKQ into the solution file
-              if (saveSol) &
-                write(200,err=1100) dzero
-
-            ! In bounds
-            else
-
-              ! Write the JKQ into the JKQ file
-              if (saveJKQ) write(300,err=1102) J00(jtran,iz),dzero
-
-              ! Write the JKQ into the solution file
-              if (saveSol) &
-                write(200,err=1100) J00(jtran,iz)
-
-            end if ! Height bounds
-
-          end do ! heights
-
-          ! For each K
-          do K=1,2
-
-            ! For each Q
-            do iQ=-K,K
-
-              ! For each height
-              do iz=1,nZ
-
-                ! Write the JKQ into the JKQ file
-                if (saveJKQ) write(300,err=1102) dzero,dzero
-
-              end do ! heights
-            end do ! Q
-          end do ! K
-        end do ! transitions
-      end do ! Atoms
-
-      ! If there is stimulated emission, write JKQS
-      if(stm)then
 
         ! For each atom
         do ia=1,nA
+
+          ! Write number of transitions in JKQ file
+          if (saveJKQ) write(300,err=1102) Atom(ia)%nftran
 
           ! For each transition
           do itran=1,Atom(ia)%nftran
@@ -6115,53 +5645,106 @@
               ! If out of bounds
               if (iz.lt.Rz0.or.iz.gt.Rz1) then
 
-                ! Write the JKQ into the JKQ file
+                ! Write zero JKQ into the JKQ file
                 if (saveJKQ) write(300,err=1102) dzero,dzero
 
-                ! Write the JKQ into the solution file
-                if (saveSol) &
-                  write(200,err=1100) dzero
+                ! Write zero JKQ into the solution file
+                if (saveSol) write(200,err=1100) dzero
 
               ! In bounds
               else
 
                 ! Write the JKQ into the JKQ file
-                if (saveJKQ) write(300,err=1102) J00S(jtran,iz),dzero
+                if (saveJKQ) write(300,err=1102) J00(jtran,iz),dzero
 
                 ! Write the JKQ into the solution file
-                if (saveSol) &
-                  write(200,err=1100) J00S(jtran,iz)
+                if (saveSol) write(200,err=1100) J00(jtran,iz)
 
               end if ! Height bounds
 
             end do ! heights
 
-            ! Saving JKQ
-            if (saveJKQ) then
+            ! For each K>0
+            do K=1,2
 
-              ! For each K
-              do K=1,2
+              ! For each Q
+              do iQ=-K,K
 
-                ! For each Q
-                do iQ=-K,K
+                ! For each height
+                do iz=1,nZ
 
-                  ! For each height
-                  do iz=1,nZ
+                  ! Write the JKQ into the JKQ file
+                  if (saveJKQ) write(300,err=1102) dzero,dzero
 
-                    ! Write the JKQS into the JKQ file
-                    write (300,err=1102) dzero,dzero
-
-                  end do ! heights
-                end do ! Q
-              end do ! K
-
-            end if
-
+                end do ! heights
+              end do ! Q
+            end do ! K
           end do ! transitions
-        end do ! atoms
+        end do ! Atoms
 
-      end if ! stimulated emission
+        ! If there is stimulated emission, write JKQS
+        if(stm)then
 
+          ! For each atom
+          do ia=1,nA
+
+            ! For each transition
+            do itran=1,Atom(ia)%nftran
+
+              ! Apply atomic shift
+              jtran = itran + Atom(ia)%tfshift
+
+              ! For each height
+              do iz=1,nZ
+
+                ! If out of bounds
+                if (iz.lt.Rz0.or.iz.gt.Rz1) then
+
+                  ! Write the JKQ into the JKQ file
+                  if (saveJKQ) write(300,err=1102) dzero,dzero
+
+                  ! Write the JKQ into the solution file
+                  if (saveSol) write(200,err=1100) dzero
+
+                ! In bounds
+                else
+
+                  ! Write the JKQ into the JKQ file
+                  if (saveJKQ) write(300,err=1102) J00S(jtran,iz), &
+                                                   dzero
+
+                  ! Write the JKQ into the solution file
+                  if (saveSol) write(200,err=1100) J00S(jtran,iz)
+
+                end if ! Height bounds
+
+              end do ! heights
+
+              ! Saving JKQ
+              if (saveJKQ) then
+
+                ! For each K
+                do K=1,2
+
+                  ! For each Q
+                  do iQ=-K,K
+
+                    ! For each height
+                    do iz=1,nZ
+
+                      ! Write the JKQS into the JKQ file
+                      write(300,err=1102) dzero,dzero
+
+                    end do ! heights
+                  end do ! Q
+                end do ! K
+
+              end if ! Saving JKQ
+
+            end do ! transitions
+          end do ! atoms
+
+        end if ! stimulated emission
       end if ! Saving anything
 
       !
@@ -6170,14 +5753,46 @@
       ! Saving solution
       if (saveSol) then
 
-      ! For each atom
-      do ia=1,nA
+        ! For each atom
+        do ia=1,nA
 
-        ! For each transition
-        do itran=1,Atom(ia)%nphot
+          ! For each transition
+          do itran=1,Atom(ia)%nphot
 
-          ! Apply atomic shift
-          jtran = itran + Atom(ia)%pshift
+            ! Apply atomic shift
+            jtran = itran + Atom(ia)%pshift
+
+            ! For each height
+            do iz=1,nZ
+
+              ! If out of bounds
+              if (iz.lt.Rz0.or.iz.gt.Rz1) then
+
+                ! Write zero
+                write(200,err=1100) dzero,dzero
+
+              ! In bounds
+              else
+
+                ! Write the J00P into the solution file
+                write(200,err=1100) J00P(jtran,1,iz)
+                write(200,err=1100) J00P(jtran,2,iz)
+
+              end if ! Height bounds
+
+            end do ! heights
+
+          end do ! transitions
+        end do ! Atoms
+
+
+        !
+        ! Radiation field solution
+        !
+
+        !
+        ! If not angle-averaged
+        if (KSTK) then
 
           ! For each height
           do iz=1,nZ
@@ -6185,123 +5800,98 @@
             ! If out of bounds
             if (iz.lt.Rz0.or.iz.gt.Rz1) then
 
-              write(200,err=1100) dzero,dzero
+              ! For each degree of freedom
+              do ith=1,Geom%nTh
+                do iph=1,Geom%nPh
+                  do ifreq=1,nfreq
+
+                    ! Write 0
+                    write(200,err=1100) dzero
+
+                  end do
+                end do
+              end do
 
             ! In bounds
             else
 
-              ! Write the J00P into the solution file
-              write(200,err=1100) J00P(jtran,1,iz)
-              write(200,err=1100) J00P(jtran,2,iz)
+              ! For each polar direction
+              do ith=1,Geom%nTh
+
+                ! For each azimuthal direction
+                do iph=1,Geom%nPh
+
+                  ! For each frequency
+                  do ifreq=1,nfreq
+
+                    ! Write Stokes parameter into the solution file
+                    write(200,err=1100) Stokes(ifreq,iph,ith,iz)
+
+                  end do ! Frequencies
+                end do ! azimuthal directions
+              end do ! polar directions
 
             end if ! Height bounds
 
           end do ! heights
 
-        end do ! transitions
-      end do ! Atoms
+        !
+        ! If Angle-averaged
+        else
 
+          ! For each height
+          do iz=1,nZ
 
-      !
-      ! Radiation field solution
-      !
+            ! If out of bounds
+            if (iz.lt.Rz0.or.iz.gt.Rz1) then
 
-      !
-      ! If not angle-averaged
-      if (KSTK) then
+              ! For each frequency
+              do ifreq=1,nfreq
 
-        ! For each height
-        do iz=1,nZ
+                ! Write 0
+                write(200,err=1100) dzero
 
-          ! If out of bounds
-          if (iz.lt.Rz0.or.iz.gt.Rz1) then
+              end do ! frequencies
 
-            ! For each degree of freedom
-            do ith=1,Geom%nTh
-            do iph=1,Geom%nPh
-            do ifreq=1,nfreq
+            ! In bounds
+            else
 
-              ! Write 0
-              write (200,err=1100) dzero
+              ! For each frequency
+              do ifreq=1,nfreq
 
-            end do
-            end do
-            end do
+                ! Write the JKQ(k) into the solution file
+                write(200,err=1100) J00C(ifreq,iz)
 
-          ! In bounds
-          else
+              end do ! frequencies
 
-            ! For each polar direction
-            do ith=1,Geom%nTh
+            end if ! Height bounds
 
-              ! For each azimuthal direction
-              do iph=1,Geom%nPh
+          end do ! heights
 
-                ! For each frequency
-                do ifreq=1,nfreq
+        end if ! AV or AD
 
-                  ! Write Stokes parameter into the solution file
-                  write (200,err=1100) Stokes(ifreq,iph,ith,iz)
-
-                end do ! Frequencies
-              end do ! azimuthal directions
-            end do ! polar directions
-
-          end if ! Height bounds
-
-        end do ! heights
-
-      !
-      ! If Angle-averaged
-      else
-
-        ! For each height
-        do iz=1,nZ
-
-          ! If out of bounds
-          if (iz.lt.Rz0.or.iz.gt.Rz1) then
-
-            ! For each frequency
-            do ifreq=1,nfreq
-
-              ! Write 0
-              write (200,err=1100) dzero
-
-            end do ! frequencies
-
-          ! In bounds
-          else
-
-            ! For each frequency
-            do ifreq=1,nfreq
-
-              ! Write the JKQ(k) into the solution file
-              write (200,err=1100) J00C(ifreq,iz)
-
-            end do ! frequencies
-
-          end if ! Height bounds
-
-        end do ! heights
-
-      end if ! AV or AD
-
-
-      !
-      ! Close files
-      !
-      close (200)
+        !
+        ! Close files
+        !
+        close (200)
 
       end if ! Saving Solution
 
+      ! Close files if opened
       if (saveJKQ) close (300)
       if (saverKQ) close (400)
 
-      ! Check if storing anything else
+      ! If not storing anything else
       if (.not.saveJ00nu.and..not.saveS) then
+
+        ! Free
+        if (allocated(buffer)) deallocate(buffer)
+
+        ! Control
         call control
         return
-      end if
+
+      end if ! Not storing anything else
 
 
       !
@@ -6311,92 +5901,123 @@
       ! If there is no suffix
       if (suff.eq.'NONE') then
 
-        ! Open Stokes file
+        ! Saving Stokes
         if (saveS) then
+
           ! If 1D
           if (run_mode.eq.0) then
-            ! Keeping intensity sol.
+
+            ! Different name
             if (keep) then
+
               ! Open file
               open (250,file=trim(filename)//'/StokesoutI', &
                     status='unknown', iostat=ios, err=1001, &
                     access='stream', action='write', &
                     form='unformatted')
+
+            ! Usual name
             else
+
               ! Open file
               open (250,file=trim(filename)//'/Stokesout', &
                     status='unknown', iostat=ios, err=1001, &
                     access='stream', action='write', &
                     form='unformatted')
-            end if
+
+            end if ! File name
+
           ! If 1.5D
           else if (run_mode.eq.1) then
-            ! Keeping intensity sol.
+
+            ! Different name
             if (keep) then
+
               ! Open file
               open (250,file=trim(filename)// &
                     '/Solution-folder/StokesoutI-'//scoord, &
                     status='unknown', iostat=ios, err=1001, &
                     access='stream', action='write', &
                     form='unformatted')
+
+            ! Usual name
             else
+
               ! Open file
               open (250,file=trim(filename)// &
                     '/Solution-folder/Stokesout-'//scoord, &
                     status='unknown', iostat=ios, err=1001, &
                     access='stream', action='write', &
                     form='unformatted')
-            end if
-          end if
+
+            end if ! File name
+          end if ! 1D vs 1.5D
         end if ! Saving Stokes
 
-        ! Open JKQ(nu) file
+        ! JKQnu file
         if (saveJ00nu) then
+
           ! If 1D
           if (run_mode.eq.0) then
-            ! Keeping intensity solution
+
+            ! Different name
             if (keep) then
+
+              ! Open file
               open (350,file=trim(filename)//'/JKQnuoutI', &
                     status='unknown', iostat=ios, err=1006, &
                     access='stream', action='write', &
                     form='unformatted')
+
+            ! Usual name
             else
+
+              ! Open file
               open (350,file=trim(filename)//'/JKQnuout', &
                     status='unknown', iostat=ios, err=1006, &
                     access='stream', action='write', &
                     form='unformatted')
 
-            end if
+            end if ! File name
+
           ! If 1.5D
           else if (run_mode.eq.1) then
-            ! Keeping intensity solution
+
+            ! Different name
             if (keep) then
+
+              ! Open file
               open (350,file=trim(filename)// &
                     '/Solution-folder/JKQnuoutI-'//scoord, &
                     status='unknown', iostat=ios, err=1006, &
                     access='stream', action='write', &
                     form='unformatted')
+
+            ! Usual name
             else
+
+              ! Open file
               open (350,file=trim(filename)// &
                     '/Solution-folder/JKQnuout-'//scoord, &
                     status='unknown', iostat=ios, err=1006, &
                     access='stream', action='write', &
                     form='unformatted')
 
-            end if
-          end if
-        end if ! Saving J00(nu)
+            end if ! File name
+          end if ! 1D vs 1.5D
+        end if ! Saving J00nu
 
       ! If there is suffix
       else
 
-        ! Open file
-        open (250,file=trim(filename)//'/Stokesout_'//suff, &
-              status='unknown', iostat=ios, err=1001, &
-              access='stream', action='write', &
-              form='unformatted')
+        ! Saving Stokes, open 1D file
+        if (saveS) &
+          open (250,file=trim(filename)//'/Stokesout_'//suff, &
+                status='unknown', iostat=ios, err=1001, &
+                access='stream', action='write', &
+                form='unformatted')
 
-        ! JKQnu file
+        ! Saving JKQnu file, open 1D file
         if (saveJ00nu) &
           open (350,file=trim(filename)//'/JKQnuout_'//suff, &
                 status='unknown', iostat=ios, err=1006, &
@@ -6405,18 +6026,22 @@
 
       end if ! suffix
 
-
-      !
-      ! Write flag and dimensions
-      !
+      ! Saving Stokes
       if (saveS) then
+
+        ! Write flag and dimensions
         write(250,err=1101) 'bo'
         write(250,err=1101) Nfreq
+
       end if
+
+      ! Saving JKQnu
       if (saveJ00nu) then
+
         write(350,err=1106) 'ko'
         write(350,err=1106) nz
         write(350,err=1106) nfreq
+
       end if
 
       !
@@ -6449,6 +6074,7 @@
             ! Write the emergent Stokes parameters
             write(250,err=1101) Stokes(:,iph,ith,giz0)
 
+            ! Fill polarization with zeros
             do ifreq=1,nfreq*3
               write(250,err=1101) dzero
             end do
@@ -6458,7 +6084,7 @@
 
       end if ! Saving Stokes
 
-      ! Save J00
+      ! Save J00nu
       if (saveJ00nu) then
 
         ! For each height
@@ -6469,12 +6095,16 @@
 
             ! For each frequency
             do ifreq=1,nfreq
+
+              ! Fill with zero
               write(350,err=1106) dzero
-            end do
+
+            end do ! Frequencies
 
           ! In bounds
           else
 
+            ! Write J00C
             write(350,err=1106) J00C(:,iz)
 
           end if ! Height bounds
@@ -6483,12 +6113,12 @@
 
       end if
 
-
-      !
       ! Close the Stokesout file
-      !
       if (saveS) close(250)
       if (saveJ00nu) close(350)
+
+      ! Free
+      if (allocated(buffer)) deallocate(buffer)
 
       ! Control
       call control
@@ -6496,7 +6126,7 @@
       return
 
 1000  umsg = 'Error opening solution file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1100  umsg = 'Error writing solution file'
@@ -6505,90 +6135,90 @@
       if (laux) close(300)
       inquire(unit=400, opened=laux)
       if (laux) close(400)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1001  umsg = 'Error opening Stokesout file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1101  umsg = 'Error writing Stokesout file'
       close(250)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1002  umsg = 'Error opening Jout file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1102  umsg = 'Error writing Jout file'
       close(300)
       if (saveSol) close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1003  umsg = 'Error opening Rout file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1103  umsg = 'Error writing Rout file'
       close(400)
       if (saveSol) close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1004  umsg = 'Error opening Population file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1014  umsg = 'Error seeking Population file'
       if (saveSol) close(200)
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1104  umsg = 'Error writing Population file'
       close(500)
       if (saveSol) close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1304  umsg = 'Error writing Population file'
       if (saveSol) close(200)
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1005  umsg = 'Error opening Departure file'
       if (saveSol) close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1015  umsg = 'Error seeking Departure file'
       if (saveSol) close(200)
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1105  umsg = 'Error writing Departure file'
       close(600)
       if (saveSol) close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1305  umsg = 'Error writing Departure file'
       if (saveSol) close(200)
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1006  umsg = 'Error opening JKQnuout file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1106  umsg = 'Error writing JKQnuout file'
       close(350)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 
@@ -6598,15 +6228,16 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes a file with the emerging Stokes parameters.\n
+      !> Save the emergent Stokes parameters in a file\n
       !!    filename(character(:)): Name of the file to write\n
       !!              iph(integer): Index of the LOS azimuth
       !!                            direction\n
       !!              ith(integer): Index of the LOS polar direction\n
-      !!          omega(dfloat(:)): Frequency array\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!       Stokes(dfloat(:,:)): Stokes parameters\n
-      !!  buff(IO_helper_class(:)): Info about what to store
+      !!          omega(double(:)): Frequency array\n
+      !!      Geom(Geometry_class): Structure with geometric data\n
+      !!       Stokes(double(:,:)): Stokes parameters\n
+      !!  buff(IO_helper_class(:)): Information on what needs to be
+      !!                            stored of the relevant variable
       subroutine writestk(filename,iph,ith,omega,Geom,Stokes,buff)
 
       ! I/O
@@ -6616,14 +6247,13 @@
       character(len=500), intent(in):: filename
       integer, intent(in):: iph,ith
       double precision, dimension(:), intent(in):: omega
-      double precision,dimension(:,:), intent(in):: Stokes
+      double precision, dimension(:,:), intent(in):: Stokes
 
       ! Local
 
       character(len=4):: cph,cth
 
       integer:: ios,ierr,iran,ii,jj,i0,i1,nn
-
       integer(kind=MPI_OFFSET_KIND):: offset
 
       real, dimension(:), allocatable:: buffer
@@ -6634,10 +6264,7 @@
       ! Routine name
       urou = 'writestk'
 
-
-      !
       ! Convert the integers into appropriate length strings
-      !
       if (ith.lt.1000.and.ith.ge.100) write(cth,'(i3)') ith
       if (ith.lt.100 .and.ith.ge.10 ) write(cth,'(i2)') ith
       if (ith.lt.10  .and.ith.ge.0  ) write(cth,'(i1)') ith
@@ -6646,21 +6273,14 @@
       if (iph.lt.10  .and.iph.ge.0  ) write(cph,'(i1)') iph
 
       !
-      ! If 1D or inversion
+      ! If 1D
       !
       if (run_mode.eq.0) then
 
-        !
         ! Open file
-        !
         open(200,file=trim(filename)//'/Stokes_'//trim(cth)//'_'// &
              trim(cph), status='unknown', iostat=ios, err=1000, &
              access='stream', action='write', form='unformatted')
-
-
-        !
-        ! Write content
-        !
 
         ! Identification
         write(200,err=1100) 'be'
@@ -6724,7 +6344,7 @@
             ! For each entry to write
             do iran=1,buff%nran
 
-              ! Atom and transition
+              ! Range and size
               i0 = buff%indx(1,iran)
               i1 = buff%indx(2,iran)
               nn = i1-i0+1
@@ -6756,6 +6376,9 @@
 
         ! Close file
         call MPI_FILE_CLOSE(funit, ierr)
+
+        ! Free
+        deallocate(buffer)
 
       !
       ! If inversion
@@ -6803,27 +6426,30 @@
         ! Close file
         call MPI_FILE_CLOSE(funit, ierr)
 
-      end if
+        ! Free
+        deallocate(buffer)
+
+      end if ! Run mode
 
       return
 
 1000  umsg = 'Error opening Stokes file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1010  umsg = 'Error seeking StokesI file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1100  umsg = 'Error writing Stokes file'
       close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1300  umsg = 'Error writing Stokes file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 
@@ -6833,15 +6459,16 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes a file with the emerging intensity.\n
+      !! Save the emergent intensity in a file\n
       !!    filename(character(:)): Name of the file to write\n
       !!              iph(integer): Index of the LOS azimuth
       !!                            direction\n
       !!              ith(integer): Index of the LOS polar direction\n
-      !!          omega(dfloat(:)): Frequency array\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!         Stokes(dfloat(:)): Stokes parameters\n
-      !!  buff(IO_helper_class(:)): Info about what to store
+      !!          omega(double(:)): Frequency array\n
+      !!      Geom(Geometry_class): Structure with geometric data\n
+      !!        StokesI(double(:)): Intensity\n
+      !!  buff(IO_helper_class(:)): Information on what needs to be
+      !!                            stored of the relevant variable
       subroutine writestkI(filename,iph,ith,omega,Geom,StokesI,buff)
 
       ! I/O
@@ -6858,7 +6485,6 @@
       character(len=4):: cph,cth
 
       integer:: ios,ierr,iran,ii,i0,i1,nn
-
       integer(kind=MPI_OFFSET_KIND):: offset
 
       real, dimension(:), allocatable:: buffer
@@ -6870,10 +6496,7 @@
       ! Routine name
       urou = 'writestkI'
 
-
-      !
       ! Convert the integers into appropriate length strings
-      !
       if (ith.lt.1000.and.ith.ge.100) write(cth,'(i3)') ith
       if (ith.lt.100 .and.ith.ge.10 ) write(cth,'(i2)') ith
       if (ith.lt.10  .and.ith.ge.0  ) write(cth,'(i1)') ith
@@ -6886,23 +6509,14 @@
       !
       if (run_mode.eq.0) then
 
-        !
         ! Convert intensity into polarization array
-        !
         Stokes(:,1:3) = 0d0
         Stokes(:,0) = StokesI
 
-        !
         ! Open file
-        !
         open(200,file=trim(filename)//'/StokesI_'// trim(cth)//'_'// &
              trim(cph), status='unknown', iostat=ios, err=1000, &
              access='stream', action='write', form='unformatted')
-
-
-        !
-        ! Write content
-        !
 
         ! Identification
         write(200,err=1100) 'be'
@@ -6964,7 +6578,7 @@
           ! For each entry to write
           do iran=1,buff%nran
 
-            ! Atom and transition
+            ! Range and size
             i0 = buff%indx(1,iran)
             i1 = buff%indx(2,iran)
             nn = i1-i0+1
@@ -6992,6 +6606,9 @@
 
         ! Close file
         call MPI_FILE_CLOSE(funit, ierr)
+
+        ! Free
+        deallocate(buffer)
 
       !
       ! If inversion
@@ -7040,27 +6657,30 @@
         ! Close file
         call MPI_FILE_CLOSE(funit, ierr)
 
-      end if
+        ! Free
+        deallocate(buffer)
+
+      end if ! Run mode
 
       return
 
 1000  umsg = 'Error opening StokesI file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1010  umsg = 'Error seeking StokesI file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1100  umsg = 'Error writing StokesI file'
       close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1300  umsg = 'Error writing StokesI file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 
@@ -7070,29 +6690,32 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes the emerging Stokes parameters to RAM.\n
-      !!     e_Stokes(dfloat(:,:)): Output stokes parameters\n
-      !!       Stokes(dfloat(:,:)): Stokes parameters\n
-      !!  buff(IO_helper_class(:)): Info about what to store\n
-      !!           lrange(logical): Account for buffer range
+      !> Save the emergent Stokes parameters in RAM\n
+      !!     e_Stokes(double(:,:)): RAM storage for Stokes
+      !!                            parameters\n
+      !!       Stokes(double(:,:)): Stokes parameters\n
+      !!  buff(IO_helper_class(:)): Information on what needs to be
+      !!                            stored of the relevant variable\n
+      !!           lrange(logical): If the data in buff needs to be
+      !!                            considered
       subroutine setstk(e_Stokes,Stokes,buff,lrange)
 
       ! I/O
 
       type(IO_helper_class), intent(in):: buff
       logical, intent(in):: lrange
-      double precision,dimension(:,:), intent(in):: Stokes
-      double precision,dimension(:,:), intent(out):: e_Stokes
+      double precision, dimension(:,:), intent(in):: Stokes
+      double precision, dimension(:,:), intent(out):: e_Stokes
 
       ! Local
 
       integer:: iran,ii,jj,i0,i1,nn
 
 
-      ! Only master
+      ! Slaves leave
       if (pid.gt.0) return
 
-      ! If specified
+      ! If specified and need to be considered
       if (buff%nran.gt.0.and.lrange) then
 
         ! For each Stokes parameter
@@ -7104,7 +6727,7 @@
           ! For each entry to write
           do iran=1,buff%nran
 
-            ! Atom and transition
+            ! Range and size
             i0 = buff%indx(1,iran)
             i1 = buff%indx(2,iran)
             nn = i1-i0+1
@@ -7134,29 +6757,31 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes the emerging intensity to RAM.\n
-      !!     e_Stokes(dfloat(:,:)): Output stokes parameters\n
-      !!       Stokes(dfloat(:,:)): Stokes parameters\n
-      !!  buff(IO_helper_class(:)): Info about what to store\n
-      !!           lrange(logical): Account for buffer range
+      !> Save the emergent intensity in RAM.\n
+      !!     e_Stokes(double(:,:)): Output stokes parameters\n
+      !!         Stokes(double(:)): Intensity\n
+      !!  buff(IO_helper_class(:)): Information on what needs to be
+      !!                            stored of the relevant variable\n
+      !!           lrange(logical): If the data in buff needs to be
+      !!                            considered
       subroutine setstkI(e_Stokes,Stokes,buff,lrange)
 
       ! I/O
 
       type(IO_helper_class), intent(in):: buff
       logical, intent(in):: lrange
-      double precision,dimension(:), intent(in):: Stokes
-      double precision,dimension(:,:), intent(out):: e_Stokes
+      double precision, dimension(:), intent(in):: Stokes
+      double precision, dimension(:,:), intent(out):: e_Stokes
 
       ! Local
 
       integer:: iran,ii,i0,i1,nn
 
 
-      ! Only master
+      ! Slaves leave
       if (pid.gt.0) return
 
-      ! If specified
+      ! If specified and need to be considered
       if (buff%nran.gt.0.and.lrange) then
 
         ! Initialize buffer
@@ -7165,7 +6790,7 @@
         ! For each entry to write
         do iran=1,buff%nran
 
-          ! Atom and transition
+          ! Range and size
           i0 = buff%indx(1,iran)
           i1 = buff%indx(2,iran)
           nn = i1-i0+1
@@ -7194,11 +6819,11 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes a file with the emerging Stokes parameters and another
-      !! with the optical depth for the CLE mode.\n
+      !> Write the position of the LOS in the CLE problem in a file\n
       !!    filename(character(:)): Name of the file to write\n
       !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !!  buff(IO_helper_class(:)): Info about what to store\n
+      !!  buff(IO_helper_class(:)): Information on what needs to be
+      !!                            stored of the relevant variable\n
       !!             wtau(logical): If writing tau
       subroutine write_CLEgeom(filename,Atmo,buff,wtau)
 
@@ -7218,14 +6843,17 @@
       double precision, dimension(2):: buffer
 
 
-      ! Cartesian does not need to write
+      ! Cartesian does not need to write, leave
       if (Atmo%mode.eq.0) return
 
-      ! If no master, return
+      ! If no master
       if (pid.gt.0) then
+
+        ! Control
         call control
         return
-      end if
+
+      end if ! Slaves
 
       ! Routine name
       urou = 'write_CLEgeom'
@@ -7248,17 +6876,18 @@
         ! Slab
         if (Atmo%mode.eq.1) then
 
+          ! Get height and theta
           buffer(1) = Atmo%z(1)
           buffer(2) = Atmo%ypos
 
         ! Non-cartesian
         else if (Atmo%mode.eq.2) then
 
+          ! Get y and z position
           buffer(1) = Atmo%ypos
           buffer(2) = Atmo%zpos
 
-        end if
-
+        end if ! Type of model atmosphere
       end if ! Atmo mode
 
       ! Go to offset
@@ -7274,9 +6903,8 @@
       ! Close file
       call MPI_FILE_CLOSE(funit, ierr)
 
-      !
-      ! Tau?
-      !
+
+      ! If writing tau
       if (wtau) then
 
         ! Open file
@@ -7306,31 +6934,31 @@
       return
 
 1000  umsg = 'Error opening Stokes file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1010  umsg = 'Error seeking Stokes file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1300  umsg = 'Error writing Stokes file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1100  umsg = 'Error opening Tau file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1110  umsg = 'Error seeking Tau file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1310  umsg = 'Error writing Tau file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 
@@ -7340,15 +6968,16 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes a file with the emerging Stokes parameters and another
-      !! with the optical depth for the CLE mode.\n
+      !> Write the emergent Stokes and optical depth in the CLE
+      !! problem in a file\n
       !!    filename(character(:)): Name of the file to write\n
-      !!              if0(integer): Initial frequency index\n
-      !!              if1(integer): Final frequency index\n
-      !!               nf(integer): Number of frequencies\n
-      !!       Stokes(dfloat(:,:)): Stokes parameters\n
-      !!            tau(dfloat(:)): Optical depth\n
-      !!  buff(IO_helper_class(:)): Info about what to store\n
+      !!              if0(integer): Lower limit index for frequency\n
+      !!              if1(integer): Upper limit index for frequency\n
+      !!               nf(integer): Total number of frequencies\n
+      !!       Stokes(double(:,:)): Stokes parameters\n
+      !!            tau(double(:)): Optical depth\n
+      !!  buff(IO_helper_class(:)): Information on what needs to be
+      !!                            stored of the relevant variable\n
       !!             wtau(logical): If writing tau
       subroutine write_CLE(filename,if0,if1,nf,Stokes,tau, &
                            buff,wtau)
@@ -7360,12 +6989,11 @@
       logical, intent(in):: wtau
       integer, intent(in):: if0,if1,nf
       double precision, dimension(:), intent(in):: tau
-      double precision,dimension(:,:), intent(in):: Stokes
+      double precision, dimension(:,:), intent(in):: Stokes
 
       ! Local
 
       integer:: ierr,is,nn
-
       integer(kind=MPI_OFFSET_KIND):: offset
 
       real, dimension(:), allocatable:: buffer
@@ -7410,7 +7038,7 @@
         ! For each Stokes parameter
         do is=1,4
 
-          ! Initial wavelength shift
+          ! Initial wavelength shift offset
           if (if0.gt.1) then
             loffset = dble((if0-1)*4)
             do while(loffset.gt.offlimit)
@@ -7422,7 +7050,7 @@
             offset = int(loffset)
             call MPI_FILE_SEEK(funit, offset, MPI_SEEK_CUR, ierr)
             if (ierr.ne.0) goto 1010
-          end if
+          end if ! Not first wavelength
 
           ! Store in buffer
           buffer = real(Stokes(is,:))
@@ -7432,10 +7060,10 @@
                               MPI_REAL,MPI_STATUS_IGNORE,ierr)
           if (ierr.ne.0) goto 1300
 
-          ! After V, skip
+          ! After V, skip rest
           if (is.eq.4) exit
 
-          ! Final wavelength shift
+          ! Final wavelength shift offset
           if (if1.lt.buff%nn) then
             loffset = dble((buff%nn-if1)*4)
             do while(loffset.gt.offlimit)
@@ -7447,7 +7075,7 @@
             offset = int(loffset)
             call MPI_FILE_SEEK(funit, offset, MPI_SEEK_CUR, ierr)
             if (ierr.ne.0) goto 1010
-          end if
+          end if ! Not last wavelength
 
         end do ! Stokes parameter
 
@@ -7473,16 +7101,16 @@
       ! Close file
       call MPI_FILE_CLOSE(funit, ierr)
 
-      !
-      ! Tau?
-      !
+      ! Free
+      deallocate(buffer)
+
+      ! If writing tau
       if (wtau) then
 
         ! Open file
         call MPI_FILE_OPEN(MPI_COMM_SELF, trim(filename)//'/Tau', &
                            MPI_MODE_WRONLY, MPI_INFO_NULL,funit,ierr)
         if (ierr.ne.0) goto 1100
-
 
         ! Get offset
         loffset = dble(icoords(3)-1)*dble(buff%buffer_size/4) + &
@@ -7508,7 +7136,7 @@
         !
         if (nproc.gt.1) then
 
-          ! Initial wavelength shift
+          ! Initial wavelength shift offset
           if (if0.gt.1) then
             loffset = dble(if0-1)*4
             do while(loffset.gt.offlimit)
@@ -7520,7 +7148,8 @@
             offset = int(loffset)
             call MPI_FILE_SEEK(funit, offset, MPI_SEEK_CUR, ierr)
             if (ierr.ne.0) goto 1110
-          end if
+          end if ! Not first wavelength
+
         end if ! MPI (freqs)
 
         ! Write buffer
@@ -7536,31 +7165,31 @@
       return
 
 1000  umsg = 'Error opening Stokes file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1010  umsg = 'Error seeking Stokes file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1300  umsg = 'Error writing Stokes file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1100  umsg = 'Error opening Tau file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1110  umsg = 'Error seeking Tau file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1310  umsg = 'Error writing Tau file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 
@@ -7570,16 +7199,17 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes a file with the contribution function.\n
+      !> Save the contribution function of a synthesis run in a file\n
       !!    filename(character(:)): Name of the file to write\n
       !!              iph(integer): Index of the LOS azimuth
       !!                            direction\n
       !!              ith(integer): Index of the LOS polar direction
-      !!          omega(dfloat(:)): Frequency array\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!              z(dfloat(:)): Heights array\n
-      !!      Contr(dfloat(:,:,:)): Contribution function\n
-      !!  buff(IO_helper_class(:)): Info about what to store
+      !!          omega(double(:)): Frequency array\n
+      !!      Geom(Geometry_class): Structure with geometric data\n
+      !!              z(double(:)): Height array\n
+      !!      Contr(double(:,:,:)): Contribution function\n
+      !!  buff(IO_helper_class(:)): Information on what needs to be
+      !!                            stored of the relevant variable
       subroutine writectr(filename,iph,ith,omega,Geom,z,Contr,buff)
 
       ! I/O
@@ -7589,14 +7219,13 @@
       character(len=500), intent(in):: filename
       integer, intent(in):: iph,ith
       double precision, dimension(:), intent(in):: omega,z
-      double precision,dimension(:,:,:), intent(in):: Contr
+      double precision, dimension(:,:,:), intent(in):: Contr
 
       ! Local
 
       character(len=4):: cph,cth
 
       integer:: ios,ierr,ifreq,iran,iz,jz,ii,jj,i0,i1,nn
-
       integer(kind=MPI_OFFSET_KIND):: offset
 
       real, dimension(:), allocatable:: buffer
@@ -7607,9 +7236,7 @@
       ! Routine name
       urou = 'writectr'
 
-      !
       ! Convert the integers into appropriate length strings
-      !
       if (ith.lt.1000.and.ith.ge.100) write(cth,'(i3)') ith
       if (ith.lt.100 .and.ith.ge.10 ) write(cth,'(i2)') ith
       if (ith.lt.10  .and.ith.ge.0  ) write(cth,'(i1)') ith
@@ -7628,11 +7255,6 @@
         open(200,file=trim(filename)//'/Contribution_'//trim(cth)// &
              '_'//trim(cph), status='unknown', iostat=ios, err=1000, &
              access='stream',action='write',form='unformatted')
-
-
-        !
-        ! Write content
-        !
 
         ! Identification
         write(200,err=1100) 'bc'
@@ -7655,9 +7277,13 @@
 
             ! For each height less than lower limit, write zero
             do iz=1,Rz0-1
+
               ! For each frequency
               do ifreq=1,nfreq
+
+                ! Write zero
                 write(200,err=1100) 0d0
+
               end do ! Frequency
             end do ! Height
 
@@ -7666,12 +7292,15 @@
 
             ! For each height larger than upper limit, write zero
             do iz=Rz1+1,nz
+
               ! For each frequency
               do ifreq=1,nfreq
+
+                ! Write zero
                 write(200,err=1100) 0d0
+
               end do ! Frequency
             end do ! Height
-
           end do ! For each Stokes parameter
 
         ! All heights
@@ -7742,7 +7371,7 @@
                 ! For each entry to write
                 do iran=1,buff%nran
 
-                  ! Atom and transition
+                  ! Range and size
                   i0 = buff%indx(1,iran)
                   i1 = buff%indx(2,iran)
                   nn = i1-i0+1
@@ -7764,7 +7393,7 @@
                 ! For each entry to write
                 do iran=1,buff%nran
 
-                  ! Atom and transition
+                  ! Range and size
                   i0 = buff%indx(1,iran)
                   i1 = buff%indx(2,iran)
                   nn = i1-i0+1
@@ -7829,8 +7458,11 @@
               ! Fill buffer
               buffer(ii+1:ii+nn) = real(reshape(Contr(jj,:,:), &
                                         (/ nn /)))
+
+              ! Advance index
               ii = ii + nn
-            end do
+
+            end do ! Stokes parameters
 
           end if ! Full height range
         end if ! Full frequency range
@@ -7843,27 +7475,30 @@
         ! Close file
         call MPI_FILE_CLOSE(funit, ierr)
 
-      end if
+        ! Free
+        deallocate(buffer)
+
+      end if ! Run mode
 
       return
 
 1000  umsg = 'Error opening contribution file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1010  umsg = 'Error seeking contribution file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1100  umsg = 'Error writing contribution file'
       close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1300  umsg = 'Error writing contribution file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 
@@ -7873,10 +7508,12 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes a file with the contribution function.\n
+      !> Save the contribution function of an inversion run in a
+      !! file\n
       !!    filename(character(:)): Name of the file to write\n
       !!        Contr(real(:,:,:)): Contribution function\n
-      !!  buff(IO_helper_class(:)): Info about what to store
+      !!  buff(IO_helper_class(:)): Information on what needs to be
+      !!                            stored of the relevant variable
       subroutine writectr_inv(filename,Contr,buff)
 
       ! I/O
@@ -7888,7 +7525,6 @@
       ! Local
 
       integer:: ierr,iz,jz,ii,jj,nn
-
       integer(kind=MPI_OFFSET_KIND):: offset
 
       real, dimension(:), allocatable:: buffer
@@ -7988,20 +7624,23 @@
       ! Close file
       call MPI_FILE_CLOSE(funit, ierr)
 
+      ! Free
+      deallocate(buffer)
+
       return
 
 1000  umsg = 'Error opening contribution file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1010  umsg = 'Error seeking contribution file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1100  umsg = 'Error writing contribution file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 
@@ -8011,17 +7650,18 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes a file with the contribution function to the
-      !! intensity.\n
+      !> Save the intensity contribution function of a synthesis run
+      !! in a file\n
       !!    filename(character(:)): Name of the file to write\n
       !!              iph(integer): Index of the LOS azimuth
       !!                            direction\n
       !!              ith(integer): Index of the LOS polar direction\n
-      !!          omega(dfloat(:)): Frequency array\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!              z(dfloat(:)): Heights array\n
-      !!        Contr(dfloat(:,:)): Contribution function\n
-      !!  buff(IO_helper_class(:)): Info about what to store
+      !!          omega(double(:)): Frequency array\n
+      !!      Geom(Geometry_class): Structure with geometric data\n
+      !!              z(double(:)): Height array\n
+      !!        Contr(double(:,:)): Intensity contribution function\n
+      !!  buff(IO_helper_class(:)): Information on what needs to be
+      !!                            stored of the relevant variable
       subroutine writectrI(filename,iph,ith,omega,Geom,z,Contr,buff)
 
       ! I/O
@@ -8031,14 +7671,13 @@
       character(len=500), intent(in):: filename
       integer, intent(in):: iph,ith
       double precision, dimension(:), intent(in):: omega,z
-      double precision,dimension(:,:), intent(in):: Contr
+      double precision, dimension(:,:), intent(in):: Contr
 
       ! Local
 
       character(len=4):: cph,cth
 
       integer:: ios,iz,jz,ifreq,ierr,iran,ii,i0,i1,nn
-
       integer(kind=MPI_OFFSET_KIND):: offset
 
       real, dimension(:), allocatable:: buffer
@@ -8049,10 +7688,7 @@
       ! Routine name
       urou = 'writectrI'
 
-
-      !
       ! Convert the integers into appropriate length strings
-      !
       if (ith.lt.1000.and.ith.ge.100) write(cth,'(i3)') ith
       if (ith.lt.100 .and.ith.ge.10 ) write(cth,'(i2)') ith
       if (ith.lt.10  .and.ith.ge.0  ) write(cth,'(i1)') ith
@@ -8065,16 +7701,10 @@
       !
       if (run_mode.eq.0) then
 
-        !
         ! Open file
-        !
         open(200,file=trim(filename)//'/Contribution_'//trim(cth)// &
              '_'//trim(cph), status='unknown', iostat=ios, err=1000, &
              access='stream',action='write',form='unformatted')
-
-        !
-        ! Write content
-        !
 
         ! Identification
         write(200,err=1100) 'bc'
@@ -8089,27 +7719,34 @@
         ! Height axis
         write(200,err=1100) z
 
-        ! Write zeros before lower limit
+        ! Before lower limit
         do iz=1,Rz0-1
+
           ! For each frequency
           do ifreq=1,nfreq
+
+            ! Write zero
             write(200,err=1100) 0d0
+
           end do ! Frequencies
         end do ! Height below lower limit
 
         ! Write contribution function, order: is, iz, ifreq
         write(200,err=1100) Contr
 
-
-        ! Write zeros above upper limit
+        ! Above upper limit
         do iz=Rz1+1,nZ
+
           ! For each frequency
           do ifreq=1,nfreq
+
+            ! Write zero
             write(200,err=1100) 0d0
+
           end do ! Frequencies
         end do ! Height above upper limit
 
-        ! Fill the other Stokes parameters with 0
+        ! Fill the other Stokes
         do ios=1,3
 
           ! For each height
@@ -8118,6 +7755,7 @@
             ! For each frequency
             do ifreq=1,nfreq
 
+              ! Write zero
               write(200,err=1100) 0d0
 
             end do ! Frequencies
@@ -8177,7 +7815,7 @@
               ! For each entry to write
               do iran=1,buff%nran
 
-                ! Atom and transition
+                ! Range and size
                 i0 = buff%indx(1,iran)
                 i1 = buff%indx(2,iran)
                 nn = i1-i0+1
@@ -8199,7 +7837,7 @@
               ! For each entry to write
               do iran=1,buff%nran
 
-                ! Atom and transition
+                ! Range and size
                 i0 = buff%indx(1,iran)
                 i1 = buff%indx(2,iran)
                 nn = i1-i0+1
@@ -8267,27 +7905,30 @@
         ! Close file
         call MPI_FILE_CLOSE(funit, ierr)
 
-      end if
+        ! Free
+        deallocate(buffer)
+
+      end if ! Run mode
 
       return
 
 1000  umsg = 'Error opening contribution file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1010  umsg = 'Error seeking contribution file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1100  umsg = 'Error writing contribution file'
       close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1300  umsg = 'Error writing contribution file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 
@@ -8297,11 +7938,12 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes a file with the contribution function to the
-      !! intensity.\n
+      !> Save the intensity contribution function of an inversion run
+      !! in a file\n
       !!    filename(character(:)): Name of the file to write\n
-      !!          Contr(real(:,:)): Contribution function\n
-      !!  buff(IO_helper_class(:)): Info about what to store
+      !!          Contr(real(:,:)): Intensity contribution function\n
+      !!  buff(IO_helper_class(:)): Information on what needs to be
+      !!                            stored of the relevant variable
       subroutine writectrI_inv(filename,Contr,buff)
 
       ! I/O
@@ -8313,7 +7955,6 @@
       ! Local
 
       integer:: iz,jz,ierr,ii,nn,nt
-
       integer(kind=MPI_OFFSET_KIND):: offset
 
       real, dimension(:), allocatable:: buffer
@@ -8323,7 +7964,6 @@
 
       ! Routine name
       urou = 'writectrI_inv'
-
 
       ! Size
       nt = buff%buffer_size/4
@@ -8368,7 +8008,7 @@
           ! Out of bounds
           if (iz.lt.Rz0.or.iz.gt.Rz1) then
 
-            ! Fill buffer
+            ! Fill buffer with zeros
             buffer(ii+1:ii+buff%nn) = real(0)
 
           ! In bounds
@@ -8403,20 +8043,23 @@
       ! Close file
       call MPI_FILE_CLOSE(funit, ierr)
 
+      ! Free
+      deallocate(buffer)
+
       return
 
 1000  umsg = 'Error opening contribution file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1010  umsg = 'Error seeking contribution file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1100  umsg = 'Error writing contribution file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 
@@ -8426,10 +8069,12 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes the contribution function to RAM.\n
-      !!    e_Contr(dfloat(:,:,:)): Output contribution function\n
-      !!      Contr(dfloat(:,:,:)): Contribution function\n
-      !!  buff(IO_helper_class(:)): Info about what to store
+      !> Save the contribution function in RAM\n
+      !!    e_Contr(double(:,:,:)): RAM storage for contribution
+      !!                            function\n
+      !!      Contr(double(:,:,:)): Contribution function\n
+      !!  buff(IO_helper_class(:)): Information on what needs to be
+      !!                            stored of the relevant variable
       subroutine setctr(e_Contr,Contr,buff)
 
       ! I/O
@@ -8443,7 +8088,7 @@
       integer:: iran,ii,jj,i0,i1,nn
 
 
-      ! Only master
+      ! Slaves leave
       if (pid.gt.0) return
 
       ! Zero out of bounds
@@ -8462,7 +8107,7 @@
           ! For each entry to write
           do iran=1,buff%nran
 
-            ! Atom and transition
+            ! Range and size
             i0 = buff%indx(1,iran)
             i1 = buff%indx(2,iran)
             nn = i1-i0+1
@@ -8493,10 +8138,12 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes the intensity contribution function to RAM.\n
-      !!    e_Contr(dfloat(:,:,:)): Output contribution function\n
-      !!      Contr(dfloat(:,:)): Contribution function\n
-      !!  buff(IO_helper_class(:)): Info about what to store
+      !> Save the intensity contribution function in RAM\n
+      !!    e_Contr(double(:,:,:)): RAM storage for intensity
+      !!                            contribution function\n
+      !!      Contr(double(:,:,:)): Intensity contribution function\n
+      !!  buff(IO_helper_class(:)): Information on what needs to be
+      !!                            stored of the relevant variable
       subroutine setctrI(e_Contr,Contr,buff)
 
       ! I/O
@@ -8526,7 +8173,7 @@
         ! For each entry to write
         do iran=1,buff%nran
 
-          ! Atom and transition
+          ! Range and size
           i0 = buff%indx(1,iran)
           i1 = buff%indx(2,iran)
           nn = i1-i0+1
@@ -8555,17 +8202,18 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes a file with the height where the optical depth is
-      !! equal to one.\n
+      !> Save the height of optical depth equal to one of a synthesis
+      !! run in a file\n
       !!    filename(character(:)): Name of the file to write\n
       !!              iph(integer): Index of the LOS azimuth
       !!                            direction\n
       !!              ith(integer): Index of the LOS polar direction\n
-      !!          omega(dfloat(:)): Frequency array\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!            tau(dfloat(:)): Height where the optical depth is
+      !!          omega(double(:)): Frequency array\n
+      !!      Geom(Geometry_class): Structure with geometric data\n
+      !!            tau(double(:)): Height where the optical depth is
       !!                            equal to one\n
-      !!  buff(IO_helper_class(:)): Info about what to store
+      !!  buff(IO_helper_class(:)): Information on what needs to be
+      !!                            stored of the relevant variable
       subroutine writetau(filename,iph,ith,omega,Geom,tau,buff)
 
       ! I/O
@@ -8575,14 +8223,13 @@
       character(len=500), intent(in):: filename
       integer, intent(in):: iph,ith
       double precision, dimension(:), intent(in):: omega
-      double precision,dimension(:), intent(in):: tau
+      double precision, dimension(:), intent(in):: tau
 
       ! Local
 
       character(len=4):: cph,cth
 
       integer:: ios,ierr,iran,ii,i0,i1,nn
-
       integer(kind=MPI_OFFSET_KIND):: offset
 
       real, dimension(:), allocatable:: buffer
@@ -8593,10 +8240,7 @@
       ! Routine name
       urou = 'writetau'
 
-
-      !
       ! Convert the integers into appropriate length strings
-      !
       if (ith.lt.1000.and.ith.ge.100) write(cth,'(i3)') ith
       if (ith.lt.100 .and.ith.ge.10 ) write(cth,'(i2)') ith
       if (ith.lt.10  .and.ith.ge.0  ) write(cth,'(i1)') ith
@@ -8615,10 +8259,6 @@
         open(200,file=trim(filename)//'/Tau_'//trim(cth)// &
              '_'//trim(cph), status='unknown', iostat=ios, err=1000, &
              access='stream', action='write', form='unformatted')
-
-        !
-        ! Write content
-        !
 
         ! Identification
         write(200,err=1100) 'bt'
@@ -8679,7 +8319,7 @@
           ! For each entry to write
           do iran=1,buff%nran
 
-            ! Atom and transition
+            ! Range and size
             i0 = buff%indx(1,iran)
             i1 = buff%indx(2,iran)
             nn = i1-i0+1
@@ -8708,27 +8348,30 @@
         ! Close file
         call MPI_FILE_CLOSE(funit, ierr)
 
+        ! Free
+        deallocate(buffer)
+
       end if
 
       return
 
 1000  umsg = 'Error opening tau file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1010  umsg = 'Error seeking tau file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1100  umsg = 'Error writing tau file'
       close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1300  umsg = 'Error writing tau file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 
@@ -8738,12 +8381,13 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes a file with the height where the optical depth is
-      !! equal to one.\n
+      !> Save the height of optical depth equal to one of an inversion
+      !! run in a file\n
       !!    filename(character(:)): Name of the file to write\n
       !!              tau(real(:)): Height where the optical depth is
       !!                            equal to one\n
-      !!  buff(IO_helper_class(:)): Info about what to store
+      !!  buff(IO_helper_class(:)): Information on what needs to be
+      !!                            stored of the relevant variable
       subroutine writetau_inv(filename,tau,buff)
 
       ! I/O
@@ -8755,7 +8399,6 @@
       ! Local
 
       integer:: ierr,nn
-
       integer(kind=MPI_OFFSET_KIND):: offset
 
       double precision:: loffset
@@ -8802,17 +8445,17 @@
       return
 
 1000  umsg = 'Error opening tau file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1010  umsg = 'Error seeking tau file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1100  umsg = 'Error writing tau file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 
@@ -8822,13 +8465,14 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes to RAM the height where the optical depth is equal to
-      !! one.\n
-      !!          e_tau(dfloat(:)): Output height where the optical
-      !!                            depth is equal to one\n
-      !!            tau(dfloat(:)): Height where the optical depth is
+      !> Save the height where the optical depth is equal to one in
+      !! RAM\n
+      !!          e_tau(double(:)): RAM storage for height where the
+      !!                            optical depth is equal to one\n
+      !!            tau(double(:)): Height where the optical depth is
       !!                            equal to one\n
-      !!  buff(IO_helper_class(:)): Info about what to store
+      !!  buff(IO_helper_class(:)): Information on what needs to be
+      !!                            stored of the relevant variable
       subroutine settau(e_tau,tau,buff)
 
       ! I/O
@@ -8842,7 +8486,7 @@
       integer:: iran,ii,i0,i1,nn
 
 
-      ! Only master
+      ! Slaves leave
       if (pid.gt.0) return
 
       ! Initialize buffer
@@ -8854,7 +8498,7 @@
         ! For each entry to write
         do iran=1,buff%nran
 
-          ! Atom and transition
+          ! Range and size
           i0 = buff%indx(1,iran)
           i1 = buff%indx(2,iran)
           nn = i1-i0+1
@@ -8883,12 +8527,13 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes into file the inelastic collisions for all active
-      !! atoms.\n
-      !!         Atom(Atom_class): Structure with the atomic data\n
+      !> Save inelastic collisional rates of active atoms in a file\n
+      !!      Atom(Atom_class(:)): Structures with atomic data\n
       !!     folder(character(:)): Path to the output folder\n
-      !!  btt(IO_helper_class(:)): Info about what to store\n
-      !!  bll(IO_helper_class(:)): Info about what to store
+      !!  btt(IO_helper_class(:)): Information on what needs to be
+      !!                           stored of term-term collisions\n
+      !!  bll(IO_helper_class(:)): Information on what needs to be
+      !!                           stored of level-level collisions
       subroutine writecols(Atom,folder,btt,bll)
 
       ! I/O
@@ -8901,7 +8546,6 @@
 
       integer:: ierr,ii,iz,it1,it
       integer:: ia,iterm,iterm1,ilevel,ilevel1,ios
-
       integer(kind=MPI_OFFSET_KIND):: offset
 
       real, dimension(:), allocatable:: buffer
@@ -8909,13 +8553,14 @@
       double precision:: loffset
 
 
-      !
-      ! Slaves just wait
-      !
+      ! Slaves
       if (pid.gt.0) then
+
+        ! Control
         call control
         return
-      end if
+
+      end if ! Slaves
 
       ! Routine name
       urou = 'writecols'
@@ -8925,10 +8570,12 @@
       !
       if (run_mode.eq.0) then
 
-        ! Open file to write into
+        ! Open term-term file
         open (200,file=trim(folder)//'/cols-TT', status='unknown', &
               iostat=ios, err=1000, access='stream', action='write', &
               form='unformatted')
+
+        ! Open level-level file
         open (300,file=trim(folder)//'/cols-LL', status='unknown', &
               iostat=ios, err=1001, access='stream', action='write', &
               form='unformatted')
@@ -8956,20 +8603,21 @@
           do iterm=1,Atom(ia)%nMulti
             do iterm1=1,Atom(ia)%nMulti
 
+              ! Write rate
               write(200,err=1100) Atom(ia)%Ccoeff(iterm1,iterm,:)
 
-            end do
-          end do
+            end do ! Destiny
+          end do ! Origin
 
           ! For each level pair
           do ilevel=1,Atom(ia)%nlevel
             do ilevel1=1,Atom(ia)%nlevel
 
+              ! Write rate
               write(300,err=1101) Atom(ia)%CcoeffJ(ilevel1,ilevel,:)
 
-            end do
-          end do
-
+            end do ! Destiny
+          end do ! Origin
         end do ! Atoms
 
         ! Close files
@@ -8981,14 +8629,14 @@
       !
       else if (run_mode.eq.1) then
 
-        ! Allocate buffer
+        ! Allocate buffer with the largest size
         if (btt%buffer_size.gt.bll%buffer_size) then
           allocate(buffer(btt%buffer_size/4))
         else
           allocate(buffer(bll%buffer_size/4))
         end if
 
-        ! Open file
+        ! Open file term-term
         call MPI_FILE_OPEN(MPI_COMM_SELF, &
                            trim(folder)//'/cols-TT', &
                            MPI_MODE_WRONLY, MPI_INFO_NULL, funit, &
@@ -9020,21 +8668,31 @@
 
           ! For each entry to write
           do ia=1,btt%nran
+
             ! For each height
             do iz=1,nz
+
               ! Advance
               ii = ii + 1
+
+              ! Write a->b rate in buffer
               buffer(ii) = real(Atom(btt%indx(1,ia))% &
                                 Ccoeff(btt%indx(2,ia), &
                                        btt%indx(3,ia),iz))
+
             end do ! Height
+
             ! For each height
             do iz=1,nz
+
               ! Advance
               ii = ii + 1
+
+              ! Write b->a rate in buffer
               buffer(ii) = real(Atom(btt%indx(1,ia))% &
                                 Ccoeff(btt%indx(3,ia), &
                                        btt%indx(2,ia),iz))
+
             end do ! Height
           end do ! Atom
 
@@ -9043,20 +8701,28 @@
 
           ! For each atom
           do ia=1,nA
-            ! For each pair of terms
+
+            ! For each origin term
             do it=1,Atom(ia)%nMulti
-            do it1=1,Atom(ia)%nMulti
-              ! For each height
-              do iz=1,nz
-                ! Advance
-                ii = ii + 1
-                buffer(ii) = real(Atom(ia)%Ccoeff(it1,it,iz))
-              end do ! Height
-            end do ! Term
+
+              ! For each destiny term
+              do it1=1,Atom(ia)%nMulti
+
+                ! For each height
+                do iz=1,nz
+
+                  ! Advance
+                  ii = ii + 1
+
+                  ! Save
+                  buffer(ii) = real(Atom(ia)%Ccoeff(it1,it,iz))
+
+                end do ! Height
+              end do ! Term
             end do ! Term
           end do ! Atom
 
-        end if
+        end if ! Specify ranges
 
         ! Write buffer
         call MPI_FILE_WRITE(funit,buffer(1),btt%buffer_size/4, &
@@ -9066,7 +8732,7 @@
         ! Close file
         call MPI_FILE_CLOSE(funit, ierr)
 
-        ! Open file
+        ! Open file level-level
         call MPI_FILE_OPEN(MPI_COMM_SELF, &
                            trim(folder)//'/cols-LL', &
                            MPI_MODE_WRONLY, MPI_INFO_NULL, funit, &
@@ -9098,18 +8764,27 @@
 
           ! For each entry to write
           do ia=1,bll%nran
+
             ! For each height
             do iz=1,nz
+
               ! Advance
               ii = ii + 1
+
+              ! Save a->b rate
               buffer(ii) = real(Atom(bll%indx(1,ia))% &
                                 CcoeffJ(bll%indx(2,ia), &
                                         bll%indx(3,ia),iz))
+
             end do ! Height
+
             ! For each height
             do iz=1,nz
+
               ! Advance
               ii = ii + 1
+
+              ! Save b->a rate
               buffer(ii) = real(Atom(bll%indx(1,ia))% &
                                 CcoeffJ(bll%indx(3,ia), &
                                         bll%indx(2,ia),iz))
@@ -9121,20 +8796,28 @@
 
           ! For each atom
           do ia=1,nA
-            ! For each pair of terms
+
+            ! For each origin level
             do it=1,Atom(ia)%nlevel
-            do it1=1,Atom(ia)%nlevel
-              ! For each height
-              do iz=1,nz
-                ! Advance
-                ii = ii + 1
-                buffer(ii) = real(Atom(ia)%CcoeffJ(it1,it,iz))
-              end do ! Height
-            end do ! Term
-            end do ! Term
+
+              ! For each destiny level
+              do it1=1,Atom(ia)%nlevel
+
+                ! For each height
+                do iz=1,nz
+
+                  ! Advance
+                  ii = ii + 1
+
+                  ! Save rate
+                  buffer(ii) = real(Atom(ia)%CcoeffJ(it1,it,iz))
+
+                end do ! Height
+              end do ! Destiny level
+            end do ! Origin level
           end do ! Atom
 
-        end if
+        end if ! Specify range
 
         ! Write buffer
         call MPI_FILE_WRITE(funit,buffer(1),bll%buffer_size/4, &
@@ -9144,50 +8827,53 @@
         ! Close file
         call MPI_FILE_CLOSE(funit, ierr)
 
-      end if
+        ! Free
+        deallocate(buffer)
+
+      end if ! Run type
 
       ! Control
       call control
       return
 
 1000  umsg = 'Error opening collisions TT file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1010  umsg = 'Error seeking collisions TT file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1100  umsg = 'Error writing collisions TT file'
       close(200)
       close(300)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1300  umsg = 'Error writing collisions TT file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1001  umsg = 'Error opening collisions LL file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1011  umsg = 'Error seeking collisions LL file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1101  umsg = 'Error writing collisions LL file'
       close(200)
       close(300)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1301  umsg = 'Error writing collisions LL file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 
@@ -9197,12 +8883,12 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes into file the damping parameter for all active
-      !! atoms.\n
-      !!       Atom(Atom_class): Structure with the atomic data\n
-      !!       Atmo(Atmo_class): Structure with atmospheric data\n
-      !!   folder(character(:)): Path to the output folder\n
-      !!  buff(IO_helper_class(:)): Info about what to store
+      !> Save damping parameter of active atoms in a file\n
+      !!       Atom(Atom_class(:)): Structures with atomic data\n
+      !!          Atmo(Atmo_class): Structure with atmospheric data\n
+      !!      folder(character(:)): Path to the output folder\n
+      !!  buff(IO_helper_class(:)): Information on what needs to be
+      !!                            stored of the relevant variable
       subroutine writedamp(Atom,Atmo,folder,buff)
 
       ! I/O
@@ -9215,23 +8901,23 @@
       ! Local
 
       integer:: ierr,ii
-      integer:: iran,ia,iterml,itermu,itran,i,i1,ios
-      double precision, dimension(nz):: Dw, DwT
-
+      integer:: iran,ia,iterml,itermu,itran,ios
       integer(kind=MPI_OFFSET_KIND):: offset
 
       real, dimension(:), allocatable:: buffer
 
       double precision:: loffset
+      double precision, dimension(nz):: Dw,DwT
 
 
-      !
-      ! Slaves just wait
-      !
+      ! Slaves
       if (pid.gt.0) then
+
+        ! Control
         call control
         return
-      end if
+
+      end if ! Slaves
 
       ! Routine name
       urou = 'writedamp'
@@ -9271,30 +8957,26 @@
             ! Doppler width
             Dw = Atom(ia)%Dfreq(itran)*sqrt(DwT*DwT + &
                                             Atmo%vmi*Atmo%vmi)
+
+            ! Inverrse
             Dw = 1d0/Dw
 
             ! Identify involved terms
             itermu = -1
-            do i=1,Atom(ia)%nMulti-1
-              do i1=i+1,Atom(ia)%nMulti
-                if (Atom(ia)%irad(i,i1).eq.itran) then
-                  iterml = i
-                  itermu = i1
-                  exit
-                end if
-              end do
-              if (itermu.ge.0) exit
-            end do
 
+            ! Get terms
+            itermu = Atom(ia)%fst(itran)%itermu
+            iterml = Atom(ia)%fst(itran)%iterml
+
+            ! Write total damping
             write(200,err=1100) (Atom(ia)%ldamp(itran,:) + &
                                  Atom(ia)%damp(itermu,:) + &
                                  Atom(ia)%damp(iterml,:))*Dw
 
-          end do
-
+          end do ! Transitions
         end do ! Atoms
 
-        ! Close files
+        ! Close file
         close(200)
 
       !
@@ -9345,28 +9027,21 @@
             ! Thermal width
             DwT = Atom(ia)%cDopp*sqrt(Atmo%T)
 
-            ! Doppler width
+            ! Doppler width and inverse
             Dw = Atom(ia)%Dfreq(itran)* &
                  sqrt(DwT*DwT + Atmo%vmi*Atmo%vmi)
             Dw = 1d0/Dw
 
-            ! Identify involved terms
-            itermu = -1
-            do i=1,Atom(ia)%nMulti-1
-              do i1=i+1,Atom(ia)%nMulti
-                if (Atom(ia)%irad(i,i1).eq.itran) then
-                  iterml = i
-                  itermu = i1
-                  exit
-                end if
-              end do
-              if (itermu.ge.0) exit
-            end do
+            ! Get terms
+            itermu = Atom(ia)%fst(itran)%itermu
+            iterml = Atom(ia)%fst(itran)%iterml
 
-            ! Advance buffer
+            ! Save
             buffer(ii+1:ii+nz) = real((Atom(ia)%ldamp(itran,:) + &
                                        Atom(ia)%damp(itermu,:) + &
                                        Atom(ia)%damp(iterml,:))*Dw)
+
+            ! Advance buffer
             ii = ii + nz
 
           end do ! Ranges
@@ -9386,31 +9061,26 @@
               ! Doppler width
               Dw = Atom(ia)%Dfreq(itran)*sqrt(DwT*DwT + &
                                               Atmo%vmi*Atmo%vmi)
+
+              ! Inverse
               Dw = 1d0/Dw
 
-              ! Identify involved terms
-              itermu = -1
-              do i=1,Atom(ia)%nMulti-1
-                do i1=i+1,Atom(ia)%nMulti
-                  if (Atom(ia)%irad(i,i1).eq.itran) then
-                    iterml = i
-                    itermu = i1
-                    exit
-                  end if
-                end do
-                if (itermu.ge.0) exit
-              end do
+              ! Get terms
+              itermu = Atom(ia)%fst(itran)%itermu
+              iterml = Atom(ia)%fst(itran)%iterml
 
-              ! Advance buffer
+              ! Save
               buffer(ii+1:ii+nz) = real((Atom(ia)%ldamp(itran,:) + &
                                          Atom(ia)%damp(itermu,:) + &
                                          Atom(ia)%damp(iterml,:))*Dw)
+
+              ! Advance buffer
               ii = ii + nz
 
             end do ! Transitions
           end do ! Atoms
 
-        end if
+        end if ! Specified transitions
 
         ! Write buffer
         call MPI_FILE_WRITE(funit,buffer(1),buff%buffer_size/4, &
@@ -9420,7 +9090,10 @@
         ! Close file
         call MPI_FILE_CLOSE(funit, ierr)
 
-      end if
+        ! Free
+        deallocate(buffer)
+
+    end if ! Run type
 
       ! Control
       call control
@@ -9428,22 +9101,22 @@
       return
 
 1000  umsg = 'Error opening damping file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1010  umsg = 'Error seeking damping file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1100  umsg = 'Error writing damping file'
       close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1300  umsg = 'Error writing damping file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 
@@ -9453,26 +9126,23 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes into file the elastic rates for all active
-      !! atoms.\n
-      !!       Atom(Atom_class): Structure with the atomic data\n
-      !!       Atmo(Atmo_class): Structure with atmospheric data\n
-      !!   folder(character(:)): Path to the output folder\n
-      !!  buff(IO_helper_class(:)): Info about what to store
-      subroutine writeqel(Atom,Atmo,folder,buff)
+      !> Save elastic collisional rates of active atoms in a file\n
+      !!       Atom(Atom_class(:)): Structures with atomic data\n
+      !!      folder(character(:)): Path to the output folder\n
+      !!  buff(IO_helper_class(:)): Information on what needs to be
+      !!                            stored of the relevant variable
+      subroutine writeqel(Atom,folder,buff)
 
       ! I/O
 
       type(Atom_class), dimension(:), intent(in):: Atom
-      type(Atmo_class), intent(in):: Atmo
       type(IO_helper_class), intent(in):: buff
       character(len=500), intent(in):: folder
 
       ! Local
 
       integer:: ierr,ii
-      integer:: iran,ia,iterml,itermu,itran,i,i1,ios
-
+      integer:: iran,ia,iterml,itermu,itran,ios
       integer(kind=MPI_OFFSET_KIND):: offset
 
       real, dimension(:), allocatable:: buffer
@@ -9480,13 +9150,14 @@
       double precision:: loffset
 
 
-      !
-      ! Slaves just wait
-      !
+      ! Slaves
       if (pid.gt.0) then
+
+        ! Control
         call control
         return
-      end if
+
+      end if ! Slaves
 
       ! Routine name
       urou = 'writeqel'
@@ -9520,22 +9191,14 @@
           ! For each transition
           do itran=1,Atom(ia)%ntran
 
-            ! Identify involved terms
-            itermu = -1
-            do i=1,Atom(ia)%nMulti-1
-              do i1=i+1,Atom(ia)%nMulti
-                if (Atom(ia)%irad(i,i1).eq.itran) then
-                  iterml = i
-                  itermu = i1
-                  exit
-                end if
-              end do
-              if (itermu.ge.0) exit
-            end do
+            ! Get terms
+            itermu = Atom(ia)%fst(itran)%itermu
+            iterml = Atom(ia)%fst(itran)%iterml
 
+            ! Write rate
             write(200,err=1100) Atom(ia)%qel(itran,:)
 
-          end do
+          end do ! Transitions
 
         end do ! Atoms
 
@@ -9587,21 +9250,14 @@
             ia = buff%indx(1,iran)
             itran = buff%indx(2,iran)
 
-            ! Identify involved terms
-            itermu = -1
-            do i=1,Atom(ia)%nMulti-1
-              do i1=i+1,Atom(ia)%nMulti
-                if (Atom(ia)%irad(i,i1).eq.itran) then
-                  iterml = i
-                  itermu = i1
-                  exit
-                end if
-              end do
-              if (itermu.ge.0) exit
-            end do
+            ! Get terms
+            itermu = Atom(ia)%fst(itran)%itermu
+            iterml = Atom(ia)%fst(itran)%iterml
+
+            ! Save
+            buffer(ii+1:ii+nz) = real(Atom(ia)%qel(itran,:))
 
             ! Advance buffer
-            buffer(ii+1:ii+nz) = real(Atom(ia)%qel(itran,:))
             ii = ii + nz
 
           end do ! Ranges
@@ -9615,27 +9271,20 @@
             ! For each transition
             do itran=1,Atom(ia)%ntran
 
-              ! Identify involved terms
-              itermu = -1
-              do i=1,Atom(ia)%nMulti-1
-                do i1=i+1,Atom(ia)%nMulti
-                  if (Atom(ia)%irad(i,i1).eq.itran) then
-                    iterml = i
-                    itermu = i1
-                    exit
-                  end if
-                end do
-                if (itermu.ge.0) exit
-              end do
+              ! Get terms
+              itermu = Atom(ia)%fst(itran)%itermu
+              iterml = Atom(ia)%fst(itran)%iterml
+
+              ! Save
+              buffer(ii+1:ii+nz) = real(Atom(ia)%qel(itran,:))
 
               ! Advance buffer
-              buffer(ii+1:ii+nz) = real(Atom(ia)%qel(itran,:))
               ii = ii + nz
 
             end do ! Transitions
           end do ! Atoms
 
-        end if
+        end if ! Specified ranges
 
         ! Write buffer
         call MPI_FILE_WRITE(funit,buffer(1),buff%buffer_size/4, &
@@ -9645,7 +9294,10 @@
         ! Close file
         call MPI_FILE_CLOSE(funit, ierr)
 
-      end if
+        ! Free
+        deallocate(buffer)
+
+      end if ! Run mode
 
       ! Control
       call control
@@ -9653,22 +9305,22 @@
       return
 
 1000  umsg = 'Error opening qel file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1010  umsg = 'Error seeking qel file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1100  umsg = 'Error writing qel file'
       close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1300  umsg = 'Error writing qel file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 
@@ -9678,19 +9330,21 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes into file the background continuum quantities.\n
+      !> Save background opacity, scattering coefficient, and
+      !! emissivity in a file\n
       !!     Cont(Continuum_class): Structure with background opacity
       !!                            data\n
-      !!          omega(dfloat(:)): Frequency array\n
+      !!          omega(double(:)): Frequency array\n
       !!      folder(character(:)): Path to the output folder\n
       !!           MPID(MPI_class): Structure with MPI data\n
-      !!  buff(IO_helper_class(:)): Info about what to store
+      !!  buff(IO_helper_class(:)): Information on what needs to be
+      !!                            stored of the relevant variable
       subroutine writeback(Cont,omega,folder,MPID,buff)
 
       ! I/O
 
-      type(Continuum_class):: Cont
-      type(MPI_class):: MPID
+      type(Continuum_class), intent(inout):: Cont
+      type(MPI_class), intent(in):: MPID
       type(IO_helper_class), intent(in):: buff
       character(len=500), intent(in):: folder
       double precision, dimension(:), intent(in):: omega
@@ -9701,14 +9355,13 @@
       integer:: iz,nfl,ndl,nxdir,idir
       integer:: iproc,iproc0,bsize,psize,ios
       integer, dimension(:), allocatable:: ndir
-
       integer(kind=MPI_OFFSET_KIND):: offset
 
-      double precision:: loffset
+      real, dimension(:), allocatable:: buffer
 
+      double precision:: loffset
       double precision, dimension(:), allocatable:: dbuffer
 
-      real, dimension(:), allocatable:: buffer
 
       ! Routine name
       urou = 'writeback'
@@ -9721,6 +9374,7 @@
         !
         if (run_mode.eq.0) then
 
+          ! Open file
           open (200,file=trim(folder)//'/background', &
                 status='unknown', iostat=ios, err=1000, &
                 access='stream', action='write', form='unformatted')
@@ -9737,24 +9391,26 @@
           ! Write number of heights
           write(200,err=1100) NZ
 
-        end if
-      end if
+        end if ! 1D mode
+      end if ! Master
 
       ! If MPI
-      if (MPID%mpi) then
+      if (nproc.gt.1) then
 
         ! Control
         call control
 
         ! Allocate number of directions for every cpu
         allocate(ndir(0:nproc-1))
+
+        ! Master initialize
         if (pid.eq.0) Cont%ndir = 0
 
         ! Master gather number of directions
         call MPI_GATHER(Cont%ndir, 1, MPI_INTEGER, ndir(0), 1, &
                         MPI_INTEGER, 0, MPI_COMM_RT, ierr)
 
-        ! MASTER
+        ! Master
         if (pid.eq.0) then
 
           ! Look for the maximum number of directions
@@ -9776,6 +9432,7 @@
           ! For each process
           do iproc=1,nproc-1
 
+            ! Size of this process
             nfl = MPID%nf(iproc)
             ndl = ndir(iproc)
             psize = nz*nfl*ndl*3
@@ -9805,6 +9462,7 @@
                 ! For each direction
                 do idir=1,nxdir
 
+                  ! Replicate same buffer in the relevant range
                   Cont%c(MPID%if0(iproc):MPID%if1(iproc),:,idir,iz)= &
                         reshape(dbuffer((iz-1)*(nfl*3)+1:iz*nfl*3), &
                                                         (/ nfl,3 /))
@@ -9816,7 +9474,10 @@
 
           end do ! Processors
 
-        ! SLAVE
+          ! Free
+          deallocate(dbuffer)
+
+        ! Slaves
         else
 
           ! Compute size of data to send
@@ -9831,6 +9492,9 @@
           end do
 
         end if ! Master or slave
+
+        ! Free
+        deallocate(ndir)
 
       ! If serial
       else
@@ -9907,7 +9571,7 @@
                 ! For each entry to write
                 do iran=1,buff%nran
 
-                  ! Atom and transition
+                  ! Range and size
                   i0 = buff%indx(1,iran)
                   i1 = buff%indx(2,iran)
                   nn = i1-i0+1
@@ -9941,6 +9605,9 @@
           ! Close file
           call MPI_FILE_CLOSE(funit, ierr)
 
+          ! Free
+          deallocate(buffer)
+
         end if ! Run mode
       end if ! Master
 
@@ -9950,22 +9617,22 @@
       return
 
 1000  umsg = 'Error opening background file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1010  umsg = 'Error seeking background file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1100  umsg = 'Error writing background file'
       close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1300  umsg = 'Error writing background file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 
@@ -9975,11 +9642,15 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes into file the atmospheric data.\n
-      !!        Atmo(Atmo_class): Structure with atmospheric data\n
-      !!    Bfield(Bfield_class): Structure with magnetic field data\n
-      !!    folder(character(:)): Path to the output folder\n
-      !!  buff(IO_helper_class(:)): Info about what to store
+      !> Write the model atmosphere in a file. The file is in ASCII
+      !! for a 1D synthesis and in binary for a 1.5D synthesis, with
+      !! the same format than the corresponding input for the latter\n
+      !!          Atmo(Atmo_class): Structure with atmospheric data\n
+      !!      Bfield(Bfield_class): Structure with magnetic field
+      !!                            data\n
+      !!      folder(character(:)): Path to the output folder\n
+      !!  buff(IO_helper_class(:)): Information on what needs to be
+      !!                            stored of the relevant variable
       subroutine writeatmo(Atmo,Bfield,folder,buff)
 
       ! I/O
@@ -9993,21 +9664,23 @@
 
       integer:: iz, ios
       integer:: ierr,ii
-
       integer(kind=MPI_OFFSET_KIND):: offset
 
+      double precision:: loffset
       double precision, dimension(:), allocatable:: buffer
 
-      double precision:: loffset
 
       ! Routine name
       urou = 'writeatmo'
 
-      ! If not master, return
+      ! Slaves
       if (pid.gt.0) then
+
+        ! Control
         call control
         return
-      end if
+
+      end if ! Slaves
 
       !
       ! 1D or inversion
@@ -10050,6 +9723,8 @@
 
           ! For each height, output
           do iz=1,nz
+
+            ! Write data
             write(200,'(1x,24(2x,es22.15))') &
                                          Atmo%zalt(iz), &
                                          Atmo%z(iz), &
@@ -10075,7 +9750,7 @@
                                          Atmo%nh(iz,4), &
                                          Atmo%nh(iz,5), &
                                          Atmo%nh(iz,6)
-          end do
+          end do ! Height nodes
 
         ! If height scale
         else
@@ -10107,8 +9782,10 @@
                                      '    HI_4 density [cm^-3]'//&
                                      '     HII density [cm^-3]'
 
-          ! For each height, output
+          ! For each height
           do iz=1,nz
+
+            ! Write data
             write(200,'(1x,24(2x,es22.15))') &
                                          Atmo%z(iz)*1d-5, &
                                          Atmo%zalt(iz), &
@@ -10134,8 +9811,9 @@
                                          Atmo%nh(iz,4), &
                                          Atmo%nh(iz,5), &
                                          Atmo%nh(iz,6)
-          end do
-        end if
+          end do ! Heights
+
+        end if ! Height or tau scale
 
         ! Close files
         close(200)
@@ -10192,6 +9870,10 @@
           ii = ii + nz
 
         end if
+
+        !
+        ! Fill rest of buffer
+        !
 
         ! Chi500
         buffer(ii+1:ii+nz) = Atmo%chi500
@@ -10257,7 +9939,10 @@
         ! Close file
         call MPI_FILE_CLOSE(funit, ierr)
 
-      end if
+        ! Free
+        deallocate(buffer)
+
+      end if ! Run mode
 
       ! Control
       call control
@@ -10265,22 +9950,22 @@
       return
 
 1000  umsg = 'Error opening atmospheric file to write'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1010  umsg = 'Error seeking atmospheric file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1100  umsg = 'Error writing atmospheric file'
       close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1300  umsg = 'Error writing atmospheric file'
       call MPI_FILE_CLOSE(funit, ierr)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 
@@ -10290,9 +9975,10 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes atmosphere in readable model format\n
+      !> Write a 1D model atmosphere in a file in the 1D synthesis
+      !! format\n
       !!       Atmo(Atmo_class): Structure with atmospheric data\n
-      !!       outtypo(integer): What variable to write in the
+      !!       outtypo(integer): What variables to write in the
       !!                         output\n
       !!   folder(character(:)): Path to the output folder\n
       !! filename(character(:)): Path to the original atmospheric
@@ -10307,28 +9993,38 @@
 
       ! Local
 
-      integer:: iz, ios
-      integer:: typo
+      integer:: iz,ios,typo
 
-      double precision:: zfac, vfac
+      double precision:: zfac,vfac
+
 
       ! Routine name
       urou = 'wAtmo'
 
-      ! If not master, return
+      ! Slaves
       if (pid.gt.0) then
+
+        ! Control
         call control
         return
-      end if
 
-      ! Decide which type of atmosphere we are writing
+      end if ! Slaves
+
+      ! If type of output larger than zero
       if (outtypo.gt.0) then
-        typo = outtypo - 1
-      else
-        typo = Atmo%typo
-      end if
 
-      ! Master opens file and writes dimensions
+        ! Shifting one gives us the desired type
+        typo = outtypo - 1
+
+      ! Otherwise
+      else
+
+        ! Get from the model itself
+        typo = Atmo%typo
+
+      end if ! Type of output
+
+      ! Open file
       open (200,file=trim(folder)//'/atmo.atmos', &
             status='unknown', iostat=ios, err=1000, action='write')
 
@@ -10338,28 +10034,35 @@
       write(200,'(A)',err=1100) '*'
       write(200,'(A)',err=1100) '  HANLERT-model'
 
-      ! Scale
+      ! If tau scale
       if (ztau) then
+
+        ! Get conversion factor and write
         zfac = 1d0
         write(200,'(A,1x,es23.16)',err=1100) &
           'TAU SCALE',1d2/Atmo%tfreq
+
+      ! If height scale
       else
+
+        ! Get conversion factor and write
         zfac = 1d-5
         write(200,'(A,1x,es23.16)',err=1100) &
           'HEIGHT SCALE',1d2/Atmo%tfreq
-      end if
 
-      ! Log g
+      end if ! Type of vertical scale
+
+      ! Log g from original
       write(200,'(A)',err=1100) '*'
       write(200,'(A)',err=1100) '* LG G'
       write(200,'(2x,es23.16)',err=1100) Atmo%logg
 
-      ! Height nodes
+      ! Height number of nodes from original
       write(200,'(A)',err=1100) '*'
       write(200,'(A)',err=1100) '* NDEP'
       write(200,'(i6)',err=1100) Atmo%nz
 
-      ! Velocity factor
+      ! Velocity factor to recover km/s
       vfac = c*1d6
 
       ! First block
@@ -10370,6 +10073,8 @@
 
         ! Tau
         if (ztau) then
+
+          ! Write
           write(200,'(A)',err=1100) '*    Optical depth         '// &
                                     'TEMP (K)        Ne (cm^-3)'// &
                                     '         vz (km/s)    '// &
@@ -10378,20 +10083,26 @@
                                     '         vy (km/s)'
         ! Height
         else
+
+          ! Write
           write(200,'(A)',err=1100) '*      HEIGHT (km)         '// &
                                     'TEMP (K)        Ne (cm^-3)'// &
                                     '         vz (km/s)    '// &
                                     'Vmicro (km/s)'// &
                                     '         vx (km/s)'// &
                                     '         vy (km/s)'
-        end if
+
+        end if ! Tau or height
 
         ! For every height
         do iz=1,nZ
+
+          ! Write data
           write(200,'(7(1x,es17.10))',err=1100) Atmo%z(iz)*zfac, &
             Atmo%T(iz),Atmo%ne(iz),Atmo%vz(iz)*vfac, &
             Atmo%vmi(iz)*vfac,Atmo%vx(iz)*vfac,Atmo%vy(iz)*vfac
-        end do
+
+        end do ! Heights
 
         ! Hydrogen populations
         write(200,'(A)',err=1100) '*'
@@ -10405,19 +10116,26 @@
 
         ! For every height
         do iz=1,nZ
-          write(200,'(6(1x,es17.10))',err=1100) Atmo%nh(iz,:)
-        end do
 
-        ! Helium populations
+          ! Write hydrogen
+          write(200,'(6(1x,es17.10))',err=1100) Atmo%nh(iz,:)
+
+        end do ! Heights
+
+        ! If there are helium populations
         if (Atmo%nhe(1,1).gt.-0.1) then
 
+          ! Write header
           write(200,'(A)',err=1100) '*'
           write(200,'(A)',err=1100) '* HELIUM POPULATIONS (cm^-3)'
 
           ! For every height
           do iz=1,nZ
+
+            ! Write populations
             write(200,'(4(1x,es17.10))',err=1100) Atmo%nhe(iz,:)
-          end do
+
+          end do ! Heights
 
         end if ! Helium populations present
 
@@ -10427,6 +10145,8 @@
 
         ! Tau
         if (ztau) then
+
+          ! Write
           write(200,'(A)',err=1100) '*    Optical depth'// &
                                     '         '// &
                                     'TEMP (K)        Ne (cm^-3)'// &
@@ -10434,8 +10154,11 @@
                                     'Vmicro (km/s)'// &
                                     '         vx (km/s)'// &
                                     '         vy (km/s)'
+
         ! Height
         else
+
+          ! Write
           write(200,'(A)',err=1100) '*      HEIGHT (km)'// &
                                     '         '// &
                                     'TEMP (K)        Ne (cm^-3)'// &
@@ -10443,24 +10166,29 @@
                                     'Vmicro (km/s)'// &
                                     '         vx (km/s)'// &
                                     '         vy (km/s)'
-        end if
+
+        end if ! Type of height scale
 
         ! For every height
         do iz=1,nZ
+
+          ! Write data
           write(200,'(7(1x,es17.10))',err=1100) Atmo%z(iz)*zfac, &
             Atmo%T(iz),Atmo%ne(iz),Atmo%vz(iz)*vfac, &
             Atmo%vmi(iz)*vfac,Atmo%vx(iz)*vfac,Atmo%vy(iz)*vfac
-        end do
+
+        end do ! Heights
 
         ! Write tag
         write(200,'(A)',err=1100) 'ne'
-
 
       ! If electron pressure
       else if (typo.eq.2) then
 
         ! Tau
         if (ztau) then
+
+          ! Write
           write(200,'(A)',err=1100) '*    Optical depth'// &
                                     '         '// &
                                     'TEMP (K)     Pe (dyn/cm^2)'// &
@@ -10468,8 +10196,11 @@
                                     'Vmicro (km/s)'// &
                                     '         vx (km/s)'// &
                                     '         vy (km/s)'
+
         ! Height
         else
+
+          ! Write
           write(200,'(A)',err=1100) '*      HEIGHT (km)'// &
                                     '         '// &
                                     'TEMP (K)     Pe (dyn/cm^2)'// &
@@ -10477,23 +10208,29 @@
                                     'Vmicro (km/s)'// &
                                     '         vx (km/s)'// &
                                     '         vy (km/s)'
-        end if
+
+        end if ! Type of height scale
 
         ! For every height
         do iz=1,nZ
+
+          ! Write data
           write(200,'(7(1x,es17.10))',err=1100) Atmo%z(iz)*zfac, &
             Atmo%T(iz),Atmo%Pe(iz),Atmo%vz(iz)*vfac, &
             Atmo%vmi(iz)*vfac,Atmo%vx(iz)*vfac,Atmo%vy(iz)*vfac
-        end do
 
+        end do ! Heights
+
+        ! Write tag
         write(200,'(A)',err=1100) 'pe'
-
 
       ! If electron mass density
       else if (typo.eq.3) then
 
         ! Tau
         if (ztau) then
+
+          ! Write
           write(200,'(A)',err=1100) '*    Optical depth'// &
                                     '         '// &
                                     'TEMP (K)  dens_e (g*cm^-3)'// &
@@ -10501,8 +10238,11 @@
                                     'Vmicro (km/s)'// &
                                     '         vx (km/s)'// &
                                     '         vy (km/s)'
+
         ! Height
         else
+
+          ! Write
           write(200,'(A)',err=1100) '*      HEIGHT (km)'// &
                                     '         '// &
                                     'TEMP (K)  dens_e (g*cm^-3)'// &
@@ -10510,23 +10250,29 @@
                                     'Vmicro (km/s)'// &
                                     '         vx (km/s)'// &
                                     '         vy (km/s)'
-        end if
+
+        end if ! Type of height scale
 
         ! For every height
         do iz=1,nZ
+
+          ! Write data
           write(200,'(7(1x,es17.10))',err=1100) Atmo%z(iz)*zfac, &
             Atmo%T(iz),Atmo%ne(iz)*me*1d3,Atmo%vz(iz)*vfac, &
             Atmo%vmi(iz)*vfac,Atmo%vx(iz)*vfac,Atmo%vy(iz)*vfac
-        end do
 
+        end do ! Heights
+
+        ! Write tag
         write(200,'(A)',err=1100) 'rhoe'
-
 
       ! If gas pressure
       else if (typo.eq.4) then
 
         ! Tau
         if (ztau) then
+
+          ! Write
           write(200,'(A)',err=1100) '*    Optical depth'// &
                                     '         '// &
                                     'TEMP (K)     Pg (dyn/cm^2)'// &
@@ -10534,8 +10280,11 @@
                                     'Vmicro (km/s)'// &
                                     '         vx (km/s)'// &
                                     '         vy (km/s)'
+
         ! Height
         else
+
+          ! Write
           write(200,'(A)',err=1100) '*      HEIGHT (km)'// &
                                     '         '// &
                                     'TEMP (K)     Pg (dyn/cm^2)'// &
@@ -10543,23 +10292,29 @@
                                     'Vmicro (km/s)'// &
                                     '         vx (km/s)'// &
                                     '         vy (km/s)'
-        end if
+
+        end if ! Type of theight scale
 
         ! For every height
         do iz=1,nZ
+
+          ! Write data
           write(200,'(7(1x,es17.10))',err=1100) Atmo%z(iz)*zfac, &
             Atmo%T(iz),Atmo%Pg(iz),Atmo%vz(iz)*vfac, &
             Atmo%vmi(iz)*vfac,Atmo%vx(iz)*vfac,Atmo%vy(iz)*vfac
-        end do
 
+        end do ! Heights
+
+        ! Write tag
         write(200,'(A)',err=1100) 'pg'
-
 
       ! If gas mass density
       else if (typo.eq.5) then
 
         ! Tau
         if (ztau) then
+
+          ! Write
           write(200,'(A)',err=1100) '*    Optical depth'// &
                                     '         '// &
                                     'TEMP (K)    dens (g*cm^-3)'// &
@@ -10567,8 +10322,11 @@
                                     'Vmicro (km/s)'// &
                                     '         vx (km/s)'// &
                                     '         vy (km/s)'
+
         ! Height
         else
+
+          ! Write
           write(200,'(A)',err=1100) '*      HEIGHT (km)'// &
                                     '         '// &
                                     'TEMP (K)    dens (g*cm^-3)'// &
@@ -10576,15 +10334,20 @@
                                     'Vmicro (km/s)'// &
                                     '         vx (km/s)'// &
                                     '         vy (km/s)'
-        end if
+
+        end if ! Type of height data
 
         ! For every height
         do iz=1,nZ
+
+          ! Write data
           write(200,'(7(1x,es17.10))',err=1100) Atmo%z(iz)*zfac, &
             Atmo%T(iz),Atmo%rho(iz),Atmo%vz(iz)*vfac, &
             Atmo%vmi(iz)*vfac,Atmo%vx(iz)*vfac,Atmo%vy(iz)*vfac
-        end do
 
+        end do ! Heights
+
+        ! Write tag
         write(200,'(A)',err=1100) 'rho'
 
       end if ! Type of output
@@ -10598,27 +10361,38 @@
       return
 
 1000  umsg = 'Error opening atmospheric model file to write'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
 1100  umsg = 'Error writing atmospheric model file'
       close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
 
       end subroutine wAtmo
+
+!#####################################################################
+!#####################################################################
+!
+! The routines beyond this point have debugging purposes and are not
+! compiled unless specific flags are activated in the compilation.
+! Therefore, they are not documented in the header and do not fully
+! follow the source standard.
+!
+!#####################################################################
+!#####################################################################
 
 #ifdef DEBUGRHO00
 !#####################################################################
 !#####################################################################
 !#####################################################################
 
-      !> Dump rho00 solution into a file.\n
-      !!    Atom(Atom_class(:)): Structure with the atomic data\n
-      !! folder(character(500)): Output folder\n
-      !!          iter(integer): Iteration index
+      !> Dump rho00 solution into a file\n
+      !!     Atom(Atom_class(:)): Structures with atomic data\n
+      !!  folder(character(500)): Output folder\n
+      !!           iter(integer): Iteration index
       subroutine dump_rho00(Atom,folder,iter)
 
-      ! IO
+      ! I/O
       type(Atom_class), dimension(:), intent(in):: Atom
       character(len=500), intent(in):: folder
       integer, intent(in):: iter
@@ -10692,24 +10466,24 @@
 !#####################################################################
 !#####################################################################
 
-      !> Dump integrated J00 into a file.\n
-      !!     Atom(Atom_class(:)): Structure with the atomic data\n
+      !> Dump integrated J00 into a file\n
+      !!     Atom(Atom_class(:)): Structures with the atomic data\n
       !!    J00(double(:,:,:,:)): Mean intensity integrated over
       !!                          absorption profile\n
       !!   J00S(double(:,:,:,:)): Mean intensity integrated over
       !!                          emission profile\n
-      !!     J00P(dfloat(:,:,:)): Intensity integrals in the
+      !!     J00P(double(:,:,:)): Intensity integrals in the
       !!                          photoionization rates
       !!  folder(character(500)): Output folder\n
       !!           iter(integer): Iteration index
       subroutine dump_j00(Atom,J00,J00S,J00P,folder,iter)
 
-      ! IO
+      ! I/O
       type(Atom_class), dimension(:), intent(in):: Atom
       character(len=500), intent(in):: folder
       integer, intent(in):: iter
-      double precision,dimension(nxt,Rz0:Rz1), intent(in):: J00, J00S
-      double precision,dimension(nxphot,2,Rz0:Rz1), intent(in):: J00P
+      double precision, dimension(nxt,Rz0:Rz1), intent(in):: J00, J00S
+      double precision, dimension(nxphot,2,Rz0:Rz1), intent(in):: J00P
 
       ! Local
       character(len=500):: filename
@@ -10785,22 +10559,22 @@
 !#####################################################################
 !#####################################################################
 
-      !> Dump lambda operators into a file.\n
-      !!     Atom(Atom_class(:)): Structure with the atomic data\n
-      !!       LamL(dfloat(:,:)): Lambda operator for bound-bound
+      !> Dump lambda operators into a file\n
+      !!     Atom(Atom_class(:)): Structures with the atomic data\n
+      !!       LamL(double(:,:)): Lambda operator for bound-bound
       !!                          transitions\n
-      !!     LamP(dfloat(:,:,:)): Lambda operator for bound-free
+      !!     LamP(double(:,:,:)): Lambda operator for bound-free
       !!                          transitions\n
       !!  folder(character(500)): Output folder\n
       !!           iter(integer): Iteration index
       subroutine dump_lambda(Atom,LamL,LamP,folder,iter)
 
-      ! IO
+      ! I/O
       type(Atom_class), dimension(:), intent(in):: Atom
       character(len=500), intent(in):: folder
       integer, intent(in):: iter
-      double precision,dimension(nxb,nxt,Rz0:Rz1), intent(in):: LamL
-      double precision,dimension(nxb,nxphot,2,Rz0:Rz1), &
+      double precision, dimension(nxb,nxt,Rz0:Rz1), intent(in):: LamL
+      double precision, dimension(nxb,nxphot,2,Rz0:Rz1), &
                                                      intent(in):: LamP
 
       ! Local
@@ -10868,13 +10642,13 @@
 !#####################################################################
 !#####################################################################
 
-      !> Dump rho solution into a file.\n
-      !!    Atom(Atom_class(:)): Structure with the atomic data\n
+      !> Dump rho solution into a file\n
+      !!    Atom(Atom_class(:)): Structures with the atomic data\n
       !! folder(character(500)): Output folder\n
       !!          iter(integer): Iteration index
       subroutine dump_rho(Atom,folder,iter)
 
-      ! IO
+      ! I/O
       type(Atom_class), dimension(:), intent(in):: Atom
       character(len=500), intent(in):: folder
       integer, intent(in):: iter
@@ -10968,8 +10742,8 @@
 !#####################################################################
 !#####################################################################
 
-      !> Dump rho solution into a file.\n
-      !!     Atom(Atom_class(:)): Structure with the atomic data\n
+      !> Dump rho solution into a file\n
+      !!     Atom(Atom_class(:)): Structures with the atomic data\n
       !!    Bfield(Bfield_blass): Structure with magnetic field
       !!                          data\n
       !!      Flgsg(Fctsg_class): Structure with factorials and
@@ -10982,7 +10756,7 @@
       !!           iter(integer): Iteration index
       subroutine dump_jkq(Atom,Bfield,Flgsg,JKQ,JKQS,folder,iter)
 
-      ! IO
+      ! I/O
       type(Atom_class), dimension(:), intent(in):: Atom
       type(Bfield_class), intent(in):: Bfield
       type(Fctsg_class):: Flgsg
@@ -10997,7 +10771,7 @@
       character(len=500):: filename
       logical:: exists
       integer:: ia,iz,itran,jtran,K,iQ
-      complex(kind=8),dimension(-2:2,0:2,nz):: JKQaux,JKQSaux
+      complex(kind=8), dimension(-2:2,0:2,nz):: JKQaux,JKQSaux
 
       ! Get file name for 1D
       if (run_mode.eq.0) then
@@ -11102,7 +10876,7 @@
 !#####################################################################
 !#####################################################################
 
-      !> Dump rho solution into a file.\n
+      !> Dump rho solution into a file\n
       !!       Atmo(Atmo_class): Structure with atmospheric data\n
       !!   Bfield(Bfield_blass): Structure with magnetic field
       !!                         data\n
@@ -11110,7 +10884,7 @@
       !!          iter(integer): Iteration index
       subroutine dump_atmo(Atmo,Bfield,folder,iter)
 
-      ! IO
+      ! I/O
       type(Atmo_class), intent(in):: Atmo
       type(Bfield_class), intent(in):: Bfield
       character(len=500), intent(in):: folder

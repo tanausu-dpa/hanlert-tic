@@ -5,175 +5,29 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     04/19/2017
+!     19/04/2017
 !  Last version:
-!     11/24/2023 V3.0.8
+!     28/11/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     11/24/2023:    V3.0.8 - Changed the structure of the chemical
-!                             equilibrium (now split in chemeq and
-!                             chemeq_T routines) to implement a
-!                             suggestion from Jaime de la Cruz
-!                             Rodríguez to avoid the negative results
-!                             for small temperatures. It works (TdPA)
-!
-!     08/07/2023:    V3.0.7 - The chemical equilibrium must reduce the
-!                             populations of LTE lines as well, if
-!                             involved in molecules (TdPA)
-!
-!     07/11/2023:    V3.0.6 - Some combinations of temperature and
-!                             number densities can lead to the Newton
-!                             method in chemical equilibrium to
-!                             produce negative populations in atoms
-!                             and molecules that cannot be
-!                             self-corrected, leading to exhausting
-!                             the iterations without hope to converge.
-!                             I have added a "shake-up" snippet of
-!                             code to tackle that. At certain
-!                             iteration steps, the code checks for
-!                             negative populations. It changes the
-!                             populations of molecules with negative
-!                             populations and reduces the populations
-!                             of the rest of molecules until there are
-!                             no negative atomic populations. This
-!                             cannot always solve the issue, so the
-!                             safest bet is to avoid temperatures
-!                             below 2000 K (TdPA)
-!
-!     07/03/2023:    V3.0.5 - The molecular quantities are initialized
-!                             when computing the chemical equilibrium,
-!                             as they are not used elsewhere (TdPA)
-!                           - The electron density is no longer
-!                             recycled, and the equation of state
-!                             expects the actual input variable to
-!                             be defined (TdPA)
-!
-!     03/08/2023:    V3.0.4 - In chemeq, do not signal exhausting the
-!                             iterations if doing inversions, as it
-!                             can lead to significant spam of warning
-!                             lines as it is called more times than in
-!                             synthesis (TdPA)
-!
-!     02/14/2023:    V3.0.3 - Limited chemeq messages to the 1D
-!                             synthesis case. Suggested by Hao (TdPA)
-!
-!     07/13/2022:    V3.0.2 - The resource argument in no longer
-!                             needed in chemeq, eqstate, and
-!                             redo_ne (TdPA)
-!                           - Atmo is now a required argument for
-!                             initializenlte, because it contains
-!                             the number of elements (TdPA)
-!                           - The resource argument in no longer
-!                             neeeded when calling getpf (TdPA)
-!                           - Because getpf does not read files
-!                             anymore, it is not necessary to check
-!                             for failure after calling it (TdPA)
-!                           - Abundances are now taken from the Atmo
-!                             structure and not from the hard-coded
-!                             table in the chemicaux_mod module (TdPA)
-!                           - Number of elements is now taken from
-!                             the Atmo structure and not from the
-!                             chemicaux_mod module (TdPA)
-!
-!     07/08/2022:    V3.0.1 - The message about modified populations
-!                             in the chemical equilibrium is only
-!                             written if the global master is
-!                             participating, that is, in the single
-!                             1D synthesis (TdPA)
-!
-!     06/29/2022:    V3.0.0 - To implement the 1.5D case return
-!                             clauses have been added after every
-!                             call to aborted or control, as well
-!                             as checks to determine is the
-!                             return is necessary (TdPA)
-!                           - Fixed a typo in an error message (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!                           - Removed domain decomposition (TdPA)
-!
-!     11/12/2020:    V1.3.2 - The chemical equilibrium now issues a
-!                             warning if the maximum number of
-!                             iterations is reached and if
-!                             negative populations are obtained (TdPA)
-!
-!     09/11/2020:    V1.3.1 - eqstate and redo_ne now take depar as
-!                             argument and pass it along to other
-!                             subroutines (TdPA)
-!                           - redo_ne takes into account departure
-!                             coefficients to compute electron
-!                             contributions if provided (TdPA)
-!                           - initializenlte and activenlte take
-!                             into account the possibility to input
-!                             departure coefficients instead of atomic
-!                             populations (TdPA)
-!
-!     03/05/2020:    V1.3.0 - Chemeq now takes into account the
-!                             different ways of working with Hydrogen,
-!                             as well as the option to protect it
-!                             from reducing its population by
-!                             molecules (TdPA)
-!                           - Limited the repetition of the message
-!                             about atoms without neutral stage in
-!                             chemeq (TdPA)
-!                           - Added possibility to protect atomic
-!                             populations from changing properly, that
-!                             is, consistently with the equations to
-!                             be solved in chemeq (TdPA)
-!                           - Removed correction for charged molecules
-!                             in chemeq because I am not sure it
-!                             should be there (TdPA)
-!                           - Bugfix: In chemeq, one should check the
-!                             absolute change, not the change itself,
-!                             in order to decide if converged (TdPA)
-!                           - Severely changed eqstate, now it takes
-!                             into account your inputs for nlte
-!                             populations (TdPA)
-!                           - Added redo_ne routine (TdPA)
-!                           - Added initializenlte routine (TdPA)
-!                           - Added activatenlte routine (TdPA)
-!
-!     01/14/2020:    V1.2.2 - In eqstate, forgot that recallabund
-!                             already gives abundances in fractions
-!                             and not in 12 + log10 (TdPA)
-!
-!     11/19/2019:    V1.2.1 - Removed checks in allocate and
-!                             deallocate calls (TdPA)
-!
-!     09/26/2019:    V1.2.0 - Added eqstate subroutine, that computes
-!                             the hydrogen and electron number
-!                             density from electron number density,
-!                             electron pressure, electron density,
-!                             gas pressure, or gas density (TdPA)
-!
-!     04/08/2019:    V1.1.1 - Change for compatibility with new
-!                             getpf arguments (TdPA)
-!
-!     02/20/2019:    V1.1.0 - New verbosity (TdPA)
-!
-!     12/18/2017:    V1.0.4 - Added explicit dependency of
-!                             parameters_mod (TdPA)
-!
-!     09/15/2017:    V1.0.3 - Receiving Input%resource (TdPA)
-!
-!     07/20/2017:    V1.0.2 - Moved some parameters to simple
-!                             variables (TdPA)
-!
-!     05/01/2017:    V1.0.1 - Limiting calculations to the height
-!                             range of each processor (TdPA)
-!
-!     04/19/2017:    V1.0.0 - First version (TdPA)
+!     28/11/2024:    V4.0.0 - Updated calls to abortedS to not include
+!                             thread information (TdPA)
 !
 !#####################################################################
 !#####################################################################
 !
 !  Known bugs:
+!
+!#####################################################################
+!#####################################################################
+!
+!  To do:
 !
 !#####################################################################
 !#####################################################################
@@ -192,22 +46,25 @@
 !  Data:
 !
 !  chemeq
-!    This subroutine calculates chemical equilibrium with molecules
+!    Calculate chemical equilibrium, set molecular populations, and
+!  modify atomic populations
 !
 !  chemeq_T
-!     Solve the actual chemical equilibrium for a given temperature
+!    Solve the system of equations for the chemical equilibrium for
+!  a given temperature
 !
 !  eqstate
-!    Computes number densities of electrons and hydrogen from
-!  pressure/densities (gas or electron)
+!    Solve the equation of state with the Wittmann method as in the
+!  SIR code
 !
 !  redo_ne
-!    Recalculate the electron density from temperature and other
-!  atom densities (LTE if not in atom list)
+!    Recalculate the electron number density from temperature and
+!  other other atomic number densities (LTE if not specified in input)
 !
 !  initializenlte
-!    Allocates and initializes the nlte array, with information of
-!  what atomic populations are available
+!    Allocates and initializes the nlte and depar arrays, with
+!  information on what atomic populations or departure coefficients
+!  are available
 !
 !  actiavenlte
 !    Set all active atoms as available in terms of populations
@@ -238,22 +95,22 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes the chemical equilibrium to get the molecular
-      !! populations, and modifies the atomic populations if
-      !! necessary\n
-      !!        Atom(Atom_class): Structure with the atomic data\n
-      !!       Atomb(Atom_class): Structure with the atomic data for
-      !!                          background opacities\n
-      !! LTElines(LTEline_class): Structure with the LTE line data\n
-      !!          Mol(Mol_class): Structure with the molecule data\n
-      !!        Atmo(Atmo_class): Structure with atmospheric data
+      !> Calculate chemical equilibrium, set molecular populations,
+      !! and modify atomic populations\n
+      !!        Atom(Atom_class(:)): Structures with atomic data\n
+      !!       Atomb(Atom_class(:)): Structures with atomic data for
+      !!                             background atoms\n
+      !! LTElines(LTEline_class(:)): Structures with LTE line data\n
+      !!          Mol(Mol_class(:)): Structures with molecular data\n
+      !!           Atmo(Atmo_class): Structure with atmospheric data
       subroutine chemeq(Atom,Atomb,LTElines,Mol,Atmo)
 
       ! I/O
 
       type(Atom_class), dimension(:), intent(inout):: Atom
       type(Atom_class), dimension(:), intent(inout):: Atomb
-      type(LTEline_class), dimension(:), allocatable:: LTElines
+      type(LTEline_class), dimension(:), &
+                           intent(inout), allocatable:: LTElines
       type(Mol_class), dimension(:), intent(inout):: Mol
       type(Atmo_class), intent(inout):: Atmo
 
@@ -287,7 +144,7 @@
       minT = 3.0d3
       minT2 = 2.0d3
 
-      ! Initialize
+      ! Initialize warning flags
       warning = .True.
       nwarning = .True.
 
@@ -329,29 +186,39 @@
             ! For each atom already listed
             do iatom1=1,natom
 
-              ! If the atom was in the list, at the molecular
-              ! information
+              ! If the atom was in the list
               if (Mol(imol)%catom(iatom)%s.eq.atoms(iatom1)%s) then
 
+                ! Add molecular information to the atom
                 atoms(iatom1)%pnmol = atoms(iatom1)%pnmol + 1
                 atoms(iatom1)%imol(atoms(iatom1)%pnmol) = imol
                 atoms(iatom1)%nmol(atoms(iatom1)%pnmol) = &
                                                 Mol(imol)%natom(iatom)
+
+                ! Unflag not-found
                 nfound = .False.
 
                 ! And tell the molecule which atom it was
                 Mol(imol)%iatom(iatom) = iatom1
+
+                ! And stop searching
                 exit
 
-              end if
+              end if ! Atom in the list
 
-            end do ! atoms in the list
+            end do ! atoms already listed
 
-            ! If not in the list, then add it
+            ! If not in the list
             if (nfound) then
 
-              ! Run the index and fill its information
+              !
+              ! Add it
+              !
+
+              ! Advance index
               natom = natom + 1
+
+              ! Fill information
               allocate(atoms(natom)%imol(nM))
               atoms(natom)%imol(nM) = 0
               allocate(atoms(natom)%nmol(nM))
@@ -361,46 +228,68 @@
               atoms(natom)%imol(1) = imol
               atoms(natom)%nmol(1) = Mol(imol)%natom(iatom)
 
-              ! Look for the abundance in the list of active atoms
+              ! Initialize not found
               nfound = .True.
+
+              ! In the list of active atoms
               do ia=1,nA
 
+                ! If same atom
                 if (atoms(natom)%s.eq.Atom(ia)%Element) then
+
+                  ! Unflag not-found
                   nfound = .False.
+
+                  ! Take abundance from model
                   atoms(natom)%inmod = .True.
                   atoms(natom)%abun = Atom(ia)%abun
+
+                  ! Stop searching
                   exit
-                end if
 
-              end do
+                end if ! Same atom
 
-              ! If not found, look in the background atoms
+              end do ! Active atoms
+
+              ! If not found yet
               if (nfound) then
+
+                ! In the list of passive atoms
                 do ia=1,nAb
 
+                  ! If same atom
                   if (atoms(natom)%s.eq.Atomb(ia)%Element) then
+
+                    ! Unflag not found
                     nfound = .False.
+
+                    ! Take abundance from model
                     atoms(natom)%inmod = .True.
                     atoms(natom)%abun = Atomb(ia)%abun
+
+                    ! Stop searching
                     exit
-                  end if
 
-                end do
-              end if
+                  end if ! Same atom
 
-              ! If not found, look in the table
+                end do ! Passive atoms
+
+              end if ! Not found yet
+
+              ! If not found
               if (nfound) then
 
+                ! Flag no model and look in the tabulation
                 atoms(natom)%inmod = .False.
                 atoms(natom)%abun = &
                     Atmo%abund(atom_char2index(atoms(natom)%s))
 
-              end if
+              end if ! Atom not found
 
-              ! And tell the molecule which atom it was
+              ! Tell the molecule which atom it was
               Mol(imol)%iatom(iatom) = natom
 
-            end if
+            end if ! The atom was in the list of atoms
 
           end do ! Components of the molecule
         end do ! Molecule
@@ -413,11 +302,12 @@
         ! Hydrogen (if not in molecule) and Molecules
         neq = natom + nM
 
-        ! Allocate variables
+        ! Allocate and initialize solution arrays
         ! Solution
         allocate(xx(neq),xxT(neq))
         xxT = 0d0
-        ! Indexing of the atoms in the system
+
+        ! Allocate and initialize indexing of the atoms in the system
         allocate(atom_index(natom,2))
         atom_index = -1
 
@@ -431,27 +321,33 @@
           ! Look for it between the active atoms
           do ia=1,nA
 
+            ! If element involved
             if (Atom(ia)%Element.eq.atoms(iatom)%s) then
+
+              ! Save index and type
               atom_index(iatom,1) = ia
               atom_index(iatom,2) = 1
               exit
-            end if
 
-          end do
+            end if ! Element involved
 
-          ! Look for it between the background atoms
+          end do ! Active atoms
+
+          ! Look for it between the passive atoms
           do ia=1,nAb
 
+            ! If element involved
             if (Atomb(ia)%Element.eq.atoms(iatom)%s) then
+
+              ! Save index and type
               atom_index(iatom,1) = ia
               atom_index(iatom,2) = 2
               exit
-            end if
 
-          end do
+            end if ! Element involved
 
-        end do ! Atoms in the SoE
-
+          end do ! Passive atoms
+        end do ! Atoms in the system of equations
 
 
         !
@@ -471,6 +367,7 @@
                           nres_opt,mrc_chem,c0,iz,.True., &
                           minT,xx,xxT)
 
+            ! If temperature even smaller
             if (Atmo%T(iz).lt.minT2) then
 
               ! Solve for T
@@ -485,7 +382,7 @@
 
             end if
 
-            ! Solve for T
+            ! Solve for actual T
             call chemeq_T(Atom,Atomb,Mol,Atmo,natom,nmol,neq, &
                           atoms,atom_index,warning,nwarning, &
                           max_it_chem,check_it_chem,check_it_res, &
@@ -510,7 +407,7 @@
           ! and molecules
           !
 
-          ! For each atom, if it is loaded, modify its population
+          ! For each atom
           do iatom=1,natom
 
             ! Check if it has model
@@ -522,53 +419,65 @@
               ! If it is active
               if (atom_index(iatom,2).eq.1) then
 
-                ! If protected, skip
+                ! If protected
                 if (Atom(ia)%mol_protect) then
+
+                  ! Verbose if master in 1D synthesis and first time
                   if (iz.eq.1.and.pid.eq.0.and.run_mode.eq.0) then
                     umsg = ' - '//atoms(iatom)%s// &
                            ' is in molecules, but its '// &
                            ' read population was kept'
                     call verbose
                   end if
-                  cycle
-                end if
 
+                  ! Skip correction
+                  cycle
+
+                end if ! Protected
+
+                ! Calculate and apply fraction of population
                 frac = xx(iatom)/Atom(ia)%n(iz)
                 Atom(ia)%popu(:,iz) = Atom(ia)%popu(:,iz)*frac
                 Atom(ia)%populte(:,iz) = Atom(ia)%populte(:,iz)*frac
                 Atom(ia)%n(iz) = xx(iatom)
 
-              ! If it is background
+              ! If it is a background atom
               else if (atom_index(iatom,2).eq.2) then
 
-                ! If protected, skip
+                ! If protected
                 if (Atomb(ia)%mol_protect) then
+
+                  ! Verbose if master in 1D synthesis and first time
                   if (iz.eq.1.and.pid.eq.0.and.run_mode.eq.0) then
                     umsg = ' - Atom '//atoms(iatom)%s// &
                            ' is in molecules, but the '// &
                            'read populations were kept'
                     call verbose
                   end if
-                  cycle
-                end if
 
+                  ! Skip correction
+                  cycle
+
+                end if ! Protected
+
+                ! Calculate and apply fraction of population
                 frac = xx(iatom)/Atomb(ia)%n(iz)
                 Atomb(ia)%popu(:,iz) = Atomb(ia)%popu(:,iz)*frac
                 Atomb(ia)%populte(:,iz) = Atomb(ia)%populte(:,iz)*frac
                 Atomb(ia)%n(iz) = xx(iatom)
 
-              end if
+              end if ! Active or background atom
 
-              ! Notify the change
+              ! If master in 1D synthesis and first time, verbose
               if (iz.eq.1.and.gpid.eq.0.and.run_mode.eq.0) then
                 umsg = ' - Population of '//atoms(iatom)%s// &
                        ' modified by molecules'
                 call verbose
               end if
 
-            end if
+            end if ! If the atom has a model
 
-          end do
+          end do ! For all involved atoms
 
           ! If LTE lines and allocated
           if (nLTEl.gt.0.and.allocated(LTElines)) then
@@ -576,6 +485,7 @@
             ! For each LTE line
             do ia=1,nLTEl
 
+              ! Get name of element
               sname = atom_index2char(LTElines(ia)%ele)
 
               ! For each atom in chemical eq.
@@ -584,7 +494,7 @@
                 ! If same atom
                 if (atoms(iatom)%s.eq.sname) then
 
-                  ! Get population
+                  ! Substitute population
                   LTElines(ia)%n(iz) = xx(iatom)
 
                 end if
@@ -607,23 +517,27 @@
       ! If no molecules, calculate just Hminus
       else
 
+        ! For every height
         do iz=1,nz
 
+          ! H- constant
           phiHm = .25d6*((C0/Atmo%T(iz))**(1.5d0))* &
                   exp(8.74980963338d3/Atmo%T(iz))
+
+          ! Get number density
           Atmo%nHm(iz) = Atmo%ne(iz)*Atmo%nHT(iz)*phiHm
 
-        end do
+        end do ! Heights
 
-      end if
+      end if ! If there are molecules
 
-      ! Free molecule data
+      ! If 1D synthesis
       if (run_mode.eq.0) then
 
         ! For each molecule
         do imol=1,nM
 
-          ! Free constants
+          ! Free molecular data
           deallocate(Mol(imol)%eqcoeff)
 
         end do
@@ -641,32 +555,34 @@
 !#####################################################################
 !#####################################################################
 
-      !> Solve the actual chemical equilibrium for a given
-      !! temperature\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!         Atomb(Atom_class): Structure with the atomic data for
-      !!                            background opacities\n
-      !!            Mol(Mol_class): Structure with the molecule data\n
+      !> Solve the system of equations for the chemical equilibrium
+      !! for a given temperature\n
+      !!       Atom(Atom_class(:)): Structures with atomic data\n
+      !!      Atomb(Atom_class(:)): Structures with atomic data for
+      !!                            background atoms\n
+      !!         Mol(Mol_class(:)): Structures with molecular data\n
       !!          Atmo(Atmo_class): Structure with atmospheric data\n
       !!            natom(integer): Number of different atoms\n
       !!  atom_index(integer(:,:)): Indexing of atoms\n
       !!             nmol(integer): Number of different molecules\n
       !!              neq(integer): Number of equations\n
-      !! atoms(catm_class(2*nmol)): Atmic data for equations\n
+      !!      atoms(catm_class(:)): Atomic data for equations\n
       !!          warning(logical): If to issue warning for all\n
-      !!         nwarning(logical): If to issue warning for not inv\n
+      !!         nwarning(logical): If to issue warning for solution
+      !!                            issue\n
       !!      max_it_chem(integer): Maximum number of iterations\n
       !!    check_it_chem(integer): Iterations to check physics\n
-      !!     check_it_res(integer): Number of resets\n
+      !!     check_it_res(integer): Number of resets allowed\n
       !!         nres_opt(integer): Type of reset to try first\n
       !!          mrc_chem(dfloat): Maximum relative change to
       !!                            achieve\n
       !!                C0(dfloat): Constant needed in equations\n
       !!               iz(integer): Height index\n
-      !!             diss(logical): Initialize full dissociation\n
-      !!                 T(dfloat): Temperature\n
-      !!                xx(dfloat): Initial solution\n
-      !!                xx(dfloat): Solution
+      !!             diss(logical): If to initialize full
+      !!                            dissociation\n
+      !!                 T(double): Temperature\n
+      !!               xx0(double): Initial solution\n
+      !!                xx(double): Solution
       subroutine chemeq_T(Atom,Atomb,Mol,Atmo,natom,nmol, &
                           neq,atoms,atom_index,warning,nwarning, &
                           max_it_chem,check_it_chem,check_it_res, &
@@ -715,7 +631,7 @@
 
       end do ! Molecules
 
-      ! For all atoms
+      ! For all involved atoms atoms
       do iatom=1,natom
 
         ! Get the partition function of this atom
@@ -723,7 +639,7 @@
                      atoms(iatom)%pfs,atoms(iatom)%Eion, &
                      Atmo,T)
 
-      end do
+      end do ! Involved atoms
 
 
       !
@@ -738,44 +654,70 @@
       ! For each atom in the SoE
       do iatom=1,natom
 
+        !
         ! Independent element
+        !
+
         ! If Hydrogen
         if (iatom.eq.1) then
 
           ! If there is a model
           if (atoms(iatom)%inmod) then
 
-            ! Get model
+            ! If active atom
             if (atom_index(iatom,2).eq.1) then
+
+              ! Get model
               Atom_l = Atom(atom_index(iatom,1))
+
+            ! If passive atom
             else if (atom_index(iatom,2).eq.2) then
+
+              ! Get model
               Atom_l = Atomb(atom_index(iatom,1))
+
+            ! No model
             else
+
+              ! Critical error
               umsg = 'Something went wrong when '// &
                      'indexing the atoms in chemical '// &
                      'equilibrium'
               urou = 'chemeq_T'
               call aborted
               return
-            end if
+
+            end if ! Type of model
 
             ! If protected
             if (Atom_l%mol_protect) then
+
+              ! Take population from model
               bb(iatom) = Atom_l%n(iz)
+
             ! If not protected
             else
+
+              ! Take population from atmosphere
               bb(iatom) = Atmo%nHt(iz)
-            end if
+
+            end if ! Protected
 
           ! If no model
           else
+
+            ! Get population from atmosphere
             bb(iatom) = Atmo%nHt(iz)
-          end if
+
+          end if ! If there is model
 
         ! Any other element
         else
+
+          ! Get population from abundance and atmospheric hydrogen
           bb(iatom) = atoms(iatom)%abun*Atmo%nHT(iz)
-        end if
+
+        end if ! Hydrogen or other element
 
 
         !
@@ -785,26 +727,44 @@
         ! Initialize the not found flag
         nfound = .True.
 
-        ! If the atom has a model, store it in the local variable
+        ! If the atom has a model
         if (atoms(iatom)%inmod) then
 
+          ! If active atom
           if (atom_index(iatom,2).eq.1) then
+
+            ! Get model
             Atom_l = Atom(atom_index(iatom,1))
+
+          ! If passive atom
           else if (atom_index(iatom,2).eq.2) then
+
+            ! Get model
             Atom_l = Atomb(atom_index(iatom,1))
+
+          ! No model
           else
+
+            ! Critical error
             umsg = 'Something went wrong when '// &
                    'indexing the atoms in chemical '// &
                    'equilibrium'
             urou = 'chemeq_T'
             call aborted
             return
-          end if
 
-          ! Check that the model have neutral stage
+          end if ! Type of model
+
+          ! If atom has neutral stage
           if (Atom_l%stage(1).eq.1) then
+
+            ! Unflag not found
             nfound = .False.
+
+          ! The atom does not have neutral stage
           else
+
+            ! The master issues a warning the first time
             if (pid.eq.0.and.iz.eq.1) then
               umsg = ' - The atomic model for atom '// &
                      atoms(iatom)%s//' does not have'// &
@@ -816,10 +776,10 @@
           end if ! Model has neutral
         end if ! There is model
 
-        ! If we don't have the necessary populations, use
-        ! partition functions to calculate the fractions
+        ! Missing the necessary populations
         if (nfound) then
 
+          ! Use partition functions to calculate the fractions
           call getfrc(atoms(iatom)%nstg,atoms(iatom)%pfs(:), &
                       atoms(iatom)%Eion,T,Atmo%ne(iz), &
                       -1,frc(:,iatom))
@@ -827,23 +787,33 @@
         ! If we have the populations, use them
         else
 
+          ! Initialize level index
           ilevel = 0
+
+          ! For each term
           do iterm=1,Atom_l%nMulti
+
+            ! Stop if beyond the single ionized species
             if (Atom_l%stage(iterm).gt.2) exit
+
+            ! For each sublevel
             do iJ=1,Atom_l%nJ(iterm)
 
+              ! Advance index
               ilevel = ilevel + 1
 
+              ! Add population to fraction (numerator)
               frc(Atom_l%stage(iterm),iatom) = &
                               frc(Atom_l%stage(iterm),iatom) + &
                               Atom_l%popu(ilevel,iz)
 
-            end do
-          end do
+            end do ! Sublevels
+          end do ! Term
 
+          ! Compute fraction
           frc(:,iatom) = frc(:,iatom)/Atom_l%n(iz)
 
-        end if
+        end if ! If populations available or not
 
       end do ! atoms in molecules
 
@@ -862,7 +832,7 @@
         ! Initial solution, complete dissociation
         xx = bb
 
-      ! No dissociated
+      ! Not initializing dissociated
       else
 
         ! Take provided solution
@@ -880,21 +850,34 @@
 
         ! If has model
         if (atoms(iatom)%inmod) then
+
+          ! Active atom
           if (atom_index(iatom,2).eq.1) then
+
+            ! Get model
             Atom_l = Atom(atom_index(iatom,1))
+
+          ! Passive atom
           else if (atom_index(iatom,2).eq.2) then
+
+            ! Get model
             Atom_l = Atomb(atom_index(iatom,1))
+
+          ! No model
           else
+
+            ! Issue error
             umsg = 'Something went wrong when '// &
                    'indexing the atoms in chemical '// &
                    'equilibrium'
             urou = 'chemeq_T'
             call aborted
             return
-          end if
+
+          end if ! Type of model
         end if ! Has model
 
-        ! Check if protected
+        ! If protected, get population from model
         if (Atom_l%mol_protect) xx(iatom) = Atom_l%n(iz)
 
       end do ! Atoms in SoE
@@ -914,9 +897,7 @@
 
         ! Diagonal is identity
         do ieq=1,neq
-
           aap(ieq,ieq) = 1d0
-
         end do
 
         ! Add Hminus to the Hydrogen row
@@ -957,7 +938,10 @@
           phil = phil/((Atmo%ne(iz))**Mol(imol)%Charge)
           aa(ieq) = aa(ieq) - phil
 
+          !
           ! Derivative
+
+          ! Atoms in molecule
           do ia=1,Mol(imol)%nA
 
             ! Ask which atom it is in the list
@@ -969,7 +953,7 @@
             ! Contribution due to atom in the molecule row
             aap(ieq,iatom) = -phil*Mol(imol)%natom(ia)/xx(iatom)
 
-          end do
+          end do ! Atom in molecule
 
         end do ! Molecules
 
@@ -982,26 +966,42 @@
 
           ! If has model
           if (atoms(iatom)%inmod) then
+
+            ! Active atom
             if (atom_index(iatom,2).eq.1) then
+
+              ! Get model
               Atom_l = Atom(atom_index(iatom,1))
+
+            ! Passive atom
             else if (atom_index(iatom,2).eq.2) then
+
+              ! Get model
               Atom_l = Atomb(atom_index(iatom,1))
+
+            ! No model
             else
+
+              ! Issue warning
               umsg = 'Something went wrong when '// &
                      'indexing the atoms in chemical '// &
                      'equilibrium'
               urou = 'chemeq_T'
               call aborted
               return
-            end if
+
+            end if ! Type of model
           end if ! Has model
 
-          ! Check if protected
+          ! If protected
           if (Atom_l%mol_protect) then
+
+            ! Trivial row in system of equations
             aap(iatom,:) = 0d0
             aap(iatom,iatom) = 1d0
             aa(iatom) = 0d0
-          end if
+
+          end if ! Protected
 
         end do ! Atoms in SoE
 
@@ -1013,33 +1013,40 @@
 
         ! And calculate the MRC
         do ieq=1,neq
-
           if (abs(xx(ieq)).gt.1d-30) aa(ieq) = aa(ieq)/xx(ieq)
-
         end do
 
-        ! If we reached convergence, go out
+        ! If we reached convergence, leave
         if (maxval(abs(aa)).lt.mrc_chem.and.minval(xx).ge.0d0) &
           exit
 
-        ! Warning iterations
+        ! If maximum iterations, can warn, and master
         if (iter.eq.max_it_chem.and.nwarning.and.pid.eq.0) then
+
+          ! If negative solution
           if (minval(xx).lt.0d0) then
+
+            ! Issue error
             umsg = 'Negative fractions obtained in '// &
                    'chemical equilibrium'
             urou = 'chemeq_T'
-            call abortedS(umsg,urou,-1,.True.,.True.)
+            call abortedS(umsg,urou,.True.,.True.)
             nwarning = .False.
             warning = .False.
             cycle
+
+          ! If not in inversion and can warn
           else if (warning.and.run_mode.ne.-1) then
+
+            ! Notify warning
             umsg = 'Maximum number of iterations reached '//&
                    'in the chemical equilibrium'
             urou = 'chemeq_T'
-            call abortedS(umsg,urou,-1,.False.,.True.)
+            call abortedS(umsg,urou,.False.,.True.)
             warning = .False.
             cycle
-          end if ! Negative solution
+
+          end if ! Negative solution or limit iterations
 
         ! Last iteration
         else if (iter.eq.max_it_chem) then
@@ -1248,11 +1255,11 @@
       end do ! Iterations
 
       !
-      ! Store Hm density
+      ! Store Hm density in atmospheric model
       !
       Atmo%nHm(iz) = Atmo%ne(iz)*xx(1)*phiHm
 
-      ! Free
+      ! Free auxiliar variables
       do iatom=1,natom
         deallocate(atoms(iatom)%pfs,atoms(iatom)%Eion)
       end do
@@ -1265,24 +1272,23 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes the equation of state with the Wittmann method
-      !! as in the SIR code, to go from densities/pressures to number
-      !! densities of H and electrons\n
-      !!        Atmo(Atmo_class): Structure with atmospheric data\n
-      !!        Atom(Atom_class): Structure with the atomic data\n
-      !!       Atomb(Atom_class): Structure with the atomic data for
-      !!                          background opacities\n
-      !!        nlte(integer(:)): Array with information about
-      !!                          loaded populations\n
-      !!       depar(integer(:)): Array with information about
-      !!                          loaded departure coefficients
+      !> Solve the equation of state with the Wittmann method as in
+      !! the SIR code\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atoms\n
+      !!      nlte(integer(:)): Array with information about
+      !!                        loaded populations\n
+      !!     depar(integer(:)): Array with information about
+      !!                        loaded departure coefficients
       subroutine eqstate(Atmo,Atom,Atomb,nlte,depar)
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom, Atomb
+      type(Atom_class), dimension(:), intent(inout):: Atom,Atomb
       type(Atmo_class), intent(inout):: Atmo
-      integer, dimension(:), intent(in):: nlte, depar
+      integer, dimension(:), intent(in):: nlte,depar
 
       ! Local
 
@@ -1292,7 +1298,8 @@
 
       double precision:: kbcgs,ikbcgs,Watom,Aatom,daux
 
-      ! Inverse of Boltzmann in cgs
+
+      ! Inverse of Boltzmann constant in cgs
       kbcgs = kb*1d7
       ikbcgs = 1d-7/kb
 
@@ -1304,72 +1311,95 @@
       ! Allocate partition function
       allocate(atoms(natom))
 
-      ! Get partition functions
+      ! For every atom
       do ia=1,natom
+
+        ! Get name, abundance, and partition functions
         atoms(ia)%s = atom_index2char(ia)
         atoms(ia)%abun = Atmo%abund(ia)
         call getpf(atoms(ia)%s, atoms(ia)%nstg, atoms(ia)%pf, &
                    atoms(ia)%Eion, Atmo)
 
-        ! For each height and stage, convert to linear partition
+        ! For each height
         do iz=1,nz
+
+          ! For each stage
           do istg=1,atoms(ia)%nstg
+
+            ! Make partition function linear
             atoms(ia)%pf(istg,iz) = exp(atoms(ia)%pf(istg,iz))
-          end do
-        end do
+
+          end do ! Stages
+        end do ! Heights
 
         ! Convert energy to eV
         atoms(ia)%Eion = atoms(ia)%Eion*fktoev
 
-      end do
+      end do ! Atoms
 
-      ! Allocate
+
+      !
+      ! Allocations
+      !
 
       ! Electron Pressure
       if (.not.allocated(Atmo%Pe)) then
         allocate(Atmo%Pe(nZ))
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo%Pe)
         Atmo%Pe = 0d0
       end if
 
       ! Gas Pressure
       if (.not.allocated(Atmo%Pg)) then
         allocate(Atmo%Pg(nZ))
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo%Pg)
         Atmo%Pg = 0d0
       end if
 
-      ! Density
+      ! Mass density
       if (.not.allocated(Atmo%rho)) then
         allocate(Atmo%rho(nZ))
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo%rho)
         Atmo%rho = 0d0
       end if
 
-      ! For each contribution
+      ! For each atomic contribution
       do ia=1,natom
+
+        ! Get abundance
         daux = Atmo%abund(ia)
+
+        ! Get mass times abundance
         Watom = Watom + recallmass_ind(ia)*daux
+
+        ! Add abundance
         Aatom = Aatom + daux
-      end do
+
+      end do ! Atomic contributions
 
       ! If only here because you want to output an atmospheric file
       if (Atmo%typo.eq.0) then
 
-        ! Compute pressure
+        ! Compute electron pressure
         Atmo%Pe = Atmo%ne*kbcgs*Atmo%T
 
-        ! Compute partial pressures
+        ! Solve equation of state
         call eqstate_known(Atmo,Atom,Atomb,nlte,depar,atoms)
 
         ! Preliminar rho
         Atmo%rho = Atmo%Pg/Atmo%T
         Atmo%rho = Atmo%rho*ikbcgs/Avog
 
-        ! For each height, get density
+        ! For each height
         do iz=1,nz
+
+          ! Get mass density
           daux = Watom/(Aatom + Atmo%Pe(iz)/Atmo%Pg(iz))
           Atmo%rho(iz) = Atmo%rho(iz)*daux
-        end do
 
-      ! If an electronic quantity if given
+        end do ! Heights
+
+      ! If an electronic quantity is given
       else if (Atmo%typo.le.3) then
 
         ! If number density
@@ -1385,60 +1415,71 @@
           urou = 'eqstate'
           umsg = 'Eq. of state called with Pe or rhoe, not '// &
                  'supposed to happen'
-          call abortedS(umsg,urou,-1,.True.,.True.)
+          call abortedS(umsg,urou,.True.,.True.)
           call control
           return
 
         end if ! Type of electron input
 
+        ! Solve equation of state
         call eqstate_ele(Atmo,Atom,Atomb,nlte,depar,atoms)
 
         ! Preliminar rho
         Atmo%rho = Atmo%Pg/Atmo%T
         Atmo%rho = Atmo%rho*ikbcgs/Avog
 
-        ! For each height, get density
+        ! For each height
         do iz=1,nz
+
+          ! Get mass density
           daux = Watom/(Aatom + Atmo%Pe(iz)/Atmo%Pg(iz))
           Atmo%rho(iz) = Atmo%rho(iz)*daux
-        end do
+
+        end do ! Heights
 
       ! If gas pressure
       else if (Atmo%typo.eq.4) then
 
+        ! Solve equation of state
         call eqstate_gas(Atmo,Atom,Atomb,nlte,depar,atoms)
 
         ! Preliminar rho
         Atmo%rho = Atmo%Pg/Atmo%T
         Atmo%rho = Atmo%rho*ikbcgs/Avog
 
-        ! For each height, compute density
+        ! For each height
         do iz=1,nz
+
+          ! Get mass density
           daux = Watom/(Aatom + Atmo%Pe(iz)/Atmo%Pg(iz))
           Atmo%rho(iz) = Atmo%rho(iz)*daux
-        end do
 
-      ! If density
+        end do ! Heights
+
+      ! If mass density
       else if (Atmo%typo.eq.5) then
 
-        ! Stimate density
+        ! Stimate gass pressure
         daux = Avog*kbcgs*Aatom/Watom
         Atmo%Pg = Atmo%rho*Atmo%T*daux
 
         ! Iterate
         do iter=1,maxiter
 
-          ! Compute Pe
+          ! Solve equation of state
           call eqstate_gas(Atmo,Atom,Atomb,nlte,depar,atoms)
 
           ! Preliminar Pg
           Atmo%Pg = Atmo%rho*Atmo%T
           Atmo%Pg = Atmo%Pg*kbcgs*Avog
 
-          ! For each height, compute density
+          ! For each height
           do iz=1,nz
+
+            ! Compute density
             daux = Watom/(Aatom + Atmo%Pe(iz)/Atmo%Pg(iz))
             Atmo%Pg(iz) = Atmo%Pg(iz)/daux
+
           end do ! Heights
         end do ! Iterations
 
@@ -1457,29 +1498,31 @@
 !#####################################################################
 !#####################################################################
 
-      !> Recalculate the electron density from temperature and
-      !! other atom densities (LTE if not specified in input)\n
-      !!        Atom(Atom_class): Structure with the atomic data\n
-      !!       Atomb(Atom_class): Structure with the atomic data for
-      !!                          background opacities\n
-      !!        nlte(integer(:)): Array with information about
-      !!                          loaded populations\n
-      !!       depar(integer(:)): Array with information about
-      !!                          loaded departure coefficients\n
-      !!        Atmo(Atmo_class): Structure with atmospheric data
+      !> Recalculate the electron number density from temperature and
+      !! other atomic number densities (LTE if not specified in
+      !! input)\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atoms\n
+      !!      nlte(integer(:)): Array with information about loaded
+      !!                        populations\n
+      !!     depar(integer(:)): Array with information about loaded
+      !!                        departure coefficients\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data
       subroutine redo_ne(Atom,Atomb,nlte,depar,Atmo)
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom, Atomb
+      type(Atom_class), dimension(:), intent(in):: Atom,Atomb
       type(Atmo_class), intent(inout):: Atmo
-      integer, dimension(:), intent(in):: nlte, depar
+      integer, dimension(:), intent(in):: nlte,depar
 
       ! Local
 
       type(catm_class), dimension(:), allocatable:: atoms
 
       logical:: active
+
       integer:: natom,iatom,ia,istg,iterm,iJ,ilevel,iter,iz,Mstg
 
       double precision:: C0,ikb,T,iT,ikT,np,nea,ne,ne0,dne,nht,nha
@@ -1507,10 +1550,13 @@
 
       ! For each contribution
       do ia=1,natom
+
+        ! Sum mass and mass times abundance
         daux = Atmo%abund(ia)
         Watom = Watom + recallmass_ind(ia)*daux
         Aatom = Aatom + daux
-      end do
+
+      end do ! Atomic contributions
 
       ! Allocate partition function
       allocate(atoms(natom))
@@ -1519,20 +1565,21 @@
       ! Prepare atoms
       !
 
-      ! Get partition function and compute ionization fraction
+      ! For each atom
       do ia=1,natom
 
+        ! Get name, abundance, and partition function
         atoms(ia)%s = atom_index2char(ia)
         atoms(ia)%abun = Atmo%abund(ia)
         call getpf(atom_index2char(ia),atoms(ia)%nstg,atoms(ia)%pf, &
                    atoms(ia)%Eion,Atmo)
 
-      end do
+      end do ! Atoms
 
       ! For each height
       do iz=1,nz
 
-        ! Local temperature and proton density
+        ! Local temperature and densities
         T = Atmo%T(iz)
         iT = 1d0/T
         ikT = ikb*iT
@@ -1545,7 +1592,7 @@
         ! Hydrogen in it
         if (nlte(1).eq.0.and.Atmo%typo.ne.0) then
 
-          ! Get partition
+          ! Get electron from hydrogen partition function
           U0 = atoms(1)%pf(1,iz)
           arg = U0 + atoms(1)%Eion(1)*ikT
           if (arg.lt.0d0) then
@@ -1575,11 +1622,14 @@
           ! For every atomic index in the database
           do iatom=1,natom
 
+            !
             ! Get maximum stage, from atoms or from
             ! the atomic model
-            ! LTE
+
+            ! Full LTE
             if (nlte(iatom).eq.0.and.depar(iatom).eq.0) then
 
+              ! Number of stages is known
               Mstg = atoms(iatom)%nstg
 
             ! NLTE
@@ -1590,27 +1640,36 @@
 
               ! Departure
               if (depar(ia).ne.0) then
+
+                ! Get index
                 ia = abs(depar(iatom))
+
+              ! NLTE
               else
+
+                ! Get index
                 ia = abs(nlte(iatom))
-              end if
+
+              end if ! Departure or NLTE populations
 
               ! Active
               if (nlte(iatom).gt.0.or.depar(iatom).gt.0) then
 
+                ! Get maximum stage from atomic model
                 Mstg = maxval(Atom(ia)%stage)
                 active = .True.
 
               ! Passive
               else
 
+                ! Get maximum stage from atomic model
                 Mstg = maxval(Atomb(ia)%stage)
                 active = .False.
 
               end if ! Active/passive
             end if ! LTE/NLTE
 
-            ! Sanity check
+            ! Sanity check, skip if no stages
             if (Mstg.lt.1) cycle
 
             ! Check size for ionization fraction and
@@ -1630,10 +1689,11 @@
             frc(1:Mstg) = 0d0
             dfrc(1:Mstg) = 0d0
 
-            ! If LTE
+            ! If full LTE
             if (nlte(iatom).eq.0.and.depar(iatom).eq.0) then
 
-              ! Get ionization fraction and derivative
+              ! Get ionization fraction and derivative from
+              ! partition functions
               call getdfrc(atoms(iatom)%nstg,atoms(iatom)%pf(:,iz), &
                            atoms(iatom)%Eion,T,ne0, &
                            frc(1:Mstg),dfrc(1:Mstg))
@@ -1641,7 +1701,7 @@
             ! If NLTE
             else
 
-              ! If departure coefficients active atom
+              ! If departure coefficients in active atom
               if (depar(iatom).gt.0) then
 
                 ! Atom index
@@ -1650,7 +1710,7 @@
                 ! Allocate popu
                 allocate(popu(Atom(ia)%nlevel))
 
-                ! LTE and departure
+                ! Calculate LTE and apply departure
                 call LTEiz(Atom(ia),Atmo,iz,popu)
                 popu = popu*Atom(ia)%depar(:,iz)
 
@@ -1663,7 +1723,7 @@
                 ! Allocate popu
                 allocate(popu(Atomb(ia)%nlevel))
 
-                ! LTE and departure
+                ! Calculate LTE and apply departure
                 call LTEiz(Atomb(ia),Atmo,iz,popu)
                 popu = popu*Atomb(ia)%depar(:,iz)
 
@@ -1743,9 +1803,10 @@
 
             end if ! N/LTE
 
-            ! If Hydrogen remove H minus
+            ! If Hydrogen
             if (iatom.eq.1) then
 
+              ! Remove H-
               PhiH = 0.25d6*((C0*iT)**(1.5d0))* &
                      exp(8.74980963338d3*iT)
               err = err + ne0*frc(1)*PhiH
@@ -1773,22 +1834,27 @@
           ! Move to old
           ne0 = ne
 
-          ! Check change
+          ! Check change is small enough to finish
           if (dne.le.epsne) exit
 
           ! Last iteration
           if (iter.eq.maxneiter) then
-            ! If master, announce no convergence
+
+            ! If master
             if (pid.eq.0) then
+
+              ! Announce no convergence
               write(umsg,'(A,1x,i3,1x,A,1x,es13.6,1x,A,1x,i3)') &
                 ' # Warning: electron density did not converge '// &
                 'after',iter,'iterations, relative change was',dne, &
                 'at height',iz
               call verbose
+
             end if ! Master
           end if ! Last iteration
         end do ! Iterations
 
+        ! Save electron density and pressure
         Atmo%ne(iz) = ne
         Atmo%Pe(iz) = Atmo%ne(iz)*kbcgs*Atmo%T(iz)
 
@@ -1805,8 +1871,8 @@
       if (allocated(frc)) deallocate(frc)
       if (allocated(dfrc)) deallocate(dfrc)
 
+      ! Control
       call control
-      return
 
       return
 
@@ -1816,49 +1882,66 @@
 !#####################################################################
 !#####################################################################
 
-      !> Allocates the array nlte and initializes it\n
-      !!  nlte(integer(:)): Array that will contain information about
-      !!                    population files\n
-      !! depar(integer(:)): Array that will contain information about
-      !!                    departure coefficient files\n
-      !!  Atom(Atom_class): Structure with the atomic data\n
-      !! Atomb(Atom_class): Structure with the atomic data for
-      !!                    background opacities\n
-      !!  Atmo(Atmo_class): Structure with atmospheric data\n
+      !> Allocates and initializes the nlte and depar arrays, with
+      !! information on what atomic populations or departure
+      !! coefficients are available\n
+      !!     nlte(integer(:)): Array that will contain information
+      !!                       about population files\n
+      !!    depar(integer(:)): Array that will contain information
+      !!                       about departure coefficient files\n
+      !!  Atom(Atom_class(:)): Structures with atomic data\n
+      !! Atomb(Atom_class(:)): Structures with atomic data for
+      !!                       background atoms\n
+      !!     Atmo(Atmo_class): Structure with atmospheric data\n
       subroutine initializenlte(nlte,depar,Atom,Atomb,Atmo)
 
       ! I/O
 
-      integer, dimension(:), allocatable:: nlte, depar
-      type(Atom_class), dimension(:), intent(inout):: Atom, Atomb
-      type(Atmo_class), intent(inout):: Atmo
+      type(Atom_class), dimension(:), intent(in):: Atom,Atomb
+      type(Atmo_class), intent(in):: Atmo
+      integer, dimension(:), allocatable, intent(inout):: nlte,depar
 
       ! Local
 
       integer:: ia
 
+      ! If arrays not allocated, do it
+      ! Not added to memory count because they live in the
+      ! prepare_syn() subroutine
       if (.not.allocated(nlte)) then
         allocate(nlte(Atmo%nele))
         allocate(depar(Atmo%nele))
       end if
+
+      ! Initialize arrays
       nlte = 0
       depar = 0
 
-      ! Active
+      ! Run over active atoms
       do ia=1,nA
+
+        ! If there are populations already, signal it in nlte
         if (allocated(Atom(ia)%popu)) &
           nlte(atom_char2index(Atom(ia)%element)) = ia
+
+        ! If there are populations already, signal it in depar
         if (allocated(Atom(ia)%depar)) &
           depar(atom_char2index(Atom(ia)%element)) = ia
-      end do
 
-      ! Passive
+      end do ! Active atoms
+
+      ! Run over background atoms
       do ia=1,nAb
+
+        ! If there are populations already, signal it in nlte
         if (allocated(Atomb(ia)%popu)) &
           nlte(atom_char2index(Atomb(ia)%element)) = -ia
+
+        ! If there are populations already, signal it in depar
         if (allocated(Atomb(ia)%depar)) &
           depar(atom_char2index(Atomb(ia)%element)) = -ia
-      end do
+
+      end do ! Passive atoms
 
       return
 
@@ -1868,18 +1951,18 @@
 !#####################################################################
 !#####################################################################
 
-      !> Activate all active atom indexes in nlte array\n
-      !!  nlte(integer(:)): Array that will contain information about
-      !!                    population files\n
-      !! depar(integer(:)): Array that will contain information about
-      !!                    departure coefficient files\n
-      !!  Atom(Atom_class): Structure with the atomic data
+      !> Set all active atoms as available in terms of populations\n
+      !!     nlte(integer(:)): Array with information about
+      !!                       loaded populations\n
+      !!    depar(integer(:)): Array with information about
+      !!                       loaded departure coefficients
+      !!  Atom(Atom_class(:)): Structures with atomic data\n
       subroutine activenlte(nlte,depar,Atom)
 
       ! I/O
 
-      integer, dimension(:), allocatable:: nlte, depar
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      integer, dimension(:), allocatable, intent(inout):: nlte,depar
+      type(Atom_class), dimension(:), intent(in):: Atom
 
       ! Local
 
@@ -1888,11 +1971,14 @@
       ! Allocate arrays
       allocate(nlte(na),depar(na))
 
-      ! Active
+      ! Run over active atoms
       do ia=1,nA
+
+        ! Signal nlte and not departure
         nlte(atom_char2index(Atom(ia)%element)) = ia
         depar(atom_char2index(Atom(ia)%element)) = 0
-      end do
+
+      end do ! Active atoms
 
       return
 

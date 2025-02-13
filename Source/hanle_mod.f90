@@ -5,505 +5,26 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Contributors:
-!     Hao Li (IAC)
+!     Hao Li (IAC/NSSCC)
 !  Start:
-!     04/18/2017
+!     18/04/2017
 !  Last version:
-!     05/22/2024 V3.2.9
+!     05/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     05/22/2024:    V3.2.9 - Fixed message not limited to global
-!                             master (TdPA)
-!
-!     04/01/2024:    V3.2.8 - Call the routine to compute dipole
-!                             strengths in energy basis (TdPA)
-!
-!     03/15/2024:    V3.2.7 - Always define rdyn (TdPA)
-!
-!     02/23/2024:    V3.2.6 - Added Atom and LTElines argument to
-!                             SolveJ and added argument Input to
-!                             JKQgenerate (TdPA)
-!
-!     02/08/2024:    V3.2.5 - Added counter for RAM allocated by
-!                             the continuum. It was quite likely
-!                             unintentionally removed during the
-!                             transition to version 3 (TdPA)
-!                           - Properly account for the solution size
-!                             in inversions (TdPA)
-!
-!     01/26/2024:    V3.2.4 - Save the intensity solution when not
-!                             calculating polarization (TdPA)
-!
-!     12/12/2023:    V3.2.3 - Call diabon_B0 in absence of magnetic
-!                             fields (TdPA)
-!
-!     11/24/2023:    V3.2.2 - Do not normalize for intensity if there
-!                             are no iterations to make (TdPA)
-!
-!     11/14/2023:    V3.2.1 - Bugfix: When failing to read Stokes
-!                             from a solution file, checking "lio"
-!                             can be insufficient to decide what
-!                             to initialize (TdPA)
-!
-!     10/16/2023:    V3.2.0 - Split the hanle routine into calls
-!                             of a number of routines: hanle_setup,
-!                             hanle_reback, hanle_init,
-!                             hanle_intensity, and
-!                             hanle_polarization (TdPA)
-!                           - Added the possibility of solving the
-!                             polarized problem in two steps, one
-!                             without magnetic field to initialize
-!                             the magnetic problem (TdPA)
-!                           - The line broadening is now computed
-!                             when preparing the synthesis (TdPA)
-!
-!     10/04/2023:    V3.1.5 - Added new type of inversion (TdPA)
-!
-!     08/30/2023:    V3.1.4 - Added argument to initmemoJ call (TdPA)
-!
-!     08/28/2023:    V3.1.3 - Added argument to free_local call (TdPA)
-!
-!     08/17/2023:    V3.1.2 - Moved control call before memory
-!                             freeing (TdPA)
-!
-!     08/07/2023:    V3.1.1 - Ensure the initialization of Stokes and
-!                             JKQ continuum when cannot be read from
-!                             a solution file (TdPA)
-!                           - Added calls and arguments related to LTE
-!                             lines (TdPA)
-!                           - Moved most of the logic of the
-!                             normalization of profiles to the
-!                             normalization module (TdPA)
-!                           - Moved the selection of the solvers to
-!                             the respective modules (TdPA)
-!                           - Reset counter for profile memory when
-!                             removing normalization (TdPA)
-!
-!     07/03/2023:    V3.1.0 - Moved the beginning of the hanle
-!                             routine which initialized populations,
-!                             eq. of state, etc., outside of the
-!                             routine, to facilitate the integration
-!                             of the inversion module (TdPA)
-!                           - Also moved the part about updating the
-!                             electron density (TdPA)
-!                           - The inversion sends a new argument
-!                             where the solution is stored, instead
-!                             of calling the reading/writing of a
-!                             file (TdPA)
-!                           - Added the call to the new chi_freq
-!                             subroutine from background_mod (TdPA)
-!                           - Added a subroutine to prepare the
-!                             solution buffers when running an
-!                             inversion (TdPA)
-!                           - Changed calls to free memory to
-!                             better integrate the inversion
-!                             module (TdPA)
-!
-!     04/11/2023:    V3.0.8 - Cont%chi500 should be deallocated to
-!                             redo the background (HL)
-!
-!     03/08/2023:    V3.0.7 - Do not compute the geometrical tensor
-!                             components in the magnetic field
-!                             reference frame if not doing
-!                             polarization (TdPA)
-!                           - Bugfix: omegabuildinI had Geom instead
-!                             of GeomI in its arguments (TdPA)
-!
-!     02/14/2023:    V3.0.6 - Added GeomI exclusive for use in the
-!                             intensity problem (TdPA)
-!                           - Added option to force AA intensity in a
-!                             AD polarization problem (TdPA)
-!                           - It may be necessary to recompoute
-!                             background if b-b transitions are
-!                             present and the quadrature changes
-!                             from intensity to polarization (TdPA)
-!                           - Added dirty tricks to ignore
-!                             velocities in the intensity solution
-!                             even for dynamic models (TdPA)
-!                           - Added dirty tricks to ignore
-!                             the horizontal component of velocities
-!                             in the intensity solution if forced to
-!                             be axially symmetric (TdPA)
-!                           - Do not deallocate Atmo%Pg, Atmo%Pe, and
-!                             Atmo%rho in the inversion (HL)
-!                           - If doing AD PRD, but the intensity is
-!                             AA due to the user input, do not
-!                             consider the existing Stokes as AA,
-!                             but assume that was AD (TdPA)
-!
-!     11/10/2022:    V3.0.5 - Added JKQ_asym as argument for
-!                             emergence and emergence_serial (TdPA)
-!
-!     10/25/2022:    V3.0.4 - Added JKQin as argument. This contains
-!                             information about ad-hoc JKQ in the
-!                             1.5D case (TdPA)
-!                           - Added e_Stk as argument. This contains
-!                             the emergent Stokes parameters in the
-!                             inversion case (TdPA)
-!                           - Changed the call to prepareatom to
-!                             adjust for its changes (TdPA)
-!                           - Changed the call to Initpopu to
-!                             adjust for its changes (TdPA)
-!                           - Changed the call to cleanFrecandRed to
-!                             adjust for its changes (TdPA)
-!                           - Added a call to setmpi_sizes to
-!                             adjust for the new height limitation
-!                             option (TdPA)
-!                           - Added a call to new Initcrho (TdPA)
-!                           - Changed the calls to  emergenceI,
-!                             emergenceI_serial, emergence, and
-!                             emergence_serial to add the e_Stk
-!                             argument (TdPA)
-!                           - Changed explicit cleaning of the
-!                             Red structure with a proper
-!                             cleaning call (TdPA)
-!                           - Added call to restrict_zaxis (TdPA)
-!                             adjust for its changes (TdPA)
-!                           - Rearranged the order of some calls to
-!                             adjust for the new height limitation
-!                             option (TdPA)
-!
-!     07/27/2022:    V3.0.3 - Renamed MPI to MPID (TdPA)
-!
-!     07/13/2022:    V3.0.2 - Initializenlte now requires the Atmo
-!                             argument (TdPA)
-!                           - Input%resource is not required in the
-!                             calls to eqstate, redo_ne, chemeq, and
-!                             broad (TdPA)
-!
-!     07/08/2022:    V3.0.1 - Bugfix: Atomb cannot be deallocated
-!                             unless we are running the single 1D
-!                             synthesis case (TdPA)
-!
-!     06/29/2022:    V3.0.0 - To implement the 1.5D case the following
-!                             changes were needed:
-!                              o The frequency structure is now an
-!                                input and the output frequency
-!                                axis is initialized elsewhere.
-!                              o Now fudge factor and Kurucz lines
-!                                are inputs to avoid reading the files
-!                                repeatedly.
-!                              o The flags that decide the path in
-!                                hanle_mod are now inputs (lio,lie,lp,
-!                                and lpe) because they are needed
-!                                outside as well.
-!                              o Some of the deallocations here are
-!                                conditioned by the type of run via
-!                                the free logical variable.
-!                              o The deallocation of background atoms
-!                                and molecules happens elsewhere.
-!                              o The definition of the offset limit
-!                                for MPI writing happens elsewhere.
-!                              o The flagging of the atoms to fix
-!                                their populations happens elsewhere.
-!                              o Added call to prepareatom  and
-!                                preparemol to allocate arrays in the
-!                                Atom, Atomb, and Mol structures.
-!                              o Added checks of need to abort that
-!                                send the routine to the end.
-!                              o The routine does not return without
-!                                going via the new 1000 label anymore.
-!                              o Added call to setTB to generate the
-!                                geometrical tensors in the magnetic
-!                                field reference frame.
-!                              o The atoms are now diagonalized in
-!                                this module.
-!                              o The initialization of the
-!                                photoionization quantities has been
-!                                split into two, with the first part
-!                                (cross section) initialized
-!                                elsewhere and the second part called
-!                                here by setphotoTEI.
-!                              o The non-error verbosity has been
-!                                limited to the global master and thus
-!                                it should only happen in the pure 1D
-!                                case.
-!                              o Initcols is also called for passive
-!                                atoms to initialize some arrays.
-!                              o Added an argument to the calls to
-!                                writecols, writedamp, writeatmo, and
-!                                writeback.
-!                              o The resizing of the frequency axis
-!                                happens elsewhere.
-!                              o Frec%exu is now nullified when not
-!                                needed at all to avoid trying to
-!                                deallocate it when freeing memory.
-!                              o Background now also has fudge and
-!                                kurucz as inputs.
-!                              o Changed MPI communicator from
-!                                MPI_COMM_WORLD to MPI_COMM_RT.
-!                              o Change the first to arguments for
-!                                writesol and writesolI for the Input
-!                                structure.
-!                              o wAtmo can only be called if in the
-!                                pure 1D case.
-!                              o Removed a superfluous if clause that
-!                                was there to prepare for a change
-!                                never implemented.
-!                              o Added a call to clean the memory of
-!                                height dependent quantities at the
-!                                end of the 1D calculation.
-!                             (TdPA)
-!
-!     05/24/2022:    V2.0.2 - Added a warning for when an intensity
-!                             solution is loaded to compute emergent
-!                             polarized profiles without iterating
-!                             before (TdPA)
-!
-!     04/07/2022:    V2.0.1 - Added an argument to writesol/I (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!                           - Added calls to new OpenMP related
-!                             routines (TdPA)
-!                           - Always call initialize_asym (TdPA)
-!                           - Changed arguments in calls that do not
-!                             need the MPI structure anymore (TdPA)
-!
-!     02/12/2021:   V1.2.23 - Added calls to report_time (TdPA)
-!
-!     02/04/2021:   V1.2.22 - Added argument to normalize due to
-!                             changes in that routine (TdPA)
-!
-!     01/13/2021:   V1.2.21 - Call the initialization of asymmetry
-!                             ad-hoc inputs and passes the new
-!                             arguments into the solver (TdPA)
-!
-!     11/12/2020:   V1.2.20 - Adds protection agains chemical
-!                             equilibrium if indicated (TdPA)
-!
-!     09/11/2020:   V1.2.19 - Added depar variable and passed to the
-!                             relevant subroutines (TdPA)
-!                           - Added control of allocated RAM (TdPA)
-!                           - Initialize and clean PRD data in Frec
-!                             and Red pointers (TdPA)
-!                           - Always call normalization before
-!                             input axis builders (TdPA)
-!                           - Added the possibility to call a RAM
-!                             use reporter (TdPA)
-!
-!     07/31/2020:   V1.2.18 - Always call frecresize (TdPA)
-!                           - If not doing MPI and not storing
-!                             photoionization quantities, allocate a
-!                             dummy pointer Frec%exu to avoid calls
-!                             with uninitialized pointers (TdPA)
-!
-!     06/26/2020:   V1.2.17 - Changed call to check_nchlt (TdPA)
-!
-!     06/02/2020:   V1.2.16 - Added lio and lp to the arguments of
-!                             omegabuildin and omegabuildinI (TdPA)
-!
-!     06/01/2020:   V1.2.15 - Avoided unnecessary call to omegabuildin
-!                             if not iterating but doing emergent
-!                             solution (TdPA)
-!                           - Added call to a routine to check the
-!                             magnetic field regime of the lower
-!                             term when using the non-coherent lower
-!                             term approximation (TdPA)
-!
-!     05/11/2020:   V1.2.14 - Added Frec%omega as argument for the
-!                             writeback subroutine (TdPA)
-!
-!     04/14/2020:   V1.2.13 - Bugfix: The call to correctpop before
-!                             solverI must be avoided when reading
-!                             (TdPA)
-!
-!     03/18/2020:   V1.2.12 - Removed initialization in case of no
-!                             iterations. Radiation quantities get
-!                             always initialized in their specific
-!                             routine (TdPA)
-!
-!     03/10/2020:   V1.2.11 - If updating atmos and keeping the
-!                             atmospheric data file, it will be
-!                             updated also at the end (TdPA)
-!
-!     03/05/2020:   V1.2.10 - The input lH is not needed now (TdPA)
-!                           - Define nlte and call routines to
-!                             initialize and activate it (TdPA)
-!                           - Changed order of the initial calls in
-!                             this routine (TdPA)
-!                           - Now populations are initialized in two
-!                             steps. First, one reads the available
-!                             files, and later the LTE is computed and
-!                             the rho^0_0 properly initialized (TdPA)
-!                           - Now the code tries to keep the hydrogen
-!                             in the atmosphere and in the atom (if
-!                             active or populations given) consistent
-!                             between them (TdPA)
-!                           - The normalization and de-normalization
-!                             of populations is done in secondary
-!                             routines called here (TdPA)
-!                           - If you put iteration limits that result
-!                             in no iterations, the solvers are not
-!                             even called. In that case, if not
-!                             loading, radiation tensors are
-!                             initialized to zero (TdPA)
-!                           - The code will not do polarization if you
-!                             are updating the atmospheric model or
-!                             changing the electrons (TdPA)
-!
-!     02/10/2020:    V1.2.9 - Added calls to routine to control
-!                             inputs of hydrogen populations and
-!                             for recalculating the electron number
-!                             density (TdPA)
-!
-!     12/10/2019:    V1.2.8 - Now admits no LOS angles (TdPA)
-!                           - Moved writeatmo after background,
-!                             because it needs it to convert between
-!                             heights and tau (TdPA)
-!                           - Added routine to transform between tau
-!                             and heights (TdPA)
-!                           - Adjusted conditions under which JKQgen
-!                             is called (TdPA)
-!
-!     11/19/2019:    V1.2.7 - Removed checks in allocate and
-!                             deallocate calls (TdPA)
-!                           - Split omegabuildin/I into two calls, one
-!                             for quadrature and one for LOS (TdPA)
-!                           - Initializes memory counters (TdPA)
-!                           - Drops intensity redistribution when
-!                             starting polarization calculations
-!                             for normalizations (TdPA)
-!
-!     11/12/2019:    V1.2.6 - Changes to accomodate for the new
-!                             normalization split between quadrature
-!                             and LOS, as well as the Voigt data file
-!                             option (TdPA)
-!
-!     10/18/2019:    V1.2.5 - Passing a variable between the Input and
-!                             Atom structures (TdPA)
-!
-!     09/26/2019:    V1.2.4 - New calls due to additions to the code
-!                             elsewhere (TdPA)
-!
-!     08/14/2019:    V1.2.3 - Added call to the new setNSCcoeff (TdPA)
-!
-!     06/03/2019:    V1.2.2 - Bugfix: Do not try to deallocate the
-!                             input names if there were not any (TdPA)
-!
-!     05/31/2019:    V1.2.1 - Changed the call arguments of setmpi and
-!                             added the call to setmpi_sizes, in
-!                             agreement with changes in the former
-!                             routine and the additin of the latter
-!                             for the new MPI packages (TdPA)
-!
-!     05/08/2019:    V1.2.0 - Got rid of the (atomic,transition) pair
-!                             of indexes in every radiation tensor and
-!                             now they have been compressed in just
-!                             one dimension (TdPA)
-!                           - Bugfix: Missing space in verbose (TdPA)
-!
-!     03/12/2019:    V1.1.1 - Added arguments to broad call (TdPA)
-!                           - Bugfix: Message for frequency
-!                             initialization (TdPA)
-!
-!     02/20/2019:    V1.1.0 - New verbosity (TdPA)
-!                           - Now controls allocations and
-!                             deallocations (TdPA)
-!
-!     11/19/2018:   V1.0.26 - Updated writedamp call arguments (TdPA)
-!
-!     09/06/2018:   V1.0.25 - Added argument to writesolI (TdPA)
-!                           - Bugfix: The polarization part must run
-!                             with force='ALL' too (TdPA)
-!                           - You can now keep the pure intensity
-!                             solution even when solving for
-!                             polarization (TdPA)
-!
-!     09/04/2018:   V1.0.24 - setmpi() needs some more inputs (TdPA)
-!                           - Branched the calls to the different
-!                             solvers due to the implementation of
-!                             the alternative versions (TdPA)
-!
-!     08/08/2018:   V1.0.23 - Added some barriers for message
-!                             synchronization (TdPA)
-!
-!     08/06/2018:   V1.0.22 - Call to new subroutine ramphoto and
-!                             additional messages regarding RAM and
-!                             profile allocations (TdPA)
-!
-!     07/10/2018:   V1.0.21 - Need to pass Flgsg to background (TdPA)
-!
-!     11/27/2017:   V1.0.20 - Changed JKQgen and JKQgen_serial calls
-!                             to addapt for the changes within those
-!                             subroutines (TdPA)
-!
-!     10/11/2017:   V1.0.19 - Moved the flags that control the flow
-!                             of the code to the beginning of the
-!                             subroutine (TdPA)
-!                           - Passing Bfield%strength and lp.or.lpe
-!                             into omegabuild (TdPA)
-!
-!     10/03/2017:   V1.0.18 - Changed arguments of JKQgen to be
-!                             consistent with its changes (TdPA)
-!
-!     09/15/2017:   V1.0.17 - Added Input%resource to all the
-!                             chemiqeq and broad calls (TdPA)
-!
-!     08/09/2017:   V1.0.16 - Added lload to solveri_serial and
-!                             solveri arguments (TdPA)
-!                           - Added a barrier after omegabuildin to
-!                             not receive the message too soon (TdPA)
-!                           - Force cannot be 'Q', 'P' is the correct
-!                             value to force polarization (TdPA)
-!
-!     07/17/2017:   V1.0.15 - Bugfix: Checks if there are molecules
-!                             to deallocate (TdPA)
-!                           - Removed debug print (TdPA)
-!
-!     07/10/2017:   V1.0.14 - Bugfix: Now it is necessary to call
-!                             frecresize even if the is no frequency
-!                             splitting (TdPA)
-!
-!     07/06/2017:   V1.0.13 - Bugfix: JKQgen was being called in some
-!                             situations when it should not (TdPA)
-!
-!     07/05/2017:   V1.0.12 - Not normalizing for terms if not
-!                             going to calculate polarization (TdPA)
-!
-!     06/29/2017:   V1.0.11 - Put back resetWarr, but new simplified
-!                             version (TdPA)
-!
-!     06/28/2017:   V1.0.10 - Declaring and passing Red (TdPA)
-!                           - Removed the resetWarr and resetWarrI
-!                             routines, not needed anymore (TdPA)
-!
-!     06/26/2017:    V1.0.9 - Bugfix: JKQgen was being called also
-!                             for the serial case (TdPA)
-!
-!     06/23/2017:    V1.0.8 - Removed Atom from initialize and
-!                             initializeI calls (TdPA)
-!                           - Added argument to setmpi call (TdPA)
-!
-!     06/22/2017:    V1.0.7 - Now J00P has to be passed around (TdPA)
-!                           - Changed how Jbar are initialized (TdPA)
-!                           - Removed Atom from initialize and
-!                             initializeI calls (TdPA)
-!
-!     06/19/2017:    V1.0.6 - Added Geom to omegabuildin call (TdPA)
-!
-!     06/15/2017:    V1.0.5 - Bugfix: omegabulidin was not being
-!                             called for polarization (TdPA)
-!
-!     06/09/2017:    V1.0.4 - Added J iterations (TdPA)
-!
-!     05/12/2017:    V1.0.3 - Added omegabuildinI (TdPA)
-!
-!     05/05/2017:    V1.0.2 - Bugfix: Wrong condition for
-!                             initialization (TdPA)
-!
-!     05/02/2017:    V1.0.1 - Bugfix: Only master should store
-!                             a solution after ionization balance and
-!                             that block should not be called if
-!                             forcing intensity (TdPA)
-!
-!     04/18/2017:    V1.0.0 - First version (TdPA)
+!     05/12/2024:    V4.0.0 - Changes to accommodate the new way of
+!                             dealing with the calculation of
+!                             profiles (and their normalization),
+!                             the input frequency axis and the
+!                             calculation of the PRD emissivity,
+!                             including the RAM storage of the
+!                             redistribution function (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -513,31 +34,42 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
 !  hanle:
-!    Manage the workflow to solve a RT problem
+!    Solve the NLTE self-consistent problem and calculate the emergent
+!  profiles
 !
-!  hanle_setup:
-!    Set-up preliminar steps for any formal solution
+!  hanle_setup
+!    Prepare the background quantities and possible restrictions in
+!  the range of heights to consider in the self-consistent NLTE
+!  problem. Initialize thermal part of photoionization rates,
+!  photoionization auxiliar quantities, and density matrices
 !
-!  hanle_reback:
+!  hanle_reback
 !    Recalculate the background continuum quantities
 !
 !  hanle_init:
-!    Initialize the RT problem
+!    Initialize radiation and density matrices
 !
 !  hanle_intensity:
-!    Solve the NLTE problem for intensity
+!    Solve the self-consistent NLTE problem for intensity or/and
+!  calculate the emergent intensity profiles
 !
 !  hanle_polarization:
-!    Solve the polarized NLTE problem
+!    Solve the self-consistent NLTE problem or the second kind or/and
+!  calculate the emergent Stokes profiles
 !
 !  prepare_buffers:
 !    Allocate the arrays to store the solution of the forward problem
-!  and the configure the synthesis mode for the inversion code,
-!  depending on if the synthesis is a trial or a response function
-!
+!  in the inversion mode and configure the synthesis mode for the
+!  inversion code, depending on if the synthesis is a trial or a
+!  response function
 !
 !#####################################################################
 !#####################################################################
@@ -551,7 +83,6 @@
       use gauss_mod
       use getztau_mod
       use initialize_mod
-      use initmemoj_mod
       use initphotoion_mod
       use initpopu_mod
       use iosolution_mod
@@ -570,57 +101,73 @@
 !#####################################################################
 !#####################################################################
 
-      !> Secondary main with that controls the execution flow.\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!         Atomb(Atom_class): Structure with the atomic data for
-      !!                            background opacities\n
-      !!   LTElines(LTEline_class): Structure with the LTE line data\n
-      !!            Mol(Mol_class): Structure with the molecule data\n
-      !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!        Input(Input_class): Structure with settings data\n
-      !!     GeomI(Geometry_class): Structure with geometry data for
-      !!                            the intensity problem\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!      Bfield(Bfield_class): Structure with magnetic field
-      !!                            data\n
-      !!     Frec(Frequency_class): Structure with frequency data\n
-      !!        Flgsg(Fctsg_class): Structure with factorials and
-      !!                            signs\n
-      !!        fudge(fudge_class): Structure with fudge data\n
-      !!      kurucz(kurucz_class): Structure with Kurucz line data\n
-      !!          JKQin(double(:)): Data with JKQ asymmetries\n
-      !!    SolF(Solution_F_class): Class to save the RT solution in
-      !!                            RAM\n
-      !!            lload(logical): Reading solution file\n
-      !!              lio(logical): Doing intensity formal solution\n
-      !!              lie(logical): Doing intensity emergence\n
-      !!               lp(logical): Doing polarized formal solution\n
-      !!              lpe(logical): Doing polarized emergence\n
-      !!             free(logical): If allowed to free some input
-      !!                            data
+      !> Solve the NLTE self-consistent problem and calculate the
+      !! emergent profiles\n
+      !!         Atom(Atom_class(:)): Structures with atomic data\n
+      !!        Atomb(Atom_class(:)): Structures with atomic data for
+      !!                              background atoms\n
+      !!  LTElines(LTEline_class(:)): Structures with LTE line data\n
+      !!           Mol(Mol_class(:)): Structures with molecular data\n
+      !!            Atmo(Atmo_class): Structure with atmospheric
+      !!                              data\n
+      !!             MPID(MPI_class): Structure with MPI data\n
+      !!          Input(Input_class): Structure with configuration
+      !!                              data\n
+      !!       GeomI(Geometry_class): Structure with geometric data
+      !!                              for the intensity problem\n
+      !!        Geom(Geometry_class): Structure with geometric data\n
+      !!        Bfield(Bfield_class): Structure with magnetic field
+      !!                              data\n
+      !!       Frec(Frequency_class): Structure with frequency data\n
+      !!          Flgsg(Fctsg_class): Structure with factorials,
+      !!                              signs, and J-symbols\n
+      !!          fudge(fudge_class): Structure with fudge data\n
+      !!        kurucz(kurucz_class): Structure with Kurucz line
+      !!                              data\n
+      !!            JKQin(double(:)): Data with ad-hoc JKQ tensors\n
+      !!      SolF(Solution_F_class): Structure with the solution of
+      !!                              the self-consistent problem and
+      !!                              the corresponding emergent
+      !!                              profiles, contribution function,
+      !!                              and height for optical depth
+      !!                              equal to one\n
+      !!              lload(logical): If reading an existing solution
+      !!                              file\n
+      !!                lio(logical): If solving the self-consistent
+      !!                              NLTE problem for intensity\n
+      !!                lie(logical): If calculating the emergent
+      !!                              intensity\n
+      !!                 lp(logical): If solving the self-consistent
+      !!                              NLTE problem of the 2nd kind\n
+      !!                lpe(logical): If calculating the emergent
+      !!                              Stokes parameters\n
+      !!               free(logical): If allowed to free some input
+      !!                              data
       subroutine hanle(Atom,Atomb,LTElines,Mol,Atmo,MPID,Input, &
                        GeomI,Geom,Bfield,Frec,Flgsg,fudge,kurucz, &
                        JKQin,SolF,lload,lio,lie,lp,lpe,free)
 
       ! I/O
 
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(LTEline_class), dimension(:), allocatable:: LTElines
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Atmo_class):: Atmo
-      type(Bfield_class):: Bfield
-      type(Fctsg_class):: Flgsg
-      type(fudge_class):: fudge
-      type(kurucz_class):: kurucz
-      type(Frequency_class):: Frec
-      type(Geometry_class):: GeomI,Geom
-      type(Input_class):: Input
-      type(MPI_class):: MPID
-      type(Solution_F_class):: SolF
-      logical, intent(in)::lload,lio,lie,lp,lpe,free
-      double precision, dimension(:), allocatable:: JKQin
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(LTEline_class), dimension(:), &
+                           allocatable, intent(inout):: LTElines
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
+      type(Atmo_class), intent(inout):: Atmo
+      type(Bfield_class), intent(in):: Bfield
+      type(Fctsg_class), intent(inout):: Flgsg
+      type(fudge_class), intent(in):: fudge
+      type(kurucz_class), intent(in):: kurucz
+      type(Frequency_class), intent(inout):: Frec
+      type(Geometry_class), intent(inout):: GeomI,Geom
+      type(Input_class), intent(in):: Input
+      type(MPI_class), intent(inout):: MPID
+      type(Solution_F_class), intent(inout):: SolF
+      logical, intent(in):: lload,lio,lie,lp,lpe,free
+      double precision, dimension(:), allocatable, intent(in):: JKQin
 
       ! Local
 
@@ -632,12 +179,11 @@
       logical:: csize
       logical:: rback,rdyn,raxial
       logical:: l1, l2, ofram
+      logical:: rVIRAM,rVPRAM,rWIRAM,rWPRAM
 
       integer:: iph,rnPh
-      integer, dimension(:), allocatable:: nlte,depar
 
       double precision:: rVPhi,rVmux,rVmuy,rWmux
-
       double precision, dimension(:,:,:,:), allocatable:: StokesI
       double precision, dimension(:,:,:,:,:), allocatable:: Stokes
       double precision, dimension(:,:), allocatable:: J00
@@ -647,25 +193,35 @@
 
       complex(kind=8), dimension(:,:,:), allocatable:: JKQ_asym
       complex(kind=8), dimension(:,:,:), allocatable:: JKQ_asym_fake
-
       complex(kind=8), dimension(:,:,:,:), allocatable:: JKQ
       complex(kind=8), dimension(:,:,:,:), allocatable:: JKQS
       complex(kind=8), dimension(:,:,:,:), allocatable:: JKQC
 #ifdef DEBUGSYN
-      ! Shift ID
+      ! Shift ID so everything is verbosed
+      ! Not necessary if 1D because the global master is here
       if (run_mode.ne.0) gpid = gpid - 1
 #endif
+
+      ! Memory count for locally allocated types
+      MRAMc = MRAMc + 1d-6*sizeof(Bfield0)
+      MRAMc = MRAMc + 1d-6*sizeof(Cont)
+      MRAMc = MRAMc + 1d-6*sizeof(Rho_old)
+
+      ! Original RAM storage flags
+      rVIRAM = VIRAM
+      rVPRAM = VPRAM
+      rWIRAM = IRAM
+      rWPRAM = PRAM
+
       ! Original dynamic flag
       rdyn = dyn
-
-      ! Initialize frequency and redistribution pointer
-      nullify(Frec%dzao)
 
       ! If forcing the problem to be static for intensity, but it
       ! is dynamic
       if (dyn.and.Input%static_int) then
 
-        ! Trick the problem
+        ! Trick the problem pointing the velocity to the array
+        ! of zeros
         dyn = .False.
         Atmo%vxa => Atmo%vx
         Atmo%vya => Atmo%vy
@@ -677,13 +233,14 @@
       ! If axial intensity and not polarization
       else if (axiali.and..not.axial) then
 
-        ! Cheat the velocities
+        ! Cheat the velocities by pointing to the array of zeros
         Atmo%vxa => Atmo%vx
         Atmo%vya => Atmo%vy
         Atmo%vx => Atmo%zeros
         Atmo%vy => Atmo%zeros
+        nullify(Atmo%vza)
 
-      ! Otherwise, null
+      ! Otherwise, the alternative velocity pointers are null
       else
 
         ! Initialize
@@ -696,7 +253,7 @@
       ! Call initialization
       call hanle_setup(Atom,Atomb,LTElines,Mol,Atmo,MPID,Input, &
                        GeomI,Geom,Bfield,Frec,Flgsg,fudge, &
-                       kurucz,SolF,Cont,Rho_old,free,rback)
+                       kurucz,Cont,Rho_old,free,rback)
 
       ! Control
       if (laborted) goto 1000
@@ -705,12 +262,19 @@
       !
       ! Check if we need to reevaluate sizes
       !
+
+      ! If the vertical dimension has been restricted
       if (Rnz.ne.nz) then
+
+        ! Shorten variables for code flow
         l1 = .not.lload
         l2 = (lio.and..not.lie).or.(lload.and.(lp.or.lpe))
+
+        ! If doing MPI, recalculate the message sizes
         if (MPID%mpi) &
           call setmpi_sizes(MPID,GeomI,Geom,Frec,lio,lp,l1,l2,.True.)
-      end if
+
+      end if ! Restricting the vertical dimension
 
       ! Control
       if (laborted) goto 1000
@@ -718,7 +282,7 @@
       !
       ! Initialize solution
       !
-      call hanle_init(Atom,Atmo,MPID,Input,GeomI,Geom,Bfield, &
+      call hanle_init(Atom,Atmo,Input,GeomI,Geom,Bfield, &
                       Frec,Flgsg,SolF,lload,lio,lie,lp,lpe, &
                       Stokes,JKQ,JKQS,JKQC, &
                       StokesI,J00,J00S,J00C,J00P)
@@ -727,11 +291,17 @@
       if (laborted) goto 1000
 
 #ifdef DEBUGATMO
+      ! Dump current model atmosphere in ASCII file
       if (pid.eq.0) call dump_atmo(Atmo,Bfield,Input%folder,1)
 #endif
 
       !
-      ! Intensity formal solution
+      ! Self-consistent NLTE problem for intensity
+      !
+
+      !
+      ! Solve the NLTE self-consistent problem for intensity
+      ! or/and get emergent intensity
       if (lio.or.lie) &
         call hanle_intensity(Atom,LTElines,Atmo,MPID,Input, &
                              GeomI,Bfield,Frec,Flgsg,SolF, &
@@ -742,50 +312,85 @@
       ! Control
       if (laborted) goto 1000
 
+      !
+      ! Finished self-consistent NLTE problem for intensity
+      !
 
-      !
-      ! Check if updating the model
-      !
+      ! If updating the model
       if (Input%update_atmos.ge.0) then
 
-        ! Check type of calculation
+        ! If doing polarization
         if (pid.eq.0.and.(lp.or.lpe)) then
+
+          ! Message
           umsg = 'The option update_atmos is not compatible '// &
                  'with computing the polarization. The code '// &
                  'is stopping after updating the atmosphere'
           call verbose
-        end if
 
-        ! Leave
+        end if ! Master and doing polarization
+
+        ! Leave hanle already
         goto 1000
 
+      ! Not updating the model
       else
 
+        ! If chose to recalculate electron number density
         if (Input%redo_ne.eq.1.or.Input%redo_ne.eq.11) then
+
+          ! Master writes
           if (pid.eq.0) then
+
+            ! Message
             umsg = ' # Warning: You chose to redo electrons '// &
                    'at the end of iterations, but not '// &
                    'to update the atmosphere. Electrons are '// &
                    'not recomputed.'
             call verbose
-          end if
-        end if
-      end if
 
-      ! Deallocate atmospheric quantities if still in RAM
+          end if ! Master
+        end if ! Recalculating electron number density
+      end if ! Updating or not the model
+
+      ! If not in inversion mode
       if (run_mode.ne.-1) then
-        if (allocated(Atmo%Pg)) deallocate(Atmo%Pg)
-        if (allocated(Atmo%Pe)) deallocate(Atmo%Pe)
-        if (allocated(Atmo%rho)) deallocate(Atmo%rho)
-      end if
-      if (allocated(nlte)) deallocate(nlte)
-      if (allocated(depar)) deallocate(depar)
-      if (free.and..not.rback) then
-        if (allocated(Atomb)) then
-          nAb = 0
-          deallocate(Atomb)
+
+        !
+        ! Deallocate atmospheric quantities if still in RAM
+
+        ! Gas pressure
+        if (allocated(Atmo%Pg)) then
+          MRAMc = MRAMc - 1d-6*sizeof(Atmo%Pg)
+          deallocate(Atmo%Pg)
         end if
-      end if
+
+        ! Electron pressure
+        if (allocated(Atmo%Pe)) then
+          MRAMc = MRAMc - 1d-6*sizeof(Atmo%Pe)
+          deallocate(Atmo%Pe)
+        end if
+
+        ! Mass density
+        if (allocated(Atmo%rho)) then
+          MRAMc = MRAMc - 1d-6*sizeof(Atmo%rho)
+          deallocate(Atmo%rho)
+        end if
+      end if ! Not inversion
+
+      ! If permission to free model memory and no need to redo
+      ! background opacity later
+      if (free.and..not.rback) then
+
+        ! If there are background atoms
+        if (allocated(Atomb)) then
+
+          ! Free from RAM
+          nAb = 0
+          call free_atom_full(Atomb)
+
+        end if ! There are background atoms
+      end if ! Permission to free and not redoing continuum opacity
 
       ! If forcing the problem to be static for intensity, but it
       ! is dynamic
@@ -794,60 +399,74 @@
         ! Return the problem to its original state
         dyn = rdyn
 
+        ! Point the velocities back to original data
         Atmo%vx => Atmo%vxa
         Atmo%vy => Atmo%vya
         Atmo%vz => Atmo%vza
+
+        ! Nullify auxiliar pointers
         nullify(Atmo%vxa,Atmo%vya,Atmo%vza)
 
       ! If axial intensity and not polarization, un-cheat
       ! the velocities
       else if (axiali.and..not.axial) then
 
+        ! Point the velocities back to original data
         Atmo%vx => Atmo%vxa
         Atmo%vy => Atmo%vya
+
+        ! Nullify auxiliar pointers
         nullify(Atmo%vxa,Atmo%vya)
 
-      end if
-
+      end if ! Different velocity between intensity and polarizaiton
 
       !
-      ! Polatization
+      ! Self-consistent NLTE problem of the second-kind
+      !
+
+      ! If doing polarization calculations
       if (lp.or.lpe) then
 
-        ! Initialize extra asymmetry
-        call initialize_asym(Input,MPID,Flgsg,JKQin,JKQ_asym)
+        ! Initialize extra asymmetry radiation field tensors
+        call initialize_asym(Input,Flgsg,JKQin,JKQ_asym)
 
         !
         ! Update radiation RAM if coming from intensity
         !
 
+        ! If did intensity iterations and not emergence or if
+        ! we loaded a file which did not contain polarization
         if ((lio.and..not.lie).or. &
             (lload.and..not.allocated(Stokes))) then
 
-          ! Remove current size in radiation
-          MPID%RAM = MPID%RAM - MPID%RRAM
-          MPID%RRAM = MPID%RRAM - (sizeof(J00)*2 + &
-                                   sizeof(J00C) + &
-                                   sizeof(J00P) + &
-                                   sizeof(StokesI))*1d-6
+          ! This is what is going to be kept in radiation
+          ! memory
+          RRAMc = 1d-6*(sizeof(JKQ_asym) + sizeof(J00P))
 
-          ! Pre-compute amount of RAM to fill with radiation
-          if (AV.or..not.PRD) then
-            MPID%RRAM = MPID%RRAM + &
-                        8d-6*dble(4*nfreq*Geom%nPh*Geom%nTh*2)
+          !
+          ! Pre-compute amount of RAM to fill with radiation later
+          !
+
+          ! If need Stokes
+          if (KSTK) then
+
+            ! Full size
+            RRAMc = RRAMc + 8d-6*dble(4*nfreq*Geom%nPh*Geom%nTh*Rnz)
+
+          ! No need of Stokes
           else
-            MPID%RRAM = MPID%RRAM + &
-                        8d-6*dble(4*nfreq*Geom%nPh*Geom%nTh*nz)
-          end if
-          MPID%RRAM = MPID%RRAM + 8d-6*dble(nz*(nxphot*2 + &
-                                            15*2*(2*nxtran + nfreq)))
 
-          ! Update RAM needed
-          MPID%RAM = MPID%RAM + MPID%RRAM
+            ! Only two heights
+            RRAMc = RRAMc + 8d-6*dble(4*nfreq*Geom%nPh*Geom%nTh*2)
 
-        end if ! Refit RAM for radiation
+          end if ! Keeping Stokes
 
-        ! Redo-background?
+          ! Size in radiation field tensors
+          RRAMc = RRAMc + 16d-6*dble(Rnz*15*(2*nxtran + nfreq))
+
+        end if ! Recalculate RAM for radiation
+
+        ! If we need to redo the background, do it
         if (rback) &
           call hanle_reback(Atom,Atomb,Mol,Atmo,MPID,Input,Geom, &
                             Frec,Flgsg,fudge,kurucz,Cont,free)
@@ -866,7 +485,12 @@
           Bfield0%Btheta = 0d0
           Bfield0%Bphi = 0d0
 
-          ! Get current status
+          ! Memory count
+          MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Bstrength)
+          MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Btheta)
+          MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Bphi)
+
+          ! Get current status of geometry
           raxial = axial
           rnPh = Geom%nPh
           rVPhi = Geom%V_phi(1)
@@ -875,13 +499,14 @@
           rWmux = Geom%W_mux(1)
           csize = .False.
 
+          ! Master verbose
           if(gpid.eq.0) then
             umsg = ' - Solving the polarized but '// &
                    'non-magnetic problem'
             call verbose
           end if
 
-          ! Check geometry if intensity was static or axial
+          ! If intensity was static or axial
           if (Input%static_int.or.axiali) then
 
             ! Check axial velocity
@@ -896,7 +521,7 @@
               Geom%V_muy(1) = 1d0
               Geom%W_mux(1) = 1d0
 
-              ! Fake sizes
+              ! Fake sizes for messages
               csize = .True.
               MPID%size4 = MPID%size4/rnPh
               MPID%size5 = MPID%size5/rnPh
@@ -904,29 +529,31 @@
             end if ! No horizontal velocity
           end if ! Intensity was axial or static
 
+          ! If the polarization problem can be axial
           if (axial) then
 
             ! Call polarization solution WITHOUT field or
-            ! emergence with fake JKQ
+            ! emergence with fake and dummy JKQ
             call hanle_polarization(Atom,LTElines,Atmo,MPID,Input, &
                                     Geom,Bfield0,Frec,Flgsg,SolF, &
                                     Cont,Rho_old, &
                                     StokesI,J00,J00S,J00C,J00P, &
                                     Stokes,JKQ,JKQS,JKQC, &
                                     JKQ_asym_fake,rnPh,.False., &
-                                    lload,lio,lie,lp,.False., &
+                                    lload,lio,lp,.False., &
                                     rlimw,ofram)
 
             ! If will not be axial
             if (.not.raxial) then
 
-              ! Copy Stokes rest of azimuth
+              ! Copy Stokes for the rest of azimuth
               do iph=2,rnPh
                 Stokes(:,:,iph,:,:) = Stokes(:,:,1,:,:)
               end do
 
             end if ! Will not be axial
 
+          ! If the problem cannot be solve as axial anyways
           else
 
             ! Call polarization solution WITHOUT field
@@ -936,17 +563,19 @@
                                     StokesI,J00,J00S,J00C,J00P, &
                                     Stokes,JKQ,JKQS,JKQC,JKQ_asym, &
                                     rnPh,.False., &
-                                    lload,lio,lie,lp,.False., &
+                                    lload,lio,lp,.False., &
                                     rlimw,ofram)
           end if
 
-          ! Restore
+          ! Restore the geometry variables
           axial = raxial
           Geom%nPh = rnPh
           Geom%V_phi(1) = rVPhi
           Geom%V_mux(1) = rVmux
           Geom%V_muy(1) = rVmuy
           Geom%W_mux(1) = rWmux
+
+          ! If changed the sizes, retore them
           if (csize) then
             MPID%size4 = MPID%size4*rnPh
             MPID%size5 = MPID%size5*rnPh
@@ -959,7 +588,7 @@
                                   StokesI,J00,J00S,J00C,J00P, &
                                   Stokes,JKQ,JKQS,JKQC,JKQ_asym, &
                                   Geom%nPh,.True., &
-                                  lload,.False.,.False.,lp,lpe, &
+                                  lload,.False.,lp,lpe, &
                                   rlimw,ofram)
 
         ! Normal run
@@ -972,22 +601,35 @@
                                   StokesI,J00,J00S,J00C,J00P, &
                                   Stokes,JKQ,JKQS,JKQC,JKQ_asym, &
                                   Geom%nPh,.True., &
-                                  lload,lio,lie,lp,lpe,rlimw,ofram)
+                                  lload,lio,lp,lpe,rlimw,ofram)
 
         end if ! Zero field first step solution
       end if ! Polarization
+
+      !
+      ! Finished self-consistent NLTE problem of the second-kind
+      !
 
 
       !
       ! Clean memory
       !
 
-      ! Clean rest
-1000  call free_local(Atom,Cont,Geom,Frec,LTElines)
+      ! Clean local variables
+1000  call free_hanle(Atom,Cont,Geom,Frec,Bfield0,Rho_old,JKQ_asym)
 #ifdef DEBUGSYN
-      ! Recover ID
+      ! Recover ID before leaving
       if (run_mode.ne.0) gpid = gpid + 1
 #endif
+
+      ! Restore RAM flags
+      VIRAM = rVIRAM
+      VPRAM = rVPRAM
+      IRAM = rWIRAM
+      PRAM = rWPRAM
+
+      ! Restore dyn just in case we got here due to error
+      dyn = rdyn
 
       return
 
@@ -997,60 +639,67 @@
 !#####################################################################
 !#####################################################################
 
-      !> Set-up some preliminar steps for the formal solution.\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!         Atomb(Atom_class): Structure with the atomic data for
-      !!                            background opacities\n
-      !!   LTElines(LTEline_class): Structure with the LTE line data\n
-      !!            Mol(Mol_class): Structure with the molecule data\n
-      !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!        Input(Input_class): Structure with settings data\n
-      !!     GeomI(Geometry_class): Structure with geometry data for
-      !!                            the intensity problem\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!      Bfield(Bfield_class): Structure with magnetic field
-      !!                            data\n
-      !!     Frec(Frequency_class): Structure with frequency data\n
-      !!        Flgsg(Fctsg_class): Structure with factorials and
-      !!                            signs\n
-      !!        fudge(fudge_class): Structure with fudge data\n
-      !!      kurucz(kurucz_class): Structure with Kurucz line data\n
-      !!          JKQin(double(:)): Data with JKQ asymmetries\n
-      !!    SolF(Solution_F_class): Class to save the RT solution in
-      !!     Cont(Continuum_class): Structure with background opacity
-      !!                            data\n
-      !!       Rho_old(Rhoc_class): Structure to store rhoKQ
-      !!                            quantities\n
-      !!             free(logical): If allowed to free some input
-      !!                            data\n
-      !!            rback(logical): Indicate if background needs to
-      !!                            be recalculated here
+      !> Prepare the background quantities and possible restrictions
+      !! in the range of heights to consider in the self-consistent
+      !! NLTE problem. Initialize thermal part of photoionization
+      !! rates, photoionization auxiliar quantities, and density
+      !! matrices\n
+      !!         Atom(Atom_class(:)): Structures with atomic data\n
+      !!        Atomb(Atom_class(:)): Structures with atomic data for
+      !!                              background atoms\n
+      !!  LTElines(LTEline_class(:)): Structures with LTE line data\n
+      !!           Mol(Mol_class(:)): Structures with molecular data\n
+      !!            Atmo(Atmo_class): Structure with atmospheric
+      !!                              data\n
+      !!             MPID(MPI_class): Structure with MPI data\n
+      !!          Input(Input_class): Structure with configuration
+      !!                              data\n
+      !!       GeomI(Geometry_class): Structure with geometric data
+      !!                              for the intensity problem\n
+      !!        Geom(Geometry_class): Structure with geometric data\n
+      !!        Bfield(Bfield_class): Structure with magnetic field
+      !!                              data\n
+      !!       Frec(Frequency_class): Structure with frequency data\n
+      !!          Flgsg(Fctsg_class): Structure with factorials,
+      !!                              signs, and J-symbols\n
+      !!          fudge(fudge_class): Structure with fudge data\n
+      !!        kurucz(kurucz_class): Structure with Kurucz line
+      !!                              data\n
+      !!       Cont(Continuum_class): Structure with background
+      !!                              opacity data\n
+      !!      Rho_old(Rhoc_class(:)): Structure to store the density
+      !!                              matrix of the previous
+      !!                              iteration\n
+      !!               free(logical): If allowed to free some input
+      !!                              data
+      !!              rback(logical): Indicate if the background needs
+      !!                              to be recalculated later
       subroutine hanle_setup(Atom,Atomb,LTElines,Mol,Atmo,MPID, &
                              Input,GeomI,Geom,Bfield,Frec,Flgsg, &
-                             fudge,kurucz,SolF,Cont,Rho_old,free, &
-                             rback)
+                             fudge,kurucz,Cont,Rho_old, &
+                             free,rback)
 
       ! I/O
 
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(LTEline_class), dimension(:), allocatable:: LTElines
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Atmo_class):: Atmo
-      type(Bfield_class):: Bfield
-      type(Continuum_class):: Cont
-      type(Fctsg_class):: Flgsg
-      type(fudge_class):: fudge
-      type(kurucz_class):: kurucz
-      type(Frequency_class):: Frec
-      type(Geometry_class):: GeomI,Geom
-      type(Input_class):: Input
-      type(MPI_class):: MPID
-      type(Solution_F_class):: SolF
-      type(Rhoc_class), dimension(:):: Rho_old
-      logical, intent(in)::free
-      logical, intent(inout):: rback
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(LTEline_class), dimension(:), &
+                           allocatable, intent(inout):: LTElines
+      type(Mol_class), dimension(:), allocatable, intent(inout):: Mol
+      type(Atmo_class), intent(inout):: Atmo
+      type(Bfield_class), intent(in):: Bfield
+      type(Continuum_class), intent(inout):: Cont
+      type(Fctsg_class), intent(inout):: Flgsg
+      type(fudge_class), intent(in):: fudge
+      type(kurucz_class), intent(in):: kurucz
+      type(Frequency_class), intent(inout):: Frec
+      type(Geometry_class), intent(in):: GeomI,Geom
+      type(Input_class), intent(in):: Input
+      type(MPI_class), intent(in):: MPID
+      type(Rhoc_class), dimension(:), intent(inout):: Rho_old
+      logical, intent(in):: free
+      logical, intent(out):: rback
 
       ! Local
 
@@ -1058,121 +707,31 @@
 
 
       ! Routine name
-      urou = 'hanle_init'
+      urou = 'hanle_setup'
 
       ! Control
       if (laborted) return
 
-      ! Reset memory counters
-      MPID%RAM = 0d0
-      MPID%BRAM = 0d0
-      MPID%PRAM = 0d0
-      MPID%VRAM = 0d0
-      MPID%WRAM = 0d0
-      MPID%RRAM = 0d0
-
-      ! Add size of SolF to radiation
-      if (allocated(SolF%e_tau1)) MPID%RRAM = MPID%RRAM + &
-                                         1d-6*sizeof(SolF%e_tau1)
-      if (allocated(SolF%e_Ctr)) MPID%RRAM = MPID%RRAM + &
-                                        1d-6*sizeof(SolF%e_Ctr)
-      if (allocated(SolF%i_J00)) MPID%RRAM = MPID%RRAM + &
-                                        1d-6*sizeof(SolF%i_J00)
-      if (allocated(SolF%i_J00C)) MPID%RRAM = MPID%RRAM + &
-                                         1d-6*sizeof(SolF%i_J00C)
-      if (allocated(SolF%i_J00P)) MPID%RRAM = MPID%RRAM + &
-                                         1d-6*sizeof(SolF%i_J00P)
-      if (allocated(SolF%e_Stk)) MPID%RRAM = MPID%RRAM + &
-                                        1d-6*sizeof(SolF%e_Stk)
-      if (allocated(SolF%i_StkI)) MPID%RRAM = MPID%RRAM + &
-                                         1d-6*sizeof(SolF%i_StkI)
-      if (allocated(SolF%i_Stk)) MPID%RRAM = MPID%RRAM + &
-                                        1d-6*sizeof(SolF%i_Stk)
-      if (allocated(SolF%i_JKQ)) MPID%RRAM = MPID%RRAM + &
-                                        1d-6*sizeof(SolF%i_JKQ)
-      if (allocated(SolF%i_JKQS)) MPID%RRAM = MPID%RRAM + &
-                                         1d-6*sizeof(SolF%i_JKQS)
-      if (allocated(SolF%i_JKQC)) MPID%RRAM = MPID%RRAM + &
-                                         1d-6*sizeof(SolF%i_JKQC)
-      if (allocated(SolF%e_tau1_t)) MPID%RRAM = MPID%RRAM + &
-                                           1d-6*sizeof(SolF%e_tau1_t)
-      if (allocated(SolF%e_Ctr_t)) MPID%RRAM = MPID%RRAM + &
-                                          1d-6*sizeof(SolF%e_Ctr_t)
-      if (allocated(SolF%i_J00_t)) MPID%RRAM = MPID%RRAM + &
-                                          1d-6*sizeof(SolF%i_J00_t)
-      if (allocated(SolF%i_J00C_t)) MPID%RRAM = MPID%RRAM + &
-                                           1d-6*sizeof(SolF%i_J00C_t)
-      if (allocated(SolF%i_J00P_t)) MPID%RRAM = MPID%RRAM + &
-                                           1d-6*sizeof(SolF%i_J00P_t)
-      if (allocated(SolF%e_Stk_t)) MPID%RRAM = MPID%RRAM + &
-                                          1d-6*sizeof(SolF%e_Stk_t)
-      if (allocated(SolF%i_StkI_t)) MPID%RRAM = MPID%RRAM + &
-                                           1d-6*sizeof(SolF%i_StkI_t)
-      if (allocated(SolF%i_Stk_t)) MPID%RRAM = MPID%RRAM + &
-                                          1d-6*sizeof(SolF%i_Stk_t)
-      if (allocated(SolF%i_JKQ_t)) MPID%RRAM = MPID%RRAM + &
-                                          1d-6*sizeof(SolF%i_JKQ_t)
-      if (allocated(SolF%i_JKQS_t)) MPID%RRAM = MPID%RRAM + &
-                                           1d-6*sizeof(SolF%i_JKQS_t)
-      if (allocated(SolF%i_JKQC_t)) MPID%RRAM = MPID%RRAM + &
-                                           1d-6*sizeof(SolF%i_JKQC_t)
-      if (allocated(SolF%e_tau1_b)) MPID%RRAM = MPID%RRAM + &
-                                           1d-6*sizeof(SolF%e_tau1_b)
-      if (allocated(SolF%e_Ctr_b)) MPID%RRAM = MPID%RRAM + &
-                                          1d-6*sizeof(SolF%e_Ctr_b)
-      if (allocated(SolF%i_J00_b)) MPID%RRAM = MPID%RRAM + &
-                                          1d-6*sizeof(SolF%i_J00_b)
-      if (allocated(SolF%i_J00C_b)) MPID%RRAM = MPID%RRAM + &
-                                           1d-6*sizeof(SolF%i_J00C_b)
-      if (allocated(SolF%i_J00P_b)) MPID%RRAM = MPID%RRAM + &
-                                           1d-6*sizeof(SolF%i_J00P_b)
-      if (allocated(SolF%e_Stk_b)) MPID%RRAM = MPID%RRAM + &
-                                          1d-6*sizeof(SolF%e_Stk_b)
-      if (allocated(SolF%i_StkI_b)) MPID%RRAM = MPID%RRAM + &
-                                           1d-6*sizeof(SolF%i_StkI_b)
-      if (allocated(SolF%i_Stk_b)) MPID%RRAM = MPID%RRAM + &
-                                          1d-6*sizeof(SolF%i_Stk_b)
-      if (allocated(SolF%i_JKQ_b)) MPID%RRAM = MPID%RRAM + &
-                                          1d-6*sizeof(SolF%i_JKQ_b)
-      if (allocated(SolF%i_JKQS_b)) MPID%RRAM = MPID%RRAM + &
-                                           1d-6*sizeof(SolF%i_JKQS_b)
-      if (allocated(SolF%i_JKQC_b)) MPID%RRAM = MPID%RRAM + &
-                                           1d-6*sizeof(SolF%i_JKQC_b)
-      if (allocated(SolF%i_rhoes)) MPID%RRAM = MPID%RRAM + &
-                                          1d-6*sizeof(SolF%i_rhoes)
-      if (allocated(SolF%i_rhoes_t)) MPID%RRAM = MPID%RRAM + &
-                                           1d-6*sizeof(SolF%i_rhoes_t)
-      if (allocated(SolF%i_rhoes_b)) MPID%RRAM = MPID%RRAM + &
-                                           1d-6*sizeof(SolF%i_rhoes_b)
-
-
-      !
-      ! Prepare OpenMP
-      !
-#ifdef _OPENMP
-      call setomp
-#endif
-
       ! Allocate space for chi scale
-      if (.not.allocated(Atmo%chi500)) &
+      if (.not.allocated(Atmo%chi500)) then
         allocate(Atmo%chi500(nz))
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo%chi500)
+      end if
 
-      !
+
       ! Calculate background continuum quantities
-      !
       call background(Atom,Atomb,Mol,Atmo,fudge,kurucz, &
                       Input,Frec%omega,Cont,GeomI,MPID,Flgsg)
 
-      ! Add size to counter
-      MPID%BRAM = sizeof(Cont%c)*1d-6
-
       ! Control
       if (laborted) return
 
+      ! Global master verbosity
       if (gpid.eq.0) then
         umsg = ' - Background quantities calculated'
         call verbose
       end if
+
 
       !
       ! Do we need to repeat the background calculation?
@@ -1194,80 +753,112 @@
             ! then we repeat
             rback = Geom%nPh.ne.GeomI%nPh.or. &
                     Geom%nTh.ne.GeomI%nTh
-          end if
-        end if
 
-        ! Anyone found any true?
+          end if ! More than one direction in continuum (b-b present)
+        end if ! Slave or not MPI
+
+        ! If MPI, check if anyone found the need to repeat the
+        ! continuum calculation
         if (MPID%mpi) &
           call MPI_ALLREDUCE(MPI_IN_PLACE,rback,1,MPI_LOGICAL, &
                              MPI_LOR,MPI_COMM_RT,ios)
 
-      end if !B-B background
+      end if ! B-B can be in background
 
-      !
       ! Calculate continuum opacity at reference frequency
-      !
       call chi_freq(Atom,Atomb,Mol,Atmo,fudge,Input, &
                     Atmo%tfreq,Atmo%chi500,1,nz,MPID%mpi)
 
-      ! Remove space for chi scale
-      if (pid.eq.0.and.MPID%mpi) deallocate(Atmo%chi500)
+      ! If master doing MPI
+      if (pid.eq.0.and.MPID%mpi) then
+
+        ! Remove space for chi scale
+        MRAMc = MRAMc - 1d-6*sizeof(Atmo%chi500)
+        deallocate(Atmo%chi500)
+
+      end if ! Master and MPI
 
       ! Control
       if (laborted) return
 
-
       !
-      ! Compute missing height or tau
-      !
-      call getztau(Atmo,MPID,.True.)
+      ! Compute missing height or tau, whatever is not the
+      ! input axis
+      call getztau(Atmo,.True.)
 
 
       !
       ! Store atmosphere in ASCII
-      !
       if (Input%keep_atmo) call writeatmo(Atmo,Bfield, &
                                           Input%folder, &
                                           Input%lim_atmo)
-
       ! Control
       if (laborted) return
 
-      ! Check if we can drop chi500
+      ! If chi500 is allocated
       if (allocated(Atmo%chi500)) then
+
+        ! If the master and doing MPI and no use for it later
+        ! to update or write the model atmosphere
         if (MPID%mpi.and.pid.eq.0.and. &
             (Input%update_atmos.lt.0.and..not.Input%keep_atmo)) then
+
+          ! Free RAM
+          MRAMc = MRAMc - 1d-6*sizeof(Atmo%chi500)
           deallocate(Atmo%chi500)
+
+        ! Otherwise
         else
-          ! If not tau scale, drop it
+
+          ! If not using the tau scale and not updating the atmosphere
           if (.not.ztau.and.Input%update_atmos.lt.0.and. &
-              .not.Input%keep_atmo) &
+              .not.Input%keep_atmo) then
+
+            ! Free RAM
+            MRAMc = MRAMc - 1d-6*sizeof(Atmo%chi500)
             deallocate(Atmo%chi500)
-        end if ! If Master in MPI
-      end if ! Allocated chi500
 
+          end if ! Using the tau scale nor updating the atmosphere
+        end if ! If Master and MPI
+      end if ! Allocated chi500 variable
 
-      !
-      ! You can remove pressures now, if not using them later
-      !
-      if (allocated(Atmo%Pg).and.Input%redo_ne.le.0.and. &
+      ! If not recalculating electron number density or updating
+      ! the model atmosphere
+      if (Input%redo_ne.le.0.and. &
           (Input%update_atmos.lt.0.and.Atmo%typo.eq.0)) then
-        ! The inversion needs this
-        if (run_mode.ne.-1) then
-          deallocate(Atmo%Pg)
-          deallocate(Atmo%Pe)
-          deallocate(Atmo%rho)
-        end if
+
+        ! If allocated gas pressure
+        if (allocated(Atmo%Pg)) then
+
+          ! If not an inversion (which needs this)
+          if (run_mode.ne.-1) then
+
+            ! Clean not to be used atmospheric variables
+            MRAMc = MRAMc - 1d-6*(sizeof(Atmo%Pg))
+            MRAMc = MRAMc - 1d-6*(sizeof(Atmo%Pe))
+            MRAMc = MRAMc - 1d-6*(sizeof(Atmo%rho))
+            deallocate(Atmo%Pg)
+            deallocate(Atmo%Pe)
+            deallocate(Atmo%rho)
+
+          end if ! Not inversion
+        end if ! Gas pressure is allocated
+
+        ! Can free 1D quantities and no need to re-compute continuum
+        ! opacity later
         if (free.and..not.rback) then
+
+          ! Free background atoms
           nAb = 0
-          deallocate(Atomb)
-        end if
-      end if
+          call free_atom_full(Atomb)
+
+        end if ! Can free 1D quantities and not recalculating back
+      end if ! Not recalculating electron number density
 
       ! Deallocate background atoms and molecules
       if (free.and..not.rback) then
         nM = 0
-        if (allocated(Mol)) deallocate(Mol)
+        call free_mol_full(Mol)
       end if
 
       ! Control
@@ -1280,56 +871,70 @@
       if (Input%keep_back) call writeback(Cont,Frec%omega, &
                                           Input%folder,MPID, &
                                           Input%lim_back)
-
       ! Control
       if (laborted) return
+
 
       !
       ! Restrict heights
-      !
-      call restrict_zaxis(Atmo,Input,MPID)
+      call restrict_zaxis(Atmo,Input)
+
 
       !
-      ! If there are LTE lines
-      !
+      ! If there are LTE lines, check if they need to be restricted
+      ! in height
       if (Input%nLTE.gt.0) &
-        call restrict_LTE_lines(Atmo,LTElines,MPID)
+        call restrict_LTE_lines(Atmo,LTElines)
 
-      !
-      ! Photoionization quantites, thermal part
-      !
+
+      ! For each active atom
       do ia=1,nA
-        call setphotoTEI(Atom(ia),Frec,Atmo%T,Atmo%ne,MPID,free)
-      end do
+
+        ! Compute thermal part of the photoionization rates in SEE
+        call setphotoTEI(Atom(ia),Frec,Atmo%T,Atmo%ne,free)
+
+        ! And initialize  the density matrix
+        call Initcrho_old(Atom(ia),Rho_old(ia))
+
+      end do ! Active atoms
 
       ! Control
       if (laborted) return
 
-      ! Message
+      ! Master verbosity
       if (gpid.eq.0) then
         umsg = ' - Initialized photoionization quantities (thermal)'
         call verbose
       end if
 
-      ! Initialize density matrix
-      do ia=1,nA
-        call Initcrho_old(Atom(ia),Rho_old(ia))
-      end do
-
       !
       ! Store quantities for epsIphoto
       !
+
+      ! If storing photoionization auxiliar variables in RAM
       if (PIRAM) then
-        call ramphoto(Atom,Frec,Atmo%T,MPID)
+
+        ! Call the initializer of these variables
+        call ramphoto(Atom,Frec,Atmo%T)
+
+      ! If not storing photoionization auxiliar variables in RAM
       else
-        MPID%PRAM = 0d0
-        ! Allocate a dummy index to avoid memory 'leak'
+
+        ! If in serial mode
         if (.not.MPID%mpi) then
+
+          ! Allocate a dummy index to avoid memory 'leaks'
           allocate(Frec%exu(1,1))
+          PRAMc = PRAMc + 1d-6*sizeof(Frec%exu)
+
+        ! If in MPI
         else
+
+          ! Just point to null
           nullify(Frec%exu)
-        end if
-      end if
+
+        end if ! MPI
+      end if ! Storing or not photoionization auxiliar quantities
 
       end subroutine hanle_setup
 
@@ -1337,72 +942,74 @@
 !#####################################################################
 !#####################################################################
 
-      !> Set-up some preliminar steps for the formal solution.\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!         Atomb(Atom_class): Structure with the atomic data for
-      !!                            background opacities\n
-      !!            Mol(Mol_class): Structure with the molecule data\n
-      !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!        Input(Input_class): Structure with settings data\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!     Frec(Frequency_class): Structure with frequency data\n
-      !!        Flgsg(Fctsg_class): Structure with factorials and
-      !!                            signs\n
-      !!        fudge(fudge_class): Structure with fudge data\n
-      !!      kurucz(kurucz_class): Structure with Kurucz line data\n
-      !!     Cont(Continuum_class): Structure with background opacity
-      !!                            data\n
-      !!             free(logical): If allowed to free some input
-      !!                            data
+      !> Recalculate the background continuum quantities\n
+      !!    Atom(Atom_class(:)): Structures with atomic data\n
+      !!   Atomb(Atom_class(:)): Structures with atomic data for
+      !!                         background atoms\n
+      !!      Mol(Mol_class(:)): Structures with molecular data\n
+      !!       Atmo(Atmo_class): Structure with atmospheric data\n
+      !!        MPID(MPI_class): Structure with MPI data\n
+      !!     Input(Input_class): Structure with configuration data\n
+      !!   Geom(Geometry_class): Structure with geometric data\n
+      !!  Frec(Frequency_class): Structure with frequency data\n
+      !!     Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                         J-symbols\n
+      !!     fudge(fudge_class): Structure with fudge data\n
+      !!   kurucz(kurucz_class): Structure with Kurucz line data\n
+      !!  Cont(Continuum_class): Structure with background opacity
+      !!                         data\n
+      !!          free(logical): If allowed to free some input data
       subroutine hanle_reback(Atom,Atomb,Mol,Atmo,MPID,Input,Geom, &
                               Frec,Flgsg,fudge,kurucz,Cont,free)
 
       ! I/O
 
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Atmo_class):: Atmo
-      type(Continuum_class):: Cont
-      type(Fctsg_class):: Flgsg
-      type(fudge_class):: fudge
-      type(kurucz_class):: kurucz
-      type(Frequency_class):: Frec
-      type(Geometry_class):: Geom
-      type(Input_class):: Input
-      type(MPI_class):: MPID
-      logical, intent(in)::free
+      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), allocatable, intent(inout):: Mol
+      type(Atmo_class), intent(in):: Atmo
+      type(Continuum_class), intent(inout):: Cont
+      type(Fctsg_class), intent(in):: Flgsg
+      type(fudge_class), intent(in):: fudge
+      type(kurucz_class), intent(in):: kurucz
+      type(Frequency_class), intent(in):: Frec
+      type(Geometry_class), intent(in):: Geom
+      type(Input_class), intent(in):: Input
+      type(MPI_class), intent(in):: MPID
+      logical, intent(in):: free
 
-
-      ! Clean
+      ! Clean current continuum
       if (allocated(Cont%c)) deallocate(Cont%c)
-
-      ! Remove current background
-      MPID%RAM = MPID%RAM - MPID%BRAM
-      MPID%BRAM = 0d0
 
       ! Do it again
       call background(Atom,Atomb,Mol,Atmo,fudge,kurucz, &
                       Input,Frec%omega,Cont,Geom,MPID,Flgsg)
+
+      ! Add current background to RAM
+      BRAMc = 1d-6*sizeof(Cont%c)
+
       ! Control
       if (laborted) return
 
-      ! Add current background to RAM
-      MPID%BRAM = sizeof(Cont%c)*1d-6
-      MPID%RAM = MPID%RAM + MPID%BRAM
-
+      ! Master verbose
       if (gpid.eq.0) then
         umsg = ' - Background quantities re-calculated'
         call verbose
       end if
 
+      ! If we can free the background atoms and molecules here
       if (free) then
+
+        ! Free background atoms
         nAb = 0
-        deallocate(Atomb)
+        call free_atom_full(AtomB)
+
+        ! Free molecules
         nM = 0
-        if (allocated(Mol)) deallocate(Mol)
-      end if
+        call free_mol_full(Mol)
+
+      end if ! We can free background atoms and molecules here
 
       end subroutine hanle_reback
 
@@ -1410,67 +1017,86 @@
 !#####################################################################
 !#####################################################################
 
-      !> Initialize the RT problem.\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!        Input(Input_class): Structure with settings data\n
-      !!     GeomI(Geometry_class): Structure with geometry data for
-      !!                            the intensity problem\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!      Bfield(Bfield_class): Structure with magnetic field
-      !!                            data\n
-      !!     Frec(Frequency_class): Structure with frequency data\n
-      !!        Flgsg(Fctsg_class): Structure with factorials and
-      !!                            signs\n
-      !!    SolF(Solution_F_class): Class to save the RT solution in
-      !!                            RAM\n
-      !!            lload(logical): Reading solution file\n
-      !!              lio(logical): Doing intensity formal solution\n
-      !!              lie(logical): Doing intensity emergence\n
-      !!               lp(logical): Doing polarized formal solution\n
-      !!              lpe(logical): Doing polarized emergence\n
-      !! Stokes(dfloat(:,:,:,:,:)): Stokes parameters\n
-      !!    JKQ(dcomplex(:,:,:,:)): Radiation field tensors integrated
-      !!                            over absorption profile\n
-      !!   JKQS(dcomplex(:,:,:,:)): Radiation field tensors integrated
-      !!                            over emission profile\n
-      !!   JKQC(dcomplex(:,:,:,:)): Radiation field tensors with
-      !!                            frequency dependence\n
-      !!  StokesI(dfloat(:,:,:,:)): Intensity\n
-      !!          J00(dfloat(:,:)): Mean intensity integrated over
-      !!                            absorption profile\n
-      !!         J00S(dfloat(:,:)): Mean intensity integrated over
-      !!                            emission profile\n
-      !!         J00C(dfloat(:,:)): Mean intensity with frequency
-      !!                            dependence\n
-      !!       J00P(dfloat(:,:,:)): Intensity integrals in the
-      !!                            photoionization rates
-      subroutine hanle_init(Atom,Atmo,MPID,Input,GeomI,Geom,Bfield, &
+      !> Initialize radiation and density matrices\n
+      !!        Atom(Atom_class(:)): Structures with atomic data\n
+      !!           Atmo(Atmo_class): Structure with atmospheric
+      !!                             data\n
+      !!         Input(Input_class): Structure with configuration
+      !!                             data\n
+      !!      GeomI(Geometry_class): Structure with geometric data
+      !!                             for the intensity problem\n
+      !!       Geom(Geometry_class): Structure with geometric data\n
+      !!       Bfield(Bfield_class): Structure with magnetic field
+      !!                             data\n
+      !!      Frec(Frequency_class): Structure with frequency data\n
+      !!         Flgsg(Fctsg_class): Structure with factorials,
+      !!                             signs, and J-symbols\n
+      !!     SolF(Solution_F_class): Structure with the solution of
+      !!                             the self-consistent problem and
+      !!                             the corresponding emergent
+      !!                             profiles, contribution function,
+      !!                             and height for optical depth
+      !!                             equal to one\n
+      !!             lload(logical): If reading an existing solution
+      !!                             file\n
+      !!               lio(logical): If solving the self-consistent
+      !!                             NLTE problem for intensity\n
+      !!               lie(logical): If calculating the emergent
+      !!                             intensity\n
+      !!                lp(logical): If solving the self-consistent
+      !!                             NLTE problem of the 2nd kind\n
+      !!               lpe(logical): If calculating the emergent
+      !!                             Stokes parameters\n
+      !!  Stokes(double(:,:,:,:,:)): Stokes parameters\n
+      !!     JKQ(dcomplex(:,:,:,:)): Radiation field tensors
+      !!                             integrated over the absorption
+      !!                             profile\n
+      !!    JKQS(dcomplex(:,:,:,:)): Radiation field tensors
+      !!                             integrated over the emission
+      !!                             profile\n
+      !!    JKQC(dcomplex(:,:,:,:)): Radiation field tensors with
+      !!                             frequency dependence\n
+      !!   StokesI(double(:,:,:,:)): Intensity\n
+      !!           J00(double(:,:)): Mean intensity integrated over
+      !!                             the absorption profile\n
+      !!          J00S(double(:,:)): Mean intensity integrated over
+      !!                             the emission profile\n
+      !!          J00C(double(:,:)): Mean intensity with frequency
+      !!                             dependence\n
+      !!        J00P(double(:,:,:)): Intensity integrals in the
+      !!                             photoionization rates
+      subroutine hanle_init(Atom,Atmo,Input,GeomI,Geom,Bfield, &
                             Frec,Flgsg,SolF,lload,lio,lie,lp,lpe, &
                             Stokes,JKQ,JKQS,JKQC, &
                             StokesI,J00,J00S,J00C,J00P)
       ! I/O
 
-      type(Atom_class), dimension(:):: Atom
-      type(Atmo_class):: Atmo
-      type(Bfield_class):: Bfield
-      type(Fctsg_class):: Flgsg
-      type(Frequency_class):: Frec
-      type(Geometry_class):: GeomI,Geom
-      type(Input_class):: Input
-      type(MPI_class):: MPID
-      type(Solution_F_class):: SolF
-      logical, intent(in)::lload,lio,lie,lp,lpe
-      double precision, dimension(:,:,:,:), allocatable:: StokesI
-      double precision, dimension(:,:,:,:,:), allocatable:: Stokes
-      double precision, dimension(:,:), allocatable:: J00
-      double precision, dimension(:,:), allocatable:: J00S
-      double precision, dimension(:,:), allocatable:: J00C
-      double precision, dimension(:,:,:), allocatable:: J00P
-      complex(kind=8), dimension(:,:,:,:), allocatable:: JKQ
-      complex(kind=8), dimension(:,:,:,:), allocatable:: JKQS
-      complex(kind=8), dimension(:,:,:,:), allocatable:: JKQC
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atmo_class), intent(in):: Atmo
+      type(Bfield_class), intent(in):: Bfield
+      type(Fctsg_class), intent(in):: Flgsg
+      type(Frequency_class), intent(in):: Frec
+      type(Geometry_class), intent(in):: GeomI,Geom
+      type(Input_class), intent(in):: Input
+      type(Solution_F_class), intent(in):: SolF
+      logical, intent(in):: lload,lio,lie,lp,lpe
+      double precision, dimension(:,:,:,:), &
+                        allocatable, intent(out):: StokesI
+      double precision, dimension(:,:,:,:,:), &
+                        allocatable, intent(out):: Stokes
+      double precision, dimension(:,:), allocatable, intent(out):: J00
+      double precision, dimension(:,:), &
+                        allocatable, intent(out):: J00S
+      double precision, dimension(:,:), &
+                        allocatable, intent(out):: J00C
+      double precision, dimension(:,:,:), &
+                        allocatable, intent(out):: J00P
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(out):: JKQ
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(out):: JKQS
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(out):: JKQC
 
       ! Local
 
@@ -1480,33 +1106,34 @@
 
 
       !
-      ! Load a previous solution
-      !
+      ! If to load a previous solution
       if (lload) then
 
-        ! Inversion
+        ! Doing inversions
         if (run_mode.eq.-1) then
 
-          ! Get solution
-          call getsol(SolF,GeomI,Geom,MPID,Flgsg,Bfield, &
-                      Atom,Stokes,JKQ,JKQS,JKQC,StokesI, &
-                      J00,J00S,J00C,J00P,lio.or.lie)
+          ! Get solution from RAM
+          call getsol(SolF,GeomI,Geom,Flgsg,Bfield,Atom, &
+                      Stokes,JKQ,JKQS,JKQC, &
+                      StokesI,J00,J00S,J00C,J00P,lio.or.lie)
 
+          ! Master notify
           if (gpid.eq.0) then
             umsg = ' - Copied from solution'
             call verbose
           end if
 
-        ! Not inversion
+        ! Doing synthesis
         else
 
+          ! Master notify
           if (gpid.eq.0) then
             umsg = ' - Reading solution'
             call verbose
           end if
 
-          ! Get solution
-          call readsol(Input%solution,GeomI,Geom,MPID,Flgsg,Bfield, &
+          ! Get solution from file
+          call readsol(Input%solution,GeomI,Geom,Flgsg,Bfield, &
                        Atom,read_stokes, &
                        Stokes,JKQ,JKQS,JKQC, &
                        StokesI,J00,J00S,J00C,J00P)
@@ -1514,34 +1141,46 @@
           ! Control
           if (laborted) return
 
+          ! If loaded an intensity solution but not iterating
+          ! polarization before computing emergence
           if (lload.and.lpe.and..not.lp.and. &
               .not.lio.and..not.allocated(JKQ)) then
+
+            ! Warning of unsuitability of the solution file for this
+            ! specific run
             umsg = ' # Warning: Loading an intensity solution '// &
                    'to compute polarized emergent profiles '// &
                    'without iterating'
             call verbose
-          end if
 
+          end if ! Unsuitable Solution file for this run
+
+          ! If loaded a solution for a polarization problem but we
+          ! need to iterate intensity
           if (lio.and..not.allocated(J00)) then
+
+            ! This is a critical error
             umsg = 'Cannot read multiterm solution as '// &
                    'initialization for multilevel'
             call aborted
             return
-          end if
 
-          ! If could not read Stokes
+          end if ! Wrong solution file for this run
+
+          ! If could not read Stokes and frequency dependent radiation
+          ! field tensors
           if (.not.read_stokes) then
 
-            ! Polarization
+            ! If read polarization
             if (allocated(JKQC)) then
 
-              ! Initialize
+              ! Initialize radiation field
               call initialize_failread(Frec,Atmo,Stokes,JKQC)
 
-            ! Intensity
+            ! If read intensity
             else
 
-              ! Initialize
+              ! Initialize radiation field
               call initializeI_failread(Frec,Atmo,StokesI,J00C)
 
             end if ! Type of solution
@@ -1550,38 +1189,48 @@
 
 
       !
-      ! Initialize radiation quantities
+      ! Not reading a previous solution
       !
       else
 
-        if ((lio.or.lie).and..not.lload) then
-          call initializeI(Frec,GeomI,Atmo,MPID, &
+        ! If going through the intensity problem
+        if (lio.or.lie) then
+
+          ! Initialize unpolarized radiation field
+          call initializeI(Frec,GeomI,Atmo, &
                            StokesI,J00,J00S,J00C,J00P,Input%mode)
-        else if ((lp.or.lpe).or.lload) then
-          call initialize(Frec,Geom,Atmo,MPID, &
+
+        ! If not going through the intensity problem, but through
+        ! the polarized one
+        else if (lp.or.lpe) then
+
+          ! Initialize polarized radiation field
+          call initialize(Frec,Geom,Atmo, &
                           Stokes,JKQ,JKQS,JKQC,J00P,Input%mode)
-        end if
+
+        end if ! Intensity/polarization problem
 
         ! Control
         if (laborted) return
 
+        ! Master verbose
         if (gpid.eq.0) then
           umsg = ' - Radiation Field Initialized'
           call verbose
         end if
 
-        ! For every atom, normalize populations
+        ! For every atom
         do ia=1,nA
+
+          ! Normalize the populations
           call correctpop(Atom(ia),0)
-        end do
+
+        end do ! Active atoms
 
         ! Control
         if (laborted) return
 
       end if
-
-      ! Initialize RAM
-      MPID%RAM = MPID%PRAM + MPID%BRAM + MPID%RRAM
 
       end subroutine hanle_init
 
@@ -1589,40 +1238,52 @@
 !#####################################################################
 !#####################################################################
 
-      !> Solve the intensity RT NLTE problem.\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!   LTElines(LTEline_class): Structure with the LTE line data\n
-      !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!        Input(Input_class): Structure with settings data\n
-      !!     GeomI(Geometry_class): Structure with geometry data for
-      !!                            the intensity problem\n
-      !!      Bfield(Bfield_class): Structure with magnetic field
-      !!                            data\n
-      !!     Frec(Frequency_class): Structure with frequency data\n
-      !!        Flgsg(Fctsg_class): Structure with factorials and
-      !!                            signs\n
-      !!    SolF(Solution_F_class): Class to save the RT solution in
-      !!                            RAM\n
-      !!     Cont(Continuum_class): Structure with background opacity
-      !!                            data\n
-      !!       Rho_old(Rhoc_class): Structure to store rhoKQ
-      !!                            quantities\n
-      !!  StokesI(dfloat(:,:,:,:)): Intensity\n
-      !!          J00(dfloat(:,:)): Mean intensity integrated over
-      !!                            absorption profile\n
-      !!         J00S(dfloat(:,:)): Mean intensity integrated over
-      !!                            emission profile\n
-      !!         J00C(dfloat(:,:)): Mean intensity with frequency
-      !!                            dependence\n
-      !!       J00P(dfloat(:,:,:)): Intensity integrals in the
-      !!                            photoionization rates
-      !!            lload(logical): Reading solution file\n
-      !!              lio(logical): Doing intensity formal solution\n
-      !!              lie(logical): Doing intensity emergence\n
-      !!               lp(logical): Will call hanle_polarization\n
-      !!            rlimw(logical): Write RAM limit message\n
-      !!            ofram(logical): Indicates if out of RAM
+      !> Solve the self-consistent NLTE problem for intensity or/and
+      !! calculate the emergent intensity profiles\n
+      !!         Atom(Atom_class(:)): Structures with atomic data\n
+      !!  LTElines(LTEline_class(:)): Structures with LTE line data\n
+      !!            Atmo(Atmo_class): Structure with atmospheric
+      !!                              data\n
+      !!             MPID(MPI_class): Structure with MPI data\n
+      !!          Input(Input_class): Structure with configuration
+      !!                              data\n
+      !!       GeomI(Geometry_class): Structure with geometric data
+      !!                              for the intensity problem\n
+      !!        Bfield(Bfield_class): Structure with magnetic field
+      !!       Frec(Frequency_class): Structure with frequency data\n
+      !!          Flgsg(Fctsg_class): Structure with factorials,
+      !!                              signs, and J-symbols\n
+      !!      SolF(Solution_F_class): Structure with the solution of
+      !!                              the self-consistent problem and
+      !!                              the corresponding emergent
+      !!                              profiles, contribution function,
+      !!                              and height for optical depth
+      !!                              equal to one\n
+      !!       Cont(Continuum_class): Structure with background
+      !!                              opacity data\n
+      !!      Rho_old(Rhoc_class(:)): Structure to store the density
+      !!                              matrix of the previous
+      !!                              iteration\n
+      !!    StokesI(double(:,:,:,:)): Intensity\n
+      !!            J00(double(:,:)): Mean intensity integrated over
+      !!                              the absorption profile\n
+      !!           J00S(double(:,:)): Mean intensity integrated over
+      !!                              the emission profile\n
+      !!           J00C(double(:,:)): Mean intensity with frequency
+      !!                              dependence\n
+      !!         J00P(double(:,:,:)): Intensity integrals in the
+      !!                              photoionization rates
+      !!              lload(logical): If reading an existing solution
+      !!                              file\n
+      !!                lio(logical): If solving the self-consistent
+      !!                              NLTE problem for intensity\n
+      !!                lie(logical): If calculating the emergent
+      !!                              intensity\n
+      !!                 lp(logical): If solving the self-consistent
+      !!                              NLTE problem of the 2nd kind\n
+      !!              rlimw(logical): If we can write a message about
+      !!                              reaching the RAM limit\n
+      !!              ofram(logical): If we have reached the RAM limit
       subroutine hanle_intensity(Atom,LTElines,Atmo,MPID,Input, &
                                  GeomI,Bfield,Frec,Flgsg,SolF, &
                                  Cont,Rho_old, &
@@ -1631,183 +1292,249 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:):: Atom
-      type(LTEline_class), dimension(:), allocatable:: LTElines
-      type(Atmo_class):: Atmo
-      type(Bfield_class):: Bfield
-      type(Fctsg_class):: Flgsg
-      type(Frequency_class):: Frec
-      type(Geometry_class):: GeomI
-      type(Input_class):: Input
-      type(MPI_class):: MPID
-      type(Solution_F_class):: SolF
-      type(Continuum_class):: Cont
-      type(Rhoc_class), dimension(:):: Rho_old
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(LTEline_class), dimension(:), &
+                           allocatable, intent(in):: LTElines
+      type(Atmo_class), intent(in):: Atmo
+      type(Bfield_class), intent(in):: Bfield
+      type(Fctsg_class), intent(inout):: Flgsg
+      type(Frequency_class), intent(in):: Frec
+      type(Geometry_class), intent(inout):: GeomI
+      type(Input_class), intent(in):: Input
+      type(MPI_class), intent(inout):: MPID
+      type(Solution_F_class), intent(inout):: SolF
+      type(Continuum_class), intent(in):: Cont
+      type(Rhoc_class), dimension(:), intent(inout):: Rho_old
       logical, intent(in):: lload,lio,lie,lp
       logical, intent(inout):: rlimw,ofram
-      double precision, dimension(:,:,:,:), allocatable:: StokesI
-      double precision, dimension(:,:,:,:,:), allocatable:: Stokes
-      double precision, dimension(:,:), allocatable:: J00
-      double precision, dimension(:,:), allocatable:: J00S
-      double precision, dimension(:,:), allocatable:: J00C
-      double precision, dimension(:,:,:), allocatable:: J00P
+      double precision, dimension(:,:,:,:), &
+                        allocatable, intent(inout):: StokesI
+      double precision, dimension(:,:), &
+                        allocatable, intent(inout):: J00
+      double precision, dimension(:,:), &
+                        allocatable, intent(inout):: J00S
+      double precision, dimension(:,:), &
+                        allocatable, intent(inout):: J00C
+      double precision, dimension(:,:,:), &
+                        allocatable, intent(inout):: J00P
 
       ! Local
 
       type(Red_class):: Red
+
+      logical:: liter,literJ
+
+      double precision, dimension(1):: ad1
+      double precision, dimension(:,:,:,:,:), allocatable:: Stokes
 
       complex(kind=8), dimension(:,:,:,:), allocatable:: JKQ
       complex(kind=8), dimension(:,:,:,:), allocatable:: JKQS
       complex(kind=8), dimension(:,:,:,:), allocatable:: JKQC
 
 
-      ! Initialize redistribution pointer
-      nullify(Red%dzao)
+      ! Initialize redistribution structure pointers
+      nullify(Red%dzao,Red%rzao,Red%pzao,Red%zao)
+
+      ! Initialize memory used in input frequency data
+      FRAMc = FRAMc + 1d-6*sizeof(Red)
+
+      ! Check if doing any iteration in J or in populations
+      literJ = Input%iter_J.gt.0
+      liter = lio.and.(Input%iteri_max.ge.Input%iteri_min)
 
       !
-      ! Formal solution and iterating
+      ! Preliminars
       !
-      if (lio.and.(Input%iteri_max.ge.Input%iteri_min.or. &
-                   Input%iter_j.gt.0)) then
 
-        ! Need actual normalization
-        if (Input%iteri_max.ge.Input%iteri_min.or. &
-            Input%init_J_bb) then
+      ! Doing absolutely anything
+      if (liter.or.literJ.or.lie) then
 
-          ! Normalize first order
-          call normalization(Atom,LTElines,Atmo,Atmo%zeros,GeomI, &
-                             Frec,Input,Flgsg,MPID,rlimw,lio, &
-                             .False.,.False.,.False.)
+        !
+        ! Set number of output directions
+        !
 
+        ! If iterating or using lines in J iteration
+        if (liter.or.(literJ.and.Input%init_J_bb)) then
+
+          ! Number of output directions is quadrature
+          GeomI%njdir = GeomI%nTh*GeomI%nPh
+
+          ! Index geometry
+          call geom_index(GeomI,.False.)
+
+        ! Not using quadrature for lines
         else
 
-          ! Only geometry
-          call normalization(Atom,LTElines,Atmo,Atmo%zeros,GeomI, &
-                             Frec,Input,Flgsg,MPID,rlimw,lio, &
-                             .False.,.False.,.True.)
+          ! Number of output directions given by LOS
+          GeomI%njdir = 1
+
+          ! Index geometry
+          call geom_index(GeomI,.True.)
 
         end if
 
-        ! Control
-        if (laborted) goto 1000
+        ! If doing PRD and doing any intensity formal solution
+        if (Input%iter_ord.eq.2.and.(lie.or.liter)) then
 
+          ! Index redistribution data arrays, allocate for
+          ! input frequencies, and estimate minimum memory
+          ! for PRD normalization
+          call index_red(Atom,Red,ad1,.False.)
 
-        !
-        ! PRD
-        !
-
-        ! If doing PRD, determine the input frequencies and weights
-        if(Input%iter_ord.eq.2.and. &
-           Input%iteri_max.ge.Input%iteri_min)then
-
-          call omegabuildinI(Frec,Red,Atom,Atmo,Input,GeomI,MPID, &
-                             lio,ofram,.False.)
-
-          ! Control
+          ! Call input frequency axis
+          call omegabuildinI(Frec,Red,Atom,Atmo,Input,MPID,ofram)
           if (laborted) goto 1000
 
-          ! If storing profiles
-          if (IRAM) then
-
-            ! If CPU went above ram
-            if (ofram.and.rlimw) then
-
-              write(umsg,'(A,i3,A)') ' # Processor',pid, &
-                                     ' reached the limit of '// &
-                                     'redistribution allocations.'
-              call verbose
-              rlimw = .False.
-
-            end if
-
-            call MPI_BARRIER(MPI_COMM_RT, ierr)
-
-          end if ! Storing profiles
-
+          ! Master verbose
           if (gpid.eq.0) then
             umsg = ' - Input frequency axis initialized (intensity)'
             call verbose
-          end if
+          end if ! Master
+        end if ! PRD and any intensity formal solution
 
-#ifdef _OPENMP
-          call setomp_2ord(Atom,Frec,GeomI,Bfield%Bstrength, &
-                           .False.,.False.)
-          ! Control
-          if (laborted) goto 1000
-#endif
+        ! If solving NLTE proble, predict RAM necessary for RT
+        if (liter) &
+          call solveI_predict(Atom,Atmo,Frec,Red,GeomI,MPID,Input)
 
-        end if ! doing PRD
+        ! If we need actual line data
+        if (liter.or.(literJ.and.Input%init_J_bb).or.lie) then
 
-      end if ! Intensity formal solution
+          ! Index normalization array and estimate minimum
+          ! size for normalization
+          call index_norm(Atom,LTElines,Atmo,Bfield,GeomI,Red,.False.)
 
-      ! If not loading
-      if (.not.lload) then
+          ! If doing PRD and doing any intensity formal solution
+          if (Input%iter_ord.eq.2.and.(lie.or.liter)) then
 
-        ! If J iterations specified
-        if (Input%iter_j.gt.0) then
+            ! Call normalization for 1st order profiles in PRD
+            call normalizeI_PRD(Atom,Atmo,Frec,Red,ofram)
+            if (laborted) goto 1000
 
-          ! If doing only intensity
-          if (lio) then
-
+            ! Master verbose
             if (gpid.eq.0) then
-              umsg = ' - Iterating radiation field'
+              umsg = ' - Normalized 1st order profiles for '// &
+                     'PRD (intensity)'
               call verbose
             end if
 
-            ! Solve
-            call solveJ(Atmo,Atom,LTElines,Cont,Frec, &
-                        GeomI,MPID,Input,StokesI,J00C)
+            ! If storing profiles
+            if (IRAM.or.VIRAM) then
 
-            ! Control
-            if (laborted) goto 1000
+              ! If CPU went beyond ram limit
+              if (ofram.and.rlimw) then
 
-          end if ! Only intensity
-        end if ! J iterations
-      end if ! Not load
+                ! Verbose
+                write(umsg,'(A,i3,A)') ' # Processor',pid, &
+                                       ' reached RAM limit with '// &
+                                       'input frequency and PRD '// &
+                                       'flat allocations.'
+                call verbose
+
+                ! Do not notify anymore in this CPU
+                rlimw = .False.
+
+              end if ! Went beyond limit and can notify
+            end if ! Storing profiles
+          end if ! doing PRD and calculating lines
+        end if ! Doing any kind of calculation here
+      end if ! Intensity formal solution
+
+      ! If iterating or non-dynamic
+      if (.not.dyn.or.liter.or.(literJ.and.Input%init_J_bb)) then
+
+        ! Normalize first order profiles
+        call normalization(Atom,LTElines,Atmo,Atmo%zeros,GeomI, &
+                           Frec,Red,Input,Flgsg,MPID,rlimw,.False.)
+        if (laborted) goto 1000
+
+        ! Master verbose
+        if (gpid.eq.0) then
+          umsg = ' - Normalized/precalculated profiles (intensity)'
+          call verbose
+        end if
+
+      end if ! Iterating or non dynamic
+
+      ! If not loading and doing J iterations and doing
+      ! intensity
+      if (.not.lload.and.literJ.and.lio) then
+
+        ! Master verbose
+        if (gpid.eq.0) then
+          umsg = ' - Iterating radiation field'
+          call verbose
+        end if
+
+        ! Solve
+        call solveJ(Atmo,Atom,LTElines,Cont,Frec, &
+                    Red,GeomI,MPID,Input,StokesI,J00C)
+        if (laborted) goto 1000
+
+      end if ! Need to do J iterations
+
+      !
+      ! If formal solution or emergence and PRD
+      !
+      if (Input%iter_ord.eq.2.and.(liter.or.lie)) then
+
+        ! Allocate Warr space
+        call allocate_WarrI(Atom,Red,GeomI,ofram)
+
+        ! If CPU went above ram and can send messages
+        if (IRAM.and.ofram.and.rlimw) then
+
+          ! Verbose
+          write(umsg,'(A,i3,A)') ' # Processor',pid, &
+                                 ' reached RAM limit with '// &
+                                 'redistribution allocations.'
+          call verbose
+
+          ! This CPU cannot send it more times
+          rlimw = .False.
+
+        end if ! CPU beyond limits
+      end if ! PRD with any intensity calculation
 
       !
       ! Intensity formal solution
       !
-      if (lio) then
 
-        ! If iterating
-        if (Input%iteri_max.ge.Input%iteri_min) then
+      ! If iterating
+      if (liter) then
 
-          ! Solve the NLTE problem of the first kind
-          if (gpid.eq.0) then
-            umsg = ' - Starting intensity iterations'
-            call verbose
-          end if
+        ! Master verbose
+        if (gpid.eq.0) then
+          umsg = ' - Starting intensity iterations'
+          call verbose
+        end if
 
-          ! If we have to report RAM use
-          if (Input%RAMreport) call RAMreport(MPID,Input%folder,0,1)
+        ! If we have to, report RAM use
+        if (Input%RAMreport) call RAMreport(Input%folder,0,1)
 
-          ! If measuring performance
-          if (Input%g_perf.and.pid.eq.0) &
-            call report_time(Input%folder,Input%ID,.True.)
+        ! If measuring performance, do it
+        if (Input%g_perf.and.pid.eq.0) &
+          call report_time(Input%folder,Input%ID,.True.)
 
-          ! Solution
-          call solveI(Atom,LTElines,Rho_old,Atmo,Cont,Frec, &
-                      Red,GeomI,MPID,Input,lload,StokesI, &
-                      J00,J00S,J00C,J00P)
+        ! Solve the NLTE problem of the first kind
+        call solveI(Atom,LTElines,Rho_old,Atmo,Cont,Frec, &
+                    Red,GeomI,MPID,Input,lload,StokesI, &
+                    J00,J00S,J00C,J00P)
+        if (laborted) goto 1000
 
-          ! Control
-          if (laborted) goto 1000
+        ! If measuring performance, report now
+        if (Input%g_perf.and.pid.eq.0) &
+          call report_time(Input%folder,Input%ID,.True.)
 
-          ! If measuring performance
-          if (Input%g_perf.and.pid.eq.0) &
-            call report_time(Input%folder,Input%ID,.True.)
+        ! If intensity was AA and pol is AD, treat as AD
+        if (PRD.and..not.AV.and.AVI) tbAD = .False.
 
-          ! If intensity was AA and pol is AD, treat as AD
-          if (PRD.and..not.AV.and.AVI) tbAD = .False.
-
-        end if ! Intensity iterations
-      end if ! lio
+      end if ! Iterating
 
       !
       ! Intensity emergence
       !
 
+      ! If calculating emergent intensity
       if (lie) then
 
         ! Write the solution file
@@ -1819,7 +1546,7 @@
         ! If inversion
         if (run_mode.eq.-1) then
 
-          ! Set solution
+          ! Set solution if we need to keep it
           if (SolF%keep_solution) &
             call setsol(SolF,Flgsg,Bfield, &
                         Atom,Stokes,JKQ,JKQS,JKQC,StokesI, &
@@ -1832,145 +1559,104 @@
           call writesolI(Input,'NONE',Frec%omega,GeomI,Atom, &
                          Atmo%z,StokesI,J00,J00S,J00C,J00P,.False.)
 
-        end if
+        end if ! Running mode
 
         ! Control
         if (laborted) goto 1000
 
-        ! If removing redistribution
-        if (.not.(AVI.and..not.dyn.and.lio).or.(.not.AVI.or.dyn)) &
-          MPID%RAM = MPID%RAM - MPID%WRAM
+        ! Index geometry
+        call geom_index(GeomI,.True.)
 
-        ! If removing normalization
-        if (.not.(.not.dyn.and.lio)) then
-          MPID%RAM = MPID%RAM - MPID%VRAM
-          MPID%VRAM = 0d0
+        ! Set number of output directions (LOS are treated one at
+        ! a time)
+        GeomI%njdir = 1
+
+        ! If dynamic
+        if (dyn) then
+
+          ! No point in storing Voigt profiles
+          VIRAM = .False.
+
+          ! Free existing normalization data
+          call free_norm(Red,.True.)
+
+          ! Index normalization array and estimate minimum
+          ! size for normalization
+          call index_norm(Atom,LTElines,Atmo,Bfield,GeomI,Red,.False.)
+
         end if
 
-        !
-        ! Normalization for emergence
-        !
-        call normalization(Atom,LTElines,Atmo,Atmo%zeros,GeomI, &
-                           Frec,Input,Flgsg,MPID,rlimw,lio, &
-                           .False.,.True.,.False.)
+        ! If angle-dependent
+        if (.not.AVI) then
 
-        ! Control
-        if (laborted) goto 1000
+          ! No point in storing redistribution functions
+          IRAM = .False.
 
+          ! Free redistribution
+          call free_warr(Red)
 
-        !
-        ! If doing PRD, determine the input frequencies and weights
-        !
+        end if
 
-        ! Define the input frequency axis
-        if(Input%iter_ord.eq.2)then
+        ! Predict RAM necessary to solve the RTE
+        call emergentI_predict(Atom,Atmo,Red,GeomI,MPID,Input)
 
-          call omegabuildinI(Frec,Red,Atom,Atmo, &
-                             Input,GeomI,MPID,lio,ofram,.True.)
-
-          ! Control
-          if (laborted) goto 1000
-
-          ! If storing profiles
-          if (IRAM) then
-
-            ! If CPU went above ram
-            if (ofram.and.rlimw) then
-
-              write(umsg,'(A,i3,A)') ' # Processor',pid, &
-                                     ' reached the limit of '// &
-                                     'redistribution allocations.'
-              call verbose
-              rlimw = .False.
-
-            end if
-
-            call MPI_BARRIER(MPI_COMM_RT, ierr)
-
-          end if ! Storing profiles
-
-          if (gpid.eq.0) then
-            umsg = ' - Input frequency axis initialized (intensity)'
-            call verbose
-          end if
-
-#ifdef _OPENMP
-          call setomp_2ord(Atom,Frec,GeomI,Bfield%Bstrength, &
-                           .False.,.True.)
-
-          ! Control
-          if (laborted) return
-#endif
-
-        end if ! PRD
-
-        ! Calculate emergent solutions
+        ! Master verbose
         if (gpid.eq.0) then
           umsg = ' - Emergent intensity'
           call verbose
         end if
 
-        ! If we have to report RAM use
-        if (Input%RAMreport) call RAMreport(MPID,Input%folder,0,0)
+        ! If we have to, report RAM use
+        if (Input%RAMreport) call RAMreport(Input%folder,0,0)
 
-        ! If measuring performance
+        ! If measuring performance, report now
         if (Input%g_perf.and.pid.eq.0) &
           call report_time(Input%folder,Input%ID,.True.)
 
-        ! Call solver
+        ! Perform formal solution
         call emergentI(Atom,LTElines,Atmo,Cont,Frec,Red,GeomI, &
                        MPID,Input,StokesI,J00,J00C,SolF)
-
-        ! Control
         if (laborted) goto 1000
 
-        ! If measuring performance
+        ! If measuring performance, report now
         if (Input%g_perf.and.pid.eq.0) &
           call report_time(Input%folder,Input%ID,.True.)
 
       ! If we are doing polarization but we want to keep the
-      ! intensity solution file, and we have a solution to store
-      elseif (Input%keepIsol.and.lio) then
+      ! intensity solution file, and we have a solution to store,
+      ! in synthesis mode
+      elseif (Input%keepIsol.and.lio.and.lp.and.run_mode.ge.0) then
 
-        ! If synthesis
-        if (run_mode.ge.0) then
-
-          ! Write the solution file
-          if (gpid.eq.0) then
-            umsg = ' - Saving intensity multi-level solution'
-            call verbose
-          end if
-
-          ! Write to file
-          call writesolI(Input,'NONE',Frec%omega,GeomI,Atom, &
-                         Atmo%z,StokesI,J00,J00S,J00C,J00P,.True.)
-
-        end if
-
-        ! Control
-        if (laborted) goto 1000
-
-      end if
-
-      ! If no calling polarization in synthesis
-      if (run_mode.ge.0.and.lio.and..not.lp) then
-
-        ! Write the solution file
+        ! Master verbose
         if (gpid.eq.0) then
-          umsg = ' - Saving solution'
+          umsg = ' - Saving intensity multi-level solution'
           call verbose
         end if
 
         ! Write to file
         call writesolI(Input,'NONE',Frec%omega,GeomI,Atom, &
+                       Atmo%z,StokesI,J00,J00S,J00C,J00P,.True.)
+        if (laborted) goto 1000
+
+      end if ! Emergence of storing solution
+
+      ! If no calling polarization in synthesis
+      if (run_mode.ge.0.and.lio.and..not.lp.and..not.lie) then
+
+        ! Master verbose
+        if (gpid.eq.0) then
+          umsg = ' - Saving solution'
+          call verbose
+        end if
+
+        ! Write to file as final
+        call writesolI(Input,'NONE',Frec%omega,GeomI,Atom, &
                        Atmo%z,StokesI,J00,J00S,J00C,J00P,.False.)
 
-      end if
+      end if ! If we need to write the solution here afterall
 
-      ! Clean Frec and Red structures
-1000  call cleanFrecandRed(Frec,Red,MPID)
-      MPID%RAM = MPID%RAM - MPID%WRAM
-      MPID%WRAM = 0d0
+      ! Clean Red structure
+1000  call free_red(Red)
 
       return
 
@@ -1980,181 +1666,329 @@
 !#####################################################################
 !#####################################################################
 
-      !> Solve the polarized RT NLTE problem.\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!   LTElines(LTEline_class): Structure with the LTE line data\n
-      !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!        Input(Input_class): Structure with settings data\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!      Bfield(Bfield_class): Structure with magnetic field
-      !!                            data\n
-      !!     Frec(Frequency_class): Structure with frequency data\n
-      !!        Flgsg(Fctsg_class): Structure with factorials and
-      !!                            signs\n
-      !!    SolF(Solution_F_class): Class to save the RT solution in
-      !!                            RAM\n
-      !!     Cont(Continuum_class): Structure with background opacity
-      !!                            data\n
-      !!       Rho_old(Rhoc_class): Structure to store rhoKQ
-      !!                            quantities\n
-      !!  StokesI(dfloat(:,:,:,:)): Intensity\n
-      !!          J00(dfloat(:,:)): Mean intensity integrated over
-      !!                            absorption profile\n
-      !!         J00S(dfloat(:,:)): Mean intensity integrated over
-      !!                            emission profile\n
-      !!         J00C(dfloat(:,:)): Mean intensity with frequency
-      !!                            dependence\n
-      !!       J00P(dfloat(:,:,:)): Intensity integrals in the
-      !!                            photoionization rates\n
-      !! Stokes(dfloat(:,:,:,:,:)): Stokes parameters\n
-      !!    JKQ(dcomplex(:,:,:,:)): Radiation field tensors integrated
-      !!                            over absorption profile\n
-      !!   JKQS(dcomplex(:,:,:,:)): Radiation field tensors integrated
-      !!                            over emission profile\n
-      !!   JKQC(dcomplex(:,:,:,:)): Radiation field tensors with
-      !!                            frequency dependence\n
-      !! JKQ_asym(dcomplex(:,:,:)): Extra asymmetry for the radiation
-      !!                            tensors\n
-      !!             rnPh(integer): Allocation size for Stokes\n
-      !!           saving(logical): If creating a solution file\n
-      !!            lload(logical): Reading solution file\n
-      !!              lio(logical): Doing intensity formal solution\n
-      !!              lie(logical): Doing intensity emergence\n
-      !!               lp(logical): Doing polarized formal solution\n
-      !!              lpe(logical): Doing polarized emergence\n
-      !!            rlimw(logical): Write RAM limit message\n
-      !!            ofram(logical): Indicates if out of RAM
+      !> Solve the self-consistent NLTE problem or the second kind
+      !! or/and calculate the emergent Stokes profiles\n
+      !!         Atom(Atom_class(:)): Structures with atomic data\n
+      !!  LTElines(LTEline_class(:)): Structures with LTE line data\n
+      !!            Atmo(Atmo_class): Structure with atmospheric
+      !!                              data\n
+      !!             MPID(MPI_class): Structure with MPI data\n
+      !!          Input(Input_class): Structure with configuration
+      !!                              data\n
+      !!        Geom(Geometry_class): Structure with geometric data\n
+      !!        Bfield(Bfield_class): Structure with magnetic field
+      !!       Frec(Frequency_class): Structure with frequency data\n
+      !!          Flgsg(Fctsg_class): Structure with factorials,
+      !!                              signs, and J-symbols\n
+      !!      SolF(Solution_F_class): Structure with the solution of
+      !!                              the self-consistent problem and
+      !!                              the corresponding emergent
+      !!                              profiles, contribution function,
+      !!                              and height for optical depth
+      !!                              equal to one\n
+      !!       Cont(Continuum_class): Structure with background
+      !!                              opacity data\n
+      !!      Rho_old(Rhoc_class(:)): Structure to store the density
+      !!                              matrix of the previous
+      !!                              iteration\n
+      !!    StokesI(double(:,:,:,:)): Intensity\n
+      !!            J00(double(:,:)): Mean intensity integrated over
+      !!                              the absorption profile\n
+      !!           J00S(double(:,:)): Mean intensity integrated over
+      !!                              the emission profile\n
+      !!           J00C(double(:,:)): Mean intensity with frequency
+      !!                              dependence\n
+      !!         J00P(double(:,:,:)): Intensity integrals in the
+      !!                              photoionization rates\n
+      !!   Stokes(double(:,:,:,:,:)): Stokes parameters\n
+      !!      JKQ(dcomplex(:,:,:,:)): Radiation field tensors
+      !!                              integrated over the absorption
+      !!                              profile\n
+      !!     JKQS(dcomplex(:,:,:,:)): Radiation field tensors
+      !!                              integrated over the emission
+      !!                              profile\n
+      !!     JKQC(dcomplex(:,:,:,:)): Radiation field tensors with
+      !!                              frequency dependence\n
+      !!   JKQ_asym(dcomplex(:,:,:)): Extra asymmetry for the
+      !!                              radiation field tensors\n
+      !!               rnPh(integer): Allocation size for Stokes in
+      !!                              the azimuth dimension\n
+      !!             saving(logical): If generating a solution file\n
+      !!              lload(logical): If reading an existing solution
+      !!                              file\n
+      !!                lio(logical): If solving the self-consistent
+      !!                              NLTE problem for intensity\n
+      !!                lie(logical): If calculating the emergent
+      !!                              intensity\n
+      !!                 lp(logical): If solving the self-consistent
+      !!                              NLTE problem of the 2nd kind\n
+      !!                lpe(logical): If calculating the emergent
+      !!                              Stokes parameters\n
+      !!              rlimw(logical): If we can write a message about
+      !!                              reaching the RAM limit\n
+      !!              ofram(logical): If we have reached the RAM limit
       subroutine hanle_polarization(Atom,LTElines,Atmo,MPID,Input, &
                                     Geom,Bfield,Frec,Flgsg,SolF, &
                                     Cont,Rho_old, &
                                     StokesI,J00,J00S,J00C,J00P, &
                                     Stokes,JKQ,JKQS,JKQC,JKQ_asym, &
                                     rnPh,saving, &
-                                    lload,lio,lie,lp,lpe,rlimw,ofram)
+                                    lload,lio,lp,lpe,rlimw,ofram)
           
       ! I/O
 
-      type(Atom_class), dimension(:):: Atom
-      type(LTEline_class), dimension(:), allocatable:: LTElines
-      type(Atmo_class):: Atmo
-      type(Bfield_class):: Bfield
-      type(Fctsg_class):: Flgsg
-      type(Frequency_class):: Frec
-      type(Geometry_class):: Geom
-      type(Input_class):: Input
-      type(MPI_class):: MPID
-      type(Solution_F_class):: SolF
-      type(Continuum_class):: Cont
-      type(Rhoc_class), dimension(:):: Rho_old
-      logical, intent(in):: saving,lload,lio,lie,lp,lpe
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(LTEline_class), dimension(:), &
+                           allocatable, intent(in):: LTElines
+      type(Atmo_class), intent(in):: Atmo
+      type(Bfield_class), intent(in):: Bfield
+      type(Fctsg_class), intent(inout):: Flgsg
+      type(Frequency_class), intent(in):: Frec
+      type(Geometry_class), intent(inout):: Geom
+      type(Input_class), intent(in):: Input
+      type(MPI_class), intent(inout):: MPID
+      type(Solution_F_class), intent(inout):: SolF
+      type(Continuum_class), intent(in):: Cont
+      type(Rhoc_class), dimension(:), intent(inout):: Rho_old
+      logical, intent(in):: saving,lload,lio,lp,lpe
       logical, intent(inout):: rlimw,ofram
       integer, intent(in):: rnPh
-      double precision, dimension(:,:,:,:), allocatable:: StokesI
-      double precision, dimension(:,:), allocatable:: J00
-      double precision, dimension(:,:), allocatable:: J00S
-      double precision, dimension(:,:), allocatable:: J00C
-      double precision, dimension(:,:,:), allocatable:: J00P
-      double precision, dimension(:,:,:,:,:), allocatable:: Stokes
-      complex(kind=8), dimension(:,:,:,:), allocatable:: JKQ
-      complex(kind=8), dimension(:,:,:,:), allocatable:: JKQS
-      complex(kind=8), dimension(:,:,:,:), allocatable:: JKQC
-      complex(kind=8), dimension(:,:,:), allocatable:: JKQ_asym
+      double precision, dimension(:,:,:,:), &
+                        allocatable, intent(inout):: StokesI
+      double precision, dimension(:,:), &
+                        allocatable, intent(inout):: J00
+      double precision, dimension(:,:), &
+                        allocatable, intent(inout):: J00S
+      double precision, dimension(:,:), &
+                        allocatable, intent(inout):: J00C
+      double precision, dimension(:,:,:), &
+                        allocatable, intent(inout):: J00P
+      double precision, dimension(:,:,:,:,:), &
+                        allocatable, intent(inout):: Stokes
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(inout):: JKQ
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(inout):: JKQS
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(inout):: JKQC
+      complex(kind=8), dimension(:,:,:), &
+                       allocatable, intent(in):: JKQ_asym
 
       ! Local
 
       type(Red_class):: Red
 
-      logical:: l1
+      logical:: l1,liter,lcorr,field
 
       integer:: ia
 
 
-      ! Initialize redistribution pointer
-      nullify(Red%dzao)
+      ! Initialize redistribution pointers
+      nullify(Red%dzao,Red%rzao,Red%pzao,Red%zao)
+
+      ! Initialize memory in Red structure
+      FRAMc = FRAMc + 1d-6*sizeof(Red)
+
+      ! Check if iterating
+      liter = lp.and.(Input%iter_max.ge.Input%iter_min)
+
+      ! Check if correcting JKQ
+      lcorr = lio.or.(lload.and..not.allocated(Stokes))
+
+      ! Check if there is a magnetic field
+      field = maxval(Bfield%Bstrength).gt.TINYB
+
+      ! Check RT axiality
+      RTaxial = axial.and. &
+                maxval(Bfield%Bstrength).le.TINYB
 
       !
       ! Prepare geometrical tensors
       !
 
-      ! Get B geometrical tensors
-      call setTB(Geom,Flgsg,Bfield)
+      ! If PRD, or iterating, or correcting JKQ, get B geometrical
+      ! tensors in quadrature
+      if (field.and.(lp.or.lcorr.or.Input%iter_ord.eq.2)) &
+        call setTB(Geom,Flgsg,Bfield)
 
       !
       ! Diagonalize Hamiltonian
       !
 
-      ! For each atom, if there is magnetic field
-      if (maxval(Bfield%Bstrength).gt.TINYB) then
+      ! If there is magnetic field
+      if (field) then
+
+        ! For each atom
         do ia=1,nA
+
+          ! Diagonalize
           call diagon(Atom(ia),Bfield,Input%zeeman_mode,Flgsg)
-        end do
+
+          ! Compute transition strength in energy representation
+          call strength_ev(Atom(ia),Bfield)
+
+        end do ! Atoms
+
+        ! Master verbose
         if(gpid.eq.0) then
           umsg = ' - Hamiltonian diagonalized'
           call verbose
-        end if
-#ifdef RDIPEV
-        do ia=1,nA
-          call strength_ev(Atom(ia),Flgsg,Bfield)
-        end do
-        if(gpid.eq.0) then
           umsg = ' - Dipole strengths in energy eigenbasis calculated'
           call verbose
         end if
-#endif
+
+      ! No magnetic field
       else
+
+        ! For each atom
         do ia=1,nA
+
+          ! Initialize dimensions coming from diagonalization even if
+          ! trivial
           call diagon_B0(Atom(ia))
-        end do
-      end if
+
+        end do ! Atoms
+
+      end if ! Magnetic field presence
 
       !
-      ! Normalize
+      ! Normalizations
       !
 
-      ! Remove Voigt from RAM
-      MPID%RAM = MPID%RAM - MPID%VRAM
+      ! If iterating or doing corrections, normalize
+      if (liter.or.lcorr.or.lpe) then
 
-      ! Normalize first order
-      call normalization(Atom,LTElines,Atmo,Bfield%Bstrength,Geom, &
-                         Frec,Input,Flgsg,MPID,rlimw,lp, &
-                         .True.,.False.,.False.)
+        !
+        ! Set number of output directions
+        !
 
-      ! Control
-      if (laborted) goto 1000
+        ! Iterating or correcting
+        if (liter.or.lcorr) then
 
-#ifdef _OPENMP
-      ! Initialize memoization to use OpenMP later for each atom
-      call initmemoJ(Atom,LTElines,Flgsg,Bfield%Bstrength,lp)
+          ! Number of output directions is quadrature
+          Geom%njdir = Geom%nTh*Geom%nPh
 
-      ! Initialize OpenMP for magnetic routines
-      call setomp_magn(Atom,Bfield%Bstrength)
-#endif
+          ! Index geometry
+          call geom_index(Geom,.False.)
+
+        ! Only emergence
+        else
+
+          ! Number of output directions given by LOS
+          Geom%njdir = 1
+
+          ! Index geometry
+          call geom_index(Geom,.True.)
+
+        end if
+
+        ! If doing PRD and calculating Stokes profiles
+        if (Input%iter_ord.eq.2.and.(lpe.or.liter)) then
+
+          ! Index redistribution data arrays, allocate for
+          ! input frequencies, and estimate minimum memory
+          ! for PRD normalization
+          call index_red(Atom,Red,Bfield%Bstrength,.True.)
+
+          ! Get input frequency axis
+          call omegabuildin(Frec,Red,Atom,Atmo, &
+                            Bfield%Bstrength,Input,MPID, &
+                            ofram)
+          if (laborted) goto 1000
+
+          ! Master verbose
+          if (gpid.eq.0) then
+            umsg = ' - Input frequency axis initialized'
+            call verbose
+          end if ! Master
+        end if ! PRD
+
+        ! Predict RAM necessary for RT
+        if (liter) &
+          call solve_predict(Atom,Frec,Red,Geom,MPID,Input)
+
+        ! Index normalization array and estimate minimum
+        ! size for normalization
+        call index_norm(Atom,LTElines,Atmo,Bfield,Geom,Red,.True.)
+
+        ! If doing PRD and calculating Stokes profiles
+        if (Input%iter_ord.eq.2.and.(lpe.or.liter)) then
+
+          ! Call normalization for 1st order profiles in PRD
+          call normalize_PRD(Atom,Atmo,Bfield%Bstrength, &
+                             Frec,Red,ofram)
+          if (laborted) goto 1000
+
+          ! Master verbose
+          if (gpid.eq.0) then
+            umsg = ' - Normalized 1st order profiles for PRD'
+            call verbose
+          end if
+
+          ! If storing profiles
+          if (PRAM.or.VPRAM) then
+
+            ! If CPU went beyond ram limit
+            if (ofram.and.rlimw) then
+
+              ! Verbose
+              write(umsg,'(A,1x,i4,1x,A)') ' # Processor',pid, &
+                  ' reached RAM limit with redistribution ', &
+                  'allocation'
+              call verbose
+
+              ! Do not notify anymore in this CPU
+              rlimw = .False.
+
+            end if ! Went beyond limit and can notify
+          end if ! Storing profiles
+        end if ! PRD
+      end if ! Iterating or doing corrections
+
+      ! If iterating or non dynamic
+      if (.not.dyn.or.(liter.or.lcorr)) then
+
+        ! Normalize first order profiles
+        call normalization(Atom,LTElines,Atmo,Bfield%Bstrength,Geom, &
+                           Frec,Red,Input,Flgsg,MPID,rlimw,.True.)
+        if (laborted) goto 1000
+
+        ! Master verbose
+        if (gpid.eq.0) then
+          umsg = ' - Normalized/precalculated profiles'
+          call verbose
+        end if
+
+      end if ! Iterating or non dynamic
 
 #ifdef DEBUGRHOKQ
         if (pid.eq.0) call dump_rho(Atom,Input%folder,-3)
 #endif
-      ! If we solved in intensity, convert multiterm Jbar into
-      ! multilevel. Also, if we read a solution only in intensity
-      if ((lio.and..not.lie.and.(lp.or.lpe)).or. &
-          (lload.and.(lp.or.lpe).and..not.allocated(Stokes))) then
+      ! If we need to correct the JKQ to multi-term from the
+      ! multi-level solution
+      if (lcorr) then
 
-        ! Deal with the NCHLT when coming from intensity
+        ! Save the NCHLT variable and set it temporally to false
         l1 = NCHLT
         if (NCHLT) NCHLT = .False.
-
-        ! Call
-        call JKQgenerate(Atom,Rho_old,Atmo,Frec,Geom, &
-                         MPID,Input,Flgsg,Input%Pcorr,Bfield,rnPh, &
-                         StokesI,J00,J00S,J00C, &
-                         Stokes,JKQ,JKQS,JKQC,J00P)
-
-        ! Control
+        ! Correct the JKQ tensors
+#ifdef DEBUGSEE
+        call JKQgen(Atom,Rho_old,Atmo,Frec,Red,Geom, &
+                    MPID,Flgsg,Input%Pcorr,Bfield,rnPh, &
+                    StokesI,J00,J00S,J00C, &
+                    Stokes,JKQ,JKQS,JKQC,J00P,Input)
+#else
+        call JKQgen(Atom,Rho_old,Atmo,Frec,Red,Geom, &
+                    MPID,Flgsg,Input%Pcorr,Bfield,rnPh, &
+                    StokesI,J00,J00S,J00C, &
+                    Stokes,JKQ,JKQS,JKQC,J00P)
+#endif
         if (laborted) goto 1000
 
         ! Only if synthesis
         if (run_mode.ne.-1) then
 
+          ! Master verbose
           if (gpid.eq.0) then
             umsg = ' - Saving intensity solution'
             call verbose
@@ -2166,13 +2000,12 @@
 
         end if ! Synthesis
 
-        ! Deal with the NCHLT when coming from intensity
+        ! Restore NHCLT variable
         NCHLT = l1
 
-      end if
+      end if ! Correcting JKQ tensors
 
-
-      ! If PRD
+      ! If doing PRD
       if (Input%iter_ord.eq.2) then
 
         ! If non-coherent lower term, check the critical field
@@ -2181,97 +2014,73 @@
 
       end if ! PRD
 
+      ! Any PRD polarization calculation
+      if (Input%iter_ord.eq.2.and.(lp.or.lpe)) then
+
+        ! Allocate Warr data
+        call allocate_Warr(Atom,Red,Geom,Bfield%Bstrength,ofram)
+
+        ! If CPU went beyond ram limit
+        if (PRAM.and.ofram.and.rlimw) then
+
+          ! Verbose
+          write(umsg,'(A,i3,A)') ' # Processor',pid, &
+                                 ' reached RAM limit with '// &
+                                 'redistribution allocations.'
+          call verbose
+
+          ! This CPU cannot send it more times
+          rlimw = .False.
+
+        end if ! CPU beyond limits
+      end if ! PRD with any polarization calculation
 
       !
       ! Formal Solution
       !
+
+      ! If solving NLTE problem of the second kind
       if (lp) then
 
-        !
-        ! Build input axis
-        !
+        ! If actually iterating
+        if (liter) then
 
-        ! Define the input frequency axis
-        if (Input%iter_ord.eq.2) then
-
-          call omegabuildin(Frec,Red,Atom,Atmo,Bfield%Bstrength, &
-                            Input,Geom,MPID,lp,ofram,.False.)
-
-          if (laborted) goto 1000
-
-          ! If storing redistribution
-          if (PRAM) then
-
-            ! If CPU went above ram
-            if (ofram.and.rlimw) then
-
-              write(umsg,'(A,1x,i4,1x,A)') ' # Processor',pid, &
-                  ' reached the limit of redistribution allocations.'
-              call verbose
-
-              rlimw = .False.
-
-            end if
-
-            call MPI_BARRIER(MPI_COMM_RT, ierr)
-
-          end if ! Storing profiles
-
-          if (gpid.eq.0) then
-            umsg = ' - Input frequency axis initialized'
-            call verbose
-          end if ! Master
-
-#ifdef _OPENMP
-          call setomp_2ord(Atom,Frec,Geom,Bfield%Bstrength, &
-                           .True.,.False.)
-          if (laborted) goto 1000
-          call setomp_magn_2ord(Atom,Flgsg,Bfield%Bstrength)
-#endif
-
-        end if ! PRD
-
-        ! If iterating
-        if (Input%iter_max.ge.Input%iter_min) then
-
-          ! Solve the NLTE problem of the second kind
+          ! Master verbose
           if (gpid.eq.0) then
             umsg = ' - Starting iterations'
             call verbose
           end if
 
-          ! If we have to report RAM use
-          if (Input%RAMreport) call RAMreport(MPID,Input%folder,1,1)
+          ! If we have to report RAM use, do it now
+          if (Input%RAMreport) call RAMreport(Input%folder,1,1)
 
-          ! If measuring performance
+          ! If measuring performance, report now
           if (Input%g_perf.and.pid.eq.0) &
             call report_time(Input%folder,Input%ID,.True.)
 
-          ! Solver
+          ! Solve the NLTE problem of the second kind
           call solve(Atom,LTElines,Rho_old,Atmo,Cont,Frec, &
                      Red,Bfield,Geom,MPID,Input,Flgsg, &
                      JKQ_asym,Stokes,JKQ,JKQS,JKQC)
-
-          ! Control
           if (laborted) goto 1000
 
-          ! If measuring performance
+          ! If measuring performance, report it now
           if (Input%g_perf.and.pid.eq.0) &
             call report_time(Input%folder,Input%ID,.True.)
 
-          ! Store solution
+          ! Master verbose
           if (gpid.eq.0) then
             umsg = ' - Saving solution'
             call verbose
           end if
 
-          ! If saving
+          ! If saving the solution
           if (saving) then
 
             ! If inversion
             if (run_mode.eq.-1) then
 
-              ! Set solution
+              ! Keep the solution if needed
               if (SolF%keep_solution) &
                 call setsol(SolF,Flgsg,Bfield, &
                             Atom,Stokes,JKQ,JKQS,JKQC,StokesI, &
@@ -2280,7 +2089,7 @@
             ! Synthesis
             else
 
-              ! Write to file
+              ! Write the solution to file
               call writesol(Input,'NONE',Frec%omega,Geom,Flgsg, &
                             Bfield,Atom,Atmo%z,Stokes,JKQ,JKQS,JKQC)
 
@@ -2305,86 +2114,64 @@
       ! Stokes emergence
       !
 
+      ! Need to generate emergent Stokes profiles
       if (lpe) then
 
-        ! If removing redistribution
-        if (.not.(AV.and..not.dyn.and.lp).or.(.not.AV.or.dyn)) &
-          MPID%RAM = MPID%RAM - MPID%WRAM
+        ! Index geometry
+        call geom_index(Geom,.True.)
 
-        ! If removing normalization
-        if (.not.(.not.dyn.and.lp)) then
-          MPID%RAM = MPID%RAM - MPID%VRAM
-          MPID%VRAM = 0d0
+        ! Set number of output directions
+        Geom%njdir = 1
+
+        ! If dynamic
+        if (dyn) then
+
+          ! No point in storing Voigt profiles
+          VPRAM = .False.
+
+          ! Free existing normalization data
+          call free_norm(Red,.True.)
+
+          ! Index normalization array and estimate minimum
+          ! size for normalization
+          call index_norm(Atom,LTElines,Atmo,Bfield,Geom,Red,.True.)
+
         end if
 
-        ! Normalize first order
-        call normalization(Atom,LTElines,Atmo,Bfield%Bstrength,Geom, &
-                           Frec,Input,Flgsg,MPID,rlimw, &
-                           lp,.True.,.True.,.False.)
+        ! If angle-dependent
+        if (.not.AV) then
 
-        ! Control
-        if (laborted) goto 1000
+          ! No point in storing redistribution functions
+          PRAM = .False.
 
-        !
-        ! If doing PRD, determine the input frequencies and weights
-        !
-        if (Input%iter_ord.eq.2) then
+          ! Free redistribution
+          call free_warr(Red)
 
-          call omegabuildin(Frec,Red,Atom,Atmo,Bfield%Bstrength, &
-                            Input,Geom,MPID,lp,ofram,.True.)
+        end if
 
-          if (laborted) goto 1000
+        ! Predict RAM necessary to solve the RTE
+        call emergent_predict(Atom,Red,Geom,MPID,Input)
 
-          ! If storing profiles
-          if (PRAM) then
-
-            ! If CPU went above ram
-            if (ofram.and.rlimw) then
-
-              write(umsg,'(A,1x,i4,1x,A)') ' # Processor',pid, &
-                  ' reached the limit of redistribution allocations.'
-              call verbose
-
-            end if
-
-            call MPI_BARRIER(MPI_COMM_RT, ierr)
-
-          end if ! Storing profiles
-
-          if (gpid.eq.0) then
-            umsg = ' - Input frequency axis initialized'
-            call verbose
-          end if ! Master
-#ifdef _OPENMP
-          call setomp_2ord(Atom,Frec,Geom,Bfield%Bstrength, &
-                           .True.,.True.)
-          if (laborted) goto 1000
-          call setomp_magn_2ord(Atom,Flgsg,Bfield%Bstrength)
-#endif
-        end if ! PRD
-
-        ! Calculate emergent solutions
+        ! Master verbose
         if (gpid.eq.0) then
           umsg = ' - Emergent Stokes'
           call verbose
         end if
 
-        ! If we have to report RAM use
-        if (Input%RAMreport) call RAMreport(MPID,Input%folder,1,0)
+        ! If we have to report RAM use, do it now
+        if (Input%RAMreport) call RAMreport(Input%folder,1,0)
 
-        ! If measuring performance
+        ! If measuring performance, report it now
         if (Input%g_perf.and.pid.eq.0) &
           call report_time(Input%folder,Input%ID,.True.)
 
-        ! Solve
+        ! Perform formal solution
         call emergent(Atom,LTElines,Atmo,Cont,Frec,Red,Bfield, &
                       Geom,MPID,Input,Flgsg,JKQ_asym,Stokes, &
                       JKQ,JKQC,SolF)
-
-        ! Control
         if (laborted) goto 1000
 
-        ! If measuring performance
+        ! If measuring performance, report it now
         if (Input%g_perf.and.pid.eq.0) &
           call report_time(Input%folder,Input%ID,.True.)
 
@@ -2397,11 +2184,9 @@
       ! Clean memory
       !
 
-      ! Clean Frec and Red structures
-1000  call cleanFrecandRed(Frec,Red,MPID)
+      ! Clean Red structures and geometrical tensors
+1000  call free_red(Red)
       call free_local_geom(Geom)
-      MPID%RAM = MPID%RAM - MPID%WRAM
-      MPID%WRAM = 0d0
 
       return
 
@@ -2412,21 +2197,30 @@
 !#####################################################################
 
       !> Prepare solution structure for the inversion problem\n
-      !!   SolF(Solution_F_class): Class with the full RT solution\n
-      !!       Input(Input_class): Structure with settings data\n
-      !!         Atom(Atom_class): Structure with the atomic data\n
-      !!    GeomI(Geometry_class): Structure with the geometry data
-      !!                           for the intensity problem\n
-      !!     Geom(Geometry_class): Structure with the geometry
-      !!                           data\n
-      !!              RF(logical): If calculating responses
+      !> Allocate the arrays to store the solution of the forward
+      !! problem in the inversion mode and configure the synthesis
+      !! mode for the inversion code, depending on if the synthesis is
+      !! a trial or a response function\n
+      !!  SolF(Solution_F_class): Structure with the solution of the
+      !!                          self-consistent problem and the
+      !!                          corresponding emergent profiles,
+      !!                          contribution function, and height
+      !!                          for optical depth equal to one\n
+      !!      Input(Input_class): Structure with configuration data\n
+      !!     Atom(Atom_class(:)): Structures with atomic data\n
+      !!   GeomI(Geometry_class): Structure with geometric data for
+      !!                          the intensity problem\n
+      !!    Geom(Geometry_class): Structure with geometric data\n
+      !!             RF(logical): If solving the NLTE problem to
+      !!                          calculate the response function
       subroutine prepare_buffers(SolF,Input,Atom,GeomI,Geom,RF)
 
       ! I/O
-      type(Atom_class), dimension(:):: Atom
-      type(Geometry_class):: GeomI, Geom
-      type(Input_class):: Input
-      type(Solution_F_class):: SolF
+
+      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Geometry_class), intent(in):: GeomI, Geom
+      type(Input_class), intent(inout):: Input
+      type(Solution_F_class), intent(inout):: SolF
       logical, intent(in):: RF
 
       ! Local
@@ -2435,45 +2229,72 @@
 
 
       !
-      ! If response functions
+      ! Configure run
       !
+
+      ! If run if to compute a response function
       if (RF) then
 
-        ! Read
+        ! If initializing from existing density matrix
         if (Input%popuinit) then
+
+          ! Read and calculate mode
           Input%mode = 'B'
+
+        ! If doing from scratch
         else
+
+          ! Write mode
           Input%mode = 'W'
-        end if
+
+        end if ! If using previous solution
+
+        ! Do not keep the full solution
         SolF%keep_solution = .False.
 
-      ! No response
+      ! If the run is a trial
       else
 
-        ! Write
+        ! Start from scratch
         Input%mode = 'W'
+
+        ! And keep the full solution
         SolF%keep_solution = .True.
 
-      end if
+      end if ! Computing response function or a trial
 
-      ! Only master continues
+      ! Only master continues from here
       if (pid.gt.0) return
+
+      !
+      ! Prepare buffers
+      !
 
       ! If not initialized the space for solutions
       if (SolF%no_initialized) then
 
-        ! Initialize intensity?
+          ! If we need to initialize intensity
         if (Input%Type_Inversion.eq.0.or. &
             (Input%Type_Inversion.eq.3.and.Input%force.eq.'I').or. &
             (Input%Type_Inversion.eq.4.and.Input%force.eq.'I')) then
 
-          ! Allocate quantities
+          ! If keeping Stokes parameters
           if (KSTK) then
+
+            ! Allocate
             allocate(SolF%i_StkI(nfreq,GeomI%nPh,GeomI%nTh,nz))
             allocate(SolF%i_StkI_b(nfreq,GeomI%nPh,GeomI%nTh,nz))
             if (Input%LM_Method.eq.1) &
               allocate(SolF%i_StkI_t(nfreq,GeomI%nPh,GeomI%nTh,nz))
+
+            ! Count memory
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_StkI)
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_StkI_b)
+            if (Input%LM_Method.eq.1) &
+              SRAMc = SRAMc + 1d-6*sizeof(SolF%i_StkI_t)
           end if
+
+          ! Allocate
           allocate(SolF%i_J00(nxt,nz))
           allocate(SolF%i_J00C(nfreq,nz))
           allocate(SolF%i_J00P(nxphot,2,nz))
@@ -2486,35 +2307,74 @@
             allocate(SolF%i_J00P_t(nxphot,2,nz))
           end if
 
+          ! Count memory
+          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00)
+          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00C)
+          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00P)
+          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00_b)
+          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00C_b)
+          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00P_b)
+          if (Input%LM_Method.eq.1) then
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00_t)
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00C_t)
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00P_t)
+          end if
+
           ! Allocate rhoes
           allocate(SolF%i_rhoes(na))
           allocate(SolF%i_rhoes_b(na))
           if (Input%LM_Method.eq.1) &
             allocate(SolF%i_rhoes_t(na))
 
+          ! Count memory
+          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes)
+          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_b)
+          if (Input%LM_Method.eq.1) &
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_t)
+
           ! For each atom
           do ia=1,nA
+
+            ! Allocate
             allocate(SolF%i_rhoes(ia)%rho(Atom(ia)%nlevel,nz))
             allocate(SolF%i_rhoes_b(ia)%rho(Atom(ia)%nlevel,nz))
             if (Input%LM_Method.eq.1) &
               allocate(SolF%i_rhoes_t(ia)%rho(Atom(ia)%nlevel,nz))
-          end do
+
+            ! Count memory
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes(ia)%rho)
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_b(ia)%rho)
+            if (Input%LM_Method.eq.1) &
+              SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_t(ia)%rho)
+
+          end do ! Atoms
 
         end if ! Intensity
 
-        ! Initialize polarization
+        ! If doing polarization
         if (Input%Type_inversion.eq.1.or. &
             Input%Type_inversion.eq.2.or. &
             (Input%Type_Inversion.eq.3.and.Input%force.eq.'N').or. &
             (Input%Type_Inversion.eq.4.and.Input%force.eq.'N')) then
 
-          ! Allocate quantities
+          ! If keeping Stokes paramaters
           if (KSTK) then
+
+            ! Allocate
             allocate(SolF%i_Stk(0:3,nfreq,Geom%nPh,Geom%nTh,nz))
             allocate(SolF%i_Stk_b(0:3,nfreq,Geom%nPh,Geom%nTh,nz))
             if (Input%LM_Method.eq.1) &
               allocate(SolF%i_Stk_t(0:3,nfreq,Geom%nPh,Geom%nTh,nz))
-          end if
+
+            ! Count memory
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_Stk)
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_Stk_b)
+            if (Input%LM_Method.eq.1) &
+              SRAMc = SRAMc + 1d-6*sizeof(SolF%i_Stk_t)
+
+          end if ! Keeping Stokes parameters
+
+          ! Allocate
           allocate(SolF%i_JKQ(-2:2,0:2,nxtran,nz))
           allocate(SolF%i_JKQS(-2:2,0:2,nxtran,nz))
           allocate(SolF%i_JKQC(-2:2,0:2,nfreq,nz))
@@ -2527,19 +2387,47 @@
             allocate(SolF%i_JKQC_t(-2:2,0:2,nfreq,nz))
           end if
 
+          ! Count memory
+          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQ)
+          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQS)
+          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQC)
+          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQ_b)
+          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQS_b)
+          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQC_b)
+          if (Input%LM_Method.eq.1) then
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQ_t)
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQS_t)
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQC_t)
+          end if
+
           ! Allocate rhoes
           allocate(SolF%i_rhoes(na))
           allocate(SolF%i_rhoes_b(na))
           if (Input%LM_Method.eq.1) &
             allocate(SolF%i_rhoes_t(na))
 
+          ! Count memory
+          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes)
+          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_b)
+          if (Input%LM_Method.eq.1) &
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_t)
+
           ! For each atom
           do ia=1,nA
+
+            ! Allocate
             allocate(SolF%i_rhoes(ia)%crho(Atom(ia)%ndim,nz))
             allocate(SolF%i_rhoes_b(ia)%crho(Atom(ia)%ndim,nz))
             if (Input%LM_Method.eq.1) &
               allocate(SolF%i_rhoes_t(ia)%crho(Atom(ia)%ndim,nz))
-          end do
+
+            ! Count memory
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes(ia)%crho)
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_b(ia)%crho)
+            if (Input%LM_Method.eq.1) &
+              SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_t(ia)%crho)
+
+          end do ! Atoms
 
         end if ! Polarization
 
@@ -2549,11 +2437,26 @@
       end if ! Initialize
 
       !
-      ! Free space for outputs
+      ! Free space for emergence outputs
       !
-      if (allocated(SolF%e_Stk)) deallocate(SolF%e_Stk)
-      if (allocated(SolF%e_Ctr)) deallocate(SolF%e_Ctr)
-      if (allocated(SolF%e_tau1)) deallocate(SolF%e_tau1)
+
+      ! Stokes
+      if (allocated(SolF%e_Stk)) then
+        SRAMc = SRAMc - 1d-6*sizeof(SolF%e_Stk)
+        deallocate(SolF%e_Stk)
+      end if
+
+      ! Contribution functions
+      if (allocated(SolF%e_Ctr)) then
+        SRAMc = SRAMc - 1d-6*sizeof(SolF%e_Ctr)
+        deallocate(SolF%e_Ctr)
+      end if
+
+      ! Heights for optical depth equal to one
+      if (allocated(SolF%e_tau1)) then
+        SRAMc = SRAMc - 1d-6*sizeof(SolF%e_tau1)
+        deallocate(SolF%e_tau1)
+      end if
 
       end subroutine prepare_buffers
 

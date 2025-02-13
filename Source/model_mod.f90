@@ -5,59 +5,19 @@
 !#####################################################################
 !
 !  Authors:
-!     Hao Li (IAC)
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Hao Li (IAC/NSSCC)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     02/17/2023
+!     17/02/2023
 !  Last version:
-!     14/11/2023 V3.0.5
+!     13/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     14/11/2023:    V3.0.5 - Redid the reference frame rotations
-!                             because HL found an issue (TdPA)
-!
-!     10/04/2023:    V3.0.4 - The azimuth in the LOS is set to zero
-!                             if there is no transversal component
-!                             when transforming (TdPA)
-!
-!     10/03/2023:    V3.0.3 - Bugfix: wrong index for the ad-hoc
-!                             asymmetry (HL)
-!
-!     09/28/2023:    V3.0.2 - Just formatting, not advancing version
-!                             for this (TdPA)
-!
-!     07/03/2023:    V3.0.2 - Added Intpol_Var to interpolate the
-!                             nodes into the model atmosphere for
-!                             a given variable (TdPA)
-!                           - Added Intpol_glob to manage the
-!                             interpolation of global variables into
-!                             the model atmosphere (TdPA)
-!                           - Added code for no hydrostatic
-!                             equilibrium (TdPA)
-!                           - Generalized the transformation of the
-!                             magnetic field between vertical and LOS
-!                             frames to any LOS azimuth (TdPA)
-!                           - Added vconversion and v2vlos to
-!                             transform the velocity vector from
-!                             cartesian to LOS and viceversa (TdPA)
-!
-!     03/15/2023:    V3.0.1 - Intpol_Atmo_* do not need the Flgsg
-!                             argument (TdPA)
-!                           - The Blos variables are in the same
-!                             structure than the polar ones (TdPA)
-!                           - Bugfix: The nodes by correction were
-!                             not reseted for the LOS/POS magnetic
-!                             field nodes (TdPA)
-!
-!     03/08/2023:    V3.0.0 - First working version (TdPA)
-!
-!     02/17/2023:    V0.0.0 - Started from 05/12/2020
-!                             TIC@model_mod.f90 revision from
-!                             Hao (TdPA)
+!     13/12/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -67,38 +27,44 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    Intpol_Atmo_all:
-!      Manages calls to interpolate from nodes into atmosphere
+!  Intpol_Atmo_all
+!    Interpolate all quantities from the nodes into the atmosphere
 !
-!    Intpol_Var:
-!      Interpolate a variable from the nodes into the model
-!    atmosphere
+!  Intpol_Var
+!    Interpolate a given variable from the nodes into the atmosphere
 !
-!    Intpol_glob:
-!      Manages the interpolation of global quantities from nodes
-!    into atmosphere
+!  Intpol_glob
+!    Interpolate the global variables from nodes into the atmosphere
 !
-!    Intpol_Atmo:
-!      Manages the interpolation of thermal quantities from nodes
-!    into atmosphere
+!  Intpol_Atmo
+!    Interpolate the thermal variables from nodes into the atmosphere
 !
-!    Intpol_Bfield:
-!      Manages the interpolation of magnetic quantities from nodes
-!    into atmosphere
+!  Intpol_Bfield:
+!    Interpolate the magnetic field variables from nodes into the
+!  atmosphere
 !
-!    Bconversion:
-!      Transform magnetic field from LOS to vertical
+!  Bconversion
+!    Transform magnetic field between the LOS and the vertical
+!  reference frames
 !
-!    B2Blos:
-!      Transform magnetic field from vertical to LOS
+!  B2Blos
+!    Transform magnetic field between the vertical and the LOS
+!  reference frames
 !
-!    vconversion:
-!      Transform velocity from LOS to cartesian
+!  vconversion
+!    Transform velocity vector between the LOS and the vertical
+!  reference frames
 !
-!    v2vlos:
-!      Transform velocity from vertical to LOS
+!  v2vlos
+!    Transform velocity vector between the vertical and the LOS
+!  reference frames
 !
 !#####################################################################
 !#####################################################################
@@ -117,30 +83,33 @@
 !#####################################################################
 !#####################################################################
 
-      !> Interpolate all quantities from nodes into the atmosphere
-      !!     Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!           Atmo(Atmo_class): Structure with the model\n
-      !!       Bfield(Bfield_class): Structure with the vertical
-      !!                             magnetic field data\n
-      !!           Atom(Atom_class): Structure with the atomic data\n
-      !!          Atomb(Atom_class): Structure with the atomic data
-      !!                             for background opacities\n
-      !!             Mol(Mol_class): Structure with the molecule
-      !!                             data\n
-      !!         Input(Input_class): Structure with settings data\n
-      !!         fudge(fudge_class): Structure with fudge data
+      !> Interpolate all quantities from the nodes into the
+      !! atmosphere\n
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
+      !!        Atmo(Atmo_class): Structure with atmospheric data\n
+      !!    Bfield(Bfield_class): Structure with magnetic field data\n
+      !!     Atom(Atom_class(:)): Structures with atomic data\n
+      !!    Atomb(Atom_class(:)): Structures with atomic data for
+      !!                          background atoms\n
+      !!       Mol(Mol_class(:)): Structures with molecular data\n
+      !!      Input(Input_class): Structure with configuration data\n
+      !!      fudge(fudge_class): Structure with fudge data
       subroutine Intpol_Atmo_all(Inf_Nodes,Atmo,Bfield,Atom,Atomb, &
                                  Mol,Input,fudge)
 
-      !IO
+      ! I/O
+
       type(Nodes_class), intent(inout):: Inf_Nodes
       type(Atmo_class), intent(inout):: Atmo
       type(Bfield_class), intent(inout):: Bfield
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Input_class):: Input
-      type(fudge_class):: fudge
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
+      type(Input_class), intent(in):: Input
+      type(fudge_class), intent(in):: fudge
+
 
       ! If thermodynamic inversion
       if (Inf_Nodes%Nodes_type.eq.0) then
@@ -173,21 +142,25 @@
 !#####################################################################
 !#####################################################################
 
-      !> Interpolate a variable from nodes into the model atmosphere\n
-      !!  Inf_Nodes(Nodes_class): Structure with nodes data\n
+      !> Interpolate a given variable from the nodes into the
+      !! atmosphere\n
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
       !!        o_var(double(:)): Output stratification\n
       !!            z(double(:)): Optical depth axis\n
-      !!             nn(integer): Dimension of optical depth axis\n
-      !!           indx(integer): Parameter index
+      !!             nn(integer): Dimension of the optical depth
+      !!                          axis\n
+      !!           indx(integer): Index of the current parameter
       subroutine Intpol_Var(Inf_Nodes,o_var,z,nn,indx)
 
       ! I/O
+
       type(Nodes_class), intent(inout):: Inf_Nodes
       integer, intent(in):: nn, indx
       double precision, dimension(:), intent(in):: z
       double precision, dimension(:), intent(inout):: o_var
 
       ! Local
+
       double precision, dimension(nn):: i_var
 
 
@@ -227,13 +200,14 @@
 !#####################################################################
 !#####################################################################
 
-      !> Interpolate global quantities from nodes into the model
+      !> Interpolate the global variables from nodes into the
       !! atmosphere\n
-      !!     Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!           Atmo(Atmo_class): Structure with the model
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
+      !!        Atmo(Atmo_class): Structure with atmospheric data
       subroutine Intpol_glob(Inf_Nodes,Atmo)
 
-      ! IO
+      ! I/O
+
       type(Nodes_class), intent(inout):: Inf_Nodes
       type(Atmo_class), intent(inout):: Atmo
 
@@ -247,30 +221,34 @@
 !#####################################################################
 !#####################################################################
 
-      !> Interpolate thermal quantities from nodes into the model
+      !> Interpolate the thermal variables from nodes into the
       !! atmosphere\n
-      !!     Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!           Atmo(Atmo_class): Structure with the model\n
-      !!           Atom(Atom_class): Structure with the atomic data\n
-      !!          Atomb(Atom_class): Structure with the atomic data
-      !!                             for background opacities\n
-      !!             Mol(Mol_class): Structure with the molecule
-      !!                             data\n
-      !!         Input(Input_class): Structure with settings data\n
-      !!         fudge(fudge_class): Structure with fudge data
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
+      !!        Atmo(Atmo_class): Structure with atmospheric data\n
+      !!     Atom(Atom_class(:)): Structures with atomic data\n
+      !!    Atomb(Atom_class(:)): Structures with atomic data for
+      !!                          background atoms\n
+      !!       Mol(Mol_class(:)): Structures with molecular data\n
+      !!      Input(Input_class): Structure with configuration
+      !!                          data\n
+      !!      fudge(fudge_class): Structure with fudge data
       subroutine Intpol_Atmo(Inf_Nodes,Atmo,Atom,Atomb, &
                              Mol,Input,fudge)
 
-      ! IO
+      ! I/O
+
       type(Nodes_class), intent(inout):: Inf_Nodes
       type(Atmo_class), intent(inout):: Atmo
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Input_class):: Input
-      type(fudge_class):: fudge
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
+      type(Input_class), intent(in):: Input
+      type(fudge_class), intent(in):: fudge
 
       ! Local
+
       double precision:: Pg
       double precision, dimension(:), allocatable:: Z
 
@@ -402,20 +380,21 @@
 !#####################################################################
 !#####################################################################
 
-      !> Interpolate thermal quantities from nodes into the model
+      !> Interpolate the magnetic field variables from nodes into the
       !! atmosphere\n
-      !!     Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!           Atmo(Atmo_class): Structure with the model\n
-      !!       Bfield(Bfield_class): Structure with the vertical
-      !!                             magnetic field data
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
+      !!        Atmo(Atmo_class): Structure with atmospheric data\n
+      !!    Bfield(Bfield_class): Structure with magnetic field datan
       subroutine Intpol_Bfield(Inf_Nodes, Atmo, Bfield)
 
-      ! IO
+      ! I/O
+
       type(Nodes_class), intent(inout):: Inf_Nodes
       type(Atmo_class), intent(inout):: Atmo
       type(Bfield_class), intent(inout):: Bfield
 
       ! Local
+
       double precision, dimension(:), allocatable:: Z
 
 
@@ -490,20 +469,22 @@
 !#####################################################################
 !#####################################################################
 
-      !> Transform from LOS to vertical\n
-      !!         Num(integer): Number of nodes\n
-      !!           Mu(double): Cosine of the heliocentric angle\n
-      !!          phi(double): Azimuth\n
-      !!      blos(double(:)): Magnetic field along the LOS\n
-      !!      bpos(double(:)): Magnetic field in the POS\n
-      !!   azimuth(double(:)): Magnetic azimuth in the POS\n
-      !! bstrength(double(:)): Magnetic field strength\n
-      !!    btheta(double(:)): Magnetic field inclination\n
-      !!      bphi(double(:)): Magnetic field azimuth
+      !> Transform magnetic field between the LOS and the vertical
+      !! reference frames\n
+      !!          Num(integer): Number of nodes\n
+      !!            Mu(double): LOS cosine of the heliocentric angle\n
+      !!           phi(double): LOS azimuth\n
+      !!       blos(double(:)): Magnetic field along the LOS\n
+      !!       bpos(double(:)): Magnetic field in the POS\n
+      !!    azimuth(double(:)): Magnetic azimuth in the POS\n
+      !!  bstrength(double(:)): Magnetic field strength\n
+      !!     btheta(double(:)): Magnetic field inclination\n
+      !!       bphi(double(:)): Magnetic field azimuth
       subroutine Bconversion(Num,Mu,phi,blos,bpos,azimuth, &
                              bstrength,btheta,bphi)
 
-      ! IO
+      ! I/O
+
       integer, intent(in):: Num
       double precision, intent(in):: Mu,phi
       double precision, dimension(:),intent(in):: blos
@@ -514,7 +495,9 @@
       double precision, dimension(:),intent(inout):: bphi
 
       ! Local
+
       integer:: i
+
       double precision:: Mup, cp, sp
       double precision, dimension(Num):: bx, by, bz, bxp, byp, bzp
 
@@ -560,6 +543,7 @@
       by =  sp*by + byp*cp
       bz = -bxp*Mup + bzp*Mu
 
+      ! Control small values
       where (abs(bx).lt.TINYDP)
         bx =  0d0
       end where
@@ -607,20 +591,22 @@
 !#####################################################################
 !#####################################################################
 
-      !> Transform from vertical to LOS\n
-      !!         Num(integer): Number of nodes\n
-      !!           Mu(double): Cosine of the heliocentric angle\n
-      !!          phi(double): Azimuth\n
-      !! bstrength(double(:)): Magnetic field strength\n
-      !!    btheta(double(:)): Magnetic field inclination\n
-      !!      bphi(double(:)): Magnetic field azimuth\n
-      !!      blos(double(:)): Magnetic field along the LOS\n
-      !!      bpos(double(:)): Magnetic field in the POS\n
-      !!   azimuth(double(:)): Magnetic azimuth in the POS
-      subroutine B2Blos(Num, Mu, phi, bstrength, btheta, bphi, blos, &
-                        bpos, azimuth)
+      !> Transform magnetic field between the vertical and the LOS
+      !! reference frames\n
+      !!          Num(integer): Number of nodes\n
+      !!            Mu(double): LOS cosine of the heliocentric angle\n
+      !!           phi(double): LOS azimuth\n
+      !!  bstrength(double(:)): Magnetic field strength\n
+      !!     btheta(double(:)): Magnetic field inclination\n
+      !!       bphi(double(:)): Magnetic field azimuth\n
+      !!       blos(double(:)): Magnetic field along the LOS\n
+      !!       bpos(double(:)): Magnetic field in the POS\n
+      !!    azimuth(double(:)): Magnetic azimuth in the POS
+      subroutine B2Blos(Num,Mu,phi,bstrength,btheta,bphi, &
+                        blos,bpos,azimuth)
 
       ! I/O
+
       integer, intent(in):: Num
       double precision, intent(in):: Mu, phi
       double precision, dimension(:), intent(in):: bstrength
@@ -631,6 +617,7 @@
       double precision, dimension(:), intent(inout):: azimuth
 
       ! Local
+
       integer:: ii
 
       double precision:: Mup, cp, sp
@@ -674,6 +661,7 @@
       byp  = -bx*sp + by*cp
       blos = Mup*blos + bz*Mu
 
+      ! Control small values
       where (abs(blos).lt.TINYDP)
         blos = 0d0
       end where
@@ -690,19 +678,38 @@
       ! For each point
       do ii=1,Num
 
+        ! If X component
         if (abs(bxp(ii)).gt.0d0) then
-          azimuth(ii) = atan2(byp(ii),bxp(ii))
-        else if (abs(byp(ii)).gt.0d0) then
-          if (byp(ii).gt.0d0) then
-            azimuth(ii) = PI*0.5d0
-          else
-            azimuth(ii) = PI*1.5d0
-          end if
-        else
-          azimuth(ii) = 0d0
-        end if
 
-      end do
+          ! Compute azimuth
+          azimuth(ii) = atan2(byp(ii),bxp(ii))
+
+        ! If no X component, but there is Y
+        else if (abs(byp(ii)).gt.0d0) then
+
+          ! If Y positive
+          if (byp(ii).gt.0d0) then
+
+            ! It is pi/2
+            azimuth(ii) = PI*0.5d0
+
+          ! If Y negative
+          else
+
+            ! It is 3pi/2
+            azimuth(ii) = PI*1.5d0
+
+          end if ! Y component sign
+
+        ! Both are small
+        else
+
+          ! No azimuth
+          azimuth(ii) = 0d0
+
+        end if ! X component strength
+
+      end do ! Nodes
 
       return
 
@@ -712,19 +719,21 @@
 !#####################################################################
 !#####################################################################
 
-      !> Transform from LOS to vertical\n
-      !!         Num(integer): Number of nodes\n
-      !!           Mu(double): Cosine of the heliocentric angle\n
-      !!          phi(double): Azimuth\n
-      !!    vlos(double(:)): Velocity along the LOS\n
-      !!    vpos(double(:)): Velocity in the POS\n
-      !! azimuth(double(:)): Velocity azimuth in the POS\n
-      !!      vx(double(:)): Velocity x component\n
-      !!      vy(double(:)): Velocity y component\n
-      !!      vz(double(:)): Velocity z component
+      !> Transform velocity vector between the LOS and the vertical
+      !! reference frames\n
+      !!        Num(integer): Number of nodes\n
+      !!          Mu(double): LOS cosine of the heliocentric angle\n
+      !!         phi(double): LOS azimuth\n
+      !!     vlos(double(:)): Velocity along the LOS\n
+      !!     vpos(double(:)): Velocity in the POS\n
+      !!  azimuth(double(:)): Velocity azimuth in the POS\n
+      !!       vx(double(:)): Velocity x component\n
+      !!       vy(double(:)): Velocity y component\n
+      !!       vz(double(:)): Velocity z component
       subroutine vconversion(Num,Mu,phi,vlos,vpos,azimuth,vx,vy,vz)
 
-      ! IO
+      ! I/O
+
       integer, intent(in):: Num
       double precision, intent(in):: Mu,phi
       double precision, dimension(:),intent(in):: vlos
@@ -733,6 +742,7 @@
       double precision, dimension(:),intent(inout):: vx,vy,vz
 
       ! Local
+
       double precision:: Mup, cp, sp
       double precision, dimension(Num):: vxp, vyp, vzp
 
@@ -775,6 +785,7 @@
       vy =  sp*vy + vyp*cp
       vz = -vxp*Mup + vzp*Mu
 
+      ! Control small values
       where (abs(vx).lt.TINYDP)
         vx =  0d0
       end where
@@ -793,20 +804,21 @@
 !#####################################################################
 !#####################################################################
 
-      !> Transform from cartesian to LOS\n
-      !!       Num(integer): Number of nodes\n
-      !!         Mu(double): Cosine of the heliocentric angle\n
-      !!        phi(double): Azimuth\n
-      !!      vx(double(:)): Velocity x component\n
-      !!      vy(double(:)): Velocity y component\n
-      !!      vz(double(:)): Velocity z component\n
-      !!    vlos(double(:)): Velocity along the LOS\n
-      !!    vpos(double(:)): Velocity in the POS\n
-      !! azimuth(double(:)): Velocity azimuth in the POS
-      subroutine v2vlos(Num, Mu, phi, vx, vy, vz, vlos, &
-                        vpos, azimuth)
+      !> Transform velocity vector between the vertical and the LOS
+      !! reference frames\n
+      !!        Num(integer): Number of nodes\n
+      !!          Mu(double): LOS cosine of the heliocentric angle\n
+      !!         phi(double): LOS azimuth\n
+      !!       vx(double(:)): Velocity x component\n
+      !!       vy(double(:)): Velocity y component\n
+      !!       vz(double(:)): Velocity z component\n
+      !!     vlos(double(:)): Velocity along the LOS\n
+      !!     vpos(double(:)): Velocity in the POS\n
+      !!  azimuth(double(:)): Velocity azimuth in the POS
+      subroutine v2vlos(Num,Mu,phi,vx,vy,vz,vlos,vpos,azimuth)
 
       ! I/O
+
       integer, intent(in):: Num
       double precision, intent(in):: Mu, phi
       double precision, dimension(:), intent(in):: vx,vy,vz
@@ -815,6 +827,7 @@
       double precision, dimension(:), intent(inout):: azimuth
 
       ! Local
+
       integer:: ii
 
       double precision:: Mup, cp, sp
@@ -852,6 +865,7 @@
       vyp  = -vx*sp + vy*cp
       vlos = Mup*vlos + vz*Mu
 
+      ! Control small values
       where (abs(vlos).lt.TINYDP)
         vlos = 0d0
       end where
@@ -868,19 +882,38 @@
       ! For each point
       do ii=1,Num
 
+        ! If X component
         if (abs(vxp(ii)).gt.0d0) then
-          azimuth(ii) = atan2(vyp(ii),vxp(ii))
-        else if (abs(vyp(ii)).gt.0d0) then
-          if (vyp(ii).gt.0d0) then
-            azimuth(ii) = PI*0.5d0
-          else
-            azimuth(ii) = PI*1.5d0
-          end if
-        else
-          azimuth(ii) = 0d0
-        end if
 
-      end do
+          ! Compute azimuth
+          azimuth(ii) = atan2(vyp(ii),vxp(ii))
+
+        ! If no X component, but there is Y
+        else if (abs(vyp(ii)).gt.0d0) then
+
+          ! If Y positive
+          if (vyp(ii).gt.0d0) then
+
+            ! It is pi/2
+            azimuth(ii) = PI*0.5d0
+
+          ! If Y negative
+          else
+
+            ! It is 3pi/2
+            azimuth(ii) = PI*1.5d0
+
+          end if ! Y component sign
+
+        ! Both are small
+        else
+
+          ! No azimuth
+          azimuth(ii) = 0d0
+
+        end if ! X component strength
+
+      end do ! Nodes
 
       return
 

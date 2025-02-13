@@ -5,23 +5,19 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !     Roberto Casini (HAO)
 !  Start:
-!     04/20/2017
+!     26/04/2017
 !  Last version:
-!     06/29/2022 V3.0.0
+!     19/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     06/29/2022:    V3.0.0 - Changed global version (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!
-!     04/20/2017:    V1.0.0 - First version (TdPA)
+!     19/12/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -31,43 +27,60 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    This module contains the routines to calculate the rates for the
-!  SEE
+!  rEI
+!    Relaxation rate for spontaneous emission
 !
-!  rEI:
-!    Relaxation b-b spontaneous rate.
-!  rEPI:
-!    Relaxation b-f spontaneous rate.
-!  tEI:
-!    Spontaneous emission b-b transition rate.
-!  tEPI:
-!    Spontaneous emission b-f transition rate.
-!  tSI:
-!    Stimulated emission b-b transition rate.
-!  tSPI:
-!    Stimulated emission b-f transition rate.
-!  tAI:
-!    Absorption b-b transition rate.
-!  tAPI:
-!    Absorption b-f transition rate.
-!  rSI:
-!    Relaxation b-b stimulated rate.
-!  rAI:
-!    Relaxation b-b absorption rate.
-!  rSPI:
-!    Relaxation b-f stimulated rate.
-!  rAPI:
-!    Relaxation b-f absorption rate.
-!  tSFCI:
-!    Transition rates for up-down collision
-!  tAFCI:
-!    Transition rates for down-up collision
-!  rSFCI:
-!    Relaxation rates for superelastic collisions
-!  rAFCI:
-!    Relaxation rates for inelastic collisions
+!  rSI
+!    Relaxation rate for stimulated emission
+!
+!  rAI
+!    Relaxation rate for absorption
+!
+!  tEI
+!    Transfer rate for spontaneous emission
+!
+!  tSI
+!    Transfer rate for stimulated emission
+!
+!  tAI
+!    Transfer rate for absorption
+!
+!  rSFCI
+!    Relaxation rate for superelastic collisions
+!
+!  rAFCI
+!    Relaxation rate for inelastic collisions
+!
+!  tSFCI
+!    Transfer rate for superelastic collisions
+!
+!  tAFCI
+!    Transfer rate for inelastic collisions
+!
+!  rEPI
+!    Relaxation rate for bound-free spontaneous emission
+!
+!  rSPI
+!    Relaxation rate for bound-free stimulated emission
+!
+!  rAPI
+!    Relaxation rate for bound-free absorption
+!
+!  tEPI
+!    Transfer rate for bound-free spontaneous emission
+!
+!  tSPI
+!    Transfer rate for bound-free stimulated emission
+!
+!  tAPI
+!    Transfer rate for bound-free absorption
 !
 !#####################################################################
 !#####################################################################
@@ -84,9 +97,9 @@
 !#####################################################################
 
       !> Relaxation rate for spontaneous emission\n
-      !!        iterm(integer): Term index\n
-      !!   Ecoeff(dfloat(:,:)): Einstein coefficient data\n
-      !!       rEcoeff(dfloat): Spontaneous emission relaxation rate
+      !!       iterm(integer): Term index\n
+      !!  Ecoeff(double(:,:)): Einstein coefficient data\n
+      !!      rEcoeff(double): Spontaneous emission relaxation rate
       subroutine rEI(iterm,Ecoeff,rEcoeff)
 
       ! I/O
@@ -99,11 +112,17 @@
 
       integer:: iterml
 
+
+      ! Initialize rate
       rEcoeff = 0d0
 
+      ! For every lower term
       do iterml=1,iterm-1
+
+        ! Add Einstein coefficient
         rEcoeff = rEcoeff + Ecoeff(iterm,iterml)
-      end do
+
+      end do ! Lower terms
 
       end subroutine rEI
 
@@ -111,183 +130,19 @@
 !#####################################################################
 !#####################################################################
 
-      !> Relaxation rate for spontaneous recombination\n
-      !!       ilevel(integer): Level index\n
-      !!     iphot(integer(:)): Transition indexes\n
-      !!      phot(Phot_class): Structure with photoionization data\n
-      !!           iz(integer): Height index\n
-      !!      rEPcoeff(dfloat): Recombination relaxation rate
-      subroutine rEPI(ilevel,iphot,phot,iz,rEPcoeff)
-
-      ! I/O
-
-      type(Phot_class), dimension(:), intent(in):: phot
-      integer, intent(in):: ilevel,iz
-      integer, dimension(:), intent(in):: iphot
-      double precision, intent(out):: rEPcoeff
-
-      ! Local
-
-      integer:: ilevell, itran
-
-      rEPcoeff = 0d0
-
-      do ilevell=1,ilevel-1
-
-        itran = iphot(ilevell)
-
-        if (itran.lt.1) cycle
-
-        rEPcoeff = rEPcoeff + phot(itran)%TEI(iz)
-
-      end do
-
-      end subroutine rEPI
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
-      !> Transition rate for spontaneous emission\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJJ(dfloat): Angular momentum J'\n
-      !!        Ecoeff(dfloat): Einstein coefficient data\n
-      !!       tEcoeff(dfloat): Spontaneous emission transition rate
-      subroutine tEI(rJ,rJJ,Ecoeff,tEcoeff)
-
-      ! I/O
-
-      double precision, intent(in):: rJ,rJJ,Ecoeff
-      double precision, intent(out):: tEcoeff
-
-      tEcoeff = Ecoeff*sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))
-
-      end subroutine tEI
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
-      !> Transfer rate for spontaneous recombination\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJJ(dfloat): Angular momentum J'\n
-      !!         Intgr(dfloat): Photoionization intensity integral\n
-      !!      tEPcoeff(dfloat): Spontaneous recombination transfer
-      !!                        rate
-      subroutine tEPI(rJ,rJJ,Intgr,tEPcoeff)
-
-      ! I/O
-
-      double precision, intent(in):: Intgr,rJ,rJJ
-      double precision, intent(out):: tEPcoeff
-
-      tEPcoeff = Intgr*sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))
-
-      end subroutine tEPI
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
-      !> Transition rate for stimulated emission\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJJ(dfloat): Angular momentum J'\n
-      !!        Ecoeff(dfloat): Einstein coefficient data\n
-      !!         RadJS(dfloat): Mean intensity integrated over
-      !!                        emission profile\n
-      !!       tScoeff(dfloat): Stimulated emission transfer rate
-      subroutine tSI(rJ,rJJ,Ecoeff,RadJS,tScoeff)
-
-      ! I/O
-
-      double precision, intent(in):: rJ,rJJ,Ecoeff,RadJS
-      double precision, intent(out):: tScoeff
-
-      tScoeff = Ecoeff*sqrt((2d0*rJ+1d0)/(2d0*rJJ+1d0))*RadJS
-
-      end subroutine tSI
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
-      !> Transfer rate for stimulated recombination\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJJ(dfloat): Angular momentum J'\n
-      !!         Intgr(dfloat): Photoionization intensity integral\n
-      !!      tSPcoeff(dfloat): Stimulated recombination transfer
-      !!                        rate
-      subroutine tSPI(rJ,rJJ,Intgr,tSPcoeff)
-
-      ! I/O
-
-      double precision, intent(in):: Intgr,rJ,rJJ
-      double precision, intent(out):: tSPcoeff
-
-      tSPcoeff = Intgr*sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))
-
-      end subroutine tSPI
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
-      !> Transition rate for absorption\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJJ(dfloat): Angular momentum J'\n
-      !!   Ecoeff(dfloat(:,:)): Einstein coefficient data\n
-      !!          RadJ(dfloat): Mean intensity integrated over
-      !!                        absorption profile\n
-      !!       tAcoeff(dfloat): Absorption transfer rate
-      subroutine tAI(rJ,rJJ,Ecoeff,RadJ,tAcoeff)
-
-      ! I/O
-
-      double precision, intent(in):: rJ,rJJ,Ecoeff,RadJ
-      double precision, intent(out):: tAcoeff
-
-      tAcoeff = Ecoeff*sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))*RadJ
-
-      end subroutine tAI
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
-      !> Transfer rate for photoionization\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJJ(dfloat): Angular momentum J'\n
-      !!         Intgr(dfloat): Photoionization intensity integral\n
-      !!      tAPcoeff(dfloat): Photoionization transfer rate
-      subroutine tAPI(rJ,rJJ,Intgr,tAPcoeff)
-
-      ! I/O
-
-      double precision, intent(in):: Intgr,rJ,rJJ
-      double precision, intent(out):: tAPcoeff
-
-      tAPcoeff = Intgr*sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))
-
-      end subroutine tAPI
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
       !> Relaxation rate for stimulated emission\n
-      !!        iterm(integer): Term index\n
-      !!           iJ(integer): Level within term index\n
-      !!      irad(integer(:)): Transition indexes\n
-      !!        fst(FST_class): Structure with fine structure
-      !!                        transition data\n
-      !!    ifst(integer(:,:)): Indexes for fine structure
-      !!                        transition\n
-      !!        nJ(integer(:)): Number of J levels\n
-      !!      rFval(dfloat(:)): Angular momentum values\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!      RadJS(dfloat(:)): Mean intensity integrated over
-      !!                        emission profile\n
-      !!       rScoeff(dfloat): Stimulated emission relaxation rate
+      !!      iterm(integer): Term index\n
+      !!         iJ(integer): Level within term index\n
+      !!    irad(integer(:)): Transition indexes\n
+      !!      fst(FST_class): Structure with fine structure transition
+      !!                      data\n
+      !!  ifst(integer(:,:)): Indexes for fine structure transition\n
+      !!      nJ(integer(:)): Number of J levels\n
+      !!    rFval(double(:)): Angular momentum values\n
+      !!          rJ(double): Angular momentum J\n
+      !!    RadJS(double(:)): Mean intensity integrated over emission
+      !!                      profile\n
+      !!     rScoeff(double): Stimulated emission relaxation rate
       subroutine rSI(iterm,iJ,irad,fst,ifst,nJ,rJval,rJ, &
                      RadJS,rScoeff)
 
@@ -308,31 +163,41 @@
 
       double precision:: rJl
 
+
+      ! Initialize rate
       rScoeff = 0d0
 
+      ! For each lower term
       do iterml=1,iterm-1
 
+        ! Get transition rate
         itran = irad(iterml)
 
+        ! Skip if not valid transition
         if (itran.lt.1) cycle
 
+        ! For each level in the lower term
         do iJl=1,nJ(iterml)
 
+          ! Get transition component rate
           ftran = fst(itran)%irad(iJ,iJl)
 
+          ! Skip if not valid transition
           if (ftran.lt.1) cycle
 
+          ! Get rolling index
           fftran = ifst(ftran,itran)
 
+          ! Get angular momentum
           rJl = rJval(iJl,iterml)
 
+          ! Add contribution to rate
           rScoeff = rScoeff + (2d0*rJl+1d0)*RadJS(fftran)* &
                               fst(itran)%Blu(iJl,iJ)/ &
                               (2d0*rJ+1d0)
 
-        end do
-
-      end do
+        end do ! Levels in lower term
+      end do ! Lower terms
 
       end subroutine rSI
 
@@ -341,18 +206,17 @@
 !#####################################################################
 
       !> Relaxation rate for absorption\n
-      !!        iterm(integer): Term index\n
-      !!           iJ(integer): Level within term index\n
-      !!      irad(integer(:)): Transition indexes\n
-      !!        fst(FST_class): Structure with fine structure
-      !!                        transition data\n
-      !!    ifst(integer(:,:)): Indexes for fine structure
-      !!                        transition\n
-      !!        nJ(integer(:)): Number of J levels\n
-      !!       nMulti(integer): Number of terms in the atom\n
-      !!       RadJ(dfloat(:)): Mean intensity integrated over
-      !!                        absorption profile\n
-      !!       rAcoeff(dfloat): Stimulated emission relaxation rate
+      !!      iterm(integer): Term index\n
+      !!         iJ(integer): Level within term index\n
+      !!    irad(integer(:)): Transition indexes\n
+      !!      fst(FST_class): Structure with fine structure transition
+      !!                      data\n
+      !!  ifst(integer(:,:)): Indexes for fine structure transition\n
+      !!      nJ(integer(:)): Number of J levels\n
+      !!     nMulti(integer): Number of terms in the atom\n
+      !!     RadJ(double(:)): Mean intensity integrated over
+      !!                      absorption profile\n
+      !!     rAcoeff(double): Stimulated emission relaxation rate
       subroutine rAI(iterm,iJ,irad,fst,ifst,nJ,nMulti, &
                      RadJ,rAcoeff)
 
@@ -369,28 +233,37 @@
 
       integer:: itermu,iJu,itran,ftran,fftran
 
+
+      ! Initialize rate
       rAcoeff = 0d0
 
+      ! For every upper level
       do itermu=iterm+1,nMulti
 
+        ! Get transition index
         itran = irad(itermu)
 
+        ! Skip if not valid transition
         if (itran.lt.1) cycle
 
+        ! For every level in the upper level
         do iJu=1,nJ(itermu)
 
+          ! Get transition component index
           ftran = fst(itran)%irad(iJu,iJ)
 
+          ! skip if not valid transition
           if (ftran.lt.1) cycle
 
+          ! Get rolling index
           fftran = ifst(ftran,itran)
 
+          ! Add contribution to rate
           rAcoeff = rAcoeff + fst(itran)%Blu(iJ,iJu)* &
                               RadJ(fftran)
 
-        end do
-
-      end do
+        end do ! Levels in upper term
+      end do ! Upper terms
 
       end subroutine rAI
 
@@ -398,12 +271,237 @@
 !#####################################################################
 !#####################################################################
 
-      !> Relaxation rate for stimulated recombination\n
-      !!       ilevel(integer): Level index\n
-      !!     iphot(integer(:)): Transition indexes\n
-      !!      Intgr(dfloat(:)): Photoionization intensity integral\n
-      !!      rSPcoeff(dfloat): Stimulated recombination relaxation
-      !!                        rate
+      !> Transfer rate for spontaneous emission\n
+      !!       rJ(double): Angular momentum J\n
+      !!      rJJ(double): Angular momentum J'\n
+      !!   Ecoeff(double): Einstein coefficient data\n
+      !!  tEcoeff(double): Spontaneous emission transition rate
+      subroutine tEI(rJ,rJJ,Ecoeff,tEcoeff)
+
+      ! I/O
+
+      double precision, intent(in):: rJ,rJJ,Ecoeff
+      double precision, intent(out):: tEcoeff
+
+
+      ! Get rate
+      tEcoeff = Ecoeff*sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))
+
+      end subroutine tEI
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Transfer rate for stimulated emission\n
+      !!       rJ(double): Angular momentum J\n
+      !!      rJJ(double): Angular momentum J'\n
+      !!   Ecoeff(double): Einstein coefficient data\n
+      !!    RadJS(double): Mean intensity integrated over emission
+      !!                   profile\n
+      !!  tScoeff(double): Stimulated emission transfer rate
+      subroutine tSI(rJ,rJJ,Ecoeff,RadJS,tScoeff)
+
+      ! I/O
+
+      double precision, intent(in):: rJ,rJJ,Ecoeff,RadJS
+      double precision, intent(out):: tScoeff
+
+
+      ! Get rate
+      tScoeff = Ecoeff*sqrt((2d0*rJ+1d0)/(2d0*rJJ+1d0))*RadJS
+
+      end subroutine tSI
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Transfer rate for absorption\n
+      !!           rJ(double): Angular momentum J\n
+      !!          rJJ(double): Angular momentum J'\n
+      !!  Ecoeff(double(:,:)): Einstein coefficient data\n
+      !!         RadJ(double): Mean intensity integrated over
+      !!                       absorption profile\n
+      !!      tAcoeff(double): Absorption transfer rate
+      subroutine tAI(rJ,rJJ,Ecoeff,RadJ,tAcoeff)
+
+      ! I/O
+
+      double precision, intent(in):: rJ,rJJ,Ecoeff,RadJ
+      double precision, intent(out):: tAcoeff
+
+
+      ! Get rate
+      tAcoeff = Ecoeff*sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))*RadJ
+
+      end subroutine tAI
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Relaxation rate for superelastic collisions\n
+      !!     ilevel(integer): Level index\n
+      !!  CcoeffJ(double(:)): Collisional rates data\n
+      !!    rSCcoeff(double): Collisional relaxation rate
+      subroutine rSFCI(ilevel,CcoeffJ,rSCcoeff)
+
+      ! I/O
+
+      integer, intent(in):: ilevel
+      double precision, dimension(:), intent(in):: CcoeffJ
+      double precision, intent(out):: rSCcoeff
+
+      ! Local
+
+      integer:: ilevell
+
+
+      ! Initialize rate
+      rSCcoeff = 0d0
+
+      ! For every lower level
+      do ilevell=1,ilevel-1
+
+        ! Add contribution
+        rSCcoeff = rSCcoeff + CcoeffJ(ilevell)
+
+      end do ! Lower levels
+
+      end subroutine rSFCI
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Relaxation rate for inelastic collisions\n
+      !!     ilevel(integer): Level index\n
+      !!     nlevel(integer): Number of levels in atomic model\n
+      !!  CcoeffJ(double(:)): Collisional rates data\n
+      !!    rACcoeff(double): Collisional relaxation rate
+      subroutine rAFCI(ilevel,nlevel,CcoeffJ,rACcoeff)
+
+      ! I/O
+
+      integer, intent(in):: ilevel,nlevel
+      double precision, dimension(:), intent(in):: CcoeffJ
+      double precision, intent(out):: rACcoeff
+
+      ! Local
+
+      integer:: ilevelu
+
+
+      ! Initialize rate
+      rACcoeff = 0d0
+
+      ! For every upper level
+      do ilevelu=ilevel,nlevel
+
+        ! Add contribution to rate
+        rACcoeff = rACcoeff + CcoeffJ(ilevelu)
+
+      end do ! Upper levels
+
+      end subroutine rAFCI
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Transfer rate for superelastic collisions\n
+      !!        rJ(double): Angular momentum J\n
+      !!       rJJ(double): Angular momentum J'\n
+      !!   CcoeffJ(double): Collisional rate data\n
+      !!  tSCcoeff(double): Collisional transition rate
+      subroutine tSFCI(rJ,rJJ,CcoeffJ,tSCcoeff)
+
+      ! I/O
+
+      double precision, intent(in):: rJ,rJJ, CcoeffJ
+      double precision, intent(out):: tSCcoeff
+
+
+      ! Get rate
+      tSCcoeff = sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))*CcoeffJ
+
+      end subroutine tSFCI
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Transfer rate for inelastic collisions\n
+      !!        rJ(double): Angular momentum J\n
+      !!       rJJ(double): Angular momentum J'\n
+      !!   CcoeffJ(double): Collisional rate data\n
+      !!  tACcoeff(double): Collisional transition rate
+      subroutine tAFCI(rJ,rJJ,CcoeffJ,tACcoeff)
+
+      ! I/O
+
+      double precision, intent(in):: rJ,rJJ, CcoeffJ
+      double precision, intent(out):: tACcoeff
+
+
+      ! Get rate
+      tACcoeff = sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))*CcoeffJ
+
+      end subroutine tAFCI
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Relaxation rate for bound-free spontaneous emission\n
+      !!    ilevel(integer): Level index\n
+      !!  iphot(integer(:)): Transition indexes\n
+      !!   phot(Phot_class): Structure with photoionization data\n
+      !!        iz(integer): Height index\n
+      !!   rEPcoeff(double): Recombination relaxation rate
+      subroutine rEPI(ilevel,iphot,phot,iz,rEPcoeff)
+
+      ! I/O
+
+      type(Phot_class), dimension(:), intent(in):: phot
+      integer, intent(in):: ilevel,iz
+      integer, dimension(:), intent(in):: iphot
+      double precision, intent(out):: rEPcoeff
+
+      ! Local
+
+      integer:: ilevell,itran
+
+
+      ! Initialize rate
+      rEPcoeff = 0d0
+
+      ! For each lower level
+      do ilevell=1,ilevel-1
+
+        ! Get transition index
+        itran = iphot(ilevell)
+
+        ! Skip if not valid transition
+        if (itran.lt.1) cycle
+
+        ! Add contribution to rate
+        rEPcoeff = rEPcoeff + phot(itran)%TEI(iz)
+
+      end do ! Lower levels
+
+      end subroutine rEPI
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Relaxation rate for bound-free stimulated emission\n
+      !!    ilevel(integer): Level index\n
+      !!  iphot(integer(:)): Transition indexes\n
+      !!   Intgr(double(:)): Photoionization intensity integral\n
+      !!   rSPcoeff(double): Stimulated recombination relaxation rate
       subroutine rSPI(ilevel,iphot,Intgr,rSPcoeff)
 
       ! I/O
@@ -417,17 +515,23 @@
 
       integer:: ilevell,itran
 
+
+      ! Initialize rate
       rSPcoeff = 0d0
 
+      ! For each possible lower level
       do ilevell=1,ilevel-1
 
+        ! Get transition index
         itran = iphot(ilevell)
 
+        ! Skip if no valid transition
         if (itran.lt.1) cycle
 
+        ! Add contribution to rate
         rSPcoeff = rSPcoeff + Intgr(itran)
 
-      end do
+      end do ! Lower levels
 
       end subroutine rSPI
 
@@ -435,12 +539,12 @@
 !#####################################################################
 !#####################################################################
 
-      !> Relaxation rate for photoionization\n
-      !!       ilevel(integer): Level index\n
-      !!     iphot(integer(:)): Transition indexes\n
-      !!       nlevel(integer): Number of levels in atomic model\n
-      !!      Intgr(dfloat(:)): Photoionization intensity integral\n
-      !!      rAPcoeff(dfloat): Photoionization relaxation rate
+      !> Relaxation rate for bound-free absorption\n
+      !!    ilevel(integer): Level index\n
+      !!  iphot(integer(:)): Transition indexes\n
+      !!    nlevel(integer): Number of levels in atomic model\n
+      !!   Intgr(double(:)): Photoionization intensity integral\n
+      !!   rAPcoeff(double): Photoionization relaxation rate
       subroutine rAPI(ilevel,iphot,nlevel,Intgr,rAPcoeff)
 
       ! I/O
@@ -454,17 +558,23 @@
 
       integer:: ilevelu,itran
 
+
+      ! Initialize rate
       rAPcoeff = 0d0
 
+      ! For every upper level
       do ilevelu=ilevel+1,nlevel
 
+        ! Get transition index
         itran = iphot(ilevelu)
 
+        ! Skip if no valid index
         if (itran.lt.1) cycle
 
+        ! Add contribution to rate
         rAPcoeff = rAPcoeff + Intgr(itran)
 
-      end do
+      end do ! Upper levels
 
       end subroutine rAPI
 
@@ -472,102 +582,67 @@
 !#####################################################################
 !#####################################################################
 
-      !> Transition rate for up-down collision (forbidden)\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJJ(dfloat): Angular momentum J'\n
-      !!       CcoeffJ(dfloat): Collisional rate data\n
-      !!      tSCcoeff(dfloat): Collisional transition rate
-      subroutine tSFCI(rJ,rJJ,CcoeffJ,tSCcoeff)
+      !> Transfer rate for bound-free spontaneous emission\n
+      !!        rJ(double): Angular momentum J\n
+      !!       rJJ(double): Angular momentum J'\n
+      !!     Intgr(double): Photoionization intensity integral\n
+      !!  tEPcoeff(double): Spontaneous recombination transfer rate
+      subroutine tEPI(rJ,rJJ,Intgr,tEPcoeff)
 
       ! I/O
 
-      double precision, intent(in):: rJ,rJJ, CcoeffJ
-      double precision, intent(out):: tSCcoeff
+      double precision, intent(in):: Intgr,rJ,rJJ
+      double precision, intent(out):: tEPcoeff
 
-      tSCcoeff = sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))*CcoeffJ
 
-      end subroutine tSFCI
+      ! Get rate
+      tEPcoeff = Intgr*sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))
+
+      end subroutine tEPI
 
 !#####################################################################
 !#####################################################################
 !#####################################################################
 
-      !> Transition rate for down-up collision (forbidden)\n
-      !!            rJ(dfloat): Angular momentum J\n
-      !!           rJJ(dfloat): Angular momentum J'\n
-      !!       CcoeffJ(dfloat): Collisional rate data\n
-      !!      tACcoeff(dfloat): Collisional transition rate
-      subroutine tAFCI(rJ,rJJ,CcoeffJ,tACcoeff)
+      !> Transfer rate for bound-free stimulated emission\n
+      !!        rJ(double): Angular momentum J\n
+      !!       rJJ(double): Angular momentum J'\n
+      !!     Intgr(double): Photoionization intensity integral\n
+      !!  tSPcoeff(double): Stimulated recombination transfer rate
+      subroutine tSPI(rJ,rJJ,Intgr,tSPcoeff)
 
       ! I/O
 
-      double precision, intent(in):: rJ,rJJ, CcoeffJ
-      double precision, intent(out):: tACcoeff
+      double precision, intent(in):: Intgr,rJ,rJJ
+      double precision, intent(out):: tSPcoeff
 
-      tACcoeff = sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))*CcoeffJ
 
-      end subroutine tAFCI
+      ! Get rate
+      tSPcoeff = Intgr*sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))
+
+      end subroutine tSPI
 
 !#####################################################################
 !#####################################################################
 !#####################################################################
 
-      !> Relaxation rate for superelastic forbidden collisions\n
-      !!       ilevel(integer): Level index\n
-      !!    CcoeffJ(dfloat(:)): Collisional rates data\n
-      !!      rSCcoeff(dfloat): Collisional relaxation rate
-      subroutine rSFCI(ilevel,CcoeffJ,rSCcoeff)
+      !> Transfer rate for bound-free absorption\n
+      !!        rJ(double): Angular momentum J\n
+      !!       rJJ(double): Angular momentum J'\n
+      !!     Intgr(double): Photoionization intensity integral\n
+      !!  tAPcoeff(double): Photoionization transfer rate
+      subroutine tAPI(rJ,rJJ,Intgr,tAPcoeff)
 
       ! I/O
 
-      integer, intent(in):: ilevel
-      double precision, dimension(:), intent(in):: CcoeffJ
-      double precision, intent(out):: rSCcoeff
+      double precision, intent(in):: Intgr,rJ,rJJ
+      double precision, intent(out):: tAPcoeff
 
-      ! Local
 
-      integer:: ilevell
+      ! Get rate
+      tAPcoeff = Intgr*sqrt((2d0*rJJ+1d0)/(2d0*rJ+1d0))
 
-      rSCcoeff = 0d0
-
-      do ilevell=1,ilevel-1
-
-        rSCcoeff = rSCcoeff + CcoeffJ(ilevell)
-
-      end do
-
-      end subroutine rSFCI
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
-      !> Relaxation rate for inelastic forbidden collisions\n
-      !!       ilevel(integer): Level index\n
-      !!       nlevel(integer): Number of levels in atomic model\n
-      !!    CcoeffJ(dfloat(:)): Collisional rates data\n
-      !!      rACcoeff(dfloat): Collisional relaxation rate
-      subroutine rAFCI(ilevel,nlevel,CcoeffJ,rACcoeff)
-
-      ! I/O
-
-      integer, intent(in):: ilevel,nlevel
-      double precision, dimension(:), intent(in):: CcoeffJ
-      double precision, intent(out):: rACcoeff
-
-      ! Local
-
-      integer:: ilevelu
-
-      rACcoeff = 0d0
-
-      do ilevelu=ilevel,nlevel
-
-        rACcoeff = rACcoeff + CcoeffJ(ilevelu)
-
-      end do
-
-      end subroutine rAFCI
+      end subroutine tAPI
 
 !#####################################################################
 !#####################################################################

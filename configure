@@ -43,12 +43,8 @@ opt_intel="-O1"
 opt_low_intel="-O1"
 opt_hi_intel="-O2"
 opt_report_intel=""
-omp_gnu=""
-omp_intel=""
 fits_gnu="-DFITSSUP"
 fits_intel="-DFITSSUP"
-rdipev_gnu="-DRDIPEV"
-rdipev_intel="-DRDIPEV"
 old_mpi=""
 
 for arg in "$@"; do
@@ -99,11 +95,6 @@ for arg in "$@"; do
     opt_intel="-O2"
     opt_low_intel=$opt_intel
     opt_hi_intel=$opt_intel
-	;;
-
-    --openmp)
-    omp_gnu="-fopenmp"
-    omp_intel="-qopenmp"
 	;;
 
     --nofits)
@@ -194,9 +185,7 @@ if [ "$compiler" == "gnu" ]; then
   echo "OPT_LOW = -c $opt_low_gnu $fits_gnu $omp_gnu -cpp -fimplicit-none -o" >> Makefile
   echo "OPT_HI = -c $opt_hi_gnu $fits_gnu $omp_gnu -cpp -fimplicit-none -o" >> Makefile
   echo "mods = -J" >> Makefile
-  echo "OMPFLAGS = $omp_gnu" >> Makefile
   echo "FITSFLAGS = $fits_gnu" >> Makefile
-  echo "RDIPEVFLAGS = $rdipev_gnu" >> Makefile
 fi
 if [ "$compiler" == "intel" ]; then
   echo "CMP = mpiifort" >> Makefile
@@ -204,9 +193,7 @@ if [ "$compiler" == "intel" ]; then
   echo "OPT_LOW = -c $opt_low_intel $opt_report_intel $fits_intel $omp_intel -cpp -implicitnone -o" >> Makefile
   echo "OPT_HI = -c $opt_hi_intel $opt_report_intel $fits_intel $omp_intel -cpp -implicitnone -o" >> Makefile
   echo "mods = -module " >> Makefile
-  echo "OMPFLAGS = $omp_intel" >> Makefile
   echo "FITSFLAGS = $fits_gnu" >> Makefile
-  echo "RDIPEVFLAGS = $rdipev_gnu" >> Makefile
 fi
 echo "LFLAGS = $lflags" >> Makefile
 

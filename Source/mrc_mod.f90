@@ -5,46 +5,28 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     04/20/2017
+!     20/04/2017
 !  Last version:
-!     09/29/2023 V3.0.3
+!     13/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     09/29/2023:    V3.0.3 - Updated to term-wise K cut limits (TdPA)
-!
-!     10/26/2022:    V3.0.2 - Changed the indexing of atomic levels
-!                             in Atom (TdPA)
-!
-!     10/25/2022:    V3.0.1 - Implemented restriction of the height
-!                             axis (TdPA)
-!
-!     06/29/2022:    V3.0.0 - Changed global version (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!
-!     02/20/2019:    V1.2.0 - Now uses specific TINY variables (TdPA)
-!
-!     11/01/2017:    V1.1.1 - MRC for intensity gives directly the
-!                             level index (TdPA)
-!
-!     09/22/2017:    V1.1.0 - Possibility to limit K (TdPA)
-!
-!     09/08/2017:    V1.0.1 - Ignore rho00 below double precision
-!                             and avoid dividing by 0 (TdPA)
-!
-!     04/20/2017:    V1.0.0 - First version (TdPA)
+!     13/12/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
 !
 !  Known bugs:
+!
+!#####################################################################
+!#####################################################################
+!
+!  To do:
 !
 !#####################################################################
 !#####################################################################
@@ -58,7 +40,12 @@
 !    Calculate the Maximum Relative Change for rho00
 !
 !  MRCJ_sb
-!    Calculate the Maximum Relative Change for J00C
+!    Calculate the Maximum Relative Change for the frequency dependent
+!  mean intensity
+!
+!  MRCJKQ_sb
+!    Calculate the Maximum Relative Change for the frequency dependent
+!  radiation field tensors
 !
 !#####################################################################
 !#####################################################################
@@ -75,11 +62,11 @@
 !#####################################################################
 !#####################################################################
 
-      !> Calculates Maximum Relative Change for rhoKQ\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!    Atom0(Atom_class): Structure with the atomic data for
-      !!                       previous iteration\n
-      !!       MRC(MRC_class): Structure with the MRC data
+      !> Calculate the Maximum Relative Change for rhoKQ\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atom0(Rhoc_class(:)): Structure to store the density matrix
+      !!                        of the previous iteration\n
+      !!        MRC(MRC_class): Structure with the MRC data
       subroutine MRC_sb(Atom,Atom0,MRC)
 
       ! I/O
@@ -98,10 +85,7 @@
       complex(kind=8):: MRHO,MRHO_old
 
 
-      !
       ! Initialize quantities
-      !
-
       MRC%values(2,1) = -1d99
       MRC%values(2,2) = -1d99
       MRC%indexes = 0
@@ -156,6 +140,7 @@
                   rho0 = sqrt(rho01*rho02)
                   rhoo0 = sqrt(rhoo01*rhoo02)
 
+                  ! Get inverses if non-zero
                   if (rho0.gt.0d0) rho0 = 1d0/rho0
                   if (rhoo0.gt.0d0) rhoo0 = 1d0/rhoo0
 
@@ -172,6 +157,7 @@
                   ! If both rho00 are small, don't bother
                   if (rho0.lt.TINYMRC0.and.rhoo0.lt.TINYMRC0) cycle
 
+                  ! Get inverses if non-zero
                   if (rho0.gt.0d0) rho0 = 1d0/rho0
                   if (rhoo0.gt.0d0) rhoo0 = 1d0/rhoo0
 
@@ -206,7 +192,7 @@
                     end if
 
                     ! If K is 0, population MRC
-                    if(K.eq.0)then
+                    if (K.eq.0) then
 
                       ! If the new difference is larger than the last
                       ! stored one, update data
@@ -238,8 +224,8 @@
                       endif ! Larger RC
                     endif ! K = 0
 
-                  end do ! K
-                end do ! Q
+                  end do ! Q
+                end do ! K
               end do ! J1
             end do ! J
           end do ! term
@@ -257,11 +243,11 @@
 !#####################################################################
 !#####################################################################
 
-      !> Calculates Maximum Relative Change for rho00\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!    Atom0(Atom_class): Structure with the atomic data for
-      !!                       previous iteration\n
-      !!       MRC(MRC_class): Structure with the MRC data
+      !> Calculate the Maximum Relative Change for rho00\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atom0(Rhoc_class(:)): Structure to store the density matrix
+      !!                        of the previous iteration\n
+      !!        MRC(MRC_class): Structure with the MRC data
       subroutine MRCI_sb(Atom,Atom0,MRC)
 
       ! I/O
@@ -277,9 +263,7 @@
       double precision:: MRHO,MRHO_old,MRCL,rJ
 
 
-      !
       ! Initialize quantities
-      !
       MRC%values(2,1) = -1d99
       MRC%indexes = 0
       MRC%indexes(2,1) = 1
@@ -328,9 +312,10 @@
               end if
 
               ! If the new difference is larger than the last
-              ! stored one, update data
+              ! stored one
               if(MRCL.gt.MRC%values(2,1))then
 
+                ! Update data
                 MRC%values(2,1) = MRCL
                 MRC%indexes(1,1) = ia
                 MRC%indexes(2,1) = iz
@@ -353,16 +338,18 @@
 !#####################################################################
 !#####################################################################
 
-      !> Calculates Maximum Relative Change for J00 with frequency
-      !! dependence\n
-      !!     JC(dfloat(:,:)): Mean intensity\n
-      !!  JCold(dfloat(:,:)): Mean intensity in previous iteration\n
+      !> Calculate the Maximum Relative Change for the frequency
+      !! dependent mean intensity\n
+      !!     JC(double(:,:)): Frequency dependent mean intensity\n
+      !!  JCold(double(:,:)): Frequency dependent mean intensity in
+      !!                      the previous iteration\n
       !!      MRC(MRC_class): Structure with the MRC data
       subroutine MRCJ_sb(JC,JCold,MRC)
 
       ! I/O
 
-      double precision, dimension(nfreq,Rz0:Rz1):: JC, JCold
+      double precision, dimension(nfreq,Rz0:Rz1), intent(in):: JC
+      double precision, dimension(nfreq,Rz0:Rz1), intent(in):: JCold
       type(MRC_class), intent(out):: MRC
 
       ! Local
@@ -404,9 +391,10 @@
           end if
 
           ! If the new difference is larger than the last
-          ! stored one, update data
+          ! stored one
           if(MRCL.gt.MRC%values(2,1))then
 
+            ! Update data
             MRC%values(2,1) = MRCL
             MRC%indexes(1,1) = ifreq
             MRC%indexes(2,1) = iz
@@ -417,6 +405,128 @@
       end do !iz
 
       end subroutine MRCJ_sb
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Calculate the Maximum Relative Change for the frequency
+      !! dependent radiation field tensors\n
+      !!     JC(dcomplex(:,:,:,:)): Radiation field tensors with
+      !!                            frequency dependence\n
+      !!  JCold(dcomplex(:,:,:,:)): Radiation field tensors with
+      !!                            frequency dependence in the
+      !!                            previous iteration\n
+      !!            MRC(MRC_class): Structure with the MRC data
+      subroutine MRCJKQ_sb(JC,JCold,MRC)
+
+      ! I/O
+
+      complex(kind=8), dimension(-2:2,0:2,nfreq,Rz0:Rz1), &
+                       intent(in):: JC
+      complex(kind=8), dimension(0:2,0:2,nfreq,Rz0:Rz1), &
+                        intent(in):: JCold
+      type(MRC_class), intent(out):: MRC
+
+      ! Local
+
+      integer:: iz,ifreq,K,iQ
+
+      double precision:: JC0,JCold0,MRCL
+
+      complex(kind=8):: JCK,JColdK
+
+
+      !
+      ! Initialize quantities
+      !
+      MRC%values(2,1) = -1d99
+      MRC%values(2,2) = -1d99
+      MRC%indexes = 0
+      MRC%indexes(2,:) = 1
+
+
+      !
+      ! Calculate MRC
+      !
+
+      ! For each height
+      do iz=Rz0,Rz1
+
+        ! For each frequency
+        do ifreq=1,nfreq
+
+          ! K = 0
+          JC0 = dble(JC(0,0,ifreq,iz))
+          JCold0 = dble(JCold(0,0,ifreq,iz))
+
+          ! Skip if too small
+          if (JC0.lt.TINYMRCJ.and.JCold0.lt.TINYMRCJ) cycle
+
+          ! Get inverse
+          JC0 = 1d0/JC0
+          JCold0 = 1d0/JCold0
+
+          ! For each K
+          do K=0,Krad
+
+            ! For each Q
+            do iQ=0,K
+
+              ! Skip if axial
+              if (axial.and.iQ.gt.0) cycle
+
+              ! Get values
+              JCK = JC(iQ,K,ifreq,iz)
+              JColdK = JCold(iQ,K,ifreq,iz)
+
+              ! If very small, ignore
+              if (abs(JCK*JC0).le.TINYMRCR.and. &
+                  abs(JColdK*JCold0).le.TINYMRCR) cycle
+
+              ! Determine the MRC avoiding dividing by 0
+              if (abs(JColdK*JCold0).gt.TINYMRCR) then
+                MRCL = abs(JCK - JColdK)/abs(JColdK)
+              else if (abs(JCK*JC0).gt.TINYMRCR) then
+                MRCL = abs(JCK - JColdK)/abs(JCK)
+              else
+                MRCL = abs(JCK - JColdK)
+              end if
+
+              ! Mean intensity
+              if (K.eq.0) then
+
+                ! The new difference is larger
+                if (MRCL.gt.MRC%values(2,1)) then
+
+                  ! Update data
+                  MRC%values(2,1) = MRCL
+                  MRC%indexes(1,1) = ifreq
+                  MRC%indexes(2,1) = iz
+
+                end if ! Larger RC
+
+              ! Not mean intensity
+              else
+
+                ! The new difference is larger
+                if (MRCL.gt.MRC%values(2,2)) then
+
+                  ! Update data
+                  MRC%values(2,2) = MRCL
+                  MRC%indexes(1,2) = ifreq
+                  MRC%indexes(2,2) = iz
+                  MRC%indexes(3,2) = K
+                  MRC%indexes(4,2) = iQ
+
+                end if ! Larger RC
+              end if ! Mean intensity
+            end do ! Q
+          end do ! K
+        end do !frequency
+      end do !iz
+
+      end subroutine MRCJKQ_sb
 
 !#####################################################################
 !#####################################################################

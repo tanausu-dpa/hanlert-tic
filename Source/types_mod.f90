@@ -5,535 +5,22 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Hao Li (IAC)
+!     Tanaus\'u del Pino Alem\'an (IAC)
+!     Hao Li (IAC/NSSCC)
 !     Roberto Casini (HAO)
-!  Contributors:
-!     John Dennis (NCAR)
 !  Start:
-!     04/17/2017
+!     17/04/2017
 !  Last version:
-!     10/04/2024 V3.0.40
+!     20/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     10/04/2024:   V3.0.40 - Added use_allen and flat_cle_in to
-!                             Input_class (TdPA)
-!
-!     09/23/2024:   V3.0.39 - Added add_cont_cle to Input_class (TdPA)
-!
-!     08/08/2024:   V3.0.38 - Added storeinv and storeinv_step to
-!                             Input_class (TdPA)
-!
-!     07/18/2024:   V3.0.37 - Added qel to Atom_class (TdPA)
-!                           - Added lim_qel and keep_qel to the type
-!                             Input_class (TdPA)
-!
-!     05/20/2024:   V3.0.36 - Added Regul_factor to Input_class (TdPA)
-!
-!     05/20/2024:   V3.0.35 - Added Weight_Factor to the type
-!                             Input_class (TdPA)
-!
-!     05/13/2024:   V3.0.34 - Added LM_lam_big_test,
-!                             LM_lam_small_test, LM_lam_big_prove, and
-!                             LM_lam_small_prove to Input_class (TdPA)
-!
-!     05/07/2024:   V3.0.33 - Added l_Lam_track and LM_Back_Mode to
-!                             Input_class (TdPA)
-!
-!     04/01/2024:   V3.0.32 - Added rdipev_class (TdPA)
-!                           - Added rdipev to Atom_class (TdPA)
-!
-!     03/15/2024:   V3.0.31 - Increased size of vfile and wfile
-!                             variables in Atom_class (TdPA)
-!
-!     02/23/2024:   V3.0.30 - Added ALI_force, init_J_bb, fvmicro,
-!                             allownphys_pop, and mrcj to the
-!                             Input_class type (TdPA)
-!
-!     02/16/2024:   V3.0.29 - Added rest_tau_strc and rest_z_strc to
-!                             the Input_class type (TdPA)
-!
-!     02/14/2024:   V3.0.28 - Added lexcl, nexcl and excl to the
-!                             Input_class type (TdPA)
-!
-!     12/12/2023:   V3.0.27 - Added cohwi and dcohwi to the
-!                             Input_class type (TdPA)
-!
-!     11/24/2023:   V3.0.26 - Added pfs to catm_class (TdPA)
-!                           - Added Inv_mask to Input_class (TdPA)
-!
-!     11/14/2023:   V3.0.25 - Removed nfs and stype from the
-!                             Frequency_class structure (TdPA)
-!
-!     10/31/2023:   V3.0.24 - Added box_class (TdPA)
-!                           - Removed V_thetaAA from the type
-!                             Geometry_class (TdPA)
-!                           - Added skip_jsc, skip_ksc, nScatt, nskip,
-!                             j_scatt, k_scatt, i_scatt, V_muAA,
-!                             V_siAA, V_CScatt, and V_SScatt to the
-!                             Geometry_class (TdPA)
-!
-!     10/16/2023:   V3.0.23 - Added twp_step_pol to Input_class (TdPA)
-!
-!     09/29/2023:   V3.0.22 - Added Kcut and Krad to Atom_class (TdPA)
-!                           - Added Kcut_input, keep_raml, keep_mpil,
-!                             and keep_mpidl to Input_class (TdPA)
-!
-!     09/25/2023:   V3.0.21 - Added file_label to Atom_class (TdPA)
-!                           - Changed size of vfile and wfile in
-!                             Atom_class (TdPA)
-!
-!     09/18/2023:   V3.0.20 - Removed verbosity in Input_class (TdPA)
-!
-!     08/24/2023:   V3.0.19 - Added FWHM_helper_class (TdPA)
-!                           - Changed the type of lim_fwhm in the
-!                             Input_class from IO_helper_class to
-!                             FWHM_helper_class (TdPA)
-!                           - Added fwhm_fil and force_inv_freq to
-!                             Input_class (TdPA)
-!
-!     08/11/2023:   V3.0.18 - Added linv_weight and inv_weight to
-!                             Input_class (TdPA)
-!                           - Added Num_freedom and Num_freedomI from
-!                             Stokes_class (TdPA)
-!                           - Removed Num_Stok in Stokes_class (TdPA)
-!
-!     08/07/2023:   V3.0.17 - Added LTEprof_sub_class, LTEprof_class,
-!                             and LTEline_class (TdPA)
-!                           - Added LTEline and nLTE to the
-!                             Input_class structure (TdPA)
-!
-!     07/06/2023:   V3.0.16 - Added Atmo_strat_done to the type
-!                             Input_class (TdPA)
-!
-!     07/03/2023:   V3.0.15 - Updated the number of variables (TdPA)
-!                           - Removed module variables about
-!                             specific subsets of variables (TdPA)
-!                           - Removed module variables about
-!                           - Added fixpt to Atom_class (TdPA)
-!                           - Added alloc_a, alloc_b, f_diff, vlos,
-!                             vpos, vphi, and chi500 to
-!                             Atmo_class (TdPA)
-!                           - Changed ne, nh, and nhe in Atmo_class
-!                             from pointers to allocatables (TdPA)
-!                           - Removed H_max and H_min from
-!                             Node_class (TdPA)
-!                           - Added lim_fwhm, skip_wave, fixplt,
-!                             Inv_init, hydroeq, out_jkqa, nvar_g,
-!                             vtype, atmoin_type, s_inv_h, s_inv_atmo,
-!                             s_inv_atmo_c, s_inv_res_h, s_inv_res_c,
-!                             s_inv_res, s_inv_RF_h, s_inv_RF_c,
-!                             f_diff, ini_vpos, ini_vazi, and
-!                             min_rel_Pert to Input_class (TdPA)
-!                           - Removed Restore_File, Pg_Flag, Pg_inv,
-!                             Num_File, Ind, Initpixel, Restartpixel,
-!                             and FWHM to Input_class (TdPA)
-!                           - Removed chi500 from
-!                             Continuum_class (TdPA)
-!                           - Added rho to Rhoc_class (TdPA)
-!                           - Removbed Pg_Flag, Pg_Inv, and H_min from
-!                             Nodes_class (TdPA)
-!                           - Added hydros, index_B, index_Bt,
-!                             index_Bp, indef_f, index_T, index_vx,
-!                             index_vy, index_vz, index_vm, index_Pg,
-!                             index_J21R, index_J21I, index_J22R,
-!                             index_J22I, vtype, Num_glob, azimuth,
-!                             and min_rel_Pert to Nodes_class (TdPA)
-!                           - Removed Stokes_Ref and FWHM from
-!                             Solution_class (TdPA)
-!                           - Added Diff_flag and Stokes_diff to
-!                             Solution_class (TdPA)
-!                           - Added Solution_F_class (TdPA)
-!                           - Added Sigma_ct, Diff_flag, Diff_ct,
-!                             azimuth, Sigma_in, and Diff_in to
-!                             Stokes_class (TdPA)
-!                           - Added chisq_0 to LMFIT_class (TdPA)
-!                           - Undid most of 3.0.14 changes because
-!                             merging was impossible and some of
-!                             the functionalities were replicated
-!                             with existing keywords (TdPA)
-!
-!     06/12/2023:   V3.0.14 - Added file_size_class (HL)
-!                           - update Restartpixel for 2 dimensions(HL)
-!                           - added Num_FWHM, filesize, region, ix,
-!                             iy, nx, ny, indxmu, indxstk, len_pixel,
-!                             and len_header to Input_class (HL)
-!                           - removed projection, Num_File, Ind (HL)
-!                           - FWHM changed to an allocable array (HL)
-!                           - Removed redundant Sol_class (HL)
-!
-!     04/25/2023:   V3.0.13 - Added Keep_RF to Input_class (TdPA)
-!
-!     04/11/2023:   V3.0.12 - Node_class should be defined before
-!                             Input_class (HL)
-!                           - Remove the keywords Hanle_Effect and
-!                             CRD_RF (HL)
-!                           - Update the weights, scale, and range
-!                             for multi-wavelength ranges (HL)
-!
-!     03/15/2023:   V3.0.11 - Removed Bfieldlos_class (TdPA)
-!                           - Added Blos, Bpos, and Azimuth to
-!                             Bfield_class (TdPA)
-!                           - Removed Pop_Init, CRD_Rf, Fre_Intp, and
-!                             Bounds from Input_class (TdPA)
-!                           - Renamed Bpos to ini_Bpos and Azimuth to
-!                             ini_Bazi in Input_class (TdPA)
-!                           - Added factoraccept, factorreject, Scal,
-!                             Perturb, Lam_Range, and Atmo_strat to
-!                             Input_class (TdPA)
-!                           - Added nebound and ebound to Node_class
-!                             and moved Bounds from Nodes_class to
-!                             Node_class (TdPA)
-!                           - Removed Output_flag and Pop_Init from
-!                             Solution_class (TdPA)
-!
-!     03/08/2023:   V3.0.10 - Added Bfieldlos_class, Node_class,
-!                             Nodes_class, Sol_class, Solution_class,
-!                             Stokes_class, Regul_class, and
-!                             LMFIT_class (TdPA)
-!                           - Added nvar_inv, nvar_th_inv,
-!                             nvar_mg_inv, and nvar_as_inv global
-!                             header parameters (TdPA)
-!                           - Added JKQin in Atmo_class (TdPA)
-!                           - Added inversion inputs to Input_class
-!                             structure (TdPA)
-!
-!     02/14/2023:    V3.0.9 - Added vxa, vya, and vza to
-!                             Atmo_class (TdPA)
-!                           - Added AVI, static_int, nTh, nPh, nThI,
-!                             nPhI, nThAA, nThAAI, nThLOS, nPhLOS,
-!                             L_mu, L_phi, and redi_pars to
-!                             Input_class (TdPA)
-!
-!     11/24/2022:    V3.0.8 - Added bbspecin, bfspecin, sbif0, sbif1,
-!                             sfif0, sfif1, ilf0, ilf1, ipf0, and
-!                             ipf1 to Atom_class (TdPA)
-!                           - Added V_gauss, W_gauss, and V_mu_disk to
-!                             Geometry_class (TdPA)
-!                           - Added geom_size to the IO_helper_class
-!                             structure (TdPA)
-!                           - Added inf, iif0, and iif1 to the
-!                             MPI_class (TdPA)
-!                           - Added IW_freq_in, mapping, omega_ou, and
-!                             omega3_ou to Frequency_class (TdPA)
-!                           - Added spect_class,
-!                             chianti_real_pointer_class,
-!                             chianti_ioneq_class, chianti_class, and
-!                             Coronapoint_class (TdPA)
-!
-!     11/10/2022:    V3.0.7 - Added zero_ion to Atom_class and to
-!                             Input_class (TdPA)
-!                           - Removed stm from Input_class (TdPA)
-!
-!     10/26/2022:    V3.0.6 - Added rdip_class and changed the storage
-!                             structure from Atom%rdip to
-!                             Atom%rdip%rdip (TdPA)
-!                           - Added irho_class and Jrho_class and
-!                             changed the storage structure of
-!                             Atom%irho and Atom%irho_ij using them
-!                             to save memory in big models (TdPA)
-!
-!     10/25/2022:    V3.0.5 - Added d0, di0, di1, it, imi, iv, ine,
-!                             inh, ipe, ipg, irh, ib, mode, norm,
-!                             ypos, and zpos to Atmo_class (TdPA)
-!                           - Added strnum_class (TdPA)
-!                           - Added skip_disk, lspect_input,
-!                             rest_tau, rest_z, chianti_path,
-!                             spect_input, ionf, sol_box, T_rad,
-!                             R_star, r0tc, r1tc, r0z, and r1z to
-!                             Input_class (TdPA)
-!
-!     07/27/2022:    V3.0.4 - Removed ierr from MPI_class (TdPA)
-!                           - Changed type of request variables for
-!                             newer MPI versions, this can be chosen
-!                             in the configure script (TdPA)
-!
-!     07/18/2022:    V3.0.3 - Added IWskip, MPIdetail, and operform
-!                             to Input_class (TdPA)
-!
-!     07/13/2022:    V3.0.2 - Added pf_class (TdPA)
-!                           - Added ele, NT, nele, pT, and abund to
-!                             Atmo_class (TdPA)
-!                           - Added pf, abund, bark_sp, bark_pd, and
-!                             bark_df to Input_class (TdPA)
-!
-!     07/08/2022:    V3.0.1 - Bugfix: I missed the variable lim_atmo
-!                             in Input_class (TdPA)
-!                           - In IO_helper_class, doub was the wrong
-!                             type (TdPA)
-!
-!     06/29/2022:    V3.0.0 - Changed global version (TdPA)
-!                           - Added Bx, By, Bz, and zeros pointers in
-!                             Atmo_class (TdPA)
-!                           - Changed v(:,:) into vx(:), vy(:), and
-!                             vz(:) pointers in Atmo_class (TdPA)
-!                           - z, T, vmi, ne, nh, and nhe are pointers
-!                             now in Atmo_class (TdPA)
-!                           - Reduces in two dimenions TSL and TBL
-!                             in Geometry_class (TdPA)
-!                           - Added IO_helper_class (TdPA)
-!                           - Added lim_stk, lim_ctr, lim_tau,
-!                             lim_cols_tt, lim_cols_ll, lim_damp,
-!                             lim_back, lim_pop, keep_sol, keep_pop,
-!                             keep_dep, keep_rhoKQ, keep_JKQ,
-!                             keep_stokesQ, keep_MRC, atm_scale,
-!                             cache, unmagnetized, static, run_mode,
-!                             rt_group_n, atmo_char, minT, maxT,
-!                             maxV, and omega_ref to
-!                             Input_class (TdPA)
-!                           - Added fudge_class (TdPA)
-!                           - Added mpi15d, gnproc, gpid, ngroup,
-!                             and ltslave to MPI_class (TdPA)
-!
-!     06/21/2022:    V2.0.2 - Added cohw and dcohw to the type
-!                             Input_class (TdPA)
-!
-!     04/07/2022:    V2.0.1 - Added keep_jkqnu into the type
-!                             Input_class (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!                           - Added omp_1c_class and omp_c2_class
-!                             types containing how OpenMP splits
-!                             the magnetic RT coefficients (TdPA)
-!                           - Added omp_1c, omp_c2, and omp_comp_1ord
-!                             to the Atom_class structure, and
-!                             removed rho from it (TdPA)
-!                           - Removed domain decomposition related
-!                             variables from Input_class and
-!                             MPI_class (TdPA)
-!                           - Added can_write to Fctsg_class (TdPA)
-!                           - Added oif0 and oif1 to the structure
-!                             Frequencyc2_class (TdPA)
-!
-!     02/12/2021:    V1.2.5 - Added g_perf and mpi_perf into the
-!                             type Input_class (TdPA)
-!
-!     02/04/2021:    V1.2.4 - Added MIT_input and MIT_node into the
-!                             type Input_class (TdPA)
-!
-!     01/13/2021:    V1.2.3 - Added asym, lasym, asym_fil, nasym_fil,
-!                             nasym, and asym_num into the type
-!                             Input_class (TdPA)
-!
-!     11/12/2020:    V1.2.2 - Added chem_protect_all and PRD_delay to
-!                             Input_class (TdPA)
-!
-!     10/26/2020:    V1.2.1 - Changed index1, index2, and dx into
-!                             pointers to avoid copying (TdPA)
-!
-!     09/11/2020:    V1.2.0 - Added iabox_class and dbabox_class
-!                             classes (TdPA)
-!                           - Initializing abun_mod in Atom_class
-!                             to 1d0 at definition (TdPA)
-!                           - Added depar to Atom_class (TdPA)
-!                           - Added RAMreport to Input_class (TdPA)
-!                           - Added RRAM and BRAM to MPI_class (TdPA)
-!                           - Completely changed the chain of
-!                             Frequency*_class and Red*_class
-!                             structures (TdPA)
-!
-!     07/22/2020:   V1.1.23 - Added NGI, NGI_ord, and NGI_delay to
-!                             Input_class (TdPA)
-!
-!     06/26/2020:   V1.1.22 - Added NCHLT to Atom_class (TdPA)
-!
-!     06/08/2020:   V1.1.21 - The %index array in Frequencyf_class has
-!                             been split into index1 and index2 to
-!                             speed-up emiss2ord (JD)
-!
-!     03/05/2020:   V1.1.20 - Added mol_protect in Atom_class (TdPA)
-!                           - Added nHA in Atmo_class (TdPA)
-!                           - Added redo_ne, protect_H, and
-!                             update_atmos to Input_class (TdPA)
-!
-!     12/17/2019:   V1.1.19 - Added zeeman_mode to Input_class (TdPA)
-!
-!     12/10/2019:   V1.1.18 - Added structures needed by memoization
-!                             as classes and in Fctsg_class (TdPA)
-!
-!     11/19/2019:   V1.1.17 - Added Ftrano_class (TdPA)
-!                             Added Ftrano, vfile, wfile, hwifil,
-!                             hwtfil, rif20, rif21, f0size, f1size,
-!                             and dztwsize in Atom_class (TdPA)
-!                           - Added VRAM and WRAM in MPI_class (TdPA)
-!
-!     11/13/2019:   V1.1.16 - Added AtomVindex_class (TdPA)
-!                           - Changed Atom%Normp into a pointer (TdPA)
-!                           - Added i_Vind, vfile, Mncom, hvifil,
-!                             rif0, rif1, zsize, dsize, tsize, tBsize,
-!                             and fsize into Atom_class (TdPA)
-!                           - Changed i_geom from three dimensions
-!                             to two (TdPA)
-!
-!     10/18/2019:   V1.1.15 - Added fixp in Atmo_class and
-!                             Input_class (TdPA)
-!
-!     10/03/2019:   V1.1.14 - Added itrano and ntrano in structure
-!                             Atom_class (TdPA)
-!
-!     09/26/2019:   V1.1.13 - Added classes elastic_entry_class,
-!                             elastic_class, inelastic_class, and
-!                             Tbox_class (TdPA)
-!                           - Added inelas, elas, and Tbox in
-!                             Atom_class (TdPA)
-!                           - Added typo, Pg, rho, Pe, and zalt in
-!                             Atmo_class (TdPA)
-!                           - Added keep_atmo in Input_class (TdPA)
-!
-!     09/13/2019:   V1.1.12 - Added tfreq in Atmos_class (TdPA)
-!                           - Added waves and NW in Input_class (TdPA)
-!                           - Added chi500 in Continuum_class (TdPA)
-!                           - Added ggf0 and ggf1 in
-!                             Frequencyc2_class (TdPA)
-!
-!     08/14/2019:   V1.1.11 - Added tmp_col_box_class type (TdPA)
-!                           - Added Ccoeff_special variable of type
-!                             tmp_col_box_class in Atom_class (TdPA)
-!
-!     08/09/2019:   V1.1.10 - Added addbb to Input_class (TdPA)
-!
-!     06/04/2019:    V1.1.9 - Added ilevell and ilevelu to the
-!                             FST_class structure (TdPA)
-!
-!     06/03/2019:    V1.1.8 - Added splitf to Atom_class (TdPA)
-!
-!     05/31/2019:    V1.1.7 - Added nxtfreq, nxtfreqi, and nxpfreq to
-!                             MPI_class (TdPA)
-!                           - Added the variables ntfreq, ntfreqi,
-!                             npfreq, Mntfreq, Mntfreqi, and Mnpfreq
-!                             to Frequency_class (TdPA)
-!
-!     05/08/2019:    V1.1.6 - Added tshift, pshift, and tfshift in
-!                             Atom_class (TdPA)
-!                           - Added allownphys_stk and allownphys_rho
-!                             in Input_class (TdPA)
-!                           - Added njdir in Red_class (TdPA)
-!
-!     04/15/2019:    V1.1.5 - Added altbcast in input_class and
-!                             mpi_class (TdPA)
-!
-!     03/22/2019:    V1.1.4 - Added ckurucz_class and kurucz_class
-!                             for background lines (TdPA)
-!
-!     03/18/2019:    V1.1.3 - Added iterml and itermu to FST_class
-!                             and ilevell and ilevelu to
-!                             Phot_class (TdPA)
-!
-!     03/13/2019:    V1.1.2 - Added ALI_delay in Input_class (TdPA)
-!
-!     03/12/2019:    V1.1.1 - Added keep_aparam in Input_class (TdPA)
-!                           - Removed iexu from Frequency_class (TdPA)
-!
-!     02/20/2019:    V1.1.0 - Removed unit for verbosity in Input and
-!                             added numerical field for magnetic field
-!                             in the input file in Input_class (TdPA)
-!
-!     11/06/2018:   V1.0.28 - Added keep_back, keep_damp, and
-!                             keep_cols to Input_class (TdPA)
-!
-!     09/20/2018:   V1.0.27 - Added NG, NG_ord, and NG_delay to
-!                             Input_class (TdPA)
-!
-!     09/06/2018:   V1.0.26 - Added keepIsol to Input_class (TdPA)
-!
-!     09/04/2018:   V1.0.25 - Added alternI, alternP, alternJ,
-!                             alternJgen, and sizei4b into
-!                             MPI_class (TdPA)
-!                           - Added iexu to Frequency_class (TdPA)
-!
-!     08/06/2018:   V1.0.24 - Added Voigt_class to store Voigt
-!                             profiles (TdPA)
-!                           - Added prof and RAM to Nindex_class
-!                             (TdPA)
-!                           - Added RAM and PRAM to MPI_class (TdPA)
-!                           - Added omega3 and exu to Frequency_class
-!                             (TdPA)
-!                           - Added RAM to Redd_class (TdPA)
-!
-!     12/05/2017:   V1.0.23 - Added Raman to Input (TdPA)
-!
-!     11/27/2017:   V1.0.22 - Added Pcorr to Input (TdPA)
-!
-!     10/30/2017:   V1.0.21 - Added ML to Atom (TdPA)
-!
-!     10/23/2017:   V1.0.20 - Warr2 is single precision now (TdPA)
-!
-!     10/11/2017:   V1.0.19 - Added gL in atom (TdPA)
-!
-!     10/03/2017:   V1.0.18 - Added WindNB for atomic indexing (TdPA)
-!
-!     09/27/2017:   V1.0.17 - Added nsend, recv, lsend to MPI, for
-!                             the new broadcasting (TdPA)
-!
-!     09/15/2017:   V1.0.16 - Added resource in Input (TdPA)
-!
-!     09/14/2017:   V1.0.15 - Added source and ID in Input (TdPA)
-!
-!     09/08/2017:   V1.0.14 - fout in frequency and fout and trani in
-!                             redistribution are now pointers instead
-!                             of simple allocatables (TdPA)
-!
-!     08/24/2017:   V1.0.13 - red_pars in Input now has 11 elements
-!                             instead of 6 (TdPA)
-!
-!     08/22/2017:   V1.0.12 - Added sizei11, sizei12, sizei14, and
-!                             sizei14 in MPI (TdPA)
-!
-!     08/21/2017:   V1.0.11 - Added size10 in MPI (TdPA)
-!
-!     07/21/2017:   V1.0.10 - omega and W_freq one step higher in
-!                             Frec (TdPA)
-!
-!     06/28/2017:    V1.0.9 - Created Red_class and its own tree
-!                             similar to Frec, exclusively for Warr
-!                             storage (TdPA)
-!
-!     06/23/2017:    V1.0.8 - Added IW_freq to Frec (TdPA)
-!
-!     06/22/2017:    V1.0.7 - Added request11 to MPI (TdPA)
-!
-!     06/19/2017:    V1.0.6 - Changed the structure tree for input
-!                             frequencies. The position of Warr2 for
-!                             intensity and added Warr2 for
-!                             polarization (TdPA)
-!                           - Added indexing variables in Atom for
-!                             the ordering of Warr2 in the
-!                             polarized mode (TdPA)
-!                           - Changed iPRD to iIPRD (TdPA)
-!
-!     06/16/2017:    V1.0.5 - Changed the structure tree for input
-!                             frequencies. Before, it was tran(in,out)
-!                             and now trano(out)%trani(in) (TdPA)
-!                           - Added indexing of input transitions in
-!                             trani of the frequency structure tree
-!                             (TdPA)
-!                           - Changed if0, if1, Mif0, and Mif1 in Frec
-!                             to pif0, pif1, Mpif0, Mpif1, and added
-!                             lif0, lif1, Mlif0, Mlif1 (TdPA)
-!
-!     06/13/2017:    V1.0.4 - Added variables if0, if1, Mif0, and Mif1
-!                             to Frec (TdPA)
-!                           - Removed interp from the Frec structure
-!                             tree (TdPA)
-!
-!     06/12/2017:    V1.0.3 - Added variables if0, if1, W0, W1, Mif0,
-!                             Mif1, MW0, and MW1 in Atom (TdPA)
-!                           - Added absent in Phot (TdPA)
-!                           - Removed l from Cont (TdPA)
-!                           - Added Warr2 and iPRD in the Frec
-!                             structure tree (TdPA)
-!
-!     06/08/2017:    V1.0.2 - Added variables for J and PRD
-!                             iterations (TdPA)
-!
-!     05/04/2017:    V1.0.1 - MPI status variables no longer
-!                             used (TdPA)
-!
-!     04/17/2017:    V1.0.0 - First version (TdPA)
+!     20/12/2024:    V4.0.0 - Ordered and cleaned types and variables,
+!                             consistently with the big changes in
+!                             version 4 of HanleRT-TIC (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -543,80 +30,149 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    This module contains the definitions of the derived data types
-!  or structures:
+!  Derived data types or structures:
 !
-!    box_class
-!    strarr_class
-!    strarr2_class
-!    Freqflag_class
-!    Voigt_clalss
-!    Nindex_class
-!    Atomindex_class
-!    Warrindexb_class
-!    Warrindexa_class
-!    Phot_class
-!    FST_class
-!    rdip_class
-!    rdipev_class
-!    Jrho_class
-!    irho_class
-!    Atom_class
-!    LTEprof_sub_class
-!    LTEprof_class
-!    LTEline_class
-!    catm_class
-!    Mol_class
-!    spect_class
-!    chianti_real_pointer_class
-!    chianti_ioneq_class
-!    chianti_class
-!    pf_class
-!    Atmo_class
-!    Bfield_class
-!    Coronapoint_class
-!    Geometry_class
-!    IO_helper_class
-!    FWHM_helper_class
-!    strnum_class
-!    Input_class
-!    fudge_class
-!    Continuum_class
-!    MRC_class
-!    MPI_class
-!    Fctsg_class
-!    Frequencyf_class
-!    Frequencye_class
-!    Frequencyd_class
-!    Frequencyc2_class
-!    Frequencyc1_class
-!    Frequencyb_class
-!    Frequencya_class
-!    Frequency_class
-!    Redg_class
-!    Redf_class
-!    Rede_class
-!    Redd_class
-!    Redc2_class
-!    Redc1_class
-!    Redb_class
-!    Reda_class
-!    Red_class
-!    Rhoc_class
+!  box_class
+!    Box with a double and a pointer to another box
+!  tmp_col_box_class
+!    Box to temporarily chain non-symmetric collisional rates
+!  elastic_entry_class
+!    Type to store individual entries for depolarizing elastic
+!    collisional rates
+!  elastic_class
+!    Type to temporarily store depolarizing elastic collisional rates
+!  inelastic_class
+!    Type to temperarily store inelastic collisional rates
+!  Tbox_class
+!    Box to keep temperature tabulations
+!  iabox_class
+!    Box to link arrays when building frequency axes
+!  dbabox_class
+!    Box to link arrays when building frequency axes
+!  strarr_class
+!    Type with a long string (size 500)
+!  strarr2_class
+!    Type with a short string (size 2)
+!  Freqflag_class
+!    Transition absence flags
+!  tranoindexb_class
+!    Indexes for components of the redistribution function for a
+!    pair of output and input transitions
+!  tranoindex_class
+!    Indexes for magnetic components for a transition and list of
+!    input transitions in PRD
+!  tranoIindex_class
+!    List of input transitions for each transition in PRD
+!  Phot_class
+!    Photoionization data
+!  FST_class
+!    Fine structure transition data
+!  rdip_class
+!    Electric dipole strength for the components of a given transition
+!  rdipev_class
+!    Electric dipole strength for the components of a given transition
+!    in the energy eigenbasis
+!  Jrho_class
+!    Indexing of KQ components
+!  irho_class
+!    Indexing of levels, J-J', and jM
+!  Atom_class
+!    Atomic model
+!  LTEline_class
+!    LTE line model
+!  ckurucz_class
+!    Atomic data for a Kurucz line
+!  kurucz_class
+!    Kurucz lines data
+!  catm_class
+!    Atomic data for a molecule
+!  Mol_class
+!    Molecular model
+!  spect_class
+!    Input spectra for CLE
+!  chianti_real_pointer_class
+!    Pointer to a real one-dimensional array
+!  chianti_ioneq_class
+!    Ionization equilibrium and ion fraction data
+!  chianti_class
+!    CHIANTI data structure
+!  pf_class
+!    Partition function and ionization energy data for an atom
+!  Atmo_class
+!    Model atmosphere
+!  Bfield_class
+!    Magnetic field stratification
+!  Coronapoint_class
+!    Geometry data for a point in CLE
+!  Geometry_class
+!    Geometry quadrature and LOS data
+!  IO_helper_class
+!    Data to restrict output ranges
+!  FWHM_helper_class
+!    Data on the spectral point spread function for inversions
+!  strnum_class
+!    Ionization fraction input for CLE
+!  Node_class
+!    Nodes location, value, error, and limits for a variable
+!  Input_class
+!    Configuration data
+!  fudge_class
+!    Opacity fudge data
+!  Continuum_class
+!    Background opacities
+!  MRC_class
+!    Maximum relative change data
+!  MPI_class
+!    MPI data
+!  scalar, a1D, a2D, a3D, a4D, a5D, a6D, a7D, a8D, a9D
+!    memoization
+!  Fctsg_class
+!    Factorials, signs, and J-symbols
+!  Frequency_class
+!    Frequency data
+!  Redc2_class
+!    Redistribution functions
+!  Redb2_class
+!    Input transitions for redistribution functions
+!  Redc_class
+!    Input frequency axes and weights
+!  Redb_class
+!    Output frequency ranges for redistribution, input transitions
+!    for frequency axes and weights, and second order RT coefficients
+!  Prof_class
+!    Voigt and Faraday-Voigt profiles, and Voigt normalization factors
+!  Red_class
+!    Redistribution input frequency data, redistribution function
+!    data, and profile or normalization data
+!  Rhoc_class
+!    Temporal rhoKQ or population data
 !
-!    !!!!!!!!!!!
-!    TIC classes
-!    !!!!!!!!!!!
+!  !!!!!!!!!!!
+!  TIC classes
+!  !!!!!!!!!!!
 !
-!    Node_class
-!    Nodes_class
-!    Solution_class
-!    Solution_F_class
-!    Stokes_class
-!    Regul_class
-!    LMFIT_class
+!  Nodes_class
+!    Inversion node data
+!  Solution_class
+!    Frequency and synthetic Stokes parameters in the frequency range
+!    of the inverted data
+!  Solution_F_class
+!    Solution of the self-consistent problem and the corresponding
+!    emergent profiles, contribution function, and height for optical
+!    depth equal to one
+!  Stokes_class
+!    Inversion Stokes parameters data
+!  Regul_class
+!    Regularization data
+!  LMFIT_class
+!     Data for the Levenberg–Marquardt
 !
 !#####################################################################
 !#####################################################################
@@ -630,7 +186,7 @@
 
 !#####################################################################
 
-      !> Typical box with a double
+      !> Box with a double and a pointer to another box
       type box_class
 
         ! Number
@@ -643,12 +199,11 @@
 
 !#####################################################################
 
-      !> Structure to temporally contain collisional rates
-      !> non-symmetric
+      !> Box to temporarily chain non-symmetric collisional rates
       type tmp_col_box_class
 
         ! Initial and final level, forbidden flag
-        integer:: ifrom, ito, flag
+        integer:: ifrom,ito,flag
 
         ! Rates
         double precision, dimension(:), allocatable:: C
@@ -660,14 +215,15 @@
 
 !#####################################################################
 
-      !> Structure within elastic_class to store individual entries
+      !> Type to store individual entries for depolarizing elastic
+      !! collisions
       type elastic_entry_class
 
         ! K, type, nz
-        integer:: K, typo, nz
+        integer:: K,typo,nz
 
         ! Coefficients
-        double precision:: a, b, c
+        double precision:: a,b,c
 
         ! Explicit
         double precision, dimension(:), allocatable:: Coeff
@@ -676,7 +232,8 @@
 
 !#####################################################################
 
-      !> Structure to temporally contain elastic collisional rates
+      !> Type to temporarily store depolarizing elastic collisional
+      !! rates
       type elastic_class
 
         ! Level, number of entries
@@ -689,11 +246,11 @@
 
 !#####################################################################
 
-      !> Structure to temporally contain inelastic collisional rates
+      !> Type to temperarily store inelastic collisional rates
       type inelastic_class
 
         ! Type of collision, up, low, forbidden, index in Tbox
-        integer:: col_type, up, low, forbid, ind
+        integer:: col_type,up,low,forbid,ind
 
         ! Substructure with data
         double precision, dimension(:), allocatable:: Cul
@@ -702,14 +259,14 @@
 
 !#####################################################################
 
-      !> Boxes to arrocate the temperature tables
+      !> Box to keep temperature tabulations
       type Tbox_class
 
         ! Type of interpolation
         logical:: flin
 
         ! Number of indexes, index, type of collision
-        integer:: nTmp, ind, col_type, nion
+        integer:: nTmp,ind,col_type,nion
 
         ! Temperatures
         double precision, dimension(:), allocatable:: temp
@@ -721,27 +278,11 @@
 
 !#####################################################################
 
-      !> Boxes to link arrays for omegabuildin/I
-      type iabox_class
-
-        ! Integers
-        integer:: ifreq, iph, ith, mfreq, nback
-
-        ! Array
-        integer, dimension(:), allocatable:: A
-
-        ! Pointer to next
-        type(iabox_class), pointer:: next,prev
-
-      end type iabox_class
-
-!#####################################################################
-
-      !> Boxes to link arrays for omegabuildin/I
+      !> Box to link arrays when building frequency axes
       type dbabox_class
 
         ! Integers
-        integer:: ifreq, mfreq, nback, iph, ith
+        integer:: ifreq,mfreq,nback,iph,ith
 
         ! Array
         double precision, dimension(:), allocatable:: A
@@ -753,7 +294,7 @@
 
 !#####################################################################
 
-      !> Structure to have array of strings of big size
+      !> Type with a long string (size 500)
       type strarr_class
 
         ! String with 500 characters
@@ -763,7 +304,7 @@
 
 !#####################################################################
 
-      !> Structure to have array of strings of size 2
+      !> Type with a short string (size 2)
       type strarr2_class
 
         ! String with 2 characters
@@ -773,8 +314,7 @@
 
 !#####################################################################
 
-      !> Structure to old data about the association between
-      !! frequencies and transitions
+      !> Transition absence flags
       type Freqflag_class
 
         ! OR() of the vector flag Vabsent
@@ -790,93 +330,56 @@
 
 !#####################################################################
 
-      !> Structure to hold voigt profiles
-      type Voigt_class
+      !> Indexes for components of the redistribution function for a
+      !! pair of output and input transitions
+      type tranoindexb_class
 
-        ! First order profile for intensity
-        double precision, dimension(:), allocatable:: p
+        ! Number of coherences between lower terms
+        integer:: nchlt
 
-        ! First order profile for polarization
-        complex(kind=8), dimension(:), allocatable:: cp
+        ! Indexing of the mu and M of a term, same without magnetic
+        ! field (J ordering)
+        integer, dimension(:,:,:,:,:), allocatable:: indB,indNB
 
-      end type Voigt_class
-
-!#####################################################################
-
-      !> Structure to hold normalization values
-      type Nindex_class
-
-        ! Tells if there is stored profile
-        logical:: VRAM
-
-        ! Normalization factor for absorption profiles
-        double precision, dimension(:,:,:,:), allocatable:: Norm
-
-        ! First order profile
-        type(Voigt_class), dimension(:,:,:,:), allocatable:: prof
-
-      end type Nindex_class
+      end type tranoindexb_class
 
 !#####################################################################
 
-      !> Structure to store indexes of the M within a term for the
-      !! atom
-      type Atomindex_class
+      !> Indexes for magnetic components for a transition and list of
+      !! input transitions in PRD
+      type tranoindex_class
+
+        ! Number of input transitions,
+        integer:: nt,ncomB,ncomNB
+
+        ! Indexes of transitions
+        integer, dimension(:), allocatable:: indT
+
+        ! Indexing for the mu and M of a term for the first order
+        ! part, same without magnetic field (jM order)
+        integer, dimension(:,:), allocatable:: indB,indNB
 
         ! Indexing of the mu and m of a term
-        integer, dimension(:,:), allocatable:: ind
+        type(tranoindexb_class), dimension(:), allocatable:: trani
 
-      end type Atomindex_class
-
-!#####################################################################
-
-      !> Structure to store indexes M within a term for the Voigt
-      !! profiles
-      type AtomVindex_class
-
-        ! Number of components
-        integer:: ncom, ncomNB
-
-        ! Indexing of the Ju and Jf of a transition
-        integer, dimension(:,:), allocatable:: indNB
-
-        ! Indexing of the mu and mf of a transition
-        integer, dimension(:,:,:,:), allocatable:: ind
-
-      end type AtomVindex_class
+      end type tranoindex_class
 
 !#####################################################################
 
-      !> Structure to store indexes M within a term for the
-      !! redistribution
-      type Warrindexb_class
-
-        ! Indexing of the mu and m of a term, same without magnetic
-        ! field (J ordering)
-        integer, dimension(:,:,:,:,:), allocatable:: Wind,WindNB
-
-      end type Warrindexb_class
-
-!#####################################################################
-
-      !> Structure for the indexing of components for the
-      !! redistribution function
-      type Warrindexa_class
+      !> List of input transitions for each transition in PRD
+      type tranoIindex_class
 
         ! Number of input transitions,
         integer:: nt
 
         ! Indexes of transitions
-        integer, dimension(:), allocatable:: ind
+        integer, dimension(:), allocatable:: indT
 
-        ! Indexing of the mu and m of a term
-        type(Warrindexb_class), dimension(:), allocatable:: trani
-
-      end type Warrindexa_class
+      end type tranoIindex_class
 
 !#####################################################################
 
-      !> Structure with all the photoionization data
+      !> Photoionization data
       type Phot_class
 
         ! Non presence of the photoionization in the CPU
@@ -890,32 +393,31 @@
 
         ! Type of input, number of frequencies for the cross section,
         ! initial frequency index, final frequency index
-        integer:: mode, nfreq, if0, if1
+        integer:: mode,nfreq,if0,if1
 
         ! initial frequency index from master, final frequency from
         ! master
-        integer, dimension(:), allocatable:: Mif0, Mif1
+        integer, dimension(:), allocatable:: Mif0,Mif1
 
         ! Photoionization edge, (2J_l+1)/(2J_u+1), frequency weights
         ! in the boundaries of the subdomain
-        double precision:: edge, glu, W0, W1
+        double precision:: edge,glu,W0,W1
 
         ! Proper variation of cross section with frequency, integral
         ! for T_E SEE rate
-        double precision, dimension(:), allocatable:: alpha, TEI
+        double precision, dimension(:), allocatable:: alpha,TEI
         ! Frequencies in the input atomic model and corresponding
         ! cross sections
         double precision, dimension(:), allocatable:: infreq,inalpha
         ! Frequency weights in the boundaries of the subdomain for
         ! master
-        double precision, dimension(:), allocatable:: MW0, MW1
+        double precision, dimension(:), allocatable:: MW0,MW1
 
       end type Phot_class
 
 !#####################################################################
 
-      !> Structure with the fine structure transition data (because
-      !! in general the atom is multiterm)
+      !> Fine structure transition data
       type FST_class
 
         ! Upper and lower terms
@@ -925,7 +427,7 @@
         integer:: nt
 
         ! Index of upper and lower J levels
-        integer, dimension(:), allocatable:: ilevell, ilevelu
+        integer, dimension(:), allocatable:: ilevell,ilevelu
 
         ! Index of FS transition (equivalent to irad in Atom_class)
         integer, dimension(:,:), allocatable:: irad
@@ -938,23 +440,8 @@
 
 !#####################################################################
 
-      !> Structure with the output frequency data for when using
-      !! redistribution files
-      type Ftrano_class
-
-        ! Number of ranges, real limits in frequency axis, total
-        ! number of frequencies, maximum number of input frequencies,
-        ! limits in frequency for interpolation
-        integer:: nran, gf0, gf1, nfreq, mxfreq, ggf0, ggf1
-
-        ! Limits for each range
-        integer, dimension(:), allocatable:: if0, if1
-
-      end type Ftrano_class
-
-!#####################################################################
-
-      !> Structure with the dipole strength for a given transition
+      !> Electric dipole strength for the components of a given
+      !! transition
       type rdip_class
 
         ! Dipole strength matrix
@@ -962,10 +449,10 @@
 
       end type rdip_class
 
-#ifdef RDIPEV
 !#####################################################################
 
-      !> Structure with the dipole strength for a given transition
+     !> Electric dipole strength for the components of a given
+     !! transition in the energy eigenbasis
       type rdipev_class
 
         ! Dipole strength matrix
@@ -973,7 +460,6 @@
 
       end type rdipev_class
 
-#endif
 !#####################################################################
 
       !> Structure with the level-level indexing
@@ -986,7 +472,7 @@
 
 !#####################################################################
 
-      !> Structure with the dipole strength for a given transition
+      !> Indexing of levels, J-J', and jM
       type irho_class
 
         ! Level-level indexing
@@ -995,43 +481,14 @@
         ! Indexing of rho by term
         integer, dimension(:), allocatable:: irho_ij
 
+        ! Indexing of j,M by term
+        integer, dimension(:,:), allocatable:: jM
+
       end type irho_class
 
-#ifdef _OPENMP
 !#####################################################################
 
-      !> Structure with how to split the components in a given
-      !! transition for first order RT coefficients
-      type omp_1c_class
-
-        ! Limits for each range
-        integer, dimension(:), allocatable:: if0, if1
-
-      end type omp_1c_class
-
-!#####################################################################
-
-      !> Structure with how to split the components in a given
-      !! transition for emiss2ord
-      type omp_2c_class
-
-        ! Limits for each range without and with NCHLT
-        integer, dimension(:,:), allocatable:: if0, if1, nif0, nif1
-
-        ! Minimum and maximums for iU and iU1 to skip CRD profile
-        ! calculations for CHLT
-        integer, dimension(:,:), allocatable:: mnU,mxU,mnU1,mxU1
-
-        ! Minimum and maximums for iU and iU1 to skip CRD profile
-        ! calculations for NCHLT
-        integer, dimension(:,:), allocatable:: mnnU,mxnU,mnnU1,mxnU1
-
-      end type omp_2c_class
-#endif
-
-!#####################################################################
-
-      !> Structure with the atomic data
+      !> Atomic model
       type Atom_class
 
         ! Information of the presence of a transition at some
@@ -1044,17 +501,11 @@
         ! Photoionization information
         type(Phot_class), dimension(:), allocatable:: phot
 
-        ! Indexing for Warr2
-        type(Warrindexa_class), dimension(:), allocatable:: trano
+        ! Indexing for transitions (out and in)
+        type(tranoindex_class), dimension(:), allocatable:: trano
 
-        ! Internal indexing for Voigt
-        type(AtomVindex_class), dimension(:), allocatable:: i_Vind
-
-        ! Internal indexing for Warr2
-        type(Atomindex_class), dimension(:), allocatable:: i_Wind
-
-        ! Normalization of the first order profiles
-        type(Nindex_class), dimension(:,:,:), pointer:: Normp
+        ! Indexing for transitions (out and in) for intensity
+        type(tranoIindex_class), dimension(:), allocatable:: tranoI
 
         ! Pointer to non-symmetric rates
         type(tmp_col_box_class), pointer:: Ccoeff_special
@@ -1071,42 +522,25 @@
         ! Dipole strength array
         type(rdip_class), dimension(:), allocatable:: rdip
 
-#ifdef RDIPEV
         ! Dipole strength array in energy representation
         type(rdipev_class), dimension(:), allocatable:: rdipev
-#endif
 
         ! Atom indexing
         type(irho_class), dimension(:), allocatable:: irho
 
-        ! PRD transition ranges
-        type(Ftrano_class), dimension(:), allocatable:: Ftrano
-#ifdef _OPENMP
-        ! How to split between components for first order
-        type(omp_1c_class), dimension(:), allocatable:: omp_1c
-
-        ! How to split between components for emiss2ord
-        type(omp_2c_class), dimension(:), allocatable:: omp_2c
-#endif
         ! Name of the atomic species
         character(len=2):: Element
 
         ! Label
         character(len=10):: file_label
 
-        ! Name of the Voigt file
-        character(len=520):: vfile, wfile
-#ifdef _OPENMP
-        ! Component splitting in absorb and emiss
-        logical, dimension(:), allocatable:: omp_comp_1ord
-#endif
         ! Normalize the total relative factor for abundance or not,
         ! multilevel flag, keep populations fixed, make zero the
         ! last ion, fix populations for lower term
-        logical:: anorm, ML, fixp, zero_ion, fixplt
+        logical:: anorm,ML,fixp,zero_ion,fixplt
 
         ! Input spectrum for b-b and b-f transitions
-        logical, dimension(:), allocatable:: bbspecin, bfspecin
+        logical, dimension(:), allocatable:: bbspecin,bfspecin
 
         ! Flag to identify automatic Hydrogen background atom
         logical:: cust=.False.
@@ -1117,7 +551,7 @@
         ! Flag for the second order emissivity for each transition,
         ! flag to split between components in the multiterm atom when
         ! building frequency axis
-        logical, dimension(:), allocatable:: lemiss2, splitf
+        logical, dimension(:), allocatable:: lemiss2,splitf
 
         ! Flag to nullify density matrix elements if they are small
         logical, dimension(:,:), allocatable:: rhonull
@@ -1133,14 +567,13 @@
         ! total number of levels and number of FS transitions, shift
         ! in transition index, shift in photoionization index, shift
         ! in fine structure transitions, number of transitions with
-        ! redistribution, maximum number of components for profile
-        ! in file
-        integer:: nMulti, ntran, nJmax, nKmax, nMmax, NNN, ndim, &
-                  nfreq, nphot, ngk, ncol, nlevel, nftran, tshift, &
-                  pshift, tfshift, ntrano, Mncom
+        ! redistribution
+        integer:: nMulti,ntran,nJmax,nKmax,nMmax,NNN,ndim,nfreq, &
+                  nphot,ngk,ncol,nlevel,nftran,tshift,pshift, &
+                  tfshift,ntrano
 
         ! Sizes of profile files headers
-        integer:: hvifil, hwifil, hwtfil
+        integer:: hvifil,hwifil,hwtfil
 
         ! Number of frequency points for the transition, number of
         ! frequency points for the line core, ionization stage, type
@@ -1154,59 +587,49 @@
         ! in the input spectra for each bb and bf transition,
         ! initial and final index for the line and photoionization
         ! transitions for the CLE integrals, term-wise K cut,
-        ! line-wise K cut
-        integer, dimension(:), allocatable:: nfreqt, nfreqtc, nJ, &
-                                             stage, broad_type, &
-                                             term, sublevel, &
-                                             nfreqph, col_type, &
-                                             if0, if1, ifst, itrano, &
-                                             rif0, rif1, rif20, &
-                                             rif21, sbif0, sbif1, &
-                                             sfif0, sfif1, ilf0, &
-                                             ilf1, ipf0, ipf1, Kcut, &
-                                             Krad
-
-        ! Number of the atomic dimension for each running index in
-        ! first order
-        integer, dimension(:), allocatable:: nL,nU,nMu,nMl
+        ! line-wise K cut, true (uncut) limits for transitions not
+        ! mutable, sublevel transition given FS
+        integer, dimension(:), allocatable:: nfreqt,nfreqtc,nJ, &
+                                             stage,broad_type,term, &
+                                             sublevel,nfreqph, &
+                                             col_type,if0,if1,ifst, &
+                                             itrano,rif0,rif1,rif20, &
+                                             rif21,sbif0,sbif1, &
+                                             sfif0,sfif1,ilf0,ilf1, &
+                                             ipf0,ipf1,Kcut,Krad, &
+                                             tif0,tif1,ifstj
 
         ! Transition indexing matrix, collisional transition indexing
         ! matrix, photoionization indexing matrix initial frequency
-        ! index from master, final frequency from master
-        integer, dimension(:,:), allocatable:: irad, icol, iphot, &
-                                               Mif0, Mif1
+        ! index from master, final frequency from master, initial
+        ! index for comoving version, final index for comoving version
+        integer, dimension(:,:), allocatable:: irad,icol,iphot,Mif0, &
+                                               Mif1,CMif0,CMif1
 
         ! Indexing of the FS transitions
         integer, dimension(:,:), allocatable:: ifst_ij
 
         ! Block dimension (index for M,term) and flag of forbidden
         ! collisions between levels
-        integer, dimension(:,:), allocatable:: nblk, fcflag
+        integer, dimension(:,:), allocatable:: nblk,fcflag
 
         ! J indexing for each individual magnetic level
         integer, dimension(:,:,:), allocatable:: iJval
 
         ! Atomic part of the thermal Doppler width, atomic mass,
         ! abundance, multiplicative factor for abundance
-        double precision:: cDopp, rmass, abun, abun_mod = 1d0
-
-        ! Sizes of voigt file chunks
-        double precision, dimension(:), allocatable:: zsize, dsize, &
-                                                      tsize, tBsize, &
-                                                      f0size, f1size
+        double precision:: cDopp,rmass,abun,abun_mod = 1d0
 
         ! orbital angular momentum, spin angular momentum, term
         ! frequency, Doppler widths to include, Doppler widths for
         ! the core, Frequency of term transition, number density of
         ! the atom in cm-3, Stark broadening, degeneration (terms
         ! and H custom), lower and upper frequency limit weights
-        double precision, dimension(:), allocatable:: rLval, &
-                                                      Sval, &
-                                                      TRfreq, &
-                                                      Dwvl, Dwvlc, &
-                                                      Dfreq, n, &
+        double precision, dimension(:), allocatable:: rLval,Sval, &
+                                                      TRfreq,Dwvl, &
+                                                      Dwvlc,Dfreq,n, &
                                                       broad_stark, &
-                                                      deg, W0, W1, gL
+                                                      deg,W0,W1,gL
 
         ! Inverse lifetime, level frequency and J values, radiative
         ! transition rates matrix, arguments for the Van der Waals
@@ -1214,18 +637,19 @@
         ! populations, lte populations, departure coefficient,
         ! lower and upper frequency limit weights for master, elastic
         ! rates
-        double precision, dimension(:,:), allocatable:: damp, &
-                          FSfreq, rJval, Ecoeff, Norm, NormS, &
-                          broad_args, ldamp, popu, populte, depar, &
-                          MW0, MW1, qel
+        double precision, dimension(:,:), allocatable:: damp,FSfreq, &
+                                                        rJval, &
+                                                        Ecoeff, &
+                                                        broad_args, &
+                                                        ldamp,popu, &
+                                                        populte, &
+                                                        depar,MW0, &
+                                                        MW1,qel
 
         ! Inelastic collisional terms rates for allowed transitions
         ! between terms and transition rates between levels
         double precision, dimension(:,:,:), allocatable:: Ccoeff, &
                                                           CcoeffJ
-
-        ! Size of jump for redistribution
-        double precision, dimension(:,:,:), allocatable:: dztwsize
 
         ! Eigenvalues of the diagonalization
         double precision, dimension(:,:,:,:), allocatable:: eval
@@ -1243,52 +667,24 @@
 
 !#####################################################################
 
-      !> Structure to hold complex profiles
-      type LTEprof_sub_class
-
-        ! First order profile for polarization
-        complex(kind=8), dimension(:), allocatable:: cp
-
-      end type LTEprof_sub_class
-
-!#####################################################################
-
-      !> Structure to hold normalization values
-      type LTEprof_class
-
-        ! Tells if there is stored profile
-        logical:: VRAM
-
-        ! First order profile for intensity
-        double precision, dimension(:), allocatable:: p
-
-        ! First order profile for polarization
-        type(LTEprof_sub_class), dimension(:,:), allocatable:: comp
-
-      end type LTEprof_class
-
-!#####################################################################
-
-      !> Structure with LTE lines data
+      !> LTE line model
       type LTEline_class
-
-        ! Profiles
-        type(LTEprof_class), dimension(:,:), pointer:: prof
 
         ! Name of the atomic species
         character(len=2):: Element
 
         ! If there is a background model atom, if limited in tau, if
         ! limited in T, line is absent for a CPU
-        logical:: is_passive, taulim_l, Tlim_l, absent
+        logical:: is_passive,taulim_l,Tlim_l,absent
 
         ! Element, ion, number of Ml, number of Mu, maximum height
         ! index for presence, total number of frequencies, number
         ! of frequencies for the line core, initial frequency, final
         ! frequency, index of the passive model atom, type of Van
-        ! der Waals broadening, type of line
-        integer:: ele, stage, nMl, nMu, Rz0, nfreq, nfreqc, &
-                  if0, if1, ia, broad_type, ltype
+        ! der Waals broadening, type of line, number of magnetic
+        ! components
+        integer:: ele,stage,nMl,nMu,Rz0,nfreq,nfreqc,if0,if1,ia, &
+                  broad_type,ltype,ncom
 
         ! Upper level energy, lower level energy, upper level angular
         ! momentum, lower level angular momentum, upper level Landé
@@ -1298,45 +694,44 @@
         ! Doppler widths for the line, range in Doppler widths for the
         ! core, Stark broadening, collisional oscillator strength,
         ! radiative broadening, abundance
-        double precision:: eu, el, Ju, Jl, gu, gl, Aul, Dfreq, &
-                           Blu, taulim, Tlim, Dwvl, Dwvlc, &
-                           broad_stark, f_c, broad_rad, abund
+        double precision:: eu,el,Ju,Jl,gu,gl,Aul,Dfreq,Blu,taulim, &
+                           Tlim,Dwvl,Dwvlc,broad_stark,f_c, &
+                           broad_rad,abund
 
         ! Inverse lifetime, inverse lifetime upper level, arguments
         ! for the Van der Waals broadening, collisional
         ! transition-wise damping
-        double precision, dimension(:), allocatable:: damp, &
-                                                      broad_args
+        double precision, dimension(:), allocatable:: damp,broad_args
 
         ! Lower level population (fraction), upper level population
         ! (fraction), total population
-        double precision, dimension(:), allocatable:: nl, nu, n
+        double precision, dimension(:), allocatable:: nl,nu,n
 
         ! Atomic part of the thermal Doppler width, atomic mass,
-        double precision:: cDopp, rmass
+        double precision:: cDopp,rmass
 
       end type LTEline_class
 
 !#####################################################################
 
-      !> Structure with the atomic data for a Kurucz line
+      !> Atomic data for a Kurucz line
       type ckurucz_class
 
         ! Element, charge
-        integer:: A, Z
+        integer:: A,Z
 
         ! Einstein coefficient, resonance, radiative, Van der Waals,
         ! and Stark broadening parameters, statistical weights upper
         ! and lower level, lower and upper limit in frequency,
         ! abundance, lower level energy
-        double precision:: Aul, Dfreq, Grad, Gvdw, Gstk, gu, gl, &
-                           O0, O1, abun, Ei
+        double precision:: Aul,Dfreq,Grad,Gvdw,Gstk,gu,gl,O0,O1, &
+                           abun,Ei
 
       end type ckurucz_class
 
 !#####################################################################
 
-      !> Structure with Kurucz data
+      !> Kurucz lines data
       type kurucz_class
 
         ! Number of lines
@@ -1352,7 +747,7 @@
 
 !#####################################################################
 
-      !> Structure with the atomic data for a molecule
+      !> Atomic data for a molecule
       type catm_class
 
         ! Atom ID
@@ -1363,12 +758,12 @@
 
         ! Molecules where it is present
         integer:: pnmol = 0
+
         ! Number of pf stages
         integer:: nstg
 
         ! Indexes of molecules where it is present, and how many time
-        integer, dimension(:), allocatable:: imol
-        integer, dimension(:), allocatable:: nmol
+        integer, dimension(:), allocatable:: imol,nmol
 
         ! Abundance
         double precision:: abun = 0
@@ -1383,7 +778,7 @@
 
 !#####################################################################
 
-      !> Structure with the full molecular data
+      !> Molecular model
       type Mol_class
 
         ! Name of atoms in molecule
@@ -1395,39 +790,37 @@
         ! Charge, number of species, total number of atoms, type
         ! of fit, number of pf coefficients, number of eqc
         ! coefficients
-        integer:: Charge, nA, nAT, pffit, npfcoeff, neqcoeff
+        integer:: Charge,nA,nAT,pffit,npfcoeff,neqcoeff
 
         ! Number of each atom in the molecule and position in the
         ! atom list for chemical equilibrium
-        integer, dimension(:), allocatable:: natom, iatom
+        integer, dimension(:), allocatable:: natom,iatom
 
         ! Atomic part of the thermal Doppler width, mass, dissociation
         ! energy, minimum temperature, maximum temperature
-        double precision:: cDopp, rmass, Den, Tmin, Tmax
+        double precision:: cDopp,rmass,Den,Tmin,Tmax
 
         ! Coefficients for partition function, partition function,
-        ! Coefficients for equililibrum constant, equilibrium constant
-        ! Population
-        double precision, dimension(:), allocatable:: pfcoeff, pf, &
-                                                      eqcoeff, eq, n
+        ! Coefficients for equililibrum constant, equilibrium
+        ! constant, Population
+        double precision, dimension(:), allocatable:: pfcoeff,pf, &
+                                                      eqcoeff,eq,n
 
       end type Mol_class
 
 !#####################################################################
 
-      !> Input spectrum for CLE
+      !> Input spectra for CLE
       type spect_class
 
         ! Axial
-        logical:: axial, valid, pol
+        logical:: axial,valid,pol
 
         ! Size of spectrum
         integer:: nfreq,nmu,nphi,nstk
 
         ! Wavenumber, cosine of polar angle, phi angle
-        double precision, dimension(:), allocatable:: omega, &
-                                                      mu, &
-                                                      phi
+        double precision, dimension(:), allocatable:: omega,mu,phi
         ! Stokes spectrum
         double precision, dimension(:,:,:,:), allocatable:: stokes
 
@@ -1439,7 +832,7 @@
 
 !#####################################################################
 
-      !> Structure with a pointer to 1D arrays
+      !> Pointer to a real one-dimensional array
       type chianti_real_pointer_class
 
         ! pointer
@@ -1449,7 +842,7 @@
 
 !#####################################################################
 
-      !> CHIANTI ioneq ion fraction data
+      !> Ionization equilibrium and ion fraction data
       type chianti_ioneq_class
 
         ! Dimensions
@@ -1468,7 +861,6 @@
 !#####################################################################
 
       !> CHIANTI data structure
-      !! energy
       type chianti_class
 
         ! Dimensions
@@ -1488,8 +880,7 @@
 
 !#####################################################################
 
-      !> Atomic-atmospheric data (partition function and ioniuzation
-      !! energy
+      !> Partition function and ionization energy data for an atom
       type pf_class
 
         ! Atom ID
@@ -1508,8 +899,7 @@
 
 !#####################################################################
 
-      !> Structure with all the thermodynamical quantities of the
-      !! atmosphere
+      !> Model atmosphere
       type Atmo_class
 
         ! Type of scale in input
@@ -1528,20 +918,18 @@
         ! temperatures in partition function table, number of elements
         ! in partition function, atmospheric CLE mode, atmospheric
         ! CLE normalization of spatial coordinates
-        integer:: nZ, typo, NT, nele, mode, norm
+        integer:: nZ,typo,NT,nele,mode,norm
 
         ! log of gravity acceleration at surface, frequency
         ! of tau scale, y position for CLE, z position for CLE,
         ! diffuse light fraction
-        double precision:: logg, tfreq, ypos, zpos, f_diff
+        double precision:: logg,tfreq,ypos,zpos,f_diff
 
         ! Height, Temperature, microturbulence, velocity components,
         ! magnetic field components, auxiliar velocity components to
         ! cheat in intensity
-        double precision, dimension(:), pointer:: z, T, vmi, &
-                                                  vx, vy, vz, &
-                                                  Bx, By, Bz, &
-                                                  vxa, vya, vza
+        double precision, dimension(:), pointer:: z,T,vmi,vx,vy,vz, &
+                                                  Bx,By,Bz,vxa,vya,vza
 
         ! Total hydrogen, hydrogen minus, gas pressure, density,
         ! electron pressure, alternative height scale, and atomic
@@ -1549,12 +937,11 @@
         ! abundance, input asymmetry radiation field tensors, to
         ! be used by the inversion, electron number density, los
         ! velocity, pos velocity, pos azimuth velocity
-        double precision, dimension(:), allocatable:: nHT, nHm, &
-                                                      Pg, rho, Pe, &
-                                                      zalt, nHA, pT, &
-                                                      abund, JKQin, &
-                                                      ne, vlos, &
-                                                      vpos, vphi
+        double precision, dimension(:), allocatable:: nHT,nHm,Pg, &
+                                                      rho,Pe,zalt, &
+                                                      nHA,pT,abund, &
+                                                      JKQin,ne,vlos, &
+                                                      vpos,vphi
 
         ! Continuum absorption at reference frequency
         double precision, dimension(:), allocatable:: chi500
@@ -1563,30 +950,30 @@
         double precision, dimension(:), pointer:: zeros
 
         ! Hydrogen density, helium density
-        double precision, dimension(:,:), allocatable:: nh, nhe
+        double precision, dimension(:,:), allocatable:: nh,nhe
 
       end type Atmo_class
 
 !#####################################################################
 
-      !> Structure with the magnetic field data
+      !> Magnetic field stratification
       type Bfield_class
 
         ! Module, polar angle and azimuth of B field
         double precision, dimension(:), allocatable:: Bstrength, &
-                          Btheta, Bphi
+                          Btheta,Bphi
 
         ! Longitudinal magnetic field, transversal magnetic field, and
         ! magnetic field azimuth in the POS (these are used in
         ! inversion)
-        double precision, dimension(:), allocatable:: Blos, Bpos, &
+        double precision, dimension(:), allocatable:: Blos,Bpos, &
                                                       Azimuth
 
       end type Bfield_class
 
 !#####################################################################
 
-      !> Structure with the geometry data
+      !> Geometry data for a point in CLE
       type Coronapoint_class
 
         ! Heliocentric angle from local vertical, azimuth angle from
@@ -1605,26 +992,22 @@
 
 !#####################################################################
 
-      !> Structure with the geometry data
+      !> Geometry quadrature and LOS data
       type Geometry_class
 
         ! Flag for axial symmetry
         logical:: axial
 
-        ! Flag for skipping scattering angles
-        logical, dimension(:), allocatable:: skip_jsc,skip_ksc
-
         ! Number of polar nodes, number of real azimuthal nodes,
         ! number of azimuthal nodes for emiss2ord, number of emergent
         ! polar directions, number of emergent azimuthal directionsm
         ! number of nodes for AA integral, number of scattering
-        ! angles, number of scattering angles to skip
-        integer:: nTh, nPh, nPh2, nThLOS, nPhLOS, nThAA, nScatt, nskip
+        ! angles, number of current output directions
+        integer:: nTh,nPh,nPh2,nThLOS,nPhLOS,nThAA,nScatt,njdir
 
-        ! Second order indexing of scattering angles (order in
-        ! rtcoeffaux and rtcoeffiaux) for all scattering angles or
-        ! for an explicit output direction
-        integer, dimension(:), allocatable:: j_scatt,k_scatt
+        ! Index of polar direction for running index, index of
+        ! azimuth direction for running index
+        integer, dimension(:), allocatable:: ithv,iphv
 
         ! Indexing of 2D directions
         integer, dimension(:,:), allocatable:: i_geom
@@ -1648,40 +1031,39 @@
         ! angle on the disk for a given quadrature in a point above
         ! the surface, cosine of scattering angles, sine of scattering
         ! angles
-        double precision, dimension(:), allocatable:: V_mu, V_mux, &
-                          V_muy, V_theta, V_phi, W_mu, W_mux, &
-                          W_mux2, L_mu, L_theta, L_phi, V_muAA, &
-                          V_siAA, W_muAA, V_gauss, W_gauss, &
-                          V_mu_disk, V_CScatt, V_SScatt
+        double precision, dimension(:), allocatable:: V_mu,V_mux, &
+                                                      V_muy,V_theta, &
+                                                      V_phi,W_mu, &
+                                                      W_mux,W_mux2, &
+                                                      L_mu,L_theta, &
+                                                      L_phi,V_muAA, &
+                                                      V_siAA,W_muAA, &
+                                                      V_gauss, &
+                                                      W_gauss, &
+                                                      V_mu_disk, &
+                                                      V_CScatt, &
+                                                      V_SScatt
 
-        ! TKQ geometrical tensor in the vectical reference frames
-        ! for the emergent problem
-        complex(kind=8), dimension(:,:,:), allocatable:: TSL
+        ! TKQ geometrical tensor in the vectical reference frame
+        ! quadrature and LOS
+        complex(kind=8), dimension(:,:,:,:), pointer:: TS,TSo,TSL
 
         ! TKQ geometrical tensor in the magnetic reference frame
-        ! for the emergent problem
-        complex(kind=8), dimension(:,:,:,:), allocatable:: TBL
-
-        ! TKQ geometrical tensor in the vectical reference frames
-        ! for the formal problem
-        complex(kind=8), dimension(:,:,:,:,:), allocatable:: TS
-
-        ! TKQ geometrical tensor in the magnetic reference frame
-        ! for the formal problems
-        complex(kind=8), dimension(:,:,:,:,:,:), allocatable:: TB
+        ! quadrature and LOS
+        complex(kind=8), dimension(:,:,:,:,:), pointer:: TB,TBo,TBL
 
       end type Geometry_class
 
 !#####################################################################
 
-      !> Structure with the settings
+      !> Data to restrict output ranges
       type IO_helper_class
 
         ! Buffer size
         integer:: buffer_size=1
 
         ! Header size, number of 'ranges', integer for header
-        integer:: head_size, nran, nn, geom_size
+        integer:: head_size,nran,nn,geom_size
 
         ! Secondary indexes, size per range
         integer, dimension(:), allocatable:: sindx,nbuff
@@ -1696,15 +1078,15 @@
 
 !#####################################################################
 
-      !> Structure with the settings
+      !> Data on the spectral point spread function for inversions
       type FWHM_helper_class
 
         ! If single gaussian value, if pending initialization
-        logical:: gaussian, toinit
+        logical:: gaussian,toinit
 
         ! Number of ranges (duplicated), number of wavelengths (if
         ! not gaussian)
-        integer:: nn, nfreq
+        integer:: nn,nfreq
 
         ! Secondary indexes, size per range
         integer, dimension(:), allocatable:: sindx
@@ -1717,8 +1099,7 @@
         integer, dimension(:,:), allocatable:: indx1,indx2
 
         ! Doubles to control output, wavelength, kernel
-        double precision, dimension(:), allocatable:: doub, wave, &
-                                                      kernel
+        double precision, dimension(:), allocatable:: doub,wave,kernel
 
         ! Auxiliar for quick interpolation
         double precision, dimension(:,:), allocatable:: idx
@@ -1727,7 +1108,7 @@
 
 !#####################################################################
 
-      !> Structure to have array of strings of big size
+      !> Ionization fraction input for CLE
       type strnum_class
 
         ! String with 500 characters
@@ -1743,7 +1124,7 @@
 
 !#####################################################################
 
-      !> Structure with the node values and locations.
+      !> Nodes location, value, error, and limits for a variable
       type Node_class
 
         ! Number of special boundary conditions
@@ -1756,24 +1137,22 @@
         double precision, dimension(2):: Bounds
 
         ! Positions, values, errors
-        double precision, dimension(:), allocatable:: H, Var, Errors
+        double precision, dimension(:), allocatable:: H,Var,Errors
 
         ! Positions and limits for special boundary conditions
         double precision, dimension(:,:), allocatable:: ebound
 
       end type Node_class
 
-
 !#####################################################################
 
-      !> Structure with the settings
+      !> Configuration data
       type Input_class
 
         ! Structures to help with 1.5D outputs
-        type(IO_helper_class):: lim_stk,lim_ctr,lim_tau, &
-                                lim_cols_tt,lim_cols_ll, &
-                                lim_damp,lim_back,lim_pop, &
-                                lim_atmo,lim_qel
+        type(IO_helper_class):: lim_stk,lim_ctr,lim_tau,lim_cols_tt, &
+                                lim_cols_ll,lim_damp,lim_back, &
+                                lim_pop,lim_atmo,lim_qel
 
         ! Structure with FWHM info
         type(FWHM_helper_class), dimension(:), allocatable:: lim_fwhm
@@ -1789,43 +1168,41 @@
         ! storing intensity solution, apply NG acceleration, store
         ! background continuum in file, store damping in file, store
         ! inelastic collisions in file, numerical magnetic field,
-        ! save parameters of damping, alternative broadcasting, add
-        ! bound-bound background transitions, memoization of J
-        ! symbols, protect hydrogen from the equation of state, apply
-        ! NG acceleration to intensity, if RAM use should be reported,
-        ! protect all atoms in chemical equilibrium, measure
-        ! performance in blocks, measure performance per CPU, keep a
-        ! file with the frequency dependent JKQ, if using coherent
-        ! wings approximation, if keeping solution files, keep
-        ! populations, keep departure coefficients, keep output
-        ! rhoKQ, keep output JKQ, keep stokes in quadrature,
-        ! keep MRC, skip first iteration when reading performance
-        ! data from previous run, skip the disk in CLE, if
-        ! input spectrum loaded, restrict in tau_c, restrict in z,
-        ! angle-averaged forced in intensity problem, force intensity
-        ! problem to be static, if there is a file for weights,
-        ! keep collisions log, keep MPI log, keep, MPI detailed log,
-        ! if polarization with magnetic field must be done in
-        ! two steps, if excluded pixels, if truncating tau or height
-        ! restriction, force ALI iterations, initialize radiation
-        ! field with bound-bound transitions, keep elastic rates,
-        ! add the continuum to RT coefficients in CLE, use the
-        ! Allen quantities for incoming intensity in CLE, assume
-        ! flat spectrum when computing input JKQ in CLE if no input
-        ! spectra
-        logical:: AV, appendMRC, appendMRCI, out_contr, out_tau1, &
-                  store, storeI, Pcorr, Raman, keepIsol, &
-                  NG, keep_back, keep_damp, keep_cols, bfieldn, &
-                  keep_aparam, altbcast, addbb, keep_atmo, memo, &
-                  protect_H, NGI, RAMreport, chem_protect_all, &
-                  asym, g_perf, mpi_perf, keep_jkqnu, cohw, cohwi, &
-                  keep_sol, keep_pop, keep_dep, keep_rhoKQ, &
-                  keep_JKQ, keep_stokesQ, keep_MRC, IWskip, &
-                  skip_disk, lspect_input, rest_tau, rest_z, AVI, &
-                  static_int, linv_weight, keep_coll, keep_mpil, &
-                  keep_mpidl, two_step_pol, lexcl, rest_tau_strc, &
-                  rest_z_strc, ALI_force, init_J_bb, keep_qel, &
-                  add_cont_cle, use_allen, flat_cle_in
+        ! save parameters of damping, add bound-bound background
+        ! transitions, memoization of J symbols, protect hydrogen
+        ! from the equation of state, apply NG acceleration to
+        ! intensity, if RAM use should be reported, protect all
+        ! atoms in chemical equilibrium, measure performance in
+        ! blocks, measure performance per CPU, keep a file with the
+        ! frequency dependent JKQ, if using coherent wings
+        ! approximation, if keeping solution files, keep populations,
+        ! keep departure coefficients, keep output rhoKQ, keep
+        ! output JKQ, keep stokes in quadrature, keep MRC, skip the
+        ! disk in CLE, if input spectrum loaded, restrict in tau_c,
+        ! restrict in z, angle-averaged forced in intensity problem,
+        ! force intensity problem to be static, if there is a file for
+        ! weights, keep collisions log, keep MPI log, keep, MPI
+        ! detailed log, if polarization with magnetic field must be
+        ! done in two steps, if excluded pixels, if truncating tau or
+        ! height restriction, force ALI iterations, initialize
+        ! radiation field with bound-bound transitions, keep elastic
+        ! rates, add the continuum to RT coefficients in CLE, use the
+        ! Allen quantities for incoming intensity in CLE, assume flat
+        ! spectrum when computing input JKQ in CLE if no input
+        ! spectra, if restricting height for redistribution, if
+        ! restricting tau for redistribution
+        logical:: AV,appendMRC,appendMRCI,out_contr,out_tau1,store, &
+                  storeI,Pcorr,Raman,keepIsol,NG,keep_back, &
+                  keep_damp,keep_cols,bfieldn,keep_aparam,addbb, &
+                  keep_atmo,memo,protect_H,NGI,RAMreport, &
+                  chem_protect_all,asym,g_perf,mpi_perf,keep_jkqnu, &
+                  cohw,cohwi,keep_sol,keep_pop,keep_dep,keep_rhoKQ, &
+                  keep_JKQ,keep_stokesQ,keep_MRC,skip_disk, &
+                  lspect_input,rest_tau,rest_z,AVI,static_int, &
+                  linv_weight,keep_coll,keep_mpil,keep_mpidl, &
+                  two_step_pol,lexcl,rest_tau_strc,rest_z_strc, &
+                  ALI_force,init_J_bb,keep_qel,add_cont_cle, &
+                  use_allen,flat_cle_in,rest_z_red,rest_tau_red
 
         ! If asymmetry input
         logical, dimension(2):: lasym
@@ -1835,7 +1212,7 @@
 
         ! Mode of solution switch, force type of problem (I or Stokes)
         ! heights, vertical scale for model atmosphere
-        character(len=1) mode, force, atm_scale
+        character(len=1) mode,force,atm_scale
 
         ! Run ID
         character(len=9) ID
@@ -1845,71 +1222,75 @@
         ! factors, input file name, cache file, partition function
         ! file name, abundance file name, barklem file with sp
         ! data, barklem file with pd data, barklem file with df data,
-        ! file with previous MPI details, file with MPI performance,
         ! path to CHIANTI database, file with CLE input spectra,
         ! file with weights for the inversion
-        character(len=500) folder, atmo, continuum, bfield, &
-                           solution, fudge, source, resource, input, &
-                           cache, pf, abund, bark_sp, bark_pd, &
-                           bark_df, MPIdetail, operform, &
-                           chianti_path, spect_input, inv_weight
+        character(len=500) folder,atmo,continuum,bfield,solution, &
+                           fudge,source,resource,input,cache,pf, &
+                           abund,bark_sp,bark_pd,bark_df, &
+                           chianti_path,spect_input,inv_weight
 
         ! Name of atomic files, population files, background atom
         ! files, background atom population files, molecules,
         ! Kurucz line files, wavelength files, asymmetry files
-        type(strarr_class), dimension(:), allocatable:: atom, popu, &
-                                              atomback, popuback, &
-                                              mol, kurucz, waves, &
-                                              asym_fil, fwhm_fil
+        type(strarr_class), dimension(:), allocatable:: atom,popu, &
+                                                        atomback, &
+                                                        popuback, &
+                                                        mol,kurucz, &
+                                                        waves, &
+                                                        asym_fil, &
+                                                        fwhm_fil
 
         ! Ionization fraction data
         type(strnum_class), dimension(:), allocatable:: ionf
 
         ! Force no magnetic field, force no velocity, to force
         ! observed frequencies in synthesis axis
-        logical:: unmagnetized, static, force_inv_freq
+        logical:: unmagnetized,static,force_inv_freq
 
         ! Keep atomic populations fixed, zero out the last ion
         ! populations, skip this atom for the wavelength axis,
         ! fix populations for lower term
-        logical, dimension(:), allocatable:: fixp, zero_ion, &
-                                             skip_wave, fixplt
+        logical, dimension(:), allocatable:: fixp,zero_ion, &
+                                             skip_wave,fixplt
 
-        ! Number of first iteration, maximum possible iterations,
+        ! Number of first iteration, number of maximum iteration,
         ! order of iteration (emissivity), number of steps between
         ! saving data, number of atoms, number of background atoms,
         ! number of molecules, number of first iteration in intensity,
-        ! maximum possible iterations in intensity, order of iteration
-        ! (emissivity) in intensity, number of steps between saving
-        ! data in intensity, order of the NG acceleration, delay in
-        ! iterations before applying NG acceleration, first iteration
-        ! to apply ALI to, number of Kurucz line files, maximum
-        ! iteration to allow non physical quantities in stokes and
-        ! rho, number of wavelength files, mode of Zeeman effect,
-        ! update atmospheric model at the end of the calculation for
-        ! intensity, recompute electron density, order of the NG
-        ! acceleration for intensity, delay in iterations before
-        ! applying NG acceleration for intensity, number of asymmetry
-        ! input given by constant numbers, number of asymmetry inputs
-        ! given by files, number of asymmetry inputs, if need to take
-        ! care of magnetically induced transitions, mode of running
-        ! (synthesis 1D, syn. 1.5D, or inversion), number of CPU
-        ! groups to split columns in 1.5D or inversion, type of
-        ! presurre/density scale, polar nodes, azimuthal nodes,
-        ! intensity polar nodes, intensity azimuthal nodes, AA
-        ! integral nodes, intensity AA integral nodes, LOS polar
-        ! directions, LOS azimuthal directions, number of LTE lines,
-        ! number of pixels to exclude, for how many iterations
-        ! allow negative populations
-        integer:: iter_min, iter_max, iter_ord, store_step, &
-                  nA, nAb, nM, iteri_min, iteri_max, &
-                  storei_step, iteri_prd, iter_j, NG_ord, NG_delay, &
-                  ALI_delay, NK, allownphys_stk, allownphys_rho, NW, &
-                  zeeman_mode, update_atmos, redo_ne, NGI_ord, &
-                  NGI_delay, PRD_delay, nasym_num, nasym_fil, nasym, &
-                  MIT_input, run_mode, rt_group_n, atmo_char, nTh, &
-                  nPh, nThI, nPhI, nThAA, nThAAI, nThLOS, nPhLOS, &
-                  nLTE, nexcl, allownphys_pop
+        ! number of maximum iteration in intensity, number of steps
+        ! between saving data in intensity, maximum number of
+        ! internal PRD iterations in intensity, maximum number of
+        ! radiation field initial iterations, order of the NG
+        ! acceleration, delay in iterations before applying NG
+        ! acceleration, first iteration to apply ALI to, number of
+        ! Kurucz line files, maximum iteration to allow non physical
+        ! quantities in stokes and rho, number of wavelength files,
+        ! mode of Zeeman effect, update atmospheric model at the end
+        ! of the calculation for intensity, recompute electron
+        ! density, order of the NG acceleration for intensity, delay
+        ! in iterations before applying NG acceleration for intensity,
+        ! number of asymmetry input given by constant numbers, number
+        ! of asymmetry inputs given by files, number of asymmetry
+        ! inputs, if need to take care of magnetically induced
+        ! transitions, mode of running (synthesis 1D, syn. 1.5D, or
+        ! inversion), number of CPU groups to split columns in 1.5D or
+        ! inversion, type of presurre/density scale, polar nodes,
+        ! azimuthal nodes, intensity polar nodes, intensity azimuthal
+        ! nodes, AA integral nodes, intensity AA integral nodes, LOS
+        ! polar directions, LOS azimuthal directions, number of LTE
+        ! lines, number of pixels to exclude, for how many iterations
+        ! allow negative populations, type of interpolation for the
+        ! PRD to transform into the observer reference frame, number
+        ! of internal PRD iterations
+        integer:: iter_min,iter_max,iter_ord,store_step,nA,nAb,nM, &
+                  iteri_min,iteri_max,storei_step,iteri_prd,iter_j, &
+                  NG_ord,NG_delay,ALI_delay,NK,allownphys_stk, &
+                  allownphys_rho,NW,zeeman_mode,update_atmos, &
+                  redo_ne,NGI_ord,NGI_delay,PRD_delay,nasym_num, &
+                  nasym_fil,nasym,MIT_input,run_mode,rt_group_n, &
+                  atmo_char,nTh,nPh,nThI,nPhI,nThAA,nThAAI,nThLOS, &
+                  nPhLOS,nLTE,nexcl,allownphys_pop,PRD_int_mode, &
+                  iter_prd
 
         ! Box to solve in 1.5D synthesis problem
         integer, dimension(:), allocatable:: sol_box
@@ -1927,10 +1308,11 @@
         ! atmosphere, effective temperature for CLE radiation, radius
         ! of the star for CLE, minimum tauc to consider, maximum tauc
         ! to consider, minimum height to consider, maximum height to
-        ! consider, forced microturbulence
+        ! consider, forced microturbulence, maximum tau continuum to
+        ! calculate PRD, minimim height to calculate PRD
         double precision:: dw,MIT_node,dcohw,dcohwi,minT,maxT,maxV, &
                            omega_ref,T_rad,R_star,r0tc,r1tc,r0z,r1z, &
-                           fvmicro
+                           fvmicro,r1tc_prd,r1z_prd
 
         ! LOS polar mus, LOS azimuthal angles
         double precision, dimension(:), allocatable:: L_mu,L_phi
@@ -1938,11 +1320,14 @@
         ! Parameters for redistribution input frequency axis: rang,
         ! reso, negl, vlar, fstp, mstp, core, rang_core, fstp_core,
         ! mstp_core, for polarization and for intensity, respectively
-        double precision, dimension(11):: red_pars, redi_pars
+        double precision, dimension(11):: red_pars,redi_pars
 
-        ! MRC for populations, MRC for rhoKQ with K!=0 and for rho00
-        ! in the intensity problem, MRC for J00 initial iterations
-        double precision:: mrc_i, mrc_p, mrci_i, mrci_r, mrcj
+        ! MRC for rho00, MRC for rhoKQ with K!=0, MRC for rho00 in the
+        ! intensity problem, MRC for J00 in the intensity problem,
+        ! MRC for J00 initial iterations, MRC for J00, MRC for JKQ
+        ! with K!=0
+        double precision:: mrc_i,mrc_p,mrci_i,mrci_r,mrcj,mrc_r, &
+                           mrc_p_r
 
         ! Numerical values for field
         double precision, dimension(3):: bfieldv
@@ -1961,8 +1346,8 @@
         ! Filename with input Stokes profiles, filename of file to
         ! restore the inversion from, name of the output file,
         ! filename of file with mask
-        character(len=500):: Filename_Ob, Inv_init, &
-                             Output_file, Inv_mask
+        character(len=500):: Filename_Ob,Inv_init,Output_file, &
+                             Inv_mask
 
         ! Inversion ID
         character(len=9) IDv
@@ -1978,14 +1363,14 @@
         ! (assymetries) must be in the output, if tracking the
         ! value of lambda between iterations in backtracking,
         ! if storing incomplete inversion results
-        logical:: Broyden, FITSFILE, Sigma_neglect, auto_weight, &
-                  centered, Pos_Correction, hydroeq, Fractional, &
-                  Projection, Popuinit, Keep_RF, out_jkqa, &
-                  l_Lam_track, storeinv
+        logical:: Broyden,FITSFILE,Sigma_neglect,auto_weight, &
+                  centered,Pos_Correction,hydroeq,Fractional, &
+                  Projection,Popuinit,Keep_RF,out_jkqa, &
+                  l_Lam_track,storeinv
 
         ! Flag to modify variable in the inversion, flag for
         ! the regularization of each variable
-        logical, dimension(:), allocatable:: Nodes_Flags, Nodes_Regul
+        logical, dimension(:), allocatable:: Nodes_Flags,Nodes_Regul
 
         ! Number of inversion variables
         integer:: nvar = nvar_inv
@@ -2003,16 +1388,14 @@
         ! of input atmosphere, order of the lambda tracking between
         ! iterations in backtracking, Backtracking mode when stuck,
         ! number of steps between saving inversion data
-        integer:: Num_Iter, Type_Inversion, Err_Type, &
-                  Atmo_Input, LM_Method, Init_Thermal, &
-                  Interpolation, btype, vtype, SVD_type, fits_index, &
-                  Num_Weight, atmoin_type, Lam_track, LM_Back_Mode, &
-                  storeinv_step
+        integer:: Num_Iter,Type_Inversion,Err_Type,Atmo_Input, &
+                  LM_Method,Init_Thermal,Interpolation,btype,vtype, &
+                  SVD_type,fits_index,Num_Weight,atmoin_type, &
+                  Lam_track,LM_Back_Mode,storeinv_step
 
         ! Output file sizes
-        integer:: s_inv_h, s_inv_atmo, s_inv_atmo_c, &
-                  s_inv_res_h, s_inv_res_c, s_inv_res, &
-                  s_inv_RF_h, s_inv_RF_c
+        integer:: s_inv_h,s_inv_atmo,s_inv_atmo_c,s_inv_res_h, &
+                  s_inv_res_c,s_inv_res,s_inv_RF_h,s_inv_RF_c
 
 
         ! Units to direct the verbosity
@@ -2021,7 +1404,7 @@
         ! Type of node value, number of nodes, index of the
         ! regularization for each variable the regulatization
         ! for each variable
-        integer, dimension(:), allocatable:: Node_Type, Num_nodes, &
+        integer, dimension(:), allocatable:: Node_Type,Num_nodes, &
                                              Indx_regul
 
         ! Threshold in chi2, threshold for the fractional chi2,
@@ -2034,21 +1417,21 @@
         ! rejected, diffuse light factor, initial vz or vpos if
         ! input too small, initial vy or azimuth if input too small,
         ! Factor to regularization
-        double precision:: Threshold_chisq, Chisq_fraction,  &
-                           Regul_Limit, Threshold_svd, Pg_bound, &
-                           Max_Step, ini_Bpos, ini_Bazi, &
-                           factoraccept, factorreject, f_diff, &
-                           ini_vpos, ini_vazi, LM_lam_big_test, &
-                           LM_lam_small_test, LM_lam_big_prove, &
-                           LM_lam_small_prove, Regul_factor
+        double precision:: Threshold_chisq,Chisq_fraction,  &
+                           Regul_Limit,Threshold_svd,Pg_bound, &
+                           Max_Step,ini_Bpos,ini_Bazi,factoraccept, &
+                           factorreject,f_diff,ini_vpos,ini_vazi, &
+                           LM_lam_big_test,LM_lam_small_test, &
+                           LM_lam_big_prove,LM_lam_small_prove, &
+                           Regul_factor
 
         ! scale for each parameter, perturbation for each parameter,
         ! minimum relative perturbation
-        double precision, dimension(:), allocatable:: Scal, Perturb, &
+        double precision, dimension(:), allocatable:: Scal,Perturb, &
                                                       min_rel_Pert
 
         ! Tau ranges to consider, LM lambda ranges to consider
-        double precision, dimension(2):: Tau_Range, Lam_Range
+        double precision, dimension(2):: Tau_Range,Lam_Range
 
         ! Weight of the regularization function for each variable
         double precision, dimension(:), allocatable:: Regul_weight
@@ -2069,7 +1452,7 @@
 
 !#####################################################################
 
-      !> Structure for the background opacities fudge factors
+      !> Opacity fudge data
       type fudge_class
 
         ! Number of frequencies with data
@@ -2082,7 +1465,7 @@
 
 !#####################################################################
 
-      !> Structure for the background opacities
+      !> Background opacities
       type Continuum_class
 
         ! Continuum presence and Angle dependence
@@ -2099,7 +1482,7 @@
 
 !#####################################################################
 
-      !> Structure with the maximum relative change information
+      !> Maximum relative change data
       type MRC_class
 
         ! First index:
@@ -2116,23 +1499,19 @@
 
 !#####################################################################
 
-      !> Structure with the MPI data
+      !> MPI data
       type MPI_class
 
         ! Are we doing MPI, are we splitting frequencies,
         ! use alternative solverI, use alternative solver, use
         ! alternative solverJ, use alternative solver JKQgen,
-        ! alternative broadcasting, if sending columns to slaves
-        logical:: mpi, lf, alternI, alternP, alternJ, &
-                  alternJgen, altbcast, mpi15d
+        ! if sending columns to slaves
+        logical:: mpi,alternI,alternP,alternJ,alternJgen,mpi15d
 
         ! Number of processors, identifier, number of
         ! slave processors, global number of processors, global
         ! identifier, number of groups to send columns
-        integer:: nproc, pid, nnd, gnproc, gpid, ngroup
-
-        ! Processor to receive in custom bcast, number of bcast steps
-        integer:: nsend, recv, steps
+        integer:: nproc,pid,nnd,gnproc,gpid,ngroup
 
         ! Integers for non-blocking transfer
 #ifdef oldmpi
@@ -2140,52 +1519,38 @@
 #else
         type(MPI_request):: &
 #endif
-                  request1, request2, request3, request4, request5, &
-                  request6, request7, request8, request9, request0, &
-                  request11
+            request1,request2,request3,request4,request5,request6, &
+            request7,request8,request9,request0,request11
 
         ! Maximum number of frequencies per processor,
         ! maximum number of profile size per processor, same for
         ! intensity, same for photoionizations
-        integer:: nxfreq, nxtfreq, nxtfreqi, nxpfreq
+        integer:: nxfreq,nxtfreq,nxtfreqi,nxpfreq
 
         ! Number of frequencies for the processor and its limits,
         ! sizes of packages to transfer, list of processors to send in
         ! custom bcast, leaders of the slave groups, number of
         ! frequencies for the processor and its limits (for the input
         ! in CLE)
-        integer, dimension(:), allocatable:: nf, if0, if1, &
-                                             size1, size2, size3, &
-                                             size4, size5, size6, &
-                                             size7, size8, &
-                                             sizei1, sizei2, sizei3, &
-                                             sizei4, sizei5, sizei6, &
-                                             sizei7, sizei8, sizei9, &
-                                             sizei0, size10, &
-                                             sizei10, sizei11, &
-                                             sizei12, sizei13, &
-                                             sizei14, sizei4b, &
-                                             lsend, &
-                                             ltslave, &
-                                             inf,iif0,iif1
-
-        ! Domain decomposition isend requests
-#ifdef oldmpi
-        integer, dimension(:,:), allocatable:: requestA
-#else
-        type(MPI_request), dimension(:,:), allocatable:: requestA
-#endif
-
-        ! RAM used to store Voigt and Warr, RAM used for ionizations
-        ! RAM used to store radiation field quantities, RAM used
-        ! to store background quantities
-        double precision:: RAM, PRAM, VRAM, WRAM, RRAM, BRAM
+        integer, dimension(:), allocatable:: nf,if0,if1, &
+                                             size1,size2,size3, &
+                                             size4,size5,size6, &
+                                             size7,size8,&
+                                             sizei1,sizei2,sizei3, &
+                                             sizei4,sizei5,sizei6, &
+                                             sizei7,sizei8,sizei9, &
+                                             sizei0,size10,&
+                                             sizei10,sizei11, &
+                                             sizei12,sizei13, &
+                                             sizei14,sizei4b, &
+                                             ltslave,inf,iif0,iif1, &
+                                             CMf0,CMf1
 
       end type MPI_class
 
 !#####################################################################
 
-      ! Types for memoization
+      !> Memoization
 
       type scalar
          double precision, pointer :: d
@@ -2229,15 +1594,11 @@
 
 !#####################################################################
 
-      !> Structure with factorial and signs
+      !> Factorials, signs, and J-symbols
       type Fctsg_class
 
         ! Doing memoization with jagged arrays
         logical:: memo
-#ifdef _OPENMP
-        ! Allow writing in memoization
-        logical:: can_write = .True.
-#endif
 
         ! Memoization of J symbols
         type(a6D) :: J6
@@ -2245,70 +1606,22 @@
         type(a9D) :: J9
 
         ! Factorial and sign
-        double precision, dimension(:), allocatable:: flg, sg
+        double precision, dimension(:), allocatable:: flg,sg
 
       end type Fctsg_class
 
 !#####################################################################
 
-      !> Structure with output frequencies for redistribution
-      type Frequencyd_class
-
-        ! If interpolation can be stored
-        logical:: RAM
-
-        ! Size of omega and W_freq, size of interpolation data
-        integer:: osize, isize
-
-        ! Input frequency size
-        integer, dimension(:), allocatable:: mfreq
-
-        ! Frequencies and weights
-        double precision, dimension(:), allocatable:: omega,W_freq
-
-        ! Indexes for interpolation
-        integer, dimension(:), pointer:: index1, index2
-
-        ! Interpolation double
-        double precision, dimension(:), pointer:: dx
-
-      end type Frequencyd_class
-
-!#####################################################################
-
-      !> Structure with input transitions for redistribution
-      type Frequencyc2_class
-
-        ! Max of input frequencies, number of output frequencies,
-        ! number of output frequency ranges, maximum frequency limits
-        ! for 2ord, maximum frequency limits for interpolation in
-        ! 2ord (for AA hybrid)
-        integer:: mxfreq, nfreq, nran, gf0, gf1, ggf0, ggf1
-
-        ! Indexes of transitions, frequency limits for 2ord
-        integer, dimension(:), allocatable:: if0,if1
-
-        ! Input by pair of transitions
-        type(Frequencyd_class), dimension(:), pointer:: trani
-
-#ifdef _OPENMP
-        integer, dimension(:), allocatable:: oif0,oif1
-#endif
-      end type Frequencyc2_class
-
-!#####################################################################
-
-      !> Structure with the frequency tree data for the redistribution
+      !> Frequency data
       type Frequency_class
 
         ! Minimum and maximum index with photoionizations and lines,
         ! Number of polar and azimuthal directions, total directions,
         ! total directions that are in the quadrature, size of
         ! frequency space for profile messages, same for intensity,
-        ! same for photoionizations, dimension of direction/height/
-        ! atom/output transition array
-        integer:: pif0, pif1, lif0, lif1, nth, nph, ndir, nqdir, &
-                  ntfreq, ntfreqi, npfreq, ndzao
+        ! same for photoionizations
+        integer:: pif0,pif1,lif0,lif1,nth,nph,ndir,nqdir,ntfreq, &
+                  ntfreqi,npfreq
 
         ! Minimum and maximum index with photoionizations for the
         ! master, and for the lines, weight for each frequency node
@@ -2316,15 +1629,10 @@
         ! messages, same for intensity, weight for each frequency
         ! node for sharing task but neglecting PRD, mapping of
         ! output frequencies (CLE) into general axis
-        integer, dimension(:), allocatable:: Mpif0, Mpif1, &
-                                             Mlif0, Mlif1, &
-                                             IW_freq, Mntfreq, &
-                                             Mntfreqi, Mnpfreq, &
-                                             IW_freq_in, &
-                                             mapping
-
-        ! Indexing
-        integer, dimension(:,:,:,:), allocatable:: indx
+        integer, dimension(:), allocatable:: Mpif0,Mpif1,Mlif0, &
+                                             Mlif1,IW_freq,Mntfreq, &
+                                             Mntfreqi,Mnpfreq, &
+                                             IW_freq_in,mapping
 
         ! Frequency, weight (output), frequency to the cube
         double precision, dimension(:), allocatable:: omega, &
@@ -2336,61 +1644,130 @@
         ! Exponentials for epsIphoto
         double precision, dimension(:,:), pointer:: exu
 
-        ! Input by height
-        type(Frequencyc2_class), dimension(:), pointer:: dzao
-
       end type Frequency_class
 
 !#####################################################################
 
-      !> Structure with a flag and output frequencies for
-      !! redistribution
-      type Redd_class
+      !> Redistribution functions
+      type Redc2_class
 
         ! If Wfunc2 has to be calculated, if Wfunc2 can be stored
         logical:: iIPRD = .True., RAM
 
-        ! If Wfunc2 has to be calculated
+        ! If storing redistribution
         logical, dimension(:), allocatable:: iPPRD
 
-        ! Redistribution function for intensity
+        ! Redistribution (real)
         real, dimension(:), allocatable:: IWarr2
 
-        ! Redistribution function for polarization
+        ! Redistribution (complex)
         complex(kind=4), dimension(:), allocatable:: PWarr2
-
-      end type Redd_class
-
-!#####################################################################
-
-      !> Structure with input transitions for redistribution
-      type Redc2_class
-
-        type(Redd_class), dimension(:), pointer:: trani
 
       end type Redc2_class
 
 !#####################################################################
 
-      !> Structure to store the redistribution function tree data
+      !> Structure with input transitions for redistribution
+      type Redb2_class
+
+        ! Input transitions
+        type(Redc2_class), dimension(:), pointer:: trani
+
+      end type Redb2_class
+
+!#####################################################################
+
+      !> Input frequency axes and weights
+      type Redc_class
+
+        ! Size of omega and W_freq, size of interpolation data
+        integer:: osize,isize
+
+        ! Input frequency size
+        integer, dimension(:), allocatable:: mfreq
+
+        ! Frequencies and weights
+        double precision, dimension(:), allocatable:: omega,W_freq
+
+      end type Redc_class
+
+!#####################################################################
+
+      !> Output frequency ranges for redistribution, input transitions
+      !! for frequency axes and weights, and second order RT
+      !! coefficients
+      type Redb_class
+
+        ! Max of input frequencies, number of ranges, number of
+        ! output frequencies, true maximum frequency limits for
+        ! 2ord, maximum frequency limits for 2ord, limits for
+        ! interpolation
+        integer:: mxfreq,nran,nfreq,Igf0,Igf1,tgf0,tgf1,gf0,gf1, &
+                  ggf0,ggf1
+
+        ! Number of frequencies per CPU, lower frequency limits
+        ! for all CPU, upper frequency limits, for all CPU,
+        ! indexes within ranges
+        integer, dimension(:), allocatable:: nf,Mif0,Mif1,Rif0,Rif1, &
+                                             if0,if1
+
+        ! Input transitions
+        type(Redc_class), dimension(:), pointer:: trani
+
+        ! Emissivity and ALI correction
+        double precision, dimension(:,:), allocatable:: eps20,eps21, &
+                                                        eps22,eps23, &
+                                                        rpf
+      end type Redb_class
+
+!#####################################################################
+
+      !> Voigt and Faraday-Voigt profiles, and Voigt normalization
+      !! factors
+      type Prof_class
+
+        ! Tell if there is a 1st order stored profile
+        logical:: VRAM
+
+        ! Normalization of the first order profiles
+        double precision, dimension(:), allocatable:: Norm
+
+        ! First order profile for intensity
+        double precision, dimension(:), allocatable:: p
+
+        ! First order profile for polarization
+        complex(kind=8), dimension(:,:), allocatable:: cp
+
+      end type Prof_class
+
+!#####################################################################
+
+      !> Redistribution input frequency data, redistribution function
+      !! data, and profile or normalization data
       type Red_class
 
-        ! Number of polar and azimuthal directions, total directions,
-        ! total directions in non-redistribution problem, dimensions
-        ! of direction/height/atom/output transition array
-        integer:: nth, nph, ndir, njdir, ndzao
+        ! Sizes
+        integer:: ndzao, nzao
 
-        ! Indexing
-        integer, dimension(:,:,:,:), allocatable:: indx
+        ! Indexing height-atom-transition for PRD data and
+        ! indexing for direction-height-atom_transition for
+        ! normalization data
+        integer, dimension(:,:,:), allocatable:: izao,idzao
 
-        ! Input by height, directions and atoms
-        type(Redc2_class), dimension(:), pointer:: dzao
+        ! Redistribution class for height, atom, transition
+        type(Prof_class), dimension(:), pointer:: dzao,pzao
+
+        ! Redistribution class for height, atom, transition
+        type(Redb_class), dimension(:), pointer:: zao
+
+        ! Redistribution class for height, atom, transition
+        type(Redb2_class), dimension(:), pointer:: rzao
 
       end type Red_class
 
 !#####################################################################
 
-      !> Structure to store rhoKQ data temporarily
+      !> Temporal rhoKQ or population data
       type Rhoc_class
 
         ! population previous step
@@ -2411,7 +1788,7 @@
 !#####################################################################
 !#####################################################################
 
-      !> Structure with the node information.
+      !> Inversion node data
       type Nodes_class
 
         ! Nodes for the inversion variables
@@ -2421,12 +1798,12 @@
         ! if correcting the node positions from the atmosphere,
         ! if taking the gas pressure from the input model, if
         ! hydrostatic equilibrium must be imposed each time
-        logical:: Regul_Flag, hydroeq, Pg_Inv, &
-                  Pos_Correction, Pg_Auto, hydros
+        logical:: Regul_Flag,hydroeq,Pg_Inv,Pos_Correction,Pg_Auto, &
+                  hydros
 
         ! Flag to modify variable in the inversion, flag for
         ! the regularization of each variable
-        logical, dimension(nvar_inv):: Nodes_Flags, Nodes_Regul
+        logical, dimension(nvar_inv):: Nodes_Flags,Nodes_Regul
 
         ! Index of inversion variables
         integer:: nvar = nvar_inv
@@ -2454,16 +1831,16 @@
         ! ad-hoc assymmetries nodes for the inversion, type of
         ! interpolation method, Type of inversion, number of global
         ! nodes for the inversion
-        integer:: Node_Location_Type, Btype, vtype, Indx_b, &
-                  Indx_e, Tot_Nodes, Num_Fit, Num_Mag, Num_Thermal, &
-                  Num_Asymmetry, Interpolation, Nodes_Type, Num_glob
+        integer:: Node_Location_Type,Btype,vtype,Indx_b,Indx_e, &
+                  Tot_Nodes,Num_Fit,Num_Mag,Num_Thermal, &
+                  Num_Asymmetry,Interpolation,Nodes_Type,Num_glob
 
         ! Type of node value for each variable, number of nodes for
         ! each variable, number of nodes that can change for each
         ! variable, index of the regularization for each variable,
         ! final number the regulatization "points"
-        integer, dimension(nvar_inv):: Node_Type, Num_Nodes, &
-                                       Num_Vary, Indx_regul, Num_regul
+        integer, dimension(nvar_inv):: Node_Type,Num_Nodes,Num_Vary, &
+                                       Indx_regul,Num_regul
 
         ! Indexes of the first and last nodes that can change for each
         ! variable
@@ -2475,22 +1852,22 @@
         ! Threshold for the SVD, maximum step allowed in SVD, boundary
         ! value for the pressure, cosine of the heliocentric angle for
         ! the emergence, azimuth for emergence
-        double precision:: Threshold_svd, Max_Step, Pg_Bound, mu, &
-                           azimuth
+        double precision:: Threshold_svd,Max_Step,Pg_Bound,mu,azimuth
 
         ! Weight of the regularization function for each variable,
         ! value of the perturbations to the model, scale value for
         ! each parameter, value for constant regularization, minumum
         ! relative perturbation
         double precision, dimension(nvar_inv):: Regul_weight, &
-                                                Perturb, Scal, &
-                                                Const, min_rel_Pert
+                                                Perturb,Scal,Const, &
+                                                min_rel_Pert
 
       end type Nodes_class
 
 !#####################################################################
 
-      !> Structure with the solution of the RT problem
+      !> Frequency and synthetic Stokes parameters in the frequency
+      !! range of the inverted data
       type Solution_class
 
         !
@@ -2499,10 +1876,10 @@
         ! If interpolating frequencies, if return fractional
         ! polarization, if project the magnetic field, if
         ! diffuse light
-        logical:: Fre_Intp, Fractional, Projection, Diff_flag
+        logical:: Fre_Intp,Fractional,Projection,Diff_flag
 
         ! Number of wavelength points, number of wavelength ranges
-        integer:: Num_Wavelength, Num_Range
+        integer:: Num_Wavelength,Num_Range
 
         ! Wavelength ranges
         integer, dimension(:,:), allocatable:: Range
@@ -2521,7 +1898,9 @@
 
 !#####################################################################
 
-      !> Structure with the full solution of the RT problem
+      !> Solution of the self-consistent problem and the corresponding
+      !! emergent profiles, contribution function, and height for
+      !! optical depth equal to one
       type Solution_F_class
 
         ! Flag for Hanle and initialization
@@ -2575,28 +1954,27 @@
 
 !#####################################################################
 
-      !> Structure with the information of input Stokes profiles.
+      !> Inversion Stokes parameters data
       type Stokes_class
 
         ! If the sigma is the same for all profile points, if
         ! automatic weights for Stokes, if sigmas read at the
         ! beginning, if diffuse light, if diffuse light read at
         ! the beginning
-        logical:: Sigma_flag, Auto_Weight, Sigma_ct, Diff_flag, &
-                  Diff_ct
+        logical:: Sigma_flag,Auto_Weight,Sigma_ct,Diff_flag,Diff_ct
 
         ! Number of wavelengths, type of sigma in the input, number
         ! of wavelength ranges, total number of data points,
         ! intensity data points
-        integer:: Num_Wavelength, Indx_Sigma, Num_Range, &
-                  Num_freedom, Num_freedomI
+        integer:: Num_Wavelength,Indx_Sigma,Num_Range,Num_freedom, &
+                  Num_freedomI
 
         ! Wavelength ranges
         integer, dimension(:,:), allocatable:: Range
 
         ! Cosine of the heliocentric angle for the observation, and
         ! azimuth of the LOS
-        double precision:: mu, azimuth
+        double precision:: mu,azimuth
 
         ! Scale for each Stokes,
         double precision, dimension(:,:), allocatable:: Scales
@@ -2616,7 +1994,7 @@
 
 !#####################################################################
 
-      !> Structure with information for the regularization
+      !> Regularization data
       type Regul_class
 
         ! Scale of the penalty, regulatization penalty
@@ -2632,36 +2010,47 @@
 
 !#####################################################################
 
-      ! Struture for the LM step
+      !> Data for the Levenberg–Marquardt
       type LMFIT_class
 
         ! Regularizations
         type(Regul_class):: Rgl
 
-        !
-        logical:: Flag_weight, Flag_Jac, accepted
+        ! If we need to calculate weights, if we need to compute the
+        ! Jacobian, if the inversion step was accepted
+        logical:: Flag_weight,Flag_Jac,accepted
 
-        !
+        ! Number of Jacobian elements
         integer:: Num
 
-        !
-        double precision:: factoraccept, factorreject, Lambda, &
-                           Chisq, Chisq_og, Chisq_0
+        ! Factor to reduce lambda when accepted, factor to enhance
+        ! lambda when rejected, parameter for the Levenberg-Marquardt,
+        ! current chi^2, older chi^2, initial chi^2
+        double precision:: factoraccept,factorreject,Lambda,Chisq, &
+                           Chisq_og,Chisq_0
 
-        !
+        ! Limits for the Levenberg-Marquardt lambda parameter
         double precision, dimension(2):: Lambda_bounds
 
-        !
+        ! Residual for the intensity, weight for the L2 of the
+        ! intensity, Jacobian vector, old Jacobian vector, diagonal
+        ! of the Hessian
         double precision, dimension(:), allocatable:: ResidualI, &
-                                        WeightI, Jacfvec, &
-                                        Jacfvec_og, Diag
+                                                      WeightI, &
+                                                      Jacfvec, &
+                                                      Jacfvec_og, &
+                                                      Diag
 
-        !
+        ! Residual for Stokes parameters, weight for the L2 of the
+        ! Stokes parameters, Hessian, old Hessian, Jacobian for the
+        ! intensity
         double precision, dimension(:,:), allocatable:: Residual, &
-                                          Weight, Hessian, &
-                                          Hessian_og, JacobianI
+                                                        Weight, &
+                                                        Hessian, &
+                                                        Hessian_og, &
+                                                        JacobianI
 
-        !
+        ! Jacobian for the Stokes parameters
         double precision, dimension(:,:,:), allocatable:: Jacobian
 
       end type LMFIT_class

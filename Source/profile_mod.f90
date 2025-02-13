@@ -5,61 +5,19 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !     Roberto Casini (HAO)
 !  Start:
-!     04/20/2017
+!     20/04/2017
 !  Last version:
-!     11/14/2023 V3.0.2
+!     13/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     11/14/2023:    V3.0.2 - Taylor series for small exponentials
-!                             in Wfunc and WfuncI (TdPA)
-!
-!     11/24/2022:    V3.0.1 - Added gaussian profile (TdPA)
-!
-!     06/29/2022:    V3.0.0 - Changed global version (TdPA)
-!
-!     06/21/2022:    V2.1.0 - New version of Humlicek routines with
-!                             explicit complex algebra using real
-!                             numbers (TdPA)
-!                             NOTE: Limited testing (AA, static, and
-!                             non-magnetic)
-!                           - Removed an unecessary change of type
-!                             in Wfunc (TdPA)
-!
-!     05/24/2022:    V2.0.1 - Moved inorm inside the if loop where
-!                             it is used (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!
-!     12/05/2020:    V1.4.0 - Changed most of divisions in Wfunc and
-!                             WfuncI by multiplications (TdPA)
-!                           - Changed the limit to compute the
-!                             gaussian in Wfunc and WfuncI into
-!                             parameters (TdPA)
-!
-!     12/10/2019:    V1.3.0 - Added alternative functions to compute
-!                             Voigt profiles in intensity only
-!                             problems (TdPA)
-!
-!     10/16/2019:    V1.2.0 - WfuncI and Wfunc now receive the cosine
-!                             and sine of the scattering angle,
-!                             instead of the scattering angle (TdPA)
-!
-!     05/16/2018:    V1.1.0 - WfuncI and Wfunc take into account the
-!                             singular cases (TdPA)
-!
-!     05/12/2017:    V1.0.1 - Bugfix: WfuncI was shifting the center
-!                             of the profile an extra Dfreq, that was
-!                             already taken into account in the
-!                             frequency arguments (TdPA)
-!
-!     04/20/2017:    V1.0.0 - First version (TdPA)
+!     13/12/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -69,49 +27,49 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!  voigt:
-!     Calculates the Voigt and Faraday-Voigt function given the
-!     arguments a (pressure broadening parameter) and v (frequency
-!     parameter)
+!  voigt
+!    Calculate Voigt and Faraday-Voigt profiles. Real algebra version
 !
-!  Wfunc:
-!     Calculates the redistribution function in the laboratory frame
-!     for a two-term atom with non-coherent lower term and infinitely
-!     sharp lower levels
+!  Wfunc
+!    Calculate the redistribution function in the laboratory frame
+!    with non-coherent lower term and infinitely sharp lower levels
 !
-!  voigtI:
-!     Call a Voigt function depending on the input parameter
+!  voigtI
+!    Calculate the real Voigt profile
 !
-!  voigtI_HC:
-!     Calculates the Voigt function given the arguments a (pressure
-!     broadening parameter) and v (frequency parameter) with the
-!     Humlicek 1982 approximation
+!  voigtI_A
+!    Calculate the real Voigt profile with Armstrong (1967) algorithm
 !
-!  voigtI_A:
-!     Calculates the Voigt function given the arguments a (pressure
-!     broadening parameter) and v (frequency parameter) with the
-!     Armstrong 1967 approximation
+!  voigtI_AK1
+!     Branch 1 for Armstrong (1967) algorithm
 !
-!  voigtI_AK1:
-!     Branch 1 for Armstrong 1967 algorithm
+!  voigtI_AK2
+!     Branch 2 for Armstrong (1967) algorithm
 !
-!  voigtI_AK2:
-!     Branch 2 for Armstrong 1967 algorithm
+!  voigtI_AK3
+!     Branch 3 for Armstrong (1967) algorithm
 !
-!  voigtI_AK3:
-!     Branch 3 for Armstrong 1967 algorithm
+!  voigtI_H
+!    Calculate the real Voigt profile with Hui et al. (1978) algorithm
 !
-!  voigtI_H:
-!     Calculates the Voigt function given the arguments a (pressure
-!     broadening parameter) and v (frequency parameter) with the
-!     Hui et al. 1978 approximation
+!  voigtI_HC
+!     Calculate the real Voigt profiles with Humlicek (1982)
+!  algorithm. Real algebra version
 !
-!  WfuncI:
-!     Calculates the redistribution function in the laboratory frame
-!     for a two level atom with non-coherent lower term and infinitely
-!     sharp lower levels, only real part
+!  gaussianI
+!     Calculate a Gaussian profile
+!
+!  WfuncI
+!    Calculate the real part of the redistribution function in the
+!    laboratory frame with non-coherent lower term and infinitely
+!    sharp lower levels
 !
 !#####################################################################
 !#####################################################################
@@ -128,17 +86,17 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes the Voigt and Faraday-Voigt profiles. Real algebra
+      !> Calculate Voigt and Faraday-Voigt profiles. Real algebra
       !! version\n
-      !!    v(dfloat): Normalized frequency\n
-      !!    a(dfloat): Normalized damping\n
-      !!   t(dcomplx): Complex Voigt profile
+      !!    v(double): Normalized frequency\n
+      !!    a(double): Normalized damping parameter\n
+      !!   t(dcomplx): Complex Voigt and Faraday-Voigt profiles
       subroutine voigt(v,a,t)
 
       ! I/O
 
       double precision, intent(in):: v, a
-      complex(kind=8):: t
+      complex(kind=8), intent(out):: t
 
       ! Local
 
@@ -146,13 +104,16 @@
 
       double precision:: r1,i1,r2,i2,ru,iu,rx,ix,de
 
+      ! Get single precision argumens
       sa = sngl(a)
       sv = sngl(v)
 
+      ! Get parameters to decide region
       s = abs(sv)+sa
       d = .195e0*abs(sv)-.176e0
 
-      if(s.ge..15e2) then
+      ! First branch
+      if (s.ge..15e2) then
 
         ! Output
         ! t = .5641896d0*z/(.5d0+z*z)
@@ -167,9 +128,11 @@
         ! Output ans*z*de
         t = dcmplx(a*r1 + v*i1,a*i1 - v*r1)*de
 
+      ! Other branches
       else
 
-        if(s.ge..55e1) then
+        ! Second branch
+        if (s.ge..55e1) then
 
           ! Output
           ! u = z*z
@@ -197,9 +160,11 @@
           ! Output ans*bns*de
           t = dcmplx(r2*ru - i2*iu,r2*iu + ru*i2)*de
 
+        ! Other branches
         else
 
-          if(sa.ge.d) then
+          ! Thid branch
+          if (sa.ge.d) then
 
             ! Output
             ! nt = .164955d2 + z*(.2020933d2 + z*(.1196482d2 + &
@@ -252,6 +217,7 @@
             ! Output ans*u*de
             t = dcmplx(ru*r1 - iu*i1,ru*i1 + r1*iu)*de
 
+          ! Fourth branch
           else
 
             ! Output
@@ -337,9 +303,9 @@
             ! Output exp(u) - x/y
             t = exp(dcmplx(ru,iu)) - dcmplx(r2,i2)*de
 
-          end if
-        end if
-      end if
+          end if ! Third or Fourth
+        end if ! Second or Third/Fourth
+      end if ! First or Second/Third/Fourth
 
       end subroutine voigt
 
@@ -347,93 +313,26 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes the Voigt and Faraday-Voigt profiles. Complex
-      !! algebra version\n
-      !!    v(dfloat): Normalized frequency\n
-      !!    a(dfloat): Normalized damping\n
-      !!   t(dcomplx): Complex Voigt profile
-      subroutine voigt_deprecated(v,a,t)
-
-      ! I/O
-
-      double precision, intent(in):: v, a
-      complex(kind=8):: t
-
-      ! Local
-
-      real:: sa, sv, s, d
-
-      complex(kind=8):: z,u,nt,dt,x,y
-
-      sa = sngl(a)
-      sv = sngl(v)
-
-      s = abs(sv)+sa
-      d = .195e0*abs(sv)-.176e0
-
-      z = dcmplx(a,-v)
-
-      if(s.ge..15e2) then
-        t = .5641896d0*z/(.5d0+z*z)
-      else
-
-        if(s.ge..55e1) then
-          u = z*z
-          t = z*(.1410474d1 + .5641896d0*u)/(.75d0 + u*(.3d1 + u))
-        else
-
-          if(sa.ge.d) then
-
-            nt = .164955d2 + z*(.2020933d2 + z*(.1196482d2 + &
-                 z*(.3778987d1 + .5642236d0*z)))
-
-            dt = .164955d2 + z*(.3882363d2 + z*(.3927121d2 + &
-                 z*(.2169274d2 + z*(.6699398d1 + z))))
-
-            t = nt/dt
-
-          else
-
-            u = z*z
-
-            x = z*(.3618331d5 - u*(.33219905d4 - u*(.1540787d4 - &
-                u*(.2190313d3 - u*(.3576683d2 - u*(.1320522d1 - &
-                .56419d0*u))))))
-
-            y = .320666d5 - u*(.2432284d5 - u*(.9022228d4 - &
-                u*(.2186181d4 - u*(.3642191d3 - u*(.6157037d2 - &
-                u*(.1841439d1 - u))))))
-
-            t = exp(u) - x/y
-
-          end if
-        end if
-      end if
-
-      end subroutine voigt_deprecated
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
-      !> Computes the redistribution function\n
-      !!   omega1(dfloat): Input frequency\n
-      !!    omega(dfloat): Output frequency\n
-      !!       Dw(dfloat): Output transition Doppler width\n
-      !!      Dw1(dfloat): Input transition Doppler width\n
-      !!       el(dfloat): Level l energy\n
-      !!      el1(dfloat): Level l' energy\n
-      !!       eu(dfloat): Level u energy\n
-      !!      eu1(dfloat): Level u' energy\n
-      !!       ef(dfloat): Level f energy\n
-      !!       al(dfloat): Term l width\n
-      !!       au(dfloat): Term u width\n
-      !!       af(dfloat): Term f width\n
-      !!      aul(dfloat): Input transition elastic width\n
-      !!      auf(dfloat): Output transition elastic width\n
-      !!       C1(dfloat): Cosine of scattering angle\n
-      !!       S1(dfloat): Sine of scattering angle\n
-      !!   stype(integer): Type of scattering (geometry wise)
+      !> Calculate the redistribution function in the laboratory frame
+      !! with non-coherent lower term and infinitely sharp lower
+      !! levels\n
+      !!  omega1(double): Input frequency\n
+      !!   omega(double): Output frequency\n
+      !!      Dw(double): Output transition Doppler width\n
+      !!     Dw1(double): Input transition Doppler width\n
+      !!      el(double): Level l energy\n
+      !!     el1(double): Level l' energy\n
+      !!      eu(double): Level u energy\n
+      !!     eu1(double): Level u' energy\n
+      !!      ef(double): Level f energy\n
+      !!      al(double): Term l inverse lifetime\n
+      !!      au(double): Term u inverse lifetime\n
+      !!      af(double): Term f inverse lifetime\n
+      !!     aul(double): Input transition elastic width\n
+      !!     auf(double): Output transition elastic width\n
+      !!      C1(double): Cosine of scattering angle\n
+      !!      S1(double): Sine of scattering angle\n
+      !!  stype(integer): Type of scattering (geometry wise)
       function Wfunc(omega1,omega,Dw,Dw1,el,el1,eu,eu1,ef,al,au,af, &
                      aul,auf,C1,S1,stype)
 
@@ -447,83 +346,129 @@
       ! Local
 
       double precision:: iDw0,xil,xif,kkp,kkm,norm,inorm
-      double precision:: vul,vu1l,vul1,vu1l1
-      double precision:: wuf,wu1f
-      double precision:: atl,atf
-      double precision:: earg,earg1,efact,efact1
+      double precision:: vul,vu1l,vul1,vu1l1,wuf,wu1f
+      double precision:: atl,atf,earg,earg1,efact,efact1
 
-      complex(kind=8):: prof1,prof2,prof3,prof4
-      complex(kind=8):: Wfunc
+      complex(kind=8):: prof1,prof2,prof3,prof4,Wfunc
 
+
+      ! Inverse composed Doppler width
       iDw0 = 1d0/(sqrt(Dw*Dw + Dw1*Dw1 - 2d0*Dw*Dw1*C1))
 
+      ! Doppler widths factors
       xil = Dw1*iDw0
       xif = Dw*iDw0
 
+      ! Branching ratios for resonances
       kkp = .5d0*(1d0 + xif*xif - xil*xil)
       kkm = 1d0 - kkp
 
+      ! Resonances in input frequency
       vul = (omega1 - (eu-el))*iDw0
       vu1l = (omega1 - (eu1-el))*iDw0
       vul1 = (omega1 - (eu-el1))*iDw0
       vu1l1 = (omega1 - (eu1-el1))*iDw0
 
+      ! Resonances in output frequency
       wuf = (omega - (eu-ef))*iDw0
       wu1f = (omega - (eu1-ef))*iDw0
 
+      ! Exponential arguments
       earg = abs(wuf - vul)
       earg1 = abs(wuf - vul1)
 
+      ! If argument too big
       if (earg.gt.Wbiggauss) then
-        efact = 0d0
-      else
-        earg = earg*earg
-        if (earg.gt.smallexp) then
-          efact = exp(-earg)
-        else
-          efact = 1d0 + earg*(0.5d0*earg - 1d0)
-        end if
-      end if
-      if (earg1.gt.Wbiggauss) then
-        efact1 = 0d0
-      else
-        earg1 = earg1*earg1
-        if (earg1.gt.smallexp) then
-          efact1 = exp(-earg1)
-        else
-          efact1 = 1d0 + earg1*(0.5d0*earg1 - 1d0)
-        end if
-      end if
 
+        ! Make zero
+        efact = 0d0
+
+      ! Normal argument
+      else
+
+        ! Square
+        earg = earg*earg
+
+        ! If not too small
+        if (earg.gt.smallexp) then
+
+          ! Calculate exponential
+          efact = exp(-earg)
+
+        ! Too small
+        else
+
+          ! Taylor series
+          efact = 1d0 + earg*(0.5d0*earg - 1d0)
+
+        end if ! Normal or too small argument
+      end if ! Too big argument
+
+      ! If argument too big
+      if (earg1.gt.Wbiggauss) then
+
+        ! Make zero
+        efact1 = 0d0
+
+      ! Normal argument
+      else
+
+        ! Square
+        earg1 = earg1*earg1
+
+        ! If not too small
+        if (earg1.gt.smallexp) then
+
+          ! Calculate exponential
+          efact1 = exp(-earg1)
+
+        ! Too small
+        else
+
+          ! Taylor series
+          efact1 = 1d0 + earg1*(0.5d0*earg1 - 1d0)
+
+        end if ! Normal or too small argument
+      end if ! Too big argument
+
+      ! Get damping parameters
       atf = (au+af+auf)*iDw0
       atl = (au+al+aul)*iDw0
 
       ! General scattering
       if (stype.eq.0) then
 
+        ! Normalization
         inorm = 1d0/(S1*xil*xif)
 
+        ! Complete Damping parameter factors
         atf = atf*inorm
         atl = atl*inorm
 
+        ! Compute Voigt profiles
         call voigt((kkp*vul+kkm*wuf)*inorm,atf,prof1)
         call voigt((kkp*vu1l+kkm*wu1f)*inorm,atl,prof2)
         call voigt((kkp*vul1+kkm*wuf)*inorm,atl,prof3)
         call voigt((kkp*vu1l1+kkm*wu1f)*inorm,atf,prof4)
 
+        ! Complete normalization factor
         norm = PI*iDw0*iDw0*inorm
 
+      ! Backward scattering
       else
 
+        ! Get profiles
         prof1 = cImag/(kkp*vul   + kkm*wuf  + cImag*atf)
         prof2 = cImag/(kkp*vu1l  + kkm*wu1f + cImag*atl)
         prof3 = cImag/(kkp*vul1  + kkm*wuf  + cImag*atl)
         prof4 = cImag/(kkp*vu1l1 + kkm*wu1f + cImag*atf)
 
+        ! Complete normalization factor
         norm =  sqrt(PI)*xil*xif
 
-      end if
+      end if ! Type of scattering
 
+      ! Get redistribution function
       Wfunc = ( efact*(prof1 + conjg(prof2)) + &
                efact1*(prof3 + conjg(prof4)))*norm
 
@@ -533,10 +478,10 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes the Voigt profile\n
-      !!    v(dfloat): Normalized frequency\n
-      !!    a(dfloat): Normalized damping\n
-      !!   ou(dfloat): Voigt profile
+      !> Calculate the real Voigt profile\n
+      !!   v(double): Normalized frequency\n
+      !!   a(double): Normalized damping parameter\n
+      !!  ou(double): Voigt profile
       subroutine voigtI(v,a,ou)
 
       ! I/O
@@ -550,25 +495,31 @@
         ! Humlicek 1982 (accuracy to 10^-4 but with Faraday)
         case (0)
 
+          ! Call relevant routine
           call voigtI_HC(v,a,ou)
 
         ! Armstrong 1967 (accurate to 6 figs and slow for a > 1.5)
         case (1)
 
+          ! Call relevant routine
           call voigtI_A(v,a,ou)
 
-        ! Hui et al 1978 (1% accurate larger v, faster large a)
+        ! Hui et al. 1978 (1% accurate larger v, faster large a)
         case (2)
 
+          ! Call relevant routine
           call voigtI_H(v,a,ou)
 
         ! Gaussian
         case (3)
 
+          ! Call relevant routine
           call gaussianI(v,ou)
 
+        ! Error
         case default
 
+          ! Unknown
           ou = 0d0
 
       end select
@@ -581,10 +532,11 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes the Voigt profile with Armstrong algorithm\n
-      !!    v(dfloat): Normalized frequency\n
-      !!    a(dfloat): Normalized damping\n
-      !!   ou(dfloat): Voigt profile
+      !> Calculate the real Voigt profile with Armstrong (1967)
+      !! algorithm\n
+      !!   v(double): Normalized frequency\n
+      !!   a(double): Normalized damping parameter\n
+      !!  ou(double): Voigt profile
       subroutine voigtI_A(v,a,ou)
 
       ! I/O
@@ -596,20 +548,33 @@
 
       double precision:: vi
 
-      ! Abs
+
+      ! Get absolute value of normalized frequency
       if (v.lt.0d0) then
         vi = -v
       else
         vi = v
       end if
 
+      ! First branch
       if ((a.lt.1d0.and.vi.lt.4d0).or.(a*(1d0+vi).lt.1.8d0)) then
+
+        ! First branch
         ou = voigtI_AK1(vi,a)
+
+      ! Second branch
       else if (a.lt.2.5d0.and.vi.lt.4d0) then
+
+        ! Second branch
         ou = voigtI_AK2(vi,a)
+
+      ! Thid branch
       else
+
+        ! Third branch
         ou = voigtI_AK3(vi,a)
-      end if
+
+      end if ! Calculation branch
 
       return
 
@@ -619,18 +584,19 @@
 !#####################################################################
 !#####################################################################
 
-      !> Branch 1 of Armstrong algorithm\n
-      !!    v(dfloat): Normalized frequency\n
-      !!    a(dfloat): Normalized damping
+      !> Branch 1 of Armstrong (1967) algorithm\n
+      !!   v(double): Normalized frequency\n
+      !!   a(double): Normalized damping parameter
       double precision function voigtI_AK1(v,a)
 
       ! I/O
 
-      double precision, intent(in):: v, a
+      double precision, intent(in):: v,a
 
       ! Local
 
-      integer, parameter:: nn=34
+      integer, parameter:: nn = 34
+
       double precision, dimension(nn), parameter:: cc = &
         (/ 0.1999999999972224d0, -0.1840000000029998d0, &
            0.1558399999965025d0, -0.1216640000043988d0, &
@@ -648,25 +614,43 @@
            0.10d-14, -0.2d-15 /)
 
       integer:: n
-      double precision:: a2, v2, u1, d1, d2, dn, iv2, ff, an
-      double precision:: q, g, coeff, b1, b2, bn, v1
 
+      double precision:: a2,v2,u1,d1,d2,dn,iv2,ff,an
+      double precision:: q,g,coeff,b1,b2,bn,v1
+
+
+      ! Square
       a2 = a*a
       v2 = v*v
 
+      ! Too big argument
       if ((v2-a2).gt.70d0) then
+
+        ! Make zero
         u1 = 0d0
+
+      ! Not too big
       else
+
+        ! Get exponential
         u1 = exp(a2 - v2)*cos(2d0*v*a)
+
       end if
 
+      ! Wing
       if (v.gt.5d0) then
+
+        ! Compute coefficients
         iv2 = 1d0/v2
         d1 = -iv2*(0.5d0 + iv2*(0.75d0 + iv2*(1.875d0 +  &
              iv2*(6.5625d0 + iv2*(29.53125d0 + &
              iv2*(1162.4218d0 + iv2*1055.7421d0))))))
         d2 = 0.5d0*(1d0 - d1)/v
+
+      ! Core
       else
+
+        ! Compute coefficients
         b1 = 0d0
         b2 = 0d0
         v1 = 0.2d0*v
@@ -678,29 +662,51 @@
         end do
         d2 = v1*(bn - b2)
         d1 = 1d0 - 2d0*v*d2
-      end if
 
+      end if ! Wing or core
+
+      ! Initial ff
       ff = a*d1
+
+      ! If damping large enough
       if (a.gt.1d-8) then
+
+        ! Start fit
         q = 1d0
         an = a
+
+        ! Series
         do n=2,50
+
+          ! Update coefficients
           dn = (v*d1 + d2)*(-2d0/dble(n))
           d2 = d1
           d1 = dn
+
+          ! Even elements
           if (mod(n,2).gt.0) then
+
+            ! Update ff
             q = -q
             an = an*a2
             g = dn*an
             ff = ff + q*g
+
+            ! If ratio small
             if (abs(g/ff).le.1d-8) then
+
+              ! Finish calculation
               voigtI_AK1 = u1 - 1.12837917d0*ff
               return
-            end if
-          end if
-        end do
-      end if
 
+            end if ! Ratio g/ff small
+          end if ! Even elements
+
+        end do ! Series
+
+      end if ! Large enough damping
+
+      ! Complete calculation
       voigtI_AK1 = u1 - 1.12837917d0*ff
 
       return
@@ -711,9 +717,9 @@
 !#####################################################################
 !#####################################################################
 
-      !> Branch 2 of Armstrong algorithm\n
-      !!    v(dfloat): Normalized frequency\n
-      !!    a(dfloat): Normalized damping
+      !> Branch 2 of Armstrong (1967) algorithm\n
+      !!  v(double): Normalized frequency\n
+      !!  a(double): Normalized damping parameter
       double precision function voigtI_AK2(v,a)
 
       ! I/O
@@ -726,29 +732,39 @@
       double precision:: g,r,s,a2,ia
 
       integer, parameter:: nn = 10
+
       double precision, dimension(nn), parameter:: t = &
         (/ 0.2453407083d0, 0.7374737285d0, 1.2340762153d0, &
            1.7385377121d0, 2.2549740020d0, 2.7888060584d0, &
            3.3478545673d0, 3.9447640401d0, 4.6036824495d0, &
            5.3874808900d0 /)
+
       double precision, dimension(nn), parameter:: w = &
         (/ 4.6224366960d-01, 2.8667550536d-01, 1.0901720602d-01, &
            2.4810520887d-02, 3.2437733422d-03, 2.2833863601d-04, &
            7.8025564785d-06, 1.0860693707d-07, 4.3993409922d-10, &
            2.2293936455d-13 /)
 
+      ! Square and inverse
       a2 = a*a
       ia = 1d0/a
+
+      ! Initialize
       g = 0d0
 
+      ! Series
       do n=1,nn
+
+        ! Add contribution
         r = t(n) - v
         s = t(n) + v
         g = g + (4d0*t(n)*t(n) - 2d0)*(r*atan(r*ia) + &
             s*atan(s*ia) - 0.5d0*a*(log(a2 + r*r) + &
             log(a2 + s*s)))*w(n)
-      end do
 
+      end do ! Series
+
+      ! Finish calculation
       voigtI_AK2 = g*IPI
 
       return
@@ -759,40 +775,51 @@
 !#####################################################################
 !#####################################################################
 
-      !> Branch 3 of Armstrong algorithm\n
-      !!    v(dfloat): Normalized frequency\n
-      !!    a(dfloat): Normalized damping
+      !> Branch 3 of Armstrong (1967) algorithm\n
+      !!  v(double): Normalized frequency\n
+      !!  a(double): Normalized damping parameter
       double precision function voigtI_AK3(v,a)
 
       ! I/O
 
-      double precision, intent(in):: v, a
+      double precision, intent(in):: v,a
 
       ! Local
 
       integer:: n
-      double precision:: g, a2
+
+      double precision:: g,a2
 
       integer, parameter:: nn = 10
+
       double precision, dimension(nn), parameter:: t = &
         (/ 0.2453407083d0, 0.7374737285d0, 1.2340762153d0, &
            1.7385377121d0, 2.2549740020d0, 2.7888060584d0, &
            3.3478545673d0, 3.9447640401d0, 4.6036824495d0, &
            5.3874808900d0 /)
+
       double precision, dimension(nn), parameter:: w = &
         (/ 4.6224366960d-01, 2.8667550536d-01, 1.0901720602d-01, &
            2.4810520887d-02, 3.2437733422d-03, 2.2833863601d-04, &
            7.8025564785d-06, 1.0860693707d-07, 4.3993409922d-10, &
            2.2293936455d-13 /)
 
+      ! Square
       a2 = a*a
+
+      ! Initialize
       g = 0d0
 
+      ! Series
       do n=1,nn
+
+        ! Add contribution
         g = g + (1d0/((v-t(n))*(v-t(n)) + a2) + &
                  1d0/((v+t(n))*(v+t(n)) + a2))*w(n)
-      end do
 
+      end do ! Series
+
+      ! Complete calculation
       voigtI_AK3 = a*g*IPI
 
       return
@@ -803,23 +830,27 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes the Voigt profile with Hui algorithm\n
-      !!    v(dfloat): Normalized frequency\n
-      !!    a(dfloat): Normalized damping\n
-      !!   ou(dfloat): Voigt profile
+      !> Calculate the real Voigt profile with Hui et al. (1978)
+      !! algorithm\n
+      !!   v(double): Normalized frequency\n
+      !!   a(double): Normalized damping parameter\n
+      !!  ou(double): Voigt profile
       subroutine voigtI_H(v,a,ou)
 
       ! I/O
 
-      double precision, intent(in):: v, a
+      double precision, intent(in):: v,a
       double precision, intent(out):: ou
 
       ! Local
 
-      complex(kind=8):: z, W
+      complex(kind=8):: z,W
 
+
+      ! Make complex
       z = dcmplx(a, -v)
 
+      ! Calculate
       W = (122.607931777104326d0 + z*(214.382388694706425d0 + &
            z*(181.928533092181549d0 + z*(93.155580458138441d0 + &
            z*(30.180142196210589d0 + z*(5.912626209773153d0 + &
@@ -829,6 +860,7 @@
            z*(170.354001821091472d0 + z*(53.992906912940207d0 + &
            z*(10.479857114260399d0 + z)))))))
 
+      ! Return real
       ou = dble(W)
 
       return
@@ -839,105 +871,35 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes the Voigt profile. Complex algebra version\n
-      !!    v(dfloat): Normalized frequency\n
-      !!    a(dfloat): Normalized damping\n
-      !!   ou(dfloat): Voigt profile
-      subroutine voigtI_HC_deprecated(v,a,ou)
-
-      ! I/O
-
-      double precision, intent(in):: v, a
-      double precision, intent(out):: ou
-
-      ! Local
-
-      real:: sa, sv
-      real:: s, d
-
-      complex(kind=8):: z,u,t
-      complex(kind=8):: nt,dt,x,y
-
-      sa = sngl(a)
-      sv = sngl(v)
-
-      s = abs(sv)+sa
-      d = .195e0*abs(sv)-.176e0
-
-      z = dcmplx(a,-v)
-
-      if(s.ge..15e2) then
-        t = .5641896d0*z/(.5d0+z*z)
-      else
-
-        if(s.ge..55e1) then
-          u = z*z
-          t = z*(.1410474d1 + .5641896d0*u)/(.75d0 + u*(.3d1 + u))
-        else
-
-          if(sa.ge.d) then
-
-            nt = .164955d2 + z*(.2020933d2 + z*(.1196482d2 + &
-                 z*(.3778987d1 + .5642236d0*z)))
-
-            dt = .164955d2 + z*(.3882363d2 + z*(.3927121d2 + &
-                 z*(.2169274d2 + z*(.6699398d1 + z))))
-
-            t = nt/dt
-
-          else
-
-            u = z*z
-
-            x = z*(.3618331d5 - u*(.33219905d4 - u*(.1540787d4 - &
-                u*(.2190313d3 - u*(.3576683d2 - u*(.1320522d1 - &
-                .56419d0*u))))))
-
-            y = .320666d5 - u*(.2432284d5 - u*(.9022228d4 - &
-                u*(.2186181d4 - u*(.3642191d3 - u*(.6157037d2 - &
-                u*(.1841439d1 - u))))))
-
-            t = exp(u) - x/y
-
-          end if
-        end if
-      end if
-
-      ou = dble(t)
-
-      return
-
-      end subroutine voigtI_HC_deprecated
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
-      !> Computes the Voigt profile. Real algebra version\n
-      !!    v(dfloat): Normalized frequency\n
-      !!    a(dfloat): Normalized damping\n
-      !!   ou(dfloat): Voigt profile
+      !> Calculate the real Voigt profiles with Humlicek (1982)
+      !! algorithm. Real algebra version\n
+      !!   v(double): Normalized frequency\n
+      !!   a(double): Normalized damping parameter\n
+      !!  ou(double): Voigt profile
       subroutine voigtI_HC(v,a,ou)
 
       ! I/O
 
-      double precision, intent(in):: v, a
+      double precision, intent(in):: v,a
       double precision, intent(out):: ou
 
       ! Local
 
-      real:: sa, sv
-      real:: s, d
+      real:: sa,sv
+      real:: s,d
 
       double precision:: r1,i1,r2,i2,ru,iu,rx,ix,de
 
+      ! Get single precision arguments
       sa = sngl(a)
       sv = sngl(v)
 
+      ! Compute quantities to decide branching
       s = abs(sv)+sa
       d = .195e0*abs(sv)-.176e0
 
-      if(s.ge..15e2) then
+      ! First branch
+      if (s.ge..15e2) then
 
         ! Output
         ! t = .5641896d0*z/(.5d0+z*z)
@@ -952,9 +914,11 @@
         ! Output ans*z*de
         ou = (a*r1 + v*i1)*de
 
+      ! Rest of branches
       else
 
-        if(s.ge..55e1) then
+        ! Second branch
+        if (s.ge..55e1) then
 
           ! Output
           ! u = z*z
@@ -982,9 +946,11 @@
           ! Output ans*bns*de
           ou = (r2*ru - i2*iu)*de
 
+        ! Rest of branches
         else
 
-          if(sa.ge.d) then
+          ! Third branch
+          if (sa.ge.d) then
 
             ! Output
             ! nt = .164955d2 + z*(.2020933d2 + z*(.1196482d2 + &
@@ -1037,6 +1003,7 @@
             ! Output ans*u*de
             ou = (ru*r1 - iu*i1)*de
 
+          ! Fourth brach
           else
 
             ! Output
@@ -1121,9 +1088,9 @@
             ! Output exp(u) - x/y
             ou = dble(exp(dcmplx(ru,iu))) - r2*de
 
-          end if
-        end if
-      end if
+          end if ! Third or fourth branch
+        end if ! Second or Third/fourth branches
+      end if ! First or Second/third/fourth branches
 
       end subroutine voigtI_HC
 
@@ -1131,9 +1098,9 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes the Gaussian profile\n
-      !!    v(dfloat): Normalized frequency\n
-      !!   ou(dfloat): Voigt profile
+      !> Calculate a Gaussian profile\n
+      !!   v(double): Normalized frequency\n
+      !!  ou(double): Voigt profile
       subroutine gaussianI(v,ou)
 
       ! I/O
@@ -1145,22 +1112,26 @@
 
       double precision:: v2
 
+
       ! True argument
       v2 = v*v
 
       ! Control overflow
       if (v2.gt.bigexp) then
 
+        ! Zero due to big argument
         ou = 0d0
 
       ! Normal
       else if (v2.gt.smallexp) then
 
+        ! Get exponential
         ou = exp(-v2)
 
       ! Control underflow
       else
 
+        ! Second order Taylor
         ou = 1d0 - v2 + 0.5d0*v2*v2
 
       end if
@@ -1171,57 +1142,79 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes the redistribution function for intensity\n
-      !!   omega1(dfloat): Input frequency\n
-      !!    omega(dfloat): Output frequency\n
-      !!       Dw(dfloat): Output transition Doppler width\n
-      !!      Dw1(dfloat): Input transition Doppler width\n
-      !!      atl(dfloat): Input transition width\n
-      !!      atf(dfloat): Output transition width\n
-      !!       C1(dfloat): Cosine of scattering angle\n
-      !!       S1(dfloat): Sine of scattering angle\n
-      !!   stype(integer): Type of scattering (geometry wise)
+      !> Calculate the real part of the redistribution function in the
+      !! laboratory frame with non-coherent lower term and infinitely
+      !! sharp lower levels\n
+      !!  omega1(double): Input frequency\n
+      !!   omega(double): Output frequency\n
+      !!      Dw(double): Output transition Doppler width\n
+      !!     Dw1(double): Input transition Doppler width\n
+      !!     atl(double): Input transition width\n
+      !!     atf(double): Output transition width\n
+      !!      C1(double): Cosine of scattering angle\n
+      !!      S1(double): Sine of scattering angle\n
+      !!  stype(integer): Type of scattering (geometry wise)
       function WfuncI(omega1,omega,Dw,Dw1,atl,atf,C1,S1,stype)
 
       ! I/O
 
       integer, intent(in):: stype
-      double precision, intent(in):: omega, omega1, Dw, Dw1
+      double precision, intent(in):: omega,omega1,Dw,Dw1
       double precision, intent(in):: atf,atl,C1,S1
 
       ! Local
 
       double precision:: iDw0,xil,xif,kkp,kkm,norm,inorm
-      double precision:: x,a1,a2,vul,wuf
-      double precision:: earg,efact
+      double precision:: x,a1,a2,vul,wuf,earg,efact
       double precision:: WfuncI,prof1,prof2
 
+
+      ! Inverse composed Doppler width
       iDw0 = 1d0/(sqrt(Dw*Dw + Dw1*Dw1 - 2d0*Dw*Dw1*C1))
 
+      ! Doppler widths factors
       xil = Dw1*iDw0
       xif = Dw*iDw0
 
-      inorm = 1d0/(S1*xil*xif)
-
+      ! Branching ratios for resonances
       kkp = .5d0*(1d0 + xif*xif - xil*xil)
       kkm = 1d0 - kkp
 
+      ! Resonances in input frequency
       vul = omega1*iDw0
       wuf = omega*iDw0
 
+      ! Exponential argument
       earg = abs(wuf - vul)
 
-      if (earg.gt.WbiggaussI) then
-        efact = 0d0
-      else
-        earg = earg*earg
-        if (earg.gt.smallexp) then
-          efact = exp(-earg)
-        else
-          efact = 1d0 + earg*(0.5*earg - 1d0)
-        end if
-      end if
+      ! If argument too big
+      if (earg.gt.Wbiggauss) then
 
+        ! Make zero
+        efact = 0d0
+
+      ! Normal argument
+      else
+
+        ! Square
+        earg = earg*earg
+
+        ! If not too small
+        if (earg.gt.smallexp) then
+
+          ! Calculate exponential
+          efact = exp(-earg)
+
+        ! Too small
+        else
+
+          ! Taylor series
+          efact = 1d0 + earg*(0.5d0*earg - 1d0)
+
+        end if ! Normal or too small argument
+      end if ! Too big argument
+
+      ! Get resonance and damping parameters
       x = kkp*vul + kkm*wuf
       a1 = atf*iDw0
       a2 = atl*iDw0
@@ -1229,25 +1222,34 @@
       ! General scattering
       if (stype.eq.0) then
 
+        ! Normalization factor
+        inorm = 1d0/(S1*xil*xif)
+
+        ! Normalization
         x = x*inorm
         a1 = a1*inorm
         a2 = a2*inorm
 
+        ! Get Voigt profiles
         call voigtI(x,a1,prof1)
         call voigtI(x,a2,prof2)
 
+        ! Complete normalization factor
         norm = PI*iDw0*iDw0*inorm
 
       ! 3-term or 2-term backward scattering
       else
 
+        ! Get profiles
         prof1 = dble(cImag/(x + cImag*a1))
         prof2 = dble(cImag/(x + cImag*a2))
 
+        ! Complete normalization factor
         norm =  sqrt(PI)*xil*xif
 
       endif
 
+      ! Get redistribution function
       WfuncI = 2d0*efact*(prof1 + prof2)*norm
 
       end function WfuncI

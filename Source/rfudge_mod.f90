@@ -5,21 +5,18 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     06/27/2022
+!     27/06/2022
 !  Last version:
-!     09/23/2024 V3.0.1
+!     17/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     09/23/2024:    V3.0.1 - Fixed wrong communicator (TdPA)
-!
-!     06/29/2022:    V3.0.0 - Initial version (TdPA)
+!     17/12/2024:    V4.0.0 - Updated headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -31,7 +28,8 @@
 !
 !  Data:
 !
-!  This subroutine reads the fudge data
+!  rfudge
+!    Read a fudge tabulation from the specified file
 !
 !#####################################################################
 !#####################################################################
@@ -48,7 +46,7 @@
 !#####################################################################
 !#####################################################################
 
-      !> Reads a file with the fudge data.\n
+      !> Read a fudge tabulation from the specified file\n
       !!   filename(character(:)): Name of the file to read\n
       !!     source(character(:)): Path to the source code\n
       !!         ID(character(:)): ID of this run\n
@@ -65,13 +63,14 @@
 
       integer:: ios
 
+
       ! Routine name
       urou = 'rFudge'
 
       ! If there is a fudge factor file
       if (trim(filename).ne.'NONE') then
 
-        ! Read the fudge data
+        ! Master translate the fudge file with python
         if (pid.eq.0) call system('python '//trim(source)// &
                                   'rfudge.py '//trim(filename)// &
                                   ' '//ID//' '//verbosef)
@@ -86,13 +85,14 @@
         ! Success
         read (100,*,err=1100) ios
 
-        ! If no correct file, abort
+        ! If no correct file
         if (ios.lt.0) then
 
+          ! Issue error
           umsg = 'Problem translating the fudge file'
           goto 1200
 
-        end if
+        end if ! Wrong file
 
         ! How many frequencies with data
         read (100,*,err=1100) fudge%nfreq_f
@@ -102,17 +102,24 @@
 
           ! Allocate to read
           allocate(fudge%fudge_v(fudge%nfreq_f,4))
+          MRAMc = MRAMc + 1d-6*sizeof(fudge%fudge_v)
 
-          ! For each input frequency, read the data
+          ! For each input frequency
           do ios=1,fudge%nfreq_f
-            read (100,*) fudge%fudge_v(ios,:)
-          end do
 
+            ! Read the data
+            read (100,*) fudge%fudge_v(ios,:)
+
+          end do ! Input frequencies
+
+          ! Master
           if (pid.eq.0) then
+
+            ! Verbose
             umsg = ' - Fudge '//trim(filename)//' read'
             call verbose
-          end if
 
+          end if ! Master
         end if ! fudge data
 
         ! Cloase fudge file
@@ -121,12 +128,13 @@
         ! Control
         call control
 
-        ! Remove temporal file
+        ! Master remove temporal file
         if (pid.eq.0) CALL SYSTEM('rm tmp_fud_'//ID)
 
       ! There is no specified file to read
       else
 
+        ! No fudge frequencies
         fudge%nfreq_f = 0
 
       end if ! There is a fudge file

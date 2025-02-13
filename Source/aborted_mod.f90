@@ -1,116 +1,24 @@
-      !> Message printing routine and error handling
+      !> Message writing and error handling
       module aborted_mod
 !#####################################################################
 !############################# HEADER ################################
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     04/17/2017
+!     17/04/2017
 !  Last version:
-!     09/08/2023 V3.0.8
+!     28/11/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     09/08/2023:    v3.0.8 - Added the possibility to shut-up the
-!                             verbosity output depending on the level
-!                             in the INPUT (TdPA)
-!                           - main_verbosity now receives an integer
-!                             with the message level, instead of the
-!                             result of the comparison (TdPA)
-!
-!     08/17/2023:    v3.0.7 - Control allreduce is performed in place
-!                             now (TdPA)
-!
-!     08/07/2023:    v3.0.6 - Added pixel information to the output
-!                             of the error in abortedS (TdPA)
-!
-!     07/03/2023:    v3.0.5 - Changed call to aborted in the MPI
-!                             case to accomodate for parallelization
-!                             in pixels (TdPA)
-!                           - Cugfix: the parallel approach in
-!                             aborteds led to issues in the output
-!                             message due to reusing a common
-!                             variable (TdPA)
-!
-!     05/25/2023:    V3.0.4 - Fixed verbosity for abortedS serial
-!                             when not crashing (TdPA)
-!
-!     05/16/2023:    V3.0.3 - Added explicit verbosity in abortedS
-!                             for the serial case, because further
-!                             control was needed for the inversion
-!                             runs (TdPA)
-!
-!     03/08/2023:    V3.0.2 - Added gabortedv subroutine, which is
-!                             the error control called from the
-!                             inversion part of the TIC module (TdPA)
-!                           - Added verbosev to control the verbosity
-!                             in the inversion part of the TIC
-!                             module (TdPA)
-!                           - Added verboseI to control the verbosity
-!                             in the inversion part of the TIC when
-!                             it shoudl be decided where to write it
-!                             depending on an input (TdPA)
-!                           - Added a branch in aborted, gaborted, and
-!                             abortedS for the inversion mode (TdPA)
-!                           - Added a branch in aborted for the
-!                             inversion mode (TdPA)
-!
-!     07/27/2022:    V3.0.1 - Changed size of input in abortedS for
-!                             consistency with global variable (TdPA)
-!
-!     06/29/2022:    V3.0.0 - To implement the 1.5D case I had to do
-!                             some dirty edits in this module.
-!                              o Now aborted branches to other
-!                                routines depending on the running
-!                                mode.
-!                              o Created gaborted (g == global) which
-!                                does what aborted used to do.
-!                              o Created gcontrol (g == global) which
-!                                does what control used to do.
-!                              o Now control only finalizes the run
-!                                if in the pure 1D case.
-!                              o AbortedS now needs to check on the
-!                                new gnproc (g == global) variable
-!                                to determine if the run is parallel.
-!                                It also needs to call gaborted in the
-!                                serial case, instead of aborted.
-!                             (TdPA)
-!
-!     03/23/2021:    V2.0.1 - Added arguments to abortedS to be use it
-!                             with OpenMP. This leaft abortedS_w
-!                             obsolete and was thus removed (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!                           - Added correct call to time when using
-!                             OpenMP (TdPA)
-!
-!     02/12/2021:    V1.2.4 - Added report_time, report_mpi_timeI, and
-!                             report_mpi_time routines (TdPA)
-!
-!     09/20/2020:    V1.2.3 - The name of the error file is taken
-!                             from a common variable (TdPA)
-!
-!     05/08/2019:    V1.2.2 - Each CPU writes in standard output that
-!                             it had an error just once (TdPA)
-!
-!     03/13/2019:    V1.2.1 - A CPU only informs once about error
-!                             file generation (TdPA)
-!                           - Fixed aborted message (TdPA)
-!
-!     02/20/2019:    V1.2.0 - Completely changed aborted subroutine
-!                             and added aborted_silent, abortedS,
-!                             verbose, and control routines (TdPA)
-!
-!     02/14/2019:    V1.1.0 - Made changes to avoid the waiting for
-!                             buffer filling when no verbosity (TdPA)
-!
-!     04/17/2017:    V1.0.0 - First version (TdPA)
+!     28/11/2024:    v4.0.0 - Removed references to threads in all
+!                             routines (TdPA)
+!                           - Cleaned code (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -120,31 +28,36 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
 !    aborted
-!      Handles the abortion in case of error depending on the type
-!    of run
+!      Handles the abortion in case of error checked in the RT group
+!    depending on the type of run
 !
 !    gaborted
-!      Aborts the code in a controlled way with all CPU
+!      Write error message and terminate because all CPU are in
+!    failure status. This is only called by synthesis modules
 !
 !    gabortedv
-!      Aborts the code in a controlled way with all CPU. Inversion
-!      version
+!      Write error message and terminate because all CPU are in
+!    failure status. This is only called by inversion modules
 !
 !    aborted_silent
-!      Aborts the code in a controlled way with all CPU, but in
-!      silence
+!      Terminate MPI and stop without writing messages
 !
 !    abortedS
-!      Generates error file and flags for abortion
+!      Flag failure or inform of an error from the caller CPU
 !
 !    verbose
-!      For message output
+!      Message output in synthesis mode
 !
 !    verbosev
-!      For message output for the inversion
+!      Message output in inversion mode
 !
 !    verboseI
 !      Special verbosity for additional inversion information
@@ -156,21 +69,20 @@
 !      Report CPU time called from solveri
 !
 !    report_mpi_time
-!      Report CPU time called from solver.\n
+!      Report CPU time called from solver
 !
 !    control
-!      Controls if any CPU has crashed and stops if needed depending
-!      on the type of run
+!      Check if any of the CPU in the control (CTRL) group  is in
+!    failure status
 !
 !    gcontrol
-!      Controls if any CPU has crashed and stops if needed
+!      Check if any of the CPU (WORLD) is in failure status
 !
 !#####################################################################
 !#####################################################################
 !#####################################################################
 
       use commons_mod
-      use omp_mod
 
       contains
 
@@ -178,34 +90,49 @@
 !#####################################################################
 !#####################################################################
 
-      !> Handles the abortion depending on the case running
+      !> Handles the abortion in case of error checked in the RT group
+      !! depending on the type of run
       subroutine aborted
 
       !
       ! If 1D synthesis
       !
       if (run_mode.eq.0) then
+
+        ! Call aborted with all CPU
         call gaborted
+
       !
       ! Inversion
       !
       else if (run_mode.eq.-1) then
+
+        ! Called with RT group, write in log and return failure
+        ! signal
         umsg = ' ## Controlled abortion called with message: '// &
                trim(umsg(1:416))//' in routine '//urou(1:15)
-        call abortedS(umsg,urou,-1,.True.,.True.)
+        call abortedS(umsg,urou,.True.,.True.)
+
       !
       ! If 1.5D synthesis
       !
       else if (run_mode.eq.1) then
+
+        ! Called with RT group, write in log and return failure
+        ! signal
         umsg = ' ## Controlled abortion called with message: '// &
                trim(umsg(1:416))//' in routine '//urou(1:15)
-        call abortedS(umsg,urou,-1,.True.,.True.)
+        call abortedS(umsg,urou,.True.,.True.)
+
       !
       ! If CLE
       !
       else if (run_mode.eq.2) then
+
+        ! Call aborted with all CPU
         call gaborted
-      end if
+
+      end if ! Type of run
 
       end subroutine aborted
 
@@ -213,13 +140,15 @@
 !#####################################################################
 !#####################################################################
 
-      !> Sends a message and waits for every other process before
-      !! stopping.
+      !> Write error message and terminate because all CPU are in
+      !! failure status. This is only called by synthesis modules
       subroutine gaborted
 
       !
       ! Output message
       !
+
+      ! Only master
       if (pid.eq.0) then
 
         ! Build message
@@ -232,8 +161,11 @@
         else
           call verbose
         end if
-      end if
 
+      end if ! Master
+
+
+      !
       ! Try to exit MPI
       call MPI_FINALIZE(ierr)
 
@@ -246,19 +178,26 @@
 !#####################################################################
 !#####################################################################
 
-      !> Sends a message and waits for every other process before
-      !! stopping. Inversion version
+      !> Write error message and terminate because all CPU are in
+      !! failure status. This is only called by inversion modules
       subroutine gabortedv
 
       !
       ! Output message
       !
+
+      ! Only Master
       if (pid.eq.0) then
+
+        ! Write message
         umsg = ' ## Controlled abortion called with message: '// &
                trim(umsg(1:416))//' in routine '//urou(1:15)
         call verbosev
-      end if
 
+      end if ! Master
+
+
+      !
       ! Try to exit MPI
       call MPI_FINALIZE(ierr)
 
@@ -271,7 +210,7 @@
 !#####################################################################
 !#####################################################################
 
-      !> Waits for every other process before stopping.
+      !> Terminate MPI and stop without writing messages
       subroutine aborted_silent
 
       ! Try to exit MPI
@@ -286,149 +225,183 @@
 !#####################################################################
 !#####################################################################
 
-      !> Generates error file and returns.\n
-      !!      lumsg(character(650)): Error message\n
-      !!       lurou(character(20)): Name of calling routine\n
-      subroutine abortedS(lumsg,lurou,tid,flag,inform)
+      !! Flag failure or inform of an error from the caller CPU\n
+      !!  lumsg(character(650)): Error message\n
+      !!   lurou(character(20)): Name of failing routine\n
+      !!          flag(logical): If this call is to be considered
+      !!                         a termination error\n
+      !!        inform(logical): If the error message has to be
+      !!                         written in the appropriate buffer
+      subroutine abortedS(lumsg,lurou,flag,inform)
 
       ! I/O
-      character(len=500):: lumsg
-      character(len=20):: lurou
-      logical:: flag,inform
-      integer:: tid
+
+      character(len=500), intent(in):: lumsg
+      character(len=20), intent(in):: lurou
+      logical, intent(in):: flag,inform
 
       ! Local
-      logical:: exists
-      character(len=2):: stid
+
       character(len=500):: cumsg
 
-      !
-      ! If serial, just crash
-      if (gnproc.eq.1) then
+      logical:: exists
 
+
+      !
+      ! Serial
+      !
+      if (gnproc.eq.1) then
 
         ! If crashing
         if (flag) then
 
-          ! Dump into globals
+          ! Dump message and routine name into the global
+          ! variables
           umsg = lumsg
           urou = lurou
 
-          ! Abort
+          ! Abort right here
           call gaborted
 
-        end if
+        end if ! Crashing
 
         ! Copy message
         cumsg = lumsg
 
-        ! Dump in standard
+        ! If I have not already send a message and I was requested
+        ! to inform
         if (vaborted.and.inform) then
+
+          ! Write routine name in message beginning
           umsg = ' ## In routine'//trim(urou)//': '
+
+          !
           ! Call verbose depending on running mode
+
+          ! Inversion
           if (run_mode.eq.-1) then
             call verbosev
+          ! Synthesis
           else
             call verbose
           end if
-          ! If 1.5D
+
+          !
+          ! If not 1D synthesis
           if (run_mode.ne.0) then
+
+            ! If non-trivial coordinates
             if (icoords(3).gt.0) then
+
+              ! Write information about the failing pixel
               write(umsg,'(A,1x,i7,1x,"(",i4,",",i4,")")') &
                                   ' For pixel',icoords(3),icoords(1:2)
+
+              !
               ! Call verbose depending on running mode
+
+              ! Inversion
               if (run_mode.eq.-1) then
                 call verbosev
+              ! Synthesis
               else
                 call verbose
-              end if
-            end if
-          end if
-          ! Reset
+              end if ! Inversion/synthesis
+            end if ! Non-trivial coordinates
+          end if ! Not 1D synthesis
+
+          ! Save the error message in global message buffer
           umsg = ' Error: '//trim(cumsg)
+
+          !
           ! Call verbose depending on running mode
+
+          ! Inversion
           if (run_mode.eq.-1) then
             call verbosev
+          ! Synthesis
           else
             call verbose
-          end if
-        end if
+          end if ! Inversion/synthesis
+        end if ! Requested to inform and first error
       end if ! Serial
 
       !
-      ! If threaded
-      if (tid.gt.0) then
+      ! Inquire if the error file exists
+      inquire(file=trim(errorf), exist=exists)
 
-        ! Get character for thread
-        write(stid,'(I0.2)') tid
+      ! If does not exist
+      if(.not.exists)then
 
-        !
-        ! ERROR
-        inquire(file=trim(errorf)//'-'//trim(stid), exist=exists)
-        if(.not.exists)then
-          open(800,file=trim(errorf)//'-'//trim(stid))
-        else
-          open(800,file=trim(errorf)//'-'//trim(stid), &
-                   position='append')
-        endif
+        ! Create new file
+        open(800,file=trim(errorf))
 
-      ! Not threaded
+      ! If it exists
       else
 
-        !
-        ! ERROR
-        inquire(file=trim(errorf), exist=exists)
-        if(.not.exists)then
-          open(800,file=trim(errorf))
-        else
-          open(800,file=trim(errorf),position='append')
-        endif
+        ! Append to error file
+        open(800,file=trim(errorf),position='append')
 
-      end if
+      endif ! Error file existence
+
 
       !
       ! Inform about error
+      !
       if (inform) then
 
-        ! 1D
+        ! 1D synthesis mode
         if (run_mode.eq.0) then
+
+          ! Write the routine name and the error message
           write(800,'(A)') ' ## In routine '//trim(lurou)//': '// &
                            trim(lumsg)
+
+        ! Any other mode
         else
+
+          ! Write the routine name, the failing pixel, and the
+          ! error message
           write(800,'(A,1x,i7,1x,"(",i4,",",i4,")",A)') &
                       ' ## In routine '//trim(lurou)// &
                       ' for pixel ',icoords(3),icoords(1:2),': '// &
                       trim(lumsg)
-        end if
-      end if
 
-      !
-      ! Close
+        end if ! 1D or any other mode
+      end if ! Informing about the error
+
+      ! Close error file
       close(800)
 
-      ! And in standard too
-      if (vaborted.and.inform) then
-        vaborted = .False.
-        ! Threaded
-        if (tid.gt.0) then
-          write(umsg,'(A)') ' ## One of the processes found an '// &
-                            'error, check '//trim(errorf)//'-'// &
-                            trim(stid)//' file'
-        ! Not threaded
-        else
-          write(umsg,'(A)') ' ## One of the processes found an '// &
-                            'error, check '//trim(errorf)//' file'
-        end if
+      !
+      ! Write to stdout
+      !
 
+      ! If I have not already send a message and I was requested
+      ! to inform
+      if (vaborted.and.inform) then
+
+        ! This CPU is not allowed to send more notifications
+        ! about error to stdout
+        vaborted = .False.
+
+        ! Write message in global variable
+        write(umsg,'(A)') ' ## One of the processes found an '// &
+                          'error, check '//trim(errorf)//' file'
+
+        !
         ! Call verbose depending on running mode
+
+        ! Inversion
         if (run_mode.eq.-1) then
           call verbosev
+        ! Synthesis
         else
           call verbose
-        end if
-      end if
+        end if ! Inversion/synthesis
+      end if ! Requested to inform and first error
 
-      ! Flag it
+      ! Flag failure if requested
       if (flag) laborted = .True.
 
       ! Return
@@ -440,7 +413,7 @@
 !#####################################################################
 !#####################################################################
 
-      !> Output messages.\n
+      !> Output messages in synthesis mode
       subroutine verbose
 
       ! Local
@@ -448,28 +421,40 @@
       logical:: exists
 
 
-      !
-      ! If output to terminal
-      !
+      ! If I have the permission to write in terminal and this is not
+      ! an inversion
       if (verbosity.and.ninv_mode) then
 
+        ! Output to terminal
         write(*,'(A)') trim(umsg)
 
-      !
-      ! If output to file
-      !
+      ! Cannot write in terminal
       else
 
+        ! Inquire verbosity file existence
         inquire(file=trim(verbosef), exist=exists)
+
+        ! If there is no verbosity file
         if(.not.exists)then
+
+          ! Create a new one
           open(900,file=trim(verbosef))
+
+        ! If there is a verbosity file
         else
+
+          ! Open to append
           open(900,file=trim(verbosef),position='append')
-        endif
+
+        endif ! Verbosity file existence
+
+        ! Write message in file
         write(900,'(A)') trim(umsg)
+
+        ! Close file
         close(900)
 
-      end if
+      end if ! Output to terminal or to file
 
       end subroutine verbose
 
@@ -477,7 +462,7 @@
 !#####################################################################
 !#####################################################################
 
-      !> Output messages for the inversion.\n
+      !> Message output in inversion mode
       subroutine verbosev
 
       ! Local
@@ -485,28 +470,39 @@
       logical:: exists
 
 
-      !
-      ! If output to terminal
-      !
+      ! If I have the permission to write in terminal
       if (verbosity) then
 
+        ! Output to terminal
         write(*,'(A)') trim(umsg)
 
-      !
-      ! If output to file
-      !
+      ! Cannot write in terminal
       else
 
+        ! Inquire verbosity file existence
         inquire(file=trim(verbosefv), exist=exists)
+
+        ! If there is no verbosity file
         if(.not.exists)then
+
+          ! Create a new one
           open(900,file=trim(verbosefv))
+
+        ! If there is a verbosity file
         else
+
+          ! Open to append
           open(900,file=trim(verbosefv),position='append')
-        endif
+
+        endif ! Verbosity file existence
+
+        ! Write message in file
         write(900,'(A)') trim(umsg)
+
+        ! Close file
         close(900)
 
-      end if
+      end if ! Output to terminal or to file
 
       end subroutine verbosev
 
@@ -515,62 +511,90 @@
 !#####################################################################
 
       !> Special verbosity for additional inversion information\n
-      !!   main_verbosity(integer): Level of the message
+      !!   level(integer): Level of the issued message
       subroutine verboseI(level)
 
-      ! IO
+      ! I/O
+
       integer, intent(in):: level
 
       ! Local
+
       logical:: exists
 
 
-      ! Shut-up?
+      ! If the level of the issued message is above the current
+      ! shut-up limit, ignore it
       if (level.gt.slevel) return
 
       !
-      ! If to main file
-      !
+      ! If the level of the issued message is important enough to go
+      ! into the main file
       if (level.le.vlevel) then
 
-        !
-        ! If output to terminal
-        !
+        ! If I have the permission to write in terminal
         if (verbosity) then
 
+          ! Output to terminal
           write(*,'(A)') trim(umsg)
 
-        !
-        ! If output to file
-        !
+        ! Cannot write in terminal
         else
 
+          ! Inquire verbosity file existence
           inquire(file=trim(verbosefv), exist=exists)
+
+          ! If there is no verbosity file
           if(.not.exists)then
+
+            ! Create a new one
             open(900,file=trim(verbosefv))
+
+          ! If there is a verbosity file
           else
+
+            ! Open to append
             open(900,file=trim(verbosefv),position='append')
-          endif
+
+          endif ! Verbosity file existence
+
+          ! Write message in file
           write(900,'(A)') trim(umsg)
+
+          ! Close file
           close(900)
 
-        end if
+        end if ! Output to terminal or to file
 
       !
-      ! Into extra file
-      !
+      ! If the level of the issued message is NOT important enough to
+      ! go into the main file
       else
 
+        ! Inquire verbosity file existence
         inquire(file=trim(verbosefv)//'_extra', exist=exists)
+
+        ! If there is no verbosity file
         if(.not.exists)then
+
+          ! Create a new one
           open(900,file=trim(verbosefv)//'_extra')
+
+        ! If there is a verbosity file
         else
+
+          ! Open to append
           open(900,file=trim(verbosefv)//'_extra',position='append')
-        endif
+
+        endif ! Verbosity file existence
+
+        ! Write message in file
         write(900,'(A)') trim(umsg)
+
+        ! Close file
         close(900)
 
-      end if
+      end if ! Level of issued message
 
       end subroutine verboseI
 
@@ -578,22 +602,90 @@
 !#####################################################################
 !#####################################################################
 
+      !> Report CPU time called from solveri.\n
+      !! folder(character(500)): Path to the output folder\n
+      !!        append(logical): If appending or creating the file
+      subroutine report_ram(folder,append)
+
+      ! I/O
+
+      character(len=500), intent(in):: folder
+      logical, intent(in):: append
+
+      ! Local
+
+      character(len=5):: CPUC
+
+
+      ! Get string CPU ID
+      write(CPUC,'(I0.5)') gpid
+
+      !
+      ! If appending
+      !
+      if (append) then
+
+        ! Open existing file to append message
+        open(800,file=trim(folder)//'/ram_'//CPUC, &
+             position='append')
+
+      !
+      ! If not appending
+      !
+      else
+
+        ! Open new file to write message
+        open(800,file=trim(folder)//'/ram_'//CPUC)
+
+        ! Header
+        write(800,'(A)') ' | Background '// &
+                         ' | Photoioni. '// &
+                         ' |  Radiation '// &
+                         ' |   Solution '// &
+                         ' | Memoizati. '// &
+                         ' | Voigt prf. '// &
+                         ' | Redistrib. '// &
+                         ' | 1st o. PRD '// &
+                         ' | Rad. Tran. '// &
+                         ' |      Misc. '// &
+                         ' |'
+
+      end if ! Appending/writing
+
+      ! Write RAM count
+      write(800,'(10(" | ",2x,f9.3)," |",2x,A)') &
+            BRAMc,PRAMc,RRAMc, &
+            SRAMc,ERAMc,VRAMc, &
+            WRAMc,ORAMc,TRAMc, &
+            MRAMc,trim(umsg)
+
+      ! And close
+      close(800)
+
+      end subroutine report_ram
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
       !> Report CPU time into time file.\n
-      !!   folder(character(500)): Path to the folder where to write\n
-      !!         ID(characteR(9)): ID of the current run\n
-      !!          append(logical): Determine if creating the file or
-      !!                           writing into an existing one
+      !!  folder(character(500)): Path to the output folder\n
+      !!        ID(character(9)): ID of the current run\n
+      !!         append(logical): If appending or creating the file
       subroutine report_time(folder,ID,append)
 
       ! I/O
+
       character(len=500), intent(in):: folder
       character(len=9), intent(in):: ID
       logical, intent(in):: append
 
       ! Local
+
       real:: tt
 
-      ! Get initial time
+
+      ! Get time
       call cpu_time(tt)
 
       !
@@ -601,6 +693,7 @@
       !
       if (append) then
 
+        ! Open existing file to append message
         open(800,file=trim(folder)//'/times'//ID, &
              position='append')
 
@@ -609,9 +702,10 @@
       !
       else
 
+        ! Open new file to write message
         open(800,file=trim(folder)//'/times'//ID)
 
-      end if
+      end if ! Appending/writing
 
       ! Write time
       write(800,*) tt
@@ -626,36 +720,35 @@
 !#####################################################################
 
       !> Report CPU time called from solveri.\n
-      !!   folder(character(500)): Path to the folder where to write\n
-      !!         ID(characteR(9)): ID of the current run\n
-      !!             cpu(integer): CPU that sent to master\n
-      !!            iter(integer): Current SEE iteration\n
-      !!           iterr(integer): Current radiation sub-iteration\n
-      !!          append(logical): Determine if creating the file or
-      !!                           writing into an existing one
+      !! folder(character(500)): Path to the output folder\n
+      !!       ID(character(9)): ID of the current run\n
+      !!           cpu(integer): CPU that sent to master\n
+      !!          iter(integer): Current solver iteration\n
+      !!         iterr(integer): Current radiation sub-iteration\n
+      !!        append(logical): If appending or creating the file
       subroutine report_mpi_timeI(folder,ID,cpu,iter,iterr,append)
 
       ! I/O
+
       character(len=500), intent(in):: folder
       character(len=9), intent(in):: ID
       logical, intent(in):: append
       integer, intent(in):: cpu, iter,iterr
 
       ! Local
+
       double precision:: tt
 
-      ! Get initial time
-#ifdef _OPENMP
-      tt = omp_get_wtime()
-#else
+
+      ! Get time
       call cpu_time(tt)
-#endif
 
       !
       ! If appending
       !
       if (append) then
 
+        ! Open existing file to append message
         open(800,file=trim(folder)//'/times_mpiI'//ID, &
              position='append')
 
@@ -664,11 +757,12 @@
       !
       else
 
+        ! Open new file to write message
         open(800,file=trim(folder)//'/times_mpiI'//ID)
 
-      end if
+      end if ! Appending/writing
 
-      ! Write time
+      ! Write iteration and CPU information and time
       write(800,'(i5,1x,i5,1x,i5,1x,es15.8)') iter,iterr,cpu,tt
 
       ! And close
@@ -680,25 +774,27 @@
 !#####################################################################
 !#####################################################################
 
-      !> Report CPU time called from solver.\n
-      !!   folder(character(500)): Path to the folder where to write\n
-      !!         ID(characteR(9)): ID of the current run\n
-      !!             cpu(integer): CPU that sent to master\n
-      !!            iter(integer): Current SEE iteration\n
-      !!          append(logical): Determine if creating the file or
-      !!                           writing into an existing one
+      !> Report CPU time called from solver\n
+      !! folder(character(500)): Path to the output folder\n
+      !!       ID(character(9)): ID of the current run\n
+      !!           cpu(integer): CPU that sent to master\n
+      !!          iter(integer): Current solver iteration\n
+      !!        append(logical): If appending or creating the file
       subroutine report_mpi_time(folder,ID,cpu,iter,append)
 
       ! I/O
+
       character(len=500), intent(in):: folder
       character(len=9), intent(in):: ID
       logical, intent(in):: append
       integer, intent(in):: cpu, iter
 
       ! Local
+
       real:: tt
 
-      ! Get initial time
+
+      ! Get time
       call cpu_time(tt)
 
       !
@@ -706,6 +802,7 @@
       !
       if (append) then
 
+        ! Open existing file to append message
         open(800,file=trim(folder)//'/times_mpi'//ID, &
              position='append')
 
@@ -714,11 +811,12 @@
       !
       else
 
+        ! Open new file to write message
         open(800,file=trim(folder)//'/times_mpi'//ID)
 
-      end if
+      end if ! Appending/writing
 
-      ! Write time
+      ! Write iteration and CPU information and time
       write(800,'(i5,1x,i5,1x,es15.8)') iter,cpu,tt
 
       ! And close
@@ -730,15 +828,18 @@
 !#####################################################################
 !#####################################################################
 
-      !> Controls if any CPU has crashed.\n
+      !> Check if any of the CPU in the control (CTRL) group  is in
+      !! failure status
       subroutine control
 
-
+      ! Check if any aborted status is activated
       call MPI_ALLREDUCE(MPI_IN_PLACE,laborted,1,MPI_LOGICAL, &
                          MPI_LOR,MPI_COMM_CTRL,ierr)
 
-      ! If no failure, continue
+      ! If no failure or if doing anything but 1D synthesis
       if (.not.laborted.or.run_mode.ne.0) return
+
+      ! Only 1D synthesis goes through here
 
       ! Try to exit MPI
       call MPI_FINALIZE(ierr)
@@ -754,15 +855,18 @@
 !#####################################################################
 !#####################################################################
 
-      !> Controls if any CPU has crashed.\n
+      !> Controls if any CPU (WORLD) is in failure status
       subroutine gcontrol
 
       ! Local
 
       logical:: slaborted
 
+
+      ! Copy local value
       slaborted = laborted
 
+      ! Check if any aborted status is activated
       call MPI_ALLREDUCE(slaborted, laborted, 1, MPI_LOGICAL, &
                          MPI_LOR, MPI_COMM_WORLD, ierr)
 

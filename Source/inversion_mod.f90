@@ -5,109 +5,19 @@
 !#####################################################################
 !
 !  Authors:
-!     Hao Li (IAC)
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Hao Li (IAC/NSSCC)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     02/22/2023
+!     22/02/2023
 !  Last version:
-!     09/23/2024 V3.1.14
+!     11/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     09/23/2024:   V3.1.14 - Added abort at the beginning in case of
-!                             previous error (TdPA)
-!
-!     05/22/2024:   V3.1.13 - Fixed messages not limited to the
-!                             master (TdPA)
-!
-!     05/20/2024:   V3.1.12 - Removed unused variable (TdPA)
-!
-!     05/17/2024:   V3.1.11 - Degrees of freedom are counted when
-!                             defining the weights and not here (TdPA)
-!
-!     11/29/2023:   V3.1.10 - Masked pixels do not change their
-!                             model atmosphere now (TdPA)
-!
-!     11/24/2023:    V3.1.9 - Added inversion argument to pass to
-!                             LMFIT (TdPA)
-!
-!     10/04/2023:    V3.1.8 - Changed priority of the current pixel
-!                             verbosity (TdPA)
-!                           - Added saving argument to Fit and
-!                             LMfit call (TdPA)
-!                           - Added message between the two cycles
-!                             in sequential mode (TdPA)
-!                           - Added the 'sequential magnetic' type of
-!                             inversion (TdPA)
-!
-!     09/28/2023:    V3.1.7 - When changing the value of the Bt, Bp,
-!                             vx, or vy nodes, call re_set_nodes and
-!                             added verbosity to indicate it (TdPA)
-!
-!     09/08/2023:    V3.1.6 - Added extra lines in verbosity to better
-!                             distinguish between pixels in the
-!                             verbosity file (TdPA)
-!                           - Verbosity update (TdPA)
-!
-!     08/18/2023:    V3.1.5 - Error in "if" nesting did not allow for
-!                             restoring previous cycles (TdPA)
-!
-!     08/11/2023:    V3.1.4 - Added verbosity about current pixel
-!                             to be inverted (TdPA)
-!
-!     08/11/2023:    V3.1.3 - Instead of counting number of Stokes
-!                             parameters with weights, count degree
-!                             of freedom of the data accounting for
-!                             zero weights (TdPA)
-!
-!     07/31/2023:    V3.1.2 - Change the verbosity level in the
-!                             inversion (HL)
-!                           - Revise the initial values of vx and vy
-!                             variables (HL)
-!
-!     07/06/2023:    V3.1.1 - Changed arguments in Atmo_Stratify call
-!                             to adjust to its changes (TdPA)
-!
-!     07/03/2023:    V3.1.0 - The initial model atmosphere is fully
-!                             determined at entry. This implies
-!                             a significant rewrite of the logic
-!                             in the inversion routine (TdPA)
-!                           - No need to rename files anymore (TdPA)
-!                           - Results are writen in lmfit and not
-!                             in fit (TdPA)
-!
-!     06/12/2023:    V3.0.4 - Rename the variable Inf_File (HL)
-!
-!     05/16/2023:    V3.0.3 - Added running index in Inf_File for the
-!                             binary files (TdPA)
-!
-!     04/11/2023:    V3.0.2 - Update the weights for multi-wavelength
-!                             ranges (HL)
-!                           - Remove the solutions after the inversion
-!                             is finished (HL)
-!
-!     03/15/2023:    V3.0.1 - The restore file can only be INIT or a
-!                             path to a file (TdPA)
-!                           - Inversion now accepts an input model
-!                             atmosphere for initializing (TdPA)
-!                           - New argument in Init_nodes (TdPA)
-!                           - Intpol_Atmo_all does not need the Flgsg
-!                             argument (TdPA)
-!                           - When restoring node values, the
-!                             values of Bpos/theta and Bphi/azimuth
-!                             are forced to be not exactly zero (TdPA)
-!                           - Removed some commented lines (TdPA)
-!                           - The Blos variables are in the same
-!                             structure than the polar ones (TdPA)
-!
-!     03/08/2023:    V3.0.0 - First working version (TdPA)
-!
-!     02/22/2023:    V0.0.0 - Started from 05/12/2020
-!                             TIC@inversion_mod.f90 revision from
-!                             Hao (TdPA)
+!     11/12/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -117,13 +27,18 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    Inversion:
-!      Carry out the inversion of Stokes profiles (manager)
+!  Inversion
+!    Manage the inversion of a given set of Stokes profiles
 !
-!    Fit:
-!      Actually fit Stokes profiles
+!  Fit
+!    Manage the call to the minimization algorithm
 !
 !
 !#####################################################################
@@ -145,48 +60,53 @@
 !#####################################################################
 !#####################################################################
 
-      !> Carry out the inversion of Stokes profiles\n
-      !!         Atom(Atom_class): Structure with the atomic data\n
-      !!        Atomb(Atom_class): Structure with the atomic data for
-      !!                           background opacities\n
-      !!           Mol(Mol_class): Structure with the molecule data\n
-      !!     Geom(Geometry_class): Structure with the geometry data\n
-      !!    GeomI(Geometry_class): Structure with the geometry data
-      !!                           for the intensity problem\n
-      !!       Flgsg(Fctsg_class): Structure with factorials and
-      !!                           signs\n
-      !!    Frec(Frequency_class): Structure with frequency data\n
-      !!       fudge(fudge_class): Structure with fudge data\n
-      !!     kurucz(kurucz_class): Structure with Kurucz line data\n
-      !!          MPID(MPI_class): Structure with MPI data
-      !!      Atmo_in(Atmo_class): Structure with atmospheric data
-      !!                           read from model atmosphere\n
-      !!  Bfield_in(Bfield_class): Structure with the magnetic field
-      !!                           data read from the input\n
-      !!       Input(Input_class): Structure with settings data\n
-      !! Inf_Stokes(Stokes_class): Structure with Stokes parameters
-      !!                           data\n
-      !!   Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!      Sol(Solution_class): Class with the data of the RT
-      !!                           solution\n
-      !!           imask(integer): Indicate if this pixel is masked
-      !!                           in the restart
+      !> Manage the inversion of a given set of Stokes profiles\n
+      !!       Atom(Atom_class(:)): Structures with atomic data\n
+      !!      Atomb(Atom_class(:)): Structures with atomic data for
+      !!                            background atoms\n
+      !!         Mol(Mol_class(:)): Structures with molecular data\n
+      !!      Geom(Geometry_class): Structure with geometric data\n
+      !!     GeomI(Geometry_class): Structure with geometric data for
+      !!                            the intensity problem\n
+      !!        Flgsg(Fctsg_class): Structure with factorials, signs,
+      !!                            and J-symbols\n
+      !!     Frec(Frequency_class): Structure with frequency data\n
+      !!        fudge(fudge_class): Structure with fudge data\n
+      !!      kurucz(kurucz_class): Structure with Kurucz line data\n
+      !!           MPID(MPI_class): Structure with MPI data\n
+      !!       Atmo_in(Atmo_class): Structure with atmospheric data
+      !!                            read from the input\n
+      !!   Bfield_in(Bfield_class): Structure with magnetic field data
+      !!                            read from the input\n
+      !!        Input(Input_class): Structure with configuration
+      !!                            data\n
+      !!  Inf_Stokes(Stokes_class): Structure with inversion Stokes
+      !!                            parameters data\n
+      !!    Inf_Nodes(Nodes_class): Structure with inversion node
+      !!                            data\n
+      !!       Sol(Solution_class): Structure with the frequency and
+      !!                            synthetic Stokes parameters in the
+      !!                            frequency range of the inverted
+      !!                            data\n
+      !!            imask(integer): Indicate if this pixel is masked
+      !!                            when restarting the inversion
       subroutine Inversion(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec, &
-                           fudge,kurucz,MPID,Atmo_in, &
-                           Bfield_in,Input,Inf_Stokes, &
-                           Inf_Nodes,Sol,imask)
+                           fudge,kurucz,MPID,Atmo_in,Bfield_in, &
+                           Input,Inf_Stokes,Inf_Nodes,Sol,imask)
 
+      ! I/O
 
-      ! IO
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Fctsg_class):: Flgsg
-      type(Geometry_class):: GeomI, Geom
-      type(Frequency_class):: Frec
-      type(fudge_class):: fudge
-      type(kurucz_class):: kurucz
-      type(MPI_class):: MPID
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
+      type(Fctsg_class), intent(inout):: Flgsg
+      type(Geometry_class), intent(inout):: GeomI, Geom
+      type(Frequency_class), intent(inout):: Frec
+      type(fudge_class), intent(in):: fudge
+      type(kurucz_class), intent(in):: kurucz
+      type(MPI_class), intent(inout):: MPID
       type(Atmo_class), intent(in):: Atmo_in
       type(Bfield_class), intent(inout):: Bfield_in
       type(Input_class), intent(inout):: Input
@@ -196,6 +116,7 @@
       integer, intent(in):: imask
 
       ! Local
+
       type(Atmo_class):: Atmo
       type(Bfield_class):: Bfield,Bfield0
 
@@ -204,11 +125,18 @@
       double precision, dimension(Input%nvar):: TMP_Weight
 
 
-      ! Already broken
+      ! Count memory in local structures
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo)
+      MRAMc = MRAMc + 1d-6*sizeof(Bfield)
+      MRAMc = MRAMc + 1d-6*sizeof(Bfield0)
+
+      ! Already broken, go back
       if (laborted) return
 
-      ! Print current pixel
+      ! If master
       if (pid.eq.0) then
+
+        ! Print current pixel we are working on
         write(umsg, '(2(A,i5))') ''
         call verboseI(3)
         write(umsg, '(2(A,i5))') ''
@@ -219,7 +147,8 @@
                                  icoords(2)
         call verboseI(0)
         if (vlevel.eq.0) call verboseI(3)
-      end if
+
+      end if ! Master
 
       ! Set up from common variable
       Atmo%nz = nz
@@ -227,9 +156,15 @@
       ! Store current regularization weights
       TMP_Weight = Inf_Nodes%Regul_weight
 
+      !
+      ! LOS geometry
+      !
+
       ! Get LOS
       Inf_Nodes%mu = Inf_Stokes%mu
       Inf_Nodes%azimuth = Inf_Stokes%azimuth
+
+      ! Set up geometry for LOS in synthesis structures
       GeomI%L_mu(1) = Inf_Stokes%mu
       GeomI%L_theta(1) = acos(GeomI%L_mu(1))
       GeomI%L_phi(1) = Inf_Stokes%azimuth
@@ -239,32 +174,42 @@
         Geom%L_phi(1) = Inf_Stokes%azimuth
       end if
 
-      ! If asymmetry nodes
+      !
+      ! Initial model atmosphere
+      !
+
+      ! If asymmetry nodes, signal that they have dimension
       if (Inf_Nodes%Num_Asymmetry.gt.0) Input%nasym = 1
 
-      ! If not restoring and stratification from inputs
+      ! If inverting from scratch and stratification from inputs
       if (trim(Input%Inv_init).eq.'INIT'.and. &
           Input%Atmo_Input.gt.0) then
 
-        ! Generate stratification and interpolate
-        call Atmo_Stratify(Atmo_in,Atmo, &
-                           Bfield_in,Bfield, &
+        ! Generate a new stratification and interpolate the input
+        ! model
+        call Atmo_Stratify(Atmo_in,Atmo,Bfield_in,Bfield, &
                            Input%Atmo_strat_done)
 
       ! Restoring or copying stratification
       else
 
-        ! Copy input into actual model atmosphere
+        ! Copy input atmosphere into actual model atmosphere
         call cAtmo(Atmo_in,Atmo)
-        Bfield = Bfield_in
+        call cBfield(Bfield_in,Bfield)
 
       end if
 
-      ! If Asymmetry not allocated, do it
+      ! If Asymmetry not allocated
       if (.not.allocated(Atmo%JKQin)) then
+
+        ! Allocate JKQin in model atmosphere
         allocate(Atmo%JKQin(8*nz))
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo%JKQin)
+
+        ! And initialize
         Atmo%JKQin = 0d0
-      end if
+
+      end if ! Asymmetry not allocated
 
       ! If gas pressure from model atmosphere
       if (.not.Inf_Nodes%Pg_auto) then
@@ -272,22 +217,27 @@
         ! Boundary from model
         Inf_Nodes%Pg_bound = Atmo%Pg(1)
 
-      end if
+      end if ! Gas pressure from model atmosphere
+
+      !
+      ! Magnetic field and velocity vectors reference
+      !
 
       ! If LOS field
       if (Inf_Nodes%Btype.eq.1) then
 
-        ! Allocate magnetic field arrays
+        ! Allocate magnetic field arrays for LOS
         allocate(Bfield%Bpos(Atmo%nZ),Bfield%Azimuth(Atmo%nZ))
         allocate(Bfield%Blos(Atmo%nZ))
+        MRAMc = MRAMc + 1d-6*sizeof(Bfield%Blos)
+        MRAMc = MRAMc + 1d-6*sizeof(Bfield%Bpos)
+        MRAMc = MRAMc + 1d-6*sizeof(Bfield%Azimuth)
 
-        ! If magnetic field
+        ! If there is magnetic field already
         if (maxval(Bfield%Bstrength).gt.TINYB) then
 
           ! Convert to LOS
-          call B2Blos(Atmo%nZ, &
-                      GeomI%L_mu(1),  &
-                      GeomI%L_phi(1), &
+          call B2Blos(Atmo%nZ,GeomI%L_mu(1),GeomI%L_phi(1), &
                       Bfield%Bstrength, &
                       Bfield%Btheta, &
                       Bfield%Bphi, &
@@ -298,13 +248,13 @@
         ! No field
         else
 
-          ! Just zero
+          ! Just set to zero
           Bfield%Blos = 0d0
           Bfield%Bpos = 0d0
           Bfield%Azimuth = 0d0
 
-        end if
-      end if
+        end if ! MAgnetic field exists
+      end if ! LOS field
 
       ! If LOS velocity
       if (Inf_Nodes%vtype.eq.1) then
@@ -312,16 +262,19 @@
         ! Allocate velocity field arrays
         allocate(Atmo%vlos(Atmo%nZ),Atmo%vpos(Atmo%nZ))
         allocate(Atmo%vphi(Atmo%nZ))
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo%vlos)
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo%vpos)
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo%vphi)
 
         ! If velocity
         if (dyn) then
 
           ! Convert to LOS
-          call v2vlos(Atmo%nZ, GeomI%L_mu(1), GeomI%L_phi(1), &
-                      Atmo%vx, Atmo%vy, Atmo%vz, &
-                      Atmo%vlos, Atmo%vpos, Atmo%vphi)
+          call v2vlos(Atmo%nZ,GeomI%L_mu(1),GeomI%L_phi(1), &
+                      Atmo%vx,Atmo%vy,Atmo%vz, &
+                      Atmo%vlos,Atmo%vpos,Atmo%vphi)
 
-        ! No field
+        ! No velocity
         else
 
           ! Just zero
@@ -329,9 +282,12 @@
           Atmo%vpos = 0d0
           Atmo%vphi = 0d0
 
-        end if
-      end if
+        end if ! Dynamic
+      end if ! LOS velocity
 
+      !
+      ! Set-up nodes
+      !
 
       ! Initialize node positiones
       call Init_Nodes(Atmo,Input,Inf_Nodes)
@@ -339,14 +295,16 @@
       ! Initialize node values
       call Initialize_Nodes(Atmo,Bfield,Inf_Nodes)
 
-      ! Set regularization constants
+      ! Set regularization constant for gas pressure
       if (Inf_Nodes%Nodes_Flags(Inf_Nodes%index_Pg).and. &
           Inf_Nodes%hydroeq) &
         Inf_Nodes%Const(Inf_Nodes%index_Pg) = &
                              Inf_Nodes%Node(Inf_Nodes%index_Pg)%Var(1)
+
+      ! Set regulatization constant for diffuse light
       Inf_Nodes%Const(Inf_Nodes%index_f) = Input%f_diff
 
-      ! If retoring
+      ! If retoring and not masking
       if (trim(Input%Inv_init).ne.'INIT'.and.imask.eq.0) then
 
         ! Magnetic field inclination index
@@ -358,20 +316,29 @@
           ! If maximum value too small (1d-3)
           if (maxval(abs(Inf_Nodes%Node(i)%Var)).lt.1d-3) then
 
-            ! Verbose
+            ! Master
             if (pid.eq.0) then
+
+              ! If vertical coords.
               if (Inf_Nodes%Btype.eq.0) then
+
+                ! Verbose
                 write(umsg, '(A)') &
                   ' - Magnetic field inclination re-initialized: '
                 call verboseI(3)
+
+              ! If LOS coords.
               else
+
+                ! Verbose
                 write(umsg, '(A)') &
                   ' - Transversal magnetic field re-initialized: '
                 call verboseI(3)
-              end if
-            end if
 
-            ! Get from Input structure
+              end if ! Type of coordinates
+            end if ! Master
+
+            ! Get initial guess from Input structure
             call re_set_nodes(Inf_Nodes,i,Input%ini_Bpos)
 
           end if ! If too small inclination or Bpos
@@ -386,14 +353,17 @@
           ! If maximum value too small (1d-3)
           if (maxval(abs(Inf_Nodes%Node(i)%Var)).lt.1d-3) then
 
-            ! Verbose
+            ! Master
             if (pid.eq.0) then
+
+              ! Verbose
               write(umsg, '(A)') &
                 ' - Magnetic field azimuth re-initialized: '
               call verboseI(3)
-            end if
 
-            ! Get from Input structure
+            end if ! Master
+
+            ! Get initial guess from Input structure
             call re_set_nodes(Inf_Nodes,i,Input%ini_Bazi)
 
           end if ! If too small inclination or Bpos
@@ -408,20 +378,29 @@
           ! If maximum value too small (1d-3)
           if (maxval(abs(Inf_Nodes%Node(i)%Var)).lt.1d-9/c) then
 
-            ! Verbose
+            ! Master
             if (pid.eq.0) then
+
+              ! If vertical coords.
               if (Inf_Nodes%vtype.eq.0) then
+
+                ! Verbose
                 write(umsg, '(A)') &
                   ' - Velocity X component re-initialized: '
                 call verboseI(3)
+
+              ! If LOS coords.
               else
+
+                ! Verbose
                 write(umsg, '(A)') &
                   ' - Transversal velocity re-initialized: '
                 call verboseI(3)
-              end if
-            end if
 
-            ! Get from Input structure
+              end if ! Type of coordinates
+            end if ! Master
+
+            ! Get initial guess from Input structure
             call re_set_nodes(Inf_Nodes,i,Input%ini_vpos*1d-6/c)
 
           end if ! If too small inclination or vpos
@@ -439,14 +418,17 @@
             ! If maximum value too small (1d-3)
             if (maxval(abs(Inf_Nodes%Node(i)%Var)).lt.1d-3) then
 
-              ! Verbose
+              ! Master
               if (pid.eq.0) then
+
+                ! Verbose
                 write(umsg, '(A)') &
                   ' - Velocity azimuth re-initialized: '
                 call verboseI(3)
-              end if
 
-              ! Get from Input structure
+              end if ! Master
+
+              ! Get initial guess from Input structure
               call re_set_nodes(Inf_Nodes,i,Input%ini_vazi)
 
             end if ! If too small vy
@@ -457,14 +439,17 @@
             ! If maximum value too small (1d-3)
             if (maxval(abs(Inf_Nodes%Node(i)%Var)).lt.1d-9/c) then
 
-              ! Verbose
+              ! Master
               if (pid.eq.0) then
+
+                ! Verbose
                 write(umsg, '(A)') &
                   ' - Velocity Y component re-initialized: '
                 call verboseI(3)
-              end if
 
-              ! Get from Input structure
+              end if ! Master
+
+              ! Get initial guess from Input structure
               call re_set_nodes(Inf_Nodes,i,Input%ini_vazi*1d-6/c)
 
             end if ! If too small v azimuth
@@ -472,11 +457,14 @@
         end if ! inverting vy or azimuth
       end if ! Type of restore file and mask
 
-      ! If regularizing, initialize regularization
+      ! If regularizing
       if (Inf_Nodes%Regul_Flag) then
+
+        ! Initialize regulatization
         call Init_Regul(Inf_Nodes)
         if (laborted) goto 1000
-      end if
+
+      end if ! Regularizing
 
       ! Put node values within boundaries (magnetic field azimuth)
       i = Inf_Nodes%index_Bp
@@ -487,12 +475,14 @@
       if (Inf_Nodes%vtype.eq.1) &
         call FoldBounds(Inf_Nodes%Node(i),Inf_Nodes%Num_Nodes(i))
 
-
-      ! Master verbose
+      ! Master
       if (pid.eq.0) then
+
+        ! Verbose
         umsg = ' - Initialized model atmosphere/nodes'
         call verboseI(3)
-      end if
+
+      end if ! Master
 
       !
       ! Select depending on the type of inversion
@@ -504,20 +494,23 @@
           ! If there are thermal nodes
           if (Inf_Nodes%Num_Thermal.gt.0) then
 
-            ! Master verbose
+            ! Master
             if (pid.eq.0) then
+
+              ! Verbose
               umsg = " - Fitting the thermal and dynamical parameters"
               call verboseI(3)
-            end if
+
+            end if ! Master
 
             ! Force inputs
             Inf_Nodes%Nodes_type = 0
             Input%force = 'I'
 
-            ! Interpolate into the atmosphere
+            ! If not masked, interpolate nodes into the atmosphere
             if (imask.eq.0) &
-              call Intpol_Atmo_all(Inf_Nodes, Atmo, Bfield, Atom, &
-                                   Atomb, Mol, Input, fudge)
+              call Intpol_Atmo_all(Inf_Nodes,Atmo,Bfield,Atom, &
+                                   Atomb,Mol,Input,fudge)
 
             ! Allocate mangetic arrays
             allocate(Bfield0%Bstrength(Atmo%nZ))
@@ -526,6 +519,12 @@
             allocate(Bfield0%Blos(Atmo%nZ))
             allocate(Bfield0%Bpos(Atmo%nZ))
             allocate(Bfield0%Azimuth(Atmo%nZ))
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Bstrength)
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Btheta)
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Bphi)
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Blos)
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Bpos)
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Azimuth)
 
             ! Initialize magnetic arrays
             Bfield0%Bstrength = 0d0
@@ -541,6 +540,12 @@
                      Inf_Nodes,Sol,imask,.True.)
 
             ! Deallocate magnetic arrays
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Bstrength)
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Btheta)
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Bphi)
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Blos)
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Bpos)
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Azimuth)
             deallocate(Bfield0%Bstrength,Bfield0%Btheta,Bfield0%Bphi)
             deallocate(Bfield0%Blos,Bfield0%Bpos,Bfield0%Azimuth)
 
@@ -552,20 +557,23 @@
           ! If there are magnetic nodes
           if (Inf_Nodes%Num_Mag.gt.0) then
 
-            ! Master verbose
+            ! Master
             if (pid.eq.0) then
+
+              ! Verbose
               umsg = " - Fitting the of magnetic parameters"
               call verboseI(3)
-            end if
+
+            end if ! Master
 
             ! Force inputs
             Inf_Nodes%Nodes_type = 1
             Input%force = 'N'
 
-            ! Interpolate into the atmosphere
+            ! If not masked, interpolate nodes into the atmosphere
             if (imask.eq.0) &
-              call Intpol_Atmo_all(Inf_Nodes, Atmo, Bfield, Atom, &
-                                   Atomb, Mol, Input, fudge)
+              call Intpol_Atmo_all(Inf_Nodes,Atmo,Bfield,Atom, &
+                                   Atomb,Mol,Input,fudge)
 
             ! Fit the profiles
             call Fit(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge, &
@@ -577,21 +585,24 @@
         ! Fit all, together
         case(2)
 
-          ! Master verbose
+          ! Master
           if (pid.eq.0) then
+
+            ! Verbose
             umsg = " - Fitting the thermal, dynamical, "// &
                    "and magnetic parameters together"
             call verboseI(3)
-          end if
+
+          end if ! Master
 
           ! Force inputs
           Inf_Nodes%Nodes_type = 2
           Input%force = 'N'
 
-          ! Interpolate into the atmosphere
+          ! If not masked, interpolate nodes into the atmosphere
           if (imask.eq.0) &
-            call Intpol_Atmo_all(Inf_Nodes, Atmo, Bfield, Atom, &
-                                 Atomb, Mol, Input, fudge)
+            call Intpol_Atmo_all(Inf_Nodes,Atmo,Bfield,Atom, &
+                                 Atomb,Mol,Input,fudge)
 
           ! Fit the profiles
           call Fit(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge, &
@@ -611,6 +622,12 @@
             allocate(Bfield0%Blos(Atmo%nZ))
             allocate(Bfield0%Bpos(Atmo%nZ))
             allocate(Bfield0%Azimuth(Atmo%nZ))
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Bstrength)
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Btheta)
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Bphi)
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Blos)
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Bpos)
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Azimuth)
 
             ! Initialize magnetic field
             Bfield0%Bstrength = 0d0
@@ -620,20 +637,23 @@
             Bfield0%Bpos = 0d0
             Bfield0%Azimuth = 0d0
 
-            ! Master verbose
+            ! Master
             if(pid.eq.0) then
+
+              ! Verbose
               umsg = " - Fitting the thermal and dynamical parameters"
               call verboseI(3)
-            end if
+
+            end if ! Master
 
             ! Force inputs
             Inf_Nodes%Nodes_type = 0
             Input%force = 'I'
 
-            ! Interpolate into the atmosphere
+            ! If not masked, interpolate nodes into the atmosphere
             if (imask.eq.0) &
-              call Intpol_Atmo_all(Inf_Nodes, Atmo, Bfield, Atom, &
-                                   Atomb, Mol, Input, fudge)
+              call Intpol_Atmo_all(Inf_Nodes,Atmo,Bfield,Atom, &
+                                   Atomb,Mol,Input,fudge)
 
             ! Fit the profiles
             call Fit(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge, &
@@ -641,12 +661,18 @@
                      Inf_Nodes,Sol,imask,.False.)
 
             ! Deallocate magnetic field quantities
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Bstrength)
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Btheta)
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Bphi)
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Blos)
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Bpos)
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Azimuth)
             deallocate(Bfield0%Bstrength,Bfield0%Btheta,Bfield0%Bphi)
             deallocate(Bfield0%Blos,Bfield0%Bpos,Bfield0%Azimuth)
 
           end if ! Thermal nodes
 
-          ! Verbose merit function if in output
+          ! Verbose merit function
           umsg = ' * '
           call verboseI(0)
           if (vlevel.eq.0) call verboseI(3)
@@ -655,39 +681,50 @@
           write(umsg,'(A,i4,2(3x,A,es15.4))')  &
               ' * Thermal cycle ended, starting full cycle'
 
+          ! Global master
           if (gpid.eq.0) then
+
+            ! Verbose
             call verboseI(0)
             call verboseI(4)
+
+          ! Slaves
           else
+
+            ! Verbose
             call verboseI(0)
             if (vlevel.eq.0) call verboseI(3)
-          end if
+
+          end if ! Global master or other
 
           ! There are magnetic nodes
           if (Inf_Nodes%Num_Mag.gt.0.and..not.laborted) then
 
-            ! Master verbose
+            ! Master
             if(pid.eq.0) then
+
+              ! Verbose
               umsg = " - Fitting the thermal, dynamical, "// &
                      "and magnetic parameters together"
               call verboseI(1)
-            end if
+
+            end if ! Master
 
             ! Force inputs
             Inf_Nodes%Nodes_type = 2
             Input%force = 'N'
 
-            ! Interpolate into the atmosphere
+            ! If not masked, interpolate nodes into the atmosphere
             if (imask.eq.0) &
-              call Intpol_Atmo_all(Inf_Nodes, Atmo, Bfield, Atom, &
-                                   Atomb, Mol, Input, fudge)
+              call Intpol_Atmo_all(Inf_Nodes,Atmo,Bfield,Atom, &
+                                   Atomb,Mol,Input,fudge)
 
             ! Fit profiles
             call Fit(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge, &
                      kurucz,MPID,Atmo,Bfield,Input,Inf_Stokes, &
                      Inf_Nodes,Sol,imask,.True.)
 
-          end if
+          end if ! There are magnetic nodes
 
         ! Fit all, but not together, and second cycle is only magnetic
         case(4)
@@ -702,6 +739,12 @@
             allocate(Bfield0%Blos(Atmo%nZ))
             allocate(Bfield0%Bpos(Atmo%nZ))
             allocate(Bfield0%Azimuth(Atmo%nZ))
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Bstrength)
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Btheta)
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Bphi)
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Blos)
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Bpos)
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Azimuth)
 
             ! Initialize magnetic field
             Bfield0%Bstrength = 0d0
@@ -711,20 +754,23 @@
             Bfield0%Bpos = 0d0
             Bfield0%Azimuth = 0d0
 
-            ! Master verbose
+            ! Master
             if(pid.eq.0) then
+
+              ! Verbose
               umsg = " - Fitting the thermal and dynamical parameters"
               call verboseI(3)
-            end if
+
+            end if ! Master
 
             ! Force inputs
             Inf_Nodes%Nodes_type = 0
             Input%force = 'I'
 
-            ! Interpolate into the atmosphere
+            ! If not masked, interpolate nodes into the atmosphere
             if (imask.eq.0) &
-              call Intpol_Atmo_all(Inf_Nodes, Atmo, Bfield, Atom, &
-                                   Atomb, Mol, Input, fudge)
+              call Intpol_Atmo_all(Inf_Nodes,Atmo,Bfield,Atom, &
+                                   Atomb,Mol,Input,fudge)
 
             ! Fit the profiles
             call Fit(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge, &
@@ -732,12 +778,18 @@
                      Inf_Nodes,Sol,imask,.False.)
 
             ! Deallocate magnetic field quantities
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Bstrength)
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Btheta)
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Bphi)
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Blos)
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Bpos)
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Azimuth)
             deallocate(Bfield0%Bstrength,Bfield0%Btheta,Bfield0%Bphi)
             deallocate(Bfield0%Blos,Bfield0%Bpos,Bfield0%Azimuth)
 
-          end if ! Thermal nodes
+          end if ! There are thermal nodes
 
-          ! Verbose merit function if in output
+          ! Verbose merit function
           umsg = ' * '
           call verboseI(0)
           if (vlevel.eq.0) call verboseI(3)
@@ -746,39 +798,50 @@
           write(umsg,'(A,i4,2(3x,A,es15.4))')  &
               ' * Thermal cycle ended, starting only magnetic cycle'
 
+          ! If global master
           if (gpid.eq.0) then
+
+            ! Verbose
             call verboseI(0)
             call verboseI(4)
+
+          ! Everyone else
           else
+
+            ! Verbose
             call verboseI(0)
             if (vlevel.eq.0) call verboseI(3)
-          end if
+
+          end if ! Global master or other
 
           ! There are magnetic nodes
           if (Inf_Nodes%Num_Mag.gt.0.and..not.laborted) then
 
-            ! Master verbose
+            ! Master
             if(pid.eq.0) then
+
+              ! Verbose
               umsg = " - Fitting the thermal, dynamical, "// &
                      "and magnetic parameters together"
               call verboseI(1)
-            end if
+
+            end if ! Master
 
             ! Force inputs
             Inf_Nodes%Nodes_type = 1
             Input%force = 'N'
 
-            ! Interpolate into the atmosphere
+            ! If not masked, interpolate nodes into the atmosphere
             if (imask.eq.0) &
-              call Intpol_Atmo_all(Inf_Nodes, Atmo, Bfield, Atom, &
-                                   Atomb, Mol, Input, fudge)
+              call Intpol_Atmo_all(Inf_Nodes,Atmo,Bfield,Atom, &
+                                   Atomb,Mol,Input,fudge)
 
             ! Fit profiles
             call Fit(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge, &
                      kurucz,MPID,Atmo,Bfield,Input,Inf_Stokes, &
                      Inf_Nodes,Sol,imask,.True.)
 
-          end if
+          end if ! There are magnetic nodes
 
       end select ! Type of inversion
 
@@ -788,6 +851,11 @@
       ! Purge atmospheric model
       call free_Atmo(Atmo,.True.)
       call free_B(Bfield)
+
+      ! Free inherent memory of local structures
+      MRAMc = MRAMc - 1d-6*sizeof(Atmo)
+      MRAMc = MRAMc - 1d-6*sizeof(Bfield)
+      MRAMc = MRAMc - 1d-6*sizeof(Bfield0)
 
       ! If master
       if (pid.eq.0) then
@@ -799,14 +867,21 @@
           umsg = " - Pixel inversion finished"
         end if
 
-        ! Master verbose
+        ! Global master
         if (gpid.eq.0) then
+
+          ! Verbose
           call verboseI(0)
           call verboseI(4)
+
+        ! Normal master
         else
+
+          ! Verbose
           call verboseI(4)
-        end if
-      end if
+
+        end if ! Global or local master
+      end if ! Master
 
       return
 
@@ -816,49 +891,53 @@
 !#####################################################################
 !#####################################################################
 
-      !> Fit the Stokes profiles\n
-      !!           Atom(Atom_class): Structure with the atomic data\n
-      !!          Atomb(Atom_class): Structure with the atomic data
-      !!                             for background opacities\n
-      !!             Mol(Mol_class): Structure with the molecule
-      !!                             data\n
-      !!       Geom(Geometry_class): Structure with the geometry
-      !!                             data\n
-      !!      GeomI(Geometry_class): Structure with the geometry data
-      !!                             for the intensity problem\n
-      !!         Flgsg(Fctsg_class): Structure with factorials and
-      !!                             signs\n
-      !!      Frec(Frequency_class): Structure with frequency data\n
-      !!         fudge(fudge_class): Structure with fudge data\n
-      !!       kurucz(kurucz_class): Structure with Kurucz line data\n
-      !!            MPID(MPI_class): Structure with MPI data
-      !!           Atmo(Atmo_class): Structure with atmospheric data\n
-      !!       Bfield(Bfield_class): Structure with the vertical
-      !!                             magnetic field data\n
-      !!         Input(Input_class): Structure with settings data\n
-      !!   Inf_Stokes(Stokes_class): Structure with Stokes parameters
-      !!                             data\n
-      !!     Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!        Sol(Solution_class): Class with the data of the RT
-      !!                             solution\n
-      !!             imask(integer): Indicate if this pixel is masked
-      !!                             in the restart\n
-      !!            saving(logical): If the result is to be stored
+      !> Manage the call to the minimization algorithm\n
+      !!       Atom(Atom_class(:)): Structures with atomic data\n
+      !!      Atomb(Atom_class(:)): Structures with atomic data for
+      !!                            background atoms\n
+      !!         Mol(Mol_class(:)): Structures with molecular data\n
+      !!      Geom(Geometry_class): Structure with geometric data\n
+      !!     GeomI(Geometry_class): Structure with geometric data for
+      !!                            the intensity problem\n
+      !!        Flgsg(Fctsg_class): Structure with factorials, signs,
+      !!                            and J-symbols\n
+      !!     Frec(Frequency_class): Structure with frequency data\n
+      !!        fudge(fudge_class): Structure with fudge data\n
+      !!      kurucz(kurucz_class): Structure with Kurucz line data\n
+      !!           MPID(MPI_class): Structure with MPI data\n
+      !!          Atmo(Atmo_class): Structure with atmospheric data\n
+      !!      Bfield(Bfield_class): Structure with magnetic field
+      !!                            data\n
+      !!        Input(Input_class): Structure with configuration
+      !!                            data\n
+      !!  Inf_Stokes(Stokes_class): Structure with inversion Stokes
+      !!                            parameters data\n
+      !!    Inf_Nodes(Nodes_class): Structure with inversion node
+      !!                            data\n
+      !!       Sol(Solution_class): Structure with the frequency and
+      !!                            synthetic Stokes parameters in the
+      !!                            frequency range of the inverted
+      !!                            data\n
+      !!            imask(integer): Indicate if this pixel is masked
+      !!                            when restarting the inversion\n
+      !!           saving(logical): If the result is to be stored
       subroutine Fit(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge, &
                      kurucz,MPID,Atmo,Bfield,Input,Inf_Stokes, &
                      Inf_Nodes,Sol,imask,saving)
 
+      ! I/O
 
-      ! IO
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Fctsg_class):: Flgsg
-      type(Geometry_class):: GeomI, Geom
-      type(Frequency_class):: Frec
-      type(fudge_class):: fudge
-      type(kurucz_class):: kurucz
-      type(MPI_class):: MPID
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
+      type(Fctsg_class), intent(inout):: Flgsg
+      type(Geometry_class), intent(inout):: GeomI, Geom
+      type(Frequency_class), intent(inout):: Frec
+      type(fudge_class), intent(in):: fudge
+      type(kurucz_class), intent(in):: kurucz
+      type(MPI_class), intent(inout):: MPID
       type(Atmo_class), intent(inout):: Atmo
       type(Bfield_class), intent(inout):: Bfield
       type(Input_class), intent(inout):: Input
@@ -869,45 +948,67 @@
       integer, intent(in):: imask
 
       ! Local
+
       type(LMFIT_class):: LM_Stru
 
+
+      ! Count inherent memory of local structure
+      MRAMc = MRAMc + 1d-6*sizeof(LM_Stru)
 
       ! If thermal inversion
       if (Inf_Nodes%Nodes_Type.eq.0) then
 
-        ! Set thermal indexes
+        ! Number of nodes to invert
         LM_Stru%Num = Inf_Nodes%Num_Thermal + Inf_Nodes%Num_glob
 
         ! If diffuse light
         if (Sol%Diff_flag) then
-          Inf_Nodes%Indx_b = Inf_Nodes%index_f
-        else
-          Inf_Nodes%Indx_b = Inf_Nodes%index_T
-        end if
 
+          ! First index is diffuse light
+          Inf_Nodes%Indx_b = Inf_Nodes%index_f
+
+        ! No diffuse light
+        else
+
+          ! First index is temperature
+          Inf_Nodes%Indx_b = Inf_Nodes%index_T
+
+        end if ! Diffuse light
+
+        ! Last index is gas pressure
         Inf_Nodes%Indx_e = Inf_Nodes%index_Pg
 
       ! If magnetic inversion
       else if (Inf_Nodes%Nodes_Type.eq.1) then
 
-        ! Set Magnetic indexes
+        ! Number of nodes to invert
         LM_Stru%Num = Inf_Nodes%Num_Mag + Inf_Nodes%Num_Asymmetry + &
                       Inf_Nodes%Num_glob
 
+        ! First index is B strength or LOS
         Inf_Nodes%Indx_b = Inf_Nodes%index_B
 
         ! If diffuse light
         if (Sol%Diff_flag) then
+
+          ! Last index is diffuse light
           Inf_Nodes%Indx_e = Inf_Nodes%index_f
+
+        ! No diffuse light
         else
+
+          ! Last index is B azimuth
           Inf_Nodes%Indx_e = Inf_Nodes%index_Bp
-        end if
+
+        end if ! Diffuse light
 
       ! If full inversion
       else if (Inf_Nodes%Nodes_Type.eq.2) then
 
-        ! Set full indexes
+        ! Number of nodes to invert
         LM_Stru%Num = Inf_Nodes%Num_Fit
+
+        ! All variables are included
         Inf_Nodes%Indx_b = 1
         Inf_Nodes%Indx_e = Input%nvar
 
@@ -917,6 +1018,9 @@
       call LMFIT(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge,kurucz, &
                  MPID,Atmo,Bfield,Input,Inf_Stokes,Inf_Nodes,Sol, &
                  LM_Stru,imask,saving)
+
+      ! Memory in local structure
+      MRAMc = MRAMc - 1d-6*sizeof(LM_Stru)
 
       return
 

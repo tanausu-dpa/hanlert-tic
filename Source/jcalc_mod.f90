@@ -5,110 +5,18 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     04/26/2017
+!     26/04/2017
 !  Last version:
-!     08/08/2024 V3.0.6
+!     13/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     08/08/2024:    V3.0.6 - Bugfix: Wrong index in the term- and
-!                             transition-wise K cut limits which was
-!                             a problem when running with more than
-!                             one non-LTE atom (TdPA)
-!
-!     09/29/2023:    V3.0.5 - Updated to term- and transition-wise
-!                             K cut limits (TdPA)
-!                           - Avoid computing tensor components
-!                             with negative Q values (TdPA)
-!
-!     11/10/2022:    V3.0.4 - Added the possibility of forcing the
-!                             axial asymmetry to be fully given by
-!                             the input, ignoring any other
-!                             contribution to it (TdPA)
-!
-!     10/25/2022:    V3.0.3 - Changed iexu and exu to pointers to
-!                             correctly manage the data regardless of
-!                             the size and allocation status, as well
-!                             as avoiding the copy of allocated data
-!                             internally (TdPA)
-!                           - Implemented restriction of the height
-!                             axis range (TdPA)
-!
-!     07/27/2022:    V3.0.2 - Renamed MPI to MPID (TdPA)
-!
-!     07/08/2022:    V3.0.1 - Removed debugging print (TdPA)
-!
-!     06/29/2022:    V3.0.0 - Changed global version (TdPA)
-!
-!     09/30/2021:    V2.0.1 - Missing nowaits in jcalc (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!                           - Split the Fint routines in two
-!                             different routines to facilitate the
-!                             use of OpenMP (TdPA)
-!                           - Added OpenMP to the serial Jcalc
-!                             subroutines (TdPA)
-!                           - Changed some parts of the source to
-!                             make easier using OpenMP (TdPA)
-!
-!     01/13/2021:    V1.3.4 - Added addJKQasym subroutine (TdPA)
-!
-!     07/31/2020:    V1.3.3 - The variable exu is allocated and not
-!                             given a fixed size (TdPA)
-!
-!     12/10/2019:    V1.3.2 - The photoionization RAM storing has its
-!                             own flag now, PIRAM (TdPA)
-!
-!     08/19/2019:    V1.3.1 - Ignoring J00S integrals, commented the
-!                             lines (TdPA)
-!
-!     05/31/2019:    V1.3.0 - Changed the dimensionality of the
-!                             profile variable. Now it runs
-!                             sequentially on atoms, transitions and
-!                             frequencies to save memory and reduce
-!                             the size of data shared through MPI
-!                             messages (TdPA)
-!
-!     05/08/2019:    V1.2.0 - Got rid of the (atomic,transition) pair
-!                             of indexes in every radiation tensor and
-!                             now they have been compressed in just
-!                             one dimension (TdPA)
-!
-!     03/18/2019:    V1.1.1 - Added option of precomputing the
-!                             exponentials (TdPA)
-!
-!     02/20/2019:    V1.1.0 - Exponentials are done with diexp (TdPA)
-!
-!     08/03/2018:    V1.0.8 - Kcut is now Krad for JKQ (TdPA)
-!
-!     07/31/2018:    V1.0.7 - Kcut also limits the radiation tensors
-!                             that are actually computed (TdPA)
-!
-!     08/30/2017:    V1.0.6 - Some variables now need shifts because
-!                             of changes in the master calls (TdPA)
-!
-!     08/21/2017:    V1.0.5 - Changed inputs in Fint to comply with
-!                             changes in solver (TdPA)
-!
-!     06/16/2017:    V1.0.4 - Limit the integr to the region
-!                             with lines (TdPA)
-!
-!     06/14/2017:    V1.0.3 - exu allocated in a range that is
-!                             actually used (TdPA)
-!
-!     06/13/2017:    V1.0.2 - Limit the exponentials to the region
-!                             with photoionizations (TdPA)
-!
-!     06/12/2017:    V1.0.1 - Take advantage of knowing the true
-!                             limits of transitions (TdPA)
-!
-!     04/26/2017:    V1.0.0 - First version (TdPA)
+!     13/12/2024:    V4.0.0 - Removed OpenMP (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -118,16 +26,27 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
 !  Jcalc
-!    Calculate the contribution to JKQ, JKQS, JKQC, and J00P (serial)
+!    Calculate the JKQ, JKQS, J00P, JKQC in serial mode
+!
 !  FInt_line
-!    Calculate partially the integral of JKQ and JKQS
+!    Add contribution to the integrals of the mean radiation field in
+!  MPI for bound-bound transitions
+!
 !  FInt_rest
-!    Calculate partially the integral of J00P and JKQC (mpi)
+!    Add contribution to the integrals of the frequency dependent mean
+!  radiation field and the mean intensity for bound-free transitions
+!  in MPI
+!
 !  addJKQasym
-!    Adds ad-hoc values to the JKQ tensors
+!    Add ad-hoc radiation field tensors to the total JKQ tensors
 !
 !#####################################################################
 !#####################################################################
@@ -147,72 +66,74 @@
 !#####################################################################
 !#####################################################################
 
-      !> Adds contribution to the integrals of the radiation field
-      !! tensors when only one CPU.\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!          omega(dfloat(:)): Frequency array\n
-      !!          Wfreq(dfloat(:)): Frequency trapezoidal weights\n
-      !!              lf0(integer): First frequency index of this
-      !!                            CPU for bound-bound transitions\n
-      !!              lf1(integer): Last frequency index of this
-      !!                            CPU for bound-bound transitions\n
-      !!              pf0(integer): First frequency index of this
-      !!                            CPU for bound-free transitions\n
-      !!              pf1(integer): Last frequency index of this
-      !!                            CPU for bound-free transitions\n
-      !!                 T(dfloat): Temperature\n
-      !!                ne(dfloat): Electron density\n
-      !!              iph(integer): Output direction azimuth index\n
-      !!              ith(integer): Output direction polar index\n
-      !!               iz(integer): Height index\n
-      !!          Stk(dfloat(:,:)): Stokes parameters\n
-      !!         Prof(dfloat(:,:)): Bound-bound normalized line
-      !!                            profiles\n
-      !!      JKQ(dcomplex(:,:,:)): Radiation field tensors integrated
-      !!                            over absorption profile\n
-      !!     JKQS(dcomplex(:,:,:)): Radiation field tensors integrated
-      !!                            over emission profile\n
-      !!         J00P(dfloat(:,:)): Intensity integrals in the
-      !!                            photoionization rates\n
-      !!     JKQC(dcomplex(:,:,:)): Radiation field tensors with
-      !!                            frequency dependence\n
-      !!           iexu(dfloat(:)): Pre-computed exponentials
-      subroutine Jcalc(Atom,Geom,omega,Wfreq,lf0,lf1,pf0,pf1,T,ne, &
-                       iph,ith,iz,Stk,Prof,JKQ,JKQS,J00P,JKQC, &
-                       iexu)
+      !> Calculate the JKQ, JKQS, J00P, JKQC in serial mode\n
+      !!     Atom(Atom_class(:)): Structures with atomic data\n
+      !!        omega(double(:)): Frequency array\n
+      !!        Wfreq(double(:)): Frequency trapezoidal weights\n
+      !!            lf0(integer): First frequency index for
+      !!                          bound-bound transitions\n
+      !!            lf1(integer): Last frequency index for bound-bound
+      !!                          transitions\n
+      !!            pf0(integer): First frequency index for bound-free
+      !!                          transitions\n
+      !!            pf1(integer): Last frequency index for bound-free
+      !!                          transitions\n
+      !!               T(double): Temperature\n
+      !!              ne(double): Electron number density\n
+      !!              WA(double): Angular weight\n
+      !!     Stokes(double(:,:)): Stokes parameters\n
+      !!       Prof(double(:,:)): Bound-bound normalized line
+      !!                          profiles\n
+      !!     TSo(dcomplx(:,:,:)): Geometrical tensors in the
+      !!                          vertical reference frame\n
+      !!    TKQo(dcomplx(:,:,:)): Geometrical tensors in the
+      !!                          suitable reference frame\n
+      !!    JKQ(dcomplex(:,:,:)): Radiation field tensors
+      !!                          integrated over the absorption
+      !!                          profile\n
+      !!   JKQS(dcomplex(:,:,:)): Radiation field tensors
+      !!                          integrated over the emission
+      !!                          profile\n
+      !!       J00P(double(:,:)): Intensity integrals in the
+      !!                          photoionization rates\n
+      !!   JKQC(dcomplex(:,:,:)): Radiation field tensors with
+      !!                          frequency dependence\n
+      !!         iexu(double(:)): Pre-computed frequency exponential
+      subroutine Jcalc(Atom,omega,Wfreq,lf0,lf1,pf0,pf1,T,ne,WA,Stk, &
+                       Prof,TSo,TKQo,JKQ,JKQS,J00P,JKQC,iexu)
 
       ! I/O
 
       type(Atom_class), dimension(:), intent(in):: Atom
-      type(Geometry_class), intent(in):: Geom
-      integer, intent(in):: ith,iph,iz,lf0,lf1,pf0,pf1
-      double precision, intent(in):: T, ne
+      integer, intent(in):: lf0,lf1,pf0,pf1
+      double precision, intent(in):: T,ne,WA
       double precision, dimension(:), intent(in):: Wfreq, omega
       double precision, dimension(:), pointer, intent(in):: iexu
       double precision, dimension(0:3,nfreq), intent(in):: Stk
       double precision, dimension(:,:), intent(in):: Prof
       double precision, dimension(:,:),intent(inout):: J00P
+      complex(kind=8), dimension(0:3,-2:2,0:2), intent(in):: TSo
+      complex(kind=8), dimension(0:3,-2:2,0:2), intent(in):: TKQo
       complex(kind=8), dimension(-2:2,0:2,nxtran), intent(inout):: JKQ
       complex(kind=8), dimension(-2:2,0:2,nxtran), intent(inout)::JKQS
-      complex(kind=8), dimension(-2:2,0:2,nfreq), intent(inout):: JKQC
+      complex(kind=8), dimension(0:2,0:2,nfreq), intent(inout):: JKQC
 
       ! Local
 
-      integer:: ifreq,if0,if1,ia,itran,jtran,K,iQ,iil,jjl,nf
       integer:: Kmax,lKmax
+      integer:: ifreq,if0,if1,ia,itran,jtran,K,iQ,iil,jjl,nf
 
-      double precision:: c0,c1,c3,Saha,arg
-      double precision:: WA,WF,WFS,W0,W1
+      double precision:: c0,c1,c3,Saha,arg,WF,WFS,W0,W1
       double precision, dimension(:), pointer:: exu
 
-      complex(kind=8), dimension(-2:2,0:2,lf0:lf1):: integr
+      complex(kind=8), dimension(0:2,0:2,lf0:lf1):: integr
 
 
       !
       ! Initializations
       !
 
+      ! Limits for multipoles
       Kmax = min(Krad, 2)
       lKmax = min(Kradl, 2)
 
@@ -220,29 +141,25 @@
       Saha = cSaha*ne/(T**(1.5d0))
       arg = fktoJ/kb/T
 
-      ! Angular weight
-      WA = Geom%W_mu(ith)*Geom%W_mux(iph)
-
 
       !
       ! Calculate JKQC, the argument of JKQ, and the frequency
       ! exponential
       !
 
-      ! Allocate or point exu
+      ! If pre-computed exponential
       if (PIRAM.and.pf1.ge.pf0) then
-        exu(pf0:pf1) => iexu
-      else if (pf1.ge.pf0) then
-        allocate(exu(pf0:pf1))
-      end if
 
-!$omp parallel default(none) &
-!$omp private(c0,ifreq,WF,K,iQ,ia,iil,itran,jtran,if0,if1,W0,W1,nf) &
-!$omp private(c3,c1,WFS,jjl) &
-!$omp shared(Kmax,lKmax,Saha,arg,WA,pf1,pf0,exu,iexu,T,PIRAM,nfreq) &
-!$omp shared(JKQC,Stk,Geom,lf0,lf1,axial,integr,Atom,Wfreq,iz,ith) &
-!$omp shared(iph,omega,na,Prof,stm) &
-!$omp reduction(+ : JKQ,JKQS,J00P)
+        ! Point to data
+        exu(pf0:pf1) => iexu
+
+      ! Not precomputed but frequencies to calculate
+      else if (pf1.ge.pf0) then
+
+        ! Allocate
+        allocate(exu(pf0:pf1))
+
+      end if ! Precalculated exponentials
 
       ! If no pre-computed
       if (.not.PIRAM.or.pf1.lt.pf0) then
@@ -251,20 +168,19 @@
         c0 = c2*1d4/T
 
         ! For each frequency with photoionization
-!$omp do
         do ifreq=pf0,pf1
 
           ! Argument frequency exponential
           WF = c0*omega(ifreq)
+
+          ! Calculate exponential
           exu(ifreq) = diexp(WF)
 
         end do ! frequencies
-!$omp end do
 
       end if ! pre-computed
 
       ! For each frequency
-!$omp do
       do ifreq=1,nfreq
 
         ! For each K
@@ -279,15 +195,13 @@
             ! Integrate JKQC
             JKQC(iQ,K,ifreq) = JKQC(iQ,K,ifreq) + &
                                WA*sum(Stk(:,ifreq)* &
-                                      Geom%TS(:,iQ,K,iph,ith))
+                                      TSo(:,iQ,K))
 
           end do ! Q
         end do ! K
       end do ! frequencies
-!$omp end do
 
       ! For each frequency with lines
-!$omp do
       do ifreq=lf0,lf1
 
         ! For each K
@@ -300,13 +214,11 @@
             if (iQ.ne.0.and.axial) cycle
 
             ! Compute the sum TKQ*Stokes
-            integr(iQ,K,ifreq) = sum(Stk(:,ifreq)* &
-                                     Geom%TB(:,iQ,K,iph,ith,iz))
+            integr(iQ,K,ifreq) = sum(Stk(:,ifreq)*TKQo(:,iQ,K))
 
           end do ! Q
         end do ! K
       end do ! frequencies
-!$omp end do
 
 
       !
@@ -325,6 +237,7 @@
         ! For each b-b transition
         do itran=1,Atom(ia)%ntran
 
+          ! Get continuous index
           jtran = itran + Atom(ia)%tshift
 
           ! Limits in frequency index of this transition
@@ -333,7 +246,7 @@
           if1 = Atom(ia)%if1(itran)
           W1 = Atom(ia)%W1(itran)
           nf = if1 - if0
-!$omp do
+
           ! For each frequency
           do ifreq=if0,if1
 
@@ -345,6 +258,8 @@
 
               ! Weight
               WF = W0*Prof(jjl,1)*WA
+
+              ! Stimulated
               if (stm) WFS = W0*Prof(jjl,2)*WA
 
             ! If right boundary
@@ -355,6 +270,8 @@
 
               ! Weight
               WF = W1*Prof(jjl,1)*WA
+
+              ! Stimulated
               if (stm) WFS = W1*Prof(jjl,2)*WA
 
             ! Normal
@@ -365,9 +282,11 @@
 
               ! Weight
               WF = Wfreq(ifreq)*Prof(jjl,1)*WA
+
+              ! Stimulated
               if (stm) WFS = Wfreq(ifreq)*Prof(jjl,2)*WA
 
-            end if
+            end if ! Extrema
 
             ! For each K
             do K=0,Atom(ia)%Krad(itran)
@@ -381,14 +300,15 @@
                 ! Add the contribution to the JKQ integral
                 JKQ(iQ,K,jtran) = JKQ(iQ,K,jtran) + &
                                   WF*integr(iQ,K,ifreq)
+
+                ! Stimulated
                 if(stm) &
-                JKQS(iQ,K,jtran) = JKQS(iQ,K,jtran) + &
-                                   WFS*integr(iQ,K,ifreq)
+                  JKQS(iQ,K,jtran) = JKQS(iQ,K,jtran) + &
+                                     WFS*integr(iQ,K,ifreq)
 
               end do ! Q
             end do ! K
           end do ! frequencies
-!$omp end do nowait
 
           ! Advance iil
           iil = iil + nf + 1
@@ -398,6 +318,7 @@
         ! For each b-f transition
         do itran=1,Atom(ia)%nphot
 
+          ! Continuous index
           jtran = itran + Atom(ia)%pshift
 
           ! Saha factor
@@ -410,7 +331,7 @@
           if1 = Atom(ia)%phot(itran)%if1
           W1 = Atom(ia)%phot(itran)%W1
           nf = if1 - if0
-!$omp do
+
           ! For each frequency
           do ifreq=if0,if1
 
@@ -445,19 +366,23 @@
             J00P(jtran,2) = J00P(jtran,2) + WF*exu(ifreq)*c3
 
           end do ! frequencies
-!$omp end do nowait
         end do ! b-f transitions
-
       end do ! atoms
-!$omp end parallel
 
-      ! Free exu
+      ! If precomputed exponential
       if (PIRAM.and.pf1.ge.pf0) then
+
+        ! Free pointer
         nullify(exu)
+
+      ! If local allocation
       else if (pf1.ge.pf0) then
+
+        ! Free memory
         deallocate(exu)
         nullify(exu)
-      end if
+
+      end if ! Exponential allocations
 
       end subroutine Jcalc
 
@@ -465,46 +390,44 @@
 !#####################################################################
 !#####################################################################
 
-      !> Adds contribution to the integrals of the radiation field
-      !! tensors with several CPU.\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!          Wfreq(dfloat(:)): Frequency trapezoidal weights\n
-      !!              lf0(integer): First frequency index of this
-      !!                            CPU for bound-bound transitions\n
-      !!              lf1(integer): Last frequency index of this
-      !!                            CPU for bound-bound transitions\n
-      !!             proc(integer): CPU ID\n
-      !!              iph(integer): Output direction azimuth index\n
-      !!              ith(integer): Output direction polar index\n
-      !!               iz(integer): Height index\n
-      !!          Stk(dfloat(:,:)): Stokes parameters\n
-      !!         Prof(dfloat(:,:)): Bound-bound non-normalized line
-      !!                            profiles\n
-      !!         Norm(dfloat(:,:)): Normalization factor for the
-      !!                            line profiles\n
-      !!   Bstk(dcomplex(:,:,:,:)): Radiation field tensors partial
-      !!                            integrals\n
-      subroutine FInt_line(Atom,MPID,Geom,Wfreq,lf0,lf1,proc, &
-                           iph,ith,iz,Stk,Prof,Norm,Bstk)
+      !> Add contribution to the integrals of the mean radiation field
+      !! in MPI for bound-bound transitions\n
+      !!      Atom(Atom_class(:)): Structures with atomic data\n
+      !!         Wfreq(double(:)): Frequency trapezoidal weights\n
+      !!             lf0(integer): First frequency index for
+      !!                           bound-bound transitions\n
+      !!             lf1(integer): Last frequency index for
+      !!                           bound-bound transitions\n
+      !!            if0p(integer): Lower limit of processor\n
+      !!            proc(integer): CPU ID\n
+      !!      Stokes(double(:,:)): Stokes parameters\n
+      !!        Prof(double(:,:)): Bound-bound normalized line
+      !!                           profiles\n
+      !!     TKQo(dcomplx(:,:,:)): Geometrical tensors in the
+      !!                           suitable reference frame\n
+      !!        Norm(double(:,:)): Normalization factor for the
+      !!                           line profiles\n
+      !!  Bstk(dcomplex(:,:,:,:)): Radiation field tensors partial
+      !!                           integrals
+      subroutine FInt_line(Atom,Wfreq,lf0,lf1,if0p,proc, &
+                           Stk,Prof,TKQo,Norm,Bstk)
 
       ! I/O
+
       type(Atom_class), dimension(:), intent(in):: Atom
-      type(MPI_class), intent(in):: MPID
-      type(Geometry_class), intent(in):: Geom
-      integer, intent(in):: proc,lf0,lf1,iph,ith,iz
+      integer, intent(in):: proc,lf0,lf1,if0p
       double precision, dimension(:), intent(in):: Wfreq
       double precision, dimension(0:3,nfreq), intent(in):: Stk
       double precision, dimension(:,:), intent(in):: Prof
       double precision, dimension(:,:), intent(inout):: Norm
+      complex(kind=8), dimension(0:3,-2:2,0:2), intent(in):: TKQo
       complex(kind=8), dimension(0:2,0:2,2,nxtran), &
-                                                  intent(inout):: BStk
+                       intent(inout):: BStk
 
       ! Local
 
       integer:: ifreq,ifreqs,ia,itran,jtran,K,iQ,lKmax
-      integer:: if0,if1,if0p,if0s,if1s,iil
+      integer:: if0,if1,if0s,if1s,iil
 
       double precision:: WF,WFS,W0,W1
 
@@ -515,14 +438,13 @@
       ! Initializations
       !
 
+      ! Maximum multipole
       lKmax = min(Kradl, 2)
-
-      ! Lower limit for processor
-      if0p = MPID%if0(proc) - 1
 
       ! For each frequency with lines
       do ifreq=lf0,lf1
 
+        ! Shift index
         ifreqs = ifreq - if0p
 
         ! For each K
@@ -535,8 +457,7 @@
             if(iQ.ne.0.and.axial)cycle
 
             ! Compute the sum TKQ*Stokes
-            integr(iQ,K,ifreq) = sum(Stk(:,ifreqs)* &
-                                     Geom%TB(:,iQ,K,iph,ith,iz))
+            integr(iQ,K,ifreq) = sum(Stk(:,ifreqs)*TKQo(:,iQ,K))
 
           end do ! Q
         end do ! K
@@ -558,6 +479,7 @@
           ! If this CPU does not have frequencies in this line, skip
           if (Atom(ia)%fflag(itran)%Mabsent(proc)) cycle
 
+          ! Continuous index
           jtran = itran + Atom(ia)%tshift
 
           ! Limits in frequency index of this transition
@@ -577,6 +499,8 @@
           iil = iil + 1
           WF = W0*Prof(iil,1)
           Norm(1,jtran) = Norm(1,jtran) + WF
+
+          ! Stimulated
           if (stm) then
             WFS = W0*Prof(iil,2)
             Norm(2,jtran) = Norm(2,jtran) + WFS
@@ -594,9 +518,11 @@
               ! Add the contribution to the JKQ integral
               BStk(iQ,K,1,jtran) = BStk(iQ,K,1,jtran) + &
                                    WF*integr(iQ,K,if0)
+
+              ! Stimulated
               if(stm) &
-              BStk(iQ,K,2,jtran) = BStk(iQ,K,2,jtran) + &
-                                   WFS*integr(iQ,K,if0)
+                BStk(iQ,K,2,jtran) = BStk(iQ,K,2,jtran) + &
+                                     WFS*integr(iQ,K,if0)
 
             end do ! Q
           end do ! K
@@ -606,6 +532,7 @@
           !
           do ifreq=if0+1,if1-1
 
+            ! Shift index
             ifreqs = ifreq - if0p
 
             ! Add the profile of the line to the weights and
@@ -613,6 +540,8 @@
             iil = iil + 1
             WF = Wfreq(ifreq)*Prof(iil,1)
             Norm(1,jtran) = Norm(1,jtran) + WF
+
+            ! Stimulated
             if (stm) then
               WFS = Wfreq(ifreq)*Prof(iil,2)
               Norm(2,jtran) = Norm(2,jtran) + WFS
@@ -630,6 +559,8 @@
                 ! Add the contribution to the JKQ integral
                 BStk(iQ,K,1,jtran) = BStk(iQ,K,1,jtran) + &
                                      WF*integr(iQ,K,ifreq)
+
+                ! Stimulated
                 if(stm) BStk(iQ,K,2,jtran) = BStk(iQ,K,2,jtran) + &
                                              WFS*integr(iQ,K,ifreq)
 
@@ -637,6 +568,7 @@
             end do ! K
           end do ! frequencies
 
+          ! If single frequency, skip
           if (if1s.le.if0s) cycle
 
           ! Add the profile of the line to the weights and
@@ -644,6 +576,8 @@
           iil = iil + 1
           WF = W1*Prof(iil,1)
           Norm(1,jtran) = Norm(1,jtran) + WF
+
+          ! Stimulated
           if (stm) then
             WFS = W1*Prof(iil,2)
             Norm(2,jtran) = Norm(2,jtran) + WFS
@@ -661,6 +595,8 @@
               ! Add the contribution to the JKQ integral
               BStk(iQ,K,1,jtran) = BStk(iQ,K,1,jtran) + &
                                    WF*integr(iQ,K,if1)
+
+              ! Stimulated
               if(stm) BStk(iQ,K,2,jtran) = BStk(iQ,K,2,jtran) + &
                                            WFS*integr(iQ,K,if1)
 
@@ -675,47 +611,48 @@
 !#####################################################################
 !#####################################################################
 
-      !> Adds contribution to the integrals of the radiation field
-      !! tensors with several CPU.\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!          omega(dfloat(:)): Frequency array\n
-      !!          Wfreq(dfloat(:)): Frequency trapezoidal weights\n
-      !!              pf0(integer): First frequency index of this
-      !!                            CPU for bound-free transitions\n
-      !!              pf1(integer): Last frequency index of this
-      !!                            CPU for bound-free transitions\n
-      !!                 T(dfloat): Temperature\n
-      !!             proc(integer): CPU ID\n
-      !!              iph(integer): Output direction azimuth index\n
-      !!              ith(integer): Output direction polar index\n
-      !!          Stk(dfloat(:,:)): Stokes parameters\n
-      !!         J00P(dfloat(:,:)): Intensity integrals in the
-      !!                            photoionization rates\n
-      !!     JKQC(dcomplex(:,:,:)): Radiation field tensors with
-      !!                            frequency dependence\n
-      !!           iexu(dfloat(:)): Pre-computed exponentials
-      subroutine FInt_rest(Atom,MPID,Geom,omega,Wfreq,pf0,pf1,T, &
-                           proc,iph,ith,WA,Stk,J00P,JKQC,iexu)
+      !> Add contribution to the integrals of the frequency dependent
+      !! mean radiation field and the mean intensity for bound-free
+      !! transitions in MPI\n
+      !!    Atom(Atom_class(:)): Structures with atomic data\n
+      !!       omega(double(:)): Frequency array\n
+      !!       Wfreq(double(:)): Frequency trapezoidal weights\n
+      !!           pf0(integer): First frequency index for bound-free
+      !!                         transitions\n
+      !!           pf1(integer): Last frequency index for bound-free
+      !!                         transitions\n
+      !!          if0l(integer): First frequency index for process\n
+      !!          if1l(integer): Last frequency index for process\n
+      !!          if0p(integer): Lower limit of processor\n
+      !!              T(double): Temperature\n
+      !!          proc(integer): CPU ID\n
+      !!       Stk(double(:,:)): Stokes parameters\n
+      !!    TSo(dcomplx(:,:,:)): Geometrical tensors in the
+      !!                         vertical reference frame\n
+      !!      J00P(double(:,:)): Intensity integrals in the
+      !!                         photoionization rates\n
+      !!  JKQC(dcomplex(:,:,:)): Radiation field tensors with
+      !!                         frequency dependence\n
+      !!        iexu(double(:)): Pre-computed frequency exponential
+      subroutine FInt_rest(Atom,omega,Wfreq,pf0,pf1,if0l,if1l,if0p, &
+                           T,proc,WA,Stk,TSo,J00P,JKQC,iexu)
 
       ! I/O
+
       type(Atom_class), dimension(:), intent(in):: Atom
-      type(MPI_class), intent(in):: MPID
-      type(Geometry_class), intent(in):: Geom
-      integer, intent(in):: proc,iph,ith
-      integer, intent(in):: pf0,pf1
+      integer, intent(in):: proc,if0p,pf0,if0l,if1l,pf1
       double precision, intent(in):: T,WA
       double precision, dimension(:), intent(in):: Wfreq, omega
       double precision, dimension(:), intent(in):: iexu
       double precision, dimension(0:3,nfreq), intent(in):: Stk
       double precision, dimension(:,:),intent(inout):: J00P
+      complex(kind=8), dimension(0:3,-2:2,0:2), intent(in):: TSo
       complex(kind=8), dimension(-2:2,0:2,nfreq), intent(inout):: JKQC
 
       ! Local
 
       integer:: ifreq,ifreqs,ia,itran,jtran,K,iQ,Kmax
-      integer:: if0,if1,if0p,if0s,if1s
+      integer:: if0,if1,if0s,if1s
 
       double precision:: WF,c0,c1,W0,W1
       double precision, dimension(:), allocatable:: exu
@@ -725,10 +662,8 @@
       ! Initializations
       !
 
+      ! Maximum multipole
       Kmax = min(Krad, 2)
-
-      ! Lower limit for processor
-      if0p = MPID%if0(proc) - 1
 
 
       !
@@ -741,6 +676,7 @@
       ! If pre-computed
       if (PIRAM.and.pf1.ge.pf0) then
 
+        ! Copy exponential
         exu = iexu
 
       ! If no pre-computed
@@ -754,6 +690,8 @@
 
           ! Argument frequency exponential
           WF = c0*omega(ifreq)
+
+          ! Calculate exponential
           exu(ifreq) = diexp(WF)
 
         end do ! frequencies
@@ -761,8 +699,9 @@
       end if ! pre-computed
 
       ! For each frequency
-      do ifreq=MPID%if0(proc),MPID%if1(proc)
+      do ifreq=if0l,if1l
 
+        ! Shift index
         ifreqs = ifreq - if0p
 
         ! For each K
@@ -776,8 +715,7 @@
 
             ! Integrate JKQC
             JKQC(iQ,K,ifreq) = JKQC(iQ,K,ifreq) + &
-                               WA*sum(Stk(:,ifreqs)* &
-                                      Geom%TS(:,iQ,K,iph,ith))
+                               WA*sum(Stk(:,ifreqs)*TSo(:,iQ,K))
 
           end do ! Q
         end do ! K
@@ -801,6 +739,7 @@
           ! skip
           if (Atom(ia)%phot(itran)%Mabsent(proc)) cycle
 
+          ! Get continuous index
           jtran = itran + Atom(ia)%pshift
 
           ! Limits in frequency index of this transition
@@ -842,6 +781,7 @@
           !
           do ifreq=if0+1,if1-1
 
+            ! shift index
             ifreqs = ifreq - if0p
 
             ! Weight with cross section and constants
@@ -857,8 +797,10 @@
 
           end do ! frequencies
         end do ! b-f transitions
-
       end do ! atoms
+
+      ! Free
+      if (allocated(exu)) deallocate(exu)
 
       end subroutine FInt_rest
 
@@ -866,23 +808,24 @@
 !#####################################################################
 !#####################################################################
 
-      !> Adds contribution of asymmetric inputs to the JKQ\n
+      !> Add ad-hoc radiation field tensors to the total JKQ tensors\n
       !!   Bfield(Bfield_class): Structure with magnetic field data\n
-      !!     Flgsg(Fctsg_class): Structure with factorials and signs\n
-      !!   JKQa(dcomplex(:,:,:)): Radiation field tensors extra
-      !!                          asymmetries\n
-      !!  JKQ(dcomplex(:,:,:,:)): Radiation field tensors integrated
-      !!                          over absorption profile\n
-      !! JKQS(dcomplex(:,:,:,:)): Radiation field tensors integrated
-      !!                          over emission profile\n
-      !! JKQC(dcomplex(:,:,:,:)): Radiation field tensors with
-      !!                          frequency dependence
+      !!     Flgsg(Fctsg_class): Structure with factorials, signs,
+      !!                         and J-symbols\n
+      !!  JKQa(dcomplex(:,:,:)): Extra asymmetry for the radiation
+      !!                         field tensors\n
+      !!   JKQ(dcomplex(:,:,:)): Radiation field tensors integrated
+      !!                         over the absorption profile\n
+      !!  JKQS(dcomplex(:,:,:)): Radiation field tensors integrated
+      !!                         over the emission profile\n
+      !!  JKQC(dcomplex(:,:,:)): Radiation field tensors with
+      !!                         frequency dependence
       subroutine addJKQasym(Bfield,Flgsg,JKQa,JKQ,JKQS,JKQC)
 
       ! I/O
 
-      type(Bfield_class):: Bfield
-      type(Fctsg_class):: Flgsg
+      type(Bfield_class), intent(in):: Bfield
+      type(Fctsg_class), intent(in):: Flgsg
       complex(kind=8), dimension(:,:,:), intent(in):: JKQa
       complex(kind=8), dimension(:,:,:,:), intent(inout):: JKQ
       complex(kind=8), dimension(:,:,:,:), intent(inout):: JKQS
@@ -903,12 +846,14 @@
 
         ! For each height
         do iz=1,Rnz
+
           ! For each frequency
           do ifreq=1,nfreq
 
             ! Add contribution [(3,1,ifreq,iz) is (0,0,ifreq,iz)]
-            JKQC(:,2:3,ifreq,iz) = &
-                               JKQa(:,:,iz)*dble(JKQC(3,1,ifreq,iz))
+            JKQC(:,2:3,ifreq,iz) = JKQa(:,:,iz)* &
+                                   dble(JKQC(3,1,ifreq,iz))
+
           end do ! frequencies
         end do ! heights
 
@@ -922,12 +867,13 @@
 
             ! Add contribution [(3,1,ifreq,iz) is (0,0,ifreq,iz)]
             JKQC(:,2:3,ifreq,iz) = JKQC(:,2:3,ifreq,iz) + &
-                               JKQa(:,:,iz)*dble(JKQC(3,1,ifreq,iz))
+                                   JKQa(:,:,iz)* &
+                                   dble(JKQC(3,1,ifreq,iz))
 
           end do ! frequencies
         end do ! heights
 
-      end if
+      end if ! Forced or additive
 
       !
       ! Now the lines, this may need to be rotated
@@ -951,19 +897,25 @@
 
           ! For each transition
           do ii=1,nxtran
+
+            ! Add contribution
             JKQ(:,2:3,ii,iz) = JKQa(:,:,iz)*dble(JKQ(3,1,ii,iz))
-          end do
+
+          end do ! Transitions
 
         ! Additive instead
         else
 
           ! For each transition
           do ii=1,nxtran
+
+            ! Add contribution
             JKQ(:,2:3,ii,iz) = JKQ(:,2:3,ii,iz) + &
                                JKQa(:,:,iz)*dble(JKQ(3,1,ii,iz))
-          end do
 
-        end if
+          end do ! Transitions
+
+        end if ! Forced or additive
 
         ! If magnetic field
         if (Bfield%Bstrength(jz).gt.TINYB) then
@@ -972,7 +924,7 @@
           call fieldB(JKQ(:,:,:,iz),nxtran,Flgsg, &
                       Bfield%Btheta(jz),Bfield%Bphi(jz),1)
 
-        end if
+        end if ! If magnetic field
 
         ! If stimulated emission
         if (stm) then
@@ -984,27 +936,34 @@
             call fieldB(JKQS(:,:,:,iz),nxtran,Flgsg, &
                         -Bfield%Btheta(jz), &
                         -Bfield%Bphi(jz),-1)
-          end if
+
+          end if ! If magnetic field
 
           ! Forcing asymmetry
           if (force_asym) then
 
             ! For each transition
             do ii=1,nxtran
+
+              ! Add contribution
               JKQS(:,2:3,ii,iz) = JKQS(:,2:3,ii,iz) + &
                                   JKQa(:,:,iz)*dble(JKQS(3,1,ii,iz))
-            end do
+
+            end do ! Transitions
 
           ! Additive instead
           else
 
             ! For each transition
             do ii=1,nxtran
+
+              ! Add contribution
               JKQS(:,2:3,ii,iz) = JKQS(:,2:3,ii,iz) + &
                                   JKQa(:,:,iz)*dble(JKQS(3,1,ii,iz))
-            end do
 
-          end if
+            end do ! Transitions
+
+          end if ! Forced or additive
 
           ! If magnetic field
           if (Bfield%Bstrength(jz).gt.TINYB) then
@@ -1013,7 +972,7 @@
             call fieldB(JKQS(:,:,:,iz),nxtran,Flgsg, &
                         Bfield%Btheta(iz),Bfield%Bphi(iz),1)
 
-          end if
+          end if ! Magnetic field
         end if ! stimulated emission
 
       end do ! Heights

@@ -5,298 +5,23 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Hao Li (IAC)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
+!     Hao Li (IAC/NSSCC)
 !  Start:
-!     04/17/2017
+!     17/04/2017
 !  Last version:
-!     10/04/2024 V3.0.31
+!     17/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     10/04/2024:   V3.0.31 - Read Input%use_allen and
-!                             Input%flat_cle_in (TdPA)
-!
-!     09/23/2024:   V3.0.30 - Read Input%add_cont_cle (TdPA)
-!
-!     08/08/2024:   V3.0.29 - Read Input%storeinv_step and setup
-!                             Input%storeinv (TdPA)
-!
-!     07/18/2024:   V3.0.28 - Read Input%keep_qel and
-!                             Input%lim_qel (TdPA)
-!
-!     05/20/2024:   V3.0.27 - Read Input%Regul_factor (TdPA)
-!
-!     05/20/2024:   V3.0.26 - Read Input%Weight_Factor (TdPA)
-!
-!     05/13/2024:   V3.0.25 - Read Input%LM_lam_big_test,
-!                             Input%LM_lam_small_test,
-!                             Input%LM_lam_big_prove, and
-!                             Input%LM_lam_small_prove (TdPA)
-!
-!     05/07/2024:   V3.0.24 - Read Input%LM_Back_Mode and
-!                             Input%Lam_track (TdPA)
-!
-!     02/23/2024:   V3.0.23 - Read Input%fvmicro, Input%init_J_bb,
-!                             Input%mrcj, Input%ALI_force, and
-!                             Input%allownphys_pop (TdPA)
-!                           - Changed the limit of prd radiation
-!                             iterations from 9 to 99 (TdPA)
-!
-!     02/19/2024:   V3.0.22 - Read Input%maxt (TdPA)
-!
-!     02/16/2024:   V3.0.21 - Read Input%rest_tau_strc and
-!                             Input%rest_z_strc (TdPA)
-!
-!     02/14/2024:   V3.0.20 - Read Input%nexcl and Input%excl (TdPA)
-!
-!     12/12/2023:   V3.0.19 - Read Input%dcohwi and use it to set
-!                             Input%cohwi (TdPA)
-!
-!     11/24/2023:   V3.0.18 - Read Input%Inv_mask (TdPA)
-!
-!     09/29/2023:   V3.0.17 - Read Input%two_step_pol (TdPA)
-!
-!     09/29/2023:   V3.0.16 - Read Input%Kcut_input, Input%keep_coll,
-!                             Input%keep_mpil, and variable
-!                             Input%keep_mpidl (TdPA)
-!                           - Initialize Kradl (TdPA)
-!                           - Removed verbosity for when trying to
-!                             store LTE profiles, but not active
-!                             atoms (TdPA)
-!
-!     09/08/2023:   V3.0.15 - Change destiny of verbosity level to
-!                             vlevel common variable (TdPA)
-!                           - Read slevel (TdPA)
-!
-!     08/24/2023:   V3.0.14 - Added the possibility of input files
-!                             for the inversion FWHM (TdPA)
-!                           - Read (or initialize if not inversion)
-!                             Input%force_inv_freq (TdPA)
-!
-!     08/11/2023:   V3.0.13 - Update the read of Input%weight (TdPA)
-!                           - Read Input%inv_weight and
-!                             Input%linv_weight (TdPA)
-!
-!     08/07/2023:   V3.0.12 - Read LTE lines data into Input%LTEline()
-!                             structure array (TdPA)
-!                           - LVIRAM and LVPRAM (TdPA)
-!
-!     07/03/2023:   V3.0.11 - Read Input%skip_wave, Input%fixplt,
-!                             Input%vtype, Input%f_diff,
-!                             Input%min_rel_pert, Input%ini_vpos,
-!                             and Input%ini_vazi (TdPA)
-!                           - Removed Input%initpixel and
-!                             Input%Restartpixel (TdPA)
-!                           - Put back projection (TdPA)
-!                           - Removed region (TdPA)
-!                           - Renamed Input%Restore_File to
-!                             Input%Inv_init (TdPA)
-!                           - Renamed Input%Pg_flag to
-!                             Input%hydroeq (TdPA)
-!                           - Renamed Input%FWHM to Input%lim_fwhm
-!                             and updated to the new format (TdPA)
-!                           - Inversion reads Input%sol_box (TdPA)
-!                           - Check that nodes are larger than 0
-!                             before confirming that a variable is
-!                             to be inverted (TdPA)
-!                           - Added sanity check in case you skip
-!                             wavelengths for every atom without
-!                             specifying a wavelength file (TdPA)
-!
-!     06/12/2023:   V3.0.10 - Removed Projection, NUM_FILE and
-!                             INIT_INV_PIXEL (HL)
-!                           - Added REGION (HL)
-!                           - Update RESTART_INV_PIXEL[2] for 2
-!                             dimensions (HL)
-!                           - Update read FWHM for multi wavelength
-!                             ranges (HL)
-!
-!     04/25/2023:    V3.0.9 - Bugfix: Added the NONE case for the
-!                             initial atmospheric model in the
-!                             inversion (TdPA)
-!                           - Read Input%Keep_RF (TdPA)
-!
-!     04/11/2023:    V3.0.8 - Read weights for different ranges of
-!                             wavelengths (HL)
-!                           - Removed unused inversion inputs that
-!                             were eliminated (see rinput.py; HL)
-!
-!     03/15/2023:    V3.0.7 - Removed unused inversion inputs that
-!                             were eliminated (see rinput.py; TdPA)
-!                           - Read new input quantities to configure
-!                             the inversion (see rinput.py; TdPA)
-!
-!     03/08/2023:    V3.0.6 - Read new input quantities to configure
-!                             the inversion (see rinput.py; TdPA)
-!
-!     02/14/2023:    V3.0.5 - Read new input quantities to split
-!                             the geometry and PRD integral between
-!                             intensity and polarization (TdPA)
-!                           - Read Input%AVI (TdPA)
-!                           - Read Input%static_int (TdPA)
-!                           - Geom is not an argument anymore (TdPA)
-!
-!     11/10/2022:    V3.0.4 - Read Input%zero_ion and force_asym
-!                             variables (TdPA)
-!                           - Changed where Input%ionf is read (TdPA)
-!                           - Bugfix: Wrong format when reading the
-!                             Input%asym_fil input (TdPA)
-!                           - Now stm is set directly to the global
-!                             instance (TdPA)
-!
-!     10/25/2022:    V3.0.3 - Read Input%ionf, Input%spect_input,
-!                             Input%chianti_path, Input%T_rad,
-!                             Input%R_star, Input%r0tc, Input%r1tc,
-!                             Input%r0z, Input%r1z, Input%skip_disk,
-!                             and Input%sol_box (TdPA)
-!
-!     07/18/2022:    V3.0.2 - Read Input%MPIdetail, Input%operform,
-!                             and Input%IWskip (TdPA)
-!
-!     07/13/2022:    V3.0.1 - Read Input%pf, Input%abund,
-!                             Input%bark_sp, Input%bark_pd, and
-!                             Input%bark_df (TdPA)
-!
-!     07/08/2022:    V3.0.0 - Fixed a comment (TdPA)
-!
-!     06/29/2022:    V3.0.0 - To implement the 1.5D case now rInput
-!                             reads Input%run_mode, Input%atm_scale,
-!                             Input%omega_ref, Input%atmo_char,
-!                             Input%cache, Input%keep_sol, Input%minT,
-!                             Input%maxV, Input%rt_group_n,
-!                             Input%unmagnetized, Input%static,
-!                             Input%keep_pop, Input%keep_dep,
-!                             Input%keep_rhoKQ, Input%keep_JKQ,
-!                             Input%keep_stokesQ, Input%keep_MRC,
-!                             Input%lim_stk, Input%lim_ctr,
-!                             Input%lim_tau, Input%lim_cols_tt,
-!                             Input%lim_cols_ll, Input%lim_damp,
-!                             Input%lim_back, Input%lim_pop (TdPA)
-!                           - Changed calls to aborted into calls
-!                             to gaborted (TdPA)
-!
-!     06/21/2022:    V2.0.2 - Read Input%dcohw (TdPA)
-!
-!     04/07/2022:    V2.0.1 - Read Input%keep_jkqnu (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!                           - Removed read of Input%ND (TdPA)
-!
-!     02/17/2021:   V1.2.24 - Read fcol_transfer (TdPA)
-!                           - Put back error checker when reading
-!                             asymmetry variables (TdPA)
-!
-!     02/12/2021:   V1.2.23 - Read Input%g_perf (TdPA)
-!                           - Read Input%mpi_perf (TdPA)
-!
-!     02/04/2021:   V1.2.22 - Read Input%MPI_input (TdPA)
-!                           - Read Input%MIT_node (TdPA)
-!
-!     01/13/2021:   V1.2.21 - Read asymmetry inputs (TdPA)
-!                           - Read KSTK value (TdPA)
-!
-!     11/12/2020:   V1.2.20 - Read Input%PRD_delay and correct the
-!                             Input%NGI_delay and Input%iteri_max
-!                             if doing PRD. Read the input variable
-!                             Input%chem_protect_all (TdPA)
-!
-!     09/20/2020:   V1.2.19 - Define the name of the error file (TdPA)
-!
-!     09/11/2020:   V1.2.18 - Read the variables Input%RAMreport,
-!                             TIRAM, and TPRAM (TdPA)
-!
-!     07/22/2020:   V1.2.17 - Read the variables Input%NGI_delay,
-!                             Input%NGI, and Input%NGI_ord (TdPA)
-!
-!     06/26/2020:   V1.2.16 - Read the variable KcutAB (TdPA)
-!
-!     06/01/2020:   V1.2.15 - Read the variable NCHLT (TdPA)
-!
-!     03/05/2020:   V1.2.14 - Read the variable Input%protect_H (TdPA)
-!
-!     02/10/2020:   V1.2.13 - Read the variables Input%redo_ne and
-!                             Input%update_atmos (TdPA)
-!
-!     12/17/2019:   V1.2.12 - Read Input%zeeman_mode (TdPA)
-!
-!     12/10/2019:   V1.2.11 - Now it can receive no LOS angles (TdPA)
-!                           - Reading VOITY and Input%memo (TdPA)
-!
-!     11/19/2019:   V1.2.10 - Removed checks in allocate and
-!                             deallocate calls (TdPA)
-!                           - Reading WIFIL and WPFIL (TdPA)
-!
-!     11/13/2019:    V1.2.9 - Reading PIRAM, VIFIL, and VPFIL (TdPA)
-!
-!     09/26/2019:    V1.2.8 - Added keep_atmo read (TdPA)
-!
-!     09/13/2019:    V1.2.7 - Added waves read (TdPA)
-!
-!     08/09/2019:    V1.2.6 - Added ignore_bb read (TdPA)
-!
-!     06/11/2019:    V1.2.5 - The magnetic field in numeric form was
-!                             expecting to write into characters, not
-!                             numbers (TdPA)
-!
-!     05/08/2019:    V1.2.4 - Reads allownphys_stk and
-!                             allownphys_rho (TdPA)
-!
-!     04/15/2019:    V1.2.3 - Reads alt_bcast (TdPA)
-!
-!     03/22/2019:    V1.2.2 - Reads NK and kurucz (TdPA)
-!
-!     03/13/2019:    V1.2.1 - Reads ALI_delay and KEEP_APARAM (TdPA)
-!
-!     02/20/2019:    V1.2.0 - New verbosity (TdPA)
-!                           - Checks for success of python routine
-!                             and unit is now 100 (TdPA)
-!                           - Now admits numerical inputs for
-!                             magnetic fields (TdPA)
-!
-!     11/06/2018     V1.1.3 - Reading keep_back, keep_damp, and
-!                             keep_cols (TdPA)
-!
-!     09/20/2018     V1.1.2 - Reading NG, NG_ord, and NG_delay (TdPA)
-!
-!     09/06/2018     V1.1.1 - Reading SOLUTION_KEEPI (TdPA)
-!
-!     08/09/2018     V1.1.0 - Allows to use a custom filename (TdPA)
-!
-!     08/04/2018    V1.0.12 - Reading VOI_IRAM, VOI_PRAM, and RAM_LIM
-!                             (TdPA)
-!
-!     08/03/2018    V1.0.11 - Reading Krad (TdPA)
-!
-!     12/18/2017:   V1.0.10 - Bugfix: Was defining AV after reading
-!                             Raman, no impact in the run becase was
-!                             redefined later (TdPA)
-!
-!     12/05/2017:    V1.0.9 - Reading Raman (TdPA)
-!
-!     11/27/2017:    V1.0.8 - Reading Pcorr (TdPA)
-!
-!     09/22/2017:    V1.0.7 - Reading Kcut (TdPA)
-!
-!     09/14/2017:    V1.0.6 - Added a path and ID to the file (TdPA)
-!
-!     08/24/2017:    V1.0.5 - Reading five more red_params (TdPA)
-!
-!     06/16/2017:    V1.0.4 - Added read of PRAM and changed the read
-!                             of RAM to the read of IRAM (TdPA)
-!
-!     06/12/2017:    V1.0.3 - Added read of RAM (TdPA)
-!
-!     06/09/2017:    V1.0.2 - Added input iteri_prd, iter_j, and
-!                             mrci_r (TdPA)
-!
-!     06/08/2017:    V1.0.1 - Added input Geom%nThAA (TdPA)
-!
-!     04/17/2017:    V1.0.0 - First version (TdPA)
+!     17/12/2024:    V4.0.0 - Removed reading of VIFIL, VPFIL, WIFIL,
+!                             WPFIL, TIRAM, TPRAM, %altbcast,
+!                             %MPIdetail, %operform, and
+!                             %IWskip (TdPA)
+!                           - Added reading of %PRD_int_mode (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -306,11 +31,15 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    This program reads an input file (INPUT file where it is
-!    executed, this is hardcoded) with information about the
-!    execution that is not contained in the other input files
+!  rInput
+!    Read the input file with the configuration of the run
 !
 !#####################################################################
 !#####################################################################
@@ -328,8 +57,8 @@
 !#####################################################################
 !#####################################################################
 
-      !> Reads a file with the settings.\n
-      !!     Input(Input_class): Structure with settings data
+      !> Read the input file with the configuration of the run\n
+      !!  Input(Input_class): Structure with configuration data
       subroutine rInput(Input)
 
       ! I/O
@@ -342,9 +71,9 @@
       character(LEN=2):: cdump2
       character(LEN=5):: CPUC
 
-      integer:: ios, ia, i1, i2, i3, i4, i5
+      integer:: ios,ia,i1,i2,i3,i4,i5
 
-      double precision:: ddump, ddump2
+      double precision:: ddump,ddump2
 
 
       ! Routine name
@@ -419,6 +148,13 @@
       ! populations
       do ia=1,nA
 
+        ! Add to RAM (fixp, zero_ion, atom, and fixplt are
+        ! deallocated before any relevant call)
+        MRAMc = MRAMc + 1d-6*(sizeof(Input%popu(ia)) + &
+                              sizeof(Input%skip_wave(ia)))
+        if (Input%run_mode.eq.2) &
+          MRAMc = MRAMc + 1d-6*sizeof(Input%ionf)
+
         ! Atom file model
         read(100,'(A)',err=1100) Input%atom(ia)
         ! Atom population file
@@ -426,33 +162,31 @@
 
         ! Atom fix population
         read(100,'(A)',err=1100) cdump
-
-        ! Translate input
-        if (cdump.eq.'F') then
-          Input%fixp(ia) = .True.
-        else
-          Input%fixp(ia) = .False.
-        end if
+        Input%fixp(ia) = cdump.eq.'F'
 
         ! Atom zero ion
         read(100,'(A)',err=1100) cdump
-
-        ! Translate input
-        if (cdump.eq.'F') then
-          Input%zero_ion(ia) = .True.
-        else
-          Input%zero_ion(ia) = .False.
-        end if
+        Input%zero_ion(ia) = cdump.eq.'F'
 
         ! Ionization files for CLE
         if (Input%run_mode.eq.2) then
 
+          ! Read type of ionization specification
           read(100,*,err=1100) Input%ionf(ia)%typ
+
+          ! If file
           if (Input%ionf(ia)%typ.eq.0) then
+
+            ! Read filename
             read(100,'(A)',err=1100) Input%ionf(ia)%str
+
+          ! If number
           else if (Input%ionf(ia)%typ.eq.1) then
+
+            ! Read value
             read(100,*,err=1100) Input%ionf(ia)%val
-          end if
+
+          end if ! Type of input
 
         ! No CLE
         else
@@ -460,27 +194,15 @@
           ! Read dummy -1
           read(100,*,err=1100) ios
 
-        end if
+        end if ! Value
 
         ! Atom skip wavelengths
         read(100,'(A)',err=1100) cdump
-
-        ! Translate input
-        if (cdump.eq.'N') then
-          Input%skip_wave(ia) = .False.
-        else
-          Input%skip_wave(ia) = .True.
-        end if
+        Input%skip_wave(ia) = .not.(cdump.eq.'N')
 
         ! Atom fix terms populations
         read(100,'(A)',err=1100) cdump
-
-        ! Translate input
-        if (cdump.eq.'F') then
-          Input%fixplt(ia) = .True.
-        else
-          Input%fixplt(ia) = .False.
-        end if
+        Input%fixplt(ia) = cdump.eq.'F'
 
         ! Check cascades of conditions for fixing populations
         if (Input%fixp(ia)) Input%fixplt(ia) = .False.
@@ -491,10 +213,11 @@
       read(100,*,err=1100) Input%nAb
       nAb = Input%nAb
 
-      ! If greater than 0
+      ! If larger than 0
       if (Input%nAb.gt.0) then
 
         ! Allocate
+
         ! Filename of atomic models for background
         allocate(Input%atomback(Input%nAb))
         ! Filename of population file for background
@@ -502,9 +225,14 @@
 
         ! Read atomic file and population file names
         do ia=1,Input%nAb
+
+          ! Add to RAM counter (atomback is deallocated before
+          ! any relevant call)
+          MRAMc = MRAMc + 1d-6*sizeof(Input%popuback(ia))
           read(100,'(A)',err=1100) Input%atomback(ia)
           read(100,'(A)',err=1100) Input%popuback(ia)
-        end do
+
+        end do ! Passive atoms
 
       end if ! There are background atoms
 
@@ -512,10 +240,11 @@
       read(100,*,err=1100) Input%nM
       nM = Input%nM
 
-      ! If greater than 0
+      ! If larger than 0
       if (Input%nM.gt.0) then
 
-        ! Allocate molecule file name
+        ! Allocate molecule file name (it is deallocated before
+        ! any relevant call and thus not added to RAM counter)
         allocate(Input%mol(Input%nM))
 
         ! Read molecule file names
@@ -525,17 +254,26 @@
 
       end if ! There are molecules
 
-      ! Magnetic field
+      ! Type of Magnetic field input
       read(100,'(A)',err=1100) cdump
+
+      ! If file
       if (cdump.eq.'F') then
+
+        ! Flag no number and get filename
         Input%bfieldn = .False.
         read(100,'(A)',err=1100) Input%bfield
+
+      ! If number
       else
+
+        ! Flag numeric and get numbers
         Input%bfieldn = .True.
         read(100,*,err=1100) Input%bfieldv(1)
         read(100,*,err=1100) Input%bfieldv(2)
         read(100,*,err=1100) Input%bfieldv(3)
-      end if
+
+      end if ! Type of magnetic field input
 
       ! File with fudge factors
       read(100,'(A)',err=1100) Input%fudge
@@ -545,19 +283,11 @@
 
       ! Use Allen tabulation for intensity
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%use_allen = .True.
-      else
-        Input%use_allen = .False.
-      endif
+      Input%use_allen = cdump.eq.'Y'
 
       ! Assume fully flat spectrum at input (if no input spectra)
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%flat_cle_in = .True.
-      else
-        Input%flat_cle_in = .False.
-      endif
+      Input%flat_cle_in = cdump.eq.'Y'
 
       ! Path to CHIANTI database
       read(100,'(A)',err=1100) Input%chianti_path
@@ -570,11 +300,7 @@
 
       ! Neglect continuum in CLE
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%add_cont_cle = .False.
-      else
-        Input%add_cont_cle = .True.
-      endif
+      Input%add_cont_cle = .not.(cdump.eq.'Y')
 
       ! File with partition functions
       read(100,'(A)',err=1100) Input%pf
@@ -593,11 +319,7 @@
 
       ! Ignore b-b background transitions
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%addbb = .False.
-      else
-        Input%addbb = .True.
-      endif
+      Input%addbb = .not.(cdump.eq.'Y')
 
       ! Read number of Kurucz files
       read(100,*,err=1100) Input%NK
@@ -610,10 +332,11 @@
 
         ! Read Kurucz file names
         do ia=1,Input%NK
+          MRAMc = MRAMc + 1d-6*sizeof(Input%kurucz(ia))
           read(100,'(A)',err=1100) Input%kurucz(ia)
         end do
 
-      end if
+      end if ! Kurucz files
 
       ! Read number of LTE lines
       read(100,*,err=1100) Input%nLTE
@@ -634,7 +357,9 @@
           Input%LTEline(ia)%Tlim_l = .False.
           Input%LTEline(ia)%ia = -1
           Input%LTEline(ia)%ia = -1
-          nullify(Input%LTEline(ia)%prof)
+
+          ! Memory count
+          MRAMc = MRAMc + 1d-6*sizeof(Input%LTEline(ia))
 
           ! Read type of atom label
           read(100,*,err=1100) i1
@@ -673,6 +398,7 @@
           read(100,*,err=1100) Input%LTEline(ia)%Aul
           read(100,*,err=1100) Input%LTEline(ia)%broad_type
           allocate(Input%LTEline(ia)%broad_args(4))
+          MRAMc = MRAMc + 1d-6*sizeof(Input%LTEline(ia)%broad_args)
           read(100,*,err=1100) Input%LTEline(ia)%broad_args
           read(100,*,err=1100) Input%LTEline(ia)%broad_stark
           read(100,*,err=1100) Input%LTEline(ia)%f_c
@@ -702,10 +428,11 @@
 
         ! Read Wavelength file names
         do ia=1,Input%NW
+          MRAMc = MRAMc + 1d-6*sizeof(Input%waves(ia))
           read(100,'(A)',err=1100) Input%waves(ia)
         end do
 
-      end if
+      end if ! Wavelength files
 
       ! Sanity check
       if (all(Input%skip_wave).and.Input%NW.eq.0) then
@@ -720,17 +447,19 @@
       ! If there are inputs
       if (Input%nasym.gt.0) then
 
-        ! Asymmetry inputs as numbers
+        ! Number of asymmetry inputs as numbers
         read(100,*,err=1100) Input%nasym_num
 
-        ! If numerical values
-        if (Input%nasym_num.gt.0) &
+        ! If numerical values, allocate space
+        if (Input%nasym_num.gt.0) then
           allocate(Input%asym_num(2,Input%nasym_num))
+          MRAMc = MRAMc + 1d-6*sizeof(Input%asym_num)
+        end if
 
-        ! Asymmetry inputs as files
+        ! Number of asymmetry inputs as files
         read(100,*,err=1100) Input%nasym_fil
 
-        ! If files
+        ! If files, allocate space
         if (Input%nasym_fil.gt.0) &
           allocate(Input%asym_fil(Input%nasym_fil))
 
@@ -741,22 +470,31 @@
         ! For each entry
         do i1=1,Input%nasym
 
+          ! Memory count
+          MRAMc = MRAMc + 1d-6*sizeof(Input%asym_fil(ia))
+
           ! Read character
           read(100,'(A)',err=1100) cdump
 
           ! If value
           if (cdump.eq.'V') then
+
+            ! If value, read and store
             i2 = i2 + 1
             read(100,*,err=1100) i4, i5, ddump, ddump2
             Input%asym_num(1,i2) = dcmplx(i4,i5)
             Input%asym_num(2,i2) = dcmplx(ddump,ddump2)
-          end if
+
+          end if ! Value
 
           ! If file
           if (cdump.eq.'F') then
+
+            ! Read
             i3 = i3 + 1
             read(100,'(A)',err=1100) Input%asym_fil(i3)
-          end if
+
+          end if ! File
 
         end do ! Entries
 
@@ -764,19 +502,11 @@
 
       ! Force asymm
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        force_asym = .True.
-      else
-        force_asym = .False.
-      endif
+      force_asym = cdump.eq.'Y'
 
       ! Stimulated emission
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        stm = .True.
-      else
-        stm = .False.
-      endif
+      stm = cdump.eq.'Y'
 
       ! Output folder
       read(100,'(A)',err=1100) Input%folder
@@ -791,15 +521,26 @@
       read(100,*,err=1100) Input%nPhI
 
       ! Directions for emergent solution
+      ! Polar
       read(100,*,err=1100) Input%nThLOS
+      ! If polar directions
       if (Input%nThLOS.gt.0) then
         allocate(Input%L_mu(Input%nThLOS))
+        MRAMc = MRAMc + 1d-6*sizeof(Input%L_mu)
         read(100,*,err=1100) Input%L_mu(1:Input%nThLOS)
       end if
+      ! If azimuthal directions
       read(100,*,err=1100) Input%nPhLOS
       if (Input%nPhLOS.gt.0) then
         allocate(Input%L_phi(Input%nPhLOS))
+        MRAMc = MRAMc + 1d-6*sizeof(Input%L_phi)
         read(100,*,err=1100) Input%L_phi(1:Input%nPhLOS)
+      end if
+
+      ! Sanity check
+      if (Input%nThLOS.le.0.or.Input%nPhLOS.le.0) then
+        Input%nThLOS = 0
+        Input%nPhLOS = 0
       end if
 
       ! Mode of solution
@@ -810,75 +551,55 @@
 
       ! Restrict problem in tau_c strictly
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%rest_tau_strc = .True.
-      else
-        Input%rest_tau_strc = .False.
-      end if
+      Input%rest_tau_strc = cdump.eq.'Y'
 
       ! Restrict problem in tau_c
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%rest_tau = .True.
+      Input%rest_tau = cdump.eq.'Y'
+
+      ! Get ranges if they exist
+      if (Input%rest_tau) then
         read(100,*,err=1100) Input%r0tc
         read(100,*,err=1100) Input%r1tc
-      else
-        Input%rest_tau = .False.
       end if
 
       ! Restrict problem in height strictly
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%rest_z_strc = .True.
-      else
-        Input%rest_z_strc = .False.
-      end if
+      Input%rest_z_strc = cdump.eq.'Y'
 
       ! Restrict problem in height
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%rest_z = .True.
+      Input%rest_z = cdump.eq.'Y'
+
+      ! Get ranges if they exist
+      if (Input%rest_z) then
         read(100,*,err=1100) Input%r0z
         read(100,*,err=1100) Input%r1z
-      else
-        Input%rest_z = .False.
       end if
 
       ! Mode of Zeeman effect
       read(100,*,err=1100) Input%zeeman_mode
 
-      ! Correction of rho
+      ! Correction of JKQ between multi-level and multi-term
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%Pcorr = .True.
-      else
-        Input%Pcorr = .False.
-      end if
+      Input%Pcorr = cdump.eq.'Y'
 
       ! Forbidden collisions can transfer alignment
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        fcol_transfer = .True.
-      else
-        fcol_transfer = .False.
-      end if
+      fcol_transfer = cdump.eq.'Y'
 
       ! MIT transitions
       read(100,*,err=1100) Input%MIT_input
 
-      ! MIT factor
+      ! MIT node/factor
       read(100,*,err=1100) Input%MIT_node
       Input%MIT_node = 1d0/Input%MIT_node
 
       ! Skip saving solution
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%keep_sol = .False.
-      else
-        Input%keep_sol = .True.
-      end if
+      Input%keep_sol = .not.(cdump.eq.'Y')
 
-      ! Solution file
+      ! Input solution file
       read(100,'(A)',err=1100) Input%solution
 
       ! Dummy line
@@ -886,178 +607,114 @@
 
       ! Keep intensity solution
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%keepIsol = .True.
-      else
-        Input%keepIsol = .False.
-      end if
+      Input%keepIsol = cdump.eq.'Y'
 
       ! Keep Stokes in solution
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        KSTK = .True.
-      else
-        KSTK = .False.
-      end if
+      KSTK = cdump.eq.'Y'
 
       ! Cut rhoKQ multipole orders
       read(100,*,err=1100) Kcut
 
+      ! Sanity check
       if (Kcut.lt.0) Kcut = 1000
 
       ! Cut rhoKQ multipole orders in absorb1
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        KcutAB = .True.
-      else
-        KcutAB = .False.
-      end if
+      KcutAB = cdump.eq.'Y'
 
-      ! K cut term-wise
+      ! K cut term-wise entries
       read(100,*,err=1100) ios
 
       ! If there are entries
       if (ios.gt.0) then
 
-        ! Allocate
+        ! Allocate entries
         allocate(Input%Kcut_input(4,ios))
+        MRAMc = MRAMc + 1d-6*sizeof(Input%Kcut_input)
 
-        ! And read
+        ! And read each entry
         do ia=1,ios
           read(100,*,err=1100) Input%Kcut_input(:,ia)
         end do
 
-      end if
+      end if ! K cut term-wise entries
 
       ! Cut JKQ multipole orders
       read(100,*,err=1100) Krad
 
+      ! Sanity check
       if (Krad.lt.0.or.Krad.gt.2) Krad = 2
+
+      ! Initialize K limit for transitions
       Kradl = Krad
 
-      ! Store J symbols
+      ! Store J symbols in memoization
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%memo = .True.
-      else
-        Input%memo = .False.
-      end if
+      Input%memo = cdump.eq.'Y'
 
-      ! Store photoionization quantities
+      ! Store photoionization quantities in RAM
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        PIRAM = .True.
-      else
-        PIRAM = .False.
-      end if
+      PIRAM = cdump.eq.'Y'
 
       ! Type of intensity Voigt profile
       read(100,*,err=1100) VOITY
 
       ! Store Voigt profiles for intensity in RAM
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        VIRAM = .True.
-      else
-        VIRAM = .False.
-      end if
+      VIRAM = cdump.eq.'Y'
 
-      ! Store Voigt profiles for intensity in file
+      ! Store Voigt profiles for intensity in RAM for LTE lines
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        VIFIL = .True.
-      else
-        VIFIL = .False.
-      end if
+      LVIRAM = cdump.eq.'Y'
 
-      ! Change RAM if yes file
-      if(VIFIL.and.VIRAM)then
-        VIRAM = .False.
-        if (pid.eq.0) then
-          umsg = ' - You have chosen to store the intensity '// &
-                 'Voigt profiles in a file, so storing them '// &
-                 'in RAM has been disabled'
-          call verbose
-        end if
-      end if
-
-      ! Store Voigt profiles for intensity in RAM for LTE
-      read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        LVIRAM = .True.
-      else
-        LVIRAM = .False.
-      end if
-
-      ! Change RAM if no profiles
-      if(.not.(VIRAM.or.VIFIL).and.LVIRAM) LVIRAM = .False.
+      ! Do not store for LTE lines if not storing for active lines
+      if (.not.VIRAM.and.LVIRAM) LVIRAM = .False.
 
       ! Store Voigt profiles for polarization in RAM
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        VPRAM = .True.
-      else
-        VPRAM = .False.
-      end if
+      VPRAM = cdump.eq.'Y'
 
-      ! Store Voigt profiles for polarization in file
+      ! Store Voigt profiles for polarization in RAM for LTE lines
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        VPFIL = .True.
-      else
-        VPFIL = .False.
-      end if
+      LVPRAM = cdump.eq.'Y'
 
-      ! Change RAM if yes file
-      if(VPFIL.and.VPRAM)then
-        VPRAM = .False.
-        if (pid.eq.0) then
-          umsg = ' - You have chosen to store the Voigt '// &
-                 'profiles in a file, so storing them in RAM has '// &
-                 'been disabled'
-          call verbose
-        end if
-      end if
-
-      ! Store Voigt profiles for intensity in RAM for LTE
-      read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        LVPRAM = .True.
-      else
-        LVPRAM = .False.
-      end if
-
-      ! Change RAM if no profiles
-      if (.not.(VPRAM.or.VPFIL).and.LVPRAM) LVPRAM = .False.
+      ! Do not store for LTE lines if not storing for active lines
+      if (.not.VPRAM.and.LVPRAM) LVPRAM = .False.
 
       ! Limit in RAM for profiles
       read(100,*,err=1100) RLIM
 
+      ! Arbitrary limit
       if (RLIM.lt.0) RLIM = 1000000000
 
       ! If we need to report on RAM use
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%RAMreport = .True.
-      else
-        Input%RAMreport = .False.
-      endif
+      Input%RAMreport = cdump.eq.'Y'
 
       ! Raman scattering
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%Raman = .True.
-      else
-        Input%Raman = .False.
-      endif
+      Input%Raman = cdump.eq.'Y'
 
       ! Non coherent lower term
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        NCHLT = .True.
-      else
-        NCHLT = .False.
-      endif
+      NCHLT = cdump.eq.'Y'
+
+      ! Restrict redistribution in height
+      read(100,*,err=1100) cdump
+      Input%rest_z_red = cdump.eq.'Y'
+
+      ! Minimum z for PRD
+      if (Input%rest_z_red) &
+        read(100,*,err=1100) Input%r1z_prd
+
+      ! Restrict redistribution in tau_c
+      read(100,*,err=1100) cdump
+      Input%rest_tau_red = cdump.eq.'Y'
+
+      ! Maximum tau for PRD
+      if (Input%rest_tau_red) &
+        read(100,*,err=1100) Input%r1tc_prd
 
       ! Coherent wings in the observers frame
       read(100,*,err=1100) Input%dcohw
@@ -1067,94 +724,29 @@
       read(100,*,err=1100) Input%dcohwi
       Input%cohwi = Input%dcohwi.gt.0d0
 
+      ! Type of interpolation to convert to the observer's
+      ! frame
+      read(100,*,err=1100) Input%PRD_int_mode
+
       ! Type of redistribution (AA or not)
       read(100,*,err=1100) cdump
-      if(cdump.eq.'A')then
-        Input%AV = .True.
-      else
-        Input%AV = .False.
-      endif
+      Input%AV = cdump.eq.'A'
       AV = Input%AV
 
       ! Force angle-averaged intensity redistribution
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%AVI = .True.
-      else
-        Input%AVI = .False.
-      endif
-      ! Either by force or because the problem is
+      Input%AVI = cdump.eq.'Y'
+
+      ! Either by force or because the problem is that way
       AVI = Input%AVI.or.AV
 
       ! Store Wfunc for intensity in RAM
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        IRAM = .True.
-      else
-        IRAM = .False.
-      end if
-
-      ! Store Wfunc for intensity in file
-      read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        WIFIL = .True.
-      else
-        WIFIL = .False.
-      end if
-
-      ! Change RAM if yes file
-      if(WIFIL.and.IRAM)then
-        IRAM = .False.
-        if (pid.eq.0) then
-          umsg = ' - You have chosen to store the intensity '// &
-                 'redistribution in a file, so storing them '// &
-                 'in RAM has been disabled'
-          call verbose
-        end if
-      end if
+      IRAM = cdump.eq.'Y'
 
       ! Store Wfunc for polarization in RAM
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        PRAM = .True.
-      else
-        PRAM = .False.
-      end if
-
-      ! Store Wfunc in file
-      read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        WPFIL = .True.
-      else
-        WPFIL = .False.
-      end if
-
-      ! Store interpolation data for intensity
-      read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        TIRAM = .True.
-      else
-        TIRAM = .False.
-      end if
-
-      ! Store interpolation data for polarization
-      read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        TPRAM = .True.
-      else
-        TPRAM = .False.
-      end if
-
-      ! Change RAM if yes file
-      if(WPFIL.and.PRAM)then
-        PRAM = .False.
-        if (pid.eq.0) then
-          umsg = ' - You have chosen to store the '// &
-                 'redistribution in a file, so storing them '// &
-                 'in RAM has been disabled'
-          call verbose
-        end if
-      end if
+      PRAM = cdump.eq.'Y'
 
       ! Directional nodes for angle average redistribution
       read(100,*,err=1100) Input%nThAA
@@ -1210,8 +802,9 @@
 
       ! Type of Doppler width to build output frequency axis
       read(100,*,err=1100) Input%dws
+
       ! If the input is flagged as numeric, read the number
-      if(Input%dws.eq.'NUM')read(100,*) Input%dw
+      if (Input%dws.eq.'NUM') read(100,*) Input%dw
 
       ! Force microturbulence
       read(100,*,err=1100) Input%fvmicro
@@ -1230,43 +823,23 @@
 
       ! Force unmagnetized
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%unmagnetized = .True.
-      else
-        Input%unmagnetized = .False.
-      end if
+      Input%unmagnetized = cdump.eq.'Y'
 
       ! Force static
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%static = .True.
-      else
-        Input%static = .False.
-      end if
+      Input%static = cdump.eq.'Y'
 
       ! Force static intensity
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%static_int = .True.
-      else
-        Input%static_int = .False.
-      end if
+      Input%static_int = cdump.eq.'Y'
 
       ! Skip star disk
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%skip_disk = .True.
-      else
-        Input%skip_disk = .False.
-      end if
+      Input%skip_disk = cdump.eq.'Y'
 
       ! Initialize radiation field with b-b transitions
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%init_J_bb = .True.
-      else
-        Input%init_J_bb = .False.
-      end if
+      Input%init_J_bb = cdump.eq.'Y'
 
       ! Index of first iteration
       read(100,*,err=1100) Input%iter_min
@@ -1278,21 +851,16 @@
 
       ! Order of emissivity
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
+      PRD = cdump.eq.'Y'
+      if (PRD) then
         Input%iter_ord = 2
-        PRD = .True.
       else
         Input%iter_ord = 1
-        PRD = .False.
       end if
 
       ! If solving in two steps
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%two_step_pol = .True.
-      else
-        Input%two_step_pol = .False.
-      end if
+      Input%two_step_pol = cdump.eq.'Y'
 
       ! Maximum relative change to consider convergence
       read(100,*,err=1100) Input%mrcj
@@ -1303,42 +871,49 @@
       ! Iterations of radiation field
       read(100,*,err=1100) Input%iter_j
 
-      ! PRD internal iterations
+      ! PRD internal iterations (intensity)
       read(100,*,err=1100) Input%iteri_prd
+
+      ! Sanity check
       if (Input%iteri_prd.lt.1) Input%iteri_prd = 1
       if (Input%iteri_prd.gt.99) Input%iteri_prd = 99
+
+      ! PRD internal iterations MRC
       read(100,*,err=1100) Input%mrci_r
+
+      ! PRD internal iterations
+      read(100,*,err=1100) Input%iter_prd
+
+      ! Sanity check
+      if (Input%iter_prd.lt.1) Input%iter_prd = 1
+      if (Input%iter_prd.gt.99) Input%iter_prd = 99
+
+      ! PRD internal iterations MRC
+      read(100,*,err=1100) Input%mrc_r
+      read(100,*,err=1100) Input%mrc_p_r
 
       ! NG acceleration
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%NG = .True.
-      else
-        Input%NG = .False.
-      endif
+      Input%NG = cdump.eq.'Y'
 
       ! NG acceleration order
       read(100,*,err=1100) Input%NG_ord
-      if (Input%NG_ord.lt.1.or.Input%NG_ord.gt.5) then
-        Input%NG = .False.
-      end if
+
+      ! Sanity check order
+      if (Input%NG_ord.lt.1.or.Input%NG_ord.gt.5) Input%NG = .False.
 
       ! NG acceleration delay
       read(100,*,err=1100) Input%NG_delay
 
       ! NG acceleration for intensity
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%NGI = .True.
-      else
-        Input%NGI = .False.
-      endif
+      Input%NGI = cdump.eq.'Y'
 
       ! NG acceleration order for intensity
       read(100,*,err=1100) Input%NGI_ord
-      if (Input%NGI_ord.lt.1.or.Input%NGI_ord.gt.5) then
-        Input%NGI = .False.
-      end if
+
+      ! Sanity check order
+      if (Input%NGI_ord.lt.1.or.Input%NGI_ord.gt.5) Input%NGI = .False.
 
       ! NG acceleration delay for intensity
       read(100,*,err=1100) Input%NGI_delay
@@ -1351,93 +926,79 @@
 
       ! ALI force
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%ALI_force = .True.
-      else
-        Input%ALI_force = .False.
-      endif
+      Input%ALI_force = cdump.eq.'Y'
 
-      ! Append into the MRC files
+      ! Append into the MRC file
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%appendMRC = .True.
-      else
-        Input%appendMRC = .False.
-      endif
+      Input%appendMRC = cdump.eq.'Y'
+
+      ! Append into the MRC file for intensity
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%appendMRCI = .True.
-      else
-        Input%appendMRCI = .False.
-      endif
+      Input%appendMRCI = cdump.eq.'Y'
 
-      ! Type of broadcasting
-      read(100,*,err=1100) ia
-      if(ia.eq.0)then
-        Input%altbcast = .False.
-      else
-        Input%altbcast = .True.
-      end if
-
-      ! Non physical Stokes and rho
+      ! Allowed iterations with non-physical Stokes, rho, and populations
       read(100,*,err=1100) Input%allownphys_stk
       read(100,*,err=1100) Input%allownphys_rho
       read(100,*,err=1100) Input%allownphys_pop
 
-      ! Solution Box
+      ! Solution Box in 1.5D or inversion modes
       if(run_mode.eq.1.or.run_mode.eq.-1) then
+
+        ! Allocate and read
         allocate(Input%sol_box(4))
+        MRAMc = MRAMc + 1d-6*sizeof(Input%sol_box(4))
         read(100,*,err=1100) Input%sol_box
+
+      ! Otherwise
       else
+
+        ! Read dummy values
         read(100,*,err=1100) ios
         read(100,*,err=1100) ios
         read(100,*,err=1100) ios
         read(100,*,err=1100) ios
-      end if
+
+      end if ! Solution box
 
       ! Excluded pixels
       read(100,*,err=1100) Input%nexcl
-      if (Input%nexcl.gt.0) then
+      Input%lexcl = Input%nexcl.gt.0
+
+      ! If there are excluded pixels
+      if (Input%lexcl) then
+
+        ! Allocate space
         allocate(Input%excl(2,Input%nexcl))
+        MRAMC = MRAMc + 1d-6*sizeof(Input%excl)
+
+        ! Read excluded pixels
         do i1=1,Input%nexcl
           read(100,*,err=1100) Input%excl(:,i1)
         end do
-        Input%lexcl = .True.
-      else
-        Input%lexcl = .False.
-      end if
+
+      end if ! There are excluded pixels
 
       ! Steps between storing solution
       read(100,*,err=1100) Input%store_step
-      if(Input%store_step.lt.1)then
-        Input%store = .False.
-        Input%store_step = 1
-      else
-        Input%store = .True.
-      end if
+      Input%store = Input%store_step.ge.1
+
+      ! Correct dummy number
+      if (.not.Input%store) Input%store_step = 1
+
+      ! Steps between storing solution in intensity problem
       read(100,*,err=1100) Input%storei_step
-      if(Input%storei_step.lt.1)then
-        Input%storeI = .False.
-        Input%storei_step = 1
-      else
-        Input%storeI = .True.
-      end if
+      Input%storeI = Input%storei_step.ge.1
+
+      ! Correct dummy number
+      if (.not.Input%storeI) Input%storei_step = 1
 
       ! Output contribution function
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%out_contr = .True.
-      else
-        Input%out_contr = .False.
-      end if
+      Input%out_contr = cdump.eq.'Y'
 
       ! Output tau=1 height
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%out_tau1 = .True.
-      else
-        Input%out_tau1 = .False.
-      end if
+      Input%out_tau1 = cdump.eq.'Y'
 
       ! Keep background
       read(100,*,err=1100) cdump
@@ -1449,215 +1010,227 @@
 
       ! Keep damp
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%keep_damp = .True.
-      else
-        Input%keep_damp = .False.
-      end if
+      Input%keep_damp = cdump.eq.'Y'
 
       ! Keep qel
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%keep_qel = .True.
-      else
-        Input%keep_qel = .False.
-      end if
+      Input%keep_qel = cdump.eq.'Y'
 
-      ! Keep a parameters
+      ! Keep equivalent-parametric damping parameters
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%keep_aparam = .True.
-      else
-        Input%keep_aparam = .False.
-      end if
+      Input%keep_aparam = cdump.eq.'Y'
 
       ! Keep cols
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%keep_cols = .True.
-      else
-        Input%keep_cols = .False.
-      end if
+      Input%keep_cols = cdump.eq.'Y'
 
       ! Keep atmo
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%keep_atmo = .True.
-      else
-        Input%keep_atmo = .False.
-      end if
+      Input%keep_atmo = cdump.eq.'Y'
 
       ! Keep pop
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%keep_pop = .True.
-      else
-        Input%keep_pop = .False.
-      end if
+      Input%keep_pop = cdump.eq.'Y'
 
       ! Keep dep
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%keep_dep = .True.
-      else
-        Input%keep_dep = .False.
-      end if
+      Input%keep_dep = cdump.eq.'Y'
 
       ! Keep rhoKQ
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%keep_rhoKQ = .True.
-      else
-        Input%keep_rhoKQ = .False.
-      end if
+      Input%keep_rhoKQ = cdump.eq.'Y'
 
       ! Keep JKQ
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%keep_JKQ = .True.
-      else
-        Input%keep_JKQ = .False.
-      end if
+      Input%keep_JKQ = cdump.eq.'Y'
 
       ! Keep stokes in quadrature
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%keep_stokesQ = .True.
-      else
-        Input%keep_stokesQ = .False.
-      end if
+      Input%keep_stokesQ = cdump.eq.'Y'
 
       ! Keep JKQnu
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%keep_jkqnu = .True.
-      else
-        Input%keep_jkqnu = .False.
-      end if
+      Input%keep_jkqnu = cdump.eq.'Y'
 
       ! Keep MRC
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%keep_MRC = .True.
-      else
-        Input%keep_MRC = .False.
-      end if
+      Input%keep_MRC = cdump.eq.'Y'
 
       ! Keep COL log
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%keep_coll = .True.
-      else
-        Input%keep_coll = .False.
-      end if
+      Input%keep_coll = cdump.eq.'Y'
 
       ! Keep MPI log
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%keep_mpil = .True.
-      else
-        Input%keep_mpil = .False.
-      end if
+      Input%keep_mpil = cdump.eq.'Y'
 
       ! Keep MPI detail log
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%keep_mpidl = .True.
-      else
-        Input%keep_mpidl = .False.
-      end if
+      Input%keep_mpidl = cdump.eq.'Y'
 
       ! Limit Stokes output
       read(100,*,err=1100) Input%lim_stk%nran
+
+      ! If ranges to limit Stokes output
       if (Input%lim_stk%nran.gt.0) then
+
+        ! Allocate space
         allocate(Input%lim_stk%doub(2,Input%lim_stk%nran))
+        MRAMc = MRAMc + 1d-6*sizeof(Input%lim_stk%doub)
+
+        ! And read data
         do i1=1,Input%lim_stk%nran
           read(100,*,err=1100) Input%lim_stk%doub(1,i1)
           read(100,*,err=1100) Input%lim_stk%doub(2,i1)
         end do
-      end if
+
+      end if ! Ranges to limit Stokes output
 
       ! Limit contribution output
       read(100,*,err=1100) Input%lim_ctr%nran
+
+      ! If ranges to limit contribution output
       if (Input%lim_ctr%nran.gt.0) then
+
+        ! Allocate space
         allocate(Input%lim_ctr%doub(2,Input%lim_ctr%nran))
+        MRAMc = MRAMc + 1d-6*sizeof(Input%lim_ctr%doub)
+
+        ! And read data
         do i1=1,Input%lim_ctr%nran
           read(100,*,err=1100) Input%lim_ctr%doub(1,i1)
           read(100,*,err=1100) Input%lim_ctr%doub(2,i1)
         end do
-      end if
+
+      end if ! Ranges to limit contribution output
 
       ! Limit tau output
       read(100,*,err=1100) Input%lim_tau%nran
+
+      ! If ranges to limit tau output
       if (Input%lim_tau%nran.gt.0) then
-          allocate(Input%lim_tau%doub(2,Input%lim_tau%nran))
+
+        ! Allocate space
+        allocate(Input%lim_tau%doub(2,Input%lim_tau%nran))
+        MRAMc = MRAMc + 1d-6*sizeof(Input%lim_tau%doub)
+
+        ! And read data
         do i1=1,Input%lim_tau%nran
           read(100,*,err=1100) Input%lim_tau%doub(1,i1)
           read(100,*,err=1100) Input%lim_tau%doub(2,i1)
         end do
-      end if
+
+      end if ! Ranges to limit tau output
 
       ! Limit cols-TT output
       read(100,*,err=1100) Input%lim_cols_tt%nran
+
+      ! If ranges to limit cols-TT output
       if (Input%lim_cols_tt%nran.gt.0) then
+
+        ! Allocate space
         allocate(Input%lim_cols_tt%indx(3,Input%lim_cols_tt%nran))
+        MRAMc = MRAMc + 1d-6*sizeof(Input%lim_cols_tt%indx)
+
+        ! And read data
         do i1=1,Input%lim_cols_tt%nran
           read(100,*,err=1100) Input%lim_cols_tt%indx(1,i1)
           read(100,*,err=1100) Input%lim_cols_tt%indx(2,i1)
           read(100,*,err=1100) Input%lim_cols_tt%indx(3,i1)
         end do
-      end if
 
-      ! Limit cols-ll output
+      end if ! Ranges to limit cols-TT output
+
+      ! Limit cols-LL output
       read(100,*,err=1100) Input%lim_cols_ll%nran
+
+      ! If ranges to limit cols-LL output
       if (Input%lim_cols_ll%nran.gt.0) then
+
+        ! Allocate space
         allocate(Input%lim_cols_ll%indx(3,Input%lim_cols_ll%nran))
+        MRAMc = MRAMc + 1d-6*sizeof(Input%lim_cols_ll%indx)
+
+        ! And read data
         do i1=1,Input%lim_cols_ll%nran
           read(100,*,err=1100) Input%lim_cols_ll%indx(1,i1)
           read(100,*,err=1100) Input%lim_cols_ll%indx(2,i1)
           read(100,*,err=1100) Input%lim_cols_ll%indx(3,i1)
         end do
-      end if
 
-      ! Limit damp output
+      end if ! Ranges to limit cols-LL output
+
+      ! Limit damping parameter output
       read(100,*,err=1100) Input%lim_damp%nran
+
+      ! If ranges to limit damping parameter output
       if (Input%lim_damp%nran.gt.0) then
+
+        ! Allocate
         allocate(Input%lim_damp%indx(2,Input%lim_damp%nran))
+        MRAMc = MRAMc + 1d-6*sizeof(Input%lim_damp%indx)
+
+        ! And read data
         do i1=1,Input%lim_damp%nran
           read(100,*,err=1100) Input%lim_damp%indx(1,i1)
           read(100,*,err=1100) Input%lim_damp%indx(2,i1)
         end do
-      end if
 
-      ! Limit qel output
+      end if ! Ranges to limit damping parameter output
+
+      ! Limit elastic collisional rates output
       read(100,*,err=1100) Input%lim_qel%nran
+
+      ! If ranges to limit elastic collisional rates output
       if (Input%lim_qel%nran.gt.0) then
+
+        ! Allocate
         allocate(Input%lim_qel%indx(2,Input%lim_qel%nran))
+        MRAMc = MRAMc + 1d-6*sizeof(Input%lim_qel%indx)
+
+        ! And read data
         do i1=1,Input%lim_qel%nran
           read(100,*,err=1100) Input%lim_qel%indx(1,i1)
           read(100,*,err=1100) Input%lim_qel%indx(2,i1)
         end do
-      end if
 
-      ! Limit back output
+      end if ! Ranges to limit elastic collisional rates output
+
+      ! Limit background output
       read(100,*,err=1100) Input%lim_back%nran
+
+      ! If ranges to limit background output
       if (Input%lim_back%nran.gt.0) then
-          allocate(Input%lim_back%doub(2,Input%lim_back%nran))
+
+        ! Allocate
+        allocate(Input%lim_back%doub(2,Input%lim_back%nran))
+        MRAMc = MRAMc + 1d-6*sizeof(Input%lim_back%doub)
+
+        ! And read data
         do i1=1,Input%lim_back%nran
           read(100,*,err=1100) Input%lim_back%doub(1,i1)
           read(100,*,err=1100) Input%lim_back%doub(2,i1)
         end do
-      end if
 
-      ! Limit pop output
+      end if ! Ranges to limit background output
+
+      ! Limit population output
       read(100,*,err=1100) Input%lim_pop%nran
+
+      ! If ranges to limit population output
       if (Input%lim_pop%nran.gt.0) then
-          allocate(Input%lim_pop%indx(2,Input%lim_pop%nran))
+
+        ! Allocate
+        allocate(Input%lim_pop%indx(2,Input%lim_pop%nran))
+        MRAMc = MRAMc + 1d-6*sizeof(Input%lim_pop%indx)
+
+        ! And read data
         do i1=1,Input%lim_pop%nran
           read(100,*,err=1100) Input%lim_pop%indx(1,i1)
           read(100,*,err=1100) Input%lim_pop%indx(2,i1)
         end do
-      end if
+
+      end if ! Ranges to limit population output
 
       ! Recalculate electron density
       read(100,*,err=1100) Input%redo_ne
@@ -1669,58 +1242,26 @@
       ! Keep input Hydrogen densities (atmos or atmo) after
       ! equation of state
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%protect_H = .True.
-      else
-        Input%protect_H = .False.
-      end if
+      Input%protect_H = cdump.eq.'Y'
 
       ! Do not change the atomic populations in the
       ! chemical equilibrium
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%chem_protect_all = .True.
-      else
-        Input%chem_protect_all = .False.
-      end if
+      Input%chem_protect_all = cdump.eq.'Y'
 
       ! Write general performance
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%g_perf = .True.
-      else
-        Input%g_perf = .False.
-      endif
+      Input%g_perf = cdump.eq.'Y'
 
       ! Write MPI performance
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%mpi_perf = .True.
-      else
-        Input%mpi_perf = .False.
-      endif
-
-      ! Read MPI detailed file
-      read(100,*,err=1100) Input%MPIdetail
-
-      ! Read previous performance file
-      read(100,*,err=1100) Input%operform
-
-      ! Read if skipping first iteration in performance
-      read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        Input%IWskip = .True.
-      else
-        Input%IWskip = .False.
-      endif
+      Input%mpi_perf = cdump.eq.'Y'
 
       ! Verbosity
       read(100,*,err=1100) cdump
-      if(cdump.eq.'Y')then
-        verbosity = .True.
-      else
-        verbosity = .False.
-      endif
+      verbosity = cdump.eq.'Y'
+
+      ! Verbosity file
       verbosef = trim(Input%folder)//'/verbose'
 
       ! This MUST be false if not inverting
@@ -1731,7 +1272,7 @@
       !
       if (Input%run_mode.eq.-1) then
 
-        ! Allocations
+        ! Allocation of inversion inputs
         allocate(Input%Node_type(Input%nvar))
         allocate(Input%Node(Input%nvar))
         allocate(Input%Num_nodes(Input%nvar))
@@ -1742,6 +1283,16 @@
         allocate(Input%Scal(Input%nvar))
         allocate(Input%Perturb(Input%nvar))
         allocate(Input%min_rel_Pert(Input%nvar))
+        MRAMc = MRAMc + 1d-6*(sizeof(Input%Node_type) + &
+                              sizeof(Input%Node) + &
+                              sizeof(Input%Num_nodes) + &
+                              sizeof(Input%Nodes_flags) + &
+                              sizeof(Input%Nodes_Regul) + &
+                              sizeof(Input%Indx_regul) + &
+                              sizeof(Input%Regul_weight) + &
+                              sizeof(Input%Scal) + &
+                              sizeof(Input%Perturb) + &
+                              sizeof(Input%min_rel_Pert))
 
         ! Verbosity level
         read(100,*,err=1100) vlevel
@@ -1755,11 +1306,7 @@
 
         ! Automatic Stokes weights
         read(100,'(A)',err=1100) cdump
-        if(cdump.eq.'Y')then
-          Input%auto_weight = .True.
-        else
-          Input%auto_weight = .False.
-        endif
+        Input%auto_weight = cdump.eq.'Y'
 
         ! If weights automatic
         if (Input%auto_weight) then
@@ -1779,6 +1326,7 @@
 
             ! Allocate
             allocate(Input%Weight(0:5,Input%Num_Weight))
+            MRAMc = MRAMc + 1d-6*sizeof(Input%Weight)
 
             ! For each set of weights
             do i1=1,Input%Num_Weight
@@ -1791,7 +1339,7 @@
           read(100,*,err=1100) i1
           Input%linv_weight = i1.ne.0
 
-          ! If file
+          ! If file, read
           if (Input%linv_weight) &
             read(100,'(A)',err=1100) Input%inv_weight
 
@@ -1803,6 +1351,7 @@
 
             ! Allocate
             allocate(Input%Weight_Factor(4,ios))
+            MRAMc = MRAMc + 1d-6*sizeof(Input%Weight_Factor)
 
             ! Read entries
             do i1=1,ios
@@ -1820,11 +1369,7 @@
 
         ! Centered derivative
         read(100,'(A)',err=1100) cdump
-        if(cdump.eq.'Y')then
-          Input%centered = .True.
-        else
-          Input%centered = .False.
-        endif
+        Input%centered = cdump.eq.'Y'
 
         ! Maximum iterations
         read(100,*,err=1100) Input%Num_Iter
@@ -1851,11 +1396,12 @@
 
             ! Allocate space for nodes
             allocate(Input%Node(i1)%H(Input%Num_nodes(i1)))
+            MRAMc = MRAMc + 1d-6*sizeof(Input%Node(i1)%H)
 
             ! And read positions
             read(100,*,err=1100) Input%Node(i1)%H
 
-          end if
+          end if ! Explicit locations
 
         end do ! For each variable
 
@@ -1868,36 +1414,36 @@
         ! Flag each variable as changing or not
         do i1=1,Input%nvar
 
-          ! Read string and assign the negative
+          ! Read string and changes if not fixed and non-zero nodes
           read(100,'(A)',err=1100) cdump
-          if (cdump.eq.'Y') then
-            Input%Nodes_Flags(i1) = .False.
-          else
-            ! True only if there are nodes
-            Input%Nodes_Flags(i1) = Input%Num_nodes(i1).gt.0
-          end if
+          Input%Nodes_Flags(i1) = Input%Num_nodes(i1).gt.0.and. &
+                                  .not.(cdump.eq.'Y')
 
         end do ! For each variable
 
         ! Flag to correct positions
         read(100,'(A)',err=1100) cdump
-        if (cdump.eq.'Y') then
-          Input%Pos_Correction = .True.
-        else
-          Input%Pos_Correction = .False.
-        end if
+        Input%Pos_Correction = cdump.eq.'Y'
 
         ! Regularization type
         do i1=1,Input%nvar
 
           ! Read index
           read(100,*,err=1100) Input%Indx_regul(i1)
+
           ! If not none
           if (Input%Indx_regul(i1).gt.0) then
+
+            ! Read
             read(100,*,err=1100) Input%Regul_weight(i1)
+
+          ! No regularization
           else
+
+            ! No weight
             Input%Regul_weight(i1) = 0d0
-          end if
+
+          end if ! Non-none regularization
 
         end do ! Variables
 
@@ -1907,7 +1453,7 @@
         ! Regularization factor
         read(100,*,err=1100) Input%Regul_factor
 
-        ! CHI2 Threshold
+        ! Chi2 Threshold
         read(100,*,err=1100) Input%Threshold_chisq
 
         ! Inversion MRC
@@ -1921,7 +1467,7 @@
 
         ! Type of calculation for pressure
         read(100,*,err=1100) i1
-        if (i1.eq.1) Input%hydroeq = .True.
+        Input%hydroeq = i1.eq.1
 
         ! Boundary value for the pressure
         read(100,*,err=1100) Input%Pg_bound
@@ -1971,6 +1517,8 @@
           ! Allocate structures and names
           allocate(Input%lim_fwhm(ios))
           allocate(Input%fwhm_fil(ios))
+          MRAMc = MRAMc + 1d-6*(sizeof(Input%lim_fwhm) + &
+                                sizeof(Input%fwhm_fil))
 
           ! For each range
           do i1=1,ios
@@ -1981,7 +1529,7 @@
             ! Read type
             read(100,*,err=1100) i2
 
-            ! Gaussian?
+            ! Check if Gaussian
             Input%lim_fwhm(i1)%gaussian = i2.eq.0
 
             ! If gaussian
@@ -1989,6 +1537,7 @@
 
               ! Allocate doubles
               allocate(Input%lim_fwhm(i1)%doub(3))
+              MRAMc = MRAMc + 1d-6*sizeof(Input%lim_fwhm(i1)%doub)
 
               ! Read entry
               read(100,*,err=1100) Input%lim_fwhm(i1)%doub
@@ -1998,6 +1547,7 @@
 
               ! Allocate doubles
               allocate(Input%lim_fwhm(i1)%doub(2))
+              MRAMc = MRAMc + 1d-6*sizeof(Input%lim_fwhm(i1)%doub)
 
               ! Read entry
               read(100,*,err=1100) Input%lim_fwhm(i1)%doub
@@ -2007,7 +1557,7 @@
 
             end if ! Gaussian
 
-          end do
+          end do ! For each range
 
         end if ! There is PSF to read
 
@@ -2033,13 +1583,15 @@
 
               ! Allocate special limits
               allocate(Input%Node(i1)%ebound(4,ios))
+              MRAMc = MRAMc + 1d-6*sizeof(Input%Node(i1)%ebound)
 
               ! Save number
               Input%Node(i1)%nebound = ios
 
-              ! Read boundaries
+              ! For each entry
               do i2=1,ios
 
+                ! Read limits and boundaries
                 read(100,*,err=1100) Input%Node(i1)%ebound(:,i2)
 
               end do ! Number of special boundaries
@@ -2079,11 +1631,7 @@
 
         ! Invert fractional Stokes
         read(100,'(A)',err=1100) cdump
-        if (cdump.eq.'Y') then
-          Input%Fractional = .True.
-        else
-          Input%Fractional = .False.
-        end if
+        Input%Fractional = cdump.eq.'Y'
 
         ! Range of tau for atmosphere
         read(100,*,err=1100) Input%Tau_Range
@@ -2097,6 +1645,7 @@
 
           ! Allocate
           allocate(Input%Atmo_strat(3,i1))
+          MRAMc = MRAMc + 1d-6*sizeof(Input%Atmo_strat)
 
           ! For each input
           do i2=1,i1
@@ -2110,11 +1659,7 @@
 
         ! Broyden in LM
         read(100,'(A)',err=1100) cdump
-        if (cdump.eq.'Y') then
-          Input%Broyden = .True.
-        else
-          Input%Broyden = .False.
-        end if
+        Input%Broyden = cdump.eq.'Y'
 
         ! Index of LM method
         read(100,*,err=1100) Input%LM_Method
@@ -2158,67 +1703,53 @@
         ! Project the B vector (negative strength values become
         ! negative polarity)
         read(100,'(A)',err=1100) cdump
-        if (cdump.eq.'Y') then
-          Input%Projection = .True.
-        else
-          Input%Projection = .False.
-        end if
+        Input%Projection = cdump.eq.'Y'
 
         ! Initialize from previous solution when computing
         ! response functions
         read(100,'(A)',err=1100) cdump
-        if (cdump.eq.'Y') then
-          Input%Popuinit = .True.
-        else
-          Input%Popuinit = .False.
-        end if
+        Input%Popuinit = cdump.eq.'Y'
 
         ! Neglect sigma
         read(100,'(A)',err=1100) cdump
-        if (cdump.eq.'Y') then
-          Input%Sigma_neglect = .True.
-        else
-          Input%Sigma_neglect = .False.
-        end if
+        Input%Sigma_neglect = cdump.eq.'Y'
 
         ! Keep RF
         read(100,'(A)',err=1100) cdump
-        if (cdump.eq.'Y') then
-          Input%Keep_RF = .True.
-        else
-          Input%Keep_RF = .False.
-        end if
+        Input%Keep_RF = cdump.eq.'Y'
 
         ! Steps between storing solution
         read(100,*,err=1100) Input%storeinv_step
-        if(Input%storeinv_step.lt.1)then
-          Input%storeinv = .False.
-          Input%storeinv_step = 1
-        else
-          Input%storeinv = .True.
-        end if
+        Input%storeinv = Input%storeinv_step.ge.1
+
+        ! Correct dummy number
+        if (.not.Input%storeinv) Input%storeinv_step = 1
 
         ! Force inversion frequencies
         read(100,'(A)',err=1100) cdump
-        if (cdump.eq.'Y') then
-          Input%force_inv_freq = .True.
-        else
-          Input%force_inv_freq = .False.
-        end if
+        Input%force_inv_freq = cdump.eq.'Y'
 
       end if ! Inversion mode
 
+      ! Close translated file
       close(100)
 
-      ! Correct NGI_delay and iterations if doing PRD
+      ! If doing PRD
       if (PRD) then
+
+        ! Correct NGI_delay and iterations if doing PRD
         Input%NGI_delay = Input%NGI_delay + Input%PRD_delay - 1
         Input%iteri_max = Input%iteri_max + Input%PRD_delay - 1
-      else
-        Input%PRD_delay = 0
-      end if
 
-      ! Get ID in character
+      ! CRD
+      else
+
+        ! No delay in PRD
+        Input%PRD_delay = 0
+
+      end if ! PRD/CRD
+
+      ! Get CPU ID in character
       write(CPUC,'(I0.5)') pid
 
       ! Store name for error files
@@ -2227,11 +1758,14 @@
       ! Control that everything went fine
       call control
 
-      ! Delete the temporal input file and communicate success
+      ! Master
       if(pid.eq.0) then
+
+        ! Delete the temporal input file and communicate success
         call system('rm tmp_input'//'_'//Input%ID)
         umsg = ' - Input read'
         call verbose
+
       end if
 
       return

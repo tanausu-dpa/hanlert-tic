@@ -5,153 +5,19 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Hao Li (IAC)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
+!     Hao Li (IAC/NSSCC)
 !  Start:
-!     04/17/2017
+!     17/04/2017
 !  Last version:
-!     10/04/2024 V3.0.16
+!     13/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     10/04/2024:   V3.0.16 - In CLE, point the velocity pointers to
-!                             the zero array is static in input (TdPA)
-!                           - The slab model now expects the velocity
-!                             in polar coordinates (TdPA)
-!
-!     02/23/2024:   V3.0.15 - Added the possibility to force a
-!                             constant microturbulence value (TdPA)
-!
-!     01/29/2024:   V3.0.14 - Removed electron mass density option in
-!                             3D models (TdPA)
-!                           - Bugfix: in 1D models, the input options
-!                             gas pressure and mass density were being
-!                             interpreted as electron pressure (TdPA)
-!
-!     09/21/2023:   V3.0.13 - For safety reasons, rAtmo must be
-!                             called by all processes in
-!                             MPI_COMM_WORLD (TdPA)
-!                           - Bugfix: Need to distinguish the run mode
-!                             to choose the correct verbose routine
-!                             to call in rAtmo (TdPA)
-!
-!     09/19/2023:   V3.0.12 - Bugfix: fix the MPI_BARRIER. In the
-!                             inverion mode, global master does not
-!                             read the model (HL)
-!
-!     07/06/2023:   V3.0.11 - Added gAtmo_Strat to process the
-!                             stratification inputs only once. Also
-!                             solved a bug in that source for the
-!                             alternative algorithm (TdPA)
-!
-!     07/03/2023:   V3.0.10 - Added iAtmo_p to nullify the pointers
-!                             in Atmosphere_class (TdPA)
-!                           - Added cAtmo to correctly copy a model
-!                             atmosphere (TdPA)
-!                           - Added gAtmo to generate a model
-!                             atmosphere from hardcoded
-!                             stratifications (TdPA)
-!                           - rAtmo now reads the type of model
-!                             before reading stratification (TdPA)
-!                           - Electron density is no longer a
-!                             recycled variable. It is also not
-!                             a pointer anymore (TdPA)
-!                           - Moved Atmo_Stratify to initinv_mod
-!                             module (TdPA)
-!
-!     04/27/2023:    V3.0.9 - Fixed repeated index for nested for
-!                             loops (TdPA)
-!
-!     04/26/2023:    V3.0.8 - Call algorithm proposed by Hao when
-!                             the previous one fails. I gave
-!                             preference to the other because, when
-!                             working, should be exact. I have not
-!                             seen instances of it not working, so
-!                             it should be revised (TdPA)
-!
-!     04/11/2023:    V3.0.7 - Fix a typo (HL)
-!                           - Sometimes it can not create a depth
-!                             stratification for the model. Another
-!                             method is adopted (HL)
-!
-!     03/21/2023:    V3.0.6 - Implemented generalized algorithm to
-!                             generate an stratification with thinner
-!                             sampling in specified regions (TdPA)
-!                           - Bugfix: wrongly referenced indexes when
-!                             defining the zero magnetic field in
-!                             rAtmo_frombuffer (TdPA)
-!
-!     03/08/2023:    V3.0.5 - Added Atmo_Stratify from the
-!                             TIC@hanlert_tic_mod.f90 module (TdPA)
-!
-!     11/24/2022:    V3.0.4 - The variable Input%atmo_char is stored
-!                             in the Atmo structure for CLE in
-!                             rAtmo_cle_prep and not in
-!                             rAtmo_cle (TdPA)
-!                           - Bugfix: Removed duplicated scaling of
-!                             the velocity in rAtmo_cle (TdPA)
-!
-!     10/25/2022:    V3.0.3 - Added rAtmo_cle_prep, rAtmo_cle_init,
-!                             and rAtmo_cle to deal with the CLE
-!                             case atmospheric files (TdPA)
-!
-!     07/13/2022:    V3.0.2 - Changed the intent type in
-!                             rAtmo_frombuffer because it needs to
-!                             keep data between calls (TdPA)
-!
-!     07/08/2022:    V3.0.1 - Always allocate Atmo%zeros and
-!                             Atmo%nH (TdPA)
-!
-!     06/29/2022:    V3.0.0 - To implement the 1.5D case the following
-!                             changes were needed:
-!                              o Atmo%v has changed to Atmo%vx,%vy,
-!                                and %vz.
-!                              o Need to nullify new pointers that are
-!                                not used in the pure 1D case.
-!                              o Added rAtmo_frombuffer to generate
-!                                the atomic structure from a vector
-!                                with the atmospheric data.
-!                             (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!
-!     03/05/2020:    V1.1.6 - Now initializes total number of hydrogen
-!                             and of atomic hydrogen separately (TdPA)
-!                           - If no number densities, everything is
-!                             initialized to zero (TdPA)
-!
-!     12/10/2019:    V1.1.5 - Bugfix: Heights were multiplied by 10^5
-!                             even for optical depth input (TdPA)
-!
-!     11/19/2019:    V1.1.4 - Removed checks in allocate and
-!                             deallocate calls (TdPA)
-!
-!     09/24/2019:    V1.1.3 - Added additional possibilities for the
-!                             density input (TdPA)
-!
-!     09/13/2019:    V1.1.2 - Added tau scale as a possible height
-!                             scale input, together with the
-!                             reference wavelength (TdPA)
-!
-!     06/11/2019:    V1.1.1 - The verbosity includes which model was
-!                             loaded (TdPA)
-!
-!     02/20/2019:    V1.1.0 - New verbosity (TdPA)
-!                           - Checks for success of python routine
-!                             and unit is now 100 (TdPA)
-!
-!     02/07/2019:    V1.0.2 - Bugfix: It could never be dynamic
-!                             because the speed that was being
-!                             compared with m/s was normalized to c
-!                             already, genious (TdPA)
-!
-!     09/14/2017:    V1.0.1 - Added a path and ID to the file (TdPA)
-!
-!     04/17/2017:    V1.0.0 - First version (TdPA)
+!     13/12/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -159,45 +25,52 @@
 !  Known bugs:
 !
 !    It allows for helium density input, but the code does nothing
-!  with that
+!  with those
 !
-!    It also has as an input the type of scale and log g, but the
-!  first only really allows for height axis and the second is not
-!  used.
+!    It allows as an input log g, but the it is not used in synthesis
+!
+!#####################################################################
+!#####################################################################
+!
+!  To do:
 !
 !#####################################################################
 !#####################################################################
 !
 !  Data:
 !
-!  iAtmo_p:
-!    Initialize the Atmosphere_class pointers by pointing them to
-!  null
+!  iAtmo_p
+!    Nullify pointers in Atmo_class structure
 !
-!  cAtmo:
+!  cBfield
+!    Create a copy of a the magnetic field stratification
+!
+!  cAtmo
 !    Create a copy of a model atmosphere
 !
-!  rAtmo:
-!    Read the atmospheric model from a file
+!  rAtmo
+!    Read a 1D atmospheric model from an ASCII file
 !
-!  gAtmo:
+!  gAtmo
 !    Setup a model atmosphere with the FALC or the FALP stratification
 !
-!  gAtmo_Strat:
-!    Generate an optical depth stratification from inputs
+!  gAtmo_Strat
+!    Generate an optical depth stratification from parameters
 !
-!  rAtmo_frombuffer:
-!    Generate the atmospheric model from a vector with the atmospheric
-!  data. It includes the magnetic field components
+!  rAtmo_frombuffer
+!    Interpret the atmospheric model data in a vectorial buffer
 !
-!  rAtmo_cle_prep:
-!    Prepare the Atmo structure to setup CLE LOS later
+!  rAtmo_cle_prep
+!    Prepare the Atmo structure in the main loop of the CLE synthesis
 !
-!  rAtmo_cle_init:
-!    Initialize the Atmo structure to quickly get data from buffer
+!  rAtmo_cle_init
+!    Interpret the position in space of the current CLE node from the
+!  vectorial buffer and setup the location of variables depending
+!  on the type of model
 !
-!  rAtmo_cle:
-!    Converts data from the buffer to the Atmo structure
+!  rAtmo_cle
+!    Interpret the atmospheric model data in a vectorial buffer in
+!  the CLE synthesis
 !
 !#####################################################################
 !#####################################################################
@@ -206,7 +79,7 @@
       ! Use
       use aborted_mod
       use commons_mod
-      use parameters_mod , only : c , me , TINYB , kb
+      use parameters_mod , only : c , me , TINYB , kb , TINYVEL
       use types_mod
 
       contains
@@ -220,7 +93,8 @@
       subroutine iAtmo_p(Atmo)
 
       ! I/O
-      type(Atmo_class):: Atmo
+
+      type(Atmo_class), intent(inout):: Atmo
 
       ! Nullify pointers
       nullify(Atmo%z,Atmo%T,Atmo%vmi,Atmo%vx,Atmo%vy,Atmo%vz)
@@ -233,17 +107,49 @@
 !#####################################################################
 !#####################################################################
 
+      !> Create a copy of a the magnetic field stratification\n
+      !!  Bin(Bfield_class): Structure to copy from\n
+      !!  Bou(Bfield_class): Structure to copy to
+      subroutine cBfield(Bin,Bou)
+
+      ! I/O
+
+      type(Bfield_class), intent(in):: Bin
+      type(Bfield_class), intent(out):: Bou
+
+
+      ! Routine name
+      urou = 'cBfield'
+
+      ! Hard copy
+      Bou = Bin
+
+      ! Memory count
+      if (allocated(Bou%Bstrength)) &
+        MRAMc = MRAMc + 3d-6*sizeof(Bou%Bstrength)
+      if (allocated(Bou%Blos)) &
+        MRAMc = MRAMc + 3d-6*sizeof(Bou%Blos)
+
+      end subroutine cBfield
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
       !> Create a copy of a model atmosphere\n
-      !!     Ain(Atmo_class): Structure to copy from\n
-      !!     Aou(Atmo_class): Structure to copy to
+      !!  Ain(Atmo_class): Structure to copy from\n
+      !!  Aou(Atmo_class): Structure to copy to
       subroutine cAtmo(Ain,Aou)
 
       ! I/O
+
       type(Atmo_class), intent(in):: Ain
       type(Atmo_class), intent(out):: Aou
 
       ! Local
+
       integer:: lnz
+
 
       ! Keep global
       lnz = nz
@@ -259,51 +165,61 @@
       if (associated(Ain%z)) then
         nullify(Aou%z)
         allocate(Aou%z(nz))
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%z)
         Aou%z = Ain%z
       end if
       if (associated(Ain%T)) then
         nullify(Aou%T)
         allocate(Aou%T(nz))
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%T)
         Aou%T = Ain%T
       end if
       if (associated(Ain%vmi)) then
         nullify(Aou%vmi)
         allocate(Aou%vmi(nz))
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%vmi)
         Aou%vmi = Ain%vmi
       end if
       if (associated(Ain%vx)) then
         nullify(Aou%vx)
         allocate(Aou%vx(nz))
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%vx)
         Aou%vx = Ain%vx
       end if
       if (associated(Ain%vy)) then
         nullify(Aou%vy)
         allocate(Aou%vy(nz))
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%vy)
         Aou%vy = Ain%vy
       end if
       if (associated(Ain%vz)) then
         nullify(Aou%vz)
         allocate(Aou%vz(nz))
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%vz)
         Aou%vz = Ain%vz
       end if
       if (associated(Ain%Bx)) then
         nullify(Aou%Bx)
         allocate(Aou%Bx(nz))
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%Bx)
         Aou%Bx = Ain%Bx
       end if
       if (associated(Ain%By)) then
         nullify(Aou%By)
         allocate(Aou%By(nz))
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%By)
         Aou%By = Ain%By
       end if
       if (associated(Ain%Bz)) then
         nullify(Aou%Bz)
         allocate(Aou%Bz(nz))
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%Bz)
         Aou%Bz = Ain%Bz
       end if
       if (associated(Ain%zeros)) then
         nullify(Aou%zeros)
         allocate(Aou%zeros(nz))
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%zeros)
         Aou%zeros = Ain%zeros
       end if
       nullify(Aou%vxa)
@@ -317,6 +233,53 @@
       ! Return global
       nz = lnz
 
+      ! Count memory in ele
+      if (allocated(Aou%ele)) then
+        do lnz=1,size(Aou%ele)
+          if (allocated(Aou%ele(lnz)%Ei)) &
+            MRAMc = MRAMc - 1d-6*sizeof(Aou%ele(lnz)%Ei)
+          if (allocated(Aou%ele(lnz)%pf)) &
+            MRAMc = MRAMc - 1d-6*sizeof(Aou%ele(lnz)%pf)
+          MRAMc = MRAMc - 1d-6*sizeof(Aou%ele(lnz))
+        end do
+      end if
+
+      ! Count memory in arrays
+      if (allocated(Aou%nht)) &
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%nht)
+      if (allocated(Aou%nhm)) &
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%nhm)
+      if (allocated(Aou%Pg)) &
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%Pg)
+      if (allocated(Aou%rho)) &
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%rho)
+      if (allocated(Aou%Pe)) &
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%Pe)
+      if (allocated(Aou%zalt)) &
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%zalt)
+      if (allocated(Aou%nHa)) &
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%nHa)
+      if (allocated(Aou%pT)) &
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%pT)
+      if (allocated(Aou%abund)) &
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%abund)
+      if (allocated(Aou%JKQin)) &
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%JKQin)
+      if (allocated(Aou%ne)) &
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%ne)
+      if (allocated(Aou%vlos)) &
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%vlos)
+      if (allocated(Aou%vpos)) &
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%vpos)
+      if (allocated(Aou%vphi)) &
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%vphi)
+      if (allocated(Aou%chi500)) &
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%chi500)
+      if (allocated(Aou%nh)) &
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%nh)
+      if (allocated(Aou%nhe)) &
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%nhe)
+
       return
 
       end subroutine cAtmo
@@ -325,12 +288,12 @@
 !#####################################################################
 !#####################################################################
 
-      !> Reads a file with the atmospheric data.\n
-      !!   filename(character(:)): Name of the file to read\n
-      !!     source(character(:)): Path to the source code\n
-      !!         ID(character(:)): ID of this run\n
-      !!         Atmo(Atmo_class): Structure with atmospheric data\n
-      !!             fvmi(double): Forced microturbulence
+      !> Read a 1D atmospheric model from an ASCII file\n
+      !!  filename(character(:)): Name of the file to read\n
+      !!    source(character(:)): Path to the source code folder\n
+      !!        ID(character(:)): ID of this run\n
+      !!        Atmo(Atmo_class): Structure with atmospheric data\n
+      !!            fvmi(double): Forced microturbulence value
       subroutine rAtmo(filename,source,ID,Atmo,fvmi)
 
       ! I/O
@@ -343,9 +306,11 @@
       ! Local
 
       integer:: iz, ios
+
       double precision:: ikbcgs
       double precision, dimension(6):: ddump6
       double precision, dimension(4):: ddump4
+
 
       ! Routine name
       urou = 'rAtmo'
@@ -353,10 +318,7 @@
       ! Constant
       ikbcgs = 1d-7/kb
 
-
-      !
       ! Python translation of the model
-      !
       if(gpid.eq.0) call system('python '//trim(source)// &
                                'ratmo.py '//trim(filename)//' '// &
                                ID//' '//verbosef)
@@ -370,9 +332,10 @@
       ! Success
       read (100,*,err=1100) ios
 
-      ! If no correct file, abort
+      ! If no correct reading of file
       if (ios.lt.0) then
 
+        ! Abort
         umsg = 'Problem translating the atmospheric file'
         goto 1200
 
@@ -381,18 +344,15 @@
       ! Nullify pointers
       nullify(Atmo%zeros,Atmo%Bx,Atmo%By,Atmo%Bz)
 
-      ! Type of scale, log(g) [not used] and number of nodes
+      ! Type of scale, reference frequency, log(g), and number of
+      ! nodes
       read (100,*,err=1100) Atmo%scal
       read (100,*,err=1100) Atmo%tfreq
       read (100,*,err=1100) Atmo%logg
       read (100,*,err=1100) Atmo%nZ
 
-      ! Identify type of scale
-      if (Atmo%scal.eq.'T') then
-        ztau = .True.
-      else
-        ztau = .False.
-      end if
+      ! If optical depth scale
+      ztau = Atmo%scal.eq.'T'
 
       !
       ! Allocations
@@ -400,43 +360,53 @@
 
       ! Zeros
       allocate(Atmo%zeros(Atmo%nZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%zeros)
       Atmo%zeros = 0d0
 
       ! Height/tau axis
       allocate(Atmo%z(Atmo%nZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%z)
 
       ! Temperature
       allocate(Atmo%T(Atmo%nZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%T)
 
       ! Microturbulence
       allocate(Atmo%vmi(Atmo%nZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%vmi)
 
       ! Electron density
       allocate(Atmo%ne(Atmo%nZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%ne)
 
       ! Total hydrogen density
       allocate(Atmo%nht(Atmo%nZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nht)
       Atmo%nht = 0d0
 
       ! Atomic hydrogen density
       allocate(Atmo%nha(Atmo%nZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nha)
       Atmo%nha = 0d0
 
       ! H^- density
       allocate(Atmo%nhm(Atmo%nZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nhm)
       Atmo%nhm = 0d0
 
       ! Velocity vector (x,y,z)
       allocate(Atmo%vx(Atmo%nZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%vx)
       allocate(Atmo%vy(Atmo%nZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%vy)
       allocate(Atmo%vz(Atmo%nZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%vz)
 
       ! H density (5 HI levels + p+ density)
       allocate(Atmo%nh(Atmo%nZ,6))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nh)
 
-      !
       ! Read type of density
-      !
       read (100,*,err=1100) Atmo%typo
 
       !
@@ -455,7 +425,7 @@
 
       end do ! heights
 
-      ! If forced micro
+      ! If forced micro, apply it
       if (fvmi.ge.0d0) Atmo%vmi = fvmi
 
       !
@@ -497,6 +467,7 @@
 
           ! Just make a flag to know that there is no helium input
           allocate(Atmo%nhe(1,1))
+          MRAMc = MRAMc + 1d-6*sizeof(Atmo%nhe)
           Atmo%nhe(1,1) = -1
 
         ! If there is helium input
@@ -504,6 +475,7 @@
 
           ! Allocate the density array
           allocate(Atmo%nhe(Atmo%nZ,4))
+          MRAMc = MRAMc + 1d-6*sizeof(Atmo%nhe)
 
           ! For each height
           do iz=1,Atmo%nZ
@@ -528,6 +500,7 @@
 
         ! Just make a flag to know that there is no helium input
         allocate(Atmo%nhe(1,1))
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo%nhe)
         Atmo%nhe(1,1) = -1
 
         ! Electron density does not require changes
@@ -562,35 +535,23 @@
 
           ! Move into gas pressure
           allocate(Atmo%Pg(Atmo%nz))
+          MRAMc = MRAMc + 1d-6*sizeof(Atmo%Pg)
           Atmo%Pg = Atmo%ne
           Atmo%ne = 0d0
 
         !
-        ! Gas density
+        ! Mass density
         !
         else if (Atmo%typo.eq.5) then
 
-          ! Move into gas density
+          ! Move into mass density
           allocate(Atmo%rho(Atmo%nz))
+          MRAMc = MRAMc + 1d-6*sizeof(Atmo%rho)
           Atmo%rho = Atmo%ne
           Atmo%ne = 0d0
 
         end if ! No electron number density
       end if ! Type of input densities
-
-      !
-      ! Check if dynamic (yes if > 1m/s)
-      if (maxval(Atmo%vx*Atmo%vx + Atmo%vy*Atmo%vy + &
-                 Atmo%vz*Atmo%vz).gt.1d-6) then
-
-        dyn = .True.
-
-      else
-
-        dyn = .False.
-
-      end if ! dynamics
-
 
       !
       ! Unit conversions
@@ -605,6 +566,10 @@
       Atmo%vz = Atmo%vz*1d-6/c
       Atmo%vmi = Atmo%vmi*1d-6/c
 
+      ! Check if dynamic (yes if > 1m/s)
+      dyn = maxval(Atmo%vx*Atmo%vx + Atmo%vy*Atmo%vy + &
+                   Atmo%vz*Atmo%vz).gt.TINYVEL
+
       ! Allocs
       Atmo%alloc_a = .True.
       Atmo%alloc_b = .True.
@@ -615,16 +580,20 @@
       ! Control that everything went fine
       call control
 
-      ! Delete temporal input atmospheric file and communicate
+      ! Global master
       if(gpid.eq.0) then
+
+        ! Delete temporal input atmospheric file
         call system('rm tmp_atmo_'//ID)
+
+        ! Verbose
         umsg = ' - Atmosphere read: '//trim(filename)
         if (run_mode.eq.-1) then
           call verbosev
         else
           call verbose
         end if
-      end if
+      end if ! Global Master
 
       return
 
@@ -634,6 +603,7 @@
 1100  umsg = 'Error reading atmospheric file'
 1200  close(100)
       call aborted
+      return
 
       end subroutine rAtmo
 
@@ -641,12 +611,14 @@
 !#####################################################################
 !#####################################################################
 
-      !> Generate hard-coded atmospheric model data.\n
+      !> Setup a model atmosphere with the FALC or the FALP
+      !! stratification\n
       !!  Atmo(Atmo_class): Structure with atmospheric data\n
-      !!     init(integer): What hard-coded model to set-up
+      !!     init(integer): What hard-coded model to setup
       subroutine gAtmo(Atmo,init)
 
       ! I/O
+
       type(Atmo_class), intent(inout):: Atmo
       integer, intent(in):: init
 
@@ -657,9 +629,12 @@
       integer, target:: nzP = 66
 
       ! Pointers
+
       integer, pointer:: lnz
+
       double precision, dimension(:), pointer:: z,tau,T,ne,vmi
       double precision, dimension(:,:), pointer:: nh
+
 
       !
       !************** FAL-C atmosphere model
@@ -838,6 +813,8 @@
       !************** FAL-C atmosphere model
       !
 
+
+
       !
       !************** FAL-P atmosphere model
       !Fontenla et al. (1993), ApJ, 406, 319
@@ -1008,11 +985,14 @@
       !************** FAL-P atmosphere model
       !
 
+
       ! Routine name
       urou = 'gAtmo'
 
-      ! Initialize FALC
+      ! If FALC
       if (init.eq.0) then
+
+        ! Point to FALC model
         lnz => nzC
        !tau => TAUC
         z => HGHC
@@ -1020,8 +1000,11 @@
         ne => NeC
         nh => NHC
         vmi => VmiC
-      ! Initialize FALP
+
+      ! If FALP
       else if (init.eq.1) then
+
+        ! Point to FALP model
         lnz => nzP
        !tau => TAUP
         z => HGHP
@@ -1029,18 +1012,20 @@
         ne => NeP
         nh => NHP
         vmi => VmiP
-      end if
+
+      end if ! FALC or FALP
 
       ! Nullify pointers
       nullify(Atmo%zeros,Atmo%Bx,Atmo%By,Atmo%Bz)
 
-      ! Type of scale, log(g) and number of nodes
+      ! Type of scale, reference frequency, log(g), and number of
+      ! nodes
       Atmo%scal = 'H'
       Atmo%tfreq = 0.2d0
       Atmo%logg = 4.44d0
       Atmo%nZ = lnz
 
-      ! Identify type of scale
+      ! Set to geometrical scale
       ztau = .False.
 
       !
@@ -1049,43 +1034,57 @@
 
       ! Zeros
       allocate(Atmo%zeros(lnZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%zeros)
       Atmo%zeros = 0d0
 
       ! Height axis
       allocate(Atmo%z(lnZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%z)
 
       ! Temperature
       allocate(Atmo%T(lnZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%T)
 
       ! Microturbulence
       allocate(Atmo%vmi(lnZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%vmi)
 
       ! Electron density
       allocate(Atmo%ne(lnZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%ne)
 
       ! Total hydrogen density
       allocate(Atmo%nht(lnZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nht)
       Atmo%nht = 0d0
 
       ! Atomic hydrogen density
       allocate(Atmo%nha(lnZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nha)
       Atmo%nha = 0d0
 
       ! H^- density
       allocate(Atmo%nhm(lnZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nhm)
       Atmo%nhm = 0d0
 
       ! Velocity vector (x,y,z)
       allocate(Atmo%vx(lnZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%vx)
       allocate(Atmo%vy(lnZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%vy)
       allocate(Atmo%vz(lnZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%vz)
 
       ! H density (5 HI levels + p+ density)
       allocate(Atmo%nh(lnZ,6))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nh)
 
       !
       ! Read themodynamics
       !
+
+      ! Copy from pointers
       Atmo%z = z
       Atmo%T = T
       Atmo%ne = ne
@@ -1094,7 +1093,7 @@
       Atmo%vx = 0d0
       Atmo%vy = 0d0
 
-      ! Read type of density
+      ! Set type of density
       Atmo%typo = 0
 
       !
@@ -1117,6 +1116,7 @@
 
       ! Just make a flag to know that there is no helium input
       allocate(Atmo%nhe(1,1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nhe)
       Atmo%nhe(1,1) = -1
 
       ! Free pointers
@@ -1140,26 +1140,28 @@
 !#####################################################################
 !#####################################################################
 
-      !> Generate a stratification from Inputs\n
-      !!         Tau_min(double): Minimum optical depth\n
-      !!         Tau_max(double): Maximum optical depth\n
-      !!      Strat(double(:,:)): Additional stratification
-      !!                          information to refine the grid\n
-      !!             nz(integer): Final number of nodes
-      !!            z(double(:)): Stratification
+      !> Generate an optical depth stratification from parameters\n
+      !!     Tau_min(double): Minimum optical depth\n
+      !!     Tau_max(double): Maximum optical depth\n
+      !!  Strat(double(:,:)): Stratification information to refine the
+      !!                      grid\n
+      !!         nz(integer): Final number of nodes\n
+      !!        z(double(:)): Resulting stratification
       subroutine gAtmo_Strat(Tau_min,Tau_max,Strat,lnz,z)
 
       ! I/O
+
       integer, intent(in):: lnz
-      double precision, intent(in):: Tau_min, Tau_max
-      double precision, dimension(:,:),allocatable, intent(in):: Strat
+      double precision, intent(in):: Tau_min,Tau_max
+      double precision, dimension(:,:), &
+                        allocatable, intent(in):: Strat
       double precision, dimension(:), allocatable, intent(out):: z
 
       ! Local
-      integer:: i, j, k, n, M, nn
 
-      double precision:: Delt, iDelt, d
-      double precision:: Delt0, iDelt0
+      integer:: i,j,k,n,M,nn
+
+      double precision:: Delt,iDelt,d,Delt0,iDelt0
 
 
       ! Allocate stratification
@@ -1552,30 +1554,35 @@
 !#####################################################################
 !#####################################################################
 
-      !> Convert the input buffer into model quantities
-      !!      buffer(double(:)): Column with atmospheric data\n
-      !!     Input(Input_class): Structure with settings data\n
-      !!       Atmo(Atmo_class): Structure with atmospheric data
-      !!   Bfield(Bfield_class): Structure with magnetic field data\n
-      !!       dims(integer(:)): Dimensions of the problem
+      !> Interpret the atmospheric model data in a vectorial buffer\n
+      !!     buffer(double(:)): Vector with atmospheric data\n
+      !!    Input(Input_class): Structure with configuration data\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data\n
+      !!  Bfield(Bfield_class): Structure with magnetic field data\n
+      !!      dims(integer(:)): Grid dimensions (X,Y,Z)
       subroutine rAtmo_frombuffer(buffer,Input,Atmo,Bfield,dims)
 
       ! I/O
+
       type(Input_class), intent(in):: Input
       type(Atmo_class), intent(inout):: Atmo
       type(Bfield_class), intent(out):: Bfield
       integer, dimension(:), intent(in):: dims
-      double precision, dimension(:), target:: buffer
+      double precision, dimension(:), target, intent(inout):: buffer
 
       ! Local
+
       integer:: iz
+
       double precision:: ikbcgs
+
 
       ! Constant
       ikbcgs = 1d-7/kb
 
       ! Initialize zero if not allocated
       allocate(Atmo%zeros(nz))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%zeros)
       Atmo%zeros = 0d0
 
       ! Scale, reference frequency, and nodes
@@ -1583,14 +1590,25 @@
       Atmo%tfreq = Input%omega_ref
       Atmo%nz = dims(3)
 
+      !
       ! Identify type of scale and point to proper height
+      !
+
+      ! Tau scale
       if (Atmo%scal.eq.'T') then
+
+        ! Set to tau scale and point to its position
         ztau = .True.
         Atmo%z => buffer(nz+1:2*nz)
+
+      ! Geometrical scale
       else
+
+        ! Set to geometrical scale and point to its position
         ztau = .False.
         Atmo%z => buffer(1:nz)
-      end if
+
+      end if ! Vertical scale
 
       ! Temperature
       Atmo%T => buffer(3*nz+1:4*nz)
@@ -1598,18 +1616,25 @@
       ! Microturbulence
       Atmo%vmi => buffer(12*nz+1:13*nz)
 
-      ! If forced
+      ! If forced microturbulence
       if (Input%fvmicro.ge.0d0) Atmo%vmi = Input%fvmicro
 
-      ! Velocity
+      ! If static
       if (Input%static) then
+
+        ! Zero velocity
         Atmo%vx => Atmo%zeros
         Atmo%vy => Atmo%zeros
         Atmo%vz => Atmo%zeros
+
+      ! Dynamic
       else
+
+        ! Point to positions
         Atmo%vx => buffer(9*nz+1:10*nz)
         Atmo%vy => buffer(10*nz+1:11*nz)
         Atmo%vz => buffer(11*nz+1:12*nz)
+
       end if
 
       ! Type of atmosphere
@@ -1617,6 +1642,7 @@
 
       ! Allocate nH and ne
       allocate(Atmo%nH(nz,6),Atmo%ne(nz))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nH)
 
       !
       ! Depending on type of scale
@@ -1625,6 +1651,7 @@
       ! Density (full)
       if (Atmo%typo.eq.0) then
 
+        ! Copy from buffer
         Atmo%ne = buffer(14*nz+1:15*nz)
         Atmo%nH = reshape(buffer(18*nz+1:24*nz), (/ nz, 6 /))
 
@@ -1633,40 +1660,55 @@
         ! Only electron density
         if (Atmo%typo.eq.1) then
 
+          ! Copy from buffer
           Atmo%ne = buffer(14*nz+1:15*nz)
 
         ! Electron pressure
         else if (Atmo%typo.eq.2) then
 
+          ! Copy from buffer
           Atmo%ne = buffer(13*nz+1:14*nz)
+
+          ! Transform to electron number density
           Atmo%ne = Atmo%ne*ikbcgs/Atmo%T
           Atmo%typo = 1
 
         ! Gas pressure
         else if (Atmo%typo.eq.4) then
 
+          ! Allocate
           allocate(Atmo%Pg(nz))
+          MRAMc = MRAMc + 1d-6*sizeof(Atmo%Pg)
+
+          ! Copy from buffer
           Atmo%Pg = buffer(4*nz+1:5*nz)
           Atmo%ne = 0d0
 
-        ! Density
+        ! Mass density
         else if (Atmo%typo.eq.5) then
 
+          ! Allocate
           allocate(Atmo%rho(nz))
+          MRAMc = MRAMc + 1d-6*sizeof(Atmo%rho)
+
+          ! Copy from buffer
           Atmo%rho = buffer(5*nz+1:6*nz)
           Atmo%ne = 0d0
 
-        end if
-      end if
+        end if ! Type of atmospheric model
+      end if ! No full number density atmospheric model
 
       ! Total hydrogen density
       allocate(Atmo%nht(nZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nht)
 
       ! Atomic hydrogen density
       allocate(Atmo%nha(nZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nha)
 
       ! H^- density
       allocate(Atmo%nhm(nZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nhm)
 
       !
       ! Initialize
@@ -1705,21 +1747,8 @@
 
       ! Just make a flag to know that there is no helium input
       allocate(Atmo%nhe(1,1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nhe)
       Atmo%nhe(1,1) = -1
-
-      !
-      ! Check if dynamic (yes if > 1m/s)
-      if (maxval(Atmo%vx(:)*Atmo%vx(:) + Atmo%vy(:)*Atmo%vy(:) + &
-                 Atmo%vz(:)*Atmo%vz(:)).gt.1d-6) then
-
-        dyn = .True.
-
-      else
-
-        dyn = .False.
-
-      end if ! dynamics
-
 
       !
       ! Unit conversions
@@ -1734,14 +1763,22 @@
       Atmo%vz = Atmo%vz*1d-6/c
       Atmo%vmi = Atmo%vmi*1d-6/c
 
+      ! Check if dynamic (yes if > 1m/s)
+      dyn = maxval(Atmo%vx(:)*Atmo%vx(:) + Atmo%vy(:)*Atmo%vy(:) + &
+                   Atmo%vz(:)*Atmo%vz(:)).gt.TINYVEL
+
+
       !
       ! Magnetic field
       !
 
       ! Allocate if not already
       allocate(Bfield%Bstrength(nz))
+      MRAMc = MRAMc + 1d-6*sizeof(Bfield%Bstrength)
       allocate(Bfield%Btheta(nz))
+      MRAMc = MRAMc + 1d-6*sizeof(Bfield%Btheta)
       allocate(Bfield%Bphi(nz))
+      MRAMc = MRAMc + 1d-6*sizeof(Bfield%Bphi)
 
       ! No magnetic field
       if (Input%unmagnetized) then
@@ -1771,20 +1808,26 @@
 
           ! There is a magnetic field
           if (Bfield%Bstrength(iz).gt.TINYB) then
+
+            ! Get angles
             Bfield%Btheta(iz) = acos(Atmo%Bz(iz)/Bfield%Bstrength(iz))
             Bfield%Bphi(iz) = atan2(Atmo%By(iz),Atmo%Bx(iz))
+
           ! There is no field
           else
+
+            ! Trivial angles
             Bfield%Bstrength(iz) = 0d0
             Bfield%Btheta(iz) = 0d0
             Bfield%Bphi(iz) = 0d0
-          end if
 
-        end do
+          end if ! Magnetic field
+
+        end do ! Heights
 
       end if ! There is a magnetic field
 
-      ! Allocs
+      ! Type of allocation in this model
       Atmo%alloc_a = .False.
       Atmo%alloc_b = .False.
 
@@ -1796,27 +1839,32 @@
 !#####################################################################
 !#####################################################################
 
-      !> Allocate arrays in Atmo\n
-      !!     Input(Input_class): Structure with settings data\n
-      !!       Atmo(Atmo_class): Structure with atmospheric data\n
-      !!          mode(integer): Type of CLE model\n
-      !!          norm(integer): If normalized axis
+      !> Prepare the Atmo structure in the main loop of the CLE
+      !! synthesis\n
+      !!  Input(Input_class): Structure with configuration data\n
+      !!    Atmo(Atmo_class): Structure with atmospheric data\n
+      !!       mode(integer): Type of model atmosphere in CLE
+      !!                      synthesis\n
+      !!       norm(integer): If the geometrical axes are normalized
       subroutine rAtmo_cle_prep(Input,Atmo,mode,norm)
 
       ! I/O
+
       type(Input_class), intent(in):: Input
       type(Atmo_class), intent(inout):: Atmo
       integer, intent(in):: mode,norm
 
-      ! Store in structure
+
+      ! Store mode and type of normalization in structure
       Atmo%mode = mode
       Atmo%norm = norm
 
       ! Allocate zeros
       allocate(Atmo%zeros(1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%zeros)
       Atmo%zeros = 0d0
 
-      ! Velocity
+      ! Initialize velocity is static
       if (Input%static) then
         Atmo%vx => Atmo%zeros
         Atmo%vy => Atmo%zeros
@@ -1829,14 +1877,17 @@
 
       ! Allocations
       allocate(Atmo%nH(1,6))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nH)
       allocate(Atmo%nht(1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nht)
       allocate(Atmo%nha(1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nha)
       allocate(Atmo%nhm(1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nhm)
       allocate(Atmo%nhe(1,1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nhe)
       allocate(Atmo%ne(1))
-
-      ! Type of atmosphere
-      Atmo%typo = Input%atmo_char
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%ne)
 
       return
 
@@ -1846,23 +1897,27 @@
 !#####################################################################
 !#####################################################################
 
-      !> Initialize coordinates in atmospheric model\n
-      !!      buffer(double(:)): Column with atmospheric data\n
-      !!     Input(Input_class): Structure with settings data\n
-      !!           x(double(:)): X axis\n
-      !!           y(double(:)): Y axis\n
-      !!           z(double(:)): Z axis\n
-      !!       Atmo(Atmo_class): Structure with atmospheric data
-      !!       dims(integer(:)): Dimensions of the problem\n
+      !> Interpret the position in space of the current CLE node from
+      !! the vectorial buffer and setup the location of variables
+      !! depending on the type of model\n
+      !!   buffer(double(:)): Vector with atmospheric data\n
+      !!  Input(Input_class): Structure with configuration data\n
+      !!        x(double(:)): X axis\n
+      !!        y(double(:)): Y axis\n
+      !!        z(double(:)): Z axis\n
+      !!    Atmo(Atmo_class): Structure with atmospheric data\n
+      !!    dims(integer(:)): Grid dimensions (X,Y,Z)
       subroutine rAtmo_cle_init(buffer,Input,x,y,z,Atmo,dims)
 
       ! I/O
+
       type(Atmo_class), intent(inout):: Atmo
       type(Input_class), intent(in):: Input
       integer, dimension(:), intent(in):: dims
-      double precision:: y,z
+      double precision, intent(in):: y,z
       double precision, dimension(:), intent(in), target:: x
-      double precision, dimension(:), target:: buffer
+      double precision, dimension(:), intent(inout), target:: buffer
+
 
       ! IMPORTANT: The X dimension, which is the LOS axis, is stored
       ! in z variables for compatibility reasons
@@ -1926,14 +1981,25 @@
         ! LOS axis
         Atmo%z => buffer(1:nz)
 
+        !
         ! Y,Z position in PoS and units
+        !
+
+        ! If not normalized
         if (Atmo%norm.le.0) then
+
+          ! Normalize now
           Atmo%ypos = y/Input%R_star
           Atmo%zpos = z/Input%R_star
           Atmo%z = Atmo%z/Input%R_star
+
+        ! Already normalized
         else
+
+          ! Just copy
           Atmo%ypos = y
           Atmo%zpos = z
+
         end if
 
         ! Indexes for buffer call
@@ -1966,20 +2032,23 @@
 !#####################################################################
 !#####################################################################
 
-      !> Convert the input buffer into model quantities
-      !!      buffer(double(:)): Column with atmospheric data\n
-      !!     Input(Input_class): Structure with settings data\n
-      !!       Atmo(Atmo_class): Structure with atmospheric data\n
-      !!            ix(integer): Position index along LOS
+      !> Interpret the atmospheric model data in a vectorial buffer in
+      !! the CLE synthesis\n
+      !!   buffer(double(:)): Column with atmospheric data\n
+      !!  Input(Input_class): Structure with configuration data\n
+      !!    Atmo(Atmo_class): Structure with atmospheric data\n
+      !!         ix(integer): Position index along the LOS axis
       subroutine rAtmo_cle(buffer,Input,Atmo,ix)
 
       ! I/O
+
       type(Input_class), intent(in):: Input
       type(Atmo_class), intent(inout):: Atmo
-      double precision, dimension(:), target:: buffer
+      double precision, dimension(:), intent(inout), target:: buffer
       integer, intent(in):: ix
 
       ! Local
+
       integer:: iz,i0
       double precision:: ikbcgs
       double precision, dimension(Atmo%nz,6):: daux
@@ -2002,16 +2071,19 @@
       ! If forced micro
       if (Input%fvmicro.ge.0d0) Atmo%vmi = Input%fvmicro
 
-      ! Velocity
+      ! No velocity
       if (Input%static) then
 
+        ! Point to zero
         Atmo%vx => Atmo%zeros
         Atmo%vy => Atmo%zeros
         Atmo%vz => Atmo%zeros
         dyn = .False.
 
+      ! Not necessarily static
       else
 
+        ! Point to components
         i0 = Atmo%iv*Atmo%d0
         Atmo%vx => buffer(i0+iz:i0+iz)
         i0 = i0 + Atmo%d0
@@ -2022,14 +2094,14 @@
         ! Slab
         if (Atmo%mode.eq.1) then
 
+          ! Unit conversions
+          ! Divide velocities by c (1d5*1d-11/cbar)
+          Atmo%vx = Atmo%vx*1d-6/c
+
           ! Check if dynamic (yes if > 1m/s)
-          if (maxval(Atmo%vx).gt.1d-6) then
+          if (maxval(Atmo%vx).gt.TINYVEL) then
 
             dyn = .True.
-
-            ! Unit conversions
-            ! Divide velocities by c (1d5*1d-11/cbar)
-            Atmo%vx = Atmo%vx*1d-6/c
 
           ! Not dynamic
           else
@@ -2041,17 +2113,17 @@
         ! No slab
         else
 
+          ! Unit conversions
+          ! Divide velocities by c (1d5*1d-11/cbar)
+          Atmo%vx = Atmo%vx*1d-6/c
+          Atmo%vy = Atmo%vy*1d-6/c
+          Atmo%vz = Atmo%vz*1d-6/c
+
           ! Check if dynamic (yes if > 1m/s)
           if (maxval(Atmo%vx*Atmo%vx + Atmo%vy*Atmo%vy + &
-                     Atmo%vz*Atmo%vz).gt.1d-6) then
+                     Atmo%vz*Atmo%vz).gt.TINYVEL) then
 
             dyn = .True.
-
-            ! Unit conversions
-            ! Divide velocities by c (1d5*1d-11/cbar)
-            Atmo%vx = Atmo%vx*1d-6/c
-            Atmo%vy = Atmo%vy*1d-6/c
-            Atmo%vz = Atmo%vz*1d-6/c
 
           ! Not dynamic
           else
@@ -2060,9 +2132,7 @@
 
           end if ! dynamics
         end if ! Model type
-
-
-      end if
+      end if ! Forced static
 
       !
       ! Depending on type of scale
@@ -2071,53 +2141,76 @@
       ! Density (full)
       if (Atmo%typo.eq.0) then
 
+        ! Get electron number density
         i0 = Atmo%ine*Atmo%d0
         Atmo%ne = buffer(i0+iz:i0+iz)
         i0 = Atmo%inh*Atmo%d0
 
-        ! slab is special
+        ! If slab
         if (Atmo%mode.eq.1) then
+
+          ! Get hydrogen number density
           Atmo%nH = reshape(buffer(Atmo%inh:Atmo%inh+5), (/ nz, 6 /))
+
+        ! Others
         else
+
+          ! Reshape from buffer
           daux = reshape(buffer(Atmo%inh*Atmo%d0+Atmo%di0: &
                                 Atmo%inh*Atmo%d0+Atmo%di1*6), &
                          (/ Atmo%nz, 6 /))
-          Atmo%nH = daux(ix:ix,:)
-        end if
 
+          ! Copy in array
+          Atmo%nH = daux(ix:ix,:)
+
+        end if ! Slab or other model
+
+      ! No full number density
       else
 
-        ! Only electron density
+        ! Only electron number density
         if (Atmo%typo.eq.1) then
 
+          ! Copy electron number density
           i0 = Atmo%ine*Atmo%d0
           Atmo%ne = buffer(i0+iz:i0+iz)
 
         ! Electron pressure
-        else if (Atmo%typo.eq.2.or.Atmo%typo.eq.3) then
+        else if (Atmo%typo.eq.2) then
 
+          ! Copy electron pressure
           i0 = Atmo%ipe*Atmo%d0
           Atmo%ne = buffer(i0+iz:i0+iz)
+
+          ! Transform into electron number density
           Atmo%ne = Atmo%ne*ikbcgs/Atmo%T
 
         ! Gas pressure
         else if (Atmo%typo.eq.4) then
 
+          ! Allocate space
           i0 = Atmo%ipg*Atmo%d0
           allocate(Atmo%Pg(1))
+          MRAMc = MRAMc + 1d-6*sizeof(Atmo%Pg)
+
+          ! Get gas pressure and reset electron number density
           Atmo%Pg = buffer(i0+iz:i0+iz)
           Atmo%ne = 0d0
 
-        ! Density
+        ! Mass density
         else if (Atmo%typo.eq.5) then
 
+          ! Allocate space
           i0 = Atmo%irh*Atmo%d0
           allocate(Atmo%rho(1))
+          MRAMc = MRAMc + 1d-6*sizeof(Atmo%rho)
+
+          ! Get mass density and reset electron number density
           Atmo%rho = buffer(i0+iz:i0+iz)
           Atmo%ne = 0d0
 
-        end if
-      end if
+        end if ! Type of model if not full number density
+      end if ! Full number density
 
       ! Reset H^-
       Atmo%nhm = 0d0
@@ -2127,10 +2220,10 @@
       !
       if (Atmo%typo.eq.0) then
 
-        ! And the total in atomic
+        ! Add the total in atomic hydrogen number density
         Atmo%nha = sum(Atmo%nH(1,:))
 
-        ! And whole
+        ! Add whole hydrogen number density
         Atmo%nht = Atmo%nha
 
       ! No number densities
@@ -2160,6 +2253,7 @@
       ! No magnetic field
       if (Input%unmagnetized) then
 
+        ! Point to zero
         Atmo%Bx => Atmo%zeros
         Atmo%By => Atmo%zeros
         Atmo%Bz => Atmo%zeros

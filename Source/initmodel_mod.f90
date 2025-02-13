@@ -5,44 +5,18 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     06/16/2023
+!     16/06/2023
 !  Last version:
-!     07/18/2024 V3.0.5
+!     11/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     07/18/2024:    V3.0.5 - Added call to write elastic rates (TdPA)
-!
-!     10/16/2023:    V3.0.4 - The damping coefficients are now
-!                             calculated in the new broadening
-!                             routines (TdPA)
-!                           - Added broadening and broadening_line
-!                             subroutines (TdPA)
-!                           - The density matrix is initialized
-!                             via calls from the new Initrhoes
-!                             routines (TdPA)
-!                           - Ensure memory deallocation when an
-!                             error happens in prepare_syn (TdPA)
-!                           - Updated arguments of free_local_Atom
-!                             call (TdPA)
-!
-!     09/29/2023:    V3.0.3 - Added arguments to Initcols (TdPA)
-!
-!     08/22/2023:    V3.0.2 - Changed the optical depth correction
-!                             when checking the input atmospheric
-!                             model when the top boundary has 0
-!                             optical depth (TdPA)
-!
-!     08/07/2023:    V3.0.1 - Added setlte_lines (TdPA)
-!                           - Added arguments for LTE lines (TdPA)
-!
-!     07/03/2023:    V3.0.0 - First version (TdPA)
+!     11/12/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -52,66 +26,70 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    Routines to initialize atoms, molecules (total densities) and
-!  to apply the eq. of state and chemical equilibrium, setting up
-!  the atmospheric model
+!  prepareatomol
+!    Allocate space needed in atoms and molecules to prepare the
+!  model atmophere for the synthesis
 !
-!  prepareatomol:
-!    Call for the allocation of the atom and molecule structures.
+!  setpopufiles
+!    Try to initialize the populations of atoms from existing files
+!  and indicate for which atoms these exist and in which format, i.e.,
+!  populations or departure coefficients
 !
-!  setpopufiles:
-!    Call for the reading of population files and the set-up of
-!  nlte populations or departure coefficients.
-!
-!  reviseH_init:
-!    Revise the H populations in the atmosphere or in the model atom
-!  depending on the inputs.
+!  reviseH_init
+!    Revise the hydrogen populations in the model atmosphere if NLTE
+!  populations were read from a file
 !
 !  reviseH_out:
-!    Revise the H populations in the atmosphere or in the model atom
-!  depending on the inputs, but after having running the eos.
+!    Revise the hydrogen  populations in the model atmosphere or in
+!  the model atom depending on the inputs once the EoS has been solved
 !
 !  setlte:
-!    Initialize LTE populations in atoms.
+!    Initialize LTE populations in all atoms
 !
-!  setlte_lines:
-!    Initialize populations of the LTE lines.
+!  setlte_lines
+!    Initialize LTE population of the ion of the LTE lines
 !
-!  setcols:
-!    Initialize collisional rates in atoms and call for its output.
+!  setcols
+!    Initialize the collisional rates in atoms and write the output
 !
-!  setuppopu:
-!    Initialize populations and density matrices in atoms.
+!  setuppopu
+!    Initialize populations and density matrices for all atoms
 !
 !  broadening:
-!    Calculate the line broadening damping coefficient.
+!    Calculate the line broadening damping coefficient
 !
-!  broadening_line:
-!    Calculate the line broadening damping coefficient for LTE lines.
+!  broadening_line
+!    Calculate the line broadening damping coefficient for LTE lines
 !
-!  chemical:
-!    Manage the call to chemical equilibrium and revise model
-!  atmosphere Hydrogen number density.
+!  chemical
+!    Solve the chemical equilibrium and revise model the hydrogen
+!  number density in the model atmosphere
 !
-!  Initrhoes:
-!    Manage the initialization of the density matrix.
+!  Initrhoes
+!    Initialize the density matrix of all atoms
 !
-!  updateatmo:
-!    Recalculate electron number density or write atmospheric model
-!  into file.
+!  updateatmo
+!    Update the model atmosphere, recalculating number densities if
+!  necessary
 !
-!  prepare_syn:
-!    Prepare an input model atmosphere for a forward solution.
+!  prepare_syn
+!    Prepare a model atmosphere for the hanle routine to solve the
+!  self-consistent problem and/or calculate formal solutions
 !
-!  setup_Atmo_ininv:
-!    Prepare the initial atmospheric model in an inversion to put it
-!  in the common expected form.
+!  setup_Atmo_ininv
+!    Prepare a model atmosphere in an inversion to ensure that it is
+!  in the expected format
 !
-!  setup_Atmo_ouinv:
-!    Prepare the final atmospheric model in an inversion to write into
-!  the Result file.
+!  setup_Atmo_ouinv
+!    Prepare the atmospheric model resulting from a inversion to write
+!  in the result file
 !
 !#####################################################################
 !#####################################################################
@@ -137,24 +115,26 @@
 !#####################################################################
 !#####################################################################
 
-      !> Allocate space for atoms and molecules\n
-      !!    Atom(Atom_class): Structure with the atomic data\n
-      !!   Atomb(Atom_class): Structure with the atomic data for
-      !!                      background opacities\n
-      !!      Mol(Mol_class): Structure with the molecule data\n
-      !!         nn(integer): Number of molecules
+      !> Allocate space needed in atoms and molecules to prepare the
+      !! model atmophere for the synthesis\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atoms\n
+      !!     Mol(Mol_class(:)): Structures with molecular data\n
+      !!           nn(integer): Number of molecules
       subroutine prepareatomol(Atom,Atomb,Mol,nn)
 
       ! I/O
 
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Mol_class), dimension(:), allocatable:: Mol
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(Mol_class), dimension(:), intent(inout):: Mol
       integer, intent(in):: nn
 
       ! Prepare active atoms
       call prepareatom(Atom,nA)
-      ! Prepare passive atoms
+
+      ! Prepare background atoms
       if (nAb.gt.0) call prepareatom(Atomb,nAb)
 
       ! Prepare molecules
@@ -166,28 +146,32 @@
 !#####################################################################
 !#####################################################################
 
-      !> Prepare the model atmosphere dealing with the equation of
-      !! state\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!    Atomb(Atom_class): Structure with the atomic data for
-      !!                       background opacities\n
-      !!     Atmo(Atmo_class): Structure with atmospheric data\n
-      !!   Input(Input_class): Structure with settings data\n
-      !!     nlte(integer(:)): Array with information about
-      !!                       loaded populations\n
-      !!    depar(integer(:)): Array with information about
-      !!                       loaded departure coefficients
+      !> Try to initialize the populations of atoms from existing
+      !! files and indicate for which atoms these exist and in which
+      !! format, i.e., populations or departure coefficients\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atoms\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data\n
+      !!    Input(Input_class): Structure with configuration data\n
+      !!      nlte(integer(:)): Array with information about
+      !!                        loaded populations\n
+      !!     depar(integer(:)): Array with information about
+      !!                        loaded departure coefficients
       subroutine setpopufiles(Atom,Atomb,Atmo,Input,nlte,depar)
 
       ! I/O
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Atmo_class):: Atmo
-      type(Input_class):: Input
-      integer, dimension(:), allocatable, intent(out):: nlte,depar
+
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(Atmo_class), intent(in):: Atmo
+      type(Input_class), intent(in):: Input
+      integer, dimension(:), allocatable, intent(inout):: nlte,depar
 
       ! Local
+
       integer:: ia
+
 
       !
       ! Read NLTE populations
@@ -201,7 +185,7 @@
       ! Control
       if (laborted) return
 
-      ! For every passive atom
+      ! For every background atom
       do ia=1,nAb
         call Initpopu_file(Atomb(ia),Input%popuback(ia)%str,Atmo)
       end do
@@ -209,9 +193,7 @@
       ! Control
       if (laborted) return
 
-      !
-      ! Initialize nlte
-      !
+      ! Initialize nlte and depar variables
       call initializenlte(nlte,depar,Atom,Atomb,Atmo)
 
       end subroutine setpopufiles
@@ -220,36 +202,30 @@
 !#####################################################################
 !#####################################################################
 
-      !> Check if populations of H atom are read\n
-      !! state\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!    Atomb(Atom_class): Structure with the atomic data for
-      !!                       background opacities\n
-      !!     Atmo(Atmo_class): Structure with atmospheric data
+      !> Revise the hydrogen populations in the model atmosphere if
+      !! NLTE populations were read from a file\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atoms\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data
       subroutine reviseH_init(Atom,Atomb,Atmo)
 
       ! I/O
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Atmo_class):: Atmo
+      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), intent(in):: Atomb
+      type(Atmo_class), intent(inout):: Atmo
 
       ! Local
+
       logical:: l1
 
       integer:: ia
 
 
-      !
-      ! Check the hydrogen populations in the model atmosphere
-      ! if H populations are given
-      !
-
-      ! Check if there are hydrogen populations already set
-
       ! Initialize logical control variables
       l1 = .False.
 
-      ! For every atom
+      ! For every active atom
       do ia=1,nA
 
         ! If it is hydrogen
@@ -261,18 +237,19 @@
           ! Check if NLTE populations
           if (allocated(Atom(ia)%popu)) then
 
-            ! Revise populations and exit
+            ! Revise populations in model atmosphere and exit
             call ReviseHatmo(Atom(ia),Atmo)
             exit
 
           end if ! If input file
         end if ! If Hydrogen
-      end do
 
-      ! If hydrogen not active
+      end do ! Active atoms
+
+      ! If hydrogen not found among active atoms
       if (.not.l1) then
 
-        ! For every passive atom
+        ! For every background atom
         do ia=1,nAb
 
           ! If it is hydrogen
@@ -284,14 +261,14 @@
             ! Check if NLTE populations
             if (allocated(Atomb(ia)%popu)) then
 
-              ! Revise populations and exit
+              ! Revise populations in model atmosphere and exit
               call ReviseHatmo(Atomb(ia),Atmo)
               exit
 
             end if ! If input file
-          end if ! If Hydrogen
+          end if ! If Hydrogen atom
 
-        end do ! passive atoms
+        end do ! Background atoms
 
       end if ! Hydrogen not found between active atoms
 
@@ -301,53 +278,95 @@
 !#####################################################################
 !#####################################################################
 
-      !> Prepare the model atmosphere dealing with the equation of
-      !! state\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!    Atomb(Atom_class): Structure with the atomic data for
-      !!                       background opacities\n
-      !!     Atmo(Atmo_class): Structure with atmospheric data\n
-      !!   Input(Input_class): Structure with settings data
+      !> Revise the hydrogen  populations in the model atmosphere or
+      !! in the model atom depending on the inputs once the EoS has
+      !! been solved\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atoms\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data\n
+      !!    Input(Input_class): Structure with configuration data
       subroutine reviseH_out(Atom,Atomb,Atmo,Input)
 
       ! I/O
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Atmo_class):: Atmo
-      type(Input_class):: Input
+
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(Atmo_class), intent(inout):: Atmo
+      type(Input_class), intent(in):: Input
 
       ! Local
+
       integer:: ia
 
-      ! Check active atoms
-      do ia=1,nA
-        if (Atom(ia)%element.eq.' H') then
-          Atom(ia)%mol_protect = Input%protect_H
-          if (allocated(Atom(ia)%popu)) then
-            if (Input%protect_H) then
-              call ReviseHatmo(Atom(ia),Atmo)
-            else
-              call ReviseHatom(Atom(ia),Atmo)
-            end if
-          end if
-          exit
-        end if
-      end do
 
-      ! Check passive atoms
-      do ia=1,nAb
-        if (Atomb(ia)%element.eq.' H') then
-          Atomb(ia)%mol_protect = Input%protect_H
-          if (allocated(Atomb(ia)%popu)) then
+      ! For each active atom
+      do ia=1,nA
+
+        ! If it is hydrogen
+        if (Atom(ia)%element.eq.' H') then
+
+          ! Save if protecting
+          Atom(ia)%mol_protect = Input%protect_H
+
+          ! If allocated NLTE populations
+          if (allocated(Atom(ia)%popu)) then
+
+            ! If protected
             if (Input%protect_H) then
-              call ReviseHatmo(Atomb(ia),Atmo)
+
+              ! Revise populations in model atmosphere
+              call ReviseHatmo(Atom(ia),Atmo)
+
+            ! If not protected
             else
-              call ReviseHatom(Atomb(ia),Atmo)
-            end if
-          end if
+
+              ! Revice populations in model atom
+              call ReviseHatom(Atom(ia),Atmo)
+
+            end if ! Protected
+          end if ! Allocated populations
+
+          ! Leave
           exit
-        end if
-      end do
+
+        end if ! Is hydrogen
+
+      end do ! Active atoms
+
+      ! For each background atom
+      do ia=1,nAb
+
+        ! If it is hydrogen
+        if (Atomb(ia)%element.eq.' H') then
+
+          ! Save if protecting
+          Atomb(ia)%mol_protect = Input%protect_H
+
+          ! If allocated NLTE populations
+          if (allocated(Atomb(ia)%popu)) then
+
+            ! If protected
+            if (Input%protect_H) then
+
+              ! Revise populations in model atmosphere
+              call ReviseHatmo(Atomb(ia),Atmo)
+
+            ! If not protected
+            else
+
+              ! Revice populations in model atom
+              call ReviseHatom(Atomb(ia),Atmo)
+
+            end if ! Protected
+          end if ! Allocated populations
+
+          ! Leave
+          exit
+
+        end if ! Is hydrogen
+
+      end do ! Background atoms
 
       end subroutine reviseH_out
 
@@ -355,38 +374,49 @@
 !#####################################################################
 !#####################################################################
 
-      !> Prepare the model atmosphere dealing with the equation of
-      !! state\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!    Atomb(Atom_class): Structure with the atomic data for
-      !!                       background opacities\n
-      !!     Atmo(Atmo_class): Structure with atmospheric data\n
-      !!   Input(Input_class): Structure with settings data
+      !> Initialize LTE populations in all atoms\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atoms\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data\n
+      !!    Input(Input_class): Structure with configuration data\n
       subroutine setlte(Atom,Atomb,Atmo,Input)
 
       ! I/O
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Atmo_class):: Atmo
-      type(Input_class):: Input
+
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(Atmo_class), intent(in):: Atmo
+      type(Input_class), intent(in):: Input
 
       ! Local
+
       integer:: ia
 
-      ! Initialize LTE populations
 
       ! Active atoms
       do ia=1,nA
+
+        ! Get LTE populations
         call Initpopu_LTE(Atom(ia),Atmo,.True.,0)
-      end do
+
+      end do ! Active atoms
 
       ! Control
       if (laborted) return
 
-      ! Passive atoms
+      ! Background atoms
       do ia=1,nAb
+
+        ! Get LTE populations
         call Initpopu_LTE(Atomb(ia),Atmo,.False.,0)
-      end do
+
+      end do ! Background atoms
+
+      return
+
+      ! Deveice compiler
+      ia = Input%iter_min
 
       end subroutine setlte
 
@@ -394,68 +424,56 @@
 !#####################################################################
 !#####################################################################
 
-      !> Prepare the model atmosphere dealing with the equation of
-      !! state\n
-      !!     Atomb(Atom_class): Structure with the atomic data for
-      !!                        background opacities\n
-      !! LTElines(Input_class): Structure with LTE line data\n
-      !!      Atmo(Atmo_class): Structure with atmospheric data\n
-      !!    Input(Input_class): Structure with settings data
+      !> Initialize LTE population of the ion of the LTE lines\n
+      !!        Atomb(Atom_class(:)): Structures with atomic data for
+      !!                              background atoms\n
+      !!  LTElines(LTEline_class(:)): Structures with LTE line data\n
+      !!            Atmo(Atmo_class): Structure with atmospheric
+      !!                              data\n
+      !!          Input(Input_class): Structure with configuration
+      !!                              data\n
       subroutine setlte_lines(Atomb,LTElines,Atmo,Input)
 
       ! I/O
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(LTEline_class), dimension(:), allocatable:: LTElines
-      type(Atmo_class):: Atmo
-      type(Input_class):: Input
+
+      type(Atom_class), dimension(:), intent(in):: Atomb
+      type(LTEline_class), dimension(:), intent(inout):: LTElines
+      type(Atmo_class), intent(in):: Atmo
+      type(Input_class), intent(in):: Input
 
       ! Local
-      integer:: ia,jdir,iz
 
-      ! Copy from input
+      integer:: ia
+
+
+      ! Copy line data from input
       LTElines = Input%LTEline
 
       ! For each LTE line
       do ia=1,nLTEl
 
-        ! Nullify pointer
-        nullify(LTElines(ia)%prof)
-
-        ! Check Normp is not allocated
-        if (associated(LTElines(ia)%prof)) then
-          do jdir=1,size(LTElines(ia)%prof,2)
-            do iz=LTElines(ia)%Rz0, &
-                  size(LTElines(ia)%prof,1)+LTElines(ia)%Rz0
-              if (allocated(LTElines(ia)%prof(iz,jdir)%p)) &
-                deallocate(LTElines(ia)%prof(iz,jdir)%p)
-              if (allocated(LTElines(ia)%prof(iz,jdir)%comp)) &
-                deallocate(LTElines(ia)%prof(iz,jdir)%comp)
-            end do
-          end do
-          deallocate(LTElines(ia)%prof)
-        end if
-
-        ! Nullify pointer
-        nullify(LTElines(ia)%prof)
+        ! Memory counter
+        MRAMc = MRAMc + 1d-6*sizeof(LTElines(ia))
+        MRAMc = MRAMc + 1d-6*sizeof(LTElines(ia)%broad_args)
 
         ! Get LTE populations
         call Initpopu_LTE_line(LTElines(ia),Atmo)
 
-        ! If passive
+        ! If there is a background model atom
         if (LTElines(ia)%is_passive) then
 
-          ! Get abundance from passive
+          ! Get abundance from background model atom
           LTElines(ia)%n = LTElines(ia)%n*Atomb(LTElines(ia)%ia)%abun
 
-        ! Not passive
+        ! Does not have a passive model atom
         else
 
           ! Get abundance from atmosphere
           LTElines(ia)%n = LTElines(ia)%n*Atmo%abund(LTElines(ia)%ele)
 
-        end if
+        end if ! Element has a background model atom
 
-      end do
+      end do ! LTE lines
 
       end subroutine setlte_lines
 
@@ -463,51 +481,58 @@
 !#####################################################################
 !#####################################################################
 
-      !> Prepare the model atmosphere dealing with the equation of
-      !! state\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!    Atomb(Atom_class): Structure with the atomic data for
-      !!                       background opacities\n
-      !!     Atmo(Atmo_class): Structure with atmospheric data\n
-      !!   Input(Input_class): Structure with settings data\n
-      !!   Flgsg(Fctsg_class): Structure with factorials and
-      !!                       signs
+      !> Initialize the collisional rates in atoms and write the
+      !! output\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atoms\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data\n
+      !!    Input(Input_class): Structure with configuration data\n
+      !!    Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                        J-symbols
       subroutine setcols(Atom,Atomb,Atmo,Input,Flgsg)
 
       ! I/O
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Atmo_class):: Atmo
-      type(Fctsg_class):: Flgsg
-      type(Input_class):: Input
+
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(Atmo_class), intent(in):: Atmo
+      type(Fctsg_class), intent(inout):: Flgsg
+      type(Input_class), intent(in):: Input
 
       ! Local
+
       integer:: ia
 
 
-      ! Active atoms
+      ! For each active atom
       do ia=1,nA
+
+        ! Calculate collisional rates
         call Initcols(Atom(ia),Atmo,Input%folder,Flgsg, &
                       Input%keep_coll,.True.)
-      end do
+
+      end do ! Active atoms
 
       ! Control
       if (laborted) return
 
-      ! If keeping collisions and master, call writer
-      if (Input%keep_cols) then
+      ! If keeping collisions, call writer
+      if (Input%keep_cols) &
         call writecols(Atom,Input%folder,&
                        Input%lim_cols_tt,Input%lim_cols_ll)
-      end if
 
       ! Control
       if (laborted) return
 
-      ! Passive atoms
+      ! For each background atom
       do ia=1,nAb
+
+        ! Calculate collisional rates
         call Initcols(Atomb(ia),Atmo,Input%folder,Flgsg, &
                       Input%keep_coll,.False.)
-      end do
+
+      end do ! Background atoms
 
       end subroutine setcols
 
@@ -515,37 +540,42 @@
 !#####################################################################
 !#####################################################################
 
-      !> Initialize populations\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!    Atomb(Atom_class): Structure with the atomic data for
-      !!                       background opacities\n
-      !!     Atmo(Atmo_class): Structure with atmospheric data
+      !> Initialize populations and density matrices for all atoms\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atoms\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data
       subroutine setuppopu(Atom,Atomb,Atmo)
 
       ! I/O
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Atmo_class):: Atmo
+
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(Atmo_class), intent(in):: Atmo
 
       ! Local
+
       integer:: ia
 
-      !
-      ! Initialize populations properly
-      !
 
-      ! Active atoms
+      ! For each active atom
       do ia=1,nA
+
+        ! Initialize populations
         call Initpopu(Atom(ia),Atmo,.True.)
-      end do
+
+      end do ! Active atoms
 
       ! Control
       if (laborted) return
 
-      ! Passive atoms
+      ! For each background atom
       do ia=1,nAb
+
+        ! Initialize populations
         call Initpopu(Atomb(ia),Atmo,.False.)
-      end do
+
+      end do ! Background atoms
 
       end subroutine setuppopu
 
@@ -553,48 +583,60 @@
 !#####################################################################
 !#####################################################################
 
-      !> Calculate line broadening\n
-      !!        Atom(Atom_class): Structure with the atomic data\n
-      !!       Atomb(Atom_class): Structure with the atomic data for
-      !!                          background opacities\n
-      !!        Atmo(Atmo_class): Structure with atmospheric data\n
-      !!      Input(Input_class): Structure with settings data
+      !> Calculate the line broadening damping coefficient\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atoms\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data\n
+      !!    Input(Input_class): Structure with configuration data
       subroutine broadening(Atom,Atomb,Atmo,Input)
 
       ! I/O
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Atmo_class):: Atmo
-      type(Input_class):: Input
+
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(Atmo_class), intent(in):: Atmo
+      type(Input_class), intent(in):: Input
 
       ! Local
+
       integer:: ia
 
-      ! For active atoms
+
+      ! For each active atom
       do ia=1,nA
+
+        ! Compute line broadening damping parameter
         call broad(Atom(ia),Atmo,Input%folder,Input%keep_aparam)
-      end do
+
+      end do ! Active atoms
 
       ! Control
       if (laborted) return
 
-      ! If keeping damping and master, call writer
+      ! If keeping damping, call writer
       if (Input%keep_damp) call writedamp(Atom,Atmo,Input%folder, &
                                           Input%lim_damp)
 
-      ! If keeping elastic rates and master, call writer
-      if (Input%keep_qel) call writeqel(Atom,Atmo,Input%folder, &
+      ! If keeping elastic rates, call writer
+      if (Input%keep_qel) call writeqel(Atom,Input%folder, &
                                         Input%lim_qel)
 
       ! Control
       if (laborted) return
 
-      ! And for background atoms
+      ! If there are background atoms
       if (Input%nAb.gt.0) then
+
+        ! For each background atom
         do ia=1,Input%nAb
+
+          ! Compute line broadening damping parameter
           call broad(Atomb(ia),Atmo,Input%folder,.False.)
-        end do
-      end if
+
+        end do ! Background atoms
+
+      end if ! There are background atoms
 
       end subroutine broadening
 
@@ -602,22 +644,29 @@
 !#####################################################################
 !#####################################################################
 
-      !> Calculate line broadening\n
-      !! LTElines(LTEline_class): Structure with the LTE line data\n
-      !!        Atmo(Atmo_class): Structure with atmospheric data
+      !> Calculate the line broadening damping coefficient for LTE
+      !! lines\n
+      !!  LTElines(LTEline_class(:)): Structures with LTE line data\n
+      !!            Atmo(Atmo_class): Structure with atmospheric data
       subroutine broadening_line(LTElines,Atmo)
 
       ! I/O
-      type(LTEline_class), dimension(:), allocatable:: LTElines
-      type(Atmo_class):: Atmo
+
+      type(LTEline_class), dimension(:), intent(inout):: LTElines
+      type(Atmo_class), intent(in):: Atmo
 
       ! Local
+
       integer:: ia
 
-      ! If LTE lines
+
+      ! For every LTE line
       do ia=1,nLTEl
+
+        ! Compute line broadening damping parameter
         call broad_line(LTElines(ia),Atmo)
-      end do
+
+      end do ! LTE line
 
       end subroutine broadening_line
 
@@ -625,45 +674,55 @@
 !#####################################################################
 !#####################################################################
 
-      !> Prepare the model atmosphere dealing with the equation of
-      !! state\n
-      !!        Atom(Atom_class): Structure with the atomic data\n
-      !!       Atomb(Atom_class): Structure with the atomic data for
-      !!                          background opacities\n
-      !! LTElines(LTEline_class): Structure with the LTE line data\n
-      !!          Mol(Mol_class): Structure with the molecule data\n
-      !!        Atmo(Atmo_class): Structure with atmospheric data\n
-      !!      Input(Input_class): Structure with settings data
+      !> Solve the chemical equilibrium and revise model the hydrogen
+      !! number density in the model atmosphere\n
+      !!         Atom(Atom_class(:)): Structures with atomic data\n
+      !!        Atomb(Atom_class(:)): Structures with atomic data for
+      !!                              background atoms\n
+      !!  LTElines(LTEline_class(:)): Structures with LTE line data\n
+      !!           Mol(Mol_class(:)): Structures with molecular data\n
+      !!            Atmo(Atmo_class): Structure with atmospheric
+      !!                              data\n
+      !!          Input(Input_class): Structure with configuration
+      !!                              data
       subroutine chemical(Atom,Atomb,LTEline,Mol,Atmo,Input)
 
       ! I/O
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(LTEline_class), dimension(:), allocatable:: LTEline
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Atmo_class):: Atmo
-      type(Input_class):: Input
+
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(LTEline_class), dimension(:), &
+                           allocatable, intent(inout):: LTEline
+      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Atmo_class), intent(inout):: Atmo
+      type(Input_class), intent(in):: Input
 
       ! Local
+
       integer:: ia
+
 
       !
       ! Protect atoms from chemical equilibrium
       !
+
+      ! If protecting all atoms
       if (Input%chem_protect_all) then
-        ! Active
+
+        ! Protect every active atom
         do ia=1,nA
           Atom(ia)%mol_protect = .True.
         end do
-        ! Passive
+
+        ! Protect every background atom
         do ia=1,nAb
           Atomb(ia)%mol_protect = .True.
         end do
-      end if
+
+      end if ! Protecting all atoms
 
       !
       ! Calculate chemical equilibrium
-      !
       call chemeq(Atom,Atomb,LTEline,Mol,Atmo)
 
       ! Control
@@ -673,25 +732,39 @@
       ! Check again atmospheric hydrogen number density
       !
 
-      ! Check active atoms
+      ! For each active atom
       do ia=1,nA
-        if (Atom(ia)%element.eq.' H') then
-          if (allocated(Atom(ia)%popu)) then
-            call ReviseHatmo(Atom(ia),Atmo)
-          end if
-          exit
-        end if
-      end do
 
-      ! Check passive atoms
-      do ia=1,nAb
-        if (Atomb(ia)%element.eq.' H') then
-          if (allocated(Atomb(ia)%popu)) then
-            call ReviseHatmo(Atomb(ia),Atmo)
-          end if
+        ! If it is hydrogen
+        if (Atom(ia)%element.eq.' H') then
+
+          ! If it had NLTE populations, revise atmosphere
+          if (allocated(Atom(ia)%popu)) &
+            call ReviseHatmo(Atom(ia),Atmo)
+
+          ! Leave
           exit
-        end if
-      end do
+
+        end if ! If it hydrogen
+
+      end do ! Active atoms
+
+      ! For each background atom
+      do ia=1,nAb
+
+        ! If it is hydrogen
+        if (Atomb(ia)%element.eq.' H') then
+
+          ! If it had NLTE populations, revise atmosphere
+          if (allocated(Atomb(ia)%popu)) &
+            call ReviseHatmo(Atomb(ia),Atmo)
+
+          ! Leave
+          exit
+
+        end if ! If it hydrogen
+
+      end do ! Background atoms
 
       end subroutine chemical
 
@@ -699,21 +772,26 @@
 !#####################################################################
 !#####################################################################
 
-      !> Prepare the density matrices\n
-      !!     Atom(Atom_class): Structure with the atomic data
+      !> Initialize the density matrix of all atoms\n
+      !!  Atom(Atom_class(:)): Structures with atomic data
       subroutine Initrhoes(Atom)
 
       ! I/O
-      type(Atom_class), dimension(:):: Atom
+
+      type(Atom_class), dimension(:), intent(inout):: Atom
 
       ! Local
+
       integer:: ia
 
 
-      ! Active atoms
+      ! For each active atom
       do ia=1,nA
+
+        ! Initialize density matrix
         call Initcrho(Atom(ia))
-      end do
+
+      end do ! Active atoms
 
       end subroutine Initrhoes
 
@@ -721,24 +799,26 @@
 !#####################################################################
 !#####################################################################
 
-      !> Update model atmosphere\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!    Atomb(Atom_class): Structure with the atomic data for
-      !!                       background opacities\n
-      !!     Atmo(Atmo_class): Structure with atmospheric data\n
-      !! Bfield(Bfield_class): Structure with magnetic field
-      !!                       data\n
-      !!   Input(Input_class): Structure with settings data
+      !> Update the model atmosphere, recalculating number densities
+      !! if necessary\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atoms\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data\n
+      !!  Bfield(Bfield_class): Structure with magnetic field data\n
+      !!    Input(Input_class): Structure with configuration data
       subroutine updateatmo(Atom,Atomb,Atmo,Bfield,Input)
 
       ! I/O
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Atmo_class):: Atmo
-      type(Bfield_class):: Bfield
-      type(Input_class):: Input
+
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), intent(in):: Atomb
+      type(Atmo_class), intent(inout):: Atmo
+      type(Bfield_class), intent(in):: Bfield
+      type(Input_class), intent(in):: Input
 
       ! Local
+
       integer:: ia
       integer, dimension(:), allocatable:: nlte,depar
 
@@ -749,9 +829,7 @@
 
       if (Input%update_atmos.lt.0) return
 
-      !
-      ! Revise nlte
-      !
+      ! Activate all nlte and deactivate all depar flags
       call activenlte(nlte,depar,Atom)
 
       !
@@ -767,26 +845,24 @@
         ! If it is hydrogen
         if (Atom(ia)%element.EQ.' H') then
 
-          ! Revise populations and exit
+          ! Revise populations in model atmosphere and exit
           call ReviseHatmo(Atom(ia),Atmo)
 
         end if ! If Hydrogen
 
-      end do ! Go through all active atoms
+      end do ! Active atoms
 
       !
       ! Redo the electrons if specified in input
-      !
       if (Input%redo_ne.eq.1.or.Input%redo_ne.eq.11) &
         call redo_ne(Atom,Atomb,nlte,depar,Atmo)
 
+      ! Write model atmosphere if indicated in input
       if (Input%keep_atmo) call writeatmo(Atmo,Bfield, &
                                           Input%folder, &
                                           Input%lim_atmo)
 
-      !
-      ! Output the new atmosphere if 1D
-      !
+      ! Write new model in ASCII if 1D
       if (run_mode.eq.0) &
         call wAtmo(Atmo,Input%update_atmos,Input%folder, &
                    Input%atmo)
@@ -799,32 +875,38 @@
 !#####################################################################
 !#####################################################################
 
-      !> Prepare for the synthesis\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!         Atomb(Atom_class): Structure with the atomic data for
-      !!                            background opacities\n
-      !!   LTElines(LTEline_class): Structure with the LTE line data\n
-      !!            Mol(Mol_class): Structure with the molecule data\n
-      !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !!        Input(Input_class): Structure with settings data\n
-      !!        Flgsg(Fctsg_class): Structure with factorials and
-      !!                            signs\n
+      !> Prepare a model atmosphere for the hanle routine to solve the
+      !! self-consistent problem and/or calculate formal solutions\n
+      !!         Atom(Atom_class(:)): Structures with atomic data\n
+      !!        Atomb(Atom_class(:)): Structures with atomic data for
+      !!                              background atoms\n
+      !!  LTElines(LTEline_class(:)): Structures with LTE line data\n
+      !!           Mol(Mol_class(:)): Structures with molecular data\n
+      !!            Atmo(Atmo_class): Structure with atmospheric
+      !!                              data\n
+      !!          Input(Input_class): Structure with configuration
+      !!                              data\n
+      !!          Flgsg(Fctsg_class): Structure with factorials,
+      !!                              signs, and J-symbols
       subroutine prepare_syn(Atom,Atomb,LTElines,Mol,Atmo,Input,Flgsg)
 
       ! I/O
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(LTEline_class), dimension(:), allocatable:: LTElines
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Atmo_class):: Atmo
-      type(Fctsg_class):: Flgsg
-      type(Input_class):: Input
+
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(LTEline_class), dimension(:), &
+                           allocatable, intent(inout):: LTElines
+      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Atmo_class), intent(inout):: Atmo
+      type(Fctsg_class), intent(inout):: Flgsg
+      type(Input_class), intent(in):: Input
 
       ! Local
+
       integer, dimension(:), allocatable:: nlte,depar
 
 
-      ! Prepare atoms and molecules
+      ! Prepare space for the total population of atoms and molecules
       call prepareatomol(Atom,Atomb,Mol,Input%nM)
 
       ! If error, skip
@@ -836,13 +918,13 @@
       ! If error, skip
       if (laborted) goto 1000
 
-      ! Revise H population
+      ! Revise H population in model atmosphere
       call reviseH_init(Atom,Atomb,Atmo)
 
       ! If error, skip
       if (laborted) goto 1000
 
-      ! Eq of state
+      ! Eq. of state
       if (Atmo%typo.gt.0.or.Input%keep_atmo.or. &
           Input%redo_ne.gt.0) then
 
@@ -856,33 +938,31 @@
         if (Atmo%typo.gt.0) &
           call reviseH_out(Atom,Atomb,Atmo,Input)
 
-      end if
+      end if ! Eq. of state
 
       ! If error, skip
       if (laborted) goto 1000
 
-      !
       ! Recalculate electron density
-      !
       if (Input%redo_ne.ge.10) &
         call redo_ne(Atom,Atomb,nlte,depar,Atmo)
 
       ! If error, skip
       if (laborted) goto 1000
 
-      ! LTE populations
+      ! Calculate LTE populations
       call setlte(Atom,Atomb,Atmo,Input)
 
       ! If error, skip
       if (laborted) goto 1000
 
-      ! Collisions
+      ! Calculate collisions
       call setcols(Atom,Atomb,Atmo,Input,Flgsg)
 
       ! If error, skip
       if (laborted) goto 1000
 
-      ! LTE lines
+      ! If there are NLTE lines
       if (nLTEl.gt.0) then
 
         ! Prepare LTE lines
@@ -896,16 +976,17 @@
       ! If error, skip
       if (laborted) goto 1000
 
-      ! Broadening
+      ! Calculate line broadening damping parameter
       call broadening(Atom,Atomb,Atmo,Input)
 
       ! If error, skip
       if (laborted) goto 1000
 
-      ! LTE lines
+      ! If there are LTE lines, calculate their line broadening
+      ! damping parameter
       if (nLTEl.gt.0) call broadening_line(LTElines,Atmo)
 
-      ! Chemical equilibrium
+      ! Solve chemical equilibrium
       call chemical(Atom,Atomb,LTElines,Mol,Atmo,Input)
 
       ! If error, free atom memory
@@ -928,34 +1009,36 @@
 !#####################################################################
 !#####################################################################
 
-      !> Set-up input model atmosphere for inversion\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!    Atomb(Atom_class): Structure with the atomic data for
-      !!                       background opacities\n
-      !!       Mol(Mol_class): Structure with the molecule data\n
-      !!     Atmo(Atmo_class): Structure with atmospheric data\n
-      !!      MPID(MPI_class): Structure with MPI data\n
-      !!   Input(Input_class): Structure with settings data\n
-      !!   Flgsg(Fctsg_class): Structure with factorials and
-      !!                       signs\n
-      !!   fudge(fudge_class): Structure with fudge data\n
-      !!      zalt(double(:)): Alternative height axis\n
-      !!       alloc(logical): If tau axis must be allocated
-      subroutine setup_Atmo_ininv(Atom,Atomb,Mol,Atmo,MPID,Input, &
-                                  fudge,zalt,alloc)
+      !> Prepare a model atmosphere in an inversion to ensure that it
+      !! is in the expected format\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atoms\n
+      !!     Mol(Mol_class(:)): Structures with molecular data\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data\n
+      !!    Input(Input_class): Structure with configuration data\n
+      !!    Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                        J-symbols\n
+      !!    fudge(fudge_class): Structure with fudge data\n
+      !!       zalt(double(:)): Alternative height axis\n
+      !!        alloc(logical): If the optical depth axis is allocated
+      subroutine setup_Atmo_ininv(Atom,Atomb,Mol,Atmo,Input,fudge, &
+                                  zalt,alloc)
 
       ! I/O
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Atmo_class):: Atmo
-      type(fudge_class):: fudge
-      type(Input_class):: Input
-      type(MPI_class):: MPID
+
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Atmo_class), intent(inout):: Atmo
+      type(fudge_class), intent(in):: fudge
+      type(Input_class), intent(in):: Input
       logical, intent(in):: alloc
-      double precision, dimension(:), allocatable, target:: zalt
+      double precision, dimension(:), allocatable, &
+                        target, intent(inout):: zalt
 
       ! Local
+
       type(Atmo_class):: Atmo_tmp
       type(LTEline_class), dimension(:), allocatable:: dummy
 
@@ -963,15 +1046,15 @@
       integer, dimension(Atmo%nele):: nlte,depar
 
 
-      ! Keep current nz
+      ! Keep current number of height nodes, nz
       ii = nz
       nz = Atmo%nz
 
-      ! No data
+      ! No data in inversion
       nlte = 0
       depar = 0
 
-      ! Prepare atoms and molecules
+      ! Prepare total populations of atoms and molecules
       call prepareatomol(Atom,Atomb,Mol,Input%nM)
 
       ! If error, skip
@@ -989,7 +1072,7 @@
       ! If error, skip
       if (laborted) return
 
-      ! If not tau scale
+      ! If model not in tau scale
       if (Atmo%scal.ne.'T') then
 
         ! Get a copy of Atmo
@@ -1001,51 +1084,59 @@
         ! Initialize populations
         call setuppopu(Atom,Atomb,Atmo_tmp)
 
-        ! Chemical equilibrium
+        ! Solve chemical equilibrium
         call chemical(Atom,Atomb,dummy,Mol,Atmo_tmp,Input)
+
+        ! If error, skip
         if (laborted) return
 
         ! Allocate chi500
+        ! The memory, if kept, is counted in getztau
         if (.not.allocated(Atmo_tmp%chi500)) &
           allocate(Atmo_tmp%chi500(nz))
 
-
-        !
         ! Calculate continuum opacity at reference frequency
-        !
         call chi_freq(Atom,Atomb,Mol,Atmo_tmp,fudge,Input, &
                       Atmo_tmp%tfreq,Atmo_tmp%chi500,1,nz, &
-                      MPID%mpi)
+                      nproc.gt.1)
 
-        ! Free
+        ! Free memory
         call free_lpop(Atom,Atomb)
         call free_mol(Mol)
 
         !
         ! Compute missing height or tau
         !
-        call getztau(Atmo_tmp,MPID,.False.)
+        call getztau(Atmo_tmp,.False.)
 
 
         !
         ! Get the tau scale
         !
 
-        ! If alloc
+        ! If allocated
         if (alloc) then
 
+          ! Copy axis from temporal model
           Atmo%z = Atmo_tmp%zalt
 
-        ! Not alloc
+        ! Not allocated, but pointed
         else
 
-          if (.not.allocated(zalt)) allocate(zalt(nz))
+          ! If zalt is not allocated, do it
+          if (.not.allocated(zalt)) then
+            allocate(zalt(nz))
+            MRAMc = MRAMc + 1d-6*sizeof(zalt)
+          end if
+
+          ! Copy from model
           zalt = Atmo_tmp%zalt
+
+          ! And point it
           Atmo%z => zalt
 
-        end if
+        end if ! Allocated or pointed
 
-        !
         ! Wipe the copy clean
         call free_Atmo(Atmo_tmp,.True.)
 
@@ -1062,43 +1153,56 @@
       Atmo%nht = 0d0
       Atmo%nha = 0d0
       Atmo%nhm = 0d0
-      if (allocated(Atmo%rho)) deallocate(Atmo%rho)
-      if (allocated(Atmo%Pe)) deallocate(Atmo%Pe)
 
-      ! Restore nz
+      ! Free mass density if allocated
+      if (allocated(Atmo%rho)) then
+        MRAMc = MRAMc - 1d-6*sizeof(Atmo%rho)
+        deallocate(Atmo%rho)
+      end if
+
+      ! Free electron pressure if allocated
+      if (allocated(Atmo%Pe)) then
+        MRAMc = MRAMc - 1d-6*sizeof(Atmo%Pe)
+        deallocate(Atmo%Pe)
+      end if
+
+      ! Restore nz to the original value
       nz = ii
 
-      ! Sanity check tau
+      ! If minimum tau is smaller or equal to zero
       if (minval(Atmo%z).le.0d0) then
 
         ! If really negative
         if (minval(Atmo%z).lt.0d0) then
 
+          ! Issue error
           umsg = 'The input model atmosphere has '// &
                  'negative optical depths'
           urou = 'setup_Atmo'
           call aborted
           return
 
-        end if
+        end if ! Minimum optical depth is negative
 
-        ! Try to follow some progression
+        ! Try to follow some progression to compute the top
+        ! optical depth value
         Atmo%z(1) = Atmo%z(2)*Atmo%z(2)/Atmo%z(3)
 
-        ! If still negative, try with the largest step
+        ! If still negative, try with the latest step
         if (Atmo%z(1).le.0d0) &
           Atmo%z(1) = 2d0*Atmo%z(2) - Atmo%z(3)
 
-        ! If still zero or negative, put the upper
-        ! boundary one orders of magnitude smaller
+        ! If still zero or negative, put the upper boundary at onei
+        ! order of magnitude smaller than second to last
         if (Atmo%z(1).le.0d0) Atmo%z(1) = Atmo%z(2)*1d-1
 
         ! For consistency, add to all the depths
         Atmo%z(2:Atmo%nz) = Atmo%z(2:Atmo%nz) + Atmo%z(1)
 
-        ! If still 0, give up
+        ! If it is still 0
         if (minval(Atmo%z).le.0d0) then
 
+          ! Issue error and give up
           umsg = 'The input model atmosphere has '// &
                  'a non valid optical depth stratification'
           urou = 'setup_Atmo'
@@ -1107,7 +1211,7 @@
         end if ! Still 0 optical depth
       end if ! 0 or negative optical depth
 
-      ! Free
+      ! Free local variables
       call free_local_Atom(Atom)
       call free_gpop(Atom,Atomb,Mol)
 
@@ -1118,39 +1222,39 @@
 !#####################################################################
 !#####################################################################
 
-      !> Set-up output model atmosphere for inversion\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!    Atomb(Atom_class): Structure with the atomic data for
-      !!                       background opacities\n
-      !!       Mol(Mol_class): Structure with the molecule data\n
-      !!     Atmo(Atmo_class): Structure with atmospheric data\n
-      !!      MPID(MPI_class): Structure with MPI data\n
-      !!   Input(Input_class): Structure with settings data\n
-      !!   Flgsg(Fctsg_class): Structure with factorials and
-      !!                       signs\n
-      !!   fudge(fudge_class): Structure with fudge data
-      subroutine setup_Atmo_ouinv(Atom,Atomb,Mol,Atmo,MPID,Input, &
-                                  fudge)
+      !> Prepare the atmospheric model resulting from a inversion to
+      !! write in the result file\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atoms\n
+      !!     Mol(Mol_class(:)): Structures with molecular data\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data\n
+      !!    Input(Input_class): Structure with configuration data\n
+      !!    fudge(fudge_class): Structure with fudge data
+      subroutine setup_Atmo_ouinv(Atom,Atomb,Mol,Atmo,Input,fudge)
+
 
       ! I/O
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Atmo_class):: Atmo
-      type(fudge_class):: fudge
-      type(Input_class):: Input
-      type(MPI_class):: MPID
+
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Atmo_class), intent(inout):: Atmo
+      type(fudge_class), intent(in):: fudge
+      type(Input_class), intent(in):: Input
 
       ! Local
+
       type(LTEline_class), dimension(:), allocatable:: dummy
 
       integer, dimension(Atmo%nele):: nlte,depar
 
-      ! No data
+
+      ! No data in inversion
       nlte = 0
       depar = 0
 
-      ! Prepare atoms and molecules
+      ! Prepare total populations of atoms and molecules
       call prepareatomol(Atom,Atomb,Mol,Input%nM)
 
       ! If error, skip
@@ -1174,26 +1278,27 @@
       ! Initialize populations
       call setuppopu(Atom,Atomb,Atmo)
 
-      ! Chemical equilibrium
+      ! Solve chemical equilibrium
       call chemical(Atom,Atomb,dummy,Mol,Atmo,Input)
+
+      ! If error, skip
       if (laborted) return
 
       ! Allocate chi500
-      if (.not.allocated(Atmo%chi500)) &
+      if (.not.allocated(Atmo%chi500)) then
         allocate(Atmo%chi500(nz))
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo%chi500)
+      end if
 
-      !
       ! Calculate continuum opacity at reference frequency
-      !
       call chi_freq(Atom,Atomb,Mol,Atmo,fudge,Input, &
-                    Atmo%tfreq,Atmo%chi500,1,nz,MPID%mpi)
+                    Atmo%tfreq,Atmo%chi500,1,nz,nproc.gt.1)
 
-      ! Free
+      ! Free memory
       call free_lpop(Atom,Atomb)
       call free_mol(Mol)
       call free_local_Atom(Atom)
       call free_gpop(Atom,Atomb,Mol)
-
 
       end subroutine setup_Atmo_ouinv
 

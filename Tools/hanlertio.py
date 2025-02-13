@@ -310,6 +310,319 @@ class _stokes_1D():
 ################################################################################
 ################################################################################
 
+class _stokesquad_1D():
+    ''' Class to manage emergent Stokes parameters in the quadrature
+        from 1D synthesis
+    '''
+
+    def __init__(self,filename):
+        ''' Initialize class
+        '''
+
+        # Store filename
+        self.__filename = filename
+
+        # Get header
+        if not self.__head(): return None
+
+        #  Transformation to SI
+        self.__unit_trans = 1e0/299792458e5
+
+        self.__methods = {\
+         'get_filename': \
+          [None,'Get name of the read file'], \
+         'get_nl': \
+          [None,'Get number of wavelengths'], \
+         'get_nl': \
+          [None,'Get number of directions'], \
+         'get_th': \
+          [None,'Get list of LOS heliocentric angle'], \
+         'get_ph': \
+          [None,'Get list of LOS azimuthal angle'], \
+         'get_mu': \
+          [None,'Get list of LOS cosine of the heliocentric angle'], \
+          'get_lambda': \
+          [{'minl': \
+             'Lower boundary for output wavelength [nm]', \
+            'maxl': \
+             'Upper boundary for output wavelength [nm]'}, \
+           'Get wavelengths in [nm]'], \
+          'get_stokesi': \
+          [{'minl': \
+             'Lower boundary in wavelength [nm]', \
+            'maxl': \
+             'Upper boundary in wavelength [nm]'}, \
+           'Get intensity [SI]'], \
+          'get_stokesq': \
+          [{'minl': \
+             'Lower boundary in wavelength [nm]', \
+            'maxl': \
+             'Upper boundary in wavelength [nm]', \
+            'fractional': \
+             'True to normalize to intensity, [SI] otherwise]'}, \
+           'Get Stokes Q parameter'], \
+          'get_stokesu': \
+          [{'minl': \
+             'Lower boundary in wavelength [nm]', \
+            'maxl': \
+             'Upper boundary in wavelength [nm]', \
+            'fractional': \
+             'True to normalize to intensity, [SI] otherwise]'}, \
+           'Get Stokes U parameter'], \
+          'get_stokesv': \
+          [{'minl': \
+             'Lower boundary in wavelength [nm]', \
+            'maxl': \
+             'Upper boundary in wavelength [nm]', \
+            'fractional': \
+             'True to normalize to intensity, [SI] otherwise]'}, \
+           'Get Stokes V parameter'], \
+          'get_linear': \
+          [{'minl': \
+             'Lower boundary in wavelength [nm]', \
+            'maxl': \
+             'Upper boundary in wavelength [nm]', \
+            'fractional': \
+             'True to normalize to intensity, [SI] otherwise]'}, \
+           'Get total linear polarization'], \
+          'get_stokes': \
+          [{'minl': \
+             'Lower boundary in wavelength [nm]', \
+            'maxl': \
+             'Upper boundary in wavelength [nm]', \
+            'fractional': \
+             'True to normalize to intensity, [SI] otherwise]'}, \
+           'Get all Stokes parameters'] \
+           }
+
+    def _get_help(self):
+        ''' Return methods dictionary
+        '''
+        return self.__methods
+
+    def __head(self):
+        ''' Reads hanlert emergence 1D file head
+        '''
+        try:
+            f = open(self.__filename,'rb')
+            f.seek(2,0)
+            self.__nl = struct.unpack('i',f.read(4))[0]
+            self.__jump_to_lambda = 6
+            f.seek(self.__nl*8,1)
+            self.__nth = struct.unpack('i',f.read(4))[0]
+            self.__nph = struct.unpack('i',f.read(4))[0]
+            # Count dirs
+            self.__nd = 0
+            self.__th = []
+            self.__ph = []
+            for it in range(self.__nth):
+              for ip in range(self.__nph):
+                th = struct.unpack('d',f.read(8))[0]
+                ph = struct.unpack('d',f.read(8))[0]
+                f.seek(self.__nl*4*8,1)
+                if th <= 90.0:
+                    self.__nd += 1
+                    self.__th.append(th)
+                    self.__ph.append(ph)
+            self.__th = np.array(self.__th)
+            self.__ph = np.array(self.__ph)
+            self.__mu = np.cos(self.__th*np.pi/180.)
+            self.__hsize = 14 + 8*self.__nl
+            f.close()
+            return True
+        except struct.error:
+            raise
+        except:
+            raise
+
+    def _get_filename(self):
+        ''' Get the name of the read file
+        '''
+        return self.__filename
+
+    def _get_nl(self):
+        ''' Get number of wavelengths
+        '''
+        return self.__nl
+
+    def _get_nd(self):
+        ''' Get number of directions
+        '''
+        return self.__nd
+
+    def _get_th(self):
+        ''' Get LOS heliocentric angle
+        '''
+        return self.__th
+
+    def _get_ph(self):
+        ''' Get LOS azimuthal angle
+        '''
+        return self.__ph
+
+    def _get_mu(self):
+        ''' Get LOS cosine of the heliocentric angle
+        '''
+        return self.__mu
+
+    def _get_lambda(self,minl=None,maxl=None):
+        ''' Get lambda from file
+        '''
+        try:
+            f = open(self.__filename,'rb')
+            f.seek(self.__jump_to_lambda,0)
+            omg = np.array(struct.unpack('d'*self.__nl, \
+                                         f.read(8*self.__nl)))
+            lam = 1e2/omg[::-1]
+            if minl is not None:
+                i = np.argmin(np.absolute(lam - minl))
+                lam = lam[i:]
+            if maxl is not None:
+                i = np.argmin(np.absolute(lam - maxl))
+                lam = lam[:i+1]
+            f.close()
+            return lam
+        except struct.error:
+            raise
+        except:
+            raise
+
+    def __get_gen_stokes(self,minl=None,maxl=None,fractional=False,indx=[0]):
+        ''' Generic read of Stokes parameters
+        '''
+
+        # Initialize
+        out = [None,None,None,None]
+        bsiz = self.__nl*8
+
+        # If cutting lambda
+        if fractional or minl is not None or maxl is not None:
+            lam = self._get_lambda()
+
+
+        try:
+
+            # Open and seek data
+            f = open(self.__filename,'rb')
+            f.seek(self.__hsize,0)
+
+            # Get space
+            stk = np.empty((self.__nd,4,self.__nl))
+
+            # For each direction
+            for di in range(self.__nd):
+
+                # Skip angles
+                f.seek(16,1)
+
+                # Intensity
+                if 0 in indx or fractional:
+
+                    # Get intensity
+                    stk[di,0,:] = \
+                            np.array(struct.unpack('d'*self.__nl, \
+                                     f.read(bsiz)))[::-1]
+
+                # No intensity
+                else:
+
+                    # Skip
+                    f.seek(bsiz,1)
+
+                # Q, U, and V
+                for j in range(1,4):
+
+                    # If in output
+                    if j in indx:
+
+                        # Read Stokes
+                        stk[di,j,:] = \
+                             np.array(struct.unpack('d'*self.__nl, \
+                                                    f.read(bsiz)))[::-1]
+                    # Not in output
+                    else:
+
+                        # Skip
+                        f.seek(bsiz,1)
+
+                    # If fractional and output
+                    if fractional and j in indx:
+                      stk[di,j,:] /= stk[di,0,:]
+
+            # Close unit
+            f.close()
+
+            # Limits
+            if minl is not None:
+                i = np.argmin(np.absolute(lam - minl))
+                lam = lam[i:]
+                stk = stk[:,:,i:]
+            if maxl is not None:
+                i = np.argmin(np.absolute(lam - maxl))
+                lam = lam[:i+1]
+                stk = stk[:,:,:i+1]
+
+            # Norm
+            for j in indx:
+                if j == 0 or not fractional:
+                    stk[:,j,:] *= self.__unit_trans
+
+            # Translate
+            out = {}
+            for j in range(4):
+                if j in indx:
+                    out[j] = stk[:,j,:]
+
+            # Return
+            return out
+
+        except struct.error:
+            raise
+        except:
+            raise
+
+    def _get_stokesi(self,minl=None,maxl=None):
+        ''' Get intensity from file
+        '''
+        return self.__get_gen_stokes(minl,maxl,False,[0])[0]
+
+    def _get_stokesq(self,minl=None,maxl=None,fractional=False):
+        ''' Get Stokes Q from file
+        '''
+        return self.__get_gen_stokes(minl,maxl,fractional,[1])[1]
+
+    def _get_linear(self,minl=None,maxl=None,fractional=False):
+        ''' Get total linear polarization from file
+        '''
+        qu = self.__get_gen_stokes(minl,maxl,fractional,[1,2])
+        return np.sqrt(qu[1]*qu[1] + qu[2]*qu[2])
+
+    def _get_stokesu(self,minl=None,maxl=None,fractional=False):
+        ''' Get Stokes U from file
+        '''
+        return self.__get_gen_stokes(minl,maxl,fractional,[2])[2]
+
+    def _get_stokesv(self,minl=None,maxl=None,fractional=False):
+        ''' Get Stokes V from file
+        '''
+        return self.__get_gen_stokes(minl,maxl,fractional,[3])[3]
+
+    def _get_linear(self,minl=None,maxl=None,fractional=False):
+        ''' Get total linear polarization from file
+        '''
+        qu = self.__get_gen_stokes(minl,maxl,fractional,[1,2])
+        return np.sqrt(qu[1]*qu[1] + qu[2]*qu[2])
+
+    def _get_stokes(self,minl=None,maxl=None,fractional=False):
+        ''' Get Stokes parameters from file
+        '''
+        iquv = self.__get_gen_stokes(minl,maxl,fractional,[0,1,2,3])
+        return np.stack((iquv[0],iquv[1],iquv[2],iquv[3]))
+
+################################################################################
+################################################################################
+################################################################################
+
 class _contribution_1D():
     ''' Class to manage the contribution function from 1D synthesis
     '''
@@ -1488,6 +1801,7 @@ class _jkqnu_1D():
             data = np.array(data).reshape((self.__nz, \
                                            self.__nl, \
                                            9,2))
+            data = data[:,::-1,:,:]
             f.close()
 
             # Adjust wavelength
@@ -1542,7 +1856,7 @@ class _jkqnu_1D():
 
             # Transform
             data *= self.__unit_trans
-            nl = lam.size
+            nl = data.shape[1]
             nz = self.__nz
 
             # Get output
@@ -8994,7 +9308,7 @@ class _stokes_CLE():
             self.__complete = False
             msg = f'I have guessed that this is ' + \
                   f'an incomplete file'
-                _error(msg,0)
+            _error(msg,0)
 
         # Return valid
         return True
@@ -9592,7 +9906,6 @@ class hanlertio_class():
   'MRC': 'Maximum relative change from 1.5D synthesis', \
   'sp': 'Solution file with polarization', \
   'si': 'Solution file without polarization', \
-  'bo': 'Stokes parameters in the quadrature in 1D synthesis', \
         '''
         # TODO TODO
 
@@ -9654,6 +9967,38 @@ class hanlertio_class():
                     # Methods
                     self.get_filename = self.__get_filename
                     self.get_nl = self.__get_nl
+                    self.get_th = self.__get_th
+                    self.get_ph = self.__get_ph
+                    self.get_mu = self.__get_mu
+                    self.get_lambda = self.__get_lambda
+                    self.get_stokesi = self.__get_stokesi1d
+                    self.get_stokesq = self.__get_stokesq1d
+                    self.get_stokesu = self.__get_stokesu1d
+                    self.get_stokesv = self.__get_stokesv1d
+                    self.get_stokes = self.__get_stokes1d
+                    self.get_linear = self.__get_linear1d
+
+                    # Valid class
+                    return True
+
+                # Fail
+                else:
+
+                    # Not valid class
+                    return False
+
+            # stokesquad_1D
+            elif label == 'bo':
+
+                # Load Stokes 1D class
+                self.__object = _stokesquad_1D(self.__filename)
+
+                if self.__object is not None:
+
+                    # Methods
+                    self.get_filename = self.__get_filename
+                    self.get_nl = self.__get_nl
+                    self.get_nd = self.__get_nd
                     self.get_th = self.__get_th
                     self.get_ph = self.__get_ph
                     self.get_mu = self.__get_mu
@@ -10342,12 +10687,12 @@ class hanlertio_class():
     # inversion out
     def __get_vars_atmo_units(self):
         return self.__object._get_vars_atmo_units()
-    # stokes 1D, contribution 1D, tau 1D, 1D back, 1D popdep,
-    # jkqnu 1D, stokes 15D, contribution 15D, tau15D, inversion in,
-    # inversion out, 15D back
+    # stokes 1D, stokesquad 1D, contribution 1D, tau 1D, 1D back,
+    # 1D popdep, jkqnu 1D, stokes 15D, contribution 15D, tau15D,
+    # inversion in, inversion out, 15D back
     def __get_nl(self):
         return self.__object._get_nl()
-    # 1D back
+    # 1D back, stokesquad 1D
     def __get_nd(self):
         return self.__object._get_nd()
     # stokes 15D, contribution 15D, tau15D, inversion in,
@@ -10393,21 +10738,21 @@ class hanlertio_class():
     # inversion in
     def __get_los_p(self,ix=None,iy=None):
         return self.__object._get_los_plane()
-    # stokes 1D, contribution 1D, tau 1D, stokes 15D,
+    # stokes 1D, stokesquad 1D, contribution 1D, tau 1D, stokes 15D,
     # contribution 15D, tau15D
     def __get_th(self):
         return self.__object._get_th()
-    # stokes 1D, contribution 1D, tau 1D, stokes 15D,
+    # stokes 1D, stokesquad 1D, contribution 1D, tau 1D, stokes 15D,
     # contribution 15D, tau15D
     def __get_ph(self):
         return self.__object._get_ph()
-    # stokes 1D, contribution 1D, tau 1D, stokes 15D,
+    # stokes 1D, stokesquad 1D, contribution 1D, tau 1D, stokes 15D,
     # contribution 15D, tau15D
     def __get_mu(self):
         return self.__object._get_mu()
-    # stokes 1D, contribution 1D, tau 1D, jkqnu 1D, stokes 15D,
-    # contribution 15D, tau15D, inversion in, inversion out
-    # 15D back, 1D back
+    # stokes 1D, stokesquad 1D, contribution 1D, tau 1D, jkqnu 1D,
+    # stokes 15D, contribution 15D, tau15D, inversion in, inversion
+    # out 15D back, 1D back
     def __get_lambda(self,minl=None,maxl=None):
         return self.__object._get_lambda(minl,maxl)
     # CLEe
@@ -10419,22 +10764,22 @@ class hanlertio_class():
     # tau 1D
     def __get_height1d(self,minl=None,maxl=None):
         return self.__object._get_height(minl,maxl)
-    # stokes 1D
+    # stokes 1D, stokesquad 1D
     def __get_stokesi1d(self,minl=None,maxl=None):
         return self.__object._get_stokesi(minl,maxl)
-    # stokes 1D
+    # stokes 1D, stokesquad 1D
     def __get_stokesq1d(self,minl=None,maxl=None,fractional=False):
         return self.__object._get_stokesq(minl,maxl,fractional)
-    # stokes 1D
+    # stokes 1D, stokesquad 1D
     def __get_stokesu1d(self,minl=None,maxl=None,fractional=False):
         return self.__object._get_stokesu(minl,maxl,fractional)
-    # stokes 1D
+    # stokes 1D, stokesquad 1D
     def __get_stokesv1d(self,minl=None,maxl=None,fractional=False):
         return self.__object._get_stokesv(minl,maxl,fractional)
-    # stokes 1D
+    # stokes 1D, stokesquad 1D
     def __get_stokes1d(self,minl=None,maxl=None,fractional=False):
         return self.__object._get_stokes(minl,maxl,fractional)
-    # stokes 1D
+    # stokes 1D, stokesquad 1D
     def __get_linear1d(self,minl=None,maxl=None,fractional=False):
         return self.__object._get_linear(minl,maxl,fractional)
     # contribution 1D

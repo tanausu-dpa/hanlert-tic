@@ -1,555 +1,28 @@
-      !> Routines to generate frequency axis
+      !> Routines to generate frequency axes
       module omegabuild_mod
 !#####################################################################
 !############################# HEADER ################################
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Contributors:
 !     John Dennis (NCAR)
 !  Start:
-!     04/18/2017
+!     18/04/2017
 !  Last version:
-!     02/11/2025 V3.0.22
+!     13/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     02/11/2025:   V3.0.22 - Bugfix: using wrong resonance frequency
-!                             when checking for coherent wings in
-!                             the intensity branch (TdPA)
-!
-!     10/04/2024:   V3.0.21 - Bugfix: in refitfrec, the inversemap
-!                             call needed to be after the sanity
-!                             check of the index to check (TdPA)
-!
-!     08/08/2024:   V3.0.20 - Bugfix: There was a logical mistake when
-!                             allocating space for the redistribution
-!                             function in the only intensity case,
-!                             with angle-dependent redistribution, in
-!                             an static atmosphere (TdPA)
-!
-!     02/29/2023:   V3.0.19 - Bugfix: the array skip_scatt was not
-!                             being deallocated after its use, and
-!                             there were situations in which it
-!                             tried to allocate it more than once.
-!                             Notified by David Afonso (TdPA)
-!
-!     12/12/2023:   V3.0.18 - Account for the intensity flag for
-!                             coherent scattering when solving only
-!                             intensity (TdPA)
-!
-!     11/29/2023:   V3.0.17 - Improved the information in the too big
-!                             velocity shift message (TdPA)
-!
-!     11/27/2023:   V3.0.16 - Bugfix: Wrong initialization of a
-!                             variable (TdPA)
-!
-!     11/24/2023:   V3.0.15 - To check if neglecting PRD, if coherent
-!                             wing, or if core, consider the
-!                             maximum possible displacement. Also only
-!                             check transition energy if there are
-!                             not MIT lines (TdPA)
-!                           - If no ranges for output frequencies,
-!                             indicate zero size before skip (TdPA)
-!                           - Skip saving space for redistribution if
-!                             no output range (TdPA)
-!                           - RAM in redistribution structure must be
-!                             initialized to false in case there are
-!                             no redistributions to compute (e.g.,
-!                             only coherent wings) and the iPRD
-!                             variables get not allocated (TdPA)
-!                           - Bugfixes: The coherent scattering in
-!                             wings was wrong, missing shifts for the
-!                             intensity and a mistake in the logic
-!                             to chose the relevant input frequency
-!                             range in both (TdPA)
-!
-!     11/16/2023:   V3.0.14 - Bugfix: When AD, dynamic, and LOS, the
-!                             output direction to check i_scatt must
-!                             always be 1 (TdPA)
-!
-!     11/14/2023:   V3.0.13 - Magnetic PRD has its weight enhanced
-!                             with respect to the non-magnetic. This
-!                             results in significant more weight
-!                             for PRD lines with field (TdPA)
-!                           - Implemented the V3.0.12 changes to the
-!                             polarization part (TdPA)
-!
-!     10/31/2023:   V3.0.12 - Frec%stype and Frec%nfs are no longer
-!                             needed in intensity; the change in
-!                             polarization will arrive later (TdPA)
-!                           - Scattering angles are calculated
-!                             by calling get_scattering (TdPA)
-!                           - Reserve space for redistribution
-!                             accounting for unique scattering angles
-!                             only (TdPA)
-!                           - Bugfix: the angular size of Red%dzao
-!                             could be much larger than needed (TdPA)
-!
-!     09/16/2023:   V3.0.11 - Made obs_wave allocatable to satisfy
-!                             memory warnings (TdPA)
-!
-!     08/24/2023:   V3.0.10 - Added the possibility to force
-!                             wavelengths in the inversion data in the
-!                             synthesis axis. This is the first case
-!                             of added frequencies with high priority
-!                             being able to remove others within the
-!                             resolution threshold (TdPA)
-!
-!     08/07/2023:    V3.0.8 - Added the contribution of LTE lines to
-!                             the frequency axis (TdPA)
-!
-!     07/03/2023:    V3.0.7 - Implemented the possibility of a model
-!                             atom not contributing to the frequency
-!                             axis with nodes (TdPA)
-!                           - Limited some verbosity to the great
-!                             master (TdPA)
-!                           - Removed a control call (TdPA)
-!
-!     02/14/2023:    V3.0.6 - Distinguish between the PRD problem
-!                             being fully AA, or only the intensity
-!                             solution (TdPA)
-!                           - Distinguish between the problem
-!                             being fully axial, or only the intensity
-!                             solution (TdPA)
-!                           - The parameters to build the frequency
-!                             quadrature for the PRD integral is
-!                             different for intensity and polarization
-!                             in general (TdPA)
-!
-!     11/24/2022:    V3.0.5 - Create a second array of weights if
-!                             running CLE (TdPA)
-!                           - Added refitfrec (TdPA)
-!                           - Moved the creation of an auxiliar array
-!                             of frequency weights in frecresize
-!                             inside its relevant block (TdPA)
-!
-!     10/26/2022:    V3.0.4 - Master deallocates Atom%fflag%Vabsent
-!                             which it does not use (TdPA)
-!                           - Changed the indexing of atomic levels
-!                             in Atom (TdPA)
-!                           - Remove Vabsent because it was a stupid
-!                             waste of RAM (TdPA)
-!
-!     10/25/2022:    V3.0.3 - Implemented the restriction of the
-!                             height axis (TdPA)
-!                           - Initialize pointers in omegabuildin
-!                             and omegabuildinI (TdPA)
-!                           - Changed call to cleanFrecandRed which
-!                             requires a new argument (TdPA)
-!                           - Removed unused resetWarr routine (TdPA)
-!                           - Bugfix: Deallocate mfreq array in
-!                             Frec%dzao%trani, memory leak (TdPA)
-!                           - Bugfix: Added deallocation of omp
-!                             indexes (TdPA)
-!
-!     07/27/2022:    V3.0.2 - Renamed MPI to MPID (TdPA)
-!
-!     07/08/2022:    V3.0.1 - Bugfix: The allocation of the Master
-!                             quantities cannot be done in omegabuild
-!                             because for the non-1D cases the Master
-!                             is still unknown (TdPA)
-!                           - Added the omegainitmaster routine (TdPA)
-!
-!     06/29/2022:    V3.0.0 - To implement the 1.5D case the following
-!                             changes were needed:
-!                              o Atmo and Bstrength are no longer
-!                                inputs for omegabuild. Instead, maxB
-!                                is a new input to indicate if there
-!                                will be a magnetic field.
-!                              o Atmo%v has changed to Atmo%vx,%vy,
-!                                and %vz.
-!                             (TdPA)
-!
-!     06/21/2022:    V2.1.0 - Modifications to account for coherent
-!                             scattering in the observers frame for
-!                             a selected Doppler width far from the
-!                             line core (TdPA)
-!                             NOTE: Limited testing (AA, static, and
-!                             non-magnetic)
-!
-!     03/24/2021:    V2.0.2 - Bugfix: The indexes where indocrectly
-!                             split among the threads in the routines
-!                             omegabuildin/I (TdPA)
-!                           - Bugfix: In omegabuildin, when using
-!                             OpenMP one shared variable was being
-!                             changed within a single construct before
-!                             every thread was done with it. Added a
-!                             barrier before the construct (TdPA)
-!                           - Now allocating only the actually needed
-!                             space for input transitions in Frec and
-!                             Red for PRD (TdPA)
-!                           - Added an extra OpenMP barrier in
-!                             omegabuildin/I just in case (TdPA)
-!
-!     03/23/2021:    V2.0.1 - Changed call to abortedS (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!                           - Removed domain decomposition (TdPA)
-!                           - Added OpenMP when building the input
-!                             frequency axis (TdPA)
-!
-!     02/09/2021:   V1.16.1 - In omegabuild, making different the
-!                             initial and final limits of b-b and b-f
-!                             transitions when not present in a
-!                             given process (TdPA)
-!
-!     02/04/2021:   V1.16.0 - Now take into account MIT when building
-!                             the frequency axis, but depending on
-!                             the user input (TdPA)
-!
-!     01/13/2021:   V1.15.6 - Added a check for magnetic field
-!                             presence in check_nchlt (TdPA)
-!                           - Added a missing call to verbose in
-!                             check_nchlt (TdPA)
-!
-!     11/17/2020:   V1.15.5 - Makes sure that the amount of elements
-!                             to allocate to store the PRD functions
-!                             and the interpolation quantities is
-!                             positive (TdPA)
-!
-!     11/12/2020:   V1.15.4 - Bugfix: Because index1, index2, and dx
-!                             are now pointers, they must be
-!                             nullified when allocating %trani in
-!                             omegabuildin(I) (TdPA)
-!
-!     11/04/2020:   V1.15.3 - When locating the extremes in the line
-!                             and photoionization indexes, the
-!                             variables were being reset inside the
-!                             atomic loop (TdPA)
-!
-!     10/26/2020:   V1.15.2 - Clean the Frec and Red structures using
-!                             the specific subroutine (TdPA)
-!                           - Changes because index1 and index2 are
-!                             now pointers (TdPA)
-!
-!     09/15/2020:   V1.15.1 - Bugfix: Forgot to limit the transition
-!                             loop of the Frec%indx array to the lines
-!                             that are present in any given CPU (TdPA)
-!                           - The mfreq array was allocated with the
-!                             wrong size (TdPA)
-!
-!     09/11/2020:   V1.15.0 - Changed completely the Frec and Red
-!                             structures (TdPA):
-!                             .Output directions, heights,
-!                              atoms, and output transitions have been
-!                              combined in a single array dzao and an
-!                              index has been created to map such
-!                              dimensions.
-!                             .Output frequencies, input directions,
-!                              and output frequencies have been
-!                              combined and the omega, W_freq,
-!                              index1, index2, and dx have the total
-!                              size. There is no indexing, we trust
-!                              in the calling order. This applies to
-!                              the redistribution functions as well,
-!                              including the atomic levels dimension
-!                              in the polarization case.
-!                           - Storing the interpolation quantities is
-!                             now optional and constraint by the RAM
-!                             limit (TdPA)
-!                           - Input frequencies and weights are taken
-!                             into account to compute the RAM (TdPA)
-!                           - Added an extra variable to communicate
-!                             if the RAM limit was reached inside the
-!                             routine (TdPA)
-!                           - Added routine to clean the frequency
-!                             and redistribution structures (TdPA)
-!
-!     07/31/2020:   V1.14.1 - Made sure that dimensions for future
-!                             allocations (ntfreqi, ntfreq, and
-!                             npfreq in Frec%) are not zero (TdPA)
-!
-!     07/10/2020:   V1.14.0 - Changes in omegabuildin to take into
-!                             account the new NHCLT approximation,
-!                             which is applied height by height
-!                             depending on the magnetic field (TdPA)
-!
-!     07/01/2020:   V1.13.2 - Bugfix: Some CPU numbers could lead to
-!                             an allocation problem when the range
-!                             of output frequencies in the
-!                             redistribution is limited through
-!                             the options in the input file (TdPA)
-!
-!     06/26/2020:   V1.13.1 - Changed what check_nchlt does (TdPA)
-!
-!     06/05/2020:   V1.13.0 - In omegabuildin and omegabuildinI, now
-!                             the interpolation index array has been
-!                             split into two, one for the previous and
-!                             one for the next point (JD)
-!
-!     06/02/2020:   V1.12.6 - In omegabuildin and omegabuildinI, now
-!                             check if there were formal solutions
-!                             when going in through emergence, in
-!                             order to avoid double passings (TdPA)
-!
-!     06/01/2020:   V1.12.5 - Bugfix: There are instances in which
-!                             Atom(ia)%i_Wind could be allocated
-!                             twice. Solved the problem (TdPA)
-!                           - Reduce the dimensionality of the
-!                             redistribution matrix when the
-!                             non-coherent lower term approximation is
-!                             applied (TdPA)
-!                           - Added check_nchlt, routine to print a
-!                             message when the magnetic field is too
-!                             small (but larger than zero) for the
-!                             non-coherent lower term (TdPA)
-!
-!     11/19/2019:   V1.12.4 - Removed checks in allocate and
-!                             deallocate calls (TdPA)
-!                           - Changes of how the memory is traced
-!                             among photoionizations, voigt, and
-!                             redistribution (TdPA)
-!                           - Now omegabuildin/I are called with the
-!                             LOS parameter (TdPA)
-!
-!     11/12/2019:   V1.12.3 - Added definition of Atom%rif0 and
-!                             Atom%rif1, so every CPU know where the
-!                             lines really start and end (TdPA)
-!                           - Bugfix: When calculating the space that
-!                             the redistribution takes, it was
-!                             considered double instead of double
-!                             complex (TdPA)
-!
-!     10/31/2019:   V1.12.2 - Bugfix: The initializers for the Frec
-!                             variables %ntfreq, %ntfreqi, and %npfreq
-!                             were inside the atomic loop, and must
-!                             be before (TdPA)
-!
-!     10/03/2019:   V1.12.1 - Now output transitions get indexed, so
-!                             you do not have to be careful with
-!                             transition ordering (TdPA)
-!
-!     09/13/2019:   V1.12.0 - Added the possibility to import extra
-!                             wavelength nodes from files (TdPA)
-!                           - Added determination of input frequencies
-!                             for angle-averaged PRD with velocities.
-!                             Had to add the computation of the total
-!                             frequency range that emiss2ord uses
-!                             for interpolation (TdPA)
-!
-!     07/23/2019:   V1.11.5 - The distance between frequencies is now
-!                             checked in wavelength units (TdPA)
-!                           - Bugfix: The fix in 1.11.4 was wrongly
-!                             coded (TdPA)
-!
-!     07/19/2019:   V1.11.4 - Bugfix: The split in ranges for far
-!                             frequencies could affect
-!                             photoionizations of high energy levels.
-!                             Frequencies in the range of a transition
-!                             with only one FS component or photo-
-!                             ionizations are protected from
-!                             splitting. Added warning for splitting
-!                             and for protected (TdPA)
-!                           - The distance between frequencies to
-!                             consider different ranges is now a
-!                             parameter, jump (TdPA)
-!
-!     06/06/2019:   V1.11.3 - Now the memory that will be filled in
-!                             Red% is predicted for each block before
-!                             allocating (TdPA)
-!
-!     06/03/2019:   V1.11.2 - Not there is an option to not split
-!                             between FS components when building the
-!                             frequency axis (TdPA)
-!
-!     05/31/2019:   V1.11.1 - Handles the new variables in the
-!                             Frec (frequency) structure to handle
-!                             the profile and ratio variables.
-!                           - Bugfix: Red%njdir was not initialized
-!                             for angle-averaged or static runs (TdPA)
-!                           - Left only a placeholder for
-!                             omegainoptimize (TdPA)
-!
-!     05/08/2019:   V1.11.0 - Got rid of the (atomic,transition) pair
-!                             of indexes in every radiation tensor and
-!                             now they have been compressed in just
-!                             one dimension (TdPA)
-!                           - Bugfix: There must be a index for
-!                             directions to be used by Frec%stype that
-!                             is limited to Red%njdir, before I got
-!                             out of bounds for some cases (TdPA)
-!                           - Introduced routines to optimize the
-!                             input frequency ranges. But not using
-!                             them (TdPA)
-!
-!     03/18/2019:   V1.10.1 - If a transition has only one frequency
-!                             in its range, it is ignored (TdPA)
-!
-!     02/20/2019:   V1.10.0 - New verbosity (TdPA)
-!                           - Using specific TINY parameters (TdPA)
-!
-!     02/14/2019:    V1.9.4 - Bugfix: Wrong formatting of warning
-!                             message for big Doppler shifts (TdPA)
-!
-!     02/11/2019:    V1.9.3 - Bugfix: With velocities, the cosine
-!                             and sine values were being reused and
-!                             the resonances were completely out of
-!                             place, resulting in zero integrals in
-!                             the redistribution (TdPA)
-!                           - Bugfix: Now the dx in the frequency
-!                             structure contains the (x-x0) term too,
-!                             it is convenient for the dynamic cases
-!                             specially (TdPA)
-!
-!     02/08/2019:    V1.9.2 - Introduced warnings when the velocity
-!                             shifts are too big for the ranges
-!                             specified for the lines (TdPA)
-!
-!     09/21/2018:    V1.9.1 - Allocating stype if PRD even if AA or
-!                             not dynamic, to avoid complains when
-!                             doing RAM debugging (TdPA)
-!
-!     08/06/2018:    V1.9.0 - Allows a limit on the amount of RAM to
-!                             allocate in order to store Wfunc2 in
-!                             omegabuildin and omegabuildinI (TdPA)
-!
-!     08/03/2018:    V1.8.2 - Make omegabuildin coherent with the
-!                             changes in emiss2ord (TdPA)
-!
-!     07/27/2018:    V1.8.1 - Skipping in the memory allocations the
-!                             same combinations that will not be
-!                             computed in emiss2ord (TdPA)
-!
-!     05/16/2018:    V1.8.0 - Introduced the definition of an index
-!                             to flag forward and backward scattering
-!                             when AD redistribution (TdPA)
-!
-!     12/05/2017:    V1.7.0 - Possibility to ignore l!=f in second
-!                             order emissivity. (TdPA)
-!
-!     10/30/2017:    V1.6.1 - By popular demand, stored 1/4 into a
-!                             parameter (what is used to determine
-!                             if two quantum numbers are the
-!                             same (TdPA)
-!
-!     10/03/2017:    V1.6.0 - Taken into account non-magnetic case for
-!                             the allocation of Warr (TdPA)
-!
-!     09/22/2017:    V1.5.0 - Possibility to limit K (TdPA)
-!
-!     09/08/2017:    V1.4.0 - Introduced pointers in buildin to
-!                             reduce verbosity and to improve the
-!                             performance when compiling without
-!                             optimization flags, important for the
-!                             debugging mode (TdPA)
-!
-!     08/29/2017:    V1.3.0 - Introduced two ranges for construction
-!                             of input frequency axis (TdPA)
-!                           - Changed the weighting of frequencies
-!                             with PRD depending on the region, wing
-!                             or core (TdPA)
-!
-!     08/14/2017:    V1.2.4 - Bugfix: One absence check was missing
-!                             in omegabuildinI (TdPA)
-!
-!     08/10/2017:    V1.2.3 - Changed nM variable to nMm, to avoid
-!                             possible conflicts with the common
-!                             molecule count variable (TdPA)
-!                           - Added checks for absent lines in both
-!                             omegabuildin and omegabuildinI to avoid
-!                             entering in the loops when it is obvious
-!                             that is not needed (TdPA)
-!                           - Bugfix: Added a special treatment for
-!                             single frequency processors, was not
-!                             working as intended (TdPA)
-!                           - Added an early scape when the frequency
-!                             finder determines that the outputs of
-!                             the process are out of range (TdPA)
-!
-!     08/09/2017:    V1.2.2 - Bugfix: There was a jdir that should be
-!                             jbdir (TdPA)
-!
-!     08/01/2017:    V1.2.1 - Only weight a frequency as PRD if there
-!                             is PRD computation (TdPA)
-!
-!     07/21/2017:    V1.2.0 - omega and Wfreq are one step higher in
-!                             Frec (TdPA)
-!
-!     07/20/2017:    V1.1.3 - Changed the initial value of bf1 in
-!                             omegabuild, so if no transition is
-!                             found, it does not run the second loop
-!                             to count frequencies (TdPA)
-!                           - In omegabuild, always deallocate Red,
-!                             even if not renewing it with the
-!                             polarized one (TdPA)
-!                           - If not storing Warr2, no need to
-!                             allocate iPPRD (TdPA)
-!
-!     07/19/2017:    V1.1.2 - Bugfix: In omegabuildinI, the output
-!                             frequencies were being compared with
-!                             the input transition resonance (TdPA)
-!                           - Bugfix: If line absent, no need for
-!                             2nd order information (TdPA)
-!                           - Bugfix: Typo in array element, a jtran
-!                             that should be a jdir (TdPA)
-!                           - Bugfix: mxfreq was reset for each
-!                             input transition (therefore, was not
-!                             the maximum) (TdPA)
-!
-!     06/29/2017:    V1.1.1 - Removed resetWarrI and simplified
-!                             resetWarr (TdPA)
-!                           - Bugfixing from compiler complains (TdPA)
-!
-!     06/28/2017:    V1.1.0 - Enormous amount of changes to take
-!                             into account velocities and AD
-!                             redistribution in omegabuildin and
-!                             omegabuildinI (TdPA)
-!
-!     06/23/2017:    V1.0.9 - Omegabuild also build an array with
-!                             weights for nodes (TdPA)
-!
-!     06/22/2017:    V1.0.8 - There were some remaining itran that
-!                             had to be iti in omegabuildin (TdPA)
-!
-!     06/20/2017:    V1.0.7 - Added resetWarrI and resetWarr, that
-!                             makes the Warr redistribution function
-!                             not initialized (TdPA)
-!
-!     06/19/2017:    V1.0.6 - Changed the structure of the Warr2 that
-!                             is allocated to store Warr2 for
-!                             the intensity part (TdPA)
-!                           - Added code to allocate space for Warr2
-!                             in polarization mode (TdPA)
-!
-!     06/16/2017:    V1.0.5 - Changed RAM to IRAM (TdPA)
-!                           - Changed how the input axis are build
-!                             to accomodate for the new structure
-!                             of the class tree (TdPA)
-!                           - Accomodated the change of if0/1 to
-!                             pif0/1 and added the correspondent code
-!                             for lif0/1 (TdPA)
-!
-!     06/14/2017:    V1.0.4 - Bugfix: Frec%if0/1 where reset inside
-!                             the photoionization loop, they have to
-!                             be outside such loop (TdPA)
-!
-!     06/12/2017:    V1.0.3 - Limits for b-b transitions are stored,
-!                             and weights for these limits (TdPA)
-!                           - The limits are adjusted to each CPU in
-!                             frecresize (TdPA)
-!                           - Allocated space for Warr2 (TdPA)
-!                           - omegabulidin/I also uses the b-b
-!                             boundary information (TdPA)
-!                           - There is no flag to decide to
-!                             interpolate in emiss2
-!
-!     05/12/2017:    V1.0.2 - Implemented multilevel version of the
-!                             input frequency axis build. The
-!                             multi-term checks if this structure
-!                             exists and deallocates it before (TdPA)
-!
-!     05/05/2017:    V1.0.1 - Extended limits must be double size
-!                             than the standard (TdPA)
-!                           - omegabuildin should not be called if
-!                             the line is not flagged as PRD (TdPA)
-!
-!     04/18/2017:    V1.0.0 - First version (TdPA)
+!     13/12/2024:    V4.0.0 - Full revamp of the way the second order
+!                             emissivity is calculated, which entails
+!                             a full rewrite of everything related
+!                             to that in this module (TdPA)
+!                           - Removed OpenMP support (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -559,30 +32,81 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!  omegabuild:
-!    Calculates the frequency axis and the weights
+!  omegabuild
+!    Build the frequency axis of the observer
 !
 !  omegainitmaster:
-!    Initializes frequency related variables needed by the RT master
+!    Initialize frequency related variables needed by the radiative
+!  transfer master
 !
-!  omegabuildin:
-!    Calculates the input frequency axis and the weights
+!  get_transition_out_limit
+!    Determine the frequency limits for an output transition in the
+!  second order emissivity
 !
-!  omegabuildinI:
-!    Calculates the input frequency axis and the weights for intensity
+!  get_input_frequencies
+!    Determine the input frequency axis given the transition
+!  resonances and the discretization parameters of a pair of output
+!  and input transitions
+!
+!  setmpi_red
+!    Split tasks for the calculation of the second order emissivity of
+!  a given transition
+!
+!  find_integral_limits
+!    Find the frequency index limits for the calculation of the second
+!  order emissivity once the input frequency axes are known
+!
+!  safe_allocate
+!    Allocate a double precision array. If the array is allocated,
+!  free the space unless it has the correct dimension already
+!
+!  omegabuildin
+!    Determine the input frequency axis for the calculation of the
+!  second order emissivity and split the tasks of the emissivity
+!  calculation as evenly as possible. Assume comoving reference
+!  frame
+!
+!  allocate_Warr
+!    Allocate space to store the redistribution functions
+!
+!  omegabuildinI
+!    Determine the input frequency axis for the calculation of the
+!  second order intensity emissivity and split the tasks of the
+!  intensity emissivity calculation as evenly as possible. Assume
+!  comoving reference frame
+!
+!  allocate_WarrI
+!    Allocate space to store the intensity redistribution functions
 !
 !  freqresize:
-!    Resize weights and absence vector for each processor domain
+!    Resize some frequency dependent quantities and adjust indexes
+!  for each CPU taking into account the range of frequencies they
+!  need to take care of
 !
-!  refitfrec::
-!    Resize arrays and setup index limits for the task splitting
-!  for the CLE RT
+!  refitfrec
+!    Resize some frequency dependent quantities and adjust indexes
+!  for each CPU taking into account the range of frequencies they
+!  need to take care of, and create the output frequency axis, for
+!  a CLE synthesis
+!
+!  index_norm
+!    Index and allocate arrays for the normalization data and
+!  estimate the minimum RAM neccesary
+!
+!  index_red
+!    Index array for the redistribution quantities and allocate
+!  the structures to hold the input frequency axis
 !
 !  check_nchlt
 !    Checks where the non-coherent lower term approximation can be
-!    applied
+!  applied
 !
 !  cleanFrecandRed
 !    Safely clean the Frec and Red structures
@@ -595,19 +119,19 @@
       use aborted_mod
       use commons_mod
       use fieldb_mod
-      use omp_mod
       use parameters_mod , only : c , TINYA, TINYB, TINYO, TINYWAR , &
-                                  resol, resolin , pi , IPI42, jump
+                                  resol, resolin , pi , IPI42, jump, &
+                                  TINYVEL
       use profile_mod
       use qsort_mod
+      use setmpi_mod
       use types_mod
 
+      ! Parameters
       integer, parameter:: ContW = 1
       integer, parameter:: PhotW = 2
       integer, parameter:: LLTEW = 5
       integer, parameter:: LCRDW = 10
-      integer, parameter:: LCOHW = 20
-      integer, parameter:: LPRDW = 500
 
 
       contains
@@ -616,50 +140,36 @@
 !#####################################################################
 !#####################################################################
 
-      !> Build the output frequency axis.\n
+      !> Build the frequency axis of the observer\n
       !!  Frec(Frequency_class): Structure with frequency data\n
-      !!       Atom(Atom_class): Structure with the atomic data\n
-      !!     Input(Input_class): Structure with settings data\n
-      !!           maxB(dfloat): Maximum magnetic field strength\n
-      !!            lp(logical): Bool that says if it is the
-      !!                         polarization problem or not\n
-      !!    obs_wave(dfloat(:)): In inversion mode, the data
-      !!                         wavelengths, a dummy array
+      !!    Atom(Atom_class(:)): Structures with atomic data\n
+      !!     Input(Input_class): Structure with configuration data\n
+      !!           maxB(double): Maximum magnetic field strength\n
+      !!    obs_wave(double(:)): In inversion mode, the data
+      !!                         wavelengths, and a dummy array
       !!                         otherwise
-      subroutine omegabuild(Frec,Atom,Input,maxB,lp,obs_wave)
+      subroutine omegabuild(Frec,Atom,Input,maxB,obs_wave)
 
       ! I/O
 
-      type(Atom_class), dimension(:):: Atom
-      type(Input_class):: Input
-      type(Frequency_class):: Frec
-      logical, intent(in):: lp
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Input_class), intent(inout):: Input
+      type(Frequency_class), intent(inout):: Frec
       double precision, intent(in):: maxB
-      double precision, dimension(:), allocatable, intent(in):: &
-                                                              obs_wave
+      double precision, dimension(:), &
+                        allocatable, intent(in):: obs_wave
 
       ! Local
 
-      logical:: init, core, cohw, gcohw
-      logical:: Yfield,lPRD
-      logical:: warmed, MIT
-      logical, dimension(:), allocatable:: protect
-      logical, dimension(:), allocatable:: vMIT
+      logical:: init,warned,MIT
+      logical, dimension(:), allocatable:: protect,vMIT
 
-      integer:: ia,itran,jtran,ktran,iterml,itermu,itermf
+      integer:: ia,itran,jtran,ktran,iterml,itermu
       integer:: ifreq,jfreq,cfreq,it,lnfreq,lnfreqc
-      integer:: i,i1,iJl,iJu,nt,ios
-      integer:: iL,iL1,iU,iU1,mF,iMf,iMu,iMu1,iMl,iMl1,nMf,nMl,nMu
-      integer:: ip,iq,ip1,iq1
+      integer:: i,iJl,iJu,nt,ios,nMl,nMu
       integer, dimension(:), allocatable:: flag
 
-      double precision, parameter:: dLSJ = .25d0
-
-      double precision:: norm,norm1,v,dv,O0,O1,prdf,prdc,cmpf,mincf
-      double precision:: S,rLf,rLu,rLl,rJf,rJu,rJu1,rJl,rJl1
-      double precision:: rJfmax,rJumax,rJlmax,maxV,disp
-      double precision:: rMf,rMu,rMu1,rMl,rMl1,q,q1,p,p1
-      double precision:: prdcohw,prdneg,vfacl,vfacr
+      double precision:: norm,norm1,v,dv,O0,O1,maxV,disp,vfacl,vfacr
       double precision, dimension(:), allocatable:: omegaaux
       double precision, dimension(:), allocatable:: omega
       double precision, dimension(:), allocatable:: nut
@@ -667,18 +177,19 @@
       double precision, dimension(:), allocatable:: DwTL
       double precision, dimension(:), allocatable:: DwTmin
       double precision, dimension(:), allocatable:: DwTmax
-      double precision, dimension(:), allocatable:: compfact
       double precision, dimension(:,:), allocatable:: tmp_lim
       double precision, dimension(:,:), allocatable:: tmp_limL
 
+
       ! Routine name
       urou = 'omegabuild'
-
 
       !
       ! Read the number of wavelengths from the wavelength files
       ! and add it to the total frequencies
       !
+
+      ! For each wavelength file
       do i=1,Input%NW
 
         ! Open
@@ -734,9 +245,8 @@
       ! Or fixed input Doppler width
       else if(Input%dws.eq.'NUM')then
 
-        do ia=1,nA
-          DwT(ia) = Input%dw*1d-9/c
-        end do
+        ! Compute
+        DwT = Input%dw*1d-9/c
 
       end if
 
@@ -749,6 +259,7 @@
         ! Maximum Doppler width
         if(Input%dws.eq.'MAX')then
 
+          ! For every line
           do ia=1,nLTEl
             DwTL(ia) = Input%LTEline(ia)%cDopp*sqrt(Input%maxT)
           end do
@@ -756,6 +267,7 @@
         ! Minimum Doppler width
         else if(Input%dws.eq.'MIN')then
 
+          ! For every line
           do ia=1,nLTEl
             DwTL(ia) = Input%LTEline(ia)%cDopp*sqrt(Input%minT)
           end do
@@ -763,9 +275,8 @@
         ! Or fixed input Doppler width
         else if(Input%dws.eq.'NUM')then
 
-          do ia=1,nLTEl
-            DwTL(ia) = Input%dw*1d-9/c
-          end do
+          ! Compute
+          DwTL = Input%dw*1d-9/c
 
         end if
       end if ! LTE lines
@@ -776,24 +287,41 @@
         ! For each atom
         do ia=1,nA
 
+          !
           ! Check if need to include MIT transitions
-          if (Atom(ia)%ML) then
-            MIT = .False.
-          else
-            if (Input%MIT_input.gt.0) then
-              MIT = .True.
-            else if (Input%MIT_input.lt.0) then
-              MIT = .False.
-            else
-              if (maxB.gt.TINYB) then
-                MIT = .True.
-              else
-                MIT = .False.
-              end if
-            end if
-          end if
+          !
 
-          ! If not MIT, skip
+          ! If multi-level
+          if (Atom(ia)%ML) then
+
+            ! No MIT by definition
+            MIT = .False.
+
+          ! If multi-term
+          else
+
+            ! If forced to consider MIT lines
+            if (Input%MIT_input.gt.0) then
+
+              ! Consider MIT
+              MIT = .True.
+
+            ! Forced to ignore MIT lines
+            else if (Input%MIT_input.lt.0) then
+
+              ! Ignore MIT
+              MIT = .False.
+
+            ! If free to choose
+            else
+
+              ! Include if magnetic field
+              MIT = maxB.gt.TINYB
+
+            end if ! MIT input
+          end if ! ML vs MT atom
+
+          ! If not MIT, skip this loop
           if (.not.MIT) cycle
 
           ! Skipping wavelengths?
@@ -805,15 +333,9 @@
             ! If not splitting between components, skip
             if (.not.Atom(ia)%splitf(itran)) cycle
 
-            ! Identify terms
-            do i=1,Atom(ia)%nMulti-1
-              do i1=i+1,Atom(ia)%nMulti
-                if (Atom(ia)%irad(i,i1).eq.itran) then
-                  iterml = i
-                  itermu = i1
-                end if
-              end do
-            end do
+            ! Get terms
+            itermu = Atom(ia)%fst(itran)%itermu
+            iterml = Atom(ia)%fst(itran)%iterml
 
             ! Loop fine transitions
             do iJu=1,Atom(ia)%nJ(itermu)
@@ -825,20 +347,29 @@
                 ! If MIT
                 if (MIT) then
 
+                  ! Total number of frequencies
                   lnfreq = nint(dble(Atom(ia)%NfreqT(itran))* &
                                 Input%MIT_node)
+
+                  ! Ensure odd
                   if (mod(lnfreq,2).eq.0) lnfreq = lnfreq + 1
+
+                  ! Core number of frequencies
                   lnfreqc = nint(dble(Atom(ia)%NfreqTc(itran))* &
                                  Input%MIT_node)
+
+                  ! Ensure odd
                   if (mod(lnfreqc,2).eq.0) lnfreqc = lnfreqc + 1
+
+                  ! Ensure enough frequencies to make a line
                   if (lnfreqc.lt.0) lnfreqc = 3
                   if (lnfreq.lt.lnfreqc) lnfreq = lnfreqc + 2
 
-                  ! Add frequency
+                  ! Add frequencies total
                   nfreq = nfreq + lnfreq
                   Atom(ia)%nfreq = Atom(ia)%nfreq + lnfreq
 
-                end if
+                end if ! If including MIT
 
               end do ! Lower J level
             end do ! Upper J level
@@ -847,23 +378,38 @@
 
       end if ! If possible MIT transitions
 
-      ! Allocate temporal limit array
-      cfreq = nfreq*2
+      ! Allocate temporal limits array
       allocate(tmp_lim(2,nxtran))
       if (nLTEl.gt.0) allocate(tmp_limL(2,nLTEl))
 
       ! Set counter of frequencies to 0
       cfreq = 0
 
+      !
       ! Get maximum number of FS transitions
+      !
+
+      ! Initialize counter
       nMu = 0
+
+      ! For every atom
       do ia=1,nA
+
+        ! Get maximum number of J components
         nMl = maxval(Atom(ia)%nJ)
         if (nMl.gt.nMu) nMu = nMl
+
       end do
+
+      ! Absolute maximum is the square
       nMu = nMu*nMu
 
-      ! Define an initial vector
+
+      !
+      ! Allocations
+      !
+
+      ! Initial vector
       allocate(omega(nfreq))
       ! Fine structure frequencies
       allocate(nut(nMu))
@@ -871,23 +417,21 @@
       allocate(vMIT(nMU))
 
       ! Initialize quantities to check velocity shifts
-      if (dyn) then
-        maxV = Input%maxV
-      end if
+      if (dyn) maxV = Input%maxV
 
-      ! Initialize flag
-      warmed = .False.
+      ! Initialize flag of existing warning
+      warned = .False.
 
 
       !
       ! Collect the frequencies
       !
 
-      ! Take the frequencies of the transitions
+      ! For each atom
       do ia=1,nA
 
-        ! Make sure that there is memory to work with
-        if(.not.allocated(omegaaux))then
+        ! Make sure that there is space for atomic frequencies
+        if (.not.allocated(omegaaux))then
           allocate(omegaaux(Atom(ia)%nfreq))
         else
           if(size(omegaaux).lt.Atom(ia)%nfreq)then
@@ -896,24 +440,41 @@
           end if
         end if
 
+        !
         ! Check if need to include MIT transitions
-        if (Atom(ia)%ML) then
-          MIT = .False.
-        else
-          if (Input%MIT_input.gt.0) then
-            MIT = .True.
-          else if (Input%MIT_input.lt.0) then
-            MIT = .False.
-          else
-            if (maxB.gt.TINYB) then
-              MIT = .True.
-            else
-              MIT = .False.
-            end if
-          end if
-        end if
+        !
 
-        ! bound-bound transitions
+        ! If multi-level
+        if (Atom(ia)%ML) then
+
+          ! Do not include
+          MIT = .False.
+
+        ! Multi-term
+        else
+
+          ! Forced to include them
+          if (Input%MIT_input.gt.0) then
+
+            ! Include
+            MIT = .True.
+
+          ! Forced to neglect them
+          else if (Input%MIT_input.lt.0) then
+
+            ! Neglect them
+            MIT = .False.
+
+          ! Free to determine
+          else
+
+            ! Include if magnetic field
+            MIT = maxB.gt.TINYB
+
+          end if ! Input about MIT
+        end if ! ML vs MT
+
+        ! Bound-bound transitions
         do itran=1,Atom(ia)%ntran
 
           ! Apply atom shift
@@ -923,30 +484,33 @@
           tmp_lim(1,jtran) =  1D99
           tmp_lim(2,jtran) = -1D99
 
-          ! Identify terms
-          do i=1,Atom(ia)%nMulti-1
-            do i1=i+1,Atom(ia)%nMulti
-              if (Atom(ia)%irad(i,i1).eq.itran) then
-                iterml = i
-                itermu = i1
-              end if
-            end do
-          end do
+          ! Get terms
+          itermu = Atom(ia)%fst(itran)%itermu
+          iterml = Atom(ia)%fst(itran)%iterml
 
           ! If splitting between components
           if (Atom(ia)%splitf(itran)) then
 
+            !
             ! Count fine transitions
+            !
+
+            ! Initialize count
             nt = 0
+
+            ! For each level in upper term
             do iJu=1,Atom(ia)%nJ(itermu)
+
+              ! For each level in lower term
               do iJl=1,Atom(ia)%nJ(iterml)
 
                 ! If transition does not exist
                 if (Atom(ia)%fst(itran)%irad(iJu,iJl).lt.1) then
 
-                  ! If MIT
+                  ! If including MIT
                   if (MIT) then
 
+                    ! Add it anyways
                     nt = nt + 1
                     vMIT(nt) = .True.
 
@@ -961,58 +525,99 @@
                 ! Permitted transition
                 else
 
+                  ! Add to count
                   nt = nt + 1
                   vMIT(nt) = .False.
 
-                end if
+                end if ! Allowed transition
 
+                ! Get resonance
                 nut(nt) = Atom(ia)%FSfreq(iJu,itermu) - &
                           Atom(ia)%FSfreq(iJl,iterml)
-              end do
-            end do
+
+              end do ! Lower level in term
+            end do ! Upper level in term
 
           ! Not splitting between components
           else
 
+            ! Single big transition
             nt = 1
             nut(1) = Atom(ia)%Dfreq(itran)
             vMIT(1) = .False.
 
           end if
 
+          !
           ! Add frequencies for each FS transition
+          !
+
+          ! For each FS transition
           do it=1,nt
 
-            ! If MIT
+            ! If MIT transition
             if (vMIT(it)) then
+
+              ! Total number of frequencies
               lnfreq = nint(dble(Atom(ia)%NfreqT(itran))* &
                             Input%MIT_node)
+
+              ! Ensure odd
               if (mod(lnfreq,2).eq.0) lnfreq = lnfreq + 1
+
+              ! Core number of frequencies
               lnfreqc = nint(dble(Atom(ia)%NfreqTc(itran))* &
                              Input%MIT_node)
+
+              ! Ensure odd
               if (mod(lnfreqc,2).eq.0) lnfreqc = lnfreqc + 1
+
+              ! Ensure minimum amount of frequencies
               if (lnfreqc.lt.0) lnfreqc = 3
               if (lnfreq.lt.lnfreqc) lnfreq = lnfreqc + 2
+
             ! If not MIT
             else
-              lnfreq = Atom(ia)%NfreqT(itran)
-              lnfreqc = Atom(ia)%NfreqTc(itran)
-            end if
 
+              ! Total number of frequencies
+              lnfreq = Atom(ia)%NfreqT(itran)
+
+              ! Core number of frequencies
+              lnfreqc = Atom(ia)%NfreqTc(itran)
+
+            end if ! MIT or not
+
+            !
             ! Linear part of the axis
+            !
+
+            ! Initialize center
             omegaaux(1) = 0d0
+
+            ! To the right in the core
             do ifreq=2,lnfreqc/2+1
+
+              ! Next frequency
               omegaaux(ifreq) = omegaaux(ifreq-1) + &
                                 Atom(ia)%Dwvlc(itran)/ &
                                 dble(lnfreqc/2)
             end do
 
+            !
             ! Logarithmic part
+            !
+
+            ! Initial and step
             v = log10(Atom(ia)%Dwvlc(itran))
             dv = log10(Atom(ia)%Dwvl(itran)) - v
+
+            ! For wing frequencies to the right
             do ifreq=lnfreqc/2+2,lnfreq/2+1
+
+              ! Next frequency
               v = v + dV/dble(lnfreq/2 - lnfreqc/2)
               omegaaux(ifreq) = 1d1**v
+
             end do
 
             ! Build symmetric axis
@@ -1020,18 +625,20 @@
             omegaaux(1:lnfreq/2) = -omegaaux(lnfreq/2+1:2:-1)
             omegaaux(lnfreq/2+1) = 0d0
 
-            ! Check limits
+            ! Check limits in actual frequency
             O0 = minval(omegaaux(1:lnfreq))* &
                  Atom(ia)%Dfreq(itran)*DwT(ia) + nut(it)
             O1 = maxval(omegaaux(1:lnfreq))* &
                  Atom(ia)%Dfreq(itran)*DwT(ia) + nut(it)
+
+            ! Update limits for term-term transition
             if (O0.lt.tmp_lim(1,jtran)) tmp_lim(1,jtran) = O0
             if (O1.gt.tmp_lim(2,jtran)) tmp_lim(2,jtran) = O1
 
-            ! Skip wavelengths?
+            ! Skip wavelengths for this atom?
             if (Input%skip_wave(ia)) cycle
 
-            ! Build real contribution
+            ! Build real contribution and add to total axis
             do ifreq=1,lnfreq
 
               ! Add to frequency axis
@@ -1046,113 +653,159 @@
 
           end do ! FS transition
 
+          !
           ! Check that the range is adecuated to the velocity imposed
           ! in this frame
+          !
+
+          ! If dynamic and master
           if (dyn.and.gpid.eq.0) then
+
+            ! For each transition
             do it=1,nt
+
+            ! Compute maximum Doppler shift
               disp = maxV*nut(it)/DwT(ia)/Atom(ia)%Dfreq(itran)
+
+              ! If goes to half of the range
               if (2d0*disp.gt.Atom(ia)%Dwvl(itran)) then
-                if (.not.warmed) then
+
+                ! No warning yet
+                if (.not.warned) then
+
+                  ! Warning header
                   umsg = '###'
                   call verbose
                   umsg = '### IMPORTANT WARNING'
                   call verbose
                   umsg = '###'
                   call verbose
-                  warmed = .True.
+
+                  ! Do only once
+                  warned = .True.
+
                 end if
+
+                ! Issue warning
                 write(umsg,'(A,i4,",",i4,3A,2(f6.1,A))') &
                   ' - Warning: transition ',itran,it,' in ', &
                   Atom(ia)%Element,' atom can be shifted more '// &
                   'than half of the total width specified (', &
                   disp,'>',Atom(ia)%Dwvl(itran),'/2)'
                 call verbose
-              else if (disp.gt.Atom(ia)%Dwvlc(itran)) then
-                if (.not.warmed) then
-                  umsg = '###'
-                  call verbose
-                  umsg = '### IMPORTANT WARNING'
-                  call verbose
-                  umsg = '###'
-                  call verbose
-                  warmed = .True.
-                end if
-                write(umsg,'(A,i4,",",i4,3A,2(f6.1,A))') &
-                  ' - Warning: transition ',itran,it,' in ', &
-                  Atom(ia)%Element,' atom can be shifted more '// &
-                  'than the core width specified (', &
-                  disp,'>',Atom(ia)%Dwvlc(itran),')'
-                call verbose
+
+              ! Fully out of core
               else if (2d0*disp.gt.Atom(ia)%Dwvlc(itran)) then
-                if (.not.warmed) then
+
+                ! No warning yet
+                if (.not.warned) then
+
+                  !i Warning header
                   umsg = '###'
                   call verbose
                   umsg = '### IMPORTANT WARNING'
                   call verbose
                   umsg = '###'
                   call verbose
-                  warmed = .True.
+
+                  ! Do only once
+                  warned = .True.
+
                 end if
+
+                ! Issue warning
                 write(umsg,'(A,i4,",",i4,3A,2(f6.1,A))') &
                   ' - Warning: transition ',itran,it,' in ', &
                   Atom(ia)%Element,' atom can be shifted more '// &
                   'than half of the core width specified (', &
                   disp,'>',Atom(ia)%Dwvlc(itran),'/2)'
                 call verbose
-              end if
-            end do
-          end if
+
+              ! If goes out of the core region
+              else if (disp.gt.Atom(ia)%Dwvlc(itran)) then
+
+                ! No warning yet
+                if (.not.warned) then
+
+                  ! Warning header
+                  umsg = '###'
+                  call verbose
+                  umsg = '### IMPORTANT WARNING'
+                  call verbose
+                  umsg = '###'
+                  call verbose
+
+                  ! Do only once
+                  warned = .True.
+
+                end if
+
+                ! Issue warning
+                write(umsg,'(A,i4,",",i4,3A,2(f6.1,A))') &
+                  ' - Warning: transition ',itran,it,' in ', &
+                  Atom(ia)%Element,' atom can be shifted more '// &
+                  'than the core width specified (', &
+                  disp,'>',Atom(ia)%Dwvlc(itran),')'
+                call verbose
+
+              end if ! Big displacements
+
+            end do ! Line components
+
+          end if ! Dynamic and master
 
         end do ! b-b Transition
 
-        ! bound-free transitions
+        ! Bound-free transitions
         do itran=1,Atom(ia)%nphot
 
-          ! Skip?
+          ! Skip this atom?
           if (Input%skip_wave(ia)) cycle
 
-          ! If it is explicit, just add the input frequencies to the
-          ! axis
+          ! If it is explicit
           if (Atom(ia)%phot(itran)%mode.eq.0) then
 
+            ! Just add frequencies to the axis
             do ifreq=1,Atom(ia)%phot(itran)%nfreq
-
               omega(ifreq+cfreq) = Atom(ia)%phot(itran)%infreq(ifreq)
-
             end do
 
-          ! If it is hydrogenic, introduce a linear axis for the
-          ! interval between the edge and the maximum frequency
+          ! If it is hydrogenic
           else
 
+            ! Start from the edge
             omega(1 + cfreq) = Atom(ia)%phot(itran)%edge
 
+            ! Get index for maximum frequency
             nt = (1 - Atom(ia)%phot(itran)%mode)* &
                  Atom(ia)%phot(itran)%nfreq + &
                  Atom(ia)%phot(itran)%mode
+
+            ! Get step
             dv = (Atom(ia)%phot(itran)%infreq(nt) - omega(1+cfreq))/ &
                  dble(Atom(ia)%phot(itran)%nfreq - 1)
 
+            ! For rest of photoionization frequencies
             do ifreq=2,Atom(ia)%phot(itran)%nfreq
 
+              ! Linear steps
               omega(ifreq + cfreq) = omega(ifreq - 1 + cfreq) + dv
 
-            end do
+            end do ! Frequencies
 
-          end if
+          end if ! Explicit or hydrogenic
 
           ! Accumulate the defined frequencies
           cfreq = cfreq + Atom(ia)%phot(itran)%nfreq
 
         end do ! b-f Transiton
-
       end do ! Atom
 
       !
       ! LTE lines
       !
 
-      ! Take the frequencies of the transitions
+      ! For each LTE line
       do ia=1,nLTEl
 
         ! If no frequencies, do not bother
@@ -1172,22 +825,39 @@
         tmp_limL(1,ia) =  1D99
         tmp_limL(2,ia) = -1D99
 
+        !
         ! Linear part of the axis
+        !
+
+        ! Start with the center
         omegaaux(1) = 0d0
+
+        ! For the rest of core frequencies to the right
         do ifreq=2,Input%LTEline(ia)%nfreqc/2+1
+
+          ! Linear step
           omegaaux(ifreq) = omegaaux(ifreq-1) + &
                             Input%LTEline(ia)%Dwvlc/ &
                             dble(Input%LTEline(ia)%nfreqc/2)
         end do
 
+        !
         ! Logarithmic part
+        !
+
+        ! Get initial and step
         v = log10(Input%LTEline(ia)%Dwvlc)
         dv = log10(Input%LTEline(ia)%Dwvl) - v
+
+        ! For the wing frequencies
         do ifreq=Input%LTEline(ia)%nfreqc/2+2, &
                  Input%LTEline(ia)%nfreq/2+1
+
+          ! Logarithmic steps
           v = v + dV/dble(Input%LTEline(ia)%nfreq/2 - &
                           Input%LTEline(ia)%nfreqc/2)
           omegaaux(ifreq) = 1d1**v
+
         end do
 
         ! Build symmetric axis
@@ -1206,7 +876,11 @@
                            Input%LTEline(ia)%Dfreq*DwTL(ia) + &
                            Input%LTEline(ia)%Dfreq
 
+        !
         ! Build real contribution
+        !
+
+        ! For all line frequencies
         do ifreq=1,Input%LTEline(ia)%nfreq
 
           ! Add to frequency axis
@@ -1221,9 +895,12 @@
 
       end do ! LTE lines
 
+
       !
       ! Wavelength files
       !
+
+      ! For each wavelength file
       do i=1,Input%NW
 
         ! Open file
@@ -1248,6 +925,8 @@
       !
       ! Inversion data wavelengths
       !
+
+      ! If forcing observed frequencies
       if (Input%force_inv_Freq) then
 
         ! Add frequencies
@@ -1286,8 +965,14 @@
         ! If it has been flagged, we already checked
         if (flag(ifreq).lt.1) cycle
 
-        ! If nosense, flag
-        if (omega(ifreq).le.0d0) flag(ifreq) = 0
+        ! If nosense
+        if (omega(ifreq).le.0d0) then
+
+          ! Flag and continue
+          flag(ifreq) = 0
+          cycle
+
+        end if
 
         ! Check the following ones
         do jfreq=ifreq+1,cfreq
@@ -1296,7 +981,7 @@
           if (flag(jfreq).lt.1) cycle
 
           ! If some of them are repeated, flag them to be removed
-          if(abs(1d2/omega(ifreq)-1d2/omega(jfreq)).lt.resol) &
+          if (abs(1d2/omega(ifreq)-1d2/omega(jfreq)).lt.resol) &
             flag(jfreq) = 0
 
         end do ! jfreq
@@ -1308,13 +993,16 @@
       ! For each frequency in the vector
       do ifreq=1,cfreq
 
-        ! If it is flagged correct, add to real vector
+        ! If it is flagged correct
         if(flag(ifreq).gt..5)then
+
+          ! Add to real vector
           jfreq = jfreq + 1
           omega(jfreq) = omega(ifreq)
-        end if
 
-      end do
+        end if ! Correct
+
+      end do ! All frequencies
 
       ! The number of frequencies is the number of admitted
       ! frequencies in the flag vector
@@ -1324,16 +1012,22 @@
       ! Deallocate the flag
       deallocate(flag)
 
-      ! Allocate the true axis
+      !
+      ! Allocate the true axes
+      !
+
       ! Frequencies
       allocate(Frec%omega(nfreq))
+      MRAMc = MRAMc + 1d-6*sizeof(Frec%omega)
       ! Integration weights
       allocate(Frec%W_freq(nfreq))
+      MRAMc = MRAMc + 1d-6*sizeof(Frec%W_freq)
       ! Node weights
       allocate(Frec%IW_freq(nfreq))
       Frec%IW_freq = ContW
       ! If CLE
       if (run_mode.eq.2) then
+        ! Input weights
         allocate(Frec%IW_freq_in(nfreq))
         Frec%IW_freq_in = 0
       end if
@@ -1341,6 +1035,9 @@
       ! Take only the valid frequencies and deallocate the auxiliar
       Frec%omega = omega(1:nfreq)
       deallocate(omega)
+
+      ! Free
+      deallocate(nut,vMIT)
 
       ! Order the frequencies in the axis
       call QsortC(Frec%omega)
@@ -1350,323 +1047,11 @@
       ! Check the presence of transitions at each frequency
       !
 
-      ! Reset the ranges that the transitions spawns
+      ! Reset the ranges that the transitions holds
       Frec%lif0 = 100000000
       Frec%lif1 = -1
       Frec%pif0 = 100000000
       Frec%pif1 = -1
-
-      ! Factor of PRD in the core with respect to the wings
-      prdf = Input%red_pars(5)/Input%red_pars(10)
-
-      ! The default state of Yfield is False
-      Yfield = .False.
-
-      ! If there is PRD and calculating polarization, check if
-      ! there is magnetic field
-      if (PRD.and.lp) then
-
-        Yfield = maxB.gt.TINYB
-
-      end if ! PRD
-
-      ! If there is PRD, calculate factors for the components
-      ! of each transition as output
-      if (PRD) then
-
-        allocate(compfact(nxtran))
-        compfact = 0d0
-        mincf = 1d99
-
-        !
-        ! Calculate factors without magnetic field
-
-        ! For each atom
-        do ia=1,nA
-
-          ! For each transition
-          do jtran=1,Atom(ia)%ntran
-
-            ! If not PRD, ignore
-            if (.not.Atom(ia)%lemiss2(jtran)) cycle
-
-            ! Apply atomic shift
-            ktran = jtran + Atom(ia)%tshift
-
-            ! Identify terms
-            do i=1,Atom(ia)%nMulti-1
-              do i1=i+1,Atom(ia)%nMulti
-                if (Atom(ia)%irad(i,i1).eq.jtran) then
-                  itermf = i
-                  itermu = i1
-                end if
-              end do
-            end do
-
-            ! Spin
-            S = Atom(ia)%Sval(itermu)
-
-            ! Orbital angular momentum
-            rLu = Atom(ia)%rLval(itermu)
-            rLf = Atom(ia)%rLval(itermf)
-
-            ! For all the possible lower terms
-            do i=1,Atom(ia)%nMulti-1
-
-              ! If there is no transition or this term is larger
-              ! than the upper term of the output transition, skip
-              if (i.ge.itermu.or.Atom(ia)%irad(i,itermu).eq.0) &
-                cycle
-
-              ! Store the input lower term index
-              iterml = i
-
-              ! Get index of input transition
-              itran = Atom(ia)%irad(iterml,itermu)
-
-              ! Angular momentum input lower level
-              rLl = Atom(ia)%rLval(iterml)
-
-
-        !
-        ! Reset identation
-        !
-
-        ! For each Jf
-        do mF=1,Atom(ia)%nJ(itermf)
-
-          ! Get Jf
-          rJf = Atom(ia)%rJval(mF,itermf)
-
-          ! For each Ju
-          do iU=1,Atom(ia)%nJ(itermu)
-
-            ! Get Ju
-            rJu = Atom(ia)%rJval(iU,itermu)
-
-            if (nint(abs(rJu-rJf)).gt.1.or.(rJu+rJf).lt.dLSJ) cycle
-
-            ! For each Ju'
-            do iU1=1,Atom(ia)%nJ(itermu)
-
-              ! Get Ju'
-              rJu1 = Atom(ia)%rJval(iU1,itermu)
-
-              if (nint(abs(rJu1-rJf)).gt.1.or.(rJu1+rJf).lt.dLSJ) &
-                cycle
-
-              ! For each Jl
-              do iL=1,Atom(ia)%nJ(iterml)
-
-                ! Get Jl
-                rJl = Atom(ia)%rJval(iL,iterml)
-
-                if (nint(abs(rJu-rJl)).gt.1.or.(rJu+rJl).lt.dLSJ) &
-                  cycle
-
-                ! For each Jl'
-                do iL1=1,Atom(ia)%nJ(iterml)
-
-                  ! Get Jl1
-                  rJl1 = Atom(ia)%rJval(iL1,iterml)
-
-                  if (nint(abs(rJu1-rJl1)).gt.1.or. &
-                      (rJu1+rJl1).lt.dLSJ) cycle
-
-                  ! Add to the weight
-                  compfact(ktran) = compfact(ktran) + 1d0
-
-                end do ! Jl'
-              end do ! Jl
-            end do ! Ju'
-          end do ! Ju
-        end do ! Jf
-
-                !
-                ! Recover identation
-                !
-
-            end do ! Lower terms
-
-            if (compfact(ktran).lt.mincf) mincf = compfact(ktran)
-
-          end do ! Output transitions
-        end do ! Atoms
-
-        ! If we have to run M components
-        if (Yfield) then
-
-          ! Reset factor
-          compfact = 0d0
-
-          ! For each atom
-          do ia=1,nA
-
-            ! For each transition
-            do jtran=1,Atom(ia)%ntran
-
-              ! If not PRD, ignore
-              if (.not.Atom(ia)%lemiss2(jtran)) cycle
-
-              ! Apply atomic shift
-              ktran = jtran + Atom(ia)%tshift
-
-              ! Identify terms
-              do i=1,Atom(ia)%nMulti-1
-                do i1=i+1,Atom(ia)%nMulti
-                  if (Atom(ia)%irad(i,i1).eq.jtran) then
-                    itermf = i
-                    itermu = i1
-                  end if
-                end do
-              end do
-
-              ! Spin
-              S = Atom(ia)%Sval(itermu)
-
-              ! Orbital angular momentum
-              rLu = Atom(ia)%rLval(itermu)
-              rLf = Atom(ia)%rLval(itermf)
-
-              ! Determine the maximum angular momentum and the
-              ! number of magnetic sublevels for that maximum
-              ! momentum
-              rJumax = rLu + S
-              nMu = nint(2d0*rJumax+1d0)
-              rJfmax = rLf + S
-              nMf = nint(2d0*rJfmax+1d0)
-
-              ! For all the possible lower terms
-              do i=1,Atom(ia)%nMulti-1
-
-                ! If there is no transition or this term is larger
-                ! than the upper term of the output transition, skip
-                if (i.ge.itermu.or.Atom(ia)%irad(i,itermu).eq.0) &
-                  cycle
-
-                ! Store the input lower term index
-                iterml = i
-
-                ! Get index of input transition
-                itran = Atom(ia)%irad(iterml,itermu)
-
-                ! Angular momentum input lower level
-                rLl = Atom(ia)%rLval(iterml)
-
-                ! Determine maximum value of J and number of
-                ! magnetic sublevels for this maximum J
-                rJlmax = rLl + S
-                nMl = nint(2d0*rJlmax+1d0)
-
-
-        !
-        ! Reset identation
-        !
-
-        ! For each Mf
-        do iMf=1,nMf
-
-          ! Value of Mf
-          rMf = -rJfmax + dble(iMf-1)
-
-          ! For each mu_f
-          do mF=1,Atom(ia)%nblk(iMf,itermf)
-
-            ! For each Mu
-            do iMu=1,nMu
-
-              ! Value of Mu
-              rMu = -rJumax + dble(iMu-1)
-
-              ! Difference between M momentums, done integer
-              q = rMu - rMf
-              iq = nint(q)
-
-              ! If not pi nor sigma, skip
-              if(abs(iq).gt.1) cycle
-
-              ! For each mu_u
-              do iU=1,Atom(ia)%nblk(iMu,itermu)
-
-                ! For each Mu'
-                do iMu1=1,nMu
-
-                  ! Value of Mu'
-                  rMu1 = -rJumax + dble(iMu1-1)
-
-                  ! Difference between M momentums
-                  q1 = rMu1-rMf
-
-                  ! Convert to integers
-                  iq1 = nint(q1)
-
-                  ! If not pi or sigma, skip
-                  if(abs(iq1).gt.1) cycle
-
-                  ! For each mu_u'
-                  do iU1=1,Atom(ia)%nblk(iMu1,itermu)
-
-                    ! For each Ml
-                    do iMl=1,nMl
-
-                      ! Value of Ml
-                      rMl = -rJlmax + dble(iMl-1)
-
-                      ! Difference between M momentums, in integer
-                      p = rMu-rMl
-                      ip = nint(p)
-
-                      ! If not pi nor sigma, skip
-                      if(abs(ip).gt.1) cycle
-
-                      ! For each mu_l
-                      do iL=1,Atom(ia)%nblk(iMl,iterml)
-
-                        ! For each Ml'
-                        do iMl1=1,nMl
-
-                          ! Value of Ml'
-                          rMl1 = -rJlmax + dble(iMl1-1)
-
-                          ! Difference between M momentums
-                          p1 = rMu1-rMl1
-
-                          ! Convert to integer
-                          ip1 = nint(p1)
-
-                          ! If not pi nor sigma, skip
-                          if(abs(ip1).gt.1) cycle
-
-                          ! For each mu_l'
-                          do iL1 = 1,Atom(ia)%nblk(iMl1,iterml)
-
-                            ! Add to the weight
-                            compfact(ktran) = compfact(ktran) + 1d0
-
-                          end do ! iL1
-                        end do ! iMl1
-                      end do ! iL
-                    end do ! iMl
-                  end do ! iU1
-                end do ! iMu1
-              end do ! iU
-            end do ! iMu
-          end do ! mF
-        end do ! iMF
-
-                !
-                ! Recover identation
-                !
-
-              end do ! Lower terms
-            end do ! Output transitions
-          end do ! Atoms
-
-        end if ! Magnetic field
-
-        compfact = compfact/mincf
-
-      end if ! If PRD
 
       ! Initialize size of profile variable
       Frec%ntfreq = 0
@@ -1676,57 +1061,15 @@
       ! For each atom
       do ia=1,nA
 
-        ! If forcing intensity only
-        if (Input%force.eq.'I') then
-
-          ! Distance to consider PRD
-          prdneg = Input%redi_pars(3)*DwTmax(ia)
-
-          ! Distance to consider PRD in the core
-          prdc = Input%redi_pars(7)*DwT(ia)
-
-          ! Distance to consider coherent scattering in wing
-          if (Input%cohwi) then
-            gcohw = .True.
-            prdcohw = Input%dcohwi*DwTmax(ia)
-          else
-            gcohw = .False.
-          end if
-
-        ! Potentially doing polarization
-        else
-
-          ! Distance to consider PRD
-          prdneg = Input%red_pars(3)*DwTmax(ia)
-
-          ! Distance to consider PRD in the core
-          prdc = Input%red_pars(7)*DwT(ia)
-
-          ! Distance to consider coherent scattering in wing
-          if (Input%cohw) then
-            gcohw = .True.
-            prdcohw = Input%dcohw*DwTmax(ia)
-          else
-            gcohw = .False.
-          end if
-
-        end if
-
         ! For each b-b transitions
         do itran=1,Atom(ia)%ntran
 
           ! Apply atomic shift
           ktran = itran + Atom(ia)%tshift
 
-          ! Identify terms
-          do i=1,Atom(ia)%nMulti-1
-            do i1=i+1,Atom(ia)%nMulti
-              if (Atom(ia)%irad(i,i1).eq.itran) then
-                iterml = i
-                itermu = i1
-              end if
-            end do
-          end do
+          ! Get terms
+          itermu = Atom(ia)%fst(itran)%itermu
+          iterml = Atom(ia)%fst(itran)%iterml
 
           ! Initialize limits
           Atom(ia)%if0(itran) = 100000000
@@ -1739,164 +1082,12 @@
             if (Frec%omega(ifreq).ge.tmp_lim(1,ktran).and. &
                 Frec%omega(ifreq).le.tmp_lim(2,ktran)) then
 
-              ! Initialize
-              lPRD = .False.
-
-              ! If PRD line
-              if (Atom(ia)%lemiss2(itran).and.PRD) then
-
-                ! For each pair of levels
-                do iJu=1,Atom(ia)%nJ(itermu)
-                  do iJl=1,Atom(ia)%nJ(iterml)
-
-                    ! If no MIT, check radiative
-                    if (.not.MIT) then
-                      if (Atom(ia)%fst(itran)%irad(iJu,iJl).lt.1) &
-                        cycle
-                    end if
-
-                    ! Get transition frequency
-                    v = Atom(ia)%FSfreq(iJu,itermu) - &
-                        Atom(ia)%FSfreq(iJl,iterml)
-
-                    ! Check shifted frequencies
-                    if (abs(v - Frec%omega(ifreq)*vfacl).lt. &
-                        prdneg.or. &
-                        abs(v - Frec%omega(ifreq)*vfacr).lt. &
-                        prdneg) then
-                      lPRD = .True.
-                      exit
-                    end if
-
-                  end do
-                  if (lPRD) exit
-                end do
-
-              end if ! PRD line
-
-              ! If PRD frequency
-              if (lPRD) then
-
-                ! Initialize flag
-                core = .False.
-
-                ! Coherent wing?
-                if (gcohw) then
-
-                  ! Initialize flag
-                  cohw = .True.
-
-                  ! Pair of levels
-                  do iJu=1,Atom(ia)%nJ(itermu)
-                    do iJl=1,Atom(ia)%nJ(iterml)
-
-                      ! If no MIT
-                      if (.not.MIT) then
-                        ! Check radiative transition
-                        if (Atom(ia)%fst(itran)%irad(iJu,iJl).lt.1) &
-                          cycle
-                      end if
-
-                      ! Transition frequency
-                      v = Atom(ia)%FSfreq(iJu,itermu) - &
-                          Atom(ia)%FSfreq(iJl,iterml)
-
-                      ! Check shifted frequency
-                      if (abs(v - Frec%omega(ifreq)*vfacl).lt. &
-                          prdcohw.or. &
-                          abs(v - Frec%omega(ifreq)*vfacr).lt. &
-                          prdcohw) then
-                        cohw = .False.
-                        exit
-                      end if
-
-                    end do
-                    if (.not.cohw) exit
-                  end do
-
-                ! No coherent wing
-                else
-
-                  cohw = .False.
-
-                end if ! Coherent wings?
-
-                ! If not coherent wing
-                if (.not.cohw) then
-
-                  ! Get compact factor
-                  cmpf = compfact(ktran)
-
-                  ! Pairs of levels
-                  do iJu=1,Atom(ia)%nJ(itermu)
-                    do iJl=1,Atom(ia)%nJ(iterml)
-
-                      ! If no MIT
-                      if (.not.MIT) then
-                        ! Check radiative transition
-                        if (Atom(ia)%fst(itran)%irad(iJu,iJl).lt.1) &
-                          cycle
-                      end if
-
-                      ! Transition frequency
-                      v = Atom(ia)%FSfreq(iJu,itermu) - &
-                          Atom(ia)%FSfreq(iJl,iterml)
-
-                      ! Check shifted frequency
-                      if (abs(v - Frec%omega(ifreq)*vfacl).lt. &
-                          prdc.or. &
-                          abs(v - Frec%omega(ifreq)*vfacr).lt. &
-                          prdc) then
-                        core = .True.
-                        exit
-                      end if
-
-                    end do
-                    if (core) exit
-                  end do
-
-                end if ! Non-coherent wings
-
-                ! If line core
-                if (core) then
-
-                    if (nint(prdf*cmpf).eq.1) &
-                      Frec%IW_freq(ifreq) = Frec%IW_freq(ifreq) - 1
-
-                    Frec%IW_freq(ifreq) = Frec%IW_freq(ifreq) + &
-                                        nint(cmpf*prdf* &
-                                             (LPRDW + LCRDW + 1))
-
-                ! If coherent wing
-                else if (cohw) then
-
-                    if (nint(cmpf).eq.1) &
-                      Frec%IW_freq(ifreq) = Frec%IW_freq(ifreq) - 1
-
-                    Frec%IW_freq(ifreq) = Frec%IW_freq(ifreq) + &
-                                        nint(cmpf*(LCOHW + LCRDW + 1))
-
-                ! If normal wing
-                else
-
-                    if (nint(cmpf).eq.1) &
-                      Frec%IW_freq(ifreq) = Frec%IW_freq(ifreq) - 1
-
-                    Frec%IW_freq(ifreq) = Frec%IW_freq(ifreq) + &
-                                        nint(cmpf*(LPRDW + LCRDW + 1))
-
-                end if
-
-              ! CRD
-              else
-
-                Frec%IW_freq(ifreq) = Frec%IW_freq(ifreq) + LCRDW
-
-              end if
+              ! Add weight CRD transition
+              Frec%IW_freq(ifreq) = Frec%IW_freq(ifreq) + LCRDW
 
               ! If CLE
               if (run_mode.eq.2) &
-                Frec%IW_freq_in(ifreq) = Frec%IW_freq_in(ifreQ) + &
+                Frec%IW_freq_in(ifreq) = Frec%IW_freq_in(ifreq) + &
                                          LCRDW
 
               ! Update lower limit
@@ -1907,25 +1098,35 @@
               if (ifreq.gt.Atom(ia)%if1(itran)) &
                 Atom(ia)%if1(itran) = ifreq
 
-            end if
+            end if ! Line present
 
-          end do
+          end do ! All frequencies
 
-          ! If only one frequency, remove the transition
+          ! If only one frequency
           if (Atom(ia)%if1(itran).le.Atom(ia)%if0(itran)) then
+
+            ! Remove transition
             Atom(ia)%fflag(itran)%absent = .True.
             Atom(ia)%if0(itran) = 1
             Atom(ia)%if1(itran) = 0
             Atom(ia)%W0(itran) = 0d0
             Atom(ia)%W1(itran) = 0d0
+
+          ! Multiple frequencies
           else
+
+            ! Line present
             Atom(ia)%fflag(itran)%absent = .False.
+
           end if
 
           ! Store real Master frequency (for slaves)
-          ! They will be overwritten later in general
+          ! The r ones  will be overwritten later, maybe
+          ! The t ones are persistent for sure
           Atom(ia)%rif0(itran) = Atom(ia)%if0(itran)
           Atom(ia)%rif1(itran) = Atom(ia)%if1(itran)
+          Atom(ia)%tif0(itran) = Atom(ia)%if0(itran)
+          Atom(ia)%tif1(itran) = Atom(ia)%if1(itran)
 
           ! If absent, skip
           if (Atom(ia)%fflag(itran)%absent) cycle
@@ -1938,33 +1139,34 @@
                                (Frec%omega(Atom(ia)%if1(itran)) - &
                                 Frec%omega(Atom(ia)%if1(itran)-1))
 
-          ! Limits for the range with lines
+          ! Update limits for the range with any line
           if (Atom(ia)%if0(itran).lt.Frec%lif0) Frec%lif0 = &
                                                    Atom(ia)%if0(itran)
           if (Atom(ia)%if1(itran).gt.Frec%lif1) Frec%lif1 = &
                                                    Atom(ia)%if1(itran)
 
-          ! Add frequencies to count of profiles
+          ! Add frequencies to count for profile dimensions
           Frec%ntfreq = Frec%ntfreq + Atom(ia)%if1(itran) - &
                         Atom(ia)%if0(itran) + 1
           Frec%ntfreqi = Frec%ntfreqi + (Atom(ia)%if1(itran) - &
                          Atom(ia)%if0(itran) + 1)* &
                          Atom(ia)%fst(itran)%nt
 
-        end do
+        end do ! Bound-bound transitions
 
         ! For each b-f transitions
         do itran=1,Atom(ia)%nphot
 
-          ! Collect the maximum frequency
+          ! Get the maximum frequency
           nt = (1 - Atom(ia)%phot(itran)%mode)* &
                Atom(ia)%phot(itran)%nfreq + &
                Atom(ia)%phot(itran)%mode
           v = Atom(ia)%phot(itran)%infreq(nt)
 
+          ! Initialize as present
           Atom(ia)%phot(itran)%absent = .False.
 
-          ! Reset the ranges that the transition spawns
+          ! Reset the ranges that the transition holds
           Atom(ia)%phot(itran)%if0 = -1
           Atom(ia)%phot(itran)%if1 = -1
 
@@ -1984,14 +1186,17 @@
                 exit
               end if
 
-              ! If we are above the minimum, identify the index
+              ! If we are above the minimum and not initialized
               if (Atom(ia)%phot(itran)%if0.lt.0) then
+
+                ! Update index
                 if (Frec%omega(ifreq).ge. &
                     Atom(ia)%phot(itran)%infreq(1)) &
                   Atom(ia)%phot(itran)%if0 = ifreq
+
               end if
 
-            end do ! ifreq
+            end do ! Frequencies
 
           ! If hydrogenic
           else
@@ -1999,7 +1204,7 @@
             ! For each frequency
             do ifreq=1,nfreq
 
-              ! If we are bwlor the edge, keep searching
+              ! If we are below the edge, keep searching
               if (Frec%omega(ifreq).lt.Atom(ia)%phot(itran)%edge) &
                 cycle
 
@@ -2009,13 +1214,16 @@
                 exit
               end if
 
-              ! If we are above the minimum, identify the index
+              ! If we are above the minimum and initial index not set
               if (Atom(ia)%phot(itran)%if0.lt.0) then
+
+                ! Get initial index
                 if (Frec%omega(ifreq).ge.Atom(ia)%phot(itran)%edge) &
                   Atom(ia)%phot(itran)%if0 = ifreq
+
               end if
 
-            end do ! ifreq
+            end do ! Frequencies
 
           end if ! Type of b-f transition
 
@@ -2030,30 +1238,34 @@
           if (Atom(ia)%phot(itran)%if1.gt.Frec%pif1) Frec%pif1 = &
                                               Atom(ia)%phot(itran)%if1
 
-          ! Add frequencies to count of profiles
+          ! Add frequencies to count for profile dimensions
           Frec%npfreq = Frec%npfreq + &
                         (Atom(ia)%phot(itran)%if1 - &
                          Atom(ia)%phot(itran)%if0 + 1)
 
-          ! Add weight to the node
+          ! For each frequency
           do ifreq=Atom(ia)%phot(itran)%if0,Atom(ia)%phot(itran)%if1
+
+            ! Add photoionization weight to the node
             Frec%IW_freq(ifreq) = Frec%IW_freq(ifreq) + PhotW
+
           end do
 
           ! If CLE
           if (run_mode.eq.2) then
-            ! Add weight to the node
+
+            ! For each frequency
             do ifreq=Atom(ia)%phot(itran)%if0,Atom(ia)%phot(itran)%if1
+
+              ! Add weight to the node of the input axis
               Frec%IW_freq_in(ifreq) = Frec%IW_freq_in(ifreq) + PhotW
-            end do
-          end if
 
-        end do ! nphot
+            end do ! Frequencies
 
-      end do ! nA
+          end if ! CLE
 
-      ! Deallocate compfact if necessary
-      if (PRD) deallocate(compfact)
+        end do ! Bound-free transitions
+      end do ! Atoms
 
       ! For each LTE line
       do ia=1,nLTEl
@@ -2069,6 +1281,7 @@
           if (Frec%omega(ifreq).ge.tmp_limL(1,ia).and. &
               Frec%omega(ifreq).le.tmp_limL(2,ia)) then
 
+            ! Add weight of LTE line
             Frec%IW_freq(ifreq) = Frec%IW_freq(ifreq) + LLTEW
 
             ! Update lower limit
@@ -2079,18 +1292,25 @@
             if (ifreq.gt.Input%LTEline(ia)%if1) &
               Input%LTEline(ia)%if1 = ifreq
 
-          end if
+          end if ! Line present
 
         end do ! Frequencies
 
-        ! If only one frequency, remove the transition
+        ! If only one frequency
         if (Input%LTEline(ia)%if1.le.Input%LTEline(ia)%if0) then
+
+          ! Remove the transition
           Input%LTEline(ia)%absent = .True.
           Input%LTEline(ia)%if0 = 1
           Input%LTEline(ia)%if1 = 0
+
+        ! More frequencies
         else
+
+          ! Line is present
           Input%LTEline(ia)%absent = .False.
-        end if
+
+        end if ! Number of frequencies
 
       end do ! LTE lines
 
@@ -2099,7 +1319,7 @@
       ! Protect frequencies against jumps due to big range
       !
 
-      ! Allocate protection
+      ! Allocate and initialize protection
       allocate(protect(Nfreq))
       protect = .False.
 
@@ -2110,23 +1330,27 @@
         do itran=1,Atom(ia)%ntran
 
           ! If between terms, we cannot protect
-          if (Atom(ia)%fst(itran)%nt.gt.1) then
-            cycle
-          end if
+          if (Atom(ia)%fst(itran)%nt.gt.1) cycle
 
-          ! Protect FS lines
+          ! For every frequency in this transition
           do ifreq=Atom(ia)%if0(itran)+1,Atom(ia)%if1(itran)
+
+            ! Protect it
             protect(ifreq) = .True.
+
           end do ! Each frequency
         end do ! b-b transitions
 
         ! For each b-f transitions
         do itran=1,Atom(ia)%nphot
 
-          ! Protect ionizations
+          ! For each frequency
           do ifreq=Atom(ia)%phot(itran)%if0+1, &
                    Atom(ia)%phot(itran)%if1
+
+            ! Protect ionizations
             protect(ifreq) = .True.
+
           end do ! Each frequency
         end do ! b-b transitions
       end do ! Atom
@@ -2151,20 +1375,20 @@
 
       ! Flag that says that the point 2 is not the initial point
       ! of the interval (because 1 is the initial point)
-      init = .FALSE.
+      init = .False.
 
       ! For the rest of frequencies except the last
       do ifreq=2,Nfreq-1
 
         ! If ifreq is the initial point of an interval
-        if(init)then
+        if (init) then
 
           ! The first point is special in compound trapezoidal rule
           Frec%W_freq(ifreq) = .5d0*(Frec%omega(ifreq+1) - &
                                        Frec%omega(ifreq))
 
           ! The next point cannot be a first point
-          init = .FALSE.
+          init = .False.
 
           ! Initialize the integral to normalize the weights
           norm1 = Frec%W_freq(ifreq)
@@ -2178,17 +1402,22 @@
         ! If ifreq is not the initial point of an interval
         else
 
-          if(abs(1d2/Frec%omega(ifreq+1) - &
-             1d2/Frec%omega(ifreq)).gt.jump.and. &
-             .not.protect(ifreq+1))then
+          ! If there is a big jump (parameter) and the frequency is
+          ! not protected
+          if (abs(1d2/Frec%omega(ifreq+1) - &
+                  1d2/Frec%omega(ifreq)).gt.jump.and. &
+              .not.protect(ifreq+1)) then
 
-            ! Notify of this jump
+            ! Master
             if (gpid.eq.0) then
+
+              ! Notify of this jump
               write(umsg,'(A,1x,f10.3,1x,A,1x,f10.3,1x,A)') &
                   ' # Wavelengths ',1d2/Frec%omega(ifreq+1),'and', &
                   1d2/Frec%omega(ifreq),'are considered to be'// &
                   ' in different ranges.'
               call verbose
+
             end if
 
             ! The last point is special in compound trapezoidal rule
@@ -2208,46 +1437,51 @@
             ! The normalizing factor is thus
             norm = norm/norm1
 
-            ! Normalize the weights of this interval
+            ! For each frequency in this interval
             do jfreq=cfreq,ifreq
+
+              ! Normalize the weights of this interval
               Frec%W_freq(jfreq) = Frec%W_freq(jfreq)*norm
-            end do
+
+            end do ! Frequencies in interval
 
             ! The next point is the first point of its interval
-            init = .TRUE.
+            init = .True.
 
           ! If ifreq is not the last point of an interval
           else
 
-            ! Check if ifreq is the last point of an interval
-            if(abs(1d2/Frec%omega(ifreq+1) - &
-                   1d2/Frec%omega(ifreq)).gt.jump.and. &
-               protect(ifreq+1).and.gpid.eq.0) then
+            ! Check if ifreq could be the last point of an interval
+            ! but it is protected
+            if (abs(1d2/Frec%omega(ifreq+1) - &
+                    1d2/Frec%omega(ifreq)).gt.jump.and. &
+                protect(ifreq+1).and.gpid.eq.0) then
 
+              ! Issue message
               write(umsg,'(A,1x,f10.3,1x,A,1x,f10.3,1x,A)') &
                   ' # Wavelengths ',1d2/Frec%omega(ifreq+1),'and', &
                   1d2/Frec%omega(ifreq),'are considered to be'// &
                   ' in different ranges, but they are '// &
                   'protected from the splitting.'
               call verbose
+
             end if
 
             ! Compound trapezoidal rule weight
             Frec%W_freq(ifreq) = .5d0*(Frec%omega(ifreq+1) - &
-                                         Frec%omega(ifreq-1))
+                                       Frec%omega(ifreq-1))
 
             ! Add to the integral
             norm1 = norm1 + Frec%W_freq(ifreq)
 
           end if ! Last point
-
         end if ! Initial point
 
-      end do ! ifreq
+      end do ! Frequencies
 
       ! The last point is special in compound trapezoidal rule
-      Frec%W_freq(Nfreq) = .5d0*(Frec%omega(Nfreq) - &
-                                   Frec%omega(Nfreq-1))
+      Frec%W_freq(nfreq) = .5d0*(Frec%omega(nfreq) - &
+                                 Frec%omega(nfreq-1))
 
       ! It is the end of the interval
       O1 = Frec%omega(Nfreq)
@@ -2262,13 +1496,13 @@
       ! The normalizing factor is thus
       norm = norm/norm1
 
-      ! Normalize the weights of this interval
+      ! For all frequencies in this interval
       do ifreq=cfreq,nfreq
-        Frec%W_freq(ifreq) = Frec%W_freq(ifreq)*norm
-      end do
 
-      ! Initialize ndzao
-      Frec%ndzao = 0
+        ! Normalize the weights of this interval
+        Frec%W_freq(ifreq) = Frec%W_freq(ifreq)*norm
+
+      end do ! Frequencies in the interval
 
       ! Deallocate arrays
       deallocate(tmp_lim)
@@ -2280,12 +1514,12 @@
       return
 
 1000  write(umsg,'(A,1x,i2)') 'Error opening wave file',i
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1100  write(umsg,'(A,1x,i2)') 'Error reading wave file',i
       close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 
@@ -2295,16 +1529,19 @@
 !#####################################################################
 !#####################################################################
 
-      !> Initialize Master limits\n
-      !!    Atom(Atom_class): Structure with the atomic data
+      !> Initialize frequency related variables needed by the
+      !! radiative transfer master\n
+      !!  Atom(Atom_class(:)): Structures with atomic data
       subroutine omegainitmaster(Atom)
 
       ! I/O
 
-      type(Atom_class), dimension(:):: Atom
+      type(Atom_class), dimension(:), intent(inout):: Atom
 
       ! Local
+
       integer:: ia,itran
+
 
       ! Only the Máster with MPI
       if (pid.eq.0.and.nproc.gt.1) then
@@ -2315,25 +1552,12 @@
           ! For each b-b transition
           do itran=1,Atom(ia)%ntran
 
-            ! Allocate the presence flag for master
+            ! Allocate and initialize the presence flag for master
             allocate(Atom(ia)%fflag(itran)%Mabsent(0:nproc-1))
+            MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%fflag(itran)%Mabsent)
             Atom(ia)%fflag(itran)%Mabsent = .False.
 
-            ! If only one frequency, remove the transition
-            if (Atom(ia)%if1(itran).le.Atom(ia)%if0(itran)) then
-              ! Initialize master
-              if (pid.eq.0.and.nproc.gt.1) then
-                Atom(ia)%Mif0(itran,:) = Atom(ia)%if0(itran)
-                Atom(ia)%Mif1(itran,:) = Atom(ia)%if1(itran)
-                Atom(ia)%MW0(itran,:) = Atom(ia)%W0(itran)
-                Atom(ia)%MW1(itran,:) = Atom(ia)%W1(itran)
-              end if
-            end if
-
-            ! If absent
-            if (Atom(ia)%fflag(itran)%absent) cycle
-
-            ! Initialize master
+            ! Initialize
             Atom(ia)%Mif0(itran,:) = Atom(ia)%if0(itran)
             Atom(ia)%Mif1(itran,:) = Atom(ia)%if1(itran)
             Atom(ia)%MW0(itran,:) = Atom(ia)%W0(itran)
@@ -2344,8 +1568,9 @@
           ! For each b-f tarnsition
           do itran=1,Atom(ia)%nphot
 
-            ! Allocate the presence flag for master
+            ! Allocate and initialize the presence flag for master
             allocate(Atom(ia)%phot(itran)%Mabsent(0:nproc-1))
+            MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%phot(itran)%Mabsent)
             Atom(ia)%phot(itran)%Mabsent = .False.
 
             ! Initialize master
@@ -2355,7 +1580,7 @@
           end do ! b-f transitions
         end do ! Atoms
 
-      end if ! Máster
+      end if ! Máster with MPI
 
       end subroutine omegainitmaster
 
@@ -2363,1388 +1588,569 @@
 !#####################################################################
 !#####################################################################
 
-      !> Build the input frequency axis.\n
-      !!     Frec(Frequency_class): Structure with frequency data\n
-      !!            Red(Red_class): Structure with redistribution
-      !!                            data\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !!      Bstrength(dfloat(:)): Magnetic field strength\n
-      !!        Input(Input_class): Structure with settings data\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!               lp(logical): If doing formal solution in this
-      !!                            run\n
-      !!            ofram(logical): Indicates if out of RAM\n
-      !!              LOS(logical): Indicates if we are normalizing
-      !!                            LOS directions
-      subroutine omegabuildin(Frec,Red,Atom,Atmo,Bstrength,Input, &
-                              Geom,MPID,lp,ofram,LOS)
+      !> Determine the frequency limits for an output transition in
+      !! the second order emissivity\n
+      !!  Atmo(Atmo_class): Structure with atmospheric data\n
+      !!    Red(Red_class): Structure with redistribution input
+      !!                    frequency data, redistribution function
+      !!                    data, and profile or normalization data\n
+      !!       ia(integer): Index of current atom\n
+      !!    jtran(integer): Index of current transition\n
+      !!       nt(integer): Number of components to check\n
+      !!      if0(integer): Initial frequency index for this
+      !!                    transition\n
+      !!      if1(integer): Final frequency index for this
+      !!                    transition\n
+      !!     Dfreq(double): Transition frequency needed for
+      !!                    Doppler width\n
+      !!  red_negl(double): Doppler width distance to neglect
+      !!                    frequencies in the second order
+      !!                    emissivity\n
+      !!             cDopp: Atomic dependent part of the Doppler
+      !!                    width\n
+      !!    nut(double(:)): Array of output frequencies\n
+      !!  omega(double(:)): Frequency axis
+      subroutine get_transition_out_limit(Atmo,Red,ia,jtran,nt, &
+                                          if0,if1,Dfreq,red_negl, &
+                                          cDopp,nut,omega)
 
       ! I/O
 
-      type(Atom_class), dimension(:):: Atom
-      type(Atmo_class):: Atmo
-      type(Input_class):: Input
-      type(Frequency_class):: Frec
-      type(Red_class):: Red
-      type(Geometry_class):: Geom
-      type(MPI_class):: MPID
-      logical, intent(in):: lp,LOS
-      logical, intent(out):: ofram
-      double precision, dimension(:), intent(in):: Bstrength
+      type(Atmo_class), intent(in):: Atmo
+      type(Red_class), intent(inout):: Red
+      integer, intent(in):: ia,jtran,nt,if0,if1
+      double precision, intent(in):: Dfreq,red_negl,cDopp
+      double precision, dimension(:), intent(in):: nut,omega
 
       ! Local
 
-      logical:: lskip,skip,init,reset,nfound,core,Yfield,Nfield
-      logical:: RAMOF, lNCHLT, cohw
-      logical, dimension(:), allocatable:: WNCHLT,skip_scatt
+      logical:: lskip,skip
 
-      integer:: ios,i,i1,i2,it,iz,ia,ip,ipp,ir,itran,jtran,ktran
-      integer:: ifreq,jfreq,iifreq,lifreq,kfreq,cfreq,if0,if1,bf0,bf1
-      integer:: iJl,iJu,iJf,itermf,itermu,iterml,iran,nran,ibfreq
-      integer:: jdir,jbdir,njdir,iYYF,iYNF,iNF,iDF,iDFR
-      integer:: nr,nt,ntj,ni,nie,np,np0,npp,nti,iti
-      integer:: ith,iph,ith1,iph1,ish,nskip,nfs
-      integer:: minto,maxto,mint,maxt,nat,mina,maxa
-      integer:: jjfreq,jjfreq0,kkfreq,kkfreq0,jufreq
-      integer:: nMm,nMu,nMl,nMf,nblk,indx,indxf,nn
-      integer:: iMf,mF,iMu,iU,iMu1,iU1,iMl,iL,iMl1,iL1
-      integer:: iq,iq1,ip1,iQQ
-      integer:: indU,indU1,indF,indL,indL1
-      integer:: MiindU,MiindU1,MiindF,MiindL,MiindL1
-      integer:: MindU,MindU1,MindF,MindL,MindL1
-#ifdef _OPENMP
-      integer:: tid
-#endif
-      integer, dimension(:), allocatable:: minti,maxti
-      integer, dimension(:), allocatable:: flag,ithV,iphV
-#ifdef _OPENMP
-      integer, dimension(:), allocatable:: oif0,oif1,orif0,orif1,onf
-#endif
+      integer:: iz,indx,it,ifreq,nran,bf0,bf1,np
 
-      double precision:: DwT,Dw,Dw1,vph,vpl,vfac,vfac1
-      double precision:: norm,norm1,O0,O1,dnlmin,dnlmax
-      double precision:: red_rangW1,red_resoW
-      double precision:: red_vlarW1,red_fstpW1
-      double precision:: red_mstpW1,red_neglW
-      double precision:: red_rangwW1,red_vlarwW1
-      double precision:: red_fstpwW1,red_mstpwW1
-      double precision:: red_rangcW1,red_vlarcW1
-      double precision:: red_fstpcW1,red_mstpcW1
-      double precision:: red_coreW,red_cohwW
-      double precision:: rJumax,rJlmax,rJfmax
-      double precision:: rJu,rJu1,rJl,rJl1,rJf
-      double precision:: rMf,rMu,rMu1,rMl,rMl1
-      double precision:: q,q1,p,p1,QQ,PP
-      double precision:: ct,st,cc,sc,ct1,st1,cc1,sc1,SRAM
-      double precision, dimension(:), allocatable:: dnl, nut
-      double precision, dimension(:), allocatable:: vphv, vplv, vpr
-      double precision, dimension(:), allocatable:: vphve, vplve
-      double precision, dimension(:), allocatable:: vpp
-      double precision, dimension(:), allocatable:: Wvpp
+      double precision:: vfacm,vfacp,Dw,DwT,red_neglW
 
-      ! Box
-      type(dbabox_class), pointer:: bomega, bw_freq, bdaux
 
-      ! Pointer
-      type(Frequencyd_class), pointer:: p_frec
+      !
+      ! For each considered height
+      do iz=Rz0,Rz1_PRD
 
-      ! Initialize
-      nullify(bomega,bw_freq,bdaux)
+        ! Get index
+        indx = Red%izao(jtran,ia,iz)
 
-      ! Routine name
-      urou = 'omegabuildin'
+        ! Doppler shift factor
+        vfacm = 1d0
+        vfacp = 1d0
 
-      ! Initialize
-      ofram = .False.
-
-      ! Check if we don't have to reset
-      if (AV.and..not.dyn.and.LOS) then
-        if (lp) return
-      end if
-
-      ! If line of sight
-      if ((.not.AV.or.dyn).and.LOS) then
-        PRAM = .False.
-        IRAM = .False.
-      end if
-
-      ! Inititlize RAM counters
-      MPID%WRAM = 0d0
-
-      ! Deallocate existing Frec and Red
-      call cleanFrecandRed(Frec,Red,MPID)
-
-      ! If the process is the master, it does not need this
-      if (MPID%mpi.and.pid.eq.0) then
-        call control
-        return
-      end if
-
-      Yfield = .False.
-      Nfield = .False.
-      RAMOF = .False.
-
-      ! Check magnetic field
-      do iz=Rz0,Rz1
-        if (Bstrength(iz).lt.TINYB) then
-          Nfield = .True.
-        else
-          Yfield = .True.
-        end if
-        if (Yfield.and.Nfield) exit
-      end do
-
-      ! If angle dependent
-      if (.not.AV) then
-
-        !
-        ! Output and input directions
-
-        ! If for emergence
-        if (LOS) then
-
-          njdir = Geom%nPhLOS*Geom%nThLOS
-
-        ! If quadrature
-        else
-
-          njdir = Geom%nPh*Geom%nTh
-
-        end if
-
-        ! If dynamic, axis changes
+        ! If dynamic
         if (dyn) then
 
-          ! Frequency interpolation angular size
-          Frec%ndir = njdir
-          Frec%nth = Geom%nTh
-
-          ! Azimuth depends on symmetry
-          if (axial) then
-            Frec%nph = 1
-          else
-            Frec%nph = Geom%nPh
-          end if
-
-          ! Redistribution (out) angular size
-          Red%njdir = njdir
-
-        ! If static, they don't
-        else
-
-          ! Frequency interpolation angular size
-          Frec%ndir = 1
-          Frec%nth = 1
-          Frec%nph = 1
-
-          ! Redistribution (out) angular size
-          Red%njdir = 1
-
-        end if
-
-        ! Redistribution (in) angular size
-        Red%ndir = Geom%nPh2*Geom%nTh
-        Red%nth = Geom%nTh
-        Red%nph = Geom%nPh2
-
-
-        ! Allocate auxiliar quantities for Doppler shifts
-
-        ! Index of polar direction of quadrature
-        allocate(ithv(njdir))
-        ! Index of azimuthal direction of quadrature
-        allocate(iphv(njdir))
-
-        !
-        ! De-index the directions
-
-        jdir = 0
-
-        ! If lines of sight
-        if (LOS) then
-
-          do ith=1,Geom%nThLOS
-            do iph=1,Geom%nPhLOS
-
-              jdir = jdir + 1
-              ithv(jdir) = ith
-              iphv(jdir) = iph
-
-            end do ! LOS directions
-          end do
-
-        ! If quadrature
-        else
-
-          do ith=1,Geom%nTh
-            do iph=1,Geom%nPh
-
-              jdir = jdir + 1
-              ithv(jdir) = ith
-              iphv(jdir) = iph
-
-            end do ! Quadrature directions
-          end do
-
-        end if ! LOS
-
-        ! Generate scattering angles
-        call get_scattering(Geom,los)
-
-        ! If static, initialize velocity factors
-        if (.not.dyn) then
-
-          vfac = 1d0
-          vfac1 = 1d0
-
-        end if
-
-      ! If dynamic (and AA)
-      else if (dyn) then
-
-        !
-        ! Output and input directions
-
-        ! If lines of sight
-        if (LOS) then
-          njdir = Geom%nPhLOS*Geom%nThLOS
-        ! If quadrature
-        else
-          njdir = Geom%nPh*Geom%nTh
-        end if
-
-        ! Frequency interpolation angular size
-        Frec%ndir = njdir
-        Frec%nth = 1
-        Frec%nph = 1
-
-        ! Redistribution (out) angular size
-        Red%njdir = njdir
-
-        ! Redistribution (in) angular size
-        Red%ndir = Geom%nPh*Geom%nTh
-        Red%nth = 1
-        Red%nph = 1
-
-        ! Number of scatterig angles (dummy init)
-        Geom%nScatt = 1
-
-        ! Allocate auxiliar quantities for Doppler shifts
-
-        ! Index of polar direction of quadrature
-        allocate(ithv(njdir))
-        ! Index of azimuthal direction of quadrature
-        allocate(iphv(njdir))
-
-        !
-        ! De-index the directions
-
-        jdir = 0
-
-        ! LOS
-        if (LOS) then
-
-          do ith=1,Geom%nThLOS
-            do iph=1,Geom%nPhLOS
-
-              jdir = jdir + 1
-              ithv(jdir) = ith
-              iphv(jdir) = iph
-
-            end do ! LOS directions
-          end do
-
-        ! Quadrature
-        else
-
-          do ith=1,Geom%nTh
-            do iph=1,Geom%nPh
-
-              jdir = jdir + 1
-              ithv(jdir) = ith
-              iphv(jdir) = iph
-
-            end do ! Quadrature directions
-          end do
-
-        end if ! LOS
-
-      else
-
-        ! Output directions
-        Frec%ndir = 1
-        Red%ndir = 1
-
-        ! Input directions
-        Frec%nth = 1
-        Frec%nph = 1
-        Red%nth = 1
-        Red%nph = 1
-        Red%njdir = 1
-
-        ! Scattering angles (dummy init)
-        Geom%nScatt = 1
-
-        ! Doppler factors
-        vfac = 1d0
-        vfac1 = 1d0
-
-      end if
-
-      !
-      ! Count maximum index of PRD atom and transition
-
-      ! Initialize atomic and transition index, and counter
-      ! of real elements
-      mina = 10000
-      maxa = 0
-      minto = 10000
-      maxto = 0
-      nat = 0
-
-      ! For each atom
-      do ia=1,nA
-        ! For all transitions
-        do jtran=1,Atom(ia)%ntran
-
-          ! If PRD line
-          if (Atom(ia)%lemiss2(jtran)) then
-            ! If not absent in this CPU
-            if (.not.Atom(ia)%fflag(jtran)%absent) then
-
-              ! Add to counter
-              nat = nat + 1
-
-              ! Update limits
-              if (jtran.lt.minto) minto = jtran
-              if (jtran.gt.maxto) maxto = jtran
-              if (ia.lt.mina) mina = ia
-              if (ia.gt.maxa) maxa = ia
-
-            end if ! Presence of line
-          end if ! PRD line
-
-        end do ! Transitions
-      end do ! Atoms
-
-      ! Allocate indexing array and first step of Frec and Red
-      allocate(Frec%indx(minto:maxto,mina:maxa,Rz0:Rz1,Frec%ndir))
-      Frec%ndzao = nat*Rnz*Frec%ndir
-      allocate(Frec%dzao(Frec%ndzao))
-      do indx=1,Frec%ndzao
-        nullify(Frec%dzao(indx)%trani)
-      end do
-      if (PRAM) then
-        allocate(Red%indx(minto:maxto,mina:maxa,Rz0:Rz1,Red%njdir))
-        Red%ndzao = nat*Rnz*Red%njdir
-        allocate(Red%dzao(Red%ndzao))
-        do indx=1,Red%ndzao
-          nullify(Red%dzao(indx)%trani)
-        end do
-      end if
-
-      !
-      ! Build index
-
-      ! Initialize
-      ip = 0
-
-      ! Directions
-      do jdir=1,Frec%ndir
-        ! Height
-        do iz=Rz0,Rz1
-          ! Atom
-          do ia=mina,maxa
-            ! Transition
-            do jtran=1,Atom(ia)%ntran
-
-              ! If PRD line
-              if (Atom(ia)%lemiss2(jtran).and. &
-                  .not.Atom(ia)%fflag(jtran)%absent) then
-                ip = ip + 1
-                Frec%indx(jtran,ia,iz,jdir) = ip
-              end if
-
-            end do ! Transition
-          end do ! Atom
-        end do ! Height
-      end do ! Directions
-
-#ifdef _OPENMP
-      ! If multiple threads
-      if (omp) then
-
-        ! Allocate limits for threads
-        allocate(oif0(nthread),oif1(nthread),onf(nthread))
-
-        ! Work per thread
-        ios = Frec%ndzao/nthread
-
-        ! Give this first stimation to each process
-        do tid=1,nthread
-          onf(tid) = ios
-        end do
-
-        ! Put the remaining heights in some of the threads if there
-        ! are remaining ones
-        if(ios*nthread.ne.Frec%ndzao)then
-
-          ! Number of nodes to distribute
-          ios = Frec%ndzao - ios*nthread
-
-          ! Give them to the first threads
-          do tid=1,ios
-            onf(tid) = onf(tid) + 1
-          end do
-
-        end if
-
-        ! Set first thread boundary
-        oif0(1) = 1
-        oif1(1) = onf(1)
-
-        ! For each other thread
-        do tid=2,nthread
-          oif0(tid) = oif1(tid-1) + 1
-          oif1(tid) = oif0(tid) + onf(tid) - 1
-        end do
-
-        ! Deallocate onf
-        deallocate(onf)
-
-      end if ! multithreaded
-#endif
-      ! If storing redistribution
-      if (PRAM) then
-
-        ! Initialize
-        ip = 0
-
-        ! Directions
-        do jdir=1,Red%njdir
-          ! Height
-          do iz=Rz0,Rz1
-            ! Atom
-            do ia=mina,maxa
-              ! Transition
-              do jtran=1,Atom(ia)%ntran
-
-                ! If PRD line
-                if (Atom(ia)%lemiss2(jtran).and. &
-                    .not.Atom(ia)%fflag(jtran)%absent) then
-                  ip = ip + 1
-                  Red%indx(jtran,ia,iz,jdir) = ip
-                end if
-
-              end do ! Transition
-            end do ! Atom
-          end do ! Height
-        end do ! Directions
-#ifdef _OPENMP
-        ! If threading
-        if (omp) then
-
-          ! Allocate limits for threads
-          allocate(orif0(nthread),orif1(nthread),onf(nthread))
-
-          ! Work per thread
-          ios = Red%ndzao/nthread
-
-          ! Give this first stimation to each process
-          do tid=1,nthread
-            onf(tid) = ios
-          end do
-
-          ! Put the remaining heights in some of the threads if there
-          ! are remaining ones
-          if(ios*nthread.ne.Red%ndzao)then
-
-            ! Number of nodes to distribute
-            ios = Red%ndzao - ios*nthread
-
-            ! Give them to the first threads
-            do tid=1,ios
-              onf(tid) = onf(tid) + 1
-            end do
+          ! Maximum velocity
+          Dw = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                    Atmo%vy(iz)*Atmo%vy(iz) + &
+                    Atmo%vz(iz)*Atmo%vz(iz))
+
+          ! If big enough
+          if (Dw.gt.TINYVEL) then
+
+            ! Calculate Doppler shift factors
+            vfacp = 1d0 + Dw
+            vfacm = 1d0 - Dw
 
           end if
+        end if ! Dynamic
 
-          ! Set first thread boundary
-          orif0(1) = 1
-          orif1(1) = onf(1)
+        !
+        ! Calculate the Doppler width
+        !
 
-          ! For each other thread
-          do tid=2,nthread
-            orif0(tid) = orif1(tid-1) + 1
-            orif1(tid) = orif0(tid) + onf(tid) - 1
-          end do
+        ! Thermal common part
+        DwT = cDopp*sqrt(Atmo%T(iz))
 
-          ! Deallocate onf
-          deallocate(onf)
+        ! Output transition
+        Dw  = Dfreq*sqrt(DwT*DwT + Atmo%vmi(iz)**2d0)
 
-        end if ! Multi-thread
-#endif
-      end if ! PRAM
+        ! Transform the searching parameters from normalized
+        ! to proper frequency units
+        red_neglW = red_negl*Dw
 
-!$omp parallel default(none) &
-!$omp private(np0,vpp,flag,tid,ia,skip,jtran,minto,maxto,nt,itermu) &
-!$omp private(itermf,iterml,itran,ktran,i,i1,nti,jdir,iz,indx,i2) &
-!$omp private(iti,nr,iJl,iJf,dnl,dnlmax,dnlmin,iJu,ntj,nut,ni) &
-!$omp private(vphv,vplv,vphve,vplve,vpr,ith1,iph1,ct,st,cc,sc) &
-!$omp private(vfac,if0,if1,DwT,Dw1,Dw,red_resoW,red_neglW) &
-!$omp private(red_coreW,red_rangwW1,red_vlarwW1,red_fstpwW1) &
-!$omp private(red_mstpwW1,red_rangcW1,red_vlarcW1,red_fstpcW1) &
-!$omp private(red_mstpcW1,nran,bf0,bf1,lskip,ifreq,np,bomega) &
-!$omp private(bw_freq,iran,iifreq,core,it,red_rangW1,red_vlarW1) &
-!$omp private(red_fstpW1,red_mstpW1,vph,vpl,ir,nie,reset,npp) &
-!$omp private(nfound,ip,ipp,bdaux,Wvpp,norm1,O0,cfreq,init,O1) &
-!$omp private(norm,nn,p_frec,SRAM,jjfreq0,kkfreq0,ith,iph,ct1,vfac1) &
-!$omp private(st1,cc1,sc1,jjfreq,kkfreq,lifreq,jfreq,jufreq,ibfreq) &
-!$omp private(nMm,nblk,rJumax,nMu,rJfmax,nMf,ios,rJlmax,nMl) &
-!$omp private(MindU,MindU1,MindL,MindL1,MindF,iMf,rMf,mF,indF,iMu) &
-!$omp private(rMu,q,iq,iU,indU,iMu1,rMu1,q1,QQ,iq1,iQQ,iU1,indU1) &
-!$omp private(iMl,rMl,p,iL,indL,iMl1,rMl1,p1,PP,ip1,iL1) &
-!$omp private(indL1,MiindU,MiindU1,MiindL,MiindL1,MiindF) &
-!$omp private(rJf,rJu,rJu1,rJl,rJl1,jbdir,jcdir,indxf,iDf,iDFR) &
-!$omp private(red_cohwW,cohw) &
-!$omp shared(nA,Atom,minti,maxti,mint,maxt,Input,Frec,nZ,omp,oif0) &
-!$omp shared(oif1,PRAM,Red,orif0,orif1,dyn,LOS,Geom,MPID,AV,axial) &
-!$omp shared(TPRAM,Yfield,NCHLT,lNCHLT,iYNF,WNCHLT,iYYF,Nfield,iNF) &
-!$omp shared(Bstrength,ofram,ithv,iphv,Atmo,RLIM,nfreq,Rz0,Rz1)
+        ! Initialize search parameters
+        nran = 0
+        bf0 = -1
+        bf1 = -2
 
-      ! Preliminar allocation of vpp, auxiliar vector to store
-      ! frequencies
-      np0 = 10000
-      allocate(vpp(np0))
-      allocate(flag(np0))
+        ! Only one output
+        if (if0.eq.if1) then
 
-#ifdef _OPENMP
-      vfac = 1d0
-      vfac1 = 1d0
-      tid = omp_get_thread_num() + 1
-#endif
+          ! For each line component
+          do it=1,nt
 
-      ! For each atom
-      do ia=1,nA
+            ! Check if we are close to a transition frequency
+            if (abs(omega(if0)*vfacm-nut(it)).lt.red_neglW.or. &
+                abs(omega(if0)*vfacp-nut(it)).lt.red_neglW) then
 
-        ! Check that there is at least 1 PRD line in this atom
-        skip = .True.
-
-        do jtran=1,Atom(ia)%ntran
-          if (Atom(ia)%lemiss2(jtran)) then
-            if (.not.Atom(ia)%fflag(jtran)%absent) then
-              skip = .False.
+              ! Only trivial range
+              bf0 = if0
+              bf1 = if1
+              nran = 1
               exit
-            end if
-          end if
-        end do
 
-        ! There are no PRD lines for this atom
-        if (skip) cycle
+            end if ! Close to a transition
+          end do ! Transitions
 
-!$omp barrier
+        ! More than one output
+        else
 
-!$omp single
-        ! Allocate trano
-        if (allocated(Atom(ia)%trano)) deallocate(Atom(ia)%trano)
+          ! Reset logical variable
+          lskip = .True.
 
-        ! Allocate itrano
-        if (allocated(Atom(ia)%itrano)) deallocate(Atom(ia)%itrano)
+          ! Look for the limits, for each output frequency
+          do ifreq=if0,if1
 
-        ! Reallocate minti and maxti
-        if (allocated(minti)) deallocate(minti,maxti)
-        allocate(minti(Atom(ia)%ntran))
-        allocate(maxti(Atom(ia)%ntran))
+            ! Initialize the flag
+            skip = .True.
 
+            ! For each transition component
+            do it=1,nt
 
-        !
-        ! Count the transition combinations
-        !
+              ! Check if we are close to a transition frequency
+              if (abs(omega(ifreq)*vfacm-nut(it)).lt.red_neglW.or. &
+                  abs(omega(ifreq)*vfacp-nut(it)).lt.red_neglW) then
 
-        ! Reset index
-        minto = Atom(ia)%ntran + 1
-        maxto = 0
-        minti = Atom(ia)%ntran + 1
-        maxti = 0
-        mint = Atom(ia)%nMulti + 1
-        maxt = 0
-        nt = 0
-
-        ! For each upper term
-        do itermu=2,Atom(ia)%nMulti
-
-          ! For each final lower term
-          do itermf=1,itermu-1
-
-            jtran = Atom(ia)%irad(itermu,itermf)
-
-            if (jtran.le.0) cycle
-            if (.not.Atom(ia)%lemiss2(jtran)) cycle
-            if (Atom(ia)%fflag(jtran)%absent) cycle
-
-            ! Update size
-            nt = nt + 1
-
-            if (jtran.lt.minto) minto = jtran
-            if (jtran.gt.maxto) maxto = jtran
-
-            ! For each other lower term
-             do iterml=1,itermu-1
-
-               itran = Atom(ia)%irad(itermu,iterml)
-
-               if (itran.le.0) cycle
-
-               if (.not.Input%Raman.and.itran.ne.jtran) cycle
-
-               ! Look for the maximum and minimum indexes
-               if (itermu.lt.mint) mint = itermu
-               if (itermf.lt.mint) mint = itermf
-               if (iterml.lt.mint) mint = iterml
-               if (itermu.gt.maxt) maxt = itermu
-               if (itermf.gt.maxt) maxt = itermf
-               if (iterml.gt.maxt) maxt = iterml
-
-               if (itran.lt.minti(jtran)) minti(jtran) = itran
-
-               if (itran.gt.maxti(jtran)) maxti(jtran) = itran
-
-            end do ! iterml
-          end do ! itermf
-        end do ! itermu
-
-        ! Store amount of output transitions
-        Atom(ia)%ntrano = nt
-
-        ! Index trano
-        allocate(Atom(ia)%itrano(minto:maxto))
-        nt = 0
-
-        ! For each upper term
-        do itermu=2,Atom(ia)%nMulti
-
-          ! For each final lower term
-          do itermf=1,itermu-1
-
-            jtran = Atom(ia)%irad(itermu,itermf)
-
-            if (jtran.le.0) cycle
-            if (.not.Atom(ia)%lemiss2(jtran)) cycle
-            if (Atom(ia)%fflag(jtran)%absent) cycle
-
-            ! Update index
-            nt = nt + 1
-            Atom(ia)%itrano(jtran) = nt
-
-          end do ! itermf
-        end do ! itermu
-
-
-        !
-        ! Allocate needed transition structures
-        !
-
-        ! Atomic structure
-        allocate(Atom(ia)%trano(Atom(ia)%ntrano))
-!$omp end single
-
-        ! For each output transition
-        do jtran = 1,Atom(ia)%ntran
-
-          ! If no PRD line, skip
-          if (.not.Atom(ia)%lemiss2(jtran)) cycle
-          if (Atom(ia)%fflag(jtran)%absent) cycle
-
-          ! structure index
-          ktran = Atom(ia)%itrano(jtran)
-
-          ! Look for the terms
-          itermu = -1
-          do i=1,Atom(ia)%nMulti-1
-            do i1=i+1,Atom(ia)%nMulti
-              if (Atom(ia)%irad(i,i1).eq.jtran) then
-                itermf = i
-                itermu = i1
+                ! We cannot skip this one
+                skip = .False.
                 exit
-              end if
-            end do
-            if (itermu.ge.0) exit
-          end do
 
-          ! Number of input transitions
-          nti = 0
+              end if ! Close to a transition component
 
-          ! For each other transition that shares upper term
-          do i2=1,Atom(ia)%nMulti-1
+            end do ! Transition components
 
-            if(i2.ge.itermu.or.Atom(ia)%irad(i2,itermu).eq.0) cycle
-            iterml = i2
+            ! If we skip this frequency or it is the last
+            if (skip.or.ifreq.eq.if1) then
 
-            ! Input transition
-            itran = Atom(ia)%irad(iterml,itermu)
+              ! If we have found anything before
+              if (.not.lskip) then
 
-            ! Skip if no Raman and is not Rayleigh
-            if (.not.Input%Raman.and.itran.ne.jtran) cycle
+                ! If it is the last
+                if (ifreq.eq.if1) then
 
-            ! Advance the continuous index
-            nti = nti + 1
+                  ! End of range is this
+                  bf1 = ifreq
 
-          end do ! Lower transitions
-
-          ! Allocate atomic structure
-!$omp single
-          allocate(Atom(ia)%trano(ktran)%trani(nti))
-          allocate(Atom(ia)%trano(ktran)%ind(nti))
-          Atom(ia)%trano(ktran)%nt = nti
-
-          ! Reset index
-          Atom(ia)%trano(ktran)%ind = -1
-!$omp end single
-
-          ! For each output direction
-          do jdir=1,Frec%ndir
-
-            ! For each height
-            do iz=Rz0,Rz1
-
-              ! Get index
-              indx = Frec%indx(jtran,ia,iz,jdir)
-#ifdef _OPENMP
-              ! If multi-thread
-              if (omp) then
-                ! Skip if not assigned
-                if (indx.lt.oif0(tid)) cycle
-                if (indx.gt.oif1(tid)) exit
-              end if
-#endif
-              ! Allocate the input transition type
-              if(.not.associated(Frec%dzao(indx)%trani)) then
-
-                ! Allocate
-                allocate(Frec%dzao(indx)%trani(nti))
-
-                ! Nullify pointers
-                do i2=1,nti
-                  nullify(Frec%dzao(indx)%trani(i2)%index1)
-                  nullify(Frec%dzao(indx)%trani(i2)%index2)
-                  nullify(Frec%dzao(indx)%trani(i2)%dx)
-                end do
-
-              end if ! No input transitions associated yet
-
-              ! Initialize the number of input frequencies
-              Frec%dzao(indx)%mxfreq = 0
-
-            end do ! heights
-          end do ! output directions
-
-          ! If storing Warr
-          if (PRAM) then
-
-            ! For each output direction
-            do jdir=1,Red%njdir
-
-              ! For each height
-              do iz=Rz0,Rz1
-
-                ! Get index
-                indx = Red%indx(jtran,ia,iz,jdir)
-#ifdef _OPENMP
-                ! If multi-thread
-                if (omp) then
-                  ! Skip if not assigned
-                  if (indx.lt.orif0(tid)) cycle
-                  if (indx.gt.orif1(tid)) exit
-                end if
-#endif
-                ! Allocate the input transition type
-                if(.not.associated(Red%dzao(indx)%trani)) &
-                  allocate(Red%dzao(indx)%trani(nti))
-
-              end do ! heights
-            end do ! output directions
-
-          end if ! Storing PRAM
-!$omp single
-          ! Reset index input transition
-          iti = 0
-
-          ! For each other transition that shares upper term
-          do i2=1,Atom(ia)%nMulti-1
-
-            if(i2.ge.itermu.or.Atom(ia)%irad(i2,itermu).eq.0) cycle
-            iterml = i2
-
-            ! Input transition
-            itran = Atom(ia)%irad(iterml,itermu)
-
-            ! Skip if no Raman and is not Rayleigh
-            if (.not.Input%Raman.and.itran.ne.jtran) cycle
-
-            ! Advance the continuous index
-            iti = iti + 1
-
-            ! Store index of this input transition
-            Atom(ia)%trano(ktran)%ind(iti) = itran
-
-          end do ! Lower transitions
-!$omp end single
-
-          ! Reset index of input transition
-          iti = 0
-
-          ! For each other transition that shares upper term
-          do i2=1,Atom(ia)%nMulti-1
-
-            if(i2.ge.itermu.or.Atom(ia)%irad(i2,itermu).eq.0) cycle
-            iterml = i2
-
-            ! Input transition
-            itran = Atom(ia)%irad(iterml,itermu)
-
-            ! Skip if no Raman and is not Rayleigh
-            if (.not.Input%Raman.and.itran.ne.jtran) cycle
-
-            ! Advance the continuous index
-            iti = iti + 1
-
-
-            !
-            ! Count the number of resonances
-            !
-
-            ! Reset the index
-            nr = 0
-
-            ! We have as many resonances as combinations between
-            ! lower levels (the repeated ones will be removes later)
-            do iJl=1,Atom(ia)%nJ(iterml)
-              do iJf=1,Atom(ia)%nJ(itermf)
-                nr = nr + 1
-              end do
-            end do
-
-            ! Make sure that we have enough space to store resonances
-            if(.not.allocated(dnl))then
-              allocate(dnl(nr))
-            else
-              if(size(dnl).lt.nr)then
-                deallocate(dnl)
-                allocate(dnl(nr))
-              end if
-            end if
-
-            ! Reset number of resonances
-            nr = 0
-
-            ! Reset ranges
-            dnlmax = -1D99
-            dnlmin = 1D99
-
-            ! For each pair of lower levels for input and output
-            do iJl=1,Atom(ia)%nJ(iterml)
-              do iJf=1,Atom(ia)%nJ(itermf)
-
-                ! Add the resonance
-                nr = nr + 1
-                dnl(nr) = Atom(ia)%FSfreq(iJf,itermf) - &
-                          Atom(ia)%FSfreq(iJl,iterml)
-
-                ! And check that we know what are the futhest ones
-                if(dnl(nr).gt.dnlmax)dnlmax = dnl(nr)
-                if(dnl(nr).lt.dnlmin)dnlmin = dnl(nr)
-
-              end do ! iJl
-            end do ! iJf
-
-            !
-            ! Count number of transitions
-            !
-
-            ! Reset the index
-            nt = 0
-
-            ! Count the FS transitions in the output line
-            do iJu=1,Atom(ia)%nJ(itermu)
-              do iJf=1,Atom(ia)%nJ(itermf)
-                if(abs(Atom(ia)%rJval(iJu,itermu) - &
-                       Atom(ia)%rJval(iJf,itermf)).gt.1.or. &
-                   Atom(ia)%rJval(iJu,itermu) + &
-                   Atom(ia)%rJval(iJf,itermf).lt..4d0) cycle
-                nt = nt + 1
-              end do
-            end do
-
-            ! This is the number of transitions that are in the output
-            ntj = nt
-
-            ! Count the FS transitions in the input line
-            do iJu=1,Atom(ia)%nJ(itermu)
-              do iJl=1,Atom(ia)%nJ(iterml)
-                if(abs(Atom(ia)%rJval(iJu,itermu) - &
-                       Atom(ia)%rJval(iJl,iterml)).gt.1.or. &
-                   Atom(ia)%rJval(iJu,itermu) + &
-                   Atom(ia)%rJval(iJl,iterml).lt..4d0)cycle
-                nt = nt + 1
-              end do
-            end do
-
-            ! Make sure that we have enough space to store frequencies
-            if(.not.allocated(nut))then
-              allocate(nut(nt))
-            else
-              if(size(nut).lt.nt)then
-                deallocate(nut)
-                allocate(nut(nt))
-              end if
-            end if
-
-            ! The total number of limits to consider is the sum of
-            ! lines and resonances
-            ni = nr + nt
-
-
-            ! Make sure that we have enough space to store ranges
-            ! Upper ranges
-            if(.not.allocated(vphv))then
-              allocate(vphv(ni))
-            else
-              if(size(vphv).lt.ni)then
-                deallocate(vphv)
-                allocate(vphv(ni))
-              end if
-            end if
-            ! Lower ranges
-            if(.not.allocated(vplv))then
-              allocate(vplv(ni))
-            else
-              if(size(vplv).lt.ni)then
-                deallocate(vplv)
-                allocate(vplv(ni))
-              end if
-            end if
-            ! Extended upper range
-            if(.not.allocated(vphve))then
-              allocate(vphve(ni*2))
-            else
-              if(size(vphve).lt.ni*2)then
-                deallocate(vphve)
-                allocate(vphve(ni*2))
-              end if
-            end if
-            ! Extended lower range
-            if(.not.allocated(vplve))then
-              allocate(vplve(ni*2))
-            else
-              if(size(vplve).lt.ni*2)then
-                deallocate(vplve)
-                allocate(vplve(ni*2))
-              end if
-            end if
-            ! Resonances
-            if(.not.allocated(vpr))then
-              allocate(vpr(nr))
-            else
-              if(size(vpr).lt.nr)then
-                deallocate(vpr)
-                allocate(vpr(nr))
-              end if
-            end if
-
-            !
-            ! Store the frequencies of the FS transitions
-            !
-
-            ! Reset index
-            nt = 0
-
-            ! Output transition
-            do iJu=1,Atom(ia)%nJ(itermu)
-              do iJf=1,Atom(ia)%nJ(itermf)
-                if(abs(Atom(ia)%rJval(iJu,itermu) - &
-                       Atom(ia)%rJval(iJf,itermf)).gt.1.or. &
-                   Atom(ia)%rJval(iJu,itermu) + &
-                   Atom(ia)%rJval(iJf,itermf).lt..4d0) cycle
-                nt = nt + 1
-                nut(nt) = Atom(ia)%FSfreq(iJu,itermu) - &
-                          Atom(ia)%FSfreq(iJf,itermf)
-              end do
-            end do
-
-            ! Input transition
-            do iJu=1,Atom(ia)%nJ(itermu)
-              do iJl=1,Atom(ia)%nJ(iterml)
-                if(abs(Atom(ia)%rJval(iJu,itermu) - &
-                       Atom(ia)%rJval(iJl,iterml)).gt.1.or. &
-                   Atom(ia)%rJval(iJu,itermu) + &
-                   Atom(ia)%rJval(iJl,iterml).lt..4d0)cycle
-                nt = nt + 1
-                nut(nt) = Atom(ia)%FSfreq(iJu,itermu) - &
-                          Atom(ia)%FSfreq(iJl,iterml)
-              end do
-            end do
-
-            ! For each output direction
-            do jdir=1,Frec%ndir
-
-              if (dyn) then
-
-                ! If line of sight
-                if (LOS) then
-
-                  ith1 = ithv(jdir)
-                  iph1 = iphv(jdir)
-                  ct = Geom%L_mu(ith1)
-                  st = sqrt(1d0 - ct*ct)
-                  cc = cos(Geom%L_phi(iph1))
-                  sc = sin(Geom%L_phi(iph1))
-
-                ! If quadrature
+                ! Not the last
                 else
 
-                  ith1 = ithv(jdir)
-                  iph1 = iphv(jdir)
-                  ct = Geom%V_mu(ith1)
-                  st = sqrt(1d0 - ct*ct)
-                  cc = Geom%v_mux(iph1)
-                  sc = Geom%v_muy(iph1)*sqrt(1d0 - cc*cc)
+                  ! Previous one was end of range
+                  bf1 = ifreq - 1
 
-                end if
-              end if
+                end if ! If last index
 
-              ! For each height node
-              do iz=Rz0,Rz1
+                ! Add a new range
+                nran = nran + 1
 
-                ! Get index
-                indx = Frec%indx(jtran,ia,iz,jdir)
-#ifdef _OPENMP
-                ! Multi-thread
-                if (omp) then
-                  ! Skip if not assigned
-                  if (indx.lt.oif0(tid)) cycle
-                  if (indx.gt.oif1(tid)) exit
-                end if
-#endif
-                ! Calculate Doppler shift factor
-                if (dyn) &
-                  vfac = 1d0 - atmo%vx(iz)*st*cc - &
-                               atmo%vy(iz)*st*sc - &
-                               atmo%vz(iz)*ct
+              end if ! We have found anything before
 
-                ! Store limits
-                if0 = Atom(ia)%if0(jtran)
-                if1 = Atom(ia)%if1(jtran)
+            ! If we cannot skip this frequency
+            else
 
+              ! If this is the first index for this
+              ! transition
+              if (bf0.lt.0) bf0 = ifreq
 
-                !
-                ! Calculate the Doppler width of both input and output
-                ! transitions
-                !
+            end if ! Can skip
 
-                ! Thermal common part
-                DwT = Atom(ia)%cDopp*sqrt(Atmo%T(iz))
+            ! Update status of last frequency
+            lskip = skip
 
-                ! Input
-                Dw1 = Atom(ia)%Dfreq(itran)*sqrt(DwT*DwT + &
-                                             Atmo%vmi(iz)**2d0)
-                ! Output
-                Dw  = Atom(ia)%Dfreq(jtran)*sqrt(DwT*DwT + &
-                                             Atmo%vmi(iz)**2d0)
+          end do ! output frequencies
 
-                ! Transform the searching parameters from normalized
-                ! to proper frequency units
-                red_cohwW = Input%dcohw*Dw
-                red_resoW = Input%red_pars(2)*Dw
-                red_neglW = Input%red_pars(3)*Dw
-                red_coreW = Input%red_pars(7)*Dw
-                red_rangwW1 = Input%red_pars(1)*Dw1
-                red_vlarwW1 = Input%red_pars(4)*Dw1
-                red_fstpwW1 = Input%red_pars(5)*Dw1
-                red_mstpwW1 = red_fstpwW1*Input%red_pars(6)
-                red_rangcW1 = Input%red_pars(8)*Dw1
-                red_vlarcW1 = Input%red_pars(9)*Dw1
-                red_fstpcW1 = Input%red_pars(10)*Dw1
-                red_mstpcW1 = red_fstpcW1*Input%red_pars(11)
+        end if ! Number of outputs
 
+        ! Store number of ranges in structure
+        Red%zao(indx)%nran = nran
 
-                !
-                ! Find limits for the second order output
-                !
-                if (.not.allocated(Frec%dzao(indx)%if0)) then
+        ! If no ranges
+        if (Red%zao(indx)%nran.lt.1) then
 
-                  nran = 0
-                  bf0 = -1
-                  bf1 = -2
+          ! No frequencies
+          Red%zao(indx)%nran = 0
+          Red%zao(indx)%nfreq = 0
+          Red%zao(indx)%Mif0 = 0
+          Red%zao(indx)%Mif1 = -1
+          Red%zao(indx)%nf = 0
+          cycle
 
-                  ! Only one output
-                  if (if0.eq.if1) then
+        end if
 
-                    ! Check if we are close to a transition frequency
-                    do it=1,ntj
-                      if(abs(Frec%omega(if0)*vfac-nut(it)).lt. &
-                         red_neglW)then
-                        bf0 = if0
-                        bf1 = if1
-                        nran = 1
-                        exit
-                      end if
-                    end do
+        ! Allocate the range indexes
+        allocate(Red%zao(indx)%if0(nran))
+        Red%zao(indx)%if0 = bf0
+        allocate(Red%zao(indx)%if1(nran))
+        Red%zao(indx)%if1 = bf1
 
-                  ! More than one output
+        ! Only one frequency
+        if (if0.eq.if1) then
+
+          ! Single range
+          nran = 1
+          np = 1
+          Red%zao(indx)%if0(nran) = if0
+          Red%zao(indx)%if1(nran) = if0
+
+        ! More than one frequency
+        else
+
+          ! Only one output
+          if (bf1.eq.bf0) then
+
+            ! Initialize the flag
+            skip = .True.
+
+            ! For each transition component
+            do it=1,nt
+
+              ! Check if we are close to a transition frequency
+              if (abs(omega(bf0)*vfacm-nut(it)).lt.red_neglW.or. &
+                  abs(omega(bf0)*vfacp-nut(it)).lt.red_neglW) then
+
+                ! Cannot skip this one
+                skip = .False.
+                exit
+
+              end if ! Close to a transition component
+
+            end do ! Transition components
+
+            ! No transition
+            if (skip) then
+
+              ! Zero out
+              Red%zao(indx)%nran = 0
+              deallocate(Red%zao(indx)%if0)
+              deallocate(Red%zao(indx)%if1)
+              Red%zao(indx)%Mif0 = 0
+              Red%zao(indx)%Mif1 = -1
+              Red%zao(indx)%nf = 0
+              cycle
+
+            end if ! No transition
+
+            ! Save limits
+            Red%zao(indx)%if0(1) = bf0
+            Red%zao(indx)%if1(1) = bf0
+            np = 1
+            nran = 1
+
+          ! Several outputs
+          else
+
+            ! Reset logical variable
+            lskip = .True.
+
+            ! Initialize counters
+            nran = 0
+            np = 0
+
+            ! For each output frequency in the pre-checked limits
+            do ifreq=bf0,bf1
+
+              ! Initialize the flag
+              skip = .True.
+
+              ! For each transition component
+              do it=1,nt
+
+                ! Check if we are close to a transition frequency
+                if (abs(omega(ifreq)*vfacm-nut(it)).lt.red_neglW.or. &
+                    abs(omega(ifreq)*vfacp-nut(it)).lt.red_neglW) then
+
+                  ! Cannot skip this frequency
+                  skip = .False.
+                  exit
+
+                end if ! Close to a transition component
+
+              end do ! Transition components
+
+              ! If we skip this frequency or it is the last
+              if (skip.or.ifreq.eq.bf1) then
+
+                ! Did not skip the last
+                if (.not.lskip) then
+
+                  ! It is the last
+                  if (ifreq.eq.bf1) then
+
+                    ! Last is this one then
+                    Red%zao(indx)%if1(nran) = ifreq
+                    np = np + 1
+
+                  ! It is not the last
                   else
 
-                    ! Reset logical variable
-                    lskip = .True.
+                    ! Previous one closes
+                    Red%zao(indx)%if1(nran) = ifreq - 1
 
-                    ! Look for the limits, for each output frequency
-                    do ifreq=if0,if1
+                  end if ! Last index
+                end if ! Did skip the last
 
-                      ! Initialize the flag
-                      skip = .True.
+              ! If we cannot skip this frequency
+              else
 
-                      ! Check if we are close to a transition
-                      ! frequency
-                      do it=1,ntj
-                        if(abs(Frec%omega(ifreq)*vfac-nut(it)).lt. &
-                           red_neglW)then
-                          skip = .False.
-                          exit
-                        end if
-                      end do
+                ! Advance index
+                np = np + 1
 
-                      ! If we skip this frequency
-                      if(skip.or.ifreq.eq.if1) then
-                        if(.not.lskip) then
-                          if (ifreq.eq.if1) then
-                            bf1 = ifreq
-                          else
-                            bf1 = ifreq - 1
-                          end if
-                          nran = nran + 1
-                        end if
+                ! If skipped last
+                if (lskip) then
+
+                  ! Initialize next range
+                  nran = nran + 1
+                  Red%zao(indx)%if0(nran) = ifreq
+
+                end if ! Skipped last
+              end if ! Skip this frequency
+
+              ! Update skipped status
+              lskip = skip
+
+            end do ! output frequencies
+
+          end if ! Number of outputs
+        end if ! Number of outputs
+
+        ! Set global limits
+        Red%zao(indx)%gf0 = minval(Red%zao(indx)%if0)
+        Red%zao(indx)%gf1 = maxval(Red%zao(indx)%if1)
+        Red%zao(indx)%tgf0 = Red%zao(indx)%gf0
+        Red%zao(indx)%tgf1 = Red%zao(indx)%gf1
+        Red%zao(indx)%ggf0 = 10000000
+        Red%zao(indx)%ggf1 = -1
+
+        ! Count frequencies
+        Red%zao(indx)%nfreq = np
+
+      end do ! Heights
+
+      end subroutine get_transition_out_limit
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Determine the input frequency axis given the transition
+      !! resonances and the discretization parameters of a pair of
+      !! output and input transitions\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data\n
+      !!        Red(Red_class): Structure with redistribution input
+      !!                        frequency data, redistribution
+      !!                        function data, and profile or
+      !!                        normalization data\n
+      !!  Redd_aux(Redc_class): Auxiliar to store the input frequency
+      !!                        axis for the calculation of the
+      !!                        second order emissivity\n
+      !!        icohw(logical): If coherent scattering in the wings\n
+      !!           ia(integer): Index for current atom\n
+      !!        jtran(integer): Index for current output transition\n
+      !!          iti(integer): Rolling index for current input
+      !!                       transition\n
+      !!           nr(integer): Number of Raman resonances\n
+      !!          ntj(integer): Number of output transition
+      !!                        components\n
+      !!           nt(integer): Number of output+input transition
+      !!                        components\n
+      !!        Dfreqi(double): Input transition frequency\n
+      !!        Dfreqo(double): Output transition frequency\n
+      !!         dcohw(double): Doppler width distance to start
+      !!                        considering coherent scattering\n
+      !!   red_pars(double(:)): Discretization parameters to
+      !!                        determine the input frequency axis\n
+      !!      omega(double(:)): Frequency axis\n
+      !!        dnl(double(:)): Raman resonances\n
+      !!        nut(double(:)): Transition components frequencies
+      subroutine get_input_frequencies(Atmo,Red,Redd_aux,icohw,ia, &
+                                       jtran,iti,nr,ntj,nt,np0, &
+                                       Dfreqi,Dfreqo,dcohw,red_pars, &
+                                       omega,dnl,nut,cDopp,vphv, &
+                                       vplv,vphve,vplve,vpr,vpp,flag)
+      ! I/O
+
+      type(Atmo_class), intent(in):: Atmo
+      type(Red_class), intent(in):: Red
+      type(Redc_class), dimension(:,:), &
+                        allocatable, intent(inout):: Redd_aux
+      logical, intent(in):: icohw
+      integer, dimension(:), allocatable, intent(inout):: flag
+      integer, intent(inout):: np0
+      integer, intent(in):: ia,jtran,iti,nr,ntj,nt
+      double precision, intent(in):: Dfreqi,Dfreqo,dcohw,cDopp
+      double precision, dimension(:), intent(in):: omega,dnl,nut
+      double precision, dimension(:), intent(out):: vphv,vplv
+      double precision, dimension(:), intent(out):: vphve,vplve,vpr
+      double precision, dimension(:), intent(in):: red_pars
+      double precision, dimension(:), allocatable, intent(inout):: vpp
+
+      ! Local
+
+      logical:: cohw,core,reset,nfound,init
+
+      integer:: iz,indx,iifreq,iran,ifreq,it,ir,jfreq,kfreq,cfreq
+      integer:: np,ni,nie,ip,ipp,npp,nn
+
+      double precision:: vfacm,vfacp,DwT,Dw1,Dw
+      double precision:: dnlmin,dnlmax,vph,vpl,norm,O1,norm1,O0
+      double precision:: red_cohwW,red_resoW,red_neglW,red_coreW
+      double precision:: red_rangwW1,red_vlarwW1,red_fstpwW1
+      double precision:: red_mstpwW1,red_rangcW1,red_vlarcW1
+      double precision:: red_fstpcW1,red_mstpcW1
+      double precision:: red_rangW1,red_vlarW1
+      double precision:: red_fstpW1,red_mstpW1
+      double precision, dimension(:), allocatable:: Wvpp
+
+      ! Pointers
+
+      type(dbabox_class), pointer:: bomega, bw_freq, bdaux
 
 
-                      ! If we cannot skip this frequency
-                      else
+      ! Get limits for Raman resonance
+      dnlmin = minval(dnl(1:nr))
+      dnlmax = maxval(dnl(1:nr))
 
-                        ! If this is the first index for this
-                        ! transition
-                        if (bf0.lt.0) bf0 = ifreq
+      ! For each height node
+      do iz=Rz0,Rz1_PRD
 
-                      end if
+        ! Get index
+        indx = Red%izao(jtran,ia,iz)
 
-                      lskip = skip
+        ! If the CPU does not have ranges, leave
+        if (Red%zao(indx)%nran.lt.1) cycle
 
-                    end do ! output frequencies
+        ! Init
+        vfacm = 1d0
+        vfacp = 1d0
 
-                  end if ! Number of outputs
+        ! If dynamic
+        if (dyn) then
 
-                  ! Store in the array
-                  Frec%dzao(indx)%nran = nran
+          ! Compute velocity
+          Dw = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                    Atmo%vy(iz)*Atmo%vy(iz) + &
+                    Atmo%vz(iz)*Atmo%vz(iz))
 
-                  ! No ranges
-                  if (Frec%dzao(indx)%nran.lt.1) then
+          ! Big enough
+          if (Dw.gt.TINYVEL) then
 
-                    ! No frequencies
-                    Frec%dzao(indx)%nfreq = 0
-                    cycle
+            ! Get Doppler shift
+            vfacp = 1d0 + Dw
+            vfacm = 1d0 - Dw
 
-                  end if
+          end if ! Enough velocity
+        end if ! Dynamic
 
-                  ! Allocate the ranges
-                  allocate(Frec%dzao(indx)%if0(nran))
-                  Frec%dzao(indx)%if0 = bf0
-                  allocate(Frec%dzao(indx)%if1(nran))
-                  Frec%dzao(indx)%if1 = bf1
+        !
+        ! Calculate the Doppler width of both input and output
+        ! transitions
+        !
 
-                  ! Only one output
-                  if (if0.eq.if1) then
+        ! Thermal common part
+        DwT = cDopp*sqrt(Atmo%T(iz))
 
-                    nran = 1
-                    np = 1
-                    Frec%dzao(indx)%if0(nran) = if0
-                    Frec%dzao(indx)%if1(nran) = if0
+        ! Input
+        Dw1 = Dfreqi*sqrt(DwT*DwT + Atmo%vmi(iz)**2d0)
 
-                  ! More than one output
-                  else
+        ! Output
+        Dw  = Dfreqo*sqrt(DwT*DwT + Atmo%vmi(iz)**2d0)
 
-                    ! Only one output
-                    if (bf1.eq.bf0) then
+        ! Transform the searching parameters from normalized to proper
+        ! frequency units
+        red_cohwW = dcohw*Dw
+        red_resoW = red_pars(2)*Dw
+        red_neglW = red_pars(3)*Dw
+        red_coreW = red_pars(7)*Dw
+        red_rangwW1 = red_pars(1)*Dw1
+        red_vlarwW1 = red_pars(4)*Dw1
+        red_fstpwW1 = red_pars(5)*Dw1
+        red_mstpwW1 = red_fstpwW1*red_pars(6)
+        red_rangcW1 = red_pars(8)*Dw1
+        red_vlarcW1 = red_pars(9)*Dw1
+        red_fstpcW1 = red_pars(10)*Dw1
+        red_mstpcW1 = red_fstpcW1*red_pars(11)
 
-                      ! Initialize the flag
-                      skip = .True.
+        ! Allocate input frequency size
+        np = Red%zao(indx)%nfreq
+        allocate(Redd_aux(iti,iz)%mfreq(np))
 
-                      ! Check if we are close to a transition
-                      ! frequency
-                      do it=1,ntj
-                        if(abs(Frec%omega(ifreq)*vfac-nut(it)).lt. &
-                           red_neglW)then
-                          skip = .False.
-                          exit
-                        end if
-                      end do
+        ! Allocate and initialize pointers and back dimension trace
+        allocate(bomega, bw_freq)
+        nullify(bomega%next)
+        nullify(bomega%prev)
+        nullify(bw_freq%next)
+        nullify(bw_freq%prev)
+        bomega%nback = 0
+        bw_freq%nback = 0
 
-                      ! No transition
-                      if (skip) then
+        ! For each output frequency
+        iifreq = 0
+        do iran=1,Red%zao(indx)%nran
+          do ifreq=Red%zao(indx)%if0(iran), &
+                   Red%zao(indx)%if1(iran)
 
-                        Frec%dzao(indx)%nran = 0
-                        deallocate(Frec%dzao(indx)%if0)
-                        deallocate(Frec%dzao(indx)%if1)
-                        cycle
-
-                      ! Yes transition
-                      else
-
-                        Frec%dzao(indx)%if0(1) = bf0
-                        Frec%dzao(indx)%if1(1) = bf0
-                        np = 1
-                        nran = 1
-
-                      end if
-
-                    ! Several outputs
-                    else
-
-                      ! Reset logical variable
-                      lskip = .True.
-
-                      nran = 0
-                      np = 0
-
-                      ! Look for the limits, for each output frequency
-                      do ifreq=bf0,bf1
-
-                        ! Initialize the flag
-                        skip = .True.
-
-                        ! Check if we are close to a transition
-                        ! frequency
-                        do it=1,ntj
-                          if(abs(Frec%omega(ifreq)*vfac-nut(it)).lt. &
-                             red_neglW)then
-                            skip = .False.
-                            exit
-                          end if
-                        end do
-
-                        ! If we skip this frequency
-                        if(skip.or.ifreq.eq.bf1) then
-
-                          if(.not.lskip) then
-                            if (ifreq.eq.bf1) then
-                              Frec%dzao(indx)%if1(nran) = ifreq
-                              np = np + 1
-                            else
-                              Frec%dzao(indx)%if1(nran) = ifreq - 1
-                            end if
-                          end if
-
-                        ! If we cannot skip this frequency
-                        else
-
-                          np = np + 1
-
-                          if (lskip) then
-                            nran = nran + 1
-                            Frec%dzao(indx)%if0(nran) = ifreq
-                          end if
-                        end if
-
-                        lskip = skip
-
-                      end do ! output frequencies
-
-                    end if ! Number of outputs
-                  end if ! Number of outputs
-
-                  ! Set global limits
-                  Frec%dzao(indx)%gf0 = minval(Frec%dzao(indx)%if0)
-                  Frec%dzao(indx)%gf1 = maxval(Frec%dzao(indx)%if1)
-                  Frec%dzao(indx)%ggf0 = 10000000
-                  Frec%dzao(indx)%ggf1 = -1
-
-                  ! Count frequencies
-                  Frec%dzao(indx)%nfreq = np
-
-                end if ! Already found limits
-
-                ! Initialize sizes
-                Frec%dzao(indx)%trani(iti)%osize = 0
-                Frec%dzao(indx)%trani(iti)%isize = 0
-
-                if (Frec%dzao(indx)%nran.lt.1) cycle
-
-                ! Allocate input frequency size
-                np = Frec%dzao(indx)%nfreq
-                allocate(Frec%dzao(indx)%trani(iti)%mfreq(np))
-
-                ! Initialize pointers and back dimension trace
-                allocate(bomega, bw_freq)
-                nullify(bomega%next)
-                nullify(bomega%prev)
-                nullify(bw_freq%next)
-                nullify(bw_freq%prev)
-                bomega%nback = 0
-                bw_freq%nback = 0
-
-                ! For each output frequency
-                iifreq = 0
-                do iran=1,Frec%dzao(indx)%nran
-                  do ifreq=Frec%dzao(indx)%if0(iran), &
-                           Frec%dzao(indx)%if1(iran)
-
-                    iifreq = iifreq + 1
+            ! Advance index
+            iifreq = iifreq + 1
 
       !
       ! Reset indentation
       !
 
-
-      ! Reset number freq
-      Frec%dzao(indx)%trani(iti)%mfreq(iifreq) = 0
-
-      !
-      ! Find the limits specified by transitions
-      !
+      ! Reset number of frequencies
+      Redd_aux(iti,iz)%mfreq(iifreq) = 0
 
       ! Coherent wings?
-      if (Input%cohw) then
+      if (icohw) then
 
         ! Initialize flag
         cohw = .True.
 
-        ! Check if close to any transition
+        ! For all output transition components
         do it=1,ntj
-          if (abs(nut(it) - Frec%omega(ifreq)*vfac).lt.red_cohwW) then
+
+          ! Check if close to the transition component
+          if (abs(nut(it) - omega(ifreq)*vfacm).lt.red_cohwW.or. &
+              abs(nut(it) - omega(ifreq)*vfacp).lt.red_cohwW) then
+
+            ! No possible to apply coherent scattering
             cohw=.False.
             exit
-          end if
-        end do
 
+          end if ! Close to a transition component
+
+        end do ! Output transition components
+
+      ! Non-coherent wings
       else
 
+        ! Flag non-coherent wings
         cohw = .False.
 
-      end if
+      end if ! Coherent wings?
 
       ! If Coherent wing
       if (cohw) then
 
-        ! Definitely not a core frequency (if its wing!)
+        ! Definitely not a core frequency (it has to be wing!)
         core = .False.
 
         !
         ! Store the determined vector
         !
 
-        ! Advance boxes
+        ! Current boxes are empty
         if (.not.allocated(bomega%A)) then
 
+          ! Allocate single frequency
           allocate(bomega%A(1))
           allocate(bw_freq%A(1))
 
+        ! Need new boxes
         else
 
           ! bomega
@@ -3766,59 +2172,78 @@
           nullify(bw_freq%next)
           nullify(bdaux)
 
-        end if
+        end if ! Empty boxes
 
         ! Store the fequency axis
-        bomega%A = Frec%omega(ifreq)*vfac + dnlmin
+        bomega%A = omega(ifreq) + dnlmin
+
         ! Store the dimension of the axis
         bomega%mfreq = 0
-        Frec%dzao(indx)%trani(iti)%mfreq(iifreq) = 0
+        Redd_aux(iti,iz)%mfreq(iifreq) = 0
+
         ! Store indexes
         bomega%ifreq = iifreq
 
       ! Non-coherent wing
       else
 
-        ! Reset logical
+        ! Reset core flag
         core = .False.
 
-        ! The output transition does not matter here, if the
-        ! input is close to these, that means that they are also
-        ! the input
+        ! For every output transition component
         do it=1,ntj
-          if (abs(nut(it) - Frec%omega(ifreq)*vfac).le.red_coreW) &
+
+          ! Flag as core if close enough to any resonance
+          if (abs(nut(it) - omega(ifreq)*vfacm).le.red_coreW.or. &
+              abs(nut(it) - omega(ifreq)*vfacp).le.red_coreW) &
             core=.True.
+
+          ! Initialize limits
           vphv(it) = -1D0
           vplv(it) = -1D0
-        end do
 
+        end do ! Transition components
+
+        ! If it is core
         if (core) then
+
+          ! Get rest of parameters from core inputs
           red_rangW1 = red_rangcW1
           red_vlarW1 = red_vlarcW1
           red_fstpW1 = red_fstpcW1
           red_mstpW1 = red_mstpcW1
+
+        ! If it is wing
         else
+
+          ! Get rest of parameters from wing inputs
           red_rangW1 = red_rangwW1
           red_vlarW1 = red_vlarwW1
           red_fstpW1 = red_fstpwW1
           red_mstpW1 = red_mstpwW1
+
         end if
 
-        ! Take the ones in the input
+        ! For every input transition component
         do it=ntj+1,nt
+
+          ! Initialize limits
           vphv(it) = nut(it) + red_rangW1
           vplv(it) = nut(it) - red_rangW1
+
         end do
 
-
-        !
-        ! Find the limits specified by resonances
-        !
+        ! For every resonance
         do ir=1,nr
-          vpr(ir) = Frec%omega(ifreq)*vfac + dnl(ir)
+
+          ! Find real resonance
+          vpr(ir) = omega(ifreq) + dnl(ir)
+
+          ! Initialize range limits
           vphv(nt + ir) = vpr(ir) + red_rangW1
           vplv(nt + ir) = vpr(ir) - red_rangW1
-        end do
+
+        end do ! Resonances
 
 
         !
@@ -3828,25 +2253,25 @@
         !
 
         ! Take the furthest resonances
-        vph = Frec%omega(ifreq)*vfac + dnlmax
-        vpl = Frec%omega(ifreq)*vfac + dnlmin
+        vph = omega(ifreq) + dnlmax
+        vpl = omega(ifreq) + dnlmin
 
-        ! Check if we are close to an input transition
+        ! For each input transition component
         do it=ntj+1,nt
 
-          ! If we are, move the limit to the transition
-          ! instead of the resonance
-          if(abs(vph - nut(it)).lt.red_resoW.or. &
-             abs(vpl - nut(it)).lt.red_resoW)then
+          ! If we are close to the transition
+          if (abs(vph - nut(it)).lt.red_resoW.or. &
+              abs(vpl - nut(it)).lt.red_resoW) then
 
-            if(nut(it).lt.vpl)vpl=nut(it)
-            if(nut(it).gt.vph)vph=nut(it)
+            ! Expand suitable limit to include the resonance
+            if (nut(it).lt.vpl) vpl = nut(it)
+            if (nut(it).gt.vph) vph = nut(it)
 
-          end if
+          end if ! Close to the transition
 
-        end do
+        end do ! Output components
 
-        ! Now add the range from the parameters
+        ! Now expand the range from the parameters
         vph = vph + red_rangW1
         vpl = vpl - red_rangW1
 
@@ -3859,62 +2284,72 @@
         ni = nr + nt
 
         ! We are going to change ni, so store it because
-        ! we need the original value
+        ! we need the original value later
         np = ni
 
         ! For each resonance and transition
         do ir=1,np
 
           ! Check if it is out of range
-          if(vphv(ir).lt.vpl.or.vplv(ir).gt.vph)then
+          if (vphv(ir).lt.vpl.or.vplv(ir).gt.vph) then
 
+            ! Remove the resonance
             vplv(ir) = vpl - 1
             ni = ni - 1
 
           ! It is not out of range, but the lower limit is
           ! out
           else if(vplv(ir).lt.vpl)then
+
+            ! Adjust lower limit
             vplv(ir) = vpl
 
           ! It is not out of range, but the upper limit is
           ! out
           else if(vphv(ir).gt.vph)then
+
+            ! Adjust upper limit
             vphv(ir) = vph
-          end if
 
-        end do
+          end if ! Compare ranges
+
+        end do ! Resonances and transitions
 
 
         !
-        ! Check lines and resonances that spawns the same
-        ! range
+        ! Check lines and resonances holding the same range
         !
 
-        ! For each pair of transitions and resonances
+        ! For each transition and resonance
         do ir=np,2,-1
 
-          ! This is equivalent to be flagged out
-          if(vplv(ir).lt.vpl)cycle
+          ! Skip if already flagged out
+          if (vplv(ir).lt.vpl) cycle
 
-          ! The other index to make a pair
+          ! Any other transition and resonance not already checked as
+          ! a pair
           do it=ir-1,1,-1
 
-            ! This is equivalent to be flagged out
-            if(vplv(it).lt.vpl)cycle
+            ! Skip if already flagged out
+            if (vplv(it).lt.vpl) cycle
 
-            ! If the ranges overlap, combine them into
-            ! just one and flag the other out
-            if((vphv(ir).ge.vplv(it).and.vphv(ir).le.vphv(it)).or. &
-               (vplv(ir).ge.vplv(it).and.vplv(ir).le.vphv(it)))then
+            ! If the ranges overlap
+            if ((vphv(ir).ge.vplv(it).and.vphv(ir).le.vphv(it)).or. &
+                (vplv(ir).ge.vplv(it).and.vplv(ir).le.vphv(it))) then
+
+              ! Combine ranges into just one
               vplv(it) = min(vplv(ir),vplv(it))
               vphv(it) = max(vphv(ir),vphv(it))
-              vplv(ir) = vpl - 1
+
+              ! Flag the second out
+              vplv(ir) = vpl - 1d0
               ni = ni - 1
               exit
-            end if
 
-          end do ! it
-        end do ! ir
+            end if ! Ranges overlap
+
+          end do ! Pair transition/resonance
+        end do ! Transition components and resonances
 
 
         !
@@ -3924,13 +2359,13 @@
 
         ! If we have changed the number of ranges from the
         ! beginning
-        if(ni.ne.np)then
+        if (ni.ne.np) then
 
           ! For each pair of resonances
           do ir=1,np-1
 
             ! If it is flagged out
-            if(vplv(ir).lt.vpl)then
+            if (vplv(ir).lt.vpl) then
 
               ! Reset the added index
               ip = 1
@@ -3939,24 +2374,30 @@
               do it=ir+1,np
 
                 ! If it is flagged, skip it
-                if(vplv(it).lt.vpl)then
+                if (vplv(it).lt.vpl) then
 
+                  ! Advance and do nothing
                   ip = ip + 1
 
-                ! If it is not flagged, move it to the
-                ! position of the flagged one
+                ! If it is not flagged
                 else
 
+                  ! Move it to the position of the flagged one
                   vplv(it-ip) = vplv(it)
                   vphv(it-ip) = vphv(it)
+
+                  ! And flag this position
                   vplv(it) = vpl - 1
                   exit
 
-                end if
+                end if ! it flagged
 
-              end do ! it
+              end do ! All resonances and transitions in front
+
             end if ! ir flagged
-          end do ! ir
+
+          end do ! All resonances and transitions
+
         end if ! if something flagged
 
 
@@ -3977,47 +2418,60 @@
         ! Reset the index of extended limits
         nie = 0
 
-        ! For each normal limit, get an extended version
+        ! For each normal limit
         do ir=1,ni
+
+          ! Get an extended range to the left
           nie = nie + 1
           vplve(nie) = vplv(ir) - red_vlarW1
           vphve(nie) = vplv(ir) - red_fstpW1
+
+          ! Get an extended range to the right
           nie = nie + 1
           vplve(nie) = vphv(ir) + red_fstpW1
           vphve(nie) = vphv(ir) + red_vlarW1
+
         end do
 
+
         !
-        ! Check lines and resonances that spawns the same range
+        ! Check lines and resonances holding the same range
         !
 
         ! Store the number of original limits
         np = nie
 
-        ! For each pair of transitions and resonances
+        ! For each transition and resonance
         do ir=np,2,-1
 
-          ! This is equivalent to be flagged out
-          if(vplve(ir).lt.0d0)cycle
+          ! Skip if already flagged out
+          if (vplve(ir).lt.0d0) cycle
 
-          ! The other index to make a pair
+          ! Each other transition and resonance not already paired
           do it=ir-1,1,-1
 
-            ! If the ranges overlap, combine them into
-            ! just one and flag the other out
-            if(vplve(it).lt.0d0)cycle
-            if((vphve(ir).ge.vplve(it).and. &
-                vphve(ir).le.vphve(it)).or. &
-               (vplve(ir).ge.vplve(it).and. &
-                vplve(ir).le.vphve(it)))then
+            ! Skip if already flagged out
+            if (vplve(it).lt.0d0) cycle
+
+            ! If the ranges overlap
+            if ((vphve(ir).ge.vplve(it).and. &
+                 vphve(ir).le.vphve(it)).or. &
+                (vplve(ir).ge.vplve(it).and. &
+                 vplve(ir).le.vphve(it))) then
+
+              ! Combine them into just one
               vplve(it) = min(vplve(ir),vplve(it))
               vphve(it) = max(vphve(ir),vphve(it))
+
+              ! Flag the second limit out
               vplve(ir) = -1d0
               nie = nie - 1
               exit
-            end if
-          end do ! it
-        end do ! ir
+
+            end if ! Overlap
+
+          end do ! Any other transition and resonance
+        end do ! Transition components and resonances
 
 
         !
@@ -4027,13 +2481,13 @@
 
         ! If we have changed the number of ranges from the
         ! beginning
-        if(nie.ne.np)then
+        if (nie.ne.np) then
 
-          ! For each pair of resonances
+          ! For each transition or resonance
           do ir=1,np-1
 
             ! If it is flagged out
-            if(vplve(ir).lt.0d0)then
+            if (vplve(ir).lt.0d0) then
 
               ! Reset the added index
               ip = 1
@@ -4041,24 +2495,31 @@
               ! For all the resonances in front of this one
               do it=ir+1,np
 
-                ! If it is flagged, skip it
-                if(vplve(it).lt.0d0)then
+                ! If it is flagged
+                if (vplve(it).lt.0d0) then
 
+                  ! Advance position
                   ip = ip + 1
 
-                ! If it is not flagged, move it to the
-                ! position of the flagged one
+                ! If it is not flagged
                 else
 
+                  ! Move it to the position of the flagged one
                   vplve(it-ip) = vplve(it)
                   vphve(it-ip) = vphve(it)
+
+                  ! And flag this one
                   vplve(it) = -1d0
                   exit
 
-                end if
-              end do ! it
-            end if ! ir flagged
-          end do ! ir
+                end if ! Flagged
+
+              end do ! Resonances in front
+
+            end if ! Flagged
+
+          end do ! Resonances
+
         end if ! if something flagged
 
 
@@ -4070,6 +2531,7 @@
         call QsortC(vplve(1:nie))
         ! Upper limits
         call QsortC(vphve(1:nie))
+
 
         !
         ! Build the vector of input frequencies from the
@@ -4083,20 +2545,25 @@
         ! Do until we are finished
         do while (.True.)
 
-          ! If the flag is one, we need more space for the
-          ! vector
-          if(reset)then
+          ! If flagged, we need more space for the vector
+          if (reset) then
+
+            ! Duplicate needed space
             np0 = np0*2
+
+            ! Reallocate
             deallocate(vpp)
             allocate(vpp(np0))
             deallocate(flag)
             allocate(flag(np0))
+
+            ! Do not reset again unless running out of space again
             reset = .False.
-          end if
+
+          end if ! Ran out of space and had to reset
 
           ! Reset index counter
           np = 0
-
 
           !
           ! Build for the short limits
@@ -4109,7 +2576,7 @@
             np = np + 1
 
             ! If we ran out of space, we have to reset
-            if(np.gt.np0)then
+            if (np.gt.np0) then
               reset = .True.
               exit
             end if
@@ -4133,17 +2600,17 @@
               vpp(np) = vpp(np-1) + red_fstpW1
 
               ! If we are over the range, we are done
-              if(vpp(np).ge.vphv(it))then
+              if (vpp(np).ge.vphv(it)) then
                 vpp(np) = vphv(it)
                 exit
               end if
 
-            end do
+            end do ! Until finished
 
             ! If we have no space, we need to reset
             if (reset) exit
 
-          end do
+          end do ! Short ranges
 
           ! If we have no space, we need to allocate it above
           if (reset) cycle
@@ -4183,18 +2650,17 @@
               vpp(np) = vpp(np-1) + red_mstpW1
 
               ! If we are over the range, we are done
-              if(vpp(np).ge.vphve(it))then
+              if (vpp(np).ge.vphve(it)) then
                 vpp(np) = vphve(it)
                 exit
               end if
 
-            end do
+            end do ! Until done
 
-            ! If we have no space, we need to allocate it
-            ! above
+            ! If we have no space, we need to allocate it above
             if (reset) exit
 
-          end do
+          end do ! Extended ranges
 
           ! If we have no space, we need to allocate it above
           if (reset) cycle
@@ -4215,13 +2681,16 @@
             ! Run over the existing frequencies
             do ip=1,npp
 
-              ! If the frequency is there, do not add it
+              ! If the frequency is there
               if (abs(1d2/vpp(ip) - 1d2/vpr(ir)).lt.resolin) then
+
+                ! Flag found because we are not adding it
                 nfound = .False.
                 exit
-              end if
 
-            end do
+              end if ! Resonance already in list
+
+            end do ! Existing frequencies
 
             ! If we did not find it
             if (nfound) then
@@ -4238,19 +2707,21 @@
               ! Add the frequency
               vpp(np) = vpr(ir)
 
-            end if
+            end if ! Resonance not in axis
 
             ! If we have no space, we need to allocate it
             ! above
             if (reset) exit
 
-          end do
+          end do ! Resonances
 
-          if(reset)cycle
+          ! If we have no space, we need to allocate it above
+          if (reset) cycle
 
-          exit ! If we get to this point, we have everything
+          ! If we get to this point, we have everything
+          exit
 
-        end do ! First do while
+        end do ! Dummy loop to allow for resets
 
 
         !
@@ -4266,19 +2737,18 @@
           ! If it has been flagged, we already checked
           if (flag(ip).lt.1) cycle
 
-          ! Check the following ones
+          ! Check the other frequencies
           do ipp=ip+1,np
 
             ! If it has been flagged, we already checked
             if (flag(ipp).lt.1) cycle
 
-            ! If some of them are repeated, flag them to be
-            ! removed
-            if(abs(1d2/vpp(ip)-1d2/vpp(ipp)).lt.resolin) &
+            ! If same frequency, flag second to remove
+            if (abs(1d2/vpp(ip)-1d2/vpp(ipp)).lt.resolin) &
               flag(ipp) = 0
 
-          end do ! ipp
-        end do ! ip
+          end do ! Other frequencies
+        end do ! Frequencies
 
         ! Reset the running real index
         ipp = 0
@@ -4286,13 +2756,16 @@
         ! For each frequency in the vector
         do ip=1,np
 
-          ! If it is flagged correct, add to real vector
-          if(flag(ip).gt..5)then
+          ! If it is flagged correct
+          if (flag(ip).gt..5) then
+
+            ! Advance index and add to real vector
             ipp = ipp + 1
             vpp(ipp) = vpp(ip)
-          end if
 
-        end do
+          end if ! Flagged correct
+
+        end do ! All frequencies
 
         ! The number of frequencies is the last value of ipp
         np = ipp
@@ -4304,12 +2777,14 @@
         ! Store the determined vector
         !
 
-        ! Advance boxes
+        ! Empty box
         if (.not.allocated(bomega%A)) then
 
+          ! Allocate space in current box
           allocate(bomega%A(np))
           allocate(bw_freq%A(np))
 
+        ! Filled box, advance the boxes
         else
 
           ! bomega
@@ -4331,37 +2806,27 @@
           nullify(bw_freq%next)
           nullify(bdaux)
 
-        end if
+        end if ! Empty box
 
-        ! Check that we have enough space to work below
-        if(.not.allocated(Wvpp))then
-          allocate(Wvpp(np))
-        else
-          if(size(Wvpp).lt.np)then
-            deallocate(Wvpp)
-            allocate(Wvpp(np))
-          end if
-        end if
+        ! Allocate weight
+        call safe_allocate(Wvpp,np)
 
         ! Store the fequency axis
         bomega%A = vpp(1:np)
+
         ! Store the dimension of the axis
         bomega%mfreq = np
-        Frec%dzao(indx)%trani(iti)%mfreq(iifreq) = np
+        Redd_aux(iti,iz)%mfreq(iifreq) = np
+
         ! Store indexes
         bomega%ifreq = iifreq
 
-        ! Update the maximum of input frequencies
-        if (np.gt.Frec%dzao(indx)%mxfreq) Frec%dzao(indx)%mxfreq = np
-
 
         !
-        ! Define the integration weights (same than
-        ! omegabuild)
+        ! Define the integration weights (same as omegabuild)
         !
 
-        ! The first point is special in compound trapezoidal
-        ! rule
+        ! The first point is special in compound trapezoidal rule
         Wvpp(1) = .5d0*(vpp(2) - vpp(1))
 
         ! Initialize the integral to normalize the weights
@@ -4370,31 +2835,27 @@
         ! The initial lower limit is the first point
         O0 = vpp(1)
 
-        ! This is the pointer to the first element of the
-        ! current interval, we are pointing to the first
-        ! element
+        ! This is the pointer to the first element of the current
+        ! interval, we are pointing to the first element
         cfreq = 1
 
-        ! Flag that says that the point 2 is not the initial
-        ! point of the interval (because 1 is the initial
-        ! point)
-        init = .FALSE.
+        ! Flag that says that the point 2 is not the initial point of
+        ! the interval (because 1 is the initial point)
+        init = .False.
 
         ! For the rest of frequencies except the last
         do jfreq=2,np-1
 
           ! If ifreq is the initial point of an interval
-          if(init)then
+          if (init) then
 
-            ! The first point is special in compound
-            ! trapezoidal rule
+            ! The first point is special in compound trapezoidal rule
             Wvpp(jfreq) = .5d0*(vpp(jfreq+1) - vpp(jfreq))
 
             ! The next point cannot be a first point
-            init = .FALSE.
+            init = .False.
 
-            ! Initialize the integral to normalize the
-            ! weights
+            ! Initialize the integral to normalize the weights
             norm1 = Wvpp(jfreq)
 
             ! Pointer is now in this frequency
@@ -4407,10 +2868,9 @@
           else
 
             ! Check if ifreq is the last point of an interval
-            if(abs(vpp(jfreq+1) - vpp(jfreq)).gt.red_neglW)then
+            if (abs(vpp(jfreq+1) - vpp(jfreq)).gt.red_neglW) then
 
-              ! The last point is special in compound
-              ! trapezoidal rule
+              ! The last point is special in compound trapezoidal rule
               Wvpp(jfreq) = .5d0*(vpp(jfreq) - vpp(jfreq-1))
 
               ! It is the end of the current interval
@@ -4423,14 +2883,16 @@
               ! NOTICE THE 1D5, IT IS IN PROPER cm^-1
               norm = 1d5*(O1 - O0)/norm1
 
-              ! Normalize the weights of this interval
+              ! For each frequency in this interval
               do kfreq=cfreq,jfreq
+
+                ! Normalize the weights of this interval
                 Wvpp(kfreq) = Wvpp(kfreq)*norm
+
               end do
 
-              ! The next point is the first point of its
-              ! interval
-              init = .TRUE.
+              ! The next point is the first point of its interval
+              init = .True.
 
             ! If jfreq is not the last point of an interval
             else
@@ -4442,13 +2904,11 @@
               norm1 = norm1 + Wvpp(jfreq)
 
             endif ! Last point
-
           end if ! Initial point
 
-        end do ! jfreq
+        end do ! Frequencies
 
-        ! The last point is special in compound trapezoidal
-        ! rule
+        ! The last point is special in compound trapezoidal rule
         Wvpp(np) = .5d0*(vpp(np) - vpp(np-1))
 
         ! It is the end of the interval
@@ -4461,535 +2921,735 @@
         ! NOTICE THE 1D5, IT IS IN PROPER cm^-1
         norm = 1d5*(O1 - O0)/norm1
 
-        ! Normalize the weights of this interval
+        ! For each frequency in this interval
         do jfreq=cfreq,np
+
+          ! Normalize the weights of this interval
           Wvpp(jfreq) = Wvpp(jfreq)*norm
+
         end do
 
         ! Store the weights
         bw_freq%A = Wvpp(1:np)
 
-      end if ! Coherent wing
-
-                  end do ! output frequencies
-                end do ! output frequency ranges
-
-                !
-                ! Properly store and index the data
-                !
-
-                ! Total dimension of omega and w_freq
-                nn = bomega%nback + bomega%mfreq
-
-                ! Allocate omega and W_freq
-                allocate(Frec%dzao(indx)%trani(iti)%omega(nn))
-                allocate(Frec%dzao(indx)%trani(iti)%w_freq(nn))
-
-                ! Determine size
-                Frec%dzao(indx)%trani(iti)%osize = nn
-
-                ! Go backwards in the linked lists
-                do while (.True.)
-
-                  iifreq = bomega%ifreq
-                  ip = bomega%nback + 1
-                  ipp = ip + bomega%mfreq - 1
-                  if (ipp.ge.ip) then
-                    Frec%dzao(indx)%trani(iti)% &
-                                    omega(ip:ipp) = bomega%A
-                    Frec%dzao(indx)%trani(iti)% &
-                                    W_freq(ip:ipp)= bw_freq%A
-                  end if
-
-                  ! Deallocate arrays
-                  deallocate(bomega%A,bw_freq%A)
-
-                  ! If last one, clean and quit
-                  if (.not.associated(bomega%prev)) then
-                    deallocate(bomega,bw_freq)
-                    nullify(bomega,bw_freq)
-                    exit
-                  ! Not done with the list
-                  else
-                    bomega => bomega%prev
-                    bw_freq => bw_freq%prev
-                    nullify(bomega%next%prev,bw_freq%next%prev)
-                    deallocate(bomega%next,bw_freq%next)
-                    nullify(bomega%next,bw_freq%next)
-                  end if
-
-                end do ! Run backwards the frequency axes
-
-                ! Update RAM
-!$omp flush(MPID)
-                MPID%RAM = MPID%RAM + 16d-6*dble(nn)
-                MPID%WRAM = MPID%WRAM + 16d-6*dble(nn)
-!$omp flush(MPID)
-
-                ! End of array constructions
-
-              end do ! Height
-            end do ! Output directions
-          end do ! Input transition
-        end do ! Output transition
-
-!$omp barrier
-
-        !
-        ! Allocate space for interpolation and define it or
-        ! find the index limits
-        !
-
-        ! For each output direction
-        do jdir=1,Frec%ndir
-
-          ! Generate scattering angles if AD, LOS, and dynamic
-          if (.not.AV.and.LOS.and.dyn) then
-            call get_scattering_los(Geom,ithv(jdir),iphv(jdir))
-            jbdir = 1
-          else
-            jbdir = jdir
-          end if
-
-          !
-          ! If coherent wings, compute vfac
-          if (Input%cohw) then
-
-            ! Actually dynamic
-            if (dyn) then
-
-              ! If line of sight
-              if (LOS) then
-
-                ith1 = ithv(jdir)
-                iph1 = iphv(jdir)
-                ct = Geom%L_mu(ith1)
-                st = sqrt(1d0 - ct*ct)
-                cc = cos(Geom%L_phi(iph1))
-                sc = sin(Geom%L_phi(iph1))
-
-              ! If quadrature
-              else
-
-                ith1 = ithv(jdir)
-                iph1 = iphv(jdir)
-                ct = Geom%V_mu(ith1)
-                st = sqrt(1d0 - ct*ct)
-                cc = Geom%v_mux(iph1)
-                sc = Geom%v_muy(iph1)*sqrt(1d0 - cc*cc)
-
-              end if
-
-            else
-
-              vfac = 1d0
-
-            end if
-          end if
-
-          ! For each height
-          do iz=Rz0,Rz1
+      end if ! Coherent scattering wing
 
             !
-            ! If coherent wings and dynamic, compute vfac
-            if (Input%cohw.and.dyn) &
-              vfac = 1d0 - atmo%vx(iz)*st*cc - &
-                           atmo%vy(iz)*st*sc - &
-                           atmo%vz(iz)*ct
+            ! Restore indentation
+            !
 
-            ! For each output transition level
-            do jtran=1,Atom(ia)%ntran
+          end do ! Output frequencies
+        end do ! Output frequency ranges
 
-              ! If no PRD line, skip
-              if (.not.Atom(ia)%lemiss2(jtran)) cycle
-              if (Atom(ia)%fflag(jtran)%absent) cycle
 
-              ! Look for the terms
-              itermu = -1
-              do i=1,Atom(ia)%nMulti-1
-                do i1=i+1,Atom(ia)%nMulti
-                  if (Atom(ia)%irad(i,i1).eq.jtran) then
-                    itermf = i
-                    itermu = i1
-                    exit
-                  end if
-                end do
-                if (itermu.ge.0) exit
+        !
+        ! Properly store and index the data
+        !
+
+        ! Total dimension of omega and w_freq
+        nn = bomega%nback + bomega%mfreq
+
+        ! Allocate omega and W_freq
+        allocate(Redd_aux(iti,iz)%omega(nn))
+        allocate(Redd_aux(iti,iz)%w_freq(nn))
+
+        ! Determine size
+        Redd_aux(iti,iz)%osize = nn
+
+        ! Go backwards in the linked lists until done
+        do while (.True.)
+
+          ! Current index
+          iifreq = bomega%ifreq
+
+          ! Current limits
+          ip = bomega%nback + 1
+          ipp = ip + bomega%mfreq - 1
+
+          ! If valid limits
+          if (ipp.ge.ip) then
+
+            ! Save vectors in boxes into auxiliar structure
+            Redd_aux(iti,iz)%omega(ip:ipp) = bomega%A
+            Redd_aux(iti,iz)%W_freq(ip:ipp)= bw_freq%A
+
+          end if ! Valid limits
+
+          ! Deallocate arrays in box
+          deallocate(bomega%A,bw_freq%A)
+
+          ! If last one
+          if (.not.associated(bomega%prev)) then
+
+            ! Clean boxes and leave
+            deallocate(bomega,bw_freq)
+            nullify(bomega,bw_freq)
+            exit
+
+          ! Not done with the list
+          else
+
+            ! Clean current box and go to the previous one
+            bomega => bomega%prev
+            bw_freq => bw_freq%prev
+            nullify(bomega%next%prev,bw_freq%next%prev)
+            deallocate(bomega%next,bw_freq%next)
+            nullify(bomega%next,bw_freq%next)
+
+          end if ! Last box
+
+        end do ! Run backwards over the boxes with the frequencies
+
+        ! End of array constructions
+
+      end do ! Height
+
+      end subroutine get_input_frequencies
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Split tasks for the calculation of the second order
+      !! emissivity of a given transition\n
+      !!        Red(Red_class): Structure with redistribution input
+      !!                        frequency data, redistribution
+      !!                        function data, and profile or
+      !!                        normalization data\n
+      !!  Redd_aux(Redc_class): Auxiliar to store the input frequency
+      !!                        axis for the calculation of the
+      !!                        second order emissivity\n
+      !!       MPID(MPI_class): Structure with MPI data\n
+      !!           ia(integer): Index of current atom\n
+      !!        jtran(integer): Index of current output transition\n
+      !!          nti(integer): Number of input transitions for the
+      !!                        current output transition
+      subroutine setmpi_red(Red,Redd_aux,MPID,ia,jtran,nti)
+
+      ! I/O
+
+      type(Red_class), intent(inout):: Red
+      type(Redc_class), dimension(:,:), &
+                        allocatable, intent(inout):: Redd_aux
+      type(MPI_class), intent(in):: MPID
+      integer, intent(in):: ia,jtran,nti
+
+      ! Local
+
+      integer:: iaux,extra,i0,i1,np,nn
+      integer:: iz,indx,iproc,iti,jjfreq,kkfreq,iifreq,iran,ifreq
+      integer, dimension(:), allocatable:: IW_freq
+
+
+      ! For each height
+      do iz=Rz0,Rz1_PRD
+
+        ! Get index
+        indx = Red%izao(jtran,ia,iz)
+
+        ! If no frequencies to calculate
+        if (Red%zao(indx)%nran.lt.1) cycle
+
+        ! If MPI
+        if (nproc.gt.1) then
+
+          ! If more processes than frequencies
+          if (nproc.ge.Red%zao(indx)%nfreq) then
+
+            ! One frequency each (until done)
+            iaux = 0
+            do iproc=0,Red%zao(indx)%nfreq-1
+              Red%zao(indx)%Mif0(iproc) = iproc+1
+              Red%zao(indx)%Mif1(iproc) = iproc+1
+              Red%zao(indx)%nf(iproc) = 1
+            end do
+
+            ! Rest do nothing
+            do iproc=Red%zao(indx)%nfreq,nproc-1
+              Red%zao(indx)%Mif0(iproc) = 0
+              Red%zao(indx)%Mif1(iproc) = -1
+              Red%zao(indx)%nf(iproc) = 0
+            end do
+
+          ! All participate (more frequencies than CPU)
+          else
+
+            ! Only master
+            if (pid.eq.0) then
+
+              ! Basic amount
+              iaux = Red%zao(indx)%nfreq/nproc
+              extra = Red%zao(indx)%nfreq - iaux*nproc
+
+              ! Initialize
+              i0 = 0
+              i1 = 0
+
+              ! First CPUs have extra
+              do iproc=0,extra-1
+                Red%zao(indx)%Mif0(iproc) = i1+1
+                i1 = i1 + iaux + 1
+                Red%zao(indx)%Mif1(iproc) = i1
+                Red%zao(indx)%nf(iproc) = iaux + 1
               end do
 
-              ! Get index
-              indx = Frec%indx(jtran,ia,iz,jdir)
-#ifdef _OPENMP
-              ! Multi-thread
-              if (omp) then
-                ! Skip if not assigned
-                if (indx.lt.oif0(tid)) cycle
-                if (indx.gt.oif1(tid)) exit
-              end if
-#endif
-              if (Frec%dzao(indx)%nran.lt.1) cycle
+              ! Rest have nominal
+              do iproc=extra,nproc-1
+                Red%zao(indx)%Mif0(iproc) = i1+1
+                i1 = i1 + iaux
+                Red%zao(indx)%Mif1(iproc) = i1
+                Red%zao(indx)%nf(iproc) = iaux
+              end do
 
-              ! structure index
-              ktran = Atom(ia)%itrano(jtran)
+              ! Allocate and initialize work weights
+              allocate(IW_freq(Red%zao(indx)%nfreq))
+              IW_freq = 1
 
-              ! For all the possible lower terms
-              do i=1,itermu-1
+              ! For each input transition
+              do iti=1,nti
 
-                ! If there is no transition or this term is larger
-                ! than the upper term of the output transition, skip
-                if(i.ge.itermu.or.Atom(ia)%irad(i,itermu).eq.0) cycle
+                ! Add input frequencies to weight
+                IW_freq = IW_freq + Redd_aux(iti,iz)%mfreq
 
-                ! Store the input lower term index
-                iterml = i
+              end do
 
-                ! Get index of input transition
-                itran = Atom(ia)%irad(iterml,itermu)
+              ! Optimize split
+              call weighted_split(nproc,1000, &
+                                  IW_freq, &
+                                  Red%zao(indx)%Mif0, &
+                                  Red%zao(indx)%Mif1, &
+                                  Red%zao(indx)%nf)
 
-                ! Get index of input transition in structure
-                ios = -1
-                do iti=1,Atom(ia)%trano(ktran)%nt
-                  if (Atom(ia)%trano(ktran)%ind(iti).eq.itran) then
-                    ios = 1
-                    exit
-                  end if
-                end do
-                if (ios.lt.0) cycle
+              ! Deallocate weights
+              deallocate(IW_freq)
 
-        !
-        ! Reset identation
-        !
+            end if ! Master
 
-        ! Point to input frequency
-        p_frec => Frec%dzao(indx)%trani(iti)
+            ! Share split with everyone
+            call MPI_BCAST(Red%zao(indx)%nf(0), nproc, &
+                           MPI_INTEGER, 0, MPI_COMM_RT, ierr)
+            call MPI_BCAST(Red%zao(indx)%Mif0(0), nproc, &
+                           MPI_INTEGER, 0, MPI_COMM_RT, ierr)
+            call MPI_BCAST(Red%zao(indx)%Mif1(0), nproc, &
+                           MPI_INTEGER, 0, MPI_COMM_RT, ierr)
 
-        ! Predict size of next block
-        nn = sum(p_frec%mfreq)
+          end if ! Type of distribution
 
-        ! If angle-dependent and dynamic
-        if (.not.AV.and.dyn) then
-
-          ! Check if forward
-          if (jtran.eq.itran.and. &
-              Geom%V_CScatt(1).ge.1d0) then
-            nfs = 1
-          else
-            nfs = 0
-          end if
-
-          ! For axial problems
-          if (axial) then
-
-            ! Size is just polar
-            nn = nn*Geom%nTh
-
-          ! For non-axial problems
-          else
-
-            ! Skip forward rayleigh
-            nn = nn*(Geom%nTh*Geom%nPh2 - nfs)
-
-          end if ! Axial
-        end if ! AD and dynamic
-
-        ! Predict aditional frequency
-        SRAM = 16d-6*dble(nn)
-
-        ! If can store
-        if (TPRAM) then
-!$omp flush(MPID,ofram)
-          ! If no more space
-          if (floor(MPID%RAM+SRAM).gt.RLIM.or.SRAM.le.0d0) then
-            ofram = .True.
-            p_frec%RAM = .False.
-          else
-            allocate(p_frec%index1(nn))
-            allocate(p_frec%index2(nn))
-            allocate(p_frec%dx(nn))
-            MPID%RAM = MPID%RAM + SRAM
-            MPID%WRAM = MPID%WRAM + SRAM
-            p_frec%RAM = .True.
-          end if
-!$omp flush(MPID,ofram)
-        ! Cannot store
+        ! Serial
         else
-          p_frec%RAM = .False.
-        end if
 
-        !
-        ! If coherent wings, recover resonance limits
-        if (Input%cohw) then
+          ! Everything for single CPU
+          Red%zao(indx)%Mif0(0) = 1
+          Red%zao(indx)%Mif1(0) = Red%zao(indx)%nfreq
+          Red%zao(indx)%nf(0) = Red%zao(indx)%nfreq
 
-          ! Make sure that we have enough space to store resonances
-          if(.not.allocated(dnl))then
-            allocate(dnl(1))
-          end if
+        end if ! MPI/serial
 
-          ! Reset ranges
-          dnlmax = -1D99
-          dnlmin = 1D99
-
-          ! For each pair of lower levels for input and output
-          do iJl=1,Atom(ia)%nJ(iterml)
-            do iJf=1,Atom(ia)%nJ(itermf)
-
-              ! Add the resonance
-              dnl(1) = Atom(ia)%FSfreq(iJf,itermf) - &
-                       Atom(ia)%FSfreq(iJl,iterml)
-
-              ! And check that we know what are the futhest ones
-              if(dnl(1).gt.dnlmax)dnlmax = dnl(1)
-              if(dnl(1).lt.dnlmin)dnlmin = dnl(1)
-
-            end do ! iJl
-          end do ! iJf
-
-        end if ! Coherent wings
+        ! Reinitialize indexes
+        Red%zao(indx)%Igf0 = nfreq+1
+        Red%zao(indx)%Igf1 = 0
 
 
         !
-        ! Define interpolation
+        ! Now take only what is needed
+        !
 
-        ! Initialize index
-        jjfreq0 = 0
-        kkfreq0 = 0
+        ! If frequencies to compute
+        if (Red%zao(indx)%nf(pid).gt.0) then
 
-        ! For each output frequency
-        iifreq = 0
-        do iran=1,Frec%dzao(indx)%nran
-          do ifreq=Frec%dzao(indx)%if0(iran), &
-                   Frec%dzao(indx)%if1(iran)
+          ! Initialize maximum number of frequencies for this CPU
+          Red%zao(indx)%mxfreq = 0
 
-            ! Advance index
-            iifreq = iifreq + 1
+          ! For each input transition
+          do iti=1,nti
 
-            ! Input frequency number
-            np = p_frec%mfreq(iifreq)
+            ! Initialize running index
+            jjfreq = 0
+            kkfreq = 0
 
-            ! For each input direction
-            do ith=1,Frec%nth
-              do iph=1,Frec%nph
+            ! Allocate local sizes
+            allocate(Red%zao(indx)%trani(iti)% &
+                         mfreq(Red%zao(indx)%Mif0(pid): &
+                               Red%zao(indx)%Mif1(pid)))
 
-                ! If dynamics and AD
-                if (dyn.and..not.AV) then
+            ! Copy number of frequencies
+            Red%zao(indx)%trani(iti)%mfreq = &
+                Redd_aux(iti,iz)%mfreq(Red%zao(indx)%Mif0(pid): &
+                                       Red%zao(indx)%Mif1(pid))
 
-                  ! For axial problems
-                  if (axial) then
+            ! Total number of frequencies for this CPU
+            np = sum(Red%zao(indx)%trani(iti)%mfreq)
 
-                    ! Automatically skip extra azimuths
-                    if (iph.gt.1) cycle
+            ! Maximum
+            Red%zao(indx)%mxfreq = max(Red%zao(indx)%mxfreq, &
+                                       maxval(Red%zao(indx)% &
+                                                  trani(iti)%mfreq))
+            ! Size
+            Red%zao(indx)%trani(iti)%osize = np
 
-                    ! Get director cosines
-                    ct1 = Geom%V_mu(ith)
+            ! Allocate local arrays
+            allocate(Red%zao(indx)%trani(iti)%omega(np))
+            allocate(Red%zao(indx)%trani(iti)%W_freq(np))
 
-                    ! Calculate Doppler shift factor
-                    vfac1 = 1d0 - atmo%vz(iz)*ct1
+            ! For each output frequency
+            iifreq = 0
+            do iran=1,Red%zao(indx)%nran
+              do ifreq=Red%zao(indx)%if0(iran), &
+                       Red%zao(indx)%if1(iran)
 
-                    ! We will be using the inverse
-                    vfac1 = 1d0/vfac1
+                ! Advance index
+                iifreq = iifreq + 1
 
-                  ! For non-axial problems
-                  else
+                ! If out of range above, done
+                if (iifreq.gt.Red%zao(indx)%Mif1(pid)) exit
 
-                    ! If angle-dependent, check backward Rayleigh
-                    ! scattering
-                    if (nfs.eq.1.and. &
-                        Geom%V_CScatt(Geom% &
-                             i_scatt(iph,ith,jbdir)).ge.1d0) &
-                      cycle
+                ! If out of range below
+                if (iifreq.lt.Red%zao(indx)%Mif0(pid)) then
 
-                    ! Get director cosines
-                    ct1 = Geom%V_mu(ith)
-                    st1 = sqrt(1d0 - ct1*ct1)
-                    cc1 = Geom%v_mux(iph)
-                    sc1 = Geom%v_muy(iph)*sqrt(1d0 - cc1*cc1)
-
-                    ! Calculate Doppler shift factor
-                    vfac1 = 1d0 - atmo%vx(iz)*st1*cc1 - &
-                                  atmo%vy(iz)*st1*sc1 - &
-                                  atmo%vz(iz)*ct1
-
-                    ! We will be using the inverse
-                    vfac1 = 1d0/vfac1
-
-                  end if ! Axial
-
-                ! Not dynamic or AV
-                else
-
-                  ! No shift
-                  vfac1 = 1d0
-
-                  ! Only one direction
-                  if (iph.gt.1.or.ith.gt.1) cycle
-
-                end if ! Dynamics
-
-                ! Reset indexes
-                jjfreq = jjfreq0
-                kkfreq = kkfreq0
-
-                ! Skip empty
-                if (np.lt.1) then
-
-                  ! Left and right limits from resonance
-                  lifreq = 1
-                  jfreq = nfreq
-                  O0 = Frec%omega(ifreq)*vfac + dnlmin
-                  O1 = Frec%omega(ifreq)*vfac + dnlmax
-
-                  !
-                  ! Look for the indexes
-
-                  !
-                  ! Left
-
-                  ! Only if not beyond already
-                  if (Frec%omega(lifreq)*vfac1.lt.O0) then
-
-                    ! Search
-                    do while (.True.)
-
-                      ! Check if next inside
-                      if (Frec%omega(lifreq+1)*vfac1.gt.O0) exit
-
-                      ! Advance
-                      lifreq = lifreq + 1
-                      if ((lifreq+1).gt.nfreq) exit
-
-                    end do ! Search
-
-                  end if ! Need to search
-
-                  !
-                  ! Right
-
-                  ! Only if not beyond already
-                  if (Frec%omega(jfreq)*vfac1.gt.O1) then
-
-                    ! Search
-                    do while (.True.)
-
-                      ! Check if already inside
-                      if (Frec%omega(jfreq-1)*vfac1.lt.O1) exit
-
-                      ! Advance
-                      jfreq = jfreq - 1
-                      if ((jfreq-1).lt.1) exit
-
-                    end do
-
-                  end if ! Need to search
-
-                  ! Update global limits
-                  if (lifreq.lt.Frec%dzao(indx)%ggf0) &
-                    Frec%dzao(indx)%ggf0 = lifreq
-                  if (jfreq.gt.Frec%dzao(indx)%ggf1) &
-                    Frec%dzao(indx)%ggf1 = jfreq
-
-                  ! Skip rest
+                  ! Advance and skip
+                  jjfreq = jjfreq + Redd_aux(iti,iz)%mfreq(iifreq)
                   cycle
 
-                end if
+                end if ! Out of range below
 
-                ! Add to size
-                Frec%dzao(indx)%trani(iti)%isize = np + &
-                                      Frec%dzao(indx)%trani(iti)%isize
+                ! Skip if 0 size
+                if (Redd_aux(iti,iz)%mfreq(iifreq).lt.1) cycle
 
-                ! If storing
-                if (p_frec%RAM) then
+                ! Copy omega
+                Red%zao(indx)%trani(iti)% &
+                    omega(kkfreq+1: &
+                          kkfreq+Redd_aux(iti,iz)%mfreq(iifreq)) = &
+                  Redd_aux(iti,iz)%&
+                    omega(jjfreq+1: &
+                          jjfreq+Redd_aux(iti,iz)%mfreq(iifreq))
 
-                  !
-                  ! Reset identation
-                  !
+                ! Copy weight
+                Red%zao(indx)%trani(iti)% &
+                    W_freq(kkfreq+1: &
+                           kkfreq+Redd_aux(iti,iz)%mfreq(iifreq)) = &
+                  Redd_aux(iti,iz)%&
+                    W_freq(jjfreq+1: &
+                           jjfreq+Redd_aux(iti,iz)%mfreq(iifreq))
 
-      ! Reset the search frequency
-      lifreq = 1
+                ! Advance indexes
+                jjfreq = jjfreq + Redd_aux(iti,iz)%mfreq(iifreq)
+                kkfreq = kkfreq + Redd_aux(iti,iz)%mfreq(iifreq)
 
-      ! For each input frequency
-      do jfreq=1,np
+              end do ! Output frequencies
+            end do ! Output ranges
 
-        ! Advance indexes
-        jjfreq = jjfreq + 1
-        kkfreq = kkfreq + 1
+            ! Get size of omega to add
+            nn = np
 
-        ! If out of range, take the value at the
-        ! boundary
-        if (p_frec%omega(jjfreq)*vfac1.le.Frec%omega(1)+TINYO) then
+          end do ! Input transitions
 
-          ! We are still looking in the first one
-          lifreq = 1
+          ! For each output frequency
+          iifreq = 0
+          do iran=1,Red%zao(indx)%nran
+            do ifreq=Red%zao(indx)%if0(iran), &
+                     Red%zao(indx)%if1(iran)
 
-          ! The index to take is 1
-          p_frec%index1(kkfreq) = 1
+              ! Advance index
+              iifreq = iifreq + 1
 
-          ! The index to take is 1
-          p_frec%index2(kkfreq) = 1
+              ! If out of range
+              if (iifreq.gt.Red%zao(indx)%Mif1(pid)) exit
+              if (iifreq.lt.Red%zao(indx)%Mif0(pid)) cycle
 
-          ! We do not need this number
-          p_frec%dx(kkfreq) = 0d0
+              ! Update limits
+              if (ifreq.lt.Red%zao(indx)%Igf0) &
+                Red%zao(indx)%Igf0 = ifreq
+              if (ifreq.gt.Red%zao(indx)%Igf1) &
+                Red%zao(indx)%Igf1 = ifreq
 
-        ! If out of range, take the value at the boundary
-        else if (p_frec%omega(jjfreq)*vfac1.ge. &
-                 (Frec%omega(nfreq) - TINYO)) then
+            end do
+          end do
 
-          ! We are in the last frequency
-          lifreq = nfreq
+          ! Determine frequency range to save
+          Red%zao(indx)%gf0 = max(Red%zao(indx)%tgf0,MPID%if0(pid))
+          Red%zao(indx)%gf1 = min(Red%zao(indx)%tgf1,MPID%if1(pid))
 
-          ! The index to take is nfreq
-          p_frec%index1(kkfreq) = nfreq
+        end if ! Frequencies to deal with
 
-          ! The index to take is nfreq
-          p_frec%index2(kkfreq) = nfreq
+      end do ! Height
 
-          ! We do not need this number
-          p_frec%dx(kkfreq) = 0d0
+      ! For every input transition
+      do iti=1,nti
+
+        ! For every considered height
+        do iz=Rz0,Rz1_PRD
+
+          ! Free space in auxiliar structure
+          deallocate(Redd_aux(iti,iz)%omega, &
+                     Redd_aux(iti,iz)%W_freq, &
+                     Redd_aux(iti,iz)%mfreq)
+
+        end do ! Heights
+      end do ! Input transitions
+
+      ! Free auxiliar
+      deallocate(Redd_aux)
+
+      end subroutine setmpi_red
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Find the frequency index limits for the calculation of the
+      !! second order emissivity once the input frequency axes are
+      !! known\n
+      !!  Atom(Atom_class): Structure with atomic data\n
+      !!  Atmo(Atmo_class): Structure with atmospheric data\n
+      !!    Red(Red_class): Structure with redistribution input
+      !!                    frequency data, redistribution function
+      !!                    data, and profile or normalization data\n
+      !!  omega(double(:)): Frequency axis\n
+      !!       ia(integer): Index for current atom\n
+      !!      pol(logical): If polarized case
+      subroutine find_integral_limits(Atom,Atmo,Red,omega,ia,pol)
+
+      ! I/O
+
+      type(Atom_class), intent(in):: Atom
+      type(Atmo_class), intent(in):: Atmo
+      type(Red_class), intent(inout):: Red
+      logical, intent(in):: pol
+      integer, intent(in):: ia
+      double precision, dimension(:), intent(in):: omega
+
+
+      ! Local
+
+      integer:: iz,ktran,jtran,fjtran,indx,jtrano,itran,fitran,ffitran
+      integer:: itermu,itermf,iterml,iJu,iJf,iJl,ii,iti
+      integer:: jjfreq,iifreq,iran,ifreq,lifreq,jfreq,jufreq,ibfreq
+      integer:: tif0,tif1,np
+
+      double precision:: vfacm,vfacp,dnl,dnlmin,dnlmax,O0,O1
+
+
+      ! For each height
+      do iz=Rz0,Rz1_PRD
+
+        ! Initialize Doppler displacement factor
+        vfacm = 1d0
+        vfacp = 1d0
+
+        ! If dynamic
+        if (dyn) then
+
+          ! Compute velocity
+          dnl = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                     Atmo%vy(iz)*Atmo%vy(iz) + &
+                     Atmo%vz(iz)*Atmo%vz(iz))
+
+          ! Big enough velocity
+          if (dnl.gt.TINYVEL) then
+
+            ! Compute displacements
+            vfacp = 1d0 - dnl
+            vfacp = 1d0/vfacp
+            vfacm = 1d0 + dnl
+            vfacm = 1d0/vfacm
+
+          end if ! Significant velocity
+        end if ! Dynamic
+
+        ! For each output transition level
+        do ktran=lbound(Red%zao,1),ubound(Red%zao,1)
+
+          ! If polarization
+          if (pol) then
+
+            ! Skip if too big index
+            if (ktran.gt.Atom%ntran) cycle
+
+            ! Get transition term index
+            jtran = ktran
+
+            ! If no PRD line, skip
+            if (.not.Atom%lemiss2(jtran)) cycle
+
+            ! Other index
+            jtrano = jtran
+
+          ! If intensity
+          else
+
+            ! Skip if too big index
+            if (ktran.gt.Atom%nftran) cycle
+
+            ! Get transition term index
+            jtran = Atom%ifst(ktran)
+
+            ! If no PRD line, skip
+            if (.not.Atom%lemiss2(jtran)) cycle
+
+            ! Other index
+            jtrano = Atom%itrano(ktran)
+
+          end if
+
+          ! Get index
+          indx = Red%izao(ktran,ia,iz)
+
+          ! Skip if no assigned frequencies
+          if (Red%zao(indx)%nran.lt.1) cycle
+          if (Red%zao(indx)%nf(pid).lt.1) cycle
+
+          ! If intensity case
+          if (.not.pol) then
+
+            ! For every transition component
+            do ii=1,Atom%fst(jtran)%nt
+
+              ! If rolling index corresponds to this one
+              if (Atom%ifst_ij(ii,jtran).eq.ktran) then
+
+                ! Set internal index
+                fjtran = ii
+                exit
+
+              end if ! Same rolling index
+
+            end do ! Transition components
+
+            ! Get level indexes
+            iJu = Atom%fst(jtran)%ilevelu(fjtran)
+            iJf = Atom%fst(jtran)%ilevell(fjtran)
+
+          end if ! Polarization/intensity
+
+          ! Get term indexes
+          itermu = Atom%fst(jtran)%itermu
+          itermf = Atom%fst(jtran)%iterml
+
+          ! For every input transition
+          do iti=1,size(Red%zao(indx)%trani)
+
+            ! If polarized case
+            if (pol) then
+
+              ! Get transition and term indexes
+              itran = Atom%trano(jtran)%indT(iti)
+              iterml = Atom%fst(itran)%iterml
+
+              ! Resonance
+              dnlmax = -1d99
+              dnlmin =  1d99
+
+              ! For each level in the lower term
+              do iJl=1,Atom%nJ(iterml)
+
+                ! For each level in the final term
+                do iJf=1,Atom%nJ(itermf)
+
+                  ! Raman resonance
+                  dnl = Atom%FSfreq(iJf,itermf) - &
+                        Atom%FSfreq(iJl,iterml)
+
+                  ! Check extrema
+                  if (dnl.gt.dnlmax) dnlmax = dnl
+                  if (dnl.lt.dnlmin) dnlmin = dnl
+
+                end do ! Final levels
+              end do ! Lower levels
+
+            ! Intensity case
+            else
+
+              ! Get indexes for term and transition
+              ffitran = Atom%tranoI(jtrano)%indT(iti)
+              itran = Atom%ifst(ffitran)
+              fitran = Atom%ifstj(ffitran)
+              iterml = Atom%fst(itran)%iterml
+
+              ! Get J index
+              iJl = Atom%fst(itran)%ilevell(fitran)
+
+              ! Resonance
+              dnlmin = Atom%FSfreq(iJf,itermf) - &
+                       Atom%FSfreq(iJl,iterml)
+              dnlmax = dnlmin
+
+            end if ! Polarization/intensity
+
+            ! Get atomic limits
+            tif0 = Atom%tif0(itran)
+            tif1 = Atom%tif1(itran)
+
+
+            !
+            ! Reset identation
+            !
+
+      !
+      ! Initialize input frequency index
+      jjfreq = 0
+
+      ! For each output frequency
+      iifreq = 0
+      do iran=1,Red%zao(indx)%nran
+        do ifreq=Red%zao(indx)%if0(iran), &
+                 Red%zao(indx)%if1(iran)
+
+          ! Advance index
+          iifreq = iifreq + 1
+
+          ! In MPI range
+          if (iifreq.gt.Red%zao(indx)%Mif1(pid)) exit
+          if (iifreq.lt.Red%zao(indx)%Mif0(pid)) cycle
+
+          ! Input frequency number
+          np = Red%zao(indx)%trani(iti)%mfreq(iifreq)
+
+          ! If empty
+          if (np.lt.1) then
+
+            ! Left and right limits from resonance
+            lifreq = Atom%tif0(itran)
+            jfreq = Atom%tif1(itran)
+            O0 = omega(ifreq) + dnlmin
+            O1 = omega(ifreq) + dnlmax
+
+            ! Correct
+            if (O0.lt.omega(lifreq)) O0 = omega(lifreq)
+            if (O1.gt.omega(jfreq)) O1 = omega(jfreq)
+
+            !
+            ! Look for the indexes
+
+            !
+            ! Left
+
+            ! Only if not beyond already
+            if (omega(lifreq)*vfacm.lt.O0) then
+
+              ! Search
+              do while (.True.)
+
+                ! Check if next inside
+                if (omega(lifreq+1)*vfacm.gt.O0) exit
+
+                ! Advance
+                lifreq = lifreq + 1
+                if ((lifreq+1).gt.nfreq) exit
+
+              end do ! Search
+
+            end if ! Need to search
+
+            !
+            ! Right
+
+            ! Only if not beyond already
+            if (omega(jfreq)*vfacp.gt.O1) then
+
+              ! Search
+              do while (.True.)
+
+                ! Check if already inside
+                if (omega(jfreq-1)*vfacp.lt.O1) exit
+
+                ! Advance
+                jfreq = jfreq - 1
+                if ((jfreq-1).lt.1) exit
+
+              end do
+
+            end if ! Need to search
+
+            ! Update global limits
+            if (lifreq.lt.Red%zao(indx)%ggf0) &
+              Red%zao(indx)%ggf0 = lifreq
+            if (jfreq.gt.Red%zao(indx)%ggf1) &
+              Red%zao(indx)%ggf1 = jfreq
+
+            ! Skip rest
+            cycle
+
+          end if ! Empty axis, only resonance
+
+          ! Add to size
+          Red%zao(indx)%trani(iti)%isize = np + &
+                                        Red%zao(indx)%trani(iti)%isize
+
+          !
+          ! Reset identation
+          !
+
+      ! Compute jump to check only extrema
+      lifreq = Atom%tif0(itran)
+      jufreq = np
+      if (np.gt.1) jufreq = jufreq - 1
+
+      ! First and last frequencies
+      do jfreq=jjfreq+1,jjfreq+np,jufreq
+
+        ! If out of range
+        if (Red%zao(indx)%trani(iti)%omega(jfreq)*vfacm.le. &
+            (omega(tif0)+TINYO)) then
+
+          ! We are in the first frequency, take boundary value
+          if (Red%zao(indx)%ggf0.gt.tif0) &
+            Red%zao(indx)%ggf0 = tif0
+          if (Red%zao(indx)%ggf1.lt.tif0) &
+            Red%zao(indx)%ggf1 = tif0
+
+        ! If out of range
+        else if (Red%zao(indx)%trani(iti)%omega(jfreq)*vfacp.ge. &
+                 (omega(tif1) - TINYO)) then
+
+          ! We are in the last frequency, take boundary value
+          if (Red%zao(indx)%ggf0.gt.tif1) &
+            Red%zao(indx)%ggf0 = tif1
+          if (Red%zao(indx)%ggf1.lt.tif1) &
+            Red%zao(indx)%ggf1 = tif1
 
         ! If within the boundaries
         else
 
           ! Search between the last found frequency and
-          ! all but the boundary
-          do ibfreq=lifreq,nfreq-1
+          ! all but the boundary for left displacement
+          do ibfreq=lifreq,tif1-1
 
-            ! If this exact frequency is in output
-            if (abs(p_frec%omega(jjfreq)*vfac1 - &
-                    Frec%omega(ibfreq)).lt.TINYO) then
+            ! If the input is between this output and the next
+            if (Red%zao(indx)%trani(iti)%omega(jfreq)*vfacm.ge. &
+                                         omega(ibfreq).and. &
+                Red%zao(indx)%trani(iti)%omega(jfreq)*vfacm.le. &
+                                         omega(ibfreq+1)) then
 
-              ! We are in the found frequency
+              ! Update lifreq
               lifreq = ibfreq
 
-              ! This frequency gives us the value
-              p_frec%index1(kkfreq) = lifreq
-
-              ! This frequency gives us the value
-              p_frec%index2(kkfreq) = lifreq
-
-              ! We do not need this number
-              p_frec%dx(kkfreq) = 0d0
+              ! Found frequency, update limits
+              if (Red%zao(indx)%ggf0.gt.ibfreq) &
+                Red%zao(indx)%ggf0 = ibfreq
+              if (Red%zao(indx)%ggf1.lt.ibfreq+1) &
+                Red%zao(indx)%ggf1 = ibfreq+1
 
               exit
 
-            ! If the input is between this output and
-            ! the next
-            else if(p_frec%omega(jjfreq)*vfac1.ge. &
-                    Frec%omega(ibfreq).and. &
-                    p_frec%omega(jjfreq)*vfac1.lt. &
-                    Frec%omega(ibfreq+1)) then
+            end if ! Check output frequency
 
-              ! We found it in the index of the lower
-              lifreq = ibfreq
+          end do ! Run output frequencies
 
-              ! The first index is the lower
-              p_frec%index1(kkfreq) = lifreq
+          ! Search between the last found frequency and
+          ! all but the boundary for right displacement
+          do ibfreq=lifreq,tif1-1
 
-              ! The second index is the upper
-              p_frec%index2(kkfreq) = lifreq+1
+            ! If the input is between this output and the next
+            if (Red%zao(indx)%trani(iti)%omega(jfreq)*vfacp.ge. &
+                                         omega(ibfreq).and. &
+                Red%zao(indx)%trani(iti)%omega(jfreq)*vfacp.le. &
+                                         omega(ibfreq+1)) then
 
-              ! Store the inverse of the distance between
-              ! the two outputs
-              p_frec%dx(kkfreq) = &
-                  (p_frec%omega(jjfreq)*vfac1 - Frec%omega(lifreq))/ &
-                  (Frec%omega(lifreq+1) - Frec%omega(lifreq))
+              ! Found frequency
+              if (Red%zao(indx)%ggf0.gt.ibfreq) &
+                Red%zao(indx)%ggf0 = ibfreq
+              if (Red%zao(indx)%ggf1.lt.ibfreq+1) &
+                Red%zao(indx)%ggf1 = ibfreq+1
 
               exit
 
@@ -4999,792 +3659,531 @@
 
         end if ! Check if out of limits
 
-        ! Update global limits
-        if (p_frec%index1(kkfreq).lt.Frec%dzao(indx)%ggf0) &
-          Frec%dzao(indx)%ggf0 = p_frec%index1(kkfreq)
-        if (p_frec%index2(kkfreq).gt.Frec%dzao(indx)%ggf1) &
-          Frec%dzao(indx)%ggf1 = p_frec%index2(kkfreq)
-
       end do ! Run input frequencies
 
-                  !
-                  ! Restore identation
-                  !
+      ! Advance index
+      jjfreq = jjfreq + np
 
-                ! Not storing
-                else
-
-                  !
-                  ! Reset identation
-                  !
-
-       ! Compute jump
-       lifreq = 1
-       jufreq = np
-       if (np.gt.1) jufreq = jufreq - 1
-
-       ! First and last frequencies
-       do jfreq=jjfreq+1,jjfreq+np,jufreq
-
-         ! If out of range, take the value at the
-         ! boundary
-         if (p_frec%omega(jfreq)*vfac1.le.Frec%omega(1)+TINYO) then
-
-           if (Frec%dzao(indx)%ggf0.gt.1) Frec%dzao(indx)%ggf0 = 1
-           if (Frec%dzao(indx)%ggf1.lt.1) Frec%dzao(indx)%ggf1 = 1
-
-         ! If out of range, take the value at the boundary
-         else if (p_frec%omega(jfreq)*vfac1.ge. &
-                  (Frec%omega(nfreq) - TINYO)) then
-
-           ! We are in the last frequency
-           if (Frec%dzao(indx)%ggf0.gt.nfreq) &
-             Frec%dzao(indx)%ggf0 = nfreq
-           if (Frec%dzao(indx)%ggf1.lt.nfreq) &
-             Frec%dzao(indx)%ggf1 = nfreq
-
-         ! If within the boundaries
-         else
-
-           ! Search between the last found frequency and
-           ! all but the boundary
-           do ibfreq=lifreq,nfreq-1
-
-             ! If this exact frequency is in output
-             if (abs(p_frec%omega(jfreq)*vfac1 - &
-                     Frec%omega(ibfreq)).lt.TINYO) then
-
-               ! Found frequency
-               if (Frec%dzao(indx)%ggf0.gt.ibfreq) &
-                 Frec%dzao(indx)%ggf0 = ibfreq
-               if (Frec%dzao(indx)%ggf1.lt.ibfreq) &
-                 Frec%dzao(indx)%ggf1 = ibfreq
-
-               exit
-
-             ! If the input is between this output and the next
-             else if(p_frec%omega(jfreq)*vfac1.ge. &
-                                            Frec%omega(ibfreq).and. &
-                     p_frec%omega(jfreq)*vfac1.lt. &
-                                            Frec%omega(ibfreq+1)) then
-
-               ! Found frequency
-               if (Frec%dzao(indx)%ggf0.gt.ibfreq) &
-                 Frec%dzao(indx)%ggf0 = ibfreq
-               if (Frec%dzao(indx)%ggf1.lt.ibfreq+1) &
-                 Frec%dzao(indx)%ggf1 = ibfreq+1
-
-               exit
-
-             end if ! Check output frequency
-
-           end do ! Run output frequencies
-
-         end if ! Check if out of limits
-
-       end do ! Run input frequencies
-
-       ! Fake the advance of frequencies
-       jjfreq = jjfreq + np
-       kkfreq = kkfreq + np
+          !
+          ! Restore indentation
+          !
 
 
-                  !
-                  ! Restore indentation
-                  !
+          end do ! Output frequencies
+        end do ! Output frequency ranges
 
-                end if ! Storing
+            !
+            ! Restore identation
+            !
 
-                if (.not.AV.and..not.axial.and.dyn) &
-                  kkfreq0 = kkfreq
+          end do ! Input transition
+        end do ! Output transition
+      end do ! height nodes
 
-              end do ! Input azimuth
+      end subroutine find_integral_limits
 
-              ! Update kkfreq
-              if (.not.AV.and.dyn) kkfreq0 = kkfreq
+!#####################################################################
+!#####################################################################
+!#####################################################################
 
-            end do ! Input polar
+      !> Allocate a double precision array. If the array is allocated,
+      !! free the space unless it has the correct dimension already\n
+      !!  array(double(:)): Array to allocate\n
+      !!      siz(integer): Size to allocate
+      subroutine safe_allocate(array,siz)
 
-            ! Update index
-            jjfreq0 = jjfreq
-            kkfreq0 = kkfreq
+      ! I/O
 
-            end do ! Output frequencies
-          end do ! Output frequency ranges
-
-          ! Nullify local pointer
-          nullify(p_frec)
-
-                  !
-                  ! Restore identation
-                  !
-
-              end do ! Lower intput term
-            end do ! Output transition
-          end do ! height nodes
-        end do ! output directions
-
-!$omp barrier
-
-        !
-        ! Build indexes for atom and get sizes
-        !
-
-!$omp single
-
-        ! If there is at least one node with magnetic field and
-        ! not already defined
-        if (Yfield.and..not.allocated(Atom(ia)%i_Wind)) then
-
-          ! Allocate internal index term range
-          allocate(Atom(ia)%i_Wind(mint:maxt))
-
-          ! For each term in the range where we need indexes
-          do itermu=mint,maxt
-
-            nMm = nint(2d0*(Atom(ia)%rLval(itermu) + &
-                           Atom(ia)%Sval(itermu)) + 1d0)
-            nblk = 0
-
-            ! For each mu
-            do i=1,nMm
-              if (Atom(ia)%nblk(i,itermu).gt.nblk) &
-                nblk = Atom(ia)%nblk(i,itermu)
-            end do
-
-            ! Allocate index size
-            allocate(Atom(ia)%i_Wind(itermu)%ind(nblk,nMm))
-
-            ! Index the components
-            i = 0
-            do i1=1,nMm
-              do i2=1,Atom(ia)%nblk(i1,itermu)
-                i = i+1
-                Atom(ia)%i_Wind(itermu)%ind(i2,i1) = i
-              end do
-            end do
-
-          end do ! For each term in the range of second order
-
-        end if ! There is one node with magnetic field
+      integer, intent(in):: siz
+      double precision, dimension(:), allocatable:: array
 
 
-        !
-        ! Build the indexes for Warr2
-        !
+      ! If not allocated
+      if (.not.allocated(array)) then
 
-        ! If non-coherent lower term and we are storing
-        ! redistribution with magnetic field
-        if (Yfield.and.NCHLT.and.PRAM) then
+        ! Allocate
+        allocate(array(siz))
 
-          ! Check if for this atom there is any NCHLT
-          ! height
-          lNCHLT = .False.
-          do iz=Rz0,Rz1
-            if (Atom(ia)%NCHLT(iz,itran)) then
-              lNCHLT = .True.
-              exit
-            end if
-          end do
+      ! Already allocated
+      else
 
+        ! If smaller than requested
+        if (size(array).lt.siz) then
+
+          ! Make bigger
+          deallocate(array)
+          allocate(array(siz))
+
+        end if ! Smaller than requested
+      end if ! Allocated or not
+
+      end subroutine safe_allocate
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Determine the input frequency axis for the calculation of the
+      !! second order emissivity and split the tasks of the emissivity
+      !! calculation as evenly as possible. Assume comoving reference
+      !! frame\n
+      !!  Frec(Frequency_class): Structure with frequency data\n
+      !!         Red(Red_class): Structure with redistribution input
+      !!                         frequency data, redistribution
+      !!                         function data, and profile or
+      !!                         normalization data\n
+      !!    Atom(Atom_class(:)): Structures with atomic data\n
+      !!       Atmo(Atmo_class): Structure with atmospheric data\n
+      !!   Bstrength(double(:)): Magnetic field strength\n
+      !!     Input(Input_class): Structure with configuration data\n
+      !!        MPID(MPI_class): Structure with MPI data\n
+      !!         ofram(logical): If reached the RAM limit
+      subroutine omegabuildin(Frec,Red,Atom,Atmo,Bstrength,Input, &
+                              MPID,ofram)
+
+      ! I/O
+
+      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atmo_class), intent(in):: Atmo
+      type(Input_class), intent(in):: Input
+      type(Frequency_class), intent(in):: Frec
+      type(Red_class), intent(inout):: Red
+      type(MPI_class), intent(in):: MPID
+      double precision, dimension(:), intent(in):: Bstrength
+      logical, intent(out):: ofram
+
+      ! Local
+
+      type(Redc_class), dimension(:,:), allocatable:: Redd_aux
+
+      logical:: skip,Yfield,Nfield,RAMOF,ldipole
+
+      integer:: iz,ia,itran,jtran,if0,if1
+      integer:: iJl,iJu,iJf,itermf,itermu,iterml
+      integer:: nr,nt,ntj,ntk,ni,np0,nti,iti
+      integer, dimension(:), allocatable:: flag
+
+      double precision:: dnlmin,dnlmax,SRAM
+      double precision, dimension(:), allocatable:: dnl, nut
+      double precision, dimension(:), allocatable:: vphv, vplv, vpr
+      double precision, dimension(:), allocatable:: vphve, vplve
+      double precision, dimension(:), allocatable:: vpp
+
+
+      ! Routine name
+      urou = 'omegabuildin'
+
+      ! Initialize out of RAM
+      ofram = .False.
+
+      ! Flags
+      Yfield = .False.
+      Nfield = .False.
+      RAMOF = .False.
+
+      ! For each considered height
+      do iz=Rz0,Rz1_PRD
+
+        ! If small field
+        if (Bstrength(iz).le.TINYB) then
+
+          ! Points without field
+          Nfield = .True.
+
+        ! If significant field
         else
 
-          lNCHLT = .False.
+          ! Points with field
+          Yfield = .True.
 
-        end if
-!$omp end single
+        end if ! Field strength
 
-        ! For each upper term
-        do itermu=2,Atom(ia)%nMulti
+        ! If found both, stop
+        if (Yfield.and.Nfield) exit
 
-          ! For each final lower term
-          do itermf=1,itermu-1
+      end do ! Heights
 
-            jtran = Atom(ia)%irad(itermu,itermf)
+      ! Flag if we need to check selection rules
+      ldipole = .not.Yfield.and.Input%MIT_input.lt.0
 
-            if (jtran.le.0) cycle
-            if (.not.Atom(ia)%lemiss2(jtran)) cycle
-            if (Atom(ia)%fflag(jtran)%absent) cycle
+      ! Preliminar allocation of vpp, auxiliar vector to store
+      ! frequencies
+      np0 = 10000
+      allocate(vpp(np0))
+      allocate(flag(np0))
 
-            ! Look for the ktran
-            ktran = Atom(ia)%itrano(jtran)
+      ! For each atom
+      do ia=1,nA
 
-            rJumax = Atom(ia)%rLval(itermu) + &
-                     Atom(ia)%Sval(itermu)
-            nMu = nint(2d0*rJumax + 1d0)
-            rJfmax = Atom(ia)%rLval(itermf) + &
-                     Atom(ia)%Sval(itermf)
-            nMf = nint(2d0*rJfmax + 1d0)
+        ! Initialize as skipping
+        skip = .True.
 
-            ! For each other lower term
-            do iterml=1,itermu-1
+        ! For every transition
+        do jtran=1,Atom(ia)%ntran
 
-              itran = Atom(ia)%irad(itermu,iterml)
+          ! If it is PRD
+          if (Atom(ia)%lemiss2(jtran)) then
 
-              if (itran.le.0) cycle
+            ! Flag as not skipping and stop
+            skip = .False.
+            exit
 
-              ! Find the transition index
-              ios = -1
-              do iti=1,Atom(ia)%trano(ktran)%nt
+          end if ! PRD transition
 
-                if (Atom(ia)%trano(ktran)%ind(iti).eq.itran) then
-                  ios = 1
-                  exit
-                end if
+        end do ! Transitions
 
-              end do ! Input transitions
-              if (ios.lt.0) cycle
+        ! There are no PRD lines for this atom
+        if (skip) cycle
 
-              rJlmax = Atom(ia)%rLval(iterml) + &
-                       Atom(ia)%Sval(iterml)
-              nMl = nint(2d0*rJlmax + 1d0)
-!$omp barrier
-!$omp single
-              ! If at least one height with magnetic feld
-              if (Yfield) then
+        ! For each output transition
+        do jtran=1,Atom(ia)%ntran
 
-                do i1=1,2
+          ! If no PRD line, skip
+          if (.not.Atom(ia)%lemiss2(jtran)) cycle
 
-                  if (i1.eq.1) then
-                    MindU = 0
-                    MindU1 = 0
-                    MindL = 0
-                    MindL1 = 0
-                    MindF = 0
-                  else
+          ! Get terms
+          itermf = Atom(ia)%fst(jtran)%iterml
+          itermu = Atom(ia)%fst(jtran)%itermu
 
-                    ! Allocate input transition part
-                    allocate(Atom(ia)%trano(ktran)%trani(iti)% &
-                      Wind(MindL1,MindL,MindF,MindU1,MindU))
-                    ! Initialize to zero
-                    Atom(ia)%trano(ktran)%trani(iti)%Wind = 0
+          ! Master
+          if (pid.eq.0) then
 
-                  end if
+            ! Get limits
+            if0 = Atom(ia)%if0(jtran)
+            if1 = Atom(ia)%if1(jtran)
 
-                  ! Reset indexing
-                  i = 0
+          end if
 
-                  ! For each Mf
-                  do iMf=1,nMf
+          ! If MPI
+          if (nproc.gt.1) then
 
-                    ! Value of Mf
-                    rMf = -rJfmax + dble(iMf-1)
+            ! Share limits
+            call MPI_BCAST(if0,1,MPI_INTEGER,0,MPI_COMM_RT,ierr)
+            call MPI_BCAST(if1,1,MPI_INTEGER,0,MPI_COMM_RT,ierr)
 
-                    ! For each mu_f
-                    do mF=1,Atom(ia)%nblk(iMf,itermf)
+          end if
 
-                      indF = Atom(ia)%i_Wind(itermf)%ind(mF,iMf)
+          ! Number of input transitions
+          nti = Atom(ia)%trano(jtran)%nt
 
-                      ! For each Mu
-                      do iMu=1,nMu
+          ! Count input transitions
+          ntk = 0
 
-                        ! Value of Mu
-                        rMu = -rJumax + dble(iMu-1)
+          ! For each input transition
+          do iti=1,Atom(ia)%trano(jtran)%nt
 
-                        ! Difference between M momentums, done integer
-                        q = rMu - rMf
-                        iq = nint(q)
+            ! Get transition index and lower term
+            itran = Atom(ia)%trano(jtran)%indT(iti)
+            iterml = Atom(ia)%fst(itran)%iterml
 
-                        ! If not pi nor sigma, skip
-                        if(abs(iq).gt.1) cycle
+            !
+            ! Count input components
+            !
 
-                        ! For each mu_u
-                        do iU=1,Atom(ia)%nblk(iMu,itermu)
+            ! For each level in upper term
+            do iJu=1,Atom(ia)%nJ(itermu)
 
-                          indU = Atom(ia)%i_Wind(itermu)%ind(iU,iMu)
+              ! For each level in lower term
+              do iJl=1,Atom(ia)%nJ(iterml)
 
-                          ! For each Mu'
-                          do iMu1=1,nMu
+                ! If checking dipole rules, do it
+                if (ldipole.and. &
+                    (abs(Atom(ia)%rJval(iJu,itermu) - &
+                         Atom(ia)%rJval(iJl,iterml)).gt.1.or. &
+                     Atom(ia)%rJval(iJu,itermu) + &
+                     Atom(ia)%rJval(iJl,iterml).lt..4d0)) cycle
 
-                            ! Value of Mu'
-                            rMu1 = -rJumax + dble(iMu1-1)
+                ! Add to count
+                ntk = ntk + 1
 
-                            ! Difference between M momentums
-                            q1 = rMu1-rMf
-                            QQ = q1-q
+              end do ! Lower levels
+            end do ! Upper levels
+          end do ! Input transitions
 
-                            ! Convert to integers
-                            iq1 = nint(q1)
-                            iQQ = nint(QQ)
 
-                            ! If not pi or sigma, skip
-                            if(abs(iq1).gt.1) cycle
+          !
+          ! Count transitions
+          !
 
-                            ! For each mu_u'
-                            do iU1=1,Atom(ia)%nblk(iMu1,itermu)
+          ! Reset index of input transition
+          iti = 0
+          nt = 0
 
-                              indU1 = Atom(ia)%i_Wind(itermu)% &
-                                               ind(iU1,iMu1)
+          !
+          ! Count the FS components in the output transition
+          !
 
-      !
-      ! Reset indexing
-      !
+          ! For each level in the upper term
+          do iJu=1,Atom(ia)%nJ(itermu)
 
-      ! For each Ml
-      do iMl=1,nMl
+            ! For each level in the final term
+            do iJf=1,Atom(ia)%nJ(itermf)
 
-        ! Value of Ml
-        rMl = -rJlmax + dble(iMl-1)
+              ! If checking dipole rules, do it
+              if(ldipole.and. &
+                 (abs(Atom(ia)%rJval(iJu,itermu) - &
+                      Atom(ia)%rJval(iJf,itermf)).gt.1.or. &
+                  Atom(ia)%rJval(iJu,itermu) + &
+                  Atom(ia)%rJval(iJf,itermf).lt..4d0)) cycle
 
-        ! Difference between M momentums
-        p = rMu-rMl
-        ip = nint(p)
+              ! Add to count
+              nt = nt + 1
 
-        ! If not pi nor sigma, skip
-        if(abs(ip).gt.1) cycle
+            end do ! Final levels
+          end do ! Upper levels
 
-        ! For each mu_l
-        do iL=1,Atom(ia)%nblk(iMl,iterml)
+          ! Allocate component frequency array
+          call safe_allocate(nut,nt+ntk)
 
-          indL = Atom(ia)%i_Wind(iterml)%ind(iL,iMl)
 
-          ! For each Ml'
-          do iMl1=1,nMl
+          !
+          ! Save transitions
+          !
 
-            ! Value of Ml'
-            rMl1 = -rJlmax + dble(iMl1-1)
+          ! Reset index
+          nt = 0
 
-            ! Difference between M momentums
-            p1 = rMu1-rMl1
-            PP = p1-p
+          ! For each level in the upper term
+          do iJu=1,Atom(ia)%nJ(itermu)
 
-            ! Convert to integer
-            ip1 = nint(p1)
-            iPP = nint(PP)
+            ! For each level in the final term
+            do iJf=1,Atom(ia)%nJ(itermf)
 
-            ! If not pi nor sigma, skip
-            if(abs(ip1).gt.1) cycle
+              ! If checking dipole rules, do it
+              if(ldipole.and. &
+                 (abs(Atom(ia)%rJval(iJu,itermu) - &
+                      Atom(ia)%rJval(iJf,itermf)).gt.1.or. &
+                  Atom(ia)%rJval(iJu,itermu) + &
+                  Atom(ia)%rJval(iJf,itermf).lt..4d0)) cycle
 
-            ! For each mu_l'
-            do iL1=1,Atom(ia)%nblk(iMl1,iterml)
+              ! Advance count and save frequency
+              nt = nt + 1
+              nut(nt) = Atom(ia)%FSfreq(iJu,itermu) - &
+                        Atom(ia)%FSfreq(iJf,itermf)
 
-              indL1 = Atom(ia)%i_Wind(iterml)%ind(iL1,iMl1)
+            end do ! Final levels
+          end do ! Upper levels
 
-              ! First round
-              if (i1.eq.1) then
+          ! Save number of output transition components
+          ntj = nt
 
-                if (indU.gt.MindU) MindU = indU
-                if (indU1.gt.MindU1) MindU1 = indU1
-                if (indL.gt.MindL) MindL = indL
-                if (indL1.gt.MindL1) MindL1 = indL1
-                if (indF.gt.MindF) MindF = indF
+          ! For each other transition that shares upper term
+          do iti=1,Atom(ia)%trano(jtran)%nt
 
-              ! Second round
-              else
+            ! Get transition and term indexes
+            itran = Atom(ia)%trano(jtran)%indT(iti)
+            iterml = Atom(ia)%fst(itran)%iterml
 
-                i = i+1
-                Atom(ia)%trano(ktran)%trani(iti)% &
-                  Wind(indL1,indL,indF,indU1,indU) = i
+            ! For each level in the upper term
+            do iJu=1,Atom(ia)%nJ(itermu)
 
-              end if
+              ! For each level in the lower term
+              do iJl=1,Atom(ia)%nJ(iterml)
 
-            end do ! iL1
-          end do ! iMl1
-        end do ! iL
-      end do ! iMl
-                          !
-                          ! Recover indexing
-                          !
-                            end do ! iU1
-                          end do ! iMu1
-                        end do ! iU
-                      end do ! iMu
-                    end do ! mF
-                  end do ! iMf
-                end do ! i1 (round of counting)
+                ! If checking dipole rules, do it
+                if(ldipole.and. &
+                   (abs(Atom(ia)%rJval(iJu,itermu) - &
+                        Atom(ia)%rJval(iJl,iterml)).gt.1.or. &
+                    Atom(ia)%rJval(iJu,itermu) + &
+                    Atom(ia)%rJval(iJl,iterml).lt..4d0)) cycle
 
-                iYNF = i
+                  ! Advance count and save frequency
+                  nt = nt + 1
+                  nut(nt) = Atom(ia)%FSfreq(iJu,itermu) - &
+                            Atom(ia)%FSfreq(iJl,iterml)
 
-                ! If non-coherent lower term and we are storing
-                ! redistribution
-                if (lNCHLT) then
+              end do ! Lower levels
+            end do ! Upper levels
+          end do ! Lower transitions
 
-                  ! Allocate
-                  if (allocated(WNCHLT)) deallocate(WNCHLT)
-                  allocate(WNCHLT(iYNF))
-                  WNCHLT = .True.
+          !
+          ! Determine frequency limits for the output transition
+          call get_transition_out_limit(Atmo,Red,ia, &
+                                        jtran,nt,if0,if1, &
+                                        Atom(ia)%Dfreq(jtran), &
+                                        Input%red_pars(3), &
+                                        Atom(ia)%cDopp, &
+                                        nut,Frec%omega)
 
-                  ! Count elements
-                  iYYF = 0
+          ! Allocate auxiliar structure to store input frequencies
+          allocate(Redd_aux(nti,Rz0:Rz1_PRD))
 
-                  ! For each Mf
-                  do iMf=1,nMf
+          ! For each input transition
+          do iti=1,Atom(ia)%trano(jtran)%nt
 
-                    ! Value of Mf
-                    rMf = -rJfmax + dble(iMf-1)
+            ! Get transition and term indexes
+            itran = Atom(ia)%trano(jtran)%indT(iti)
+            iterml = Atom(ia)%fst(itran)%iterml
 
-                    ! For each mu_f
-                    do mF=1,Atom(ia)%nblk(iMf,itermf)
+            !
+            ! Count the number of Raman resonances. We have as many
+            ! resonances as combinations between lower levels (the
+            ! repeated ones will be removes later)
+            !
 
-                      indF = Atom(ia)%i_Wind(itermf)%ind(mF,iMf)
+            ! Reset the index
+            nr = 0
 
-                      ! For each Mu
-                      do iMu=1,nMu
+            ! For each level in lower term
+            do iJl=1,Atom(ia)%nJ(iterml)
 
-                        ! Value of Mu
-                        rMu = -rJumax + dble(iMu-1)
+              ! For each level in final term
+              do iJf=1,Atom(ia)%nJ(itermf)
 
-                        ! If not pi nor sigma, skip
-                        if(abs(nint(rMu-rMf)).gt.1) cycle
+                ! Add resonance
+                nr = nr + 1
 
-                        ! For each mu_u
-                        do iU=1,Atom(ia)%nblk(iMu,itermu)
+              end do ! Final levels
+            end do ! Lower levels
 
-                          indU = Atom(ia)%i_Wind(itermu)%ind(iU,iMu)
+            ! Allocate space for resonances
+            call safe_allocate(dnl,nr)
 
-                          ! For each Mu'
-                          do iMu1=1,nMu
+            ! Reset number of resonances
+            nr = 0
 
-                            ! Value of Mu'
-                            rMu1 = -rJumax + dble(iMu1-1)
+            ! Reset ranges
+            dnlmax = -1D99
+            dnlmin = 1D99
 
-                            ! If not pi or sigma, skip
-                            if(abs(nint(rMu1-rMf)).gt.1) cycle
+            ! For each level in lower term
+            do iJl=1,Atom(ia)%nJ(iterml)
 
-                            ! For each mu_u'
-                            do iU1=1,Atom(ia)%nblk(iMu1,itermu)
+              ! For each level in final term
+              do iJf=1,Atom(ia)%nJ(itermf)
 
-                              indU1 = Atom(ia)%i_Wind(itermu)% &
-                                               ind(iU1,iMu1)
+                ! Add the resonance and store frequency
+                nr = nr + 1
+                dnl(nr) = Atom(ia)%FSfreq(iJf,itermf) - &
+                          Atom(ia)%FSfreq(iJl,iterml)
 
-                              ! For each Ml
-                              do iMl=1,nMl
+                ! And check that we know what are the futhest ones
+                if (dnl(nr).gt.dnlmax) dnlmax = dnl(nr)
+                if (dnl(nr).lt.dnlmin) dnlmin = dnl(nr)
 
-                                ! Value of Ml
-                                rMl = -rJlmax + dble(iMl-1)
+              end do ! Lower levels
+            end do ! Final levels
+
+            ! Reset to number of output transitions
+            nt = ntj
+
+            ! For each level in upper term
+            do iJu=1,Atom(ia)%nJ(itermu)
 
-                                ! If not pi nor sigma, skip
-                                if(abs(nint(rMu-rMl)).gt.1) cycle
+              ! For each level in lower term
+              do iJl=1,Atom(ia)%nJ(iterml)
 
-                                ! For each mu_l
-                                do iL=1,Atom(ia)%nblk(iMl,iterml)
+                ! If checking dipole rules, do it
+                if (ldipole.and. &
+                    (abs(Atom(ia)%rJval(iJu,itermu) - &
+                         Atom(ia)%rJval(iJl,iterml)).gt.1.or. &
+                     Atom(ia)%rJval(iJu,itermu) + &
+                     Atom(ia)%rJval(iJl,iterml).lt..4d0)) cycle
 
-                                  indL = Atom(ia)%i_Wind(iterml)% &
-                                                  ind(iL,iMl)
+                ! Advance count
+                nt = nt + 1
 
-                                  ! For each Ml'
-                                  do iMl1=1,nMl
+              end do ! Lower levels
+            end do ! Upper levels
 
-                                    ! NCHLT
-                                    if (iMl.ne.iMl1) cycle
+            ! The total number of limits to consider is the sum of
+            ! lines and resonances
+            ni = nr + nt
 
-                                    ! Value of Ml'
-                                    rMl1 = -rJlmax + dble(iMl1-1)
+            !
+            ! Allocate
+            !
+            ! Upper ranges
+            call safe_allocate(vphv,ni)
+            ! Lower ranges
+            call safe_allocate(vplv,ni)
+            ! Extended upper range
+            call safe_allocate(vphve,ni*2)
+            ! Extended lower range
+            call safe_allocate(vplve,ni*2)
+            ! Resonances
+            call safe_allocate(vpr,nr)
 
-                                    ! If not pi nor sigma, skip
-                                    if(abs(nint(rMu1-rMl1)).gt.1) &
-                                      cycle
 
-                                    ! For each mu_l'
-                                    do iL1=1,Atom(ia)% &
-                                                     nblk(iMl1,iterml)
+            !
+            ! Store the frequencies of the FS transitions
+            !
 
-                                      indL1 = Atom(ia)% &
-                                              i_Wind(iterml)% &
-                                              ind(iL1,iMl1)
+            ! Reset index
+            nt = 0
 
-                                      if (iL.ne.iL1) cycle
+            ! For each level in the upper term
+            do iJu=1,Atom(ia)%nJ(itermu)
 
-                                      iYYF = iYYF+1
-                                      i1 = Atom(ia)%trano(ktran)% &
-                                                    trani(iti)% &
-                                                    Wind(indL1,indL,&
-                                                         indF,indU1,&
-                                                         indU)
-                                      WNCHLT(i1) = .False.
+              ! For each level in the final term
+              do iJf=1,Atom(ia)%nJ(itermf)
 
-                                    end do ! iL1
-                                  end do ! iMl1
-                                end do ! iL
-                              end do ! iMl
-                            end do ! iU1
-                          end do ! iMu1
-                        end do ! iU
-                      end do ! iMu
-                    end do ! mF
-                  end do ! iMf
+                ! Skip PRD MIT outputs if not electric dipole
+                if (.True..and. &
+                    (abs(Atom(ia)%rJval(iJu,itermu) - &
+                         Atom(ia)%rJval(iJf,itermf)).gt.1.or. &
+                     Atom(ia)%rJval(iJu,itermu) + &
+                     Atom(ia)%rJval(iJf,itermf).lt..4d0)) cycle
 
-                end if ! NCHLT and storing redistribution
-              end if ! Yes field
+                ! Advance index and store frequency
+                nt = nt + 1
+                nut(nt) = Atom(ia)%FSfreq(iJu,itermu) - &
+                          Atom(ia)%FSfreq(iJf,itermf)
 
-              ! If there is at least one point without magnetic field
-              if (Nfield) then
+              end do ! Final levels
+            end do ! Upper levels
 
-                do i1=1,2
+            ! For each level in the upper term
+            do iJu=1,Atom(ia)%nJ(itermu)
 
-                  if (i1.eq.1) then
-                    MiindU = 1000000
-                    MiindU1 = 1000000
-                    MiindL = 1000000
-                    MiindL1 = 1000000
-                    MiindF = 1000000
-                    MindU = 0
-                    MindU1 = 0
-                    MindL = 0
-                    MindL1 = 0
-                    MindF = 0
-                  else
+              ! For each level in the lower term
+              do iJl=1,Atom(ia)%nJ(iterml)
 
-                    ! Allocate input transition part
-                    allocate(Atom(ia)%trano(ktran)%trani(iti)% &
-                             WindNB(MiindL1:MindL1,MiindL:MindL, &
-                                    MiindF:MindF,MiindU1:MindU1, &
-                                    MiindU:MindU))
+                ! If checking dipole rules, do it
+                if(ldipole.and. &
+                   (abs(Atom(ia)%rJval(iJu,itermu) - &
+                        Atom(ia)%rJval(iJl,iterml)).gt.1.or. &
+                    Atom(ia)%rJval(iJu,itermu) + &
+                    Atom(ia)%rJval(iJl,iterml).lt..4d0)) cycle
 
-                  end if
+                ! Advance index and store frequency
+                nt = nt + 1
+                nut(nt) = Atom(ia)%FSfreq(iJu,itermu) - &
+                          Atom(ia)%FSfreq(iJl,iterml)
 
-                  ! Reset indexing
-                  i = 0
+              end do ! Lower levels
+            end do ! Upper levels
 
-                  ! For each Jf
-                  do mF=1,Atom(ia)%nJ(itermf)
+            ! Get input frequency axis and its weights
+            call get_input_frequencies(Atmo,Red,Redd_aux, &
+                                       Input%cohw, &
+                                       ia,jtran,iti,nr,ntj,nt,np0, &
+                                       Atom(ia)%Dfreq(itran), &
+                                       Atom(ia)%Dfreq(jtran), &
+                                       Input%dcohw,Input%red_pars, &
+                                       Frec%omega,dnl,nut, &
+                                       Atom(ia)%cDopp, &
+                                       vphv,vplv,vphve,vplve,vpr, &
+                                       vpp,flag)
 
-                    ! Get indexes
-                    indF = Atom(ia)%irho(itermf)%irho_ij(mF)
+          end do ! Input transition
 
-                    ! Get Jf
-                    rJf = Atom(ia)%rJval(mF,itermf)
+          ! Split tasks by amount of frequencies
+          call setmpi_red(Red,Redd_aux,MPID,ia,jtran, &
+                          Atom(ia)%trano(jtran)%nt)
 
-                    ! For each Ju
-                    do iU=1,Atom(ia)%nJ(itermu)
+        end do ! Output transition
 
-                      ! Get indexes
-                      indU = Atom(ia)%irho(itermu)%irho_ij(iU)
+        ! Find frequency limits for the frequency range needed for
+        ! integrals
+        call find_integral_limits(Atom(ia),Atmo,Red, &
+                                  Frec%omega,ia,.True.)
 
-                      ! Get Ju
-                      rJu = Atom(ia)%rJval(iU,itermu)
+      end do ! Atoms
 
-                      if (abs(rJu-rJf).gt.1d0.or. &
-                          rJu+rJf.lt..25) cycle
-
-                      ! For each Ju'
-                      do iU1=1,Atom(ia)%nJ(itermu)
-
-                        ! Get indexes
-                        indU1 = Atom(ia)%irho(itermu)%irho_ij(iU1)
-
-                        ! Get Ju'
-                        rJu1 = Atom(ia)%rJval(iU1,itermu)
-
-                        if (abs(rJu1-rJf).gt.1d0.or. &
-                            rJu1+rJf.lt..25) cycle
-
-                        ! For each Jl
-                        do iL=1,Atom(ia)%nJ(iterml)
-
-                          ! Get indexes
-                          indL = Atom(ia)%irho(iterml)%irho_ij(iL)
-
-                          ! Get Jl
-                          rJl = Atom(ia)%rJval(iL,iterml)
-
-                          if (abs(rJu-rJl).gt.1d0.or. &
-                              rJu+rJl.lt..25) cycle
-
-                          ! For each Jl'
-                          do iL1=1,Atom(ia)%nJ(iterml)
-
-                            ! Get indexes
-                            indL1 = Atom(ia)%irho(iterml)%irho_ij(iL1)
-
-                            ! Get Jl1
-                            rJl1 = Atom(ia)%rJval(iL1,iterml)
-
-                            if (abs(rJu1-rJl1).gt.1d0.or. &
-                                rJu1+rJl1.lt..25) cycle
-
-                            ! First round
-                            if (i1.eq.1) then
-
-                              if (indU.lt.MiindU) MiindU = indU
-                              if (indU1.lt.MiindU1) MiindU1 = indU1
-                              if (indL.lt.MiindL) MiindL = indL
-                              if (indL1.lt.MiindL1) MiindL1 = indL1
-                              if (indF.lt.MiindF) MiindF = indF
-                              if (indU.gt.MindU) MindU = indU
-                              if (indU1.gt.MindU1) MindU1 = indU1
-                              if (indL.gt.MindL) MindL = indL
-                              if (indL1.gt.MindL1) MindL1 = indL1
-                              if (indF.gt.MindF) MindF = indF
-
-                            ! Second round
-                            else
-
-                              i = i+1
-                              Atom(ia)%trano(ktran)%trani(iti)% &
-                                WindNB(indL1,indL,indF,indU1,indU) = i
-
-                            end if
-                          end do ! Jl'
-                        end do ! Jl
-                      end do ! Ju'
-                    end do ! Ju
-                  end do ! Jf
-                end do ! Round of counting
-                iNF = i
-              end if ! No B field
-
-!$omp end single
-
-              !
-              ! Allocate space for Warr2
-              !
-              ! If Storing in RAM
-              if (PRAM) then
-
-                ! Allocate skip scattering
-!$omp single
-                allocate(skip_scatt(Geom%nScatt))
-                skip_scatt = .False.
-                nskip = 0
-!$omp end single
-
-                ! For each output direction in the quadrature
-                do jdir=1,Red%njdir
-
-                  jbdir = min(jdir,Frec%ndir)
-
-!$omp single
-                  ! Angle-dependent and dynamic
-                  if (.not.AV.and.dyn) then
-
-                    ! Initialize to skip everything
-                    skip_scatt = .True.
-                    nskip = Geom%nScatt
-
-                    ! Check scattering angles for this output
-                    ! direction
-                    do ith1=1,Geom%nTh
-                      do iph1=1,Geom%nPh2
-
-                        ! Scattering index
-                        ish = Geom%i_scatt(iph1,ith1,jdir)
-
-                        ! If skipping
-                        if (skip_scatt(ish)) then
-
-                          ! Flag no skip
-                          skip_scatt(ish) = .False.
-                          nskip = nskip - 1
-
-                        end if
-
-                      end do
-                    end do
-
-                  end if ! AD
-!$omp end single
-
-                  ! For each height
-                  do iz=Rz0,Rz1
-
-                    ! Get indexes
-                    indxf = Frec%indx(jtran,ia,iz,jbdir)
-                    indx = Red%indx(jtran,ia,iz,jdir)
-
-                    ! Initialize
-                    Red%dzao(indx)%trani(iti)%RAM = .False.
-
-                    ! If no range, skip
-                    if (Frec%dzao(indxf)%nran.lt.1) cycle
-#ifdef _OPENMP
-                    ! If multi-thread
-                    if (omp) then
-                      ! Skip if not assigned
-                      if (indx.lt.orif0(tid)) cycle
-                      if (indx.gt.orif1(tid)) exit
-                    end if
-#endif
-                    ! Check not already allocated
-                    if (allocated(Red%dzao(indx)% &
-                                      trani(iti)%PWarr2)) cycle
-
-                    if (Bstrength(iz).lt.TINYB) then
-
-                      iDF = iNF
-                      iDFR = iNF
-
-                    else
-
-                      iDF = iYNF
-
-                      ! Check if NCHLT
-                      if (lNCHLT) then
-
-                        ! If NCHLT applies
-                        if (Atom(ia)%NCHLT(iz,itran)) then
-                          iDFR = iYYF
-                        else
-                          iDFR = iYNF
-                        end if
-
-                      else
-                        iDFR = iYNF
-                      end if
-
-                    end if ! Magnetic field or not
-
-                    ! Predict size of next block
-                    nn = sum(Frec%dzao(indxf)%trani(iti)%mfreq)*iDFR
-                    if (.not.AV.and.jtran.eq.itran) then
-                      nn = nn*(Geom%nScatt - 1 - nskip)
-                    else
-                      nn = nn*(Geom%nScatt - nskip)
-                    end if
-                    if (nn.le.0) cycle
-                    SRAM = 8d-6*dble(nn)
-
-                    ! If no more space
-!$omp flush(MPID,ofram)
-                    if (floor(MPID%RAM+SRAM).gt.RLIM.or. &
-                      SRAM.le.0d0) then
-                      ofram = .True.
-!$omp flush(ofram)
-                      Red%dzao(indx)%trani(iti)%RAM = .False.
-                      cycle
-                    end if
-                    MPID%RAM = MPID%RAM + SRAM
-                    MPID%WRAM = MPID%WRAM + SRAM
-!$omp flush(MPID)
-                    Red%dzao(indx)%trani(iti)%RAM = .True.
-
-                    ! Allocate initialize flag
-                    allocate(Red%dzao(indx)%trani(iti)%iPPRD(iDF))
-                    Red%dzao(indx)%trani(iti)%iPPRD = .True.
-
-                    ! Allocate Warr2
-                    allocate(Red%dzao(indx)%trani(iti)%PWarr2(nn))
-
-
-                  end do ! heights
-                end do ! output directions
-
-                ! Free skip_scatt
-                deallocate(skip_scatt)
-
-              ! If not storing in RAM
-              else
-
-                ! Allocate dummy array
-!$omp single
-                if (.not.associated(Red%dzao)) then
-                  allocate(Red%dzao(1))
-                  nullify(Red%dzao(1)%trani)
-                end if
-!$omp end single
-
-              end if ! Storing in RAM
-
-            end do ! Input lower term
-          end do ! Output lower term
-        end do ! Upper term
-      end do ! Atom
-!$omp end parallel
-
-#ifdef _OPENMP
-      ! deallocate limits for threads
-      if (omp) deallocate(oif0,oif1)
-#endif
+      ! Count memory
+      call cram_red_frec(Red,SRAM)
+      FRAMc = SRAM
 
       ! Check if everything is fine
       call control
@@ -5797,556 +4196,320 @@
 !#####################################################################
 !#####################################################################
 
-      !> Build the input frequency axis for the multilevel intensity
-      !! problem.\n
-      !!     Frec(Frequency_class): Structure with frequency data\n
-      !!            Red(Red_class): Structure with redistribution
-      !!                            data\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !!        Input(Input_class): Structure with settings data\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!              lio(logical): If doing formal solution in this
-      !!                            run\n
-      !!            ofram(logical): Indicates if out of RAM\n
-      !!              LOS(logical): Indicates if we are normalizing
-      !!                            LOS directions
-      subroutine omegabuildinI(Frec,Red,Atom,Atmo,Input,Geom, &
-                               MPID,lio,ofram,LOS)
+      !> Allocate space to store the redistribution functions\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!        Red(Red_class): Structure with redistribution input
+      !!                        frequency data, redistribution
+      !!                        function data, and profile or
+      !!                        normalization data\n
+      !!  Geom(Geometry_class): Structure with geometric data\n
+      !!  Bstrength(double(:)): Magnetic field strength\n
+      !!        ofram(logical): If reached the RAM limit
+      subroutine allocate_Warr(Atom,Red,Geom,Bstrength,ofram)
 
       ! I/O
 
-      type(Atom_class), dimension(:):: Atom
-      type(Atmo_class):: Atmo
-      type(Input_class):: Input
-      type(Frequency_class):: Frec
-      type(Red_class):: Red
-      type(Geometry_class):: Geom
-      type(MPI_class):: MPID
-      logical, intent(in):: lio,LOS
+      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Red_class), intent(inout):: Red
+      type(Geometry_class), intent(inout):: Geom
+      double precision, dimension(:), intent(in):: Bstrength
       logical, intent(out):: ofram
 
       ! Local
 
-      logical:: skip,lskip,init,reset,nfound,core,cohw
-      logical, dimension(:), allocatable:: skip_scatt
+      logical:: Yfield,Nfield,lNCHLT
 
-      integer:: ios,i2,it,iz,ia,ip,ipp,ir,itran,jtran,iran,nran
-      integer:: fitran,fjtran,ffitran,ffjtran,ffktran,ibfreq
-      integer:: ifreq,jfreq,iifreq,lifreq,kfreq,cfreq,if0,if1
-      integer:: jdir,jbdir,njdir,ish,ith,iph,ith1,iph1
-      integer:: iJl,iJu,iJf,itermf,itermu,iterml,iti,bf0,bf1
-      integer:: ni,nie,np,np0,npp,nt,nti,nat,mina,maxa
-      integer:: jjfreq0,jjfreq,kkfreq0,kkfreq,jufreq
-      integer:: minto,maxto,indx,indxf,nn,nskip,nfs
-#ifdef _OPENMP
-      integer:: tid
-#endif
-      integer, dimension(:), allocatable:: minti,maxti
-      integer, dimension(:), allocatable:: flag,ithV,iphV
-#ifdef _OPENMP
-      integer, dimension(:), allocatable:: oif0,oif1,orif0,orif1,onf
-#endif
+      integer:: indx,iz,ia,jtran,iti,itran
+      integer:: nn,iYNF,iYYF,iNF,iDF,iDFR
 
-      double precision:: DwT,Dw,Dw1,vph,vpl,vfac,vfac1
-      double precision:: norm,norm1,O0,O1
-      double precision:: red_rangW1,red_resoW
-      double precision:: red_vlarW1,red_fstpW1
-      double precision:: red_mstpW1,red_neglW
-      double precision:: red_rangwW1,red_vlarwW1
-      double precision:: red_fstpwW1,red_mstpwW1
-      double precision:: red_rangcW1,red_vlarcW1
-      double precision:: red_fstpcW1,red_mstpcW1
-      double precision:: red_coreW,red_cohwW
-      double precision:: dnl, nut, nutout, vpr
-      double precision:: ct,st,cc,sc,ct1,st1,cc1,sc1,SRAM
-      double precision, dimension(2):: vphv, vplv
-      double precision, dimension(4):: vphve, vplve
-      double precision, dimension(:), allocatable:: vpp
-      double precision, dimension(:), allocatable:: Wvpp
+      double precision:: RAM,SRAM
 
-      ! Box
-      type(dbabox_class), pointer:: bomega, bw_freq, bdaux
 
-      ! Pointer
-      type(Frequencyd_class), pointer:: p_frec
-
-      ! Initialize
-      nullify(bomega,bw_freq,bdaux)
+      ! Initialize RAM counters
+      WRAMc = 0d0
 
       ! Initialize
       ofram = .False.
 
-      ! Check if we don't have to reset
-      if (AVI.and..not.dyn.and.LOS) then
-        if (lio) return
-      end if
+      ! Generate scattering angles if angle-dependent
+      if (.not.AV) &
+        call get_scattering(Geom)
 
-      ! If line of sight
-      if ((.not.AVI.or.dyn).and.LOS) then
-        PRAM = .False.
-        IRAM = .False.
-      end if
+      ! If not storing, go back
+      if (.not.PRAM) return
 
-      ! Inititlize RAM counters
-      MPID%WRAM = 0d0
+      ! Get current RAM status
+      RAM = cram_add(1)
 
-      ! Deallocate existing Frec and Red
-      call cleanFrecandRed(Frec,Red,MPID)
+      ! Allocate rzao
+      allocate(Red%rzao(Red%nzao))
 
-      ! If the process is the master, it does not need this, but
-      ! it will participate if storing in a file
-      if (MPID%mpi.and.pid.eq.0) then
+      ! For each index
+      do indx=1,Red%nzao
 
-        ! And leave
-        call control
-        return
+        ! Add size of logical
+        RAM = RAM + 4d-6*dble(size(Red%zao(indx)%trani))
+        nullify(Red%rzao(indx)%trani)
 
-      end if
+      end do ! Indexes
 
-      ! If angle dependent
-      if (.not.AVI) then
+      ! Flags
+      Yfield = .False.
+      Nfield = .False.
 
-        !
-        ! Output and input directions
+      ! For each considered height
+      do iz=Rz0,Rz1_PRD
 
-        ! If for emergence
-        if (LOS) then
+        ! If too small field
+        if (Bstrength(iz).lt.TINYB) then
 
-          njdir = Geom%nPhLOS*Geom%nThLOS
+          ! Flag there is a no field height
+          Nfield = .True.
 
-        ! If quadrature
+        ! Significant enough field
         else
 
-          njdir = Geom%nPh*Geom%nTh
+          ! Flag there is a yes field height
+          Yfield = .True.
 
-        end if ! LOS
+        end if ! Field strength
 
-        ! If dynamic, axis changes
-        if (dyn) then
+        ! If found both magnetic and unmagnetized heights, stop
+        if (Yfield.and.Nfield) exit
 
-          ! Frequency interpolation angular size
-          Frec%ndir = njdir
-          Frec%nth = Geom%nTh
-
-          ! Azimuth depends on symmetry
-          if (axiali) then
-            Frec%nph = 1
-          else
-            Frec%nph = Geom%nPh
-          end if
-
-          ! Redistribution (out) angular size
-          Red%njdir = njdir
-
-        ! If static, they don't
-        else
-
-          ! Frequency interpolation angular size
-          Frec%ndir = 1
-          Frec%nth = 1
-          Frec%nph = 1
-
-          ! Redistribution (out) angular size
-          Red%njdir = 1
-
-        end if
-
-        ! Redistribution (in) angular size
-        Red%ndir = Geom%nPh2*Geom%nTh
-        Red%nth = Geom%nTh
-        Red%nph = Geom%nPh2
-
-        ! Allocate auxiliar quantities for Doppler shifts
-
-        ! Index of polar direction of quadrature
-        allocate(ithv(njdir))
-        ! Index of azimuthal direction of quadrature
-        allocate(iphv(njdir))
-
-        !
-        ! De-index the directions
-
-        jdir = 0
-
-        ! If lines of sight
-        if (LOS) then
-
-          do ith=1,Geom%nThLOS
-            do iph=1,Geom%nPhLOS
-
-              jdir = jdir + 1
-              ithv(jdir) = ith
-              iphv(jdir) = iph
-
-            end do ! LOS directions
-          end do
-
-        ! If quadrature
-        else
-
-          ! Quadrature
-          do ith=1,Geom%nTh
-            do iph=1,Geom%nPh
-
-              jdir = jdir + 1
-              ithv(jdir) = ith
-              iphv(jdir) = iph
-
-            end do
-          end do ! Quadrature directions
-
-        end if ! LOS
-
-        ! Generate scattering angles
-        call get_scattering(Geom,los)
-
-        ! If static, initialize velocity factors
-        if (.not.dyn) then
-
-          vfac = 1d0
-          vfac1 = 1d0
-
-        end if
-
-      ! If dynamic (and AA)
-      else if (dyn) then
-
-        !
-        ! Output and input directions
-
-        ! If lines of sight
-        if (LOS) then
-          njdir = Geom%nPhLOS*Geom%nThLOS
-        ! If quadrature
-        else
-          njdir = Geom%nPh*Geom%nTh
-        end if
-
-        ! Frequency interpolation angular size
-        Frec%ndir = njdir
-        Frec%nth = 1
-        Frec%nph = 1
-
-        ! Redistribution (out) angular size
-        Red%njdir = njdir
-
-        ! Redistribution (in) angular size
-        Red%ndir = Geom%nPh*Geom%nTh
-        Red%nth = 1
-        Red%nph = 1
-
-        ! Number of scatterig angles (dummy init)
-        Geom%nScatt = 1
-
-        ! Allocate auxiliar quantities for Doppler shifts
-
-        ! Index of polar direction of quadrature
-        allocate(ithv(njdir))
-        ! Index of azimuthal direction of quadrature
-        allocate(iphv(njdir))
-
-
-        !
-        ! De-index the directions
-
-        jdir = 0
-
-        ! If lines of sight
-        if (LOS) then
-
-          ! LOS
-          do ith=1,Geom%nThLOS
-            do iph=1,Geom%nPhLOS
-
-              jdir = jdir + 1
-              ithv(jdir) = ith
-              iphv(jdir) = iph
-
-            end do ! LOS directions
-          end do
-
-        ! If quadrature
-        else
-
-          ! Quadrature
-          do ith=1,Geom%nTh
-            do iph=1,Geom%nPh
-
-              jdir = jdir + 1
-              ithv(jdir) = ith
-              iphv(jdir) = iph
-
-            end do ! Quadrature directions
-          end do
-
-        end if ! LOS
-
-      ! Angle-averaged and static
-      else
-
-        ! Output directions
-        Frec%ndir = 1
-        Red%ndir = 1
-
-        ! Input directions
-        Frec%nth = 1
-        Frec%nph = 1
-        Red%nth = 1
-        Red%nph = 1
-        Red%njdir = 1
-
-        ! Scattering angles (dummy init)
-        Geom%nScatt = 1
-
-        ! Doppler factors
-        vfac = 1d0
-        vfac1 = 1d0
-
-      end if
-
-      !
-      ! Count maximum index of PRD atom and transition
-
-      ! Initialize atomic and transition indexes, and counter
-      ! of real elements
-      mina = 10000
-      maxa = 0
-      minto = 10000
-      maxto = 0
-      nat = 0
+      end do ! Heights
 
       ! For each atom
       do ia=1,nA
-        ! For all transitions
+
+        ! For each output transition
         do jtran=1,Atom(ia)%ntran
 
-          ! If PRD line
-          if (Atom(ia)%lemiss2(jtran)) then
-            ! If not absent in this CPU
-            if (.not.Atom(ia)%fflag(jtran)%absent) then
+          ! Skip CRD
+          if (.not.Atom(ia)%lemiss2(jtran)) cycle
 
-              ! Go by fine structure
-              do it=1,Atom(ia)%fst(jtran)%nt
+          ! For every height
+          do iz=Rz0,Rz1_PRD
 
-                ! Get index
-                ffjtran = Atom(ia)%ifst_ij(it,jtran)
+            ! Get indexes
+            indx = Red%izao(jtran,ia,iz)
 
-                ! Add to counter
-                nat = nat + 1
+            ! Allocate
+            allocate(Red%rzao(indx)%trani(Atom(ia)%trano(jtran)%nt))
 
-                ! Update limits
-                if (ffjtran.lt.minto) minto = ffjtran
-                if (ffjtran.gt.maxto) maxto = ffjtran
-                if (ia.lt.mina) mina = ia
-                if (ia.gt.maxa) maxa = ia
+            ! For each input transition
+            do iti=1,Atom(ia)%trano(jtran)%nt
 
-              end do ! Fine structure
+              ! Add RAM
+              RAM = RAM + 1d-6*sizeof(Red%rzao(indx)%trani(iti))
 
-            end if ! Presence of line
-          end if ! PRD line
+            end do ! Input transitions
+          end do ! Heights
 
-        end do ! Transitions
+          ! For each input transition
+          do iti=1,Atom(ia)%trano(jtran)%nt
+
+            ! Get sizes in terms of components
+            if (Yfield) then
+              iYNF = maxval(Atom(ia)%trano(jtran)%trani(iti)%indB)
+              iYYF = iYNF - Atom(ia)%trano(jtran)%trani(iti)%nchlt
+            end if
+            if (Nfield) &
+              iNF = maxval(Atom(ia)%trano(jtran)%trani(iti)%indNB)
+
+            ! Get transition index
+            itran = Atom(ia)%trano(jtran)%indT(iti)
+
+            ! Assume coherent
+            lNCHLT = .False.
+
+            ! If non-coherent input and magnetic field
+            if (Yfield.and.NCHLT) then
+
+              ! For each height
+              do iz=Rz0,Rz1_PRD
+
+                ! If non-coherent for this transition
+                if (Atom(ia)%NCHLT(iz,itran)) then
+
+                  ! Flag and leave
+                  lNCHLT = .True.
+                  exit
+
+                end if ! Non-coherent for this transition
+
+              end do ! Heights
+
+            end if ! Magnetic and non-coherent input
+
+            ! For every considered height
+            do iz=Rz0,Rz1_PRD
+
+              ! Get indexes
+              indx = Red%izao(jtran,ia,iz)
+
+              ! Initialize as not stored
+              Red%rzao(indx)%trani(iti)%RAM = .False.
+
+              ! If no range or frequency, skip
+              if (Red%zao(indx)%nran.lt.1) cycle
+              if (Red%zao(indx)%nf(pid).lt.1) cycle
+
+              ! Non magnetic
+              if (Bstrength(iz).le.TINYB) then
+
+                ! Get component sizes
+                iDF = iNF
+                iDFR = iNF
+
+              ! Magnetic
+              else
+
+                ! Get component sizes
+                iDF = iYNF
+
+                ! Check if NCHLT
+                if (lNCHLT) then
+
+                  ! If NCHLT applies
+                  if (Atom(ia)%NCHLT(iz,itran)) then
+
+                    ! Get reduces size
+                    iDFR = iYYF
+
+                  ! NCHLT does not apply
+                  else
+
+                    ! Get full size
+                    iDFR = iYNF
+
+                  end if ! NCHLT
+
+                ! No NCHLT
+                else
+
+                  ! Just full size
+                  iDFR = iYNF
+
+                end if ! NHCLT
+              end if ! Magnetic field or not
+
+              ! Predict size of next block
+              nn = sum(Red%zao(indx)%trani(iti)%mfreq)*iDFR
+
+              ! Skip if no size
+              if (nn.le.0) cycle
+
+              ! Correct if AD
+              if (.not.AV) then
+
+                ! Skip coherent one
+                if (jtran.eq.itran) then
+
+                  ! Scattering angles to consider
+                  nn = nn*(Geom%nScatt-1)
+
+                ! Not Rayleigh
+                else
+
+                  ! Full scattering angles
+                  nn = nn*Geom%nScatt
+
+                end if ! Rayleigh scattering
+              end if ! Angle-dependent
+
+              ! Get size in MB (single precision) + logical
+              SRAM = 8d-6*dble(nn) + 4d-6*iDF
+
+              ! If no more space
+              if (floor(RAM+SRAM).gt.RLIM.or.SRAM.le.0d0) then
+
+                ! Full memory, do not allocate
+                ofram = .True.
+                Red%rzao(indx)%trani(iti)%RAM = .False.
+                cycle
+
+              end if
+
+              ! Add to RAM count
+              RAM = RAM + SRAM
+
+              ! Saving
+              Red%rzao(indx)%trani(iti)%RAM = .True.
+
+              ! Allocate and initialize initialization flag
+              allocate(Red%rzao(indx)%trani(iti)%iPPRD(iDF))
+              Red%rzao(indx)%trani(iti)%iPPRD = .True.
+
+              ! Allocate space
+              allocate(Red%rzao(indx)%trani(iti)%PWarr2(nn))
+
+            end do ! heights
+          end do ! Input transitions
+        end do ! Output transitions
       end do ! Atoms
 
-      ! Allocate indexing array and first step of Frec and Red
-      allocate(Frec%indx(minto:maxto,mina:maxa,Rz0:Rz1,Frec%ndir))
-      Frec%ndzao = nat*Rnz*Frec%ndir
-      allocate(Frec%dzao(Frec%ndzao))
-      do indx=1,Frec%ndzao
-        nullify(Frec%dzao(indx)%trani)
-      end do
-      if (IRAM) then
-        allocate(Red%indx(minto:maxto,mina:maxa,Rz0:Rz1,Red%njdir))
-        Red%ndzao = nat*Rnz*Red%njdir
-        allocate(Red%dzao(Red%ndzao))
-        do indx=1,Red%ndzao
-          nullify(Red%dzao(indx)%trani)
-        end do
-      end if
+      ! Count RAM in redistribution
+      call cram_red_warr(Red,RAM)
+      WRAMc = RAM
 
-      !
-      ! Build index
+      end subroutine allocate_Warr
 
-      ! Initialize
-      ip = 0
+!#####################################################################
+!#####################################################################
+!#####################################################################
 
-      ! Directions
-      do jdir=1,Frec%ndir
-        ! Height
-        do iz=Rz0,Rz1
-          ! Atom
-          do ia=1,nA
-            ! Transition
-            do jtran=1,Atom(ia)%ntran
+      !> Determine the input frequency axis for the calculation of the
+      !! second order intensity emissivity and split the tasks of the
+      !! intensity emissivity calculation as evenly as possible.
+      !! Assume comoving reference frame\n
+      !!  Frec(Frequency_class): Structure with frequency data\n
+      !!         Red(Red_class): Structure with redistribution input
+      !!                         frequency data, redistribution
+      !!                         function data, and profile or
+      !!                         normalization data\n
+      !!    Atom(Atom_class(:)): Structures with atomic data\n
+      !!       Atmo(Atmo_class): Structure with atmospheric data\n
+      !!     Input(Input_class): Structure with configuration data\n
+      !!        MPID(MPI_class): Structure with MPI data\n
+      !!         ofram(logical): If reached the RAM limit
+      subroutine omegabuildinI(Frec,Red,Atom,Atmo,Input,MPID,ofram)
 
-              ! If PRD line
-              if (Atom(ia)%lemiss2(jtran)) then
-                ! If not absent in this CPU
-                if (.not.Atom(ia)%fflag(jtran)%absent) then
+      ! I/O
 
-                  ! Fine structure
-                  do it=1,Atom(ia)%fst(jtran)%nt
+      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atmo_class), intent(in):: Atmo
+      type(Input_class), intent(in):: Input
+      type(Frequency_class), intent(in):: Frec
+      type(Red_class), intent(inout):: Red
+      type(MPI_class), intent(in):: MPID
+      logical, intent(out):: ofram
 
-                    ffjtran = Atom(ia)%ifst_ij(it,jtran)
-                    ip = ip + 1
-                    Frec%indx(ffjtran,ia,iz,jdir) = ip
+      ! Local
 
-                  end do ! Fine structure
+      type(Redc_class), dimension(:,:), allocatable:: Redd_aux
 
-                end if ! Presence
-              end if ! PRD line
+      logical:: skip
 
-            end do ! Transition
-          end do ! Atom
-        end do ! Height
-      end do ! Directions
+      integer:: ia,itran,jtran,ni,np0,nti,if0,if1
+      integer:: fitran,fjtran,ffitran,ffjtran,ffktran
+      integer:: iJl,iJu,iJf,itermf,itermu,iterml,iti
+      integer:: nr,nt,ntj,ntk
+      integer, dimension(:), allocatable:: flag
 
-#ifdef _OPENMP
-      ! If multiple threads
-      if (omp) then
+      double precision:: RAM
+      double precision, dimension(1):: nutout, dnl, vpr
+      double precision, dimension(2):: nut
+      double precision, dimension(3):: vphv, vplv
+      double precision, dimension(6):: vphve, vplve
+      double precision, dimension(:), allocatable:: vpp
 
-        ! Allocate limits for threads
-        allocate(oif0(nthread),oif1(nthread),onf(nthread))
 
-        ! Work per thread
-        ios = Frec%ndzao/nthread
+      ! Routine name
+      urou = 'omegabuildinI'
 
-        ! Give this first stimation to each process
-        do tid=1,nthread
-          onf(tid) = ios
-        end do
-
-        ! Put the remaining heights in some of the threads if there
-        ! are remaining ones
-        if(ios*nthread.ne.Frec%ndzao)then
-
-          ! Number of nodes to distribute
-          ios = Frec%ndzao - ios*nthread
-
-          ! Give them to the first threads
-          do tid=1,ios
-            onf(tid) = onf(tid) + 1
-          end do
-
-        end if
-
-        ! Set first thread boundary
-        oif0(1) = 1
-        oif1(1) = onf(1)
-
-        ! For each other thread
-        do tid=2,nthread
-          oif0(tid) = oif1(tid-1) + 1
-          oif1(tid) = oif0(tid) + onf(tid) - 1
-        end do
-
-        ! Deallocate onf
-        deallocate(onf)
-
-      end if ! multithreaded
-#endif
-      ! If storing redistribution
-      if (IRAM) then
-
-        ! Initialize
-        ip = 0
-
-        ! Directions
-        do jdir=1,Red%njdir
-          ! Height
-          do iz=Rz0,Rz1
-            ! Atom
-            do ia=1,nA
-              ! Transition
-              do jtran=1,Atom(ia)%ntran
-
-                ! If PRD line
-                if (Atom(ia)%lemiss2(jtran)) then
-                  ! If not absent in this CPU
-                  if (.not.Atom(ia)%fflag(jtran)%absent) then
-
-                    ! Fine structure
-                    do it=1,Atom(ia)%fst(jtran)%nt
-
-                      ffjtran = Atom(ia)%ifst_ij(it,jtran)
-                      ip = ip + 1
-                      Red%indx(ffjtran,ia,iz,jdir) = ip
-
-                    end do ! Fine structure
-
-                  end if ! Presence
-                end if ! PRD line
-
-              end do ! Transition
-            end do ! Atom
-          end do ! Height
-        end do ! Directions
-#ifdef _OPENMP
-        ! If threading
-        if (omp) then
-
-          ! Allocate limits for threads
-          allocate(orif0(nthread),orif1(nthread),onf(nthread))
-
-          ! Work per thread
-          ios = Red%ndzao/nthread
-
-          ! Give this first stimation to each process
-          do tid=1,nthread
-            onf(tid) = ios
-          end do
-
-          ! Put the remaining heights in some of the threads if there
-          ! are remaining ones
-          if(ios*nthread.ne.Red%ndzao)then
-
-            ! Number of nodes to distribute
-            ios = Red%ndzao - ios*nthread
-
-            ! Give them to the first threads
-            do tid=1,ios
-              onf(tid) = onf(tid) + 1
-            end do
-
-          end if
-
-          ! Set first thread boundary
-          orif0(1) = 1
-          orif1(1) = onf(1)
-
-          ! For each other thread
-          do tid=2,nthread
-            orif0(tid) = orif1(tid-1) + 1
-            orif1(tid) = orif0(tid) + onf(tid) - 1
-          end do
-
-          ! Deallocate onf
-          deallocate(onf)
-
-        end if ! Multi-thread
-#endif
-      end if ! IRAM
-
-!$omp parallel default(none) &
-!$omp private(ia,skip,jtran,minto,maxto,nt,itermu,iJu,itermf,iJf) &
-!$omp private(fjtran,ffjtran,iterml,itran,iJl,fitran,ffitran,tid) &
-!$omp private(ffktran,nti,iti,dnl,nutout,nut,jdir,iz,ith,jbdir) &
-!$omp private(iph,ct,st,cc,sc,indx,vfac,vfac1,if0,if1,DwT,Dw1,Dw) &
-!$omp private(red_resoW,red_neglW,red_coreW,red_rangwW1,red_vlarwW1) &
-!$omp private(red_fstpwW1,red_mstpwW1,red_rangcW1,red_vlarcW1) &
-!$omp private(red_fstpcW1,red_mstpcW1,nran,bf0,bf1,lskip,ifreq,np) &
-!$omp private(bomega,bw_freq,iifreq,iran,core,red_rangW1,red_vlarW1) &
-!$omp private(red_fstpW1,red_mstpW1,vphv,vplv,vpr,vph,vpl,ni,ir,O0) &
-!$omp private(nie,vplve,vphve,it,reset,vpp,flag,np0,npp,nfound) &
-!$omp private(ip,ipp,bdaux,Wvpp,norm1,cfreq,init,jfreq,O1) &
-!$omp private(nn,p_frec,ios,SRAM,jjfreq0,kkfreq0,ct1,st1,cc1,sc1) &
-!$omp private(jjfreq,kkfreq,lifreq,ibfreq,norm,jcdir,indxf) &
-!$omp private(red_cohwW,cohw) &
-!$omp shared(na,Atom,minti,maxti,Input,Frec,Red,nz,LOS,atmo,IRAM) &
-!$omp shared(MPID,AVI,dyn,axiali,Geom,nfreq,jufreq,ithv,iphv,TIRAM) &
-!$omp shared(oif0,oif1,orif0,orif1,RLIM,ofram,omp,Rz0,Rz1)
+      ! Initialize out of RAM
+      ofram = .False.
 
       ! Preliminar allocation of vpp, auxiliar vector to store
       ! frequencies
@@ -6354,2158 +4517,163 @@
       allocate(vpp(np0))
       allocate(flag(np0))
 
-#ifdef _OPENMP
-      vfac = 1d0
-      vfac1 = 1d0
-      tid = omp_get_thread_num() + 1
-#endif
-
       ! For each atom
       do ia=1,nA
 
-        ! Check that there is at least 1 PRD line in this atom
+        ! Initialize as skipping this atom
         skip = .True.
 
+        ! For every transition
         do jtran=1,Atom(ia)%ntran
+
+          ! If it is PRD
           if (Atom(ia)%lemiss2(jtran)) then
-            if (.not.Atom(ia)%fflag(jtran)%absent) then
-              skip = .False.
-              exit
-            end if
-          end if
-        end do
+
+            ! Cannot skip
+            skip = .False.
+            exit
+
+          end if ! PRD line
+
+        end do ! Transitions
 
         ! There are no PRD lines for this atom
         if (skip) cycle
 
-!$omp barrier
-!$omp single
-        ! Reallocate minti and maxti
-        if (allocated(minti)) deallocate(minti,maxti)
-        allocate(minti(Atom(ia)%nftran))
-        allocate(maxti(Atom(ia)%nftran))
+        ! For each output transition
+        do jtran=1,Atom(ia)%ntran
 
-        !
-        ! Count the transition combinations
-        !
+          ! Skip CRD
+          if (.not.Atom(ia)%lemiss2(jtran)) cycle
 
-        ! Reset index
-        minto = Atom(ia)%nftran + 1
-        maxto = 0
-        minti = Atom(ia)%nftran + 1
-        maxti = 0
-        nt = 0
+          ! Get terms
+          itermu = Atom(ia)%fst(jtran)%itermu
+          itermf = Atom(ia)%fst(jtran)%iterml
 
-        ! For each upper level
-        do itermu=2,Atom(ia)%nMulti
-          do iJu=1,Atom(ia)%nJ(itermu)
+          ! Master
+          if (pid.eq.0) then
 
-            ! For each final lower level
-            do itermf=1,itermu-1
-              do iJf=1,Atom(ia)%nJ(itermf)
+            ! Get frequency limits
+            if0 = Atom(ia)%if0(jtran)
+            if1 = Atom(ia)%if1(jtran)
 
-                jtran = Atom(ia)%irad(itermu,itermf)
+          end if
 
-                if (jtran.le.0) cycle
-                if (.not.Atom(ia)%lemiss2(jtran)) cycle
-                if (Atom(ia)%fflag(jtran)%absent) cycle
+          ! If MPI
+          if (nproc.gt.1) then
 
-                fjtran = Atom(ia)%fst(jtran)%irad(iJu,iJf)
+            ! Share limits
+            call MPI_BCAST(if0,1,MPI_INTEGER,0,MPI_COMM_RT,ierr)
+            call MPI_BCAST(if1,1,MPI_INTEGER,0,MPI_COMM_RT,ierr)
 
-                if (fjtran.le.0) cycle
+          end if ! MPI
 
-                ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
-                nt = nt + 1
+          ! For each FS transition
+          do fjtran=1,Atom(ia)%fst(jtran)%nt
 
-                if (ffjtran.lt.minto) minto = ffjtran
-                if (ffjtran.gt.maxto) maxto = ffjtran
+            ! Get indexes
+            iJu = Atom(ia)%fst(jtran)%ilevelu(fjtran)
+            iJf = Atom(ia)%fst(jtran)%ilevell(fjtran)
+            ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
+            ffktran = Atom(ia)%itrano(ffjtran)
 
-                ! For each other lower level
-                do iterml=1,itermu-1
+            ! Number of input transitions
+            nti = Atom(ia)%tranoI(ffktran)%nt
 
-                  itran = Atom(ia)%irad(itermu,iterml)
+            ! Count input transitions
+            ntk = Atom(ia)%tranoI(ffktran)%nt
 
-                  if (itran.le.0) cycle
-
-                  if (.not.Input%Raman.and.itran.ne.jtran) cycle
-
-                  do iJl=1,Atom(ia)%nJ(iterml)
-
-                    fitran = Atom(ia)%fst(itran)%irad(iJu,iJl)
-
-                    if (fitran.le.0) cycle
-
-                    ffitran = Atom(ia)%ifst_ij(fitran,itran)
-
-                    if (ffitran.lt.minti(ffjtran)) &
-                      minti(ffjtran) = ffitran
-
-                    if (ffitran.gt.maxti(ffjtran)) &
-                      maxti(ffjtran) = ffitran
-
-                  end do ! iJl
-                end do ! iterml
-              end do ! iJf
-            end do ! itermf
-          end do ! iJu
-        end do ! itermu
-
-        ! Store amount of output transitions
-        Atom(ia)%ntrano = nt
-
-        ! Index trano
-        if (allocated(Atom(ia)%itrano)) deallocate(Atom(ia)%itrano)
-        allocate(Atom(ia)%itrano(minto:maxto))
-        nt = 0
-
-        ! Index transitions
-
-        ! For each upper level
-        do itermu=2,Atom(ia)%nMulti
-          do iJu=1,Atom(ia)%nJ(itermu)
-
-            ! For each final lower level
-            do itermf=1,itermu-1
-              do iJf=1,Atom(ia)%nJ(itermf)
-
-                jtran = Atom(ia)%irad(itermu,itermf)
-
-                if (jtran.le.0) cycle
-                if (.not.Atom(ia)%lemiss2(jtran)) cycle
-                if (Atom(ia)%fflag(jtran)%absent) cycle
-
-                fjtran = Atom(ia)%fst(jtran)%irad(iJu,iJf)
-
-                if (fjtran.le.0) cycle
-
-                ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
-
-                ! Store index
-                nt = nt + 1
-                Atom(ia)%itrano(ffjtran) = nt
-
-              end do ! iJf
-            end do ! itermf
-          end do ! iJu
-        end do ! itermu
-
-        !
-        ! Allocate needed transition structures
-        !
-
-        ! Atomic structure
-        if (allocated(Atom(ia)%trano)) deallocate(Atom(ia)%trano)
-        allocate(Atom(ia)%trano(Atom(ia)%ntrano))
-!$omp end single
-
-        ! For each upper level
-        do itermu=2,Atom(ia)%nMulti
-          do iJu=1,Atom(ia)%nJ(itermu)
-
-            ! For each final lower level
-            do itermf=1,itermu-1
-              do iJf=1,Atom(ia)%nJ(itermf)
-
-                jtran = Atom(ia)%irad(itermu,itermf)
-
-                if (jtran.le.0) cycle
-                if (.not.Atom(ia)%lemiss2(jtran)) cycle
-                if (Atom(ia)%fflag(jtran)%absent) cycle
-
-                fjtran = Atom(ia)%fst(jtran)%irad(iJu,iJf)
-
-                if (fjtran.le.0) cycle
-
-                ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
-                ffktran = Atom(ia)%itrano(ffjtran)
-
-                ! Number of input transitions
-                nti = 0
-
-                ! For each other lower level
-                do iterml=1,itermu-1
-
-                  itran = Atom(ia)%irad(itermu,iterml)
-
-                  if (itran.le.0) cycle
-
-                  ! Skip if no Raman and is not Rayleigh
-                  if (.not.Input%Raman.and.itran.ne.jtran) cycle
-
-                  do iJl=1,Atom(ia)%nJ(iterml)
-
-                    fitran = Atom(ia)%fst(itran)%irad(iJu,iJl)
-
-                    if (fitran.le.0) cycle
-
-                    ! Advance the continuous index
-                    nti = nti + 1
-
-                  end do ! Lower level
-                end do ! Lower term
-
-                ! Allocate atomic structure
-!$omp single
-                allocate(Atom(ia)%trano(ffktran)%trani(nti))
-                allocate(Atom(ia)%trano(ffktran)%ind(nti))
-                Atom(ia)%trano(ffktran)%nt = nti
-
-                ! Reset index
-                Atom(ia)%trano(ffktran)%ind = -1
-!$omp end single
-
-                ! For each direction
-                do jdir=1,Frec%ndir
-
-                  ! For each height
-                  do iz=Rz0,Rz1
-
-                    ! Get index
-                    indx = Frec%indx(ffjtran,ia,iz,jdir)
-#ifdef _OPENMP
-                    ! If multi-thread
-                    if (omp) then
-                      ! Skip if not assigned
-                      if (indx.lt.oif0(tid)) cycle
-                      if (indx.gt.oif1(tid)) exit
-                    end if
-#endif
-                    ! Allocate the input transition type
-                    if(.not.associated(Frec%dzao(indx)%trani)) then
-
-                      ! Allocate
-                      allocate(Frec%dzao(indx)%trani(nti))
-
-                      ! Nullify pointers
-                      do i2=1,nti
-                        nullify(Frec%dzao(indx)%trani(i2)%index1)
-                        nullify(Frec%dzao(indx)%trani(i2)%index2)
-                        nullify(Frec%dzao(indx)%trani(i2)%dx)
-                      end do
-
-                    end if ! No input transitions associated yet
-
-                    ! Initialize the number of input frequencies
-                    Frec%dzao(indx)%mxfreq = 0
-
-                  end do ! heights
-                end do ! output directions
-
-                ! If storing Warr
-                if (IRAM) then
-
-                  ! For each direction
-                  do jdir=1,Red%njdir
-
-                    ! For each height
-                    do iz=Rz0,Rz1
-
-                      ! Get index
-                      indx = Red%indx(ffjtran,ia,iz,jdir)
-#ifdef _OPENMP
-                      ! If multi-thread
-                      if (omp) then
-                        ! Skip if not assigned
-                        if (indx.lt.orif0(tid)) cycle
-                        if (indx.gt.orif1(tid)) exit
-                      end if
-#endif
-                      ! Allocate the input transition type
-                      if(.not.associated(Red%dzao(indx)%trani)) &
-                        allocate(Red%dzao(indx)%trani(nti))
-
-                    end do ! heights
-                  end do ! output directions
-
-                end if ! Storing Warr
-!$omp single
-                ! Reset index of input transition
-                iti = 0
-
-                ! For each other lower level
-                do iterml=1,itermu-1
-
-                  itran = Atom(ia)%irad(itermu,iterml)
-
-                  if (itran.le.0) cycle
-
-                  ! Skip if no Raman and is not Rayleigh
-                  if (.not.Input%Raman.and.itran.ne.jtran) cycle
-
-                  do iJl=1,Atom(ia)%nJ(iterml)
-
-                    fitran = Atom(ia)%fst(itran)%irad(iJu,iJl)
-
-                    if (fitran.le.0) cycle
-
-                    ffitran = Atom(ia)%ifst_ij(fitran,itran)
-
-                    ! Advance the continuous index
-                    iti = iti + 1
-
-                    ! Store index of this input transition
-                    Atom(ia)%trano(ffktran)%ind(iti) = ffitran
-
-                  end do ! Lower level
-                end do ! Lower term
-!$omp end single
-                ! Reset index of input transition
-                iti = 0
-
-
-        !
-        ! Reset identation
-        !
-
-        ! For each other lower level
-        do iterml=1,itermu-1
-
-          itran = Atom(ia)%irad(itermu,iterml)
-
-          if (itran.le.0) cycle
-
-          ! Skip if no Raman and is not Rayleigh
-          if (.not.Input%Raman.and.itran.ne.jtran) cycle
-
-          do iJl=1,Atom(ia)%nJ(iterml)
-
-            fitran = Atom(ia)%fst(itran)%irad(iJu,iJl)
-
-            if (fitran.le.0) cycle
-
-            ffitran = Atom(ia)%ifst_ij(fitran,itran)
-
-            ! Advance the continuous index
-            iti = iti + 1
-
-            !
-            ! Store resonance
-            !
-
-            dnl = Atom(ia)%FSfreq(iJf,itermf) - &
-                  Atom(ia)%FSfreq(iJl,iterml)
-
-
-            !
-            ! Store the frequencies of transitions
-            !
-
-            ! Output transition
-            nutout = Atom(ia)%FSfreq(iJu,itermu) - &
-                     Atom(ia)%FSfreq(iJf,itermf)
-
-            ! Input transition
-            nut = Atom(ia)%FSfreq(iJu,itermu) - &
-                  Atom(ia)%FSfreq(iJl,iterml)
-
-            ! For each output direction
-            do jdir=1,Frec%ndir
-
-              if (dyn) then
-
-                ! If line of sight
-                if (LOS) then
-
-                  ith = ithv(jdir)
-                  iph = iphv(jdir)
-                  ct = Geom%L_mu(ith)
-                  st = sqrt(1d0 - ct*ct)
-                  cc = cos(Geom%L_phi(iph))
-                  sc = sin(Geom%L_phi(iph))
-
-                ! If quadrature
-                else
-
-                  ith = ithv(jdir)
-                  iph = iphv(jdir)
-                  ct = Geom%V_mu(ith)
-                  st = sqrt(1d0 - ct*ct)
-                  cc = Geom%v_mux(iph)
-                  sc = Geom%v_muy(iph)*sqrt(1d0 - cc*cc)
-
-                end if
-              end if
-
-              ! For each height node
-              do iz=Rz0,Rz1
-
-                ! Get index
-                indx = Frec%indx(ffjtran,ia,iz,jdir)
-#ifdef _OPENMP
-                ! Multi-thread
-                if (omp) then
-                  ! Skip if not assigned
-                  if (indx.lt.oif0(tid)) cycle
-                  if (indx.gt.oif1(tid)) exit
-                end if
-#endif
-                ! Calculate Doppler shift factor
-                if (dyn) &
-                  vfac = 1d0 - atmo%vx(iz)*st*cc - &
-                               atmo%vy(iz)*st*sc - &
-                               atmo%vz(iz)*ct
-
-                ! Store limits
-                if0 = Atom(ia)%if0(jtran)
-                if1 = Atom(ia)%if1(jtran)
-
-
-                !
-                ! Calculate the Doppler width of both input and output
-                ! transitions
-                !
-
-                ! Thermal common part
-                DwT = Atom(ia)%cDopp*sqrt(Atmo%T(iz))
-
-                ! Input
-                Dw1 = nut*sqrt(DwT*DwT + Atmo%vmi(iz)**2d0)
-
-                ! Output
-                Dw  = nutout*sqrt(DwT*DwT + Atmo%vmi(iz)**2d0)
-
-                ! Transform the searching parameters from normalized
-                ! to proper frequency units
-                red_cohwW = Input%dcohwi*Dw
-                red_resoW = Input%redi_pars(2)*Dw
-                red_neglW = Input%redi_pars(3)*Dw
-                red_coreW = Input%redi_pars(7)*Dw
-                red_rangwW1 = Input%redi_pars(1)*Dw1
-                red_vlarwW1 = Input%redi_pars(4)*Dw1
-                red_fstpwW1 = Input%redi_pars(5)*Dw1
-                red_mstpwW1 = red_fstpwW1*Input%redi_pars(6)
-                red_rangcW1 = Input%redi_pars(8)*Dw1
-                red_vlarcW1 = Input%redi_pars(9)*Dw1
-                red_fstpcW1 = Input%redi_pars(10)*Dw1
-                red_mstpcW1 = red_fstpcW1*Input%redi_pars(11)
-
-
-                !
-                ! Find limits for the second order output
-                !
-                if (.not.allocated(Frec%dzao(indx)%if0)) then
-
-                  nran = 0
-                  bf0 = -1
-                  bf1 = -2
-
-                  ! Only one output
-                  if (if0.eq.if1) then
-
-                    if(abs(Frec%omega(if0)*vfac-nutout).lt. &
-                       red_neglW) then
-                      bf0 = if0
-                      bf1 = if1
-                      nran = 1
-                    end if
-
-                  ! More than one output
-                  else
-
-                    ! Reset skip var
-                    lskip = .True.
-
-                    ! Look for the limits, for each output frequency
-                    do ifreq=if0,if1
-
-                      ! Initialize the flag
-                      skip = .True.
-
-                      ! Check if we are close to the transition
-                      ! frequency
-                      if(abs(Frec%omega(ifreq)*vfac-nutout).lt. &
-                         red_neglW) &
-                        skip = .False.
-
-                      ! If we skip this frequency
-                      if(skip.or.ifreq.eq.if1) then
-
-                        if(.not.lskip) then
-
-                          if (ifreq.eq.if1) then
-                            bf1 = ifreq
-                          else
-                            bf1 = ifreq - 1
-                          end if
-                          nran = nran + 1
-
-                        end if
-
-
-                      ! If we cannot skip this frequency
-                      else
-
-                        ! If this is the first index for this
-                        ! transition
-                        if (bf0.lt.0) &
-                          bf0 = ifreq
-
-                      end if
-
-                      lskip = skip
-
-                    end do ! output frequencies
-
-                  end if ! Only one output
-
-                  ! Store in the array
-                  Frec%dzao(indx)%nran = nran
-
-                  ! No ranges
-                  if (Frec%dzao(indx)%nran.lt.1) then
-
-                    ! No frequencies
-                    Frec%dzao(indx)%nfreq = 0
-                    cycle
-
-                  end if
-
-                  ! Allocate the ranges
-                  allocate(Frec%dzao(indx)%if0(nran))
-                  Frec%dzao(indx)%if0 = bf0
-                  allocate(Frec%dzao(indx)%if1(nran))
-                  Frec%dzao(indx)%if1 = bf1
-
-                  ! Only one output
-                  if (if0.eq.if1) then
-
-                    nran = 1
-                    np = 1
-                    Frec%dzao(indx)%if0(nran) = if0
-                    Frec%dzao(indx)%if1(nran) = if0
-
-                  ! More than one output
-                  else
-
-                    ! Only one output
-                    if (bf1.eq.bf0) then
-
-                      ! Check if we are close to a transition
-                      ! frequency
-                      if(abs(Frec%omega(ifreq)*vfac-nutout).lt. &
-                         red_neglW) then
-                        Frec%dzao(indx)%if0(1) = bf0
-                        Frec%dzao(indx)%if1(1) = bf0
-                        np = 1
-                        nran = 1
-                      else
-                        Frec%dzao(indx)%nran = 0
-                        deallocate(Frec%dzao(indx)%if0)
-                        deallocate(Frec%dzao(indx)%if1)
-                        cycle
-                      end if
-
-                    ! Multiple outputs
-                    else
-
-                      ! Reset logical variable
-                      lskip = .True.
-
-                      nran = 0
-                      np = 0
-
-                      ! Look for the limits, for each output frequency
-                      do ifreq=bf0,bf1
-
-                        ! Initialize the flag
-                        skip = .True.
-
-                        ! Check if we are close to a transition
-                        ! frequency
-                        if(abs(Frec%omega(ifreq)*vfac-nutout).lt. &
-                           red_neglW) &
-                          skip = .False.
-
-                        ! If we skip this frequency
-                        if(skip.or.ifreq.eq.bf1) then
-
-                          if(.not.lskip) then
-                            if (ifreq.eq.bf1) then
-                              Frec%dzao(indx)%if1(nran) = ifreq
-                              np = np + 1
-                            else
-                              Frec%dzao(indx)%if1(nran) = ifreq - 1
-                            end if
-                          end if
-
-                        ! If we cannot skip this frequency
-                        else
-
-                          np = np + 1
-
-                          if (lskip) then
-                            nran = nran + 1
-                            Frec%dzao(indx)%if0(nran) = ifreq
-                          end if
-
-                        end if
-
-                        lskip = skip
-
-                      end do ! output frequencies
-
-                    end if ! Number of outputs
-                  end if ! Number of outputs
-
-                  ! Set global limits
-                  Frec%dzao(indx)%gf0 = minval(Frec%dzao(indx)%if0)
-                  Frec%dzao(indx)%gf1 = maxval(Frec%dzao(indx)%if1)
-
-                  ! If storing interpolation data
-                  Frec%dzao(indx)%ggf0 = 10000000
-                  Frec%dzao(indx)%ggf1 = -1
-
-                  ! Count frequencies
-                  Frec%dzao(indx)%nfreq = np
-
-                end if ! Already found limits
-
-                if (Frec%dzao(indx)%nran.lt.1) cycle
-
-                ! Allocate input frequency size
-                np = Frec%dzao(indx)%nfreq
-                allocate(Frec%dzao(indx)%trani(iti)%mfreq(np))
-
-                ! Initialize pointers and back dimension trace
-                allocate(bomega, bw_freq)
-                nullify(bomega%next)
-                nullify(bomega%prev)
-                nullify(bw_freq%next)
-                nullify(bw_freq%prev)
-                bomega%nback = 0
-                bw_freq%nback = 0
-
-                ! Initialize sizes
-                Frec%dzao(indx)%trani(iti)%osize = 0
-                Frec%dzao(indx)%trani(iti)%isize = 0
-
-                ! For each output frequency
-                iifreq = 0
-                do iran=1,Frec%dzao(indx)%nran
-                  do ifreq=Frec%dzao(indx)%if0(iran), &
-                           Frec%dzao(indx)%if1(iran)
-
-                    iifreq = iifreq + 1
+            ! Output transition frequency
+            nutout(1) = Atom(ia)%FSfreq(iJu,itermu) - &
+                        Atom(ia)%FSfreq(iJf,itermf)
 
       !
-      ! Reset indentation B
+      ! Reset indent
       !
 
-      ! Reset number freq
-      Frec%dzao(indx)%trani(iti)%mfreq(iifreq) = 0
+      ! Get output transition ranges
+      call get_transition_out_limit(Atmo,Red,ia,ffjtran, &
+                                    1,if0,if1,nutout(1), &
+                                    Input%redi_pars(3), &
+                                    Atom(ia)%cDopp, &
+                                    nutout,Frec%omega)
 
-      ! Coherent wings?
-      if (Input%cohwi) then
+      ! Allocate auxiliar structure to hold input frequencies
+      allocate(Redd_aux(nti,Rz0:Rz1_PRD))
 
-        ! Check distance
-        if (abs(nutout - Frec%omega(ifreq)*vfac).lt.red_cohwW) then
-          cohw = .False.
-        else
-          cohw = .True.
-        end if
+      ! Reset index of input transition
+      iti = 0
 
-      else
+      ! For each input transition
+      do iti=1,Atom(ia)%tranoI(ffktran)%nt
 
-        cohw = .False.
+        ! Get indexes
+        ffitran = Atom(ia)%tranoI(ffktran)%indT(iti)
+        itran = Atom(ia)%ifst(ffitran)
+        fitran = Atom(ia)%ifstj(ffitran)
 
-      end if
-
-      ! If coherent wings
-      if (cohw) then
-
-        ! Cannot be core then
-        core = .False.
-
-        !
-        ! Store the determined vector
-        !
-
-        ! Advance boxes
-        if (.not.allocated(bomega%A)) then
-
-          allocate(bomega%A(1))
-          allocate(bw_freq%A(1))
-
-        else
-
-          ! bomega
-          bdaux => bomega
-          allocate(bomega%next)
-          bomega => bomega%next
-          bomega%prev => bdaux
-          allocate(bomega%A(1))
-          nullify(bomega%next)
-          nullify(bdaux)
-          bomega%nback = bomega%prev%nback + bomega%prev%mfreq
-
-          ! bw_freq
-          bdaux => bw_freq
-          allocate(bw_freq%next)
-          bw_freq => bw_freq%next
-          bw_Freq%prev => bdaux
-          allocate(bw_freq%A(1))
-          nullify(bw_freq%next)
-          nullify(bdaux)
-
-        end if
-
-        ! Store the fequency axis
-        bomega%A = Frec%omega(ifreq)*vfac
-        ! Store the dimension of the axis
-        bomega%mfreq = 0
-        Frec%dzao(indx)%trani(iti)%mfreq(iifreq) = 0
-        ! Store indexes
-        bomega%ifreq = iifreq
-
-      ! Non-coherent wings
-      else
-
-        if (abs(nutout - Frec%omega(ifreq)*vfac).le.red_coreW) then
-          core = .True.
-        else
-          core = .False.
-        end if
-
-        if (core) then
-          red_rangW1 = red_rangcW1
-          red_vlarW1 = red_vlarcW1
-          red_fstpW1 = red_fstpcW1
-          red_mstpW1 = red_mstpcW1
-        else
-          red_rangW1 = red_rangwW1
-          red_vlarW1 = red_vlarwW1
-          red_fstpW1 = red_fstpwW1
-          red_mstpW1 = red_mstpwW1
-        end if
+        ! Get indexes
+        iterml = Atom(ia)%fst(itran)%iterml
+        iJl = Atom(ia)%fst(itran)%ilevell(fitran)
 
         !
-        ! Find the limits specified by transitions
+        ! Store resonance
         !
 
-        ! Limits for input transition
-        vphv(1) = nut + red_rangW1
-        vplv(1) = nut - red_rangW1
-
-
-        !
-        ! Find the limits specified by the resonance
-        !
-        vpr = Frec%omega(ifreq)*vfac + dnl
-        vphv(2) = vpr + red_rangW1
-        vplv(2) = vpr - red_rangW1
-
+        ! Single resonance
+        nr = 1
+        dnl(1) = Atom(ia)%FSfreq(iJf,itermf) - &
+                 Atom(ia)%FSfreq(iJl,iterml)
 
         !
-        ! Define the true limits:
-        ! The resonance specify the true limits, but if
-        ! they are close to a transition, we expand the limit
+        ! Store the frequencies of transitions
         !
 
-        ! Take the resonance
-        vph = vpr
-        vpl = vpr
+        ! All transitions
+        ntj = 1
+        nt = 2
+        nut(1) = Atom(ia)%FSfreq(iJu,itermu) - &
+                 Atom(ia)%FSfreq(iJf,itermf)
+        nut(2) = Atom(ia)%FSfreq(iJu,itermu) - &
+                 Atom(ia)%FSfreq(iJl,iterml)
+
+        ! Total number of limits
+        ni = nr + nt
+
+        ! Get input frequency and weights
+        call get_input_frequencies(Atmo,Red,Redd_aux,Input%cohwi, &
+                                   ia,ffjtran,iti,nr,ntj,nt,np0, &
+                                   nut(2),nut(1), &
+                                   Input%dcohwi,Input%redi_pars, &
+                                   Frec%omega,dnl,nut, &
+                                   Atom(ia)%cDopp, &
+                                   vphv,vplv,vphve,vplve,vpr, &
+                                   vpp,flag)
+
+      end do ! Input transitions
+
+      ! Split tasks weighted by number of frequencies
+      call setmpi_red(Red,Redd_aux,MPID,ia,ffjtran, &
+                      Atom(ia)%tranoI(ffktran)%nt)
 
-
-        ! If we are, move the limit to the transition
-        ! instead of the resonance
-        if (abs(vph - nut).lt.red_resoW) then
-
-          if(nut.lt.vpl)vpl=nut
-          if(nut.gt.vph)vph=nut
-
-        end if
-
-        ! Now add the range from the parameters
-        vph = vph + red_rangW1
-        vpl = vpl - red_rangW1
-
-
-        !
-        ! Flag lines and resonances out of limits
-        !
-
-        ! The total number of resonances that we had
-        ni = 2
-
-        ! Check if first one is out of limits
-        if(vphv(1).lt.vpl.or.vplv(1).gt.vph)then
-
-          ni = 1
-          vphv(1) = vphv(2)
-          vplv(1) = vplv(2)
-
-          if(vphv(2).lt.vpl.or.vplv(2).gt.vph) &
-            ni = 0
-
-        end if
-
-
-        ! For each resonance and transition
-        do ir=1,ni
-
-          ! The lower limit is out
-          if(vplv(ir).lt.vpl) &
-            vplv(ir) = vpl
-
-          ! The upper limit is out
-          if(vphv(ir).gt.vph) &
-            vphv(ir) = vph
-
-        end do
-
-
-        !
-        ! Check lines and resonances that spawns the same
-        ! range
-        !
-        if (ni.gt.1) then
-
-          ! If the ranges overlap, combine them into
-          ! just one and flag the other out
-          if ((vphv(2).ge.vplv(1).and.vphv(2).le.vphv(1)).or. &
-              (vplv(2).ge.vplv(1).and.vplv(2).le.vphv(1))) then
-
-            vplv(1) = min(vplv(1),vplv(2))
-            vphv(1) = max(vphv(1),vphv(2))
-
-            ni = 1
-
-          else
-
-            ! Order the individual limits
-            if (vplv(1).gt.vplv(2)) then
-              O0 = vplv(1)
-              vplv(1) = vplv(2)
-              vplv(2) = O0
-            end if
-            if (vphv(1).gt.vphv(2)) then
-              O0 = vphv(1)
-              vphv(1) = vphv(2)
-              vphv(2) = O0
-            end if
-
-          end if
-
-        end if ! Two ranges
-
-
-        !
-        ! Define extended limits
-        !
-
-        ! Reset the index of extended limits
-        nie = 0
-
-        ! For each normal limit, get an extended version
-        do ir=1,ni
-          nie = nie + 1
-          vplve(nie) = vplv(ir) - red_vlarW1
-          vphve(nie) = vplv(ir) - red_fstpW1
-          nie = nie + 1
-          vplve(nie) = vphv(ir) + red_fstpW1
-          vphve(nie) = vphv(ir) + red_vlarW1
-        end do
-
-
-        !
-        ! Check lines and resonances that spawns the same range
-        !
-
-        ! Store the number of original limits
-        np = nie
-
-        ! For each pair of transitions and resonances
-        do ir=np,2,-1
-
-          ! This is equivalent to be flagged out
-          if(vplve(ir).lt.0d0)cycle
-
-          ! The other index to make a pair
-          do it=ir-1,1,-1
-
-            ! If the ranges overlap, combine them into
-            ! just one and flag the other out
-            if(vplve(it).lt.0d0)cycle
-            if((vphve(ir).ge.vplve(it).and. &
-                vphve(ir).le.vphve(it)).or. &
-               (vplve(ir).ge.vplve(it).and. &
-                vplve(ir).le.vphve(it)))then
-              vplve(it) = min(vplve(ir),vplve(it))
-              vphve(it) = max(vphve(ir),vphve(it))
-              vplve(ir) = -1d0
-              nie = nie - 1
-              exit
-            end if
-
-          end do ! it
-        end do ! ir
-
-
-        !
-        ! Shift the individual limits moving the valid ones
-        ! to the first part of the vector
-        !
-
-        ! If we have changed the number of ranges from the
-        ! beginning
-        if(nie.ne.np)then
-
-          ! For each pair of resonances
-          do ir=1,np-1
-
-            ! If it is flagged out
-            if(vplve(ir).lt.0d0)then
-
-              ! Reset the added index
-              ip = 1
-
-              ! For all the resonances in front of this one
-              do it=ir+1,np
-
-                ! If it is flagged, skip it
-                if(vplve(it).lt.0d0)then
-
-                  ip = ip + 1
-
-                ! If it is not flagged, move it to the
-                ! position of the flagged one
-                else
-
-                  vplve(it-ip) = vplve(it)
-                  vphve(it-ip) = vphve(it)
-                  vplve(it) = -1d0
-                  exit
-
-                end if
-              end do ! it
-            end if ! ir flagged
-          end do ! ir
-        end if ! if something flagged
-
-
-        !
-        ! Order the individual limits
-        !
-
-        ! Lower limits
-        call QsortC(vplve(1:nie))
-        ! Upper limits
-        call QsortC(vphve(1:nie))
-
-
-        !
-        ! Build the vector of input frequencies from the
-        ! limits
-        !
-
-        ! Flag to reset in case we run out of space while
-        ! building a vector
-        reset = .False.
-
-        ! Do until we are finished
-        do while (.True.)
-
-          ! If the flag is one, we need more space for the
-          ! vector
-          if(reset)then
-            np0 = np0*2
-            deallocate(vpp)
-            allocate(vpp(np0))
-            deallocate(flag)
-            allocate(flag(np0))
-            reset = .False.
-          end if
-
-          ! Reset index counter
-          np = 0
-
-
-          !
-          ! Build for the short limits
-          !
-
-          ! For each short range
-          do it=1,ni
-
-            ! Advance the index
-            np = np + 1
-
-            ! If we ran out of space, we have to reset
-            if(np.gt.np0)then
-              reset = .True.
-              exit
-            end if
-
-            ! Start with the lower limit
-            vpp(np) = vplv(it)
-
-            ! Do until finished
-            do while(.True.)
-
-              ! Advance the index
-              np = np + 1
-
-              ! If we ran out of space, we have to reset
-              if(np.gt.np0)then
-                reset = .True.
-                exit
-              end if
-
-              ! Next frequency is the previous plus the step
-              vpp(np) = vpp(np-1) + red_fstpW1
-
-              ! If we are over the range, we are done
-              if(vpp(np).ge.vphv(it))then
-                vpp(np) = vphv(it)
-                exit
-              end if
-
-            end do
-
-            ! If we have no space, we need to reset
-            if (reset) exit
-
-          end do
-
-          ! If we have no space, we need to allocate it above
-          if (reset) cycle
-
-          !
-          ! Build for the extended limits
-          !
-
-          ! For each long range
-          do it=1,nie
-
-            ! Advance the index
-            np = np + 1
-
-            ! If we ran out of space, we have to reset
-            if(np.gt.np0)then
-              reset = .True.
-              exit
-            end if
-
-            ! We start with the lower limit
-            vpp(np) = vplve(it)
-
-            ! Do until finished
-            do while(.True.)
-
-              ! Advance the index
-              np = np + 1
-
-              ! If we ran out of space, we have to reset
-              if(np.gt.np0)then
-                reset = .True.
-                exit
-              end if
-
-              ! Next frequency is the previous plus the step
-              vpp(np) = vpp(np-1) + red_mstpW1
-
-              ! If we are over the range, we are done
-              if(vpp(np).ge.vphve(it))then
-                vpp(np) = vphve(it)
-                exit
-              end if
-
-            end do
-
-            ! If we have no space, we need to allocate it
-            ! above
-            if (reset) exit
-
-          end do
-
-          ! If we have no space, we need to allocate it above
-          if (reset) cycle
-
-          !
-          ! Add the resonance frequencies to the vector
-          !
-
-          ! The number of frequencies we already have
-          npp = np
-
-          !
-          ! Add the resonance
-          !
-
-          ! Reset the flag
-          nfound = .True.
-
-          ! Run over the existing frequencies
-          do ip=1,npp
-
-            ! If the frequency is there, do not add it
-            if (abs(1d2/vpp(ip) - 1d2/vpr).lt.resolin) then
-              nfound = .False.
-              exit
-            end if
-
-          end do
-
-          ! If we did not find it
-          if (nfound) then
-
-            ! Advance the index
-            np = np + 1
-
-            ! If we ran out of space, we have to reset
-            if(np.gt.np0)then
-              reset = .True.
-            end if
-
-            ! Add the frequency
-            if (.not.reset) vpp(np) = vpr
-
-          end if
-
-          if(reset)cycle
-
-          exit ! If we get to this point, we have everything
-
-        end do ! First do while
-
-
-        !
-        ! Check for duplicates
-        !
-
-        ! Reset the flag
-        flag(1:np) = 1
-
-        ! For each frequency
-        do ip=1,np
-
-          ! If it has been flagged, we already checked
-          if (flag(ip).lt.1) cycle
-
-          ! Check the following ones
-          do ipp=ip+1,np
-
-            ! If it has been flagged, we already checked
-            if (flag(ipp).lt.1) cycle
-
-            ! If some of them are repeated, flag them to be removed
-            if(abs(1d2/vpp(ip)-1d2/vpp(ipp)).lt.resolin) flag(ipp) = 0
-
-          end do ! ipp
-        end do ! ip
-
-        ! Reset the running real index
-        ipp = 0
-
-        ! For each frequency in the vector
-        do ip=1,np
-
-          ! If it is flagged correct, add to real vector
-          if(flag(ip).gt..5)then
-            ipp = ipp + 1
-            vpp(ipp) = vpp(ip)
-          end if
-
-        end do
-
-        ! The number of frequencies is the last value of ipp
-        np = ipp
-
-        ! Order the frequency axis
-        call QsortC(vpp(1:np))
-
-
-        !
-        ! Store the determined vector
-        !
-
-        ! Advance boxes
-        if (.not.allocated(bomega%A)) then
-
-          allocate(bomega%A(np))
-          allocate(bw_freq%A(np))
-
-        else
-
-          ! bomega
-          bdaux => bomega
-          allocate(bomega%next)
-          bomega => bomega%next
-          bomega%prev => bdaux
-          allocate(bomega%A(np))
-          nullify(bomega%next)
-          nullify(bdaux)
-          bomega%nback = bomega%prev%nback + bomega%prev%mfreq
-
-          ! bw_freq
-          bdaux => bw_freq
-          allocate(bw_freq%next)
-          bw_freq => bw_freq%next
-          bw_Freq%prev => bdaux
-          allocate(bw_freq%A(np))
-          nullify(bw_freq%next)
-          nullify(bdaux)
-
-        end if
-
-        ! Check that we have enough space to work below
-        if(.not.allocated(Wvpp))then
-          allocate(Wvpp(np))
-        else
-          if(size(Wvpp).lt.np)then
-            deallocate(Wvpp)
-            allocate(Wvpp(np))
-          end if
-        end if
-
-        ! Store the fequency axis
-        bomega%A = vpp(1:np)
-        ! Store the dimension of the axis
-        bomega%mfreq = np
-        Frec%dzao(indx)%trani(iti)%mfreq(iifreq) = np
-        ! Store indexes
-        bomega%ifreq = iifreq
-
-        ! Update the maximum of input frequencies
-        if (np.gt.Frec%dzao(indx)%mxfreq) Frec%dzao(indx)%mxfreq = np
-
-
-        !
-        ! Define the integration weights (same than
-        ! omegabuild)
-        !
-
-        ! The first point is special in compound trapezoidal
-        ! rule
-        Wvpp(1) = .5d0*(vpp(2) - vpp(1))
-
-        ! Initialize the integral to normalize the weights
-        norm1 = Wvpp(1)
-
-        ! The initial lower limit is the first point
-        O0 = vpp(1)
-
-        ! This is the pointer to the first element of the
-        ! current interval, we are pointing to the first
-        ! element
-        cfreq = 1
-
-        ! Flag that says that the point 2 is not the initial
-        ! point of the interval (because 1 is the initial
-        ! point)
-        init = .FALSE.
-
-        ! For the rest of frequencies except the last
-        do jfreq=2,np-1
-
-          ! If ifreq is the initial point of an interval
-          if(init)then
-
-            ! The first point is special in compound
-            ! trapezoidal rule
-            Wvpp(jfreq) = .5d0*(vpp(jfreq+1) - vpp(jfreq))
-
-            ! The next point cannot be a first point
-            init = .FALSE.
-
-            ! Initialize the integral to normalize the
-            ! weights
-            norm1 = Wvpp(jfreq)
-
-            ! Pointer is now in this frequency
-            cfreq = jfreq
-
-            ! And it is the beginning of the current interval
-            O0 = vpp(jfreq)
-
-          ! If jfreq is not the initial point of an interval
-          else
-
-            ! Check if ifreq is the last point of an interval
-            if(abs(vpp(jfreq+1) - vpp(jfreq)).gt.red_neglW)then
-
-              ! The last point is special in compound
-              ! trapezoidal rule
-              Wvpp(jfreq) = .5d0*(vpp(jfreq) - vpp(jfreq-1))
-
-              ! It is the end of the current interval
-              O1 = vpp(jfreq)
-
-              ! Add to the integral
-              norm1 = norm1 + Wvpp(jfreq)
-
-              ! We know that the integral must be
-              ! NOTICE THE 1D5, IT IS IN PROPER cm^-1
-              norm = 1d5*(O1 - O0)/norm1
-
-              ! Normalize the weights of this interval
-              do kfreq=cfreq,jfreq
-                Wvpp(kfreq) = Wvpp(kfreq)*norm
-              end do
-
-              ! The next point is the first point of its
-              ! interval
-              init = .TRUE.
-
-            ! If jfreq is not the last point of an interval
-            else
-
-              ! Compound trapezoidal rule weight
-              Wvpp(jfreq) = .5d0*(vpp(jfreq+1) - vpp(jfreq-1))
-
-              ! Add to the integral
-              norm1 = norm1 + Wvpp(jfreq)
-
-            endif ! Last point
-
-          end if ! Initial point
-
-        end do ! jfreq
-
-        ! The last point is special in compound trapezoidal
-        ! rule
-        Wvpp(np) = .5d0*(vpp(np) - vpp(np-1))
-
-        ! It is the end of the interval
-        O1 = vpp(np)
-
-        ! Add to the integral
-        norm1 = norm1 + Wvpp(np)
-
-        ! We know that the integral must be
-        ! NOTICE THE 1D5, IT IS IN PROPER cm^-1
-        norm = 1d5*(O1 - O0)/norm1
-
-        ! Normalize the weights of this interval
-        do jfreq=cfreq,np
-          Wvpp(jfreq) = Wvpp(jfreq)*norm
-        end do
-
-        ! Store the weights
-        bw_freq%A = Wvpp(1:np)
-
-      end if ! Coherent wings
-
-                  end do ! Output frequencies
-                end do ! output frequency ranges
-
-                !
-                ! Properly store and index the data
-                !
-
-                ! Total dimension of omega and w_freq
-                nn = bomega%nback + bomega%mfreq
-
-                ! Allocate omega and W_freq
-                allocate(Frec%dzao(indx)%trani(iti)%omega(nn))
-                allocate(Frec%dzao(indx)%trani(iti)%w_freq(nn))
-
-                ! Determine size
-                Frec%dzao(indx)%trani(iti)%osize = nn
-
-                ! Go backwards in the linked lists
-                do while (.True.)
-
-                  iifreq = bomega%ifreq
-                  ip = bomega%nback + 1
-                  ipp = ip + bomega%mfreq - 1
-                  if (ipp.ge.ip) then
-                    Frec%dzao(indx)%trani(iti)%omega(ip:ipp) = &
-                                                              bomega%A
-                    Frec%dzao(indx)%trani(iti)%W_freq(ip:ipp) = &
-                                                             bw_freq%A
-                  end if
-
-                  ! Deallocate arrays
-                  deallocate(bomega%A,bw_freq%A)
-
-                  ! If last one, clean and quit
-                  if (.not.associated(bomega%prev)) then
-                    deallocate(bomega,bw_freq)
-                    nullify(bomega,bw_freq)
-                    exit
-                  ! Not done with the list
-                  else
-                    bomega => bomega%prev
-                    bw_freq => bw_freq%prev
-                    nullify(bomega%next%prev,bw_freq%next%prev)
-                    deallocate(bomega%next,bw_freq%next)
-                    nullify(bomega%next,bw_freq%next)
-                  end if
-
-                end do ! Run backwards the frequency axes
-
-                ! Update RAM
-!$omp flush(MPID)
-                MPID%RAM = MPID%RAM + 16d-6*dble(nn)
-                MPID%WRAM = MPID%WRAM + 16d-6*dble(nn)
-!$omp flush(MPID)
-
-                ! End of array constructions
-
-              end do ! Heights
-            end do !Output directions
-          end do ! Lower input level
-        end do ! Lower input term
-
-              !
-              ! Restore identation
-              !
-
-              end do ! Lower output level
-            end do ! Lower output term
-          end do ! upper level
-        end do ! upper term
-
-!$omp barrier
-
-        !
-        ! Allocate space for interpolation and define it or
-        ! find the index limits
-        !
-
-        ! For each output direction
-        do jdir=1,Frec%ndir
-
-          ! Generate scattering angles if AD, LOS, and dynamic
-          if (.not.AVI.and.LOS.and.dyn) then
-            call get_scattering_los(Geom,ithv(jdir),iphv(jdir))
-            jbdir = 1
-          else
-            jbdir = jdir
-          end if
-
-          !
-          ! If coherent wings, compute vfac
-          if (Input%cohwi) then
-
-            ! If dynamic
-            if (dyn) then
-
-              ! If line of sight
-              if (LOS) then
-
-                ith = ithv(jdir)
-                iph = iphv(jdir)
-                ct = Geom%L_mu(ith)
-                st = sqrt(1d0 - ct*ct)
-                cc = cos(Geom%L_phi(iph))
-                sc = sin(Geom%L_phi(iph))
-
-              ! If quadrature
-              else
-
-                ith = ithv(jdir)
-                iph = iphv(jdir)
-                ct = Geom%V_mu(ith)
-                st = sqrt(1d0 - ct*ct)
-                cc = Geom%v_mux(iph)
-                sc = Geom%v_muy(iph)*sqrt(1d0 - cc*cc)
-
-              end if
-
-            ! not-dynamic
-            else
-
-              vfac = 1d0
-
-            end if
-          end if
-
-          ! For each height
-          do iz=Rz0,Rz1
-
-            ! Calculate Doppler shift factor
-            if (dyn.and.Input%cohwi) &
-              vfac = 1d0 - atmo%vx(iz)*st*cc - &
-                           atmo%vy(iz)*st*sc - &
-                           atmo%vz(iz)*ct
-
-            ! For each upper level
-            do itermu=2,Atom(ia)%nMulti
-              do iJu=1,Atom(ia)%nJ(itermu)
-
-                ! For each final lower level
-                do itermf=1,itermu-1
-                  do iJf=1,Atom(ia)%nJ(itermf)
-
-                    jtran = Atom(ia)%irad(itermu,itermf)
-
-                    if (jtran.le.0) cycle
-                    if (.not.Atom(ia)%lemiss2(jtran)) cycle
-                    if (Atom(ia)%fflag(jtran)%absent) cycle
-
-                    fjtran = Atom(ia)%fst(jtran)%irad(iJu,iJf)
-
-                    if (fjtran.le.0) cycle
-
-                    ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
-                    ffktran = Atom(ia)%itrano(ffjtran)
-
-                    ! Get index
-                    indx = Frec%indx(ffjtran,ia,iz,jdir)
-#ifdef _OPENMP
-                    ! Multi-thread
-                    if (omp) then
-                      ! Skip if not assigned
-                      if (indx.lt.oif0(tid)) cycle
-                      if (indx.gt.oif1(tid)) exit
-                    end if
-#endif
-                    if (Frec%dzao(indx)%nran.lt.1) cycle
-
-
-        !
-        ! Reset identation
-        !
-
-        ! For each other lower level
-        do iterml=1,itermu-1
-          do iJl=1,Atom(ia)%nJ(iterml)
-
-            itran = Atom(ia)%irad(itermu,iterml)
-            if (itran.le.0) cycle
-
-            fitran = Atom(ia)%fst(itran)%irad(iJu,iJl)
-
-            if (fitran.le.0) cycle
-
-            ffitran = Atom(ia)%ifst_ij(fitran,itran)
-
-            ! Find the transition index
-            ios = -1
-            do iti=1,Atom(ia)%trano(ffktran)%nt
-
-              if (Atom(ia)%trano(ffktran)%ind(iti).eq.ffitran) then
-                ios = 1
-                exit
-              end if
-
-            end do ! Input transitions
-            if (ios.lt.0) cycle
-
-            ! Point to input frequency
-            p_frec => Frec%dzao(indx)%trani(iti)
-
-            ! Predict size of next block
-            nn = sum(p_frec%mfreq)
-
-            ! If angle-dependent and dynamic
-            if (.not.AVI.and.dyn) then
-
-              ! Check if forward
-              if (ffjtran.eq.ffitran.and. &
-                  Geom%V_CScatt(1).ge.1d0) then
-                nfs = 1
-              else
-                nfs = 0
-              end if
-
-              ! For axial problems
-              if (axiali) then
-
-                ! Size is just polar
-                nn = nn*Geom%nTh
-
-              ! For non-axial problems
-              else
-
-                ! Skip forward rayleigh
-                nn = nn*(Geom%nTh*Geom%nPh2 - nfs)
-
-              end if ! Axial
-            end if ! AD and dynamic
-
-            ! Predict aditional frequency
-            SRAM = 16d-6*dble(nn)
-
-            ! If can store
-            if (TIRAM) then
-!$omp flush(MPID,ofram)
-              ! If no more space
-              if (floor(MPID%RAM+SRAM).gt.RLIM.or.SRAM.le.0d0) then
-                ofram = .True.
-                p_frec%RAM = .False.
-              else
-                allocate(p_frec%index1(nn))
-                allocate(p_frec%index2(nn))
-                allocate(p_frec%dx(nn))
-                MPID%RAM = MPID%RAM + SRAM
-                MPID%WRAM = MPID%WRAM + SRAM
-                p_frec%RAM = .True.
-              end if
-!$omp flush(MPID,ofram)
-            ! Cannot store
-            else
-              p_frec%RAM = .False.
-            end if
-
-            ! Store size
-            Frec%dzao(indx)%trani(iti)%isize = nn
 
             !
-            ! Define interpolation
+            ! Restore identation
+            !
 
-            ! Initialize index
-            jjfreq0 = 0
-            kkfreq0 = 0
+          end do ! FS transition (out)
+        end do ! Output transition
 
-            ! For each output frequency
-            iifreq = 0
-            do iran=1,Frec%dzao(indx)%nran
-              do ifreq=Frec%dzao(indx)%if0(iran), &
-                       Frec%dzao(indx)%if1(iran)
+        ! Find frequency limits for the frequency range needed for
+        ! integrals
+        call find_integral_limits(Atom(ia),Atmo,Red, &
+                                  Frec%omega,ia,.False.)
 
-                ! Advance index
-                iifreq = iifreq + 1
+      end do ! Atoms
 
-                ! Input frequency number
-                np = p_frec%mfreq(iifreq)
-
-                ! For each input direction
-                do ith=1,Frec%nth
-                  do iph=1,Frec%nph
-
-                    ! If dynamics and AD
-                    if (dyn.and..not.AVI) then
-
-                      ! For axial problems
-                      if (axiali) then
-
-                        ! Automatically skip extra azimuths
-                        if (iph.gt.1) cycle
-
-                        ! Get director cosines
-                        ct1 = Geom%V_mu(ith)
-
-                        ! Calculate Doppler shift factor
-                        vfac1 = 1d0 - atmo%vz(iz)*ct1
-
-                        ! We will be using the inverse
-                        vfac1 = 1d0/vfac1
-
-                      ! For non-axial problems
-                      else
-
-                        ! If angle-dependent, check forward Rayleigh
-                        ! scattering
-                        if (nfs.eq.1.and. &
-                            Geom%V_CScatt(Geom% &
-                                 i_scatt(iph,ith,jbdir)).ge.1d0) &
-                          cycle
-
-                        ! Get director cosines
-                        ct1 = Geom%V_mu(ith)
-                        st1 = sqrt(1d0 - ct1*ct1)
-                        cc1 = Geom%v_mux(iph)
-                        sc1 = Geom%v_muy(iph)*sqrt(1d0 - cc1*cc1)
-
-                        ! Calculate Doppler shift factor
-                        vfac1 = 1d0 - atmo%vx(iz)*st1*cc1 - &
-                                      atmo%vy(iz)*st1*sc1 - &
-                                      atmo%vz(iz)*ct1
-
-                        ! We will be using the inverse
-                        vfac1 = 1d0/vfac1
-
-                      end if ! Axial
-
-                    ! Not dynamic or AV
-                    else
-
-                      ! No shift
-                      vfac1 = 1d0
-
-                      ! Only one direction
-                      if (iph.gt.1.or.ith.gt.1) cycle
-
-                    end if ! Dynamics
-
-                    ! Reset indexes
-                    jjfreq = jjfreq0
-                    kkfreq = kkfreq0
-
-                    ! Skip empty
-                    if (np.lt.1) then
-
-                      ! Left and right limits from resonance
-                      lifreq = 1
-                      jfreq = nfreq
-                      O0 = Frec%omega(ifreq)*vfac
-
-                      !
-                      ! Look for the indexes
-
-                      !
-                      ! Left
-
-                      ! Only if not beyond already
-                      if (Frec%omega(lifreq)*vfac1.lt.O0) then
-
-                        ! Search
-                        do while (.True.)
-
-                          ! Check if next inside
-                          if (Frec%omega(lifreq+1)*vfac1.gt.O0) exit
-
-                          ! Advance
-                          lifreq = lifreq + 1
-                          if ((lifreq+1).gt.nfreq) exit
-
-                        end do ! Search
-
-                      end if ! Need to search
-
-                      !
-                      ! Right
-
-                      ! Only if not beyond already
-                      if (Frec%omega(jfreq)*vfac1.gt.O0) then
-
-                        ! Search
-                        do while (.True.)
-
-                          ! Check if already inside
-                          if (Frec%omega(jfreq-1)*vfac1.lt.O0) exit
-
-                          ! Advance
-                          jfreq = jfreq - 1
-                          if ((jfreq-1).lt.1) exit
-
-                        end do
-
-                      end if ! Need to search
-
-                      ! Update global limits
-                      if (lifreq.lt.Frec%dzao(indx)%ggf0) &
-                        Frec%dzao(indx)%ggf0 = lifreq
-                      if (jfreq.gt.Frec%dzao(indx)%ggf1) &
-                        Frec%dzao(indx)%ggf1 = jfreq
-
-                      ! Skip rest
-                      cycle
-
-                    end if ! Coherent wing
-
-                    ! If storing
-                    if (p_frec%RAM) then
-
-                      !
-                      ! Reset identation
-                      !
-
-      ! Reset the search frequency
-      lifreq = 1
-
-      ! For each input frequency
-      do jfreq=1,np
-
-        ! Advance indexes
-        jjfreq = jjfreq + 1
-        kkfreq = kkfreq + 1
-
-        ! If out of range, take the value at the
-        ! boundary
-        if (p_frec%omega(jjfreq)*vfac1.le.Frec%omega(1)+TINYO) then
-
-          ! We are still looking in the first one
-          lifreq = 1
-
-          ! The index to take is 1
-          p_frec%index1(kkfreq) = 1
-
-          ! The index to take is 1
-          p_frec%index2(kkfreq) = 1
-
-          ! We do not need this number
-          p_frec%dx(kkfreq) = 0d0
-
-        ! If out of range, take the value at the boundary
-        else if (p_frec%omega(jjfreq)*vfac1.ge. &
-                 (Frec%omega(nfreq) - TINYO)) then
-
-          ! We are in the last frequency
-          lifreq = nfreq
-
-          ! The index to take is nfreq
-          p_frec%index1(kkfreq) = nfreq
-
-          ! The index to take is nfreq
-          p_frec%index2(kkfreq) = nfreq
-
-          ! We do not need this number
-          p_frec%dx(kkfreq) = 0d0
-
-        ! If within the boundaries
-        else
-
-          ! Search between the last found frequency and
-          ! all but the boundary
-          do ibfreq=lifreq,nfreq-1
-
-            ! If this exact frequency is in output
-            if (abs(p_frec%omega(jjfreq)*vfac1 - &
-                    Frec%omega(ibfreq)).lt.TINYO) then
-
-              ! We are in the found frequency
-              lifreq = ibfreq
-
-              ! This frequency gives us the value
-              p_frec%index1(kkfreq) = lifreq
-
-              ! This frequency gives us the value
-              p_frec%index2(kkfreq) = lifreq
-
-              ! We do not need this number
-              p_frec%dx(kkfreq) = 0d0
-
-              exit
-
-            ! If the input is between this output and
-            ! the next
-            else if(p_frec%omega(jjfreq)*vfac1.ge. &
-                    Frec%omega(ibfreq).and. &
-                    p_frec%omega(jjfreq)*vfac1.lt. &
-                    Frec%omega(ibfreq+1)) then
-
-              ! We found it in the index of the lower
-              lifreq = ibfreq
-
-              ! The first index is the lower
-              p_frec%index1(kkfreq) = lifreq
-
-              ! The second index is the upper
-              p_frec%index2(kkfreq) = lifreq+1
-
-              ! Store the inverse of the distance between
-              ! the two outputs
-              p_frec%dx(kkfreq) = &
-                  (p_frec%omega(jjfreq)*vfac1 - Frec%omega(lifreq))/ &
-                  (Frec%omega(lifreq+1) - Frec%omega(lifreq))
-
-              exit
-
-            end if ! Check output frequency
-
-          end do ! Run output frequencies
-
-        end if ! Check if out of limits
-
-        ! Update global limits
-        if (p_frec%index1(kkfreq).lt.Frec%dzao(indx)%ggf0) &
-          Frec%dzao(indx)%ggf0 = p_frec%index1(kkfreq)
-        if (p_frec%index2(kkfreq).gt.Frec%dzao(indx)%ggf1) &
-          Frec%dzao(indx)%ggf1 = p_frec%index2(kkfreq)
-
-      end do ! Run input frequencies
-
-                      !
-                      ! Restore identation
-                      !
-
-                    ! Not storing
-                    else
-
-                      !
-                      ! Reset identation
-                      !
-
-       ! Compute jump
-       lifreq = 1
-       jufreq = np
-       if (np.gt.1) jufreq = jufreq - 1
-
-       ! First and last frequencies
-       do jfreq=jjfreq+1,jjfreq+np,jufreq
-
-         ! If out of range, take the value at the
-         ! boundary
-         if (p_frec%omega(jfreq)*vfac1.le.Frec%omega(1)) then
-
-           if (Frec%dzao(indx)%ggf0.gt.1) Frec%dzao(indx)%ggf0 = 1
-           if (Frec%dzao(indx)%ggf1.lt.1) Frec%dzao(indx)%ggf1 = 1
-
-         ! If out of range, take the value at the boundary
-         else if (p_frec%omega(jfreq)*vfac1.ge. &
-                  (Frec%omega(nfreq) - TINYO)) then
-
-           ! We are in the last frequency
-           if (Frec%dzao(indx)%ggf0.gt.nfreq) &
-             Frec%dzao(indx)%ggf0 = nfreq
-           if (Frec%dzao(indx)%ggf1.lt.nfreq) &
-             Frec%dzao(indx)%ggf1 = nfreq
-
-         ! If within the boundaries
-         else
-
-           ! Search between the last found frequency and
-           ! all but the boundary
-           do ibfreq=lifreq,nfreq-1
-
-             ! If this exact frequency is in output
-             if (abs(p_frec%omega(jfreq)*vfac1 - &
-                     Frec%omega(ibfreq)).lt.TINYO) then
-
-               ! Found frequency
-               if (Frec%dzao(indx)%ggf0.gt.ibfreq) &
-                 Frec%dzao(indx)%ggf0 = ibfreq
-               if (Frec%dzao(indx)%ggf1.lt.ibfreq) &
-                 Frec%dzao(indx)%ggf1 = ibfreq
-
-               exit
-
-             ! If the input is between this output and the next
-             else if(p_frec%omega(jfreq)*vfac1.ge. &
-                                            Frec%omega(ibfreq).and. &
-                     p_frec%omega(jfreq)*vfac1.lt. &
-                                            Frec%omega(ibfreq+1)) then
-
-               ! Found frequency
-               if (Frec%dzao(indx)%ggf0.gt.ibfreq) &
-                 Frec%dzao(indx)%ggf0 = ibfreq
-               if (Frec%dzao(indx)%ggf1.lt.ibfreq+1) &
-                 Frec%dzao(indx)%ggf1 = ibfreq+1
-
-               exit
-
-             end if ! Check output frequency
-
-           end do ! Run output frequencies
-
-         end if ! Check if out of limits
-
-       end do ! Run input frequencies
-
-       ! Fake the advance of frequencies
-       jjfreq = jjfreq + np
-       kkfreq = kkfreq + np
-
-
-                      !
-                      ! Restore indentation
-                      !
-
-                    end if ! Storing
-
-                    if (.not.AVI.and..not.axiali.and.dyn) &
-                      kkfreq0 = kkfreq
-
-                  end do ! Input azimuth
-
-                  ! Update kkfreq
-                  if (.not.AVI.and.dyn) kkfreq0 = kkfreq
-
-                end do ! Input polar
-
-                ! Update index
-                jjfreq0 = jjfreq
-                kkfreq0 = kkfreq
-
-              end do ! Output frequencies
-            end do ! Output frequency ranges
-
-            ! Nullify local pointer
-            nullify(p_frec)
-
-          end do ! iJl
-        end do ! iterml
-
-                  !
-                  ! Restore identation
-                  !
-
-                  end do ! Lower output level
-                end do ! Lower output term
-              end do ! upper level
-            end do ! upper term
-          end do ! height nodes
-        end do ! output directions
-
-!$omp barrier
-
-        !
-        ! Allocate space for Warr2
-        !
-        if (IRAM) then
-
-          ! Allocate skip scattering
-!$omp single
-          allocate(skip_scatt(Geom%nScatt))
-          skip_scatt = .False.
-          nskip = 0
-!$omp end single
-
-          ! For each output direction
-          do jdir=1,Red%njdir
-
-            jbdir = min(jdir,Frec%ndir)
-
-!$omp single
-            ! Angle-dependent and dynamic
-            if (.not.AVI.and.dyn) then
-
-              ! Initialize to skip everything
-              skip_scatt = .True.
-              nskip = Geom%nScatt
-
-              ! Check scattering angles for this output direction
-              do ith1=1,Geom%nTh
-                do iph1=1,Geom%nPh2
-
-                  ! Scattering index
-                  ish = Geom%i_scatt(iph1,ith1,jdir)
-
-                  ! If skipping
-                  if (skip_scatt(ish)) then
-
-                    ! Flag no skip
-                    skip_scatt(ish) = .False.
-                    nskip = nskip - 1
-
-                  end if
-
-                end do
-              end do
-
-            end if ! AD
-!$omp end single
-
-            ! For each height
-            do iz=Rz0,Rz1
-
-              ! For each upper level
-              do itermu=2,Atom(ia)%nMulti
-                do iJu=1,Atom(ia)%nJ(itermu)
-
-                  ! For each final lower level
-                  do itermf=1,itermu-1
-                    do iJf=1,Atom(ia)%nJ(itermf)
-
-                      jtran = Atom(ia)%irad(itermu,itermf)
-
-                      if (jtran.le.0) cycle
-                      if (.not.Atom(ia)%lemiss2(jtran)) cycle
-                      if (Atom(ia)%fflag(jtran)%absent) cycle
-
-                      fjtran = Atom(ia)%fst(jtran)%irad(iJu,iJf)
-
-                      if (fjtran.le.0) cycle
-
-                      ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
-                      ffktran = Atom(ia)%itrano(ffjtran)
-
-                      ! Get index
-                      indxf = Frec%indx(ffjtran,ia,iz,jbdir)
-                      indx = Red%indx(ffjtran,ia,iz,jdir)
-
-                      ! Initialize
-                      do iti=1,Atom(ia)%trano(ffktran)%nt
-                        Red%dzao(indx)%trani(iti)%RAM = .False.
-                      end do
-
-                      ! If no range, skip
-                      if (Frec%dzao(indxf)%nran.lt.1) cycle
-
-#ifdef _OPENMP
-                      ! If multi-thread
-                      if (omp) then
-                        ! Skip if not assigned
-                        if (indx.lt.orif0(tid)) cycle
-                        if (indx.gt.orif1(tid)) exit
-                      end if
-#endif
-
-        !
-        ! Reset identation
-        !
-
-        ! For each other lower level
-        do iterml=1,itermu-1
-          do iJl=1,Atom(ia)%nJ(iterml)
-
-            itran = Atom(ia)%irad(itermu,iterml)
-            if (itran.le.0) cycle
-
-            fitran = Atom(ia)%fst(itran)%irad(iJu,iJl)
-
-            if (fitran.le.0) cycle
-
-            ffitran = Atom(ia)%ifst_ij(fitran,itran)
-
-            ! Find the transition index
-            ios = -1
-            do iti=1,Atom(ia)%trano(ffktran)%nt
-
-              if (Atom(ia)%trano(ffktran)%ind(iti).eq.ffitran) then
-                ios = 1
-                exit
-              end if
-
-            end do ! Input transitions
-            if (ios.lt.0) cycle
-
-            ! Predict size of next block
-            nn = sum(Frec%dzao(indxf)%trani(iti)%mfreq)
-            if (.not.AVI.and.ffjtran.eq.ffitran) then
-              nn = nn*(Geom%nScatt - 1 - nskip)
-            else
-              nn = nn*(Geom%nScatt - nskip)
-            end if
-            if (nn.le.0) cycle
-            SRAM = 4d-6*dble(nn)
-
-            ! If no more space
-!$omp flush(MPID,ofram)
-            if (floor(MPID%RAM+SRAM).gt.RLIM.or. &
-                SRAM.le.0d0) then
-              ofram = .True.
-!$omp flush(ofram)
-              Red%dzao(indx)%trani(iti)%RAM = .False.
-              cycle
-            end if
-            MPID%RAM = MPID%RAM + SRAM
-            MPID%WRAM = MPID%WRAM + SRAM
-!$omp flush(MPID)
-
-            Red%dzao(indx)%trani(iti)%RAM = .True.
-            allocate(Red%dzao(indx)%trani(iti)%IWarr2(nn))
-
-          end do ! iJl
-        end do ! iterml
-
-                  !
-                  ! Restore identation
-                  !
-
-                    end do ! Lower output level
-                  end do ! Lower output term
-                end do ! upper level
-              end do ! upper term
-            end do ! height nodes
-          end do ! output directions
-
-          ! Free
-          deallocate(skip_scatt)
-
-        ! If not storing in RAM
-        else
-
-          ! Allocate dummy array
-!$omp single
-          if (.not.associated(Red%dzao)) then
-            allocate(Red%dzao(1))
-            nullify(Red%dzao(1)%trani)
-          end if
-!$omp end single
-
-        end if ! IRAM
-      end do ! Atom
-!$omp end parallel
-
-#ifdef _OPENMP
-      ! deallocate limits for threads
-      if (omp) deallocate(oif0,oif1)
-#endif
+      ! Count memory
+      call cram_red_frec(Red,RAM)
+      FRAMc = RAM
 
       ! Check if everything is fine
       call control
@@ -8518,60 +4686,223 @@
 !#####################################################################
 !#####################################################################
 
-      !> Resize some frequency dependent quantities and set CPU wise
-      !! limits for the indexes where transitions are present.\n
-      !!     Frec(Frequency_class): Structure with frequency data\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!        Input(Input_class): Structure with settings data\n
-      !!           MPID(MPI_class): Structure with MPI data
+      !> Allocate space to store the intensity redistribution
+      !! functions\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!        Red(Red_class): Structure with redistribution input
+      !!                        frequency data, redistribution
+      !!                        function data, and profile or
+      !!                        normalization data\n
+      !!  Geom(Geometry_class): Structure with geometric data\n
+      !!        ofram(logical): If reached the RAM limit
+      subroutine allocate_WarrI(Atom,Red,Geom,ofram)
+
+      ! I/O
+
+      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Red_class), intent(inout):: Red
+      type(Geometry_class),intent(inout):: Geom
+      logical, intent(out):: ofram
+
+      ! Local
+
+      integer:: nn
+      integer:: indx,iz,ia,jtran,fjtran,ffjtran,ffktran,ffitran,iti
+
+      double precision:: RAM,SRAM
+
+
+      ! Initialize RAM counters
+      WRAMc = 0d0
+
+      ! Initialize
+      ofram = .False.
+
+      ! Generate scattering angles if angle-dependent
+      if (.not.AVI) &
+        call get_scattering(Geom)
+
+      ! If not storing, go back
+      if (.not.IRAM) return
+
+      ! Get current RAM status
+      RAM = cram_add(1)
+
+      ! Allocate rzao
+      allocate(Red%rzao(Red%nzao))
+
+      ! For each index
+      do indx=1,Red%nzao
+
+        ! Count memory due to the bool
+        RAM = RAM + 4d-6*dble(size(Red%zao(indx)%trani))
+        nullify(Red%rzao(indx)%trani)
+
+      end do ! Indexes
+
+      ! For each height
+      do iz=Rz0,Rz1_PRD
+
+        ! For each atom
+        do ia=1,nA
+
+          ! For output transition
+          do jtran=1,Atom(ia)%ntran
+
+            ! Skip CRD
+            if (.not.Atom(ia)%lemiss2(jtran)) cycle
+
+            ! For each FS transition
+            do fjtran=1,Atom(ia)%fst(jtran)%nt
+
+              ! Get indexes
+              ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
+              ffktran = Atom(ia)%itrano(ffjtran)
+              indx = Red%izao(ffjtran,ia,iz)
+
+              ! If no range or frequency, skip
+              if (Red%zao(indx)%nran.lt.1) cycle
+              if (Red%zao(indx)%nf(pid).lt.1) cycle
+
+              ! Allocate input transitions
+              allocate(Red%rzao(indx)%trani(Atom(ia)% &
+                                            tranoI(ffktran)%nt))
+
+              ! For each input transition
+              do iti=1,Atom(ia)%tranoI(ffktran)%nt
+
+                ! Initialize
+                Red%rzao(indx)%trani(iti)%RAM = .False.
+
+                ! Get indexes
+                ffitran = Atom(ia)%tranoI(ffktran)%indT(iti)
+
+                ! Predict size of next block
+                nn = sum(Red%zao(indx)%trani(iti)%mfreq)
+
+                ! Skip empty
+                if (nn.le.0) cycle
+
+                ! If angle-dependent
+                if (.not.AVI) then
+
+                  ! If Rayleigh scattering
+                  if (ffjtran.eq.ffitran) then
+
+                    ! All scattering angles but forward
+                    nn = nn*(Geom%nScatt - 1)
+
+                  ! Raman scattering
+                  else
+
+                    ! All scattering angles
+                    nn = nn*Geom%nScatt
+
+                  end if ! Rayleigh scattering
+                end if ! Angle-dependent
+
+                ! Get size in MB (single precision)
+                SRAM = 4d-6*dble(nn)
+
+                ! If no more space
+                if (floor(RAM+SRAM).gt.RLIM.or.SRAM.le.0d0) then
+
+                  ! Out of RAM and do not allocate
+                  ofram = .True.
+                  Red%rzao(indx)%trani(iti)%RAM = .False.
+                  cycle
+
+                end if ! Out of RAM
+
+                ! Add to RAM count
+                RAM = RAM + SRAM
+
+                ! Saving
+                Red%rzao(indx)%trani(iti)%RAM = .True.
+
+                ! Allocate
+                allocate(Red%rzao(indx)%trani(iti)%IWarr2(nn))
+
+              end do ! Input transition
+            end do ! Output transition (FS)
+          end do ! Output transition
+        end do ! Atoms
+      end do ! Height
+
+      ! Count RAM
+      call cram_red_warr(Red,RAM)
+      WRAMc = RAM
+
+      endsubroutine allocate_WarrI
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Resize some frequency dependent quantities and adjust indexes
+      !! for each CPU taking into account the range of frequencies
+      !! they need to take care of\n
+      !!  Frec(Frequency_class): Structure with frequency data\n
+      !!    Atom(Atom_class(:)): Structures with atomic data\n
+      !!     Input(Input_class): Structure with configuration data\n
+      !!        MPID(MPI_class): Structure with MPI data
       subroutine frecresize(Frec,Atom,Input,MPID)
 
       ! I/O
 
-      type(Atom_class), dimension(:):: Atom
-      type(Frequency_class):: Frec
-      type(Input_class):: Input
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Frequency_class), intent(inout):: Frec
+      type(Input_class), intent(inout):: Input
       type(MPI_class), intent(in):: MPID
 
       ! Local
 
       integer:: ia,itran,iproc,if0,if1
 
-      double precision, dimension(nfreq):: daux
 
       ! If no MPI
       if (.not.MPID%mpi) then
+
+        ! Ensure a minimum dimension for profile arrays later
         if (Frec%ntfreqi.lt.1) Frec%ntfreqi = 1
         if (Frec%npfreq.lt.1) Frec%npfreq = 1
         if (Frec%ntfreq.lt.1) Frec%ntfreq = 1
+
+        ! And return
         return
-      end if
+
+      end if ! Serial
 
 
-      ! Allocate size of profiles
+      ! Allocate size for profiles
       allocate(Frec%Mntfreq(0:nproc-1))
+      MRAMc = MRAMc + 1d-6*sizeof(Frec%Mntfreq)
       allocate(Frec%Mntfreqi(0:nproc-1))
+      MRAMc = MRAMc + 1d-6*sizeof(Frec%Mntfreqi)
       allocate(Frec%Mnpfreq(0:nproc-1))
+      MRAMc = MRAMc + 1d-6*sizeof(Frec%Mnpfreq)
 
 
       !
       ! If master
       !
-      if (pid.eq.0.and.MPID%mpi) then
+      if (pid.eq.0) then
 
-        ! Limits of photoionizations
-        if (pid.eq.0.and.nproc.gt.1) then
-          allocate(Frec%Mlif0(0:nproc-1))
-          allocate(Frec%Mlif1(0:nproc-1))
-          allocate(Frec%Mpif0(0:nproc-1))
-          allocate(Frec%Mpif1(0:nproc-1))
-          Frec%Mlif0(0) = 0
-          Frec%Mlif1(0) = 0
-          Frec%Mpif0(0) = 0
-          Frec%Mpif1(0) = 0
-        end if
+        ! Allocate and initialize limits for photoionizations
+        allocate(Frec%Mlif0(0:nproc-1))
+        MRAMc = MRAMc + 1d-6*sizeof(Frec%Mlif0)
+        allocate(Frec%Mlif1(0:nproc-1))
+        MRAMc = MRAMc + 1d-6*sizeof(Frec%Mlif1)
+        allocate(Frec%Mpif0(0:nproc-1))
+        MRAMc = MRAMc + 1d-6*sizeof(Frec%Mpif0)
+        allocate(Frec%Mpif1(0:nproc-1))
+        MRAMc = MRAMc + 1d-6*sizeof(Frec%Mpif1)
+        Frec%Mlif0(0) = 0
+        Frec%Mlif1(0) = 0
+        Frec%Mpif0(0) = 0
+        Frec%Mpif1(0) = 0
 
-        ! Reset Mntfreq
+        ! Reset Mntfreq, Mnpfreq, and Mnpfrei arays
         Frec%Mntfreq(0) = Frec%ntfreq
         Frec%Mntfreqi(0) = Frec%ntfreqi
         Frec%Mnpfreq(0) = Frec%npfreq
@@ -8582,9 +4913,9 @@
         ! For each CPU
         do iproc=1,nproc-1
 
+          ! Get limits of that CPU
           if0 = MPID%if0(iproc)
           if1 = MPID%if1(iproc)
-
 
           ! Initialize master limits
           Frec%Mlif0(iproc) = 100000000
@@ -8595,15 +4926,19 @@
           ! For each atom
           do ia=1,nA
 
-            ! For each b-b transition
+            ! For each bound-bound transition
             do itran=1,Atom(ia)%ntran
 
+              !
               ! Rearrange the limits taking into account the CPU
               ! limits
+              !
 
-              ! The line is totally absent
+              ! The line is totally absent in this CPU
               if (Atom(ia)%Mif0(itran,iproc).gt.if1.or. &
                   Atom(ia)%Mif1(itran,iproc).lt.if0) then
+
+                ! Set no line data for this CPU
                 Atom(ia)%Mif0(itran,iproc) = if1
                 Atom(ia)%Mif1(itran,iproc) = if0-1
                 Atom(ia)%MW0(itran,iproc) = 0d0
@@ -8615,22 +4950,29 @@
 
                 ! If the lower limit is out of range
                 if (Atom(ia)%Mif0(itran,iproc).lt.if0) then
+
+                  ! Adjust left limit
                   Atom(ia)%Mif0(itran,iproc) = if0
                   Atom(ia)%MW0(itran,iproc) = Frec%W_freq(if0)
-                end if
+
+                end if ! Lower limit out of CPU range
 
                 ! If the upper limit is out of range
                 if (Atom(ia)%Mif1(itran,iproc).gt.if1) then
+
+                  ! Adjust right limit
                   Atom(ia)%Mif1(itran,iproc) = if1
                   Atom(ia)%MW1(itran,iproc) = Frec%W_freq(if1)
-                end if
 
-                ! If there is only one frequency in this CPU
+                end if ! Upper limit out of CPU range
+
+                ! If there is only one frequency in this CPU,
+                ! nullify second weight
                 if (Atom(ia)%Mif0(itran,iproc).eq. &
                     Atom(ia)%Mif1(itran,iproc)) &
                   Atom(ia)%MW1(itran,iproc) = 0d0
 
-                ! Add frequencies to count
+                ! Add frequencies in this process to counters
                 Frec%Mntfreq(iproc) = Frec%Mntfreq(iproc) + 1 + &
                                       Atom(ia)%Mif1(itran,iproc) - &
                                       Atom(ia)%Mif0(itran,iproc)
@@ -8641,20 +4983,22 @@
 
               end if ! Line presence
 
-              ! Handle the line range
+              ! Update line ranges
               if (Atom(ia)%Mif0(itran,iproc).lt.Frec%Mlif0(iproc)) &
                 Frec%Mlif0(iproc) = Atom(ia)%Mif0(itran,iproc)
               if (Atom(ia)%Mif1(itran,iproc).gt.Frec%Mlif1(iproc)) &
                 Frec%Mlif1(iproc) = Atom(ia)%Mif1(itran,iproc)
 
-            end do ! b-b Transition
+            end do ! bound-bound Transition
 
-            ! For each b-f transition
+            ! For each bound-free transition
             do itran=1,Atom(ia)%nphot
 
-              ! The line is totally absent
+              ! The line is totally absent in this CPU
               if (Atom(ia)%phot(itran)%Mif0(iproc).gt.if1.or. &
                   Atom(ia)%phot(itran)%Mif1(iproc).lt.if0) then
+
+                ! Set no line data for this CPU
                 Atom(ia)%phot(itran)%Mif0(iproc) = if1
                 Atom(ia)%phot(itran)%Mif1(iproc) = if0-1
                 Atom(ia)%phot(itran)%MW0(iproc) = 0d0
@@ -8666,29 +5010,36 @@
 
                 ! If the lower limit is out of range
                 if (Atom(ia)%phot(itran)%Mif0(iproc).lt.if0) then
+
+                  ! Adjust left limit
                   Atom(ia)%phot(itran)%Mif0(iproc) = if0
                   Atom(ia)%phot(itran)%MW0(iproc) = Frec%W_freq(if0)
-                end if
+
+                end if ! Lower limit out of CPU range
 
                 ! If the upper limit is out of range
                 if (Atom(ia)%phot(itran)%Mif1(iproc).gt.if1) then
+
+                  ! Adjust right limit
                   Atom(ia)%phot(itran)%Mif1(iproc) = if1
                   Atom(ia)%phot(itran)%MW1(iproc) = Frec%W_freq(if1)
-                end if
 
-                ! If there is only one frequency in this CPU
+                end if ! Upper limit out of CPU range
+
+                ! If there is only one frequency in this CPU,
+                ! nullify second weight
                 if (Atom(ia)%phot(itran)%Mif0(iproc).eq. &
                     Atom(ia)%phot(itran)%Mif1(iproc)) &
                   Atom(ia)%phot(itran)%MW1(iproc) = 0d0
 
-                ! Add frequencies to count
+                ! Add frequencies in this process to counter
                 Frec%Mnpfreq(iproc) = Frec%Mnpfreq(iproc) + 1 + &
                                   Atom(ia)%phot(itran)%Mif1(iproc) - &
                                   Atom(ia)%phot(itran)%Mif0(iproc)
 
               end if ! Line presence
 
-              ! Handle the photoionization range
+              ! Update photoionization range
               if (Atom(ia)%phot(itran)%Mif0(iproc).lt. &
                   Frec%Mpif0(iproc)) &
                 Frec%Mpif0(iproc) = Atom(ia)%phot(itran)%Mif0(iproc)
@@ -8696,11 +5047,10 @@
                   Frec%Mpif1(iproc)) &
                 Frec%Mpif1(iproc) = Atom(ia)%phot(itran)%Mif1(iproc)
 
-            end do ! b-f Transition
-
+            end do ! bound-free Transition
           end do ! Atom
 
-          ! Control limits
+          ! Ensure minimum dimensionality in profiles
           if (Frec%Mntfreqi(iproc).lt.1) Frec%Mntfreqi(iproc) = 1
           if (Frec%Mnpfreq(iproc).lt.1) Frec%Mnpfreq(iproc) = 1
           if (Frec%Mntfreq(iproc).lt.1) Frec%Mntfreq(iproc) = 1
@@ -8712,27 +5062,17 @@
       !
       else
 
-        ! Store MPI limits in short variables
+        ! Store MPI scope limits in short variables
         if0 = MPID%if0(pid)
         if1 = MPID%if1(pid)
 
-        ! Resize the true array
-        if(size(Frec%W_freq).ne.MPID%nf(pid))then
-
-          ! Store into a temporal array
-          daux = Frec%W_freq
-
-          ! Resize
-          deallocate(Frec%W_freq)
-          allocate(Frec%W_freq(if0:if1))
-
-          ! Recover the data
-          Frec%W_freq = daux(if0:if1)
+        ! If weights have more data than needed
+        if (size(Frec%W_freq).ne.MPID%nf(pid)) then
 
           ! For each atom
           do ia=1,nA
 
-            ! For each b-b transition
+            ! For each bound-bound transition
             do itran=1,Atom(ia)%ntran
 
               ! Skip if already absent
@@ -8740,17 +5080,23 @@
 
               ! If upper line limit above lower CPU limit
               if (Atom(ia)%if1(itran).lt.MPID%if0(pid)) then
+
+                ! Flag absent
                 Atom(ia)%fflag(itran)%absent = .True.
                 cycle
-              end if
+
+              end if ! Line out of scope
 
               ! If lower line limit above upper CPU limit
               if (Atom(ia)%if0(itran).gt.MPID%if1(pid)) then
+
+                ! Flag absent
                 Atom(ia)%fflag(itran)%absent = .True.
                 cycle
-              end if
 
-            end do ! b-b Transition
+              end if ! Line out of scope
+
+            end do ! bound-bound Transition
           end do ! Atom
 
         end if ! Need to resize
@@ -8763,13 +5109,17 @@
         ! For each atom
         do ia=1,nA
 
-          ! For each b-b transition
+          ! For each bound-bound transition
           do itran=1,Atom(ia)%ntran
 
+            !
             ! Rearrange the limits taking into account the CPU limits
+            !
 
             ! The line is totally absent
             if (Atom(ia)%fflag(itran)%absent) then
+
+              ! Set empty data
               Atom(ia)%if0(itran) = if1
               Atom(ia)%if1(itran) = if0-1
               Atom(ia)%W0(itran) = 0d0
@@ -8780,20 +5130,28 @@
 
               ! If the lower limit is out of range
               if (Atom(ia)%if0(itran).lt.if0) then
+
+                ! Adjust left limit
                 Atom(ia)%if0(itran) = if0
                 Atom(ia)%W0(itran) = Frec%W_freq(if0)
-              end if
+
+              end if ! Lower limit out of CPU range
 
               ! If the upper limit is out of range
               if (Atom(ia)%if1(itran).gt.if1) then
+
+                ! Adjust right limit
                 Atom(ia)%if1(itran) = if1
                 Atom(ia)%W1(itran) = Frec%W_freq(if1)
-              end if
 
-              ! If there is only one frequency in this CPU
+              end if ! Upper limit out of CPU range
+
+              ! If there is only one frequency in this CPU,
+              ! nullify second weight
               if (Atom(ia)%if0(itran).eq.Atom(ia)%if1(itran)) &
                 Atom(ia)%W1(itran) = 0d0
 
+              ! Add frequencies to counters
               Frec%ntfreq = Frec%ntfreq + 1 + &
                             Atom(ia)%if1(itran) - Atom(ia)%if0(itran)
               Frec%ntfreqi = Frec%ntfreqi + (1 + &
@@ -8803,14 +5161,16 @@
 
             end if ! Line presence
 
-          end do ! b-b Transition
+          end do ! bound-bound Transition
 
-          ! For each b-f transition
+          ! For each bound-free transition
           do itran=1,Atom(ia)%nphot
 
             ! The line is totally absent
             if (Atom(ia)%phot(itran)%if0.gt.if1.or. &
                 Atom(ia)%phot(itran)%if1.lt.if0) then
+
+              ! Set empty data
               Atom(ia)%phot(itran)%absent = .True.
               Atom(ia)%phot(itran)%if0 = if1
               Atom(ia)%phot(itran)%if1 = if0-1
@@ -8822,32 +5182,39 @@
 
               ! If the lower limit is out of range
               if (Atom(ia)%phot(itran)%if0.lt.if0) then
+
+                ! Adjust left limit
                 Atom(ia)%phot(itran)%if0 = if0
                 Atom(ia)%phot(itran)%W0 = Frec%W_freq(if0)
-              end if
+
+              end if ! Lower limit out of CPU range
 
               ! If the upper limit is out of range
               if (Atom(ia)%phot(itran)%if1.gt.if1) then
+
+                ! Adjust right limit
                 Atom(ia)%phot(itran)%if1 = if1
                 Atom(ia)%phot(itran)%W1 = Frec%W_freq(if1)
-              end if
 
-              ! If there is only one frequency in this CPU
+              end if ! Upper limit out of CPU range
+
+              ! If there is only one frequency in this CPU,
+              ! nullify second weight
               if (Atom(ia)%phot(itran)%if0.eq. &
                   Atom(ia)%phot(itran)%if1) &
                 Atom(ia)%phot(itran)%W1 = 0d0
 
+              ! Add frequencies to counter
               Frec%npfreq = Frec%npfreq + 1 + &
                             Atom(ia)%phot(itran)%if1 - &
                             Atom(ia)%phot(itran)%if0
 
             end if ! Line presence
 
-          end do ! b-f Transition
-
+          end do ! bound-free Transition
         end do ! Atom
 
-        ! Control limits
+        ! Ensure minimum dimensionality
         if (Frec%ntfreqi.lt.1) Frec%ntfreqi = 1
         if (Frec%npfreq.lt.1) Frec%npfreq = 1
         if (Frec%ntfreq.lt.1) Frec%ntfreq = 1
@@ -8865,11 +5232,11 @@
           ! The line is present
           else
 
-            ! If the lower limit is out of range
+            ! If the lower limit is out of range, adjust
             if (Input%LTEline(ia)%if0.lt.if0) &
               Input%LTEline(ia)%if0 = if0
 
-            ! If the upper limit is out of range
+            ! If the upper limit is out of range, adjust
             if (Input%LTEline(ia)%if1.gt.if1) &
               Input%LTEline(ia)%if1 = if1
 
@@ -8877,7 +5244,7 @@
 
         end do ! LTE lines
 
-      end if ! Can resize
+      end if ! Needs resize
 
       ! Check if everything is fine
       call control
@@ -8890,20 +5257,21 @@
 !#####################################################################
 !#####################################################################
 
-      !> Resize some frequency dependent quantities, set CPU wise
-      !! limits for the indexes where transitions are present and
-      !! create output frequency axis for CLE.\n
-      !!      Input(Input_class): Structure with settings data\n
-      !!   Frec(Frequency_class): Structure with frequency data\n
-      !!     Atom(Atom_class(:)): Structure with the atomic data\n
-      !!         MPID(MPI_class): Structure with MPI data
+      !> Resize some frequency dependent quantities and adjust indexes
+      !! for each CPU taking into account the range of frequencies
+      !! they need to take care of, and create the output frequency
+      !! axis, for a CLE synthesis\n
+      !!     Input(Input_class): Structure with configuration data\n
+      !!  Frec(Frequency_class): Structure with frequency data\n
+      !!    Atom(Atom_class(:)): Structures with atomic data\n
+      !!        MPID(MPI_class): Structure with MPI data
       subroutine refitfrec(Input,Frec,Atom,MPID)
 
       ! I/O
 
       type(Input_class), intent(in):: Input
       type(MPI_class), intent(in):: MPID
-      type(Atom_class), dimension(:):: Atom
+      type(Atom_class), dimension(:), intent(inout):: Atom
       type(Frequency_class), intent(inout):: Frec
 
       ! Local
@@ -8914,23 +5282,24 @@
 
       double precision, dimension(nfreq):: daux
 
+
       ! Store MPI limits in short variables
       if0 = MPID%if0(pid)
       if1 = MPID%if1(pid)
       iif0 = MPID%iif0(pid)
       iif1 = MPID%iif1(pid)
 
-      !
-      ! Resize the true array
-      !
+      ! If size different to what the CPU holds
       if(size(Frec%W_freq).ne.MPID%inf(pid))then
 
         ! Store weights into a temporal array
         daux = Frec%W_freq
 
         ! Resize weights
+        MRAMc = MRAMc - 1d-6*sizeof(Frec%W_freq)
         deallocate(Frec%W_freq)
         allocate(Frec%W_freq(iif0:iif1))
+        MRAMc = MRAMc + 1d-6*sizeof(Frec%W_freq)
 
         ! Recover the data
         Frec%W_freq = daux(iif0:iif1)
@@ -8943,19 +5312,28 @@
 
       ! Set omega3
       allocate(Frec%omega3(nfreq))
+      PRAMc = PRAMc + 1d-6*sizeof(Frec%omega3)
       Frec%omega3 = Frec%omega*Frec%omega*Frec%omega
 
       ! Allocate
       allocate(Frec%mapping(Input%lim_stk%nn))
+      MRAMc = MRAMc + 1d-6*sizeof(Frec%mapping)
       allocate(Frec%omega_ou(Input%lim_stk%nn))
+      MRAMc = MRAMc + 1d-6*sizeof(Frec%omega_ou)
       allocate(Frec%omega3_ou(Input%lim_stk%nn))
+      PRAMc = PRAMc + 1d-6*sizeof(Frec%omega3_ou)
 
       ! Allocate "Master" line and photoionization limits
       allocate(Frec%Mlif0(pid:pid))
+      MRAMc = MRAMc + 1d-6*sizeof(Frec%Mlif0)
       allocate(Frec%Mlif1(pid:pid))
+      MRAMc = MRAMc + 1d-6*sizeof(Frec%Mlif1)
       allocate(Frec%Mpif0(pid:pid))
+      MRAMc = MRAMc + 1d-6*sizeof(Frec%Mpif0)
       allocate(Frec%Mpif1(pid:pid))
-      ! And initialize
+      MRAMc = MRAMc + 1d-6*sizeof(Frec%Mpif1)
+
+      ! And initialize these limits
       Frec%Mlif0 = 10000000
       Frec%Mlif1 = -1
       Frec%Mpif0 = 10000000
@@ -8965,29 +5343,35 @@
       Frec%pif0 = 10000000
       Frec%pif1 = -1
 
-
       ! For each atom
       do ia=1,nA
 
         ! Allocate input limits
         allocate(Atom(ia)%ilf0(Atom(ia)%ntran))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%ilf0)
         allocate(Atom(ia)%ilf1(Atom(ia)%ntran))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%ilf1)
         allocate(Atom(ia)%ipf0(Atom(ia)%nphot))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%ipf0)
         allocate(Atom(ia)%ipf1(Atom(ia)%nphot))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%ipf1)
 
-        ! For each b-b transition
+        ! For each bound-bound transition
         do itran=1,Atom(ia)%ntran
 
           ! Copy the limits
           Atom(ia)%ilf0(itran) = Atom(ia)%if0(itran)
           Atom(ia)%ilf1(itran) = Atom(ia)%if1(itran)
 
+          !
           ! Rearrange the limits taking into account the CPU limits
+          !
 
           ! The line is totally absent
           if (Atom(ia)%ilf1(itran).lt.iif0.or. &
               Atom(ia)%ilf0(itran).gt.iif1) then
 
+            ! Set empty ranges
             Atom(ia)%ilf0(itran) = iif1
             Atom(ia)%ilf1(itran) = iif0-1
             Atom(ia)%W0(itran) = 0d0
@@ -8998,31 +5382,38 @@
 
             ! If the lower limit is out of range
             if (Atom(ia)%ilf0(itran).lt.iif0) then
+
+              ! Adjust left limit
               Atom(ia)%ilf0(itran) = iif0
               Atom(ia)%W0(itran) = Frec%W_freq(iif0)
-            end if
+
+            end if ! Lower limit out of CPU range
 
             ! If the upper limit is out of range
             if (Atom(ia)%ilf1(itran).gt.iif1) then
+
+              ! Adjust right limit
               Atom(ia)%ilf1(itran) = iif1
               Atom(ia)%W1(itran) = Frec%W_freq(iif1)
-            end if
 
-            ! If there is only one frequency in this CPU
+            end if ! Upper limit out of CPU range
+
+            ! If there is only one frequency in this CPU, nullify
+            ! second weight
             if (Atom(ia)%ilf0(itran).eq.Atom(ia)%ilf1(itran)) &
               Atom(ia)%W1(itran) = 0d0
 
           end if ! Line presence
 
-          ! Handle the line range
+          ! Update the line range
           if (Atom(ia)%ilf0(itran).lt.Frec%Mlif0(pid)) &
             Frec%Mlif0(pid) = Atom(ia)%ilf0(itran)
           if (Atom(ia)%ilf1(itran).gt.Frec%Mlif1(pid)) &
             Frec%Mlif1(pid) = Atom(ia)%ilf1(itran)
 
-        end do ! b-b Transition
+        end do ! bound-bound Transition
 
-        ! For each b-f transition
+        ! For each bound-free transition
         do itran=1,Atom(ia)%nphot
 
           ! Copy
@@ -9033,6 +5424,7 @@
           if (Atom(ia)%ipf0(itran).gt.iif1.or. &
               Atom(ia)%ipf1(itran).lt.iif0) then
 
+            ! Set empty limits
             Atom(ia)%ipf0(itran) = iif1
             Atom(ia)%ipf1(itran) = iif0-1
             Atom(ia)%phot(itran)%W0 = 0d0
@@ -9043,78 +5435,102 @@
 
             ! If the lower limit is out of range
             if (Atom(ia)%ipf0(itran).lt.iif0) then
+
+              ! Adjust left limit
               Atom(ia)%ipf0(itran) = iif0
               Atom(ia)%phot(itran)%W0 = Frec%W_freq(if0)
-            end if
+
+            end if ! Lower limit out of CPU range
 
             ! If the upper limit is out of range
             if (Atom(ia)%ipf1(itran).gt.iif1) then
+
+              ! Adjust right limit
               Atom(ia)%ipf1(itran) = iif1
               Atom(ia)%phot(itran)%W1 = Frec%W_freq(if1)
-            end if
 
-            ! If there is only one frequency in this CPU
+            end if ! Upper limit out of CPU range
+
+            ! If there is only one frequency in this CPU,
+            ! nullify second weight
             if (Atom(ia)%ipf0(itran).eq.Atom(ia)%ipf1(itran)) &
               Atom(ia)%phot(itran)%W1 = 0d0
 
+            ! Add number of frequencies to counter
             Frec%npfreq = Frec%npfreq + 1 + &
                           Atom(ia)%ipf1(itran) - &
                           Atom(ia)%ipf0(itran)
 
           end if ! Line presence
 
-          ! Handle the photoionization range
+          ! Update the photoionization ranges
           if (Atom(ia)%ipf0(itran).lt.Frec%Mpif0(pid)) &
             Frec%Mpif0(pid) = Atom(ia)%ipf0(itran)
           if (Atom(ia)%ipf1(itran).gt.Frec%Mpif1(pid)) &
             Frec%Mpif1(pid) = Atom(ia)%ipf1(itran)
 
-        end do ! b-f Transition
+        end do ! bound-free Transition
       end do ! Atom
 
-      ! Check limits
+      ! If wrong line limits
       if (Frec%Mlif0(pid).gt.Frec%Mlif1(pid)) then
+
+        ! Get fake limits
         Frec%Mlif0(pid) = iif1
         Frec%Mlif1(pid) = iif0-1
-      end if
+
+      end if ! Wrong line limits
+
+      ! If wrong photoionization limits
       if (Frec%Mpif0(pid).gt.Frec%Mpif1(pid)) then
+
+        ! Get fake limits
         Frec%Mpif0(pid) = iif1
         Frec%Mpif1(pid) = iif0-1
-      end if
 
-      ! If no limitations in output
+      end if ! Wrong photoionization limits
+
+      ! If no limitations in output frequencies
       if (Input%lim_stk%nran.le.0) then
 
-        ! Just copy the relevant data
+        ! For all frequencies
         do ifreq=1,nfreq
+
+          ! Just copy the relevant data
           Frec%mapping(ifreq) = ifreq
+
         end do
+
+        ! Copy vectors
         Frec%omega_ou = Frec%omega
         Frec%omega3_ou = Frec%omega3
 
-        ! Copy in outputs
+        ! For each atom
         do ia=1,nA
 
-          ! b-b transitions
+          ! For each bound-bound transition
           do itran=1,Atom(ia)%ntran
 
+            ! Copy input data and set presence
             Atom(ia)%if0(itran) = Atom(ia)%ilf0(itran)
             Atom(ia)%if1(itran) = Atom(ia)%ilf1(itran)
             Atom(ia)%fflag(itran)%absent = &
                                       Atom(ia)%if1(itran).lt.if0.or. &
                                       Atom(ia)%if0(itran).gt.if1
-          end do ! b-b
 
-          ! b-f transitions
+          end do ! bound-bound transitions
+
+          ! For each bound-free transition
           do itran=1,Atom(ia)%nphot
 
+            ! Copy input data and set presence
             Atom(ia)%phot(itran)%if0 = Atom(ia)%ipf0(itran)
             Atom(ia)%phot(itran)%if1 = Atom(ia)%ipf1(itran)
             Atom(ia)%phot(itran)%absent = &
                                  Atom(ia)%phot(itran)%if1.lt.if0.or. &
                                  Atom(ia)%phot(itran)%if0.gt.if1
 
-          end do ! b-f
+          end do ! bound-free transitions
         end do ! Atoms
 
         ! And copy limits
@@ -9137,21 +5553,27 @@
         ! For each atom
         do ia=1,nA
 
-          ! b-b transitions
+          ! For each bound-bound transition
           do itran=1,Atom(ia)%ntran
-            Atom(ia)%fflag(itran)%absent = .True.
-          end do
 
-          ! b-f transitions
+            ! Set absent
+            Atom(ia)%fflag(itran)%absent = .True.
+
+          end do ! Bound-bound transitions
+
+          ! For each bound-free transition
           do itran=1,Atom(ia)%nphot
+
+            ! Set absent
             Atom(ia)%phot(itran)%absent = .True.
-          end do
-        end do
+
+          end do ! Bound-free transitions
+        end do ! Atoms
 
         ! Initialize rolling index
         jfreq = 0
 
-        ! For each range
+        ! For each output range
         do iran=1,Input%lim_stk%nran
 
           ! For each frequency in range
@@ -9166,9 +5588,9 @@
             Frec%omega_ou(jfreq) = Frec%omega(ifreq)
             Frec%omega3_ou(jfreq) = Frec%omega3(ifreq)
 
-            ! If below, skip
+            ! If below CPU limit, skip
             if (jfreq.lt.MPID%if0(pid)) cycle
-            ! If above, skip
+            ! If above CPU limit, skip
             if (jfreq.gt.MPID%if1(pid)) cycle
 
             ! Inverse mapping if in this CPU
@@ -9183,7 +5605,6 @@
           ! Translate range limits
           iif0 = invmapping(Input%lim_stk%indx(1,iran))
           iif1 = invmapping(Input%lim_stk%indx(2,iran))
-
 
           ! If this range is out of mine, skip rest
           if (iif0.gt.MPID%if1(pid)) cycle
@@ -9200,7 +5621,7 @@
           ! For each atom
           do ia=1,nA
 
-            ! b-b transition
+            ! For each bound-bound transition transition
             do itran=1,Atom(ia)%ntran
 
               ! If present, skip
@@ -9225,7 +5646,7 @@
                 kf0 = invmapping(jf0)
               end do
 
-              ! Bad?
+              ! If bad, skip
               if (jf0.lt.1) cycle
 
               ! Find upper
@@ -9239,7 +5660,7 @@
                 kf1 = invmapping(jf1)
               end do
 
-              ! Bad?
+              ! If bad, skip
               if (jf1.lt.if0) cycle
               if (kf1.lt.if0) cycle
               if (jf1.gt.nfreq) cycle
@@ -9247,7 +5668,7 @@
               if (jf1.lt.jf0) cycle
               if (kf1.lt.kf0) cycle
 
-              ! Save
+              ! Save limit
               Atom(ia)%if0(itran) = kf0
               Atom(ia)%if1(itran) = kf1
 
@@ -9260,7 +5681,7 @@
               if (Atom(ia)%if1(itran).gt.Frec%lif1) &
                 Frec%lif1 = Atom(ia)%if1(itran)
 
-            end do ! b-b
+            end do ! Bound-bound transitions
 
             ! b-f transition
             do itran=1,Atom(ia)%nphot
@@ -9287,7 +5708,7 @@
                 end if
               end do
 
-              ! Bad?
+              ! Bad limit, skip
               if (jf0.lt.1) cycle
 
               ! Find upper
@@ -9301,7 +5722,7 @@
                 end if
               end do
 
-              ! Bad?
+              ! If bad ranges, skip
               if (jf1.lt.if0) cycle
               if (kf1.lt.if0) cycle
               if (jf1.gt.nfreq) cycle
@@ -9322,16 +5743,23 @@
               if (Atom(ia)%phot(itran)%if1.gt.Frec%pif1) &
                 Frec%pif1 = Atom(ia)%phot(itran)%if1
 
-            end do ! b-f
+            end do ! Bound-free transitions
           end do ! Atoms
         end do ! Ranges
 
+        ! Free
+        deallocate(invmapping)
+
       end if ! Limited output
 
-      ! Allocate exu?
-      if (Frec%pif1.ge.Frec%pif0) &
-        allocate(Frec%exu(Frec%pif0:Frec%pif1,1))
+      ! If valid photoionization ranges
+      if (Frec%pif1.ge.Frec%pif0) then
 
+        ! Allocate photoionization exponential
+        allocate(Frec%exu(Frec%pif0:Frec%pif1,1))
+        PRAMc = PRAMc + 1d-6*sizeof(Frec%exu)
+
+      end if ! Valid photoionization range
 
       ! Check if everything is fine
       call control
@@ -9344,29 +5772,545 @@
 !#####################################################################
 !#####################################################################
 
-      !> Checks the non-coherent lower term approximation\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!    JKQ(dcomplex(:,:,:,:)): Radiation field tensors integrated
-      !!                            over absorption profile\n
-      !!      Bfield(Bfield_class): Structure with magnetic field
-      !!                            data
+      !> Index and allocate arrays for the normalization data and
+      !! estimate the minimum RAM neccesary\n
+      !!         Atom(Atom_class(:)): Structures with atomic data\n
+      !!  LTElines(LTEline_class(:)): Structures with LTE line data\n
+      !!            Atmo(Atmo_class): Structure with atmospheric
+      !!                              data\n
+      !!        Bfield(Bfield_class): Structure with magnetic field
+      !!                              data\n
+      !!        Geom(Geometry_class): Structure with geometric data\n
+      !!              Red(Red_class): Structure with redistribution
+      !!                              input frequency data,
+      !!                              redistribution function data,
+      !!                              and profile or normalization
+      !!                              data\n
+      !!                pol(logical): If this is for polarization
+      subroutine index_norm(Atom,LTElines,Atmo,Bfield,Geom,Red,pol)
+
+      ! I/O
+
+      type(Atom_class), dimension(:), intent(in):: Atom
+      type(LTEline_class), dimension(:), &
+                           allocatable, intent(in):: LTElines
+      type(Atmo_class), intent(in):: Atmo
+      type(Bfield_class), intent(in):: Bfield
+      type(Geometry_class), intent(in):: Geom
+      type(Red_class), intent(inout):: Red
+      logical, intent(in):: pol
+
+      ! Local
+
+      logical:: lvel,field
+
+      integer:: njdir,ntran,idir,iz,ia,nl
+      integer:: jtran,ktran,fjtran,ffjtran,ffktran
+
+      double precision:: vel
+
+
+      !
+      ! Number of directions 
+      !
+
+      ! If dynamic
+      if (dyn) then
+
+        ! Get quadrature number of directions
+        njdir = Geom%njdir
+
+      ! Static
+      else
+
+        ! One direction is enough
+        njdir = 1
+
+      end if ! Dynamic
+
+      !
+      ! Number of atomic transitions
+      !
+
+      ! If polarization problem
+      if (pol) then
+
+        ! Term-term transitions
+        ntran = nxtran
+
+      ! If intensity problem
+      else
+
+        ! Level-level transitions
+        ntran = nxt
+
+      end if ! Polarization/intensity
+
+      ! If LTE lines
+      if (allocated(LTElines)) then
+
+        ! Get size
+        nl = size(LTElines)
+
+      ! No LTE lines
+      else
+
+        ! Zero size
+        nl = 0
+
+      end if ! Allocated LTE lines
+
+      ! Allocate indexing space
+      allocate(Red%idzao(ntran+nl,Rz0:Rz1,njdir))
+
+      ! Initialize counter
+      Red%ndzao = 0
+
+      ! Reset RAM estimation for normalization
+      DRAMc = 0d0
+
+      ! For each direction
+      do idir=1,njdir
+
+        ! For each considered height
+        do iz=Rz0,Rz1
+
+          ! If dynamic
+          if (dyn) then
+
+            ! Check local velocity
+            vel = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                       Atmo%vy(iz)*Atmo%vy(iz) + &
+                       Atmo%vz(iz)*Atmo%vz(iz))
+            lvel = vel.gt.TINYVEL
+
+          end if ! Dynamic
+
+          ! Magnetic?
+          field = Bfield%Bstrength(iz).gt.TINYB
+
+          ! For each atom
+          do ia=1,nA
+
+            ! For each transition
+            do jtran=1,Atom(ia)%ntran
+
+              ! Skip absent
+              if (Atom(ia)%fflag(jtran)%absent) cycle
+
+              !
+              ! If polarized
+              !
+              if (pol) then
+
+                ! Rolling index
+                ktran = jtran + Atom(ia)%tshift
+
+                ! If valid in terms of velocity
+                if (lvel.or.idir.eq.1) then
+
+                  ! Advance counter
+                  Red%ndzao = Red%ndzao + 1
+
+                  ! Add RAM stimation (logical)
+                  DRAMc = DRAMc + 4d-6
+
+                  ! If magnetic
+                  if (field) then
+
+                    ! Add RAM for normalization
+                    DRAMc = DRAMc + &
+                            8d-6*dble(Atom(ia)%trano(jtran)%ncomB)
+
+                  ! Non magnetic
+                  else
+
+                    ! Add RAM for normalization
+                    DRAMc = DRAMc + &
+                            8d-6*dble(Atom(ia)%trano(jtran)%ncomNB)
+
+                  end if ! Magnetic
+
+                  ! Store index
+                  Red%idzao(ktran,iz,idir) = Red%ndzao
+
+                ! Not valid in terms of velocity
+                else
+
+                  ! Store index
+                  Red%idzao(ktran,iz,idir) = Red%idzao(ktran,iz,1)
+
+                end if ! Valid in terms of velocity
+
+              !
+              ! Not polarized
+              !
+              else
+
+                ! For each FS transition
+                do fjtran=1,Atom(ia)%fst(jtran)%nt
+
+                  ! Get rolling indexes
+                  ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
+                  ffktran = ffjtran + Atom(ia)%tfshift
+
+                  ! If valid in terms of velocity
+                  if (lvel.or.idir.eq.1) then
+
+                    ! Advance counter
+                    Red%ndzao = Red%ndzao + 1
+
+                    ! Add RAM estimation (logical + double)
+                    DRAMc = DRAMc + 12d-6
+
+                    ! Store index
+                    Red%idzao(ffktran,iz,idir) = Red%ndzao
+
+                  ! Not valid in terms of velocity
+                  else
+
+                    ! Store index
+                    Red%idzao(ffktran,iz,idir) = &
+                                               Red%idzao(ffktran,iz,1)
+
+                  end if ! Valid in termsof velocity
+
+                end do ! FS transitions
+
+              end if ! Polarized
+
+            end do ! Transitions
+          end do ! Atoms
+
+          ! For each LTE line
+          do ia=1,nl
+
+            ! Skip absent
+            if (LTElines(ia)%absent) cycle
+
+            ! Skip too high z
+            if (iz.lt.LTElines(ia)%Rz0) cycle
+
+            ! If valid in terms of velocity
+            if (lvel.or.idir.eq.1) then
+
+              ! Advance counter
+              Red%ndzao = Red%ndzao + 1
+
+              ! Add RAM stimation (logical)
+              DRAMc = DRAMc + 4d-6
+
+              ! Store index
+              Red%idzao(ntran+ia,iz,idir) = Red%ndzao
+
+            ! Not valid in terms of velocity
+            else
+
+              ! Store index
+              Red%idzao(ntran+ia,iz,idir) = Red%idzao(ntran+ia,iz,1)
+
+            end if ! Valid in terms of velocity
+
+          end do ! LTE lines
+        end do ! Heights
+      end do ! Directions
+
+      ! Allocate Red array
+      allocate(Red%dzao(Red%ndzao))
+
+      end subroutine index_norm
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Index array for the redistribution quantities and allocate
+      !! the structures to hold the input frequency axis\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!        Red(Red_class): Structure with redistribution input
+      !!                        frequency data, redistribution
+      !!                        function data, and profile or
+      !!                        normalization data\n
+      !!  Bstrength(double(:)): Magnetic field strength\n
+      !!          pol(logical): If this is for polarization
+      subroutine index_red(Atom,Red,Bstrength,pol)
+
+      ! I/O
+
+      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Red_class), intent(inout):: Red
+      logical, intent(in):: pol
+      double precision, dimension(:), intent(in):: Bstrength
+
+      ! Local
+
+      integer:: ia,jtran,it,ffjtran,ffktran,indx,itran,iz
+      integer:: mina,maxa,minto,maxto,nat,nti
+
+
+      !
+      ! Count maximum index of PRD atom and transition
+
+      ! Initialize atomic and transition indexes, and counter
+      ! of real elements
+      mina = 10000
+      maxa = 0
+      minto = 10000
+      maxto = 0
+      nat = 0
+
+      !
+      ! If polarized
+      !
+      if (pol) then
+
+        ! For each atom
+        do ia=1,nA
+
+          ! For all transitions
+          do jtran=1,Atom(ia)%ntran
+
+            ! Skip CRD
+            if (.not.Atom(ia)%lemiss2(jtran)) cycle
+
+            ! Add to counter
+            nat = nat + 1
+
+            ! Update limits
+            if (jtran.lt.minto) minto = jtran
+            if (jtran.gt.maxto) maxto = jtran
+            if (ia.lt.mina) mina = ia
+            if (ia.gt.maxa) maxa = ia
+
+          end do ! Transitions
+        end do ! Atoms
+
+      !
+      ! If intensity
+      !
+      else
+
+        ! For each atom
+        do ia=1,nA
+
+          ! For all transitions
+          do jtran=1,Atom(ia)%ntran
+
+            ! Skip CRD
+            if (.not.Atom(ia)%lemiss2(jtran)) cycle
+
+            ! Go by fine structure
+            do it=1,Atom(ia)%fst(jtran)%nt
+
+              ! Get index
+              ffjtran = Atom(ia)%ifst_ij(it,jtran)
+
+              ! Add to counter
+              nat = nat + 1
+
+              ! Update limits
+              if (ffjtran.lt.minto) minto = ffjtran
+              if (ffjtran.gt.maxto) maxto = ffjtran
+              if (ia.lt.mina) mina = ia
+              if (ia.gt.maxa) maxa = ia
+
+            end do ! Fine structure
+          end do ! Transitions
+        end do ! Atoms
+
+      end if ! Polarization or intensity
+
+      ! Allocate indexing array and first step of Frec and Red
+      allocate(Red%izao(minto:maxto,mina:maxa,Rz0:Rz1_PRD))
+      Red%nzao = nat*(Rz1_PRD-Rz0+1)
+
+      ! Allocate frequency data
+      allocate(Red%zao(Red%nzao))
+
+      ! For each index
+      do indx=1,Red%nzao
+
+        ! Nullify input transition data
+        nullify(Red%zao(indx)%trani)
+
+      end do ! Indexes
+
+
+      !
+      ! Build index
+      !
+
+      !
+      ! If polarized
+      !
+      if (pol) then
+
+        !
+        ! Build index
+
+        ! Initialize
+        nat = 0
+
+        ! For each height
+        do iz=Rz0,Rz1_PRD
+
+          ! For each atom
+          do ia=mina,maxa
+
+            ! For each transition
+            do jtran=1,Atom(ia)%ntran
+
+              ! Skip CRD
+              if (.not.Atom(ia)%lemiss2(jtran)) cycle
+
+              ! Advance and store index
+              nat = nat + 1
+              Red%izao(jtran,ia,iz) = nat
+
+              ! Initialize number of input frequencies
+              Red%zao(nat)%mxfreq = 0
+
+              ! Allocate
+              allocate(Red%zao(nat)%Mif0(0:nproc-1))
+              allocate(Red%zao(nat)%Mif1(0:nproc-1))
+              allocate(Red%zao(nat)%nf(0:nproc-1))
+
+              !
+              ! Count minimum memory for normalization
+              !
+
+              ! Magnetic
+              if (Bstrength(iz).gt.TINYB) then
+
+                ! Add logical and components norm
+                DRAM2c = DRAM2c + 4d-6 + &
+                         8d-6*dble(Atom(ia)%trano(jtran)%ncomB)
+
+              ! Non-magnetic
+              else
+
+                ! Add logical and components norm
+                DRAM2c = DRAM2c + 4d-6 + &
+                         8d-6*dble(Atom(ia)%trano(jtran)%ncomNB)
+
+              end if ! Magnetic field
+
+              !
+              ! Allocate input transition structures
+              !
+
+              ! Number of input transitions
+              nti = Atom(ia)%trano(jtran)%nt
+
+              ! Allocate
+              allocate(Red%zao(nat)%trani(nti))
+
+              ! For each input transition
+              do itran=1,nti
+
+                ! Initialize sizes
+                Red%zao(nat)%trani(itran)%osize = 0
+                Red%zao(nat)%trani(itran)%isize = 0
+
+              end do ! Input transitions
+            end do ! Transitions
+          end do ! Atoms
+        end do ! Heights
+
+      !
+      ! If intensity
+      !
+      else
+
+        ! Initialize
+        nat = 0
+
+        ! For each height
+        do iz=Rz0,Rz1_PRD
+
+          ! For each atom
+          do ia=1,nA
+
+            ! For each transition
+            do jtran=1,Atom(ia)%ntran
+
+              ! Skip CRD
+              if (.not.Atom(ia)%lemiss2(jtran)) cycle
+
+              ! For each fine structure transition
+              do it=1,Atom(ia)%fst(jtran)%nt
+
+                ! Get index
+                ffjtran = Atom(ia)%ifst_ij(it,jtran)
+
+                ! Advance and store
+                nat = nat + 1
+                Red%izao(ffjtran,ia,iz) = nat
+
+                ! Initialize input frequency size
+                Red%zao(nat)%mxfreq = 0
+
+                ! Allocate
+                allocate(Red%zao(nat)%Mif0(0:nproc-1))
+                allocate(Red%zao(nat)%Mif1(0:nproc-1))
+                allocate(Red%zao(nat)%nf(0:nproc-1))
+
+                ! Add logical and norm necessary sizes
+                DRAM2c = DRAM2c + 12d-6
+
+                ! Rolling index
+                ffktran = Atom(ia)%itrano(ffjtran)
+
+                ! Number of input transitions
+                nti = Atom(ia)%tranoI(ffktran)%nt
+
+                ! Allocate
+                allocate(Red%zao(nat)%trani(nti))
+
+                ! For each input transition
+                do itran=1,nti
+
+                  ! Initialize
+                  Red%zao(nat)%trani(itran)%osize = 0
+                  Red%zao(nat)%trani(itran)%isize = 0
+
+                end do ! Input transitions
+              end do ! Fine structure transitions
+            end do ! Transitions
+          end do ! Atoms
+        end do ! Heights
+
+      end if ! Polarization or intensity
+
+      end subroutine index_red
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Checks where the non-coherent lower term approximation can be
+      !! applied\n
+      !!     Atom(Atom_class(:)): Structures with atomic data\n
+      !!  JKQ(dcomplex(:,:,:,:)): Radiation field tensors integrated
+      !!                          over the absorption profile\n
+      !!    Bfield(Bfield_class): Structure with magnetic field data
       subroutine check_nchlt(Atom,JKQ,Bfield)
 
       ! I/O
+
       type(Atom_class), dimension(:), intent(inout):: Atom
       type(Bfield_class), intent(in):: Bfield
       complex(kind=8), dimension(-2:2,0:2,nxtran,Rz0:Rz1), &
-                                                      intent(in):: JKQ
-
-      ! Parameter
-      double precision, parameter:: Bsat = 10d0
+                       intent(in):: JKQ
 
       ! Local
+
+      double precision, parameter:: Bsat = 10d0
 
       logical:: skip
 
       integer:: ia,iz,jtran,itermu,itermf,iterml,itran,itran0,iJl
-      integer:: itranmin,itranmax,litran
+      integer:: itranmin,itranmax,litran,iti
       integer, dimension(:), allocatable:: nmsg
 
       double precision:: Blu,gJ,rJ,S,rL,Bcrit,Bcrit0,efield
@@ -9378,14 +6322,19 @@
       ! Initialize flag
       skip = .True.
 
-      ! For each height
+      ! For each considered height
       do iz=Rz0,Rz1
-        ! Check there is magnetic field
-        if (Bfield%Bstrength(iz).gt.0d0) then
+
+        ! If there is magnetic field
+        if (Bfield%Bstrength(iz).gt.TINYB) then
+
+          ! Cannot skip
           skip = .False.
           exit
-        end if
-      end do ! Every height
+
+        end if ! There is magnetic field
+
+      end do ! Heights
 
       ! If no field, not necessary to check
       if (skip) return
@@ -9393,18 +6342,26 @@
       ! For each Atom
       do ia=1,nA
 
-        ! Check that there is at least 1 PRD line in this atom
+        ! Initialize to skip
         skip = .True.
 
+        ! For each transition
         do jtran=1,Atom(ia)%ntran
+
+          ! If PRD line
           if (Atom(ia)%lemiss2(jtran)) then
+
+            ! We cannot skip this atom
             skip = .False.
             exit
-          end if
-        end do
+
+          end if ! PRD line
+
+        end do ! Transitions
 
         ! There are no PRD lines for this atom
         if (skip) cycle
+
 
         !
         ! Allocate space for NCHLT approximation
@@ -9414,36 +6371,25 @@
         itranmin = Atom(ia)%ntran + 1
         itranmax = -1
 
-        ! Now go trough every pair of terms
-        do itermu=2,Atom(ia)%nMulti
-          do itermf=1,itermu-1
+        ! For every transition
+        do jtran=1,Atom(ia)%ntran
 
-            ! Get transition
-            jtran = Atom(ia)%irad(itermu,itermf)
+          ! Skip CRD
+          if (.not.Atom(ia)%lemiss2(jtran)) cycle
 
-            ! Check it exists and is PRD
-            if (jtran.le.0) cycle
-            if (.not.Atom(ia)%lemiss2(jtran)) cycle
+          ! Get terms
+          itermu = Atom(ia)%fst(jtran)%itermu
+          itermf = Atom(ia)%fst(jtran)%iterml
 
-            ! For each other lower term
-            do iterml=1,itermu-1
+          ! Update limits
+          itranmin = min(itranmin,minval(Atom(ia)%trano(jtran)%indT))
+          itranmax = max(itranmin,maxval(Atom(ia)%trano(jtran)%indT))
 
-              ! Check input transition
-              itran = Atom(ia)%irad(itermu,iterml)
-
-              ! That exists
-              if (itran.le.0) cycle
-
-              if (itranmin.gt.itran) itranmin = itran
-              if (itranmax.lt.itran) itranmax = itran
-
-            end do
-
-          end do
-        end do
+        end do ! Output transitions
 
         ! Allocate
         allocate(Atom(ia)%NCHLT(Rz0:Rz1,itranmin:itranmax))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%NCHLT)
 
         ! Initialize transition shift
         itran0 = Atom(ia)%tshift
@@ -9452,244 +6398,152 @@
         allocate(nmsg(Atom(ia)%nMulti))
         nmsg = 0
 
-        ! Now go trough every pair of terms
-        do itermu=2,Atom(ia)%nMulti
-          do itermf=1,itermu-1
+        ! For every transition
+        do jtran=1,Atom(ia)%ntran
 
-            ! Get transition
-            jtran = Atom(ia)%irad(itermu,itermf)
+          ! Skip CRD
+          if (.not.Atom(ia)%lemiss2(jtran)) cycle
 
-            ! Check it exists and is PRD
-            if (jtran.le.0) cycle
-            if (.not.Atom(ia)%lemiss2(jtran)) cycle
+          ! Get terms
+          itermu = Atom(ia)%fst(jtran)%itermu
+          itermf = Atom(ia)%fst(jtran)%iterml
 
-            ! For each other lower term
-            do iterml=1,itermu-1
+          ! For each input transition
+          do iti=1,Atom(ia)%trano(jtran)%nt
 
-              ! Check input transition
-              litran = Atom(ia)%irad(itermu,iterml)
+            ! Get indexes
+            litran = Atom(ia)%trano(jtran)%indT(iti)
+            iterml = Atom(ia)%fst(litran)%iterml
 
-              ! That exists
-              if (litran.le.0) cycle
+            ! Get Blu
+            Blu = Atom(ia)%Ecoeff(iterml,itermu)
 
-              ! Get Blu
-              Blu = Atom(ia)%Ecoeff(iterml,itermu)
-              ! Get L and S
-              rL = Atom(ia)%rLval(iterml)
-              S = Atom(ia)%Sval(iterml)
+            ! Get L and S
+            rL = Atom(ia)%rLval(iterml)
+            S = Atom(ia)%Sval(iterml)
 
-              ! Get real itran
-              itran = litran + itran0
+            ! Get real itran
+            itran = litran + itran0
 
-              ! For each height
-              do iz=Rz0,Rz1
+            ! For each height
+            do iz=Rz0,Rz1
 
-                ! Critical field (Blu has factor 10^8)
-                Bcrit0 = 1.137d1*Blu*dble(JKQ(0,0,itran,iz))*Bsat
+              ! Critical field (Blu has factor 10^8)
+              Bcrit0 = 1.137d1*Blu*dble(JKQ(0,0,itran,iz))*Bsat
 
-                ! Initialize applicability
-                skip = .True.
+              ! Initialize applicability
+              skip = .True.
 
-                ! Effective magnetic field
-                efield = Bfield%Bstrength(iz)*sin(Bfield%Btheta(iz))
+              ! Effective magnetic field
+              efield = Bfield%Bstrength(iz)*sin(Bfield%Btheta(iz))
 
-                ! For each level
-                do iJl=1,Atom(ia)%nJ(iterml)
+              ! For level in the lower term
+              do iJl=1,Atom(ia)%nJ(iterml)
 
-                  ! Get J
-                  rJ = Atom(ia)%rJval(iJl,iterml)
+                ! Get J
+                rJ = Atom(ia)%rJval(iJl,iterml)
 
-                  ! Get Lande factor
-                  if (Atom(ia)%ML) then
-                    gJ = Atom(ia)%gL(iterml)
-                  else
-                    gJ = 1d0 + .5d0*(rJ*(rJ+1d0) + S*(S+1d0) - &
-                                     rL*(rL+1d0))/rJ/(rJ+1d0)
-                  end if
+                !
+                ! Get Lande factor
 
-                  ! Quenching and Landé factor
-                  if (gJ.gt.0d0) then
-                    Bcrit = Bcrit0/gJ
-                  else
-                    Bcrit = 1d99
-                  end if
+                ! Multi-level
+                if (Atom(ia)%ML) then
 
-                  ! Check field is big enough
-                  if (efield.lt.Bcrit) then
-                    skip = .False.
-                    if (Bfield%Bstrength(iz).gt.0d0) &
-                      nmsg(iterml) = nmsg(iterml) + 1
-                    exit
-                  end if
+                  ! From atom
+                  gJ = Atom(ia)%gL(iterml)
 
-                end do ! Every lower level
+                ! Multi-term
+                else
 
-                ! Store
-                Atom(ia)%NCHLT(iz,litran) = skip
+                  ! Assume LS coupling
+                  gJ = 1d0 + .5d0*(rJ*(rJ+1d0) + S*(S+1d0) - &
+                                   rL*(rL+1d0))/rJ/(rJ+1d0)
+                end if
 
-              end do ! Every height
-            end do ! Every other lower term
-          end do ! Every pair
-        end do ! of terms
+                ! If non-zero Landé
+                if (gJ.gt.0d0) then
 
-        ! Now, print the messages
+                  ! Reduce critical limit
+                  Bcrit = Bcrit0/gJ
+
+                ! No Landé
+                else
+
+                  ! Indinite critical
+                  Bcrit = 1d99
+
+                end if ! Landé factor
+
+                ! Check field is big enough
+                if (efield.lt.Bcrit) then
+
+                  ! Cannot skip with non-coherent
+                  skip = .False.
+
+                  ! If magnetic field, add message
+                  if (Bfield%Bstrength(iz).gt.TINYB) &
+                    nmsg(iterml) = nmsg(iterml) + 1
+
+                  ! And leave
+                  exit
+
+                ! Field is big enough
+                end if
+
+              end do ! Every lower level
+
+              ! Store if non-coherent
+              Atom(ia)%NCHLT(iz,litran) = skip
+
+            end do ! Every height
+          end do ! Input transitions
+        end do ! Output transitions
+
+        !
+        ! Now print the messages
+        !
+
+        ! For each lower term
         do iterml=1,Atom(ia)%nMulti
 
           ! If there are messages for this term
           if (nmsg(iterml).gt.0) then
-            ! Multi-level
+
+            ! Multi-level atom
             if (Atom(ia)%ML) then
+
+              ! Write message
               write(umsg,'(A,A,1x,i3,1x,A,1x,i5,1x,A)') &
                 ' # WARNING: The magnetic field is smaller than ', &
                 'the saturation field of the level',iterml,'for ', &
                 nmsg(iterml),'heights'
-            ! Multi-term
+
+            ! Multi-term atom
             else
+
+              ! Write message
               write(umsg,'(A,A,1x,i3,1x,A,1x,i5,1x,A)') &
                 ' # WARNING: The magnetic field is smaller than ', &
                 'the saturation field of the term',iterml,'for ', &
                 nmsg(iterml),'heights'
+
             end if ! Multi level or multi term
+
+            ! Verbose
             call verbose
+
           end if ! Messages to print
 
-        end do ! Messages to print
+        end do ! Lower terms
 
         ! Deallocate logical array of this atom
         deallocate(nmsg)
 
-      end do ! Every atom
+      end do ! Atoms
 
       return
 
       end subroutine check_nchlt
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
-      !> Resets the redistribution function structure\n
-      !!  Frec(Frequency_class): Structure with frequency data\n
-      !!         Red(Red_class): Structure with redistribution data\n
-      !!        MPID(MPI_class): Structure with MPI data\n
-      subroutine cleanFrecandRed(Frec,Red,MPID)
-
-      ! I/O
-
-      type(Frequency_class):: Frec
-      type(Red_class):: Red
-      type(MPI_class):: MPID
-
-      integer:: indx,jndx
-
-      ! Remove counted memory
-      MPID%RAM = MPID%RAM - MPID%WRAM
-      MPID%WRAM = 0
-
-      !
-      ! Deallocate Frequency structure
-      !
-
-      ! Deallocate indexing
-      if (allocated(Frec%indx)) deallocate(Frec%indx)
-
-      ! If there is PRD data
-      if (associated(Frec%dzao)) then
-
-        ! For each index allocated
-        do indx=1,Frec%ndzao
-
-          ! If input transition data
-          if (associated(Frec%dzao(indx)%trani)) then
-
-            ! For each input transition
-            do jndx=1,size(Frec%dzao(indx)%trani)
-
-              ! Deallocate PRD info
-              if (associated(Frec%dzao(indx)%trani(jndx)%index1)) then
-                deallocate(Frec%dzao(indx)%trani(jndx)%index1)
-                nullify(Frec%dzao(indx)%trani(jndx)%index1)
-              end if
-              if (associated(Frec%dzao(indx)%trani(jndx)%index2)) then
-                deallocate(Frec%dzao(indx)%trani(jndx)%index2)
-                nullify(Frec%dzao(indx)%trani(jndx)%index2)
-              end if
-              if (associated(Frec%dzao(indx)%trani(jndx)%dx)) then
-                deallocate(Frec%dzao(indx)%trani(jndx)%dx)
-                nullify(Frec%dzao(indx)%trani(jndx)%dx)
-              end if
-              if (allocated(Frec%dzao(indx)%trani(jndx)%omega)) &
-                deallocate(Frec%dzao(indx)%trani(jndx)%omega)
-              if (allocated(Frec%dzao(indx)%trani(jndx)%W_freq)) &
-                deallocate(Frec%dzao(indx)%trani(jndx)%W_freq)
-              if (allocated(Frec%dzao(indx)%trani(jndx)%mfreq)) &
-                deallocate(Frec%dzao(indx)%trani(jndx)%mfreq)
-
-            end do ! Input transitions
-
-            ! Deallocate input transition and free the pointer
-            deallocate(Frec%dzao(indx)%trani)
-            nullify(Frec%dzao(indx)%trani)
-
-          end if ! Input transition data
-#ifdef _OPENMP
-          if (allocated(Frec%dzao(indx)%oif0)) &
-            deallocate(Frec%dzao(indx)%oif0, &
-                       Frec%dzao(indx)%oif1)
-#endif
-
-        end do ! Indexes
-
-        ! Deallocate and free first pointer
-        deallocate(Frec%dzao)
-        nullify(Frec%dzao)
-        Frec%ndzao = 0
-
-      end if ! There is PRD data
-
-      ! Deallocate indexing
-      if (allocated(Red%indx)) deallocate(Red%indx)
-
-      ! If there is PRD data
-      if (associated(Red%dzao)) then
-
-        ! For each index allocated
-        do indx=1,size(Red%dzao)
-
-          ! If input transition data
-          if (associated(Red%dzao(indx)%trani)) then
-
-            ! For each input transition
-            do jndx=1,size(Red%dzao(indx)%trani)
-
-              ! Deallocate PRD info
-              if (allocated(Red%dzao(indx)%trani(jndx)%iPPRD)) &
-                deallocate(Red%dzao(indx)%trani(jndx)%iPPRD)
-              if (allocated(Red%dzao(indx)%trani(jndx)%IWarr2)) &
-                deallocate(Red%dzao(indx)%trani(jndx)%IWarr2)
-              if (allocated(Red%dzao(indx)%trani(jndx)%PWarr2)) &
-                deallocate(Red%dzao(indx)%trani(jndx)%PWarr2)
-
-            end do ! Input transitions
-
-            ! Deallocate input transition and free the pointer
-            deallocate(Red%dzao(indx)%trani)
-            nullify(Red%dzao(indx)%trani)
-
-          end if ! Input transition data
-
-        end do ! Indexes
-
-        ! Deallocate and free first pointer
-        deallocate(Red%dzao)
-        nullify(Red%dzao)
-        Red%ndzao = 0
-
-      end if ! There is PRD data
-
-      return
-
-      end subroutine cleanFrecandRed
 
 !#####################################################################
 !#####################################################################

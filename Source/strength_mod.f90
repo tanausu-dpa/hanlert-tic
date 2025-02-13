@@ -5,45 +5,20 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !     Roberto Casini (HAO)
 !  Start:
-!     04/18/2017
+!     18/04/2017
 !  Last version:
-!     04/02/2024 V3.1.1
+!     20/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     04/02/2024:    V3.1.1 - Limit the search in nblk to the valid
-!                             ones to find the maximum size for all
-!                             M (TdPA)
-!                           - Bugfix: Wrong operatior in if clauses
-!                             to check magnitude of eigenvectors in
-!                             strength_ev (TdPA)
-!
-!     04/01/2024:    V3.1.0 - Removed unused conjugates in rdip,
-!                             restricting the allocation to what is
-!                             actually needed (TdPA)
-!                           - Changed a comparison between integers
-!                             with "nint" to one between floats (TdPA)
-!                           - Added strength_ev routine (TdPA)
-!
-!     10/26/2022:    V3.0.1 - Changed the storage structure of the
-!                             rdip variable (TdPA)
-!
-!     06/29/2022:    V3.0.0 - Changed global version (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!
-!     11/19/2019:    V1.1.1 - Removed checks in allocate and
-!                             deallocate calls (TdPA)
-!
-!     02/20/2019:    V1.1.0 - New verbosity (TdPA)
-!
-!     04/18/2017:    V1.0.0 - First version (TdPA)
+!     20/12/2024:    V4.0.0 - Always use the dipole strength in the
+!                             energy eigenbasis (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -53,17 +28,20 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!  strength:
-!    This subroutine calculates the component strengths
-!  (electric-dipole elements) for all possible transitions
-!  in the atom
+!  strength
+!    Calculate the electric dipole transition strength for a given
+!  atom
 !
-!  strength_ev:
-!    This subroutine calculates the component strengths
-!  (electric-dipole elements) for all possible transitions
-!  in the atom in the energy representation
+!  strength_ev
+!    Calculate the electric dipole transition strength in the energy
+!  eigenbasis for a given atom
 !
 !#####################################################################
 !#####################################################################
@@ -82,10 +60,11 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes transition strengths for the radiation transfer
-      !! coefficients\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!   Flgsg(Fctsg_class): Structure with factorials and signs
+      !> Calculate the electric dipole transition strength for a given
+      !! atom\n
+      !!    Atom(Atom_class): Structure with atomic data\n
+      !!  Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                      J-symbols\n
       subroutine strength(Atom,Flgsg)
 
       ! I/O
@@ -95,8 +74,7 @@
 
       ! Local
 
-      integer:: itran,iterm,iterm1
-      integer:: iJ,iJ1,nM,nM1,iM,iM1,iq
+      integer:: itran,iterm,iterm1,iJ,iJ1,nM,nM1,iM,iM1,iq
 
       double precision:: rL,rL1,S,rJ,rJ1,rJmax,rJ1max
       double precision:: rM,rM1,q,pL,pL1,pJ,CCJ
@@ -114,69 +92,97 @@
       ! For each lower term
       do iterm=1,Atom%nMulti-1
 
+        ! Orbitan and spin momenta
         rL = Atom%rLval(iterm)
         S = Atom%Sval(iterm)
 
+        ! Maximum J value
         rJmax = rL + S
 
+        ! Number of magnetic sublevels
         nM = nint(2d0*rJmax + 1d0)
 
+        ! Orbital momentum factor
         pL = sqrt(2d0*rL + 1d0)
 
-        ! and each upper term
+        ! For each upper term
         do iterm1=iterm+1,Atom%nMulti
 
           ! Check if there is a transition
           itran = Atom%irad(iterm,iterm1)
 
+          ! Skip if no transition
           if (itran.eq.0) cycle
 
+          ! Get orbitan angular momentum
           rL1 = Atom%rLval(iterm1)
 
+          ! Get maximum J value
           rJ1max = rL1 + S
 
+          ! Get number of magnetic sublevels
           nM1 = nint(2d0*rJ1max + 1d0)
 
-          pL1=sqrt(2d0*rL1 + 1d0)
+          ! Orbital momentum factor
+          pL1 = sqrt(2d0*rL1 + 1d0)
 
-          ! Allocate second level of dipole array
+          ! Add to memory
+          MRAMc = MRAMc + 1d-6*sizeof(Atom%rdip(itran))
+
+          ! Allocate and initialize second level of dipole array
           allocate(Atom%rdip(itran)%rdip(-1:1,nM1,nM, &
                                          Atom%nJ(iterm1), &
                                          Atom%nJ(iterm)))
+          MRAMc = MRAMc + 1d-6*sizeof(Atom%rdip(itran)%rdip)
           Atom%rdip(itran)%rdip = 0d0
 
+          !
           ! LS configurations
+          !
+
           ! For each level of the lower term
           do iJ=1,Atom%nJ(iterm)
 
+            ! Get total angular momentum
             rJ = Atom%rJval(iJ,iterm)
 
-            pJ=sqrt(2d0*rJ + 1d0)
+            ! Total angular momentum factor
+            pJ = sqrt(2d0*rJ + 1d0)
 
             ! For each level of the upper term
             do iJ1=1,Atom%nJ(iterm1)
 
+              ! Get total angular momentum
               rJ1 = Atom%rJval(iJ1,iterm1)
 
+              ! Check electric dipole rule
               if (abs(rJ1-rJ).gt.1.1d0) cycle
 
+              ! Get 6J
               CCJ = pJ*sqrt(2d0*rJ1 + 1d0)* &
                     fun6j(rL,rL1,1d0,rJ1,rJ,S,Flgsg)
 
+              !
               ! Azimuthal components
+              !
+
               ! For each magnetic component of the lower level
               do iM=1,nM
 
+                ! Get magnetic quantum number
                 rM = -rJmax + dble(iM-1)
 
                 ! For each magnetic component of the upper level
                 do iM1=1,nM1
 
+                  ! Get magnetic quantum number
                   rM1 = -rJ1max + dble(iM1-1)
 
+                  ! Get difference in magnetic quantum number
                   q = rM - rM1
                   iq = nint(q)
 
+                  ! Selection rule
                   if (abs(iq).gt.1) cycle
 
                   ! Make use of conjugation properties of matrix
@@ -199,33 +205,27 @@
 
       end subroutine strength
 
-#ifdef RDIPEV
 !#####################################################################
 !#####################################################################
 !#####################################################################
 
-      !> Computes transition strengths for the radiation transfer
-      !! coefficients in energy basis\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!   Flgsg(Fctsg_class): Structure with factorials and signs
-      !!      Bfield(Bfield_class): Structure with magnetic field
-      subroutine strength_ev(Atom,Flgsg,Bfield)
+      !> Calculate the electric dipole transition strength in the
+      !! energy eigenbasis for a given atom\n
+      !!      Atom(Atom_class): Structure with atomic data\n
+      !!  Bfield(Bfield_class): Structure with magnetic field data
+      subroutine strength_ev(Atom,Bfield)
 
       ! I/O
 
-      type(Fctsg_class), intent(in):: Flgsg
       type(Bfield_class), intent(in):: Bfield
       type(Atom_class), intent(inout):: Atom
 
       ! Local
 
-      integer:: iz,itran,iterm,iterm1
-      integer:: maxnMu,maxnMl,maxnju,maxnjl
-      integer:: iJ,iJ1,nM,nM1,iM,iM1,iq
-      integer:: jM,jM1,kM,kM1
+      integer:: iz,itran,iterm,iterm1,maxnMu,maxnMl,maxnju,maxnjl
+      integer:: iJ,iJ1,nM,nM1,iM,iM1,iq,jM,jM1,kM,kM1
 
-      double precision:: rL,rL1,S,rJ,rJ1,rJmax,rJ1max
-      double precision:: rM,rM1,q,pJ,cM,cM1
+      double precision:: rL,rL1,S,rJ,rJ1,rJmax,rJ1max,rM,rM1,q,cM,cM1
 
 
       ! Routine name
@@ -237,6 +237,9 @@
       ! For each height
       do iz=Rz0,Rz1
 
+        ! Count memory
+        MRAMc = MRAMc + 1d-6*sizeof(Atom%rdipev(iz))
+
         ! If no magnetic field, skip
         if (Bfield%Bstrength(iz).le.TINYB) cycle
 
@@ -246,25 +249,35 @@
         ! For each lower term
         do iterm=1,Atom%nMulti-1
 
+          ! Get orbital and spin momenta
           rL = Atom%rLval(iterm)
           S = Atom%Sval(iterm)
 
+          ! Get maximum value of total angular momentum
           rJmax = rL + S
 
+          ! Get number of magnetic components
           nM = nint(2d0*rJmax + 1d0)
 
-          ! and each upper term
+          ! For each upper term
           do iterm1=iterm+1,Atom%nMulti
 
             ! Check if there is a transition
             itran = Atom%irad(iterm,iterm1)
 
+            ! Skip if no transition
             if (itran.eq.0) cycle
 
+            ! Count memory
+            MRAMc = MRAMc + 1d-6*sizeof(Atom%rdipev(iz)%rdipev(itran))
+
+            ! Get orbital momentum
             rL1 = Atom%rLval(iterm1)
 
+            ! Get maximum total angular momentum
             rJ1max = rL1 + S
 
+            ! Get number of magnetic components
             nM1 = nint(2d0*rJ1max + 1d0)
 
             ! Maximum sizes
@@ -276,21 +289,26 @@
             ! Allocate second level of dipole array
             allocate(Atom%rdipev(iz)%rdipev(itran)% &
                           rdip(-1:1,maxnju,maxnjl,maxnMu,maxnMl))
+            MRAMc = MRAMc + 1d-6*sizeof(Atom%rdipev(iz)% &
+                                             rdipev(itran)%rdip)
 
             ! For each magnetic component of the lower level
             do iM=1,nM
 
-              ! Get M
+              ! Get magnetic quantum number
               rM = -rJmax + dble(iM-1)
 
               ! For each magnetic component of the upper level
               do iM1=1,nM1
 
+                ! Get magnetic quantum number
                 rM1 = -rJ1max + dble(iM1-1)
 
+                ! Get change in magnetic quantum number
                 q = rM - rM1
                 iq = nint(q)
 
+                ! Selection rule
                 if (abs(iq).gt.1) cycle
 
                 ! For each lower level state
@@ -356,7 +374,6 @@
 
       end subroutine strength_ev
 
-#endif
 !#####################################################################
 !#####################################################################
 !#####################################################################

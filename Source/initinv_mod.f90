@@ -5,123 +5,19 @@
 !#####################################################################
 !
 !  Authors:
-!     Hao Li (IAC)
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Hao Li (IAC/NSSCC)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     02/23/2023
+!     23/02/2023
 !  Last version:
-!     05/13/2024 V3.1.15
+!     11/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     05/13/2024:   V3.1.15 - Added checks for the new lambda
-!                             parameters for the backtracking (TdPA)
-!                           - Bugfix: No longer prints the default
-!                             full wavelength range for weights (TdPA)
-!
-!     02/29/2024:   V3.1.14 - It is no longer necessary to guess the
-!                             temperature and velocity limits for
-!                             input 3D models (TdPA)
-!
-!     11/24/2023:   V3.1.13 - Added verbosity of mask file (TdPA)
-!
-!     10/04/2023:   V3.1.12 - Improved the verbosity of the PSF
-!                             option (TdPA)
-!                           - Updated verbosity of the type of
-!                             inversion (TdPA)
-!
-!     10/03/2023:   V3.1.11 - Only master verbose the initialization
-!                             of the ad-hoc asymmetry (HL)
-!
-!     09/28/2023:   V3.1.10 - Added re_set_nodes routine (TdPA)
-!
-!     08/30/2023:    V3.1.9 - Diffuse light factor node value not
-!                             correctly initialized when initializing
-!                             the nodes (TdPA)
-!                           - Verbosity update (TdPA)
-!
-!     08/29/2023:    V3.1.8 - Diffuse light factor not correctly
-!                             initialized when generating the
-!                             stratification (TdPA)
-!
-!     08/24/2023:    V3.1.7 - Wrong formatting in new FWHM option
-!                             verbosity (TdPA)
-!
-!     08/24/2023:    V3.1.6 - Updated the verbosity of the inversion
-!                             set-up for the new possibilities of
-!                             FWHM inputs (TdPA)
-!
-!     08/17/2023:    V3.1.5 - Initialize axially symmetric velocity
-!                             pointers when creating the model
-!                             atmosphere stratification (TdPA)
-!
-!     08/11/2023:    V3.1.4 - Inversion weights are no longer managed
-!                             here. Changed the verbosity of that
-!                             variable (TdPA)
-!
-!     07/31/2023:    V3.1.3 - Change the verbosity level in the
-!                             inversion (HL)
-!
-!     07/06/2023:    V3.1.2 - Atmo_Stratify no longer processes the
-!                             stratification inputs, that has been
-!                             moved to rAtmo_mod in order to only do
-!                             it once (TdPA)
-!
-!     07/05/2023:    V3.1.1 - Bugfix: Duplicated message when Pg_bound
-!                             is not specified in hydrostatic
-!                             equilibrium (TdPA)
-!
-!     07/03/2023:    V3.1.0 - The initial model atmosphere is always
-!                             initialized when calling the routines
-!                             in this module. Therefore, the routines
-!                             Init_Guess_Thermal, Init_Guess_Mag,
-!                             Restore_Thermal_Nodes, and
-!                             Restore_Mag_Nodes have been
-!                             removed (TdPA)
-!                           - Added set_up_inversion and set_up_limits
-!                             routines to initialize the inversion
-!                             parameters. The code in them used to be
-!                             in the TIC routine (TdPA)
-!                           - Removed initial checks in Init_Nodes
-!                             because they are elsewhere (TdPA)
-!                           - Renamed Set_Nodes to Locate_Nodes (TdPA)
-!                           - Moved Atmo_Stratify here, which also
-!                             takes care of interpolating the input
-!                             model into the new grid (TdPA)
-!                           - Added set_nodes to do get the node
-!                             values from the model atmosphere (TdPA)
-!                           - Added Initialize_Nodes to manage the
-!                             initialization of the node values (TdPA)
-!
-!     06/12/2023:    V3.0.3 - Rename the variable Inf_File (HL)
-!
-!     11/04/2023:    V3.0.2 - Bugfix: Vmi is a pointer. *1d-6/c will
-!                             change the intialization for the next
-!                             pixel. Now VmiC and VmiP are already
-!                             in the code units (HL)
-!
-!     03/15/2023:    V3.0.1 - Commented hard-coded model variables not
-!                             needed (TdPA)
-!                           - Hard-coded model variables are no longer
-!                             parameters, but pointers for additional
-!                             flexibility (TdPA)
-!                           - The initial model can be now specified
-!                             via the input (TdPA)
-!                           - Do not leave the initial guess routines
-!                             just because there are no nodes, as we
-!                             initialize the model there (TdPA)
-!                           - Initializing atmosphere and magnetic
-!                             field models in Init_Guess_* (TdPA)
-!                           - Removed height branch in the node
-!                             initialization (TdPA)
-!
-!     03/08/2023:    V3.0.0 - First working version (TdPA)
-!
-!     02/23/2023:    V0.0.0 - Started from 05/12/2020
-!                             TIC@init_mod.f90 revision (TdPA)
+!     11/12/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -131,45 +27,44 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    set_up_inversion:
-!      Copy from Input to the relevant inversion structures, set-up
-!    and communicate the inverison parameters
+!    set_up_inversion
+!      Set-up the inversion structures by copying the information
+!    in the structure with the configuration data
 !
-!    set_up_limits:
-!      Determine the limits of T, v, and B, as well as is the model
+!    set_up_limits
+!      Determine the limits of T, v, and B, as well as if the model
 !    is static/dynamic or un/magnetized. A possible outcome is that
 !    this needs to be checked pixelwise
 !
-!    Init_Guess_Thermal:
-!      Guess the initial node values for thermodynamic variables
+!    Init_Nodes
+!      Initialize the location, values, and errors of the nodes
 !
-!    Init_Guess_Mag:
-!      Guess the initial node values for magnetic variables
+!    Locate_Nodes
+!      Generate an array with equally spaced nodes within the given
+!    limits
 !
-!    Init_Nodes:
-!      Initialize the nodes
+!    Atmo_Stratify
+!      Create a model atmosphere by interpolating a given model into
+!    a given optical depth stratification
 !
-!    Locate_Nodes:
-!      Equally spaces nodes positions
-!
-!    Atmo_Stratify:
-!      Define the optical depth stratification from the input
-!    parameters and interpolate the initial model into it
-!
-!    set_nodes:
+!    set_nodes
 !      Determine node values from the model atmosphere for a given
 !    variable
 !
-!    re_set_nodes:
-!      Changes the initial value of nodes in the transversal B or
-!    v variables when initializing from other inversion and they
-!    are too small
+!    re_set_nodes
+!      Change the initial value of nodes in the transversal B or v
+!    variables when initializing from other inversion and they are too
+!    small
 !
-!    Initialize_Nodes:
-!      Manage the initialization of the node values from the initial
-!    model atmosphere
+!    Initialize_Nodes
+!      Initialize the node values from a given model atmosphere
 !
 !#####################################################################
 !#####################################################################
@@ -180,7 +75,7 @@
       use commons_mod
       use inter_mod
       use model_mod
-      use parameters_mod, only: c, RAD , TINYSP , PI , TINYB
+      use parameters_mod, only: c, RAD , TINYSP , PI , TINYB , TINYVEL
       use types_mod
 
       contains
@@ -189,22 +84,29 @@
 !#####################################################################
 !#####################################################################
 
-      !> Set-up the inversion structures\n
-      !!       Input(Input_class): Structure with settings data\n
-      !!   Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !! Inf_Stokes(Stokes_class): Structure with Stokes parameters
-      !!                           data\n
-      !!      Sol(Solution_class): Class with the data of the RT
-      !!                           solution
+      !> Set-up the inversion structures by copying the information
+      !! in the structure with the configuration data\n
+      !!        Input(Input_class): Structure with configuration
+      !!                            data\n
+      !!    Inf_Nodes(Nodes_class): Structure with inversion node
+      !!                            data\n
+      !!  Inf_Stokes(Stokes_class): Structure with inversion Stokes
+      !!                            parameters data\n
+      !!       Sol(Solution_class): Structure with the frequency and
+      !!                            synthetic Stokes parameters in the
+      !!                            frequency range of the inverted
+      !!                            data
       subroutine set_up_inversion(Input,Inf_Nodes,Inf_Stokes,Sol)
 
       ! I/O
-      type(Input_class):: Input
-      type(Nodes_class):: Inf_Nodes
-      type(Stokes_class):: Inf_Stokes
-      type(Solution_class):: Sol
+
+      type(Input_class), intent(inout):: Input
+      type(Nodes_class), intent(inout):: Inf_Nodes
+      type(Stokes_class), intent(inout):: Inf_Stokes
+      type(Solution_class), intent(inout):: Sol
 
       ! Local
+
       character(len=10):: caux
 
       logical:: check
@@ -214,25 +116,47 @@
 
       !
       ! Copy variables into node
+      ! There are no changes in memory count because we are copying
+      ! and removing the original
       !
+
+      ! Type of node data and number of nodes
       Inf_Nodes%Node_type = Input%Node_type
       Inf_Nodes%Num_nodes = Input%Num_nodes
+
+      ! For every variable
       do ii=1,Input%nvar
+
+        ! If there is location data
         if (allocated(Input%Node(ii)%H)) then
+
+          ! Copy to node structure and free input
           allocate(Inf_Nodes%Node(ii)%H( &
                    Inf_Nodes%Num_nodes(ii)))
           Inf_Nodes%Node(ii)%H = Input%Node(ii)%H
           deallocate(Input%Node(ii)%H)
-        end if
+
+        end if ! There is location data
+
+        ! Copy bounds info
         Inf_Nodes%Node(ii)%Bounds = Input%Node(ii)%Bounds
         Inf_Nodes%Node(ii)%nebound = Input%Node(ii)%nebound
+
+        ! If there is special bound info
         if (allocated(Input%Node(ii)%ebound)) then
+
+          ! Copy to node structure and free input
           allocate(Inf_Nodes%Node(ii)%ebound(4, &
                        Input%Node(ii)%nebound))
           Inf_Nodes%Node(ii)%ebound = Input%Node(ii)%ebound
           deallocate(Input%Node(ii)%ebound)
-        end if
-      end do
+
+        end if ! There is special bound info
+
+      end do ! Variables
+
+      ! Copy flags, regularization data, scaling, perturbation size,
+      ! and minimum relative perturbation
       Inf_Nodes%Nodes_flags = Input%Nodes_flags
       Inf_Nodes%Nodes_Regul = Input%Nodes_Regul
       Inf_Nodes%Indx_regul = Input%Indx_regul
@@ -240,6 +164,8 @@
       Inf_Nodes%Scal = Input%Scal
       Inf_Nodes%Perturb = Input%Perturb
       Inf_Nodes%min_rel_Pert = Input%min_rel_Pert
+
+      ! Free the already copied information from the input
       deallocate(Input%Node_type)
       deallocate(Input%Node)
       deallocate(Input%Num_nodes)
@@ -250,6 +176,12 @@
       deallocate(Input%Scal)
       deallocate(Input%Perturb)
       deallocate(Input%min_rel_Pert)
+
+      ! Copy type of interpolation, type of magnetic field vector,
+      ! type of velocity vector, if correcting node position, the
+      ! SVD threshold, if doing hydrostatic equilibrium, the value
+      ! of the gas pressure at the top boundary, and the maximum
+      ! step in SVD
       Inf_Nodes%Interpolation = Input%Interpolation
       Inf_Nodes%Btype = Input%Btype
       Inf_Nodes%vtype = Input%vtype
@@ -260,18 +192,17 @@
       Inf_Nodes%Max_step = Input%Max_step
 
 
-      !
-      ! Hard-coded type for pressure (if hydrostatic eq) and diffuse
-      ! light
-      !
+      ! The type of node is hard-coded type for pressure (if in
+      ! hydrostatic eq) and for diffuse light
       if (Inf_Nodes%hydroeq) &
         Inf_Nodes%Node_Type(Inf_Nodes%index_Pg) = 0
       Inf_Nodes%Node_Type(Inf_Nodes%index_f) = 0
 
 
-      !
-      ! Check if need to repeat hydrostatic equilibrium
-      !
+      ! Check if need to repeat hydrostatic equilibrium when
+      ! updating the model, i.e., if temperature or gas pressure
+      ! are free variables and the model is in hydrostatic
+      ! equilibrium
       Inf_Nodes%hydros = (Inf_Nodes% &
                                Nodes_flags(Inf_Nodes%index_T).or. &
                           Inf_Nodes% &
@@ -279,14 +210,11 @@
                          Inf_Nodes%hydroeq
 
 
-      !
-      ! Copy variable into Stokes
-      !
+      ! Copy weights in Stokes structure
       Inf_Stokes%auto_weight = Input%auto_weight
 
-      !
-      ! Copy variable into solution
-      !
+      ! Copy if profiles are fractional and the kind of magnetic
+      ! field projection in the solution structure
       Sol%fractional = Input%fractional
       Sol%Projection = Input%Projection
 
@@ -298,17 +226,18 @@
       ! There is scattering polarization
       if (Krad.gt.0.or.Kcut.gt.0) then
 
-        ! If inverting the magnetic field vector or if it is
-        ! in the LOS
+        ! If inverting the non-vertical components of the magnetic
+        ! field vector or if inverting the magnetic field along the
+        ! LOS
         if (Inf_Nodes%Nodes_Flags(Inf_Nodes%index_Bt).or. &
             Inf_Nodes%Nodes_Flags(Inf_Nodes%index_Bp).or. &
             (Input%Btype.eq.1.and. &
              Inf_Nodes%Nodes_Flags(Inf_Nodes%index_B))) then
 
-          ! Cannot be axial
+          ! If the problem is axial
           if (Input%nPh.le.0) then
 
-            ! Abort
+            ! Abort because it is not possible
             umsg = 'If scattering polarization is included and '// &
                    'you are inverting the magnetic field '// &
                    'vector or its longitudinal component, then '// &
@@ -321,17 +250,18 @@
         end if ! Inverting B vector or along LOS
       end if ! Scattering polarization included
 
-      ! If inverting the velocity vector or if it is in the LOS
+      ! If inverting the horizontal components of the velocity vector
+      ! or inverting in the LOS reference frame
       if (Inf_Nodes%Nodes_Flags(Inf_Nodes%index_vx).or. &
           Inf_Nodes%Nodes_Flags(Inf_Nodes%index_vy).or. &
           (Input%vtype.eq.1.and. &
            Inf_Nodes%Nodes_Flags(Inf_Nodes%index_vz))) then
 
-        ! Cannot be axial
+        ! If the problem is set to exial
         if (Input%nPhI.le.0.or. &
             (Input%force.ne.'I'.and.Input%nPh.le.0)) then
 
-          ! Abort
+          ! Abort because it is not possible
           umsg = 'You are inverting the horizontal velocity '// &
                  'vector or its longitudinal component, then '// &
                  'the you cannot use an axial quadrature'
@@ -346,20 +276,20 @@
       ! Manage regularization inputs
       !
 
-      ! If regularization limit larger than zero
+      ! If regularization limit is larger than zero
       if (Input%Regul_Limit.ge.0d0) then
 
         ! For each variable
         do ii=1,Input%nvar
 
-          ! If inverting the variable, with regularization and
-          ! some weight
+          ! Flag to regularize if inverting the variable, with
+          ! regularization and it has some weight
           Inf_Nodes%Nodes_Regul(ii) = Inf_Nodes%Nodes_Flags(ii).and. &
                                   Inf_Nodes%Indx_regul(ii).gt.0.and. &
                                   Inf_Nodes%Regul_Weight(ii).gt.0d0
         end do ! Variables
 
-        ! Check if any true
+        ! Check if there is any regulatization to do
         Inf_Nodes%Regul_flag = any(Inf_Nodes%Nodes_Regul)
 
       ! The limit is negative
@@ -385,20 +315,32 @@
         ! If inverting Pgas
         if (Inf_Nodes%Nodes_Flags(Inf_Nodes%index_Pg)) then
 
-          ! Hard-code number of nodes, scale, and
-          ! perturbation
+          ! Hard-code number of nodes, scale, perturbation, and node
+          ! type
           Inf_Nodes%Num_Nodes(Inf_Nodes%index_Pg) = 1
           Inf_Nodes%Scal(Inf_Nodes%index_Pg) = 2d0
           Inf_Nodes%Perturb(Inf_Nodes%index_Pg) = 0.05d0
           Inf_Nodes%Node_Type(Inf_Nodes%index_Pg) = 0
 
-          ! Allocate the single node and set to 0
-          if (allocated(Inf_Nodes%Node(Inf_Nodes%index_Pg)%H)) &
+          ! If the node location is already set
+          if (allocated(Inf_Nodes%Node(Inf_Nodes%index_Pg)%H)) then
+
+            ! Free location data
+            MRAMc = MRAMc - &
+                    1d-6*sizeof(Inf_Nodes%Node(Inf_Nodes%index_Pg)%H)
             deallocate(Inf_Nodes%Node(Inf_Nodes%index_Pg)%H)
+
+          end if ! Already allocate
+
+          ! Allocate single height
           allocate(Inf_Nodes%Node(Inf_Nodes%index_Pg)%H(1))
+          MRAMc = MRAMc + &
+                  1d-6*sizeof(Inf_Nodes%Node(Inf_Nodes%index_Pg)%H)
+
+          ! Set location at top
           Inf_Nodes%Node(Inf_Nodes%index_Pg)%H(1) = 0d0
 
-          ! Automatic Pg_bound
+          ! Flag if automatic Pg_bound
           Inf_Nodes%Pg_Auto = Inf_Nodes%Pg_Bound.gt.0d0
 
           ! If pressure has a regularization weight
@@ -407,27 +349,31 @@
             ! Set regularization to yes
             Inf_Nodes%Nodes_Regul(Inf_Nodes%index_Pg) = .True.
 
-            ! If the regularization is other than constant,
-            ! there is aproblem
+            ! If the regularization is other than constant
             if (Inf_Nodes%Indx_regul(Inf_Nodes%index_Pg).ne.0.and. &
                 Inf_Nodes%Indx_regul(Inf_Nodes%index_Pg).ne.2.and. &
                 Inf_Nodes%Indx_regul(Inf_Nodes%index_Pg).ne.5) then
+
+              ! Abort because it makes no sense
               umsg = 'Wrong regularization for pressure in '// &
                      'hydrostatic equilibrium'
               urou = 'set_up_inv'
               call gabortedv
-            end if
+
+            end if ! Regularization is anything but constant
 
           ! No regularization weight
           else
-            ! Flag to no regulatization
+
+            ! Flag no regulatization
             Inf_Nodes%Nodes_Regul(Inf_Nodes%index_Pg) = .False.
-          end if
+
+          end if ! Check regulatization weight
 
         ! Not inverting Pgas
         else
 
-            ! Flag everything to no
+            ! Flag everything to no and set no nodes
             Inf_Nodes%Nodes_Flags(Inf_Nodes%index_Pg) = .False.
             Inf_Nodes%Pg_Auto = .False.
             Inf_Nodes%Num_Nodes(Inf_Nodes%index_Pg) = 0
@@ -444,15 +390,26 @@
       ! If inverting diffuse light
       if (Inf_Nodes%Nodes_Flags(Inf_Nodes%index_f)) then
 
-        ! Hard-code number of nodes, scale, and
-        ! perturbation
+        ! Hard-code number of nodes and node type
         Inf_Nodes%Num_Nodes(Inf_Nodes%index_f) = 1
         Inf_Nodes%Node_Type(Inf_Nodes%index_f) = 0
 
-        ! Allocate the single node and set to 0
-        if (allocated(Inf_Nodes%Node(Inf_Nodes%index_f)%H)) &
+        ! If the node location is already set
+        if (allocated(Inf_Nodes%Node(Inf_Nodes%index_f)%H)) then
+
+          ! Free location data
+          MRAMc = MRAMc - &
+                  1d-6*sizeof(Inf_Nodes%Node(Inf_Nodes%index_f)%H)
           deallocate(Inf_Nodes%Node(Inf_Nodes%index_f)%H)
+
+        end if ! Already allocate
+
+        ! Allocate single height
         allocate(Inf_Nodes%Node(Inf_Nodes%index_f)%H(1))
+        MRAMc = MRAMc + &
+                1d-6*sizeof(Inf_Nodes%Node(Inf_Nodes%index_f)%H)
+
+        ! Set location at top
         Inf_Nodes%Node(Inf_Nodes%index_f)%H(1) = 0d0
 
         ! If it has a regularization weight
@@ -461,40 +418,44 @@
           ! Set regularization to yes
           Inf_Nodes%Nodes_Regul(Inf_Nodes%index_f) = .True.
 
-          ! If the regularization is other than constant,
-          ! there is aproblem
+          ! If the regularization is other than constant
           if (Inf_Nodes%Indx_regul(Inf_Nodes%index_f).ne.0.and. &
               Inf_Nodes%Indx_regul(Inf_Nodes%index_f).ne.2.and. &
               Inf_Nodes%Indx_regul(Inf_Nodes%index_f).ne.5) then
+
+            ! Abort because it makes no sense
             umsg = 'Wrong regularization for diffuse light'
             urou = 'set_up_inv'
             call gabortedv
-          end if
+
+          end if ! Regularization is anything but constant
 
         ! No regularization weight
         else
-          ! Flag to no regulatization
-          Inf_Nodes%Nodes_Regul(Inf_Nodes%index_f) = .False.
-        end if
 
-      ! Not inverting Pgas
+          ! Flag to regulatization
+          Inf_Nodes%Nodes_Regul(Inf_Nodes%index_f) = .False.
+
+        end if ! Check regulatization weight
+
+      ! Not inverting diffuse light
       else
 
-          ! Flag everything to no
+          ! Flag no regulatization and no nodes
           Inf_Nodes%Num_Nodes(Inf_Nodes%index_f) = 0
           Inf_Nodes%Nodes_Regul(Inf_Nodes%index_f) = .False.
 
-      end if ! Inverting Pgas
+      end if ! Inverting diffuse light
 
 
       !
-      ! Number of changing nodes
+      ! Count number of changing nodes per variable
       !
 
       ! For each variable
       do ii=1,Input%nvar
 
-        ! If inverting
+        ! If inverting the variable
         if (Inf_Nodes%Nodes_Flags(ii)) then
 
           ! Check type of node
@@ -579,109 +540,150 @@
       ! Count nodes
       !
 
-      ! Initialize
+      ! Initialize count
       Inf_Nodes%Num_Fit = 0
       Inf_Nodes%Num_Mag = 0
       Inf_Nodes%Num_Thermal = 0
       Inf_Nodes%Num_Asymmetry = 0
       Inf_Nodes%Num_glob = 0
 
+      !
       ! Magnetic variables
+
+      ! B strength or Blos
       ii = Inf_Nodes%index_B
       if (Inf_Nodes%Nodes_Flags(ii)) then
         Inf_Nodes%Num_Mag = Inf_Nodes%Num_Mag + &
                             Inf_Nodes%Num_Vary(ii)
       end if
+
+      ! B theta or Btrans
       ii = Inf_Nodes%index_Bt
       if (Inf_Nodes%Nodes_Flags(ii)) then
         Inf_Nodes%Num_Mag = Inf_Nodes%Num_Mag + &
                             Inf_Nodes%Num_Vary(ii)
       end if
+
+      ! B chi or B POS azimuth
       ii = Inf_Nodes%index_Bp
       if (Inf_Nodes%Nodes_Flags(ii)) then
         Inf_Nodes%Num_Mag = Inf_Nodes%Num_Mag + &
                             Inf_Nodes%Num_Vary(ii)
       end if
 
+      !
       ! Thermal variables
+
+      ! Temperature
       ii = Inf_Nodes%index_T
       if (Inf_Nodes%Nodes_Flags(ii)) then
         Inf_Nodes%Num_Thermal = Inf_Nodes%Num_Thermal + &
                                 Inf_Nodes%Num_Vary(ii)
       end if
+
+      ! X component of the velocity or vtrans
       ii = Inf_Nodes%index_vx
       if (Inf_Nodes%Nodes_Flags(ii)) then
         Inf_Nodes%Num_Thermal = Inf_Nodes%Num_Thermal + &
                                 Inf_Nodes%Num_Vary(ii)
       end if
+
+      ! Y component of the velocity or v POS phi
       ii = Inf_Nodes%index_vy
       if (Inf_Nodes%Nodes_Flags(ii)) then
         Inf_Nodes%Num_Thermal = Inf_Nodes%Num_Thermal + &
                                 Inf_Nodes%Num_Vary(ii)
       end if
+
+      ! Z component of the velocity or vlos
       ii = Inf_Nodes%index_vz
       if (Inf_Nodes%Nodes_Flags(ii)) then
         Inf_Nodes%Num_Thermal = Inf_Nodes%Num_Thermal + &
                                 Inf_Nodes%Num_Vary(ii)
       end if
+
+      ! Microturbulent velocity
       ii = Inf_Nodes%index_vm
       if (Inf_Nodes%Nodes_Flags(ii)) then
         Inf_Nodes%Num_Thermal = Inf_Nodes%Num_Thermal + &
                                 Inf_Nodes%Num_Vary(ii)
       end if
+
+      ! Gas pressure
       ii = Inf_Nodes%index_Pg
       if (Inf_Nodes%Nodes_Flags(ii)) then
         Inf_Nodes%Num_Thermal = Inf_Nodes%Num_Thermal + &
                                 Inf_Nodes%Num_Vary(ii)
       end if
 
+      !
       ! Global variables
+
+      ! Diffuse light
       ii = Inf_Nodes%index_f
       if (Inf_Nodes%Nodes_Flags(ii)) then
         Inf_Nodes%Num_glob = Inf_Nodes%Num_glob + &
                              Inf_Nodes%Num_Vary(ii)
       end if
 
+      !
       ! Asymmetry variables
+
+      ! Real J21
       ii = Inf_Nodes%index_J21R
       if (Inf_Nodes%Nodes_Flags(ii)) then
         Inf_Nodes%Num_Asymmetry = Inf_Nodes%Num_Asymmetry + &
                                   Inf_Nodes%Num_Vary(ii)
       end if
+
+      ! Imaginary J21
       ii = Inf_Nodes%index_J21I
       if (Inf_Nodes%Nodes_Flags(ii)) then
         Inf_Nodes%Num_Asymmetry = Inf_Nodes%Num_Asymmetry + &
                                   Inf_Nodes%Num_Vary(ii)
       end if
+
+      ! Real J22
       ii = Inf_Nodes%index_J22R
       if (Inf_Nodes%Nodes_Flags(ii)) then
         Inf_Nodes%Num_Asymmetry = Inf_Nodes%Num_Asymmetry + &
                                   Inf_Nodes%Num_Vary(ii)
       end if
+
+      ! Imaginary J22
       ii = Inf_Nodes%index_J22I
       if (Inf_Nodes%Nodes_Flags(ii)) then
         Inf_Nodes%Num_Asymmetry = Inf_Nodes%Num_Asymmetry + &
                                   Inf_Nodes%Num_Vary(ii)
       end if
 
-      ! Total nodes
+      ! Total number of nodes
       Inf_Nodes%Num_Fit = Inf_Nodes%Num_Mag + &
                           Inf_Nodes%Num_Thermal + &
                           Inf_Nodes%Num_glob + &
                           Inf_Nodes%Num_Asymmetry
 
-      ! No Nodes?
+      ! If no nodes to invert
       if (Inf_Nodes%Num_Fit.le.0) then
+
+        ! Leave this absurd run
         umsg = 'There are no nodes to fit'
         urou = 'set_up_inv'
         call gabortedv
-      end if
 
+      end if ! No nodes
+
+      !
       ! Check backtracking
+      !
+
+      ! If backtracking mehotd
       if (Input%LM_Method.eq.1) then
-        ! Check desperate
+
+        ! If desparate backtracking mode
         if (Input%LM_Back_Mode.eq.1) then
-          ! Check within limits
+
+          ! Check that all parameters are within the limits
           check = Input%LM_lam_big_test.le.Input%Lam_Range(1).or. &
                   Input%LM_lam_big_prove.le.Input%Lam_Range(1).or. &
                   Input%LM_lam_small_test.le.Input%Lam_Range(1).or. &
@@ -691,8 +693,11 @@
                   Input%LM_lam_small_test.ge.Input%Lam_Range(2).or. &
                   Input%LM_lam_small_prove.ge.Input%Lam_Range(2).or. &
                   Input%LM_lam_small_prove.ge.Input%LM_lam_big_prove
-          ! Error
+
+          ! Wrong ranges
           if (check) then
+
+            ! Issue error
             umsg = 'Found a consistency issue between the ranges '// &
                    'of the lambda parameter and the test and '// &
                    'prove parameters of the backtracking '// &
@@ -702,14 +707,17 @@
                    'strictly between the limits for lambda'
             urou = 'set_up_inv'
             call gabortedv
-          end if
-        end if
-      end if
+
+          end if ! Correct ranges
+        end if ! Desperate backtracking
+      end if ! Backtracking
 
 
       !
-      ! Show the input to the user
+      ! Show the whole configuration to the user
       !
+
+      ! Only the global master
       if (gpid.eq.0) then
 
         ! Information message
@@ -717,16 +725,16 @@
                'following parameters:'
         call verboseI(1)
 
-
+        ! Verbosity level
         write(umsg,'(A,i1)') '   o Verbosity level:',vlevel
         call verboseI(1)
 
-
+        ! Data file
         write(umsg,'(A,A)') '   o Input data file: ', &
                              trim(Input%Filename_ob)
         call verboseI(1)
 
-        ! If mask
+        ! Mask file
         if (trim(Input%Inv_mask).ne.'NONE'.and. &
             trim(Input%Inv_init).ne.'INIT') then
           write(umsg,'(A,A)') '   o Mask file: ', &
@@ -734,6 +742,7 @@
           call verboseI(1)
         end if
 
+        ! Type of inversion
         if (Input%Type_Inversion.eq.0) then
           write(umsg,'(A)') '   o Thermodynamic inversion'
         else if (Input%Type_Inversion.eq.1) then
@@ -749,7 +758,7 @@
         end if
         call verboseI(1)
 
-
+        ! Stokes parameters weights
         if (Input%auto_weight) then
           write(umsg,'(A)') '   o Automatic Stokes weights'
           call verboseI(1)
@@ -776,14 +785,14 @@
           end if
         end if
 
-       
+        ! If initializing from previous solution
         if (trim(Input%Inv_init).ne.'NONE') then
           write(umsg,'(A,A)') '   o Restore from file ', &
                                Input%Inv_init
           call verboseI(1)
         end if
 
-
+        ! If centered derivatives
         if (Input%centered) then
           write(umsg,'(A)') '   o Centered derivative for RF'
         else
@@ -791,12 +800,12 @@
         end if
         call verboseI(1)
 
-
+        ! Maximum number of inversion iterations
         write(umsg,'(A,i5)') '   o Maximum iterations ', &
                              Input%Num_Iter
         call verboseI(1)
 
-
+        ! Type of interpolation to build the model atmosphere
         if (Input%Interpolation.eq.0) then
           write(umsg,'(A)') '   o Linear interpolation'
         else if (Input%Interpolation.eq.1) then
@@ -806,7 +815,7 @@
         end if
         call verboseI(1)
 
-
+        ! Type of magnetic field vector
         if (Input%btype.eq.0) then
           write(umsg,'(A)') '   o Magnetic field in vertical ref.'
         else if (Input%btype.eq.1) then
@@ -814,7 +823,7 @@
         end if
         call verboseI(1)
 
-
+        ! Type of velocity vector
         if (Input%vtype.eq.0) then
           write(umsg,'(A)') '   o Cartesian velocity'
         else if (Input%vtype.eq.1) then
@@ -822,7 +831,8 @@
         end if
         call verboseI(1)
 
-
+        ! If correct the node positions to coincide with positions
+        ! in the model atmosphere
         if (Input%Pos_Correction) then
           write(umsg,'(A)') '   o Correct node positions'
         else
@@ -831,103 +841,146 @@
         call verboseI(1)
 
 
-        ! Variables
+        ! For every variable
         do ii=1,Input%nvar
 
+          ! If magnetic field strength or Blos
           if (ii.eq.Inf_Nodes%index_B) then
 
+            ! Verbose
             if (Input%btype.eq.0) then
               write(umsg,'(A,i2,A)') '   o |B| (',ii,'):'
             else if (Input%btype.eq.1) then
               write(umsg,'(A,i2,A)') '   o Bpar (',ii,'): '
             end if
 
+          ! If magnetic field inclination or Btrans
           else if (ii.eq.Inf_Nodes%index_Bt) then
 
+            ! Verbose
             if (Input%btype.eq.0) then
               write(umsg,'(A,i2,A)') '   o B_incl (',ii,'):'
             else if (Input%btype.eq.1) then
               write(umsg,'(A,i2,A)') '   o Btrv (',ii,'): '
             end if
 
+          ! If magnetic field azimuth or POS azimuth
           else if (ii.eq.Inf_Nodes%index_Bp) then
 
+            ! Verbose
             if (Input%btype.eq.0) then
               write(umsg,'(A,i2,A)') '   o B_azim (',ii,'):'
             else if (Input%btype.eq.1) then
               write(umsg,'(A,i2,A)') '   o B_pos-azim (',ii,'):'
             end if
 
+          ! If temperature
           else if (ii.eq.Inf_Nodes%index_T) then
 
+            ! Verbose
             write(umsg,'(A,i2,A)') '   o Temperature: (',ii,')'
 
+          ! If X component of the velocity or vtrans
           else if (ii.eq.Inf_Nodes%index_vx) then
 
+            ! Skip if not inverting
             if (.not.Inf_Nodes%Nodes_flags(ii)) cycle
+
+            ! Verbose
             if (Input%vtype.eq.0) then
               write(umsg,'(A,i2,A)') '   o X axis velocity (',ii,'):'
             else if (Input%vtype.eq.1) then
               write(umsg,'(A,i2,A)') '   o POS velocity (',ii,'):'
             end if
 
+          ! If Y component of the velocity or POS azimuth
           else if (ii.eq.Inf_Nodes%index_vy) then
 
+            ! Skip if not inverting
             if (.not.Inf_Nodes%Nodes_flags(ii)) cycle
+
+            ! Verbose
             if (Input%vtype.eq.0) then
               write(umsg,'(A,i2,A)') '   o Y axis velocity (',ii,'):'
             else if (Input%vtype.eq.1) then
              write(umsg,'(A,i2,A)') '   o Velocity POS azim (',ii,'):'
             end if
 
+          ! If vertical velocity or vlos
           else if (ii.eq.Inf_Nodes%index_vz) then
 
+            ! Verbose
             if (Input%vtype.eq.0) then
              write(umsg,'(A,i2,A)') '   o Vertical velocity (',ii,'):'
             else if (Input%vtype.eq.1) then
               write(umsg,'(A,i2,A)') '   o LOS velocity (',ii,'):'
             end if
 
+          ! If microturbulent velocity
           else if (ii.eq.Inf_Nodes%index_vm) then
 
+            ! Verbose
             write(umsg,'(A,i2,A)') '   o Turbulent velocity (',ii,'):'
 
+          ! If gas pressure
           else if (ii.eq.Inf_Nodes%index_Pg) then
 
+            ! Verbose
             write(umsg,'(A,i2,A)') '   o Gas pressure (',ii,'):'
 
+          ! If diffuse light
           else if (ii.eq.Inf_Nodes%index_f) then
 
+            ! Verbose
             write(umsg,'(A,i2,A)') '   o Diffuse light (',ii,'):'
 
+          ! If real J21
           else if (ii.eq.Inf_Nodes%index_J21R) then
 
+            ! Skip if not inverting
             if (.not.Inf_Nodes%Nodes_flags(ii)) cycle
+
+            ! Verbose
             write(umsg,'(A,i2,A)') '   o J21 real (',ii,'):'
 
+          ! If imaginary J21
           else if (ii.eq.Inf_Nodes%index_J21I) then
 
+            ! Skip if not inverting
             if (.not.Inf_Nodes%Nodes_flags(ii)) cycle
+
+            ! Verbose
             write(umsg,'(A,i2,A)') '   o J21 imag (',ii,'):'
 
+          ! If real J22
           else if (ii.eq.Inf_Nodes%index_J22R) then
 
+            ! Skip if not inverting
             if (.not.Inf_Nodes%Nodes_flags(ii)) cycle
+
+            ! Verbose
             write(umsg,'(A,i2,A)') '   o J22 real (',ii,'):'
 
+          ! If imaginary J22
           else if (ii.eq.Inf_Nodes%index_J22I) then
 
+            ! Skip if not inverting
             if (.not.Inf_Nodes%Nodes_flags(ii)) cycle
+
+            ! Verbose
             write(umsg,'(A,i2,A)') '   o J22 imag (',ii,'):'
 
+          ! Variable not recognized
           else
 
+            ! Verbose no idea and skip rest
             write(umsg,'(A)') '   o ??'
             cycle
 
           end if
           call verboseI(1)
 
+          ! Verbose if inverting
           if (Inf_Nodes%Nodes_Flags(ii)) then
             write(umsg,'(A)') '     + Inverting'
           else
@@ -935,69 +988,98 @@
           end if
           call verboseI(1)
 
-          ! Pressure
+          ! If variable is pressure and doing hydrostatic Eq.
           if (ii.eq.Inf_Nodes%index_Pg.and.Input%hydroeq) then
 
+            ! Verbose
             write(umsg,'(A)') '     + Hydrostatic equilibrium'
             call verboseI(1)
+
+            ! If specified value
             if (Input%Pg_bound.gt.0d0) then
+
+              ! Verbose
               write(umsg,'(A,es10.3)') '     + Boundary value ', &
                                        Input%Pg_bound
               call verboseI(1)
-            end if
 
-          ! Non-pressure
+            end if ! Specified gas pressure
+
+          ! Any other variable
           else
 
+            ! Skip if not inverting
             if (.not.Inf_Nodes%Nodes_Flags(ii)) cycle
 
+            ! If node value
             if (Inf_Nodes%Node_type(ii).eq.0) then
 
+              ! Verbose
               write(umsg,'(A)') '     + Nodes have values'
 
+            ! If node values with fixed last node
             else if (Inf_Nodes%Node_type(ii).eq.1) then
 
+              ! Verbose
               write(umsg,'(A)') '     + Nodes have values '// &
                                 'with last node fixed'
 
+            ! If node value with fixed first node
             else if (Inf_Nodes%Node_type(ii).eq.2) then
 
+              ! Verbose
               write(umsg,'(A)') '     + Nodes have values '// &
                                 'with first node fixed'
 
+            ! If node value with fixed extremes
             else if (Inf_Nodes%Node_type(ii).eq.3) then
 
+              ! Verbose
               write(umsg,'(A)') '     + Nodes have values '// &
                                 'with extreme nodes fixed'
 
+            ! If correction
             else if (Inf_Nodes%Node_type(ii).eq.4) then
 
+              ! Verbose
               write(umsg,'(A)') '     + Nodes have corrections'
 
+            ! If correcting with fixed last node
             else if (Inf_Nodes%Node_type(ii).eq.5) then
 
+              ! Verbose
               write(umsg,'(A)') '     + Nodes have corrections '// &
                                 'with last node fixed'
 
+            ! If correcting with fixed first node
             else if (Inf_Nodes%Node_type(ii).eq.6) then
 
+              ! Verbose
               write(umsg,'(A)') '     + Nodes have corrections '// &
                                 'with first node fixed'
 
+            ! If correcting with fixed extreme nodes
             else if (Inf_Nodes%Node_type(ii).eq.7) then
 
+              ! Verbose
               write(umsg,'(A)') '     + Nodes have corrections '// &
                                 'with extreme nodes fixed'
 
-            end if
+            end if ! Type of node
             call verboseI(1)
 
+            ! Number of nodes
             write(umsg,'(A,i3)') '     + Number of nodes ', &
                                  Inf_Nodes%Num_nodes(ii)
             call verboseI(1)
 
+            ! If locations are already set
             if (allocated(Inf_Nodes%Node(ii)%H)) then
+
+              ! Write number of nodes to message
               write(caux,'(i10)') Inf_Nodes%Num_nodes(ii)
+
+              ! Find space
               kk = 0
               do jj=1,10
                 if (caux(jj:jj).ne.' ') then
@@ -1005,6 +1087,8 @@
                   exit
                 end if
               end do
+
+              ! Move number to beginning to trim it in both directions
               ll = 10 - kk + 1
               do jj=1,ll
                 caux(jj:jj) = caux(kk+jj-1:kk+jj-1)
@@ -1012,116 +1096,142 @@
               do jj=ll+1,10
                 caux(jj:jj) = ' '
               end do
+
+              ! Write locations in message and verbose it
               write(umsg,'(A,'//trim(caux)//'(1x,es10.3))') &
                  '     + Fixed positions ',Inf_Nodes%Node(ii)%H
               call verboseI(1)
-            end if
 
+            end if ! Locations already set
+
+            ! Value scale
             write(umsg,'(A,2(1x,es10.3))') &
               '     + Scale ',Inf_Nodes%Scal(ii)
             call verboseI(1)
 
+            ! Perturbation for response function calculation
             write(umsg,'(A,2(1x,es10.3))') &
               '     + Perturbation ',Inf_Nodes%Perturb(ii)
             call verboseI(1)
 
+            ! Boundary values
             write(umsg,'(A,2(1x,es10.3))') &
               '     + Bound values ',Inf_Nodes%Node(ii)%Bounds
             call verboseI(1)
 
-            ! Special limits
+            ! For each special limit
             do jj=1,Inf_Nodes%Node(ii)%nebound
+
+              ! Write the limit data
               write(umsg,'(A,2(1x,es10.3),A,2(1x,es10.3))') &
                 '     + Bound values between', &
                 Inf_Nodes%Node(ii)%ebound(1:2,jj),': ', &
                 Inf_Nodes%Node(ii)%ebound(3:4,jj)
               call verboseI(1)
+
             end do ! special limits
 
           end if ! Pressure
 
-
+          ! If regularizing this variable
           if (Inf_Nodes%Nodes_regul(ii)) then
 
+            ! If average regularization
             if (Inf_Nodes%Indx_regul(ii).eq.1) then
 
+              ! Verbose
               write(umsg,'(A,es10.3)') &
                 '     + Mean regularization with weight ', &
                 Inf_Nodes%Regul_weight(ii)
 
+            ! If constant regularization
             else if (Inf_Nodes%Indx_regul(ii).eq.2) then
 
+              ! Verbose
               write(umsg,'(A,es10.3)') &
                 '     + Constant regularization with weight ', &
                 Inf_Nodes%Regul_weight(ii)
 
+            ! If first derivative regularization
             else if (Inf_Nodes%Indx_regul(ii).eq.3) then
 
+              ! Verbose
               write(umsg,'(A,es10.3)') &
                 '     + First derivative regularization with '// &
                 'weight ',Inf_Nodes%Regul_weight(ii)
 
+            ! If second derivative regularization
             else if (Inf_Nodes%Indx_regul(ii).eq.4) then
 
+              ! Verbose
               write(umsg,'(A,es10.3)') &
                 '     + Second derivative regularization with '// &
                 'weight ',Inf_Nodes%Regul_weight(ii)
 
-            end if
+            end if ! Type of regularization
+
+            ! Write message
             call verboseI(1)
 
           end if ! Regularization
 
         end do ! Variables
 
-
+        ! Total number of variable nodes
         write(umsg,'(A,i4)') '   o Total number of nodes ', &
                              Inf_Nodes%Num_Fit
         call verboseI(1)
 
-
+        ! Total number of variable nodes for magnetic quantities if
+        ! larger than 0
         if (Inf_Nodes%Num_Mag.gt.0) then
           write(umsg,'(A,i4)') '   o Total number of magnetic '// &
                                'nodes ',Inf_Nodes%Num_Mag
           call verboseI(1)
         end if
 
-
+        ! Total number of variable nodes for thermal quantities if
+        ! larger than 0
         if (Inf_Nodes%Num_Thermal.gt.0) then
           write(umsg,'(A,i4)') '   o Total number of thermal '// &
                                'nodes ',Inf_Nodes%Num_Thermal
           call verboseI(1)
         end if
 
-
+        ! Total number of variable nodes for global quantities if
+        ! larger than 0
         if (Inf_Nodes%Num_glob.gt.0) then
           write(umsg,'(A,i4)') '   o Total number of global '// &
                                'nodes ',Inf_Nodes%Num_glob
           call verboseI(1)
         end if
 
-
+        ! Total number of variable nodes for asymmetry quantities if
+        ! larger than 0
         if (Inf_Nodes%Num_Asymmetry.gt.0) then
           write(umsg,'(A,i4)') '   o Total number of symmetry '// &
                                'nodes ',Inf_Nodes%Num_Asymmetry
           call verboseI(1)
         end if
 
-
+        ! Limit for regularization contribution to merit function
         if (maxval(Inf_Nodes%Indx_regul).gt.0) then
           write(umsg,'(A,es10.3)') &
             '   o Regularization limit',Input%Regul_Limit
           call verboseI(1)
         end if
 
+        ! Merit function threshold for solution
         write(umsg,'(A,es10.3)') '   o Chi2 threshold ', &
                                  Input%Threshold_chisq
         call verboseI(1)
 
+        ! Merit function MRC to consider convergence
         write(umsg,'(A,es10.3)') '   o Chi2 MRC ', &
                                  Input%Chisq_fraction
         call verboseI(1)
 
+        ! Type of SVD solution
         if (Input%SVD_type.eq.0) then
           write(umsg,'(A,es10.3)') '   o SVD method: tradiational'
         else if (Input%SVD_type.eq.2) then
@@ -1129,84 +1239,121 @@
         end if
         call verboseI(1)
 
-
+        ! Threshold for SVD
         write(umsg,'(A,es10.3)') '   o SVD threshold ', &
                                  Input%Threshold_svd
         call verboseI(1)
 
-
+        ! Initial model atmosphere
         write(umsg,'(A,A)') '   o Initial atmospheric model file: ', &
                              trim(Input%atmo)
         call verboseI(1)
 
-
+        ! Number of nodes in model atmosphere during synthesis
         write(umsg,'(A,i4)') '   o Atmospheric nodes in '// &
                              'synthesis: ',Input%Atmo_Input
         call verboseI(1)
 
-
+        ! Maximum step for SVD
         write(umsg,'(A,es10.3)') '   o SVD maximum step ', &
                                  Input%Max_Step
         call verboseI(1)
 
-
+        ! If Hessian error
         if (Input%Err_type.eq.0) then
 
+          ! Verbose
           write(umsg,'(A)') '   o Error from Hessian'
           call verboseI(1)
 
+        ! If non-Hessian error
         else if (Input%Err_type.eq.1) then
 
+          ! Verbose
           write(umsg,'(A)') '   o Error not from Hessian'
           call verboseI(1)
 
+        ! If error from response function
         else if (Input%Err_type.eq.2) then
 
+          ! Verbose
           write(umsg,'(A)') '   o Error from RF'
           call verboseI(1)
 
+        ! If worst error
         else if (Input%Err_type.eq.3) then
 
+          ! Verbose
           write(umsg,'(A)') '   o Error worst from Hessian or RF'
           call verboseI(1)
 
-        end if
+        end if ! Type of error
 
-
+        ! If there is a PSF
         if (allocated(Input%lim_fwhm)) then
-          if (Input%lim_fwhm(1)%nn.gt.1) then
+
+          ! If there is more than one range
+          if (Input%lim_fwhm(1)%nn.gt.1) &
             write(umsg,'(A,i2)') '   o PSF number of ranges ', &
                                  Input%lim_fwhm(1)%nn
-          end if
+
+          ! For each range
           do ii=1,Input%lim_fwhm(1)%nn
-            ! Gaussian
+
+            ! If Gaussian PSF
             if (Input%lim_fwhm(ii)%gaussian) then
+
+              ! If actual wavelength limits
               if (Input%lim_fwhm(ii)%doub(2).lt.1d99) then
+
+                ! Verbose limits and value
                 write(umsg,'(A,es10.3," (",es10.3,",",es10.3,")")') &
                        '   o PSF FWHM ',Input%lim_fwhm(ii)%doub(3), &
                         Input%lim_fwhm(ii)%doub(1:2)
+
+              ! Fake limits
               else
+
+                ! Verbose value
                 write(umsg,'(A,es10.3)') &
                        '   o PSF FWHM ',Input%lim_fwhm(ii)%doub(3)
-              end if
+
+              end if ! Type of limits
+
+              ! Verbose
               call verboseI(1)
-            ! No gaussian
+
+            ! No gaussian, so it is file
             else
+
+              ! If actual wavelength limits
               if (Input%lim_fwhm(ii)%doub(2).lt.1d99) then
+
+                ! Verbose limits and filename
                 write(umsg,'(A,A," (",es10.3,",",es10.3,")")') &
                     '   o PSF from file', &
                      trim(Input%fwhm_fil(ii)%str), &
                      Input%lim_fwhm(ii)%doub(1:2)
+
+              ! Fake limits
               else
+
+                ! Verbose filename
                 write(umsg,'(A,A)') &
                     '   o PSF from file',trim(Input%fwhm_fil(ii)%str)
-              end if
+              end if ! Type of limits
+
+              ! Verbose
               call verboseI(1)
-            end if
-          end do
-        end if
 
+            end if ! Type of PSF
 
+          end do ! List of PSF
+
+        end if ! If there are PSF
+
+        ! If initialize from last solution when calculating response
+        ! functions
         if (Input%PopuInit) then
           write(umsg,'(A)') '   o Initialize RF with solution'
         else
@@ -1214,7 +1361,7 @@
         end if
         call verboseI(1)
 
-
+        ! If fractional polarization profiles
         if (Input%Fractional) then
           write(umsg,'(A)') '   o Use fractional Stokes parameters'
         else
@@ -1222,37 +1369,44 @@
         end if
         call verboseI(1)
 
-
+        ! Verbose the optical depth range
         write(umsg,'(A,2(1x,es10.3))') &
           '   o Range of taus ',Input%Tau_Range
         call verboseI(1)
 
-
+        ! If using Broyden method
         if (Input%Broyden) then
 
+          ! Verbose
           write(umsg,'(A)') '   o LM Broyden'
           call verboseI(1)
 
-        end if
+        end if ! Broyden method
 
 
+        ! If tradiational LM
         if (Input%LM_Method.eq.0) then
 
+          ! Verbose
           write(umsg,'(A,es10.3)') '   o Traditional LM'
 
+        ! If backtracking LM
         else if (Input%LM_Method.eq.1) then
 
+          ! Verbose
           write(umsg,'(A,es10.3)') '   o LM with backtracking'
 
-        end if
+        end if ! Type of LM
         call verboseI(1)
 
+        ! If neglecting Stokes errors
         if (Input%Sigma_neglect) then
 
+          ! Verbose
           write(umsg,'(A)') '   o Neglect sigma'
           call verboseI(1)
 
-        end if
+        end if ! Neglecting Stokes errors
       end if ! Spit out the inputs
 
 
@@ -1278,9 +1432,10 @@
 
       end do ! special limit
 
-      ! For vy if cartesian
+      ! If cartesian
       if (Input%vtype.eq.0) then
 
+        ! For vy
         ii = Inf_Nodes%index_vy
 
         ! Transform units
@@ -1297,7 +1452,7 @@
 
         end do ! special limit
 
-      end if
+      end if ! Cartesian
 
       ! For vz
       ii = Inf_Nodes%index_vz
@@ -1338,15 +1493,17 @@
       ! Trick in azimuth if limits are complete
       !
 
-      ! If inverting magnetic field azimuth
+      ! Magnetic field azimuth
       ii = Inf_Nodes%index_Bp
+
+      ! If inverting magnetic field azimuth
       if (Inf_Nodes%Nodes_flags(ii)) then
 
         ! If full range
         if (abs(Inf_Nodes%Node(ii)%bounds(2) - &
                 Inf_Nodes%Node(ii)%bounds(1)).ge.(2d0*PI-TINYA)) then
 
-          ! Move limits by pi
+          ! Expand limits by pi
           Inf_Nodes%Node(ii)%bounds(2) = &
                                      Inf_Nodes%Node(ii)%bounds(2) + PI
           Inf_Nodes%Node(ii)%bounds(1) = &
@@ -1362,7 +1519,7 @@
                   Inf_Nodes%Node(ii)%ebound(3,jj)).ge. &
               (2d0*PI-TINYA)) then
 
-            ! Move limits by pi
+            ! Expand limits by pi
             Inf_Nodes%Node(ii)%ebound(4,jj) = &
                                   Inf_Nodes%Node(ii)%ebound(4,jj) + PI
             Inf_Nodes%Node(ii)%ebound(3,jj) = &
@@ -1374,15 +1531,17 @@
 
       end if ! Inverting azimuth
 
-      ! If inverting velocity azimuth
+      ! Velocity azimuth
       ii = Inf_Nodes%index_vy
+
+      ! If inverting velocity azimuth
       if (Inf_Nodes%Nodes_flags(ii).and.Input%vtype.eq.1) then
 
         ! If full range
         if (abs(Inf_Nodes%Node(ii)%bounds(2) - &
                 Inf_Nodes%Node(ii)%bounds(1)).ge.(2d0*PI-TINYA)) then
 
-          ! Move limits by pi
+          ! Expand limits by pi
           Inf_Nodes%Node(ii)%bounds(2) = &
                                      Inf_Nodes%Node(ii)%bounds(2) + PI
           Inf_Nodes%Node(ii)%bounds(1) = &
@@ -1398,7 +1557,7 @@
                   Inf_Nodes%Node(ii)%ebound(3,jj)).ge. &
               (2d0*PI-TINYA)) then
 
-            ! Move limits by pi
+            ! Expand limits by pi
             Inf_Nodes%Node(ii)%ebound(4,jj) = &
                                   Inf_Nodes%Node(ii)%ebound(4,jj) + PI
             Inf_Nodes%Node(ii)%ebound(3,jj) = &
@@ -1416,13 +1575,16 @@
 !#####################################################################
 !#####################################################################
 
-      !> Set-up the limits for some variables\n
-      !!       Input(Input_class): Structure with settings data\n
-      !!   Inf_Nodes(Nodes_class): Structure with nodes data\n
+      !> Determine the limits of T, v, and B, as well as if the model
+      !! is static/dynamic or un/magnetized. A possible outcome is
+      !! that this needs to be checked pixelwise\n
+      !!       Input(Input_class): Structure with configuration data\n
+      !!   Inf_Nodes(Nodes_class): Structure with inversion node
+      !!                           data\n
       !!      Atmo_in(Atmo_class): Structure with atmospheric data
       !!                           read from model atmosphere\n
-      !!  Bfield_in(Bfield_class): Structure with the magnetic field
-      !!                           data read from the input\n
+      !!  Bfield_in(Bfield_class): Structure with magnetic field data
+      !!                           read from the input\n
       !!             maxB(double): Maximum magnetic field\n
       !!     update_tlim(logical): If T limit has to be updated
       !!                           at every pixel\n
@@ -1435,29 +1597,34 @@
                                update_vlim,update_blim)
 
       ! I/O
-      type(Input_class):: Input
-      type(Nodes_class):: Inf_Nodes
+      type(Input_class), intent(inout):: Input
+      type(Nodes_class), intent(in):: Inf_Nodes
       type(Atmo_class), intent(in):: Atmo_in
       type(Bfield_class), intent(inout):: Bfield_in
       logical, intent(out):: update_tlim,update_vlim,update_blim
       double precision, intent(out):: maxB
 
       ! Local
+
       integer:: ii,jj
 
       double precision:: maxvx,maxvy,maxvz
+
 
       !
       ! Get minimum and maximum temperatures, and maximum velocity
       !
 
-      ! If inverting temperature
+      ! Temperature
       ii = Inf_Nodes%index_T
+
+      ! If inverting temperature
       if (Inf_Nodes%Nodes_Flags(ii)) then
 
         ! Temperature limits
         Input%minT = Inf_Nodes%Node(ii)%Bounds(1)
         Input%maxT = Inf_Nodes%Node(ii)%Bounds(2)
+
         ! Temperature special limits
         do jj=1,Inf_Nodes%Node(ii)%nebound
           if (Inf_Nodes%Node(ii)%ebound(1,jj).lt.Input%minT) &
@@ -1482,12 +1649,8 @@
           ! No need to update
           update_tlim = .False.
 
+        ! Atmosphere not already set
         else
-
-          ! Temperature limits (guess)
-          ! It should be set-up
-         !Input%minT = 3d3
-         !Input%maxT = 5d5
 
           ! Need to update
           update_tlim = .True.
@@ -1500,7 +1663,7 @@
       maxvy = 0d0
       maxvz = 0d0
 
-      ! Inverting velocities
+      ! Inverting any velocity with values
       if ((Inf_Nodes%Nodes_Flags(Inf_Nodes%index_vx).or. &
            Inf_Nodes%Nodes_Flags(Inf_Nodes%index_vy).or. &
            Inf_Nodes%Nodes_Flags(Inf_Nodes%index_vz)).and. &
@@ -1510,6 +1673,8 @@
 
         ! vx
         ii=Inf_Nodes%index_vx
+
+        ! Inverting vx or vtrans
         if (Inf_Nodes%Nodes_Flags(ii)) then
 
           ! Maximum from boundaries
@@ -1528,6 +1693,8 @@
 
         ! vy
         ii=Inf_Nodes%index_vy
+
+        ! Inverting vy
         if (Inf_Nodes%Nodes_Flags(ii).and.Input%vtype.eq.0) then
 
           ! Maximum from boundaries
@@ -1546,6 +1713,8 @@
 
         ! vz
         ii=Inf_Nodes%index_vz
+
+        ! Inverting vz or vlos
         if (Inf_Nodes%Nodes_Flags(ii)) then
 
           ! Maximum from boundaries
@@ -1579,6 +1748,7 @@
           ! No need to update
           update_vlim = .False.
 
+        ! Atmosphere not set yet
         else
 
           ! Need to update
@@ -1590,11 +1760,9 @@
       ! If to update later
       if (update_vlim) then
 
-        ! Asumme dynamic 5 km/s to start with
+        ! Asumme dynamic to start with
         dyn = .True.
         Input%static = .False.
-        ! It should be set up
-       !Input%maxV = 5d-6/c
 
       ! No need to update
       else
@@ -1602,17 +1770,23 @@
         ! Combine
         maxvz = sqrt(maxvx*maxvx + maxvy*maxvy + maxvz*maxvz)
 
-        ! If maximum velocity
-        if (maxvz.gt.0d0) then
+        ! If maximum velocity if large enough
+        if (maxvz.gt.TINYVEL) then
+
+          ! Set dynamic
           dyn = .True.
           Input%maxV = maxvz
           Input%static = .False.
+
+        ! Small maximum velocity
         else
+
+          ! Set static
           dyn = .False.
           Input%maxV = 0d0
           Input%static = .True.
-        end if
 
+        end if ! Velocity magnitude
       end if ! To update later
 
 
@@ -1630,13 +1804,15 @@
       ! Not only thermal
       else
 
-        ! Inverting B
+        ! If inverting B
         if (Inf_Nodes%Nodes_Flags(Inf_Nodes%index_B).or. &
             (Inf_Nodes%Nodes_Flags(Inf_Nodes%index_Bt).and. &
              Input%Btype.eq.1)) then
 
           ! Bstrength or BLOS
           ii = Inf_Nodes%index_B
+
+          ! Get maximum value
           maxB = maxval(abs(Inf_Nodes%Node(ii)%Bounds))
 
           ! Special limits
@@ -1653,6 +1829,8 @@
 
             ! Bpos
             ii = Inf_Nodes%index_Bt
+
+            ! Check maximum value
             maxB = max(maxB,maxval(abs(Inf_Nodes%Node(ii)%Bounds)))
 
             ! Special limits
@@ -1681,7 +1859,7 @@
             ! No need to update
             update_blim = .False.
 
-          ! Atmo not set
+          ! Atmosphere not set
           else
 
             ! Need to update
@@ -1702,13 +1880,19 @@
       ! No need to update
       else
 
-        ! Magnetic field?
+        ! If small field
         if (maxB.le.TINYB) then
-          Input%unmagnetized = .True.
-        else
-          Input%unmagnetized = .False.
-        end if
 
+          ! Set unmagnetized
+          Input%unmagnetized = .True.
+
+        ! If significant field
+        else
+
+          ! Set not unmagnetized
+          Input%unmagnetized = .False.
+
+        end if ! Magnetic field value
       end if ! To update later
 
       end subroutine set_up_limits
@@ -1717,78 +1901,111 @@
 !#####################################################################
 !#####################################################################
 
-      !> Initialize the nodes\n
-      !!         Atmo(Atmo_class): Structure with atmospheric data\n
-      !!       Input(Input_class): Structure with settings data\n
-      !!   Inf_Nodes(Nodes_class): Structure with nodes data
+      !> Initialize the location, values, and errors of the nodes\n
+      !!        Atmo(Atmo_class): Structure with atmospheric data\n
+      !!      Input(Input_class): Structure with configuration data\n
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data
       subroutine Init_Nodes(Atmo,Input,Inf_Nodes)
 
+      ! I/O
 
-      ! IO
       type(Atmo_class), intent(in):: Atmo
       type(Input_class), intent(in):: Input
       type(Nodes_class), intent(inout):: Inf_Nodes
 
       ! Local
+
       integer:: i, j, k
 
       double precision:: Delta_Tau, Mini, H_min, H_max
       double precision, dimension(:), allocatable:: TAU_LG
 
       !
-      ! Get height limits
+      ! Get height limits from model atmosphere
       H_min = log10(Atmo%z(nZ))
       H_max = log10(Atmo%z(1))
 
-
+      !
       ! For each variable
       do i=1,Input%nvar
 
-        ! If there are nodes and inverting
+        ! If there are nodes and inverting them
         if (Inf_Nodes%Num_Nodes(i).gt.0.and. &
             Inf_Nodes%Nodes_Flags(i)) then
 
-          ! Reset values and errors
-          if (allocated(Inf_Nodes%Node(i)%Var)) &
+          ! If values are allocated
+          if (allocated(Inf_Nodes%Node(i)%Var)) then
+
+            ! Free them
+            MRAMc = MRAMc - 1d-6*sizeof(Inf_Nodes%Node(i)%Var)
             deallocate(Inf_Nodes%Node(i)%Var)
-          if (allocated(Inf_Nodes%Node(i)%Errors)) &
+
+          end if ! Allocated values
+
+          ! If errors are allocated
+          if (allocated(Inf_Nodes%Node(i)%Errors)) then
+
+            ! Free them
+            MRAMc = MRAMc - 1d-6*sizeof(Inf_Nodes%Node(i)%Errors)
             deallocate(Inf_Nodes%Node(i)%Errors)
+
+          end if ! Allcoated errors
+
+          ! Allocate values and errors
           allocate(Inf_Nodes%Node(i)%Var(Inf_Nodes%Num_Nodes(i)))
           allocate(Inf_Nodes%Node(i)%Errors(Inf_Nodes%Num_Nodes(i)))
+          MRAMc = MRAMc + 1d-6*sizeof(Inf_Nodes%Node(i)%Var)
+          MRAMc = MRAMc + 1d-6*sizeof(Inf_Nodes%Node(i)%Errors)
 
-          ! If pressure and hydrostatic
+          ! If variable is gas pressure and using hydrostatic Eq.
           if ((i.eq.Inf_Nodes%index_Pg).and.Inf_Nodes%hydroeq) then
 
-            ! Forget about the input nodes
-            if (allocated(Inf_Nodes%Node(i)%H)) &
+            ! If allocated input locations
+            if (allocated(Inf_Nodes%Node(i)%H)) then
+
+              ! Free locations
+              MRAMc = MRAMc + 1d-6*sizeof(Inf_Nodes%Node(i)%H)
               deallocate(Inf_Nodes%Node(i)%H)
+
+            end if ! Allocated locations
+
+            ! Allocate new array of locations
             allocate(Inf_Nodes%Node(i)%H(Inf_Nodes%Num_Nodes(i)))
+            MRAMc = MRAMc + 1d-6*sizeof(Inf_Nodes%Node(i)%H)
 
             ! Set in upper boundary
             Inf_Nodes%Node(i)%H(1) = Input%Tau_range(1)
 
-          ! If diffuse light
+          ! If variable is diffuse light
           else if (i.eq.Inf_Nodes%index_f) then
 
-            ! Forget about the input nodes
-            if (allocated(Inf_Nodes%Node(i)%H)) &
+            ! If allocated input locations
+            if (allocated(Inf_Nodes%Node(i)%H)) then
+
+              ! Free locations
+              MRAMc = MRAMc - 1d-6*sizeof(Inf_Nodes%Node(i)%H)
               deallocate(Inf_Nodes%Node(i)%H)
+
+            end if ! Allocated locations
+
+            ! Allocate new array of locations
             allocate(Inf_Nodes%Node(i)%H(Inf_Nodes%Num_Nodes(i)))
+            MRAMc = MRAMc + 1d-6*sizeof(Inf_Nodes%Node(i)%H)
 
             ! Set in upper boundary
             Inf_Nodes%Node(i)%H(1) = Input%Tau_range(1)
 
-          ! No stratification specified for nodes
+          ! No stratification specified for this variable
           else if (.not.allocated(Inf_Nodes%Node(i)%H)) then
 
-            ! Set equally spaced nodes
+            ! Set equally spaced nodes between the stablished limits
             call Locate_Nodes(H_Min,H_Max, &
                               Inf_Nodes%Num_Nodes(i), &
                               Inf_Nodes%Node(i)%H)
 
           end if ! Input stratification
 
-        ! No consistent for invertion
+        ! Not inverting this variable
         else
 
           ! Flag and set to 0
@@ -1799,34 +2016,42 @@
 
       end do ! Variables
 
-      ! If correct position
+      ! If to correct position
       if (Inf_Nodes%Pos_Correction) then
 
-        ! Allocate auxiliar
+        ! Allocate auxiliar optical depth scale
         allocate(TAU_LG(Atmo%nZ))
         TAU_LG = log10(Atmo%z)
 
-        ! Variables
+        ! For each variable
         do i=1,Input%nvar
 
-          ! Skip if not inverting
+          ! Skip if not inverting this variable
           if (Inf_Nodes%Num_Nodes(i).le.0.or. &
               .not.Inf_Nodes%Nodes_Flags(i)) cycle
 
-          ! Skip diffuse light or hydrostatic Pg
+          ! Skip diffuse light or gas pressure if hydrostatic Eq.
           if (Inf_Nodes%index_f.eq.i.or. &
               (Inf_Nodes%index_Pg.eq.i.and.Inf_Nodes%hydroeq)) cycle
 
-          ! Reset tau index
-          if (allocated(Inf_Nodes%Node(i)%Tau_Indx)) &
+          ! If allocated Tau_Indx array
+          if (allocated(Inf_Nodes%Node(i)%Tau_Indx)) then
+
+            ! Free array
+            MRAMc = MRAMc - 1d-6*sizeof(Inf_Nodes%Node(i)%Tau_Indx)
             deallocate(Inf_Nodes%Node(i)%Tau_Indx)
+
+          end if ! Allocated Tau_Indx
+
+          ! Allocate Tau_Indx
           allocate(Inf_Nodes%Node(i)%Tau_Indx( &
                                             Inf_Nodes%Num_Nodes(i)))
+          MRAMc = MRAMc + 1d-6*sizeof(Inf_Nodes%Node(i)%Tau_Indx)
 
-          ! For each node
+          ! For each node for this variable
           do j=1,Inf_Nodes%Num_Nodes(i)
 
-            ! Initialize minimum and index
+            ! Initialize minimum distance and its index
             Mini = abs(Inf_Nodes%Node(i)%H(j)-TAU_LG(1))
             Inf_Nodes%Node(i)%Tau_Indx(j) = 1
 
@@ -1847,7 +2072,7 @@
 
             end do ! Atmosphere nodes
 
-            ! Set node to closest atmosphere node
+            ! Set node position at closest atmosphere node
             Inf_Nodes%Node(i)%H(j) = &
                                TAU_LG(Inf_Nodes%Node(i)%Tau_Indx(j))
 
@@ -1859,9 +2084,18 @@
 
       end if ! Correct position
 
-      ! Reset indexing for nodes
-      if (allocated(Inf_Nodes%Inf_Inv)) deallocate(Inf_Nodes%Inf_Inv)
+      ! If indexing if allocated
+      if (allocated(Inf_Nodes%Inf_Inv)) then
+
+        ! Free indexing
+        MRAMc = MRAMc - 1d-6*sizeof(Inf_Nodes%Inf_Inv)
+        deallocate(Inf_Nodes%Inf_Inv)
+
+      end if ! Allocated indexing
+
+      ! Allocate indexing
       allocate(Inf_Nodes%Inf_Inv(2,Inf_Nodes%Num_Fit))
+      MRAMc = MRAMc + 1d-6*sizeof(Inf_Nodes%Inf_Inv)
 
       ! Initialize counter
       j = 1
@@ -1869,7 +2103,7 @@
       ! For each variable
       do k=1,Input%nvar
 
-        ! If inverting
+        ! If inverting this variable
         if (Inf_Nodes%Nodes_Flags(k)) then
 
           ! Count nodes with variation
@@ -1896,26 +2130,31 @@
 !#####################################################################
 !#####################################################################
 
-      !> Equally spaces nodes positions\n
+      !> Generate an array with equally spaced nodes within the given
+      !! limits\n
       !!      H_min(double): Minimum position of the nodes\n
       !!      H_max(double): Maximum position of the nodes\n
       !!       Num(integer): Number of nodes\n
       !!  Height(double(:)): Node positions
       subroutine Locate_Nodes(H_min,H_max,Num,Height)
 
-      ! IO
+      ! I/O
+
       integer, intent(in):: Num
       double precision, intent(in):: H_min, H_max
-      double precision, dimension(:), allocatable, intent(out):: &
-                                                                Height
+      double precision, dimension(:), &
+                        allocatable, intent(out):: Height
+
       ! Local
+
       integer:: i
 
       double precision:: dx
 
 
-      ! Allocate positions
+      ! Allocate positions (this variable is Inf_Nodes%Node(i)%H)
       allocate(Height(Num))
+      MRAMc = MRAMc + 1d-6*sizeof(Height)
 
       ! If more than two positions
       if (Num.ge.2) then
@@ -1944,19 +2183,20 @@
 !#####################################################################
 !#####################################################################
 
-      !> Create an optical depth stratification for the model
-      !! atmosphere in the inversion\n
-      !!     Atmo_in(Atmo_class): Structure with input atmospheric
-      !!                          data\n
-      !!        Atmo(Atmo_class): Structure with atmospheric data\n
-      !! Bfield_in(Bfield_class): Structure with the magnetic field
-      !!                          data read from the input\n
-      !!    Bfield(Bfield_class): Structure with the magnetic field
-      !!                          data\n
-      !!            z(double(:)): Stratification
+      !> Create a model atmosphere by interpolating a given model into
+      !! a given optical depth stratification\n
+      !!      Atmo_in(Atmo_class): Structure with atmospheric data
+      !!                           read from model atmosphere\n
+      !!         Atmo(Atmo_class): Structure with atmospheric data\n
+      !!  Bfield_in(Bfield_class): Structure with magnetic field data
+      !!                           read from the input\n
+      !!     Bfield(Bfield_class): Structure with magnetic field
+      !!                           data\n
+      !!             z(double(:)): Final optical depth stratification
       subroutine Atmo_Stratify(Atmo_in,Atmo,Bfield_in,Bfield,z)
 
-      ! IO
+      ! I/O
+
       type(Atmo_class), intent(in):: Atmo_in
       type(Atmo_class), intent(inout):: Atmo
       type(Bfield_class), intent(in):: Bfield_in
@@ -1964,16 +2204,17 @@
       double precision, dimension(:), intent(in):: z
 
       ! Local
+
       integer:: i
 
       double precision, dimension(Atmo_in%nz):: LTAUI
 
 
-      ! Get log optical depth of input
+      ! Get logarithm of input optical depth
       LTAUI = log10(Atmo_in%z)
 
-      ! Set optical depth scale, 500 nm ref, solar gravity and
-      ! electron density type
+      ! Set optical depth scale, 500 nm ref, solar gravity, and
+      ! electron density type of new model
       Atmo%scal = 'T'
       Atmo%typo = Atmo_in%typo
       Atmo%tfreq = Atmo_in%tfreq
@@ -1982,7 +2223,7 @@
       ! Set global variables
       ztau = .True.
 
-      ! Allocate variables
+      ! Allocate variables and nullify pointers
       allocate(Atmo%z(nZ),Atmo%T(nZ),Atmo%ne(nZ),Atmo%Pg(nZ))
       allocate(Atmo%vmi(nZ),Atmo%vx(nZ),Atmo%vy(nZ),Atmo%vz(nZ))
       allocate(Atmo%nh(nZ,6),Atmo%nht(nZ),Atmo%nha(nZ),Atmo%nhm(nZ))
@@ -1992,12 +2233,27 @@
       allocate(Bfield%Bphi(nZ))
       nullify(Atmo%Bx,Atmo%By,Atmo%Bz)
       nullify(Atmo%vxa,Atmo%vya,Atmo%vza)
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%z)
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%T)
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%ne)
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%Pg)
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%vmi)
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%vx)
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%vy)
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%vz)
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nh)
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nht)
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nha)
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nhm)
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nhe)
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%zeros)
 
-      ! Allocs
+      ! Type of model allocation
       Atmo%alloc_a = .True.
       Atmo%alloc_b = .False.
 
-      ! Copy rest of variables
+      ! Copy rest of variables in model, i.e., partition function
+      ! and abundance tabulations
       Atmo%NT = Atmo_in%NT
       Atmo%nele = Atmo_in%nele
       allocate(Atmo%ele(Atmo%nele),Atmo%pT(Atmo%NT))
@@ -2006,7 +2262,18 @@
       Atmo%abund = Atmo_in%abund
       Atmo%pT = Atmo_in%pT
 
-      ! Initialize everything
+      ! Count memory in these arrays
+      do i=1,size(Atmo%ele)
+        if (allocated(Atmo%ele(i)%Ei)) &
+          MRAMc = MRAMc + 1d-6*sizeof(Atmo%ele(i)%Ei)
+        if (allocated(Atmo%ele(i)%pf)) &
+          MRAMc = MRAMc + 1d-6*sizeof(Atmo%ele(i)%pf)
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo%ele(i))
+      end do
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%pT)
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%abund)
+
+      ! Initialize everything to zero
       Atmo%nhe(1,1) = -1
       Atmo%zeros = 0d0
       Atmo%T = 0d0
@@ -2024,7 +2291,6 @@
 
       ! Copy stratification
       Atmo%z = z
-
 
       !
       ! Interpolate variables
@@ -2069,6 +2335,9 @@
 
         !
         ! Sanity
+        !
+
+        ! For each height
         do i=1,Atmo%nz
 
           ! No field
@@ -2082,8 +2351,11 @@
           ! Check angles
           else
 
+            ! Theta between 0 and pi
             if (Bfield%Btheta(i).lt.0d0) Bfield%Btheta(i) = 0d0
             if (Bfield%Btheta(i).gt.PI) Bfield%Btheta(i) = PI
+
+            ! Azimuth between 0 and 2pi
             if (Bfield%Bphi(i).lt.0d0) Bfield%Bphi(i) = &
                                                     Bfield%Bphi(i) + &
                                                     2d0*PI
@@ -2093,8 +2365,7 @@
 
           end if ! Bfield value
 
-        end do
-
+        end do ! Heights
 
       ! No field
       else
@@ -2104,46 +2375,58 @@
         Bfield%Btheta = 0d0
         Bfield%Bphi = 0d0
 
-      end if
+      end if ! Field or no field
 
       ! If JKQ in input
       if (allocated(Atmo_in%JKQin)) then
 
-        ! J21R
+        ! If there is J21R
         if (maxval(abs(Atmo_in%JKQin(4*Atmo_in%nz+1: &
                                      5*Atmo_in%nz))).gt.0d0) &
+
+          ! Interpolate
           call Intpol(LTAUI, &
                       Atmo_in%JKQin(4*Atmo_in%nz+1:5*Atmo_in%nz), &
                       Atmo_in%nZ, Atmo%z, &
                       Atmo%JKQin(4*Atmo%nz+1:5*Atmo%nz), &
                       Atmo%nZ, 2, 1)
-        ! J21I
+
+        ! If there is J21I
         if (maxval(abs(Atmo_in%JKQin(5*Atmo_in%nz+1: &
                                      6*Atmo_in%nz))).gt.0d0) &
+
+          ! Interpolate
           call Intpol(LTAUI, &
                       Atmo_in%JKQin(5*Atmo_in%nz+1:6*Atmo_in%nz), &
                       Atmo_in%nZ, Atmo%z, &
                       Atmo%JKQin(5*Atmo%nz+1:6*Atmo%nz), &
                       Atmo%nZ, 2, 1)
-        ! J22R
+
+        ! If there is J22R
         if (maxval(abs(Atmo_in%JKQin(6*Atmo_in%nz+1: &
                                      7*Atmo_in%nz))).gt.0d0) &
+
+          ! Interpolate
           call Intpol(LTAUI, &
                       Atmo_in%JKQin(6*Atmo_in%nz+1:7*Atmo_in%nz), &
                       Atmo_in%nZ, Atmo%z, &
                       Atmo%JKQin(6*Atmo%nz+1:7*Atmo%nz), &
                       Atmo%nZ, 2, 1)
-        ! J22I
+
+        ! If there is J22I
         if (maxval(abs(Atmo_in%JKQin(7*Atmo_in%nz+1: &
                                      8*Atmo_in%nz))).gt.0d0) &
+
+          ! Interpolate
           call Intpol(LTAUI, &
                       Atmo_in%JKQin(7*Atmo_in%nz+1:8*Atmo_in%nz), &
                       Atmo_in%nZ, Atmo%z, &
                       Atmo%JKQin(7*Atmo%nz+1:8*Atmo%nz), &
                       Atmo%nZ, 2, 1)
-      end if
 
-      ! Make the scale linear
+      end if ! Ad-hoc JKQ
+
+      ! Make the optical depth scale linear
       Atmo%z = 10d0**Atmo%z
 
       return
@@ -2154,27 +2437,30 @@
 !#####################################################################
 !#####################################################################
 
-      !> Interpolate incoming variable into nodes
-      !!         tau(double(:)): Log10 optical depth scale\n
-      !!         var(double(:)): Stratificaiton of any variable\n
-      !!             nn(iteger): Dimension of tau and var\n
-      !! Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!           indx(iteger): Index of current variable
+      !> Determine node values from the model atmosphere for a given
+      !! variable\n
+      !!          tau(double(:)): Log10 optical depth scale\n
+      !!          var(double(:)): Stratificaiton of a variable\n
+      !!              nn(iteger): Dimension of tau and var\n
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
+      !!            indx(iteger): Index of current variable
       subroutine set_nodes(tau,var,nn,Inf_Nodes,indx)
 
       ! I/O
+
       type(Nodes_class), intent(inout):: Inf_Nodes
       integer, intent(in):: nn, indx
       double precision, dimension(:), intent(in):: tau,var
 
       ! Local
+
       character(3):: length
       character(30):: fmt
 
       integer::j
 
 
-      ! Inverting variable
+      ! If inverting variable
       if (Inf_Nodes%Nodes_Flags(indx)) then
 
         ! If by value
@@ -2198,7 +2484,7 @@
 
         end if ! Type of node
 
-        ! Master
+        ! If Master
         if (pid.eq.0) then
 
           ! Verbose
@@ -2249,27 +2535,32 @@
 !#####################################################################
 !#####################################################################
 
-      !> Changed the node values into a given value\n
-      !! Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!           indx(iteger): Index of current variable\n
-      !!            val(double): Value to set
+      !> Change the initial value of nodes in the transversal B or v
+      !! variables when initializing from other inversion and they are
+      !! too small\n
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
+      !!            indx(iteger): Index of current variable\n
+      !!             val(double): Value to set the node to
       subroutine re_set_nodes(Inf_Nodes,indx,val)
 
       ! I/O
+
       type(Nodes_class), intent(inout):: Inf_Nodes
       integer, intent(in):: indx
       double precision, intent(in):: val
 
       ! Local
+
       character(3):: length
       character(30):: fmt
 
       integer::j
 
-      ! Not inverting variable, skip
+
+      ! If not inverting this variable, skip
       if (.not.Inf_Nodes%Nodes_Flags(indx)) return
 
-      ! If not by value, skip
+      ! If not set by value, skip
       if (Inf_Nodes%Node_Type(indx).gt.3) return
 
       ! Set value
@@ -2325,15 +2616,16 @@
 !#####################################################################
 !#####################################################################
 
-      !> Set-up the node values from the initial model atmosphere\n
-      !!       Atmo(Atmo_class): Structure with atmospheric data\n
-      !!   Bfield(Bfield_class): Structure with the magnetic field\n
-      !! Inf_Nodes(Nodes_class): Structure with nodes data
+      !> Initialize the node values from a given model atmosphere\n
+      !!        Atmo(Atmo_class): Structure with atmospheric data\n
+      !!    Bfield(Bfield_class): Structure the magnetic field data\n
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
       subroutine Initialize_Nodes(Atmo,Bfield,Inf_Nodes)
 
       ! I/O
-      type(Atmo_class), intent(inout):: Atmo
-      type(Bfield_class), intent(inout):: Bfield
+
+      type(Atmo_class), intent(in):: Atmo
+      type(Bfield_class), intent(in):: Bfield
       type(Nodes_class), intent(inout):: Inf_Nodes
 
       ! Local
@@ -2343,12 +2635,12 @@
       double precision, dimension(Atmo%nz):: TAU_LG
 
 
-      ! Get log tau
+      ! Get logarithmic scale for optical depth
       TAU_LG = log10(Atmo%z)
 
 
       !
-      ! Magnetic field
+      ! If inverting any magnetic field node
       !
       if (Inf_Nodes%Num_Mag.gt.0) then
 
@@ -2363,7 +2655,7 @@
             '   Btype is ', Inf_Nodes%Btype
           call verboseI(3)
 
-        end if
+        end if ! Master
 
         ! Type of magnetic field
         select case (Inf_Nodes%Btype)
@@ -2378,14 +2670,14 @@
             call set_nodes(TAU_LG,Bfield%Bstrength, &
                            Atmo%nz,Inf_Nodes,ii)
 
-            ! Bstrength
+            ! Btheta
             ii = Inf_Nodes%index_Bt
 
             ! Get nodes
             call set_nodes(TAU_LG,Bfield%Btheta, &
                            Atmo%nz,Inf_Nodes,ii)
 
-            ! Bstrength
+            ! Bphi
             ii = Inf_Nodes%index_Bp
 
             ! Get nodes
@@ -2395,33 +2687,34 @@
           ! In LOS
           case(1)
 
-            ! Bstrength
+            ! Blos
             ii = Inf_Nodes%index_B
 
             ! Get nodes
             call set_nodes(TAU_LG,Bfield%Blos, &
                            Atmo%nz,Inf_Nodes,ii)
 
-            ! Bstrength
+            ! Btrans
             ii = Inf_Nodes%index_Bt
 
             ! Get nodes
             call set_nodes(TAU_LG,Bfield%Bpos, &
                            Atmo%nz,Inf_Nodes,ii)
 
-            ! Bstrength
+            ! B POS phi
             ii = Inf_Nodes%index_Bp
 
             ! Get nodes
             call set_nodes(TAU_LG,Bfield%Azimuth, &
                            Atmo%nz,Inf_Nodes,ii)
-        end select
+
+        end select ! Type of magnetic field vector
 
       end if ! Magnetic nodes
 
 
       !
-      ! Thermal variables
+      ! If inverting any thermal node
       !
       if (Inf_Nodes%Num_Thermal.gt.0) then
 
@@ -2479,7 +2772,7 @@
             call set_nodes(TAU_LG,Atmo%vpos,Atmo%nz, &
                            Inf_Nodes,ii)
 
-            ! Azimuth velocity
+            ! POS azimuth velocity
             ii = Inf_Nodes%index_vy
 
             ! Get nodes
@@ -2493,7 +2786,7 @@
             call set_nodes(TAU_LG,Atmo%vlos,Atmo%nz, &
                            Inf_Nodes,ii)
 
-        end select
+        end select ! Type of velocity vector
 
         ! Micro. velocity
         ii = Inf_Nodes%index_vm
@@ -2544,7 +2837,6 @@
                          Inf_Nodes,ii)
 
         end if ! Hydrostatic eq.
-
       end if ! Thermal
 
 
@@ -2556,29 +2848,32 @@
         ! Diffuse light
         ii = Inf_Nodes%index_f
 
-        ! Get nodes
-        if (Inf_Nodes%Nodes_flags(ii).and.pid.eq.0) then
+        ! If inverting and master
+        if (Inf_Nodes%Nodes_flags(ii)) then
 
           ! Set from atmosphere
           Inf_Nodes%Node(ii)%var(1) = Atmo%f_diff
 
-          ! Verbose
-          write(umsg, '(A)') &
-            ' - Global parameters initialized: '
-          call verboseI(1)
+          ! If Master
+          if (pid.eq.0) then
 
-          ! Verbose
-          write(umsg, '(A,i2)') "   Parameter index = ",ii
-          call verboseI(1)
+            ! Verbose
+            write(umsg, '(A)') &
+              ' - Global parameters initialized: '
+            call verboseI(1)
 
-          ! Verbose values
-          write(umsg, '(A,es15.4)') "     Values: ", &
-                               Inf_Nodes%Node(ii)%Var(1)
-          call verboseI(1)
+            ! Verbose
+            write(umsg, '(A,i2)') "   Parameter index = ",ii
+            call verboseI(1)
 
-        end if
+            ! Verbose values
+            write(umsg, '(A,es15.4)') "     Values: ", &
+                                 Inf_Nodes%Node(ii)%Var(1)
+            call verboseI(1)
 
-      end if
+          end if ! Master
+        end if ! Inverting
+      end if ! Inverting global variable
 
 
       !
@@ -2586,7 +2881,7 @@
       !
       if (Inf_Nodes%Num_asymmetry.gt.0) then
 
-        ! Verbose
+        ! Master verbose
         if (pid.eq.0) then
           write(umsg, '(A)') &
             ' - Asymmetry parameters initialized: '
@@ -2625,7 +2920,7 @@
                        Atmo%JKQin(7*Atmo%nz+1:8*Atmo%nz), &
                        Atmo%nz, Inf_Nodes,ii)
 
-      end if
+      end if ! Inverting ad-hoc asymmetry variables
 
       end subroutine Initialize_Nodes
 

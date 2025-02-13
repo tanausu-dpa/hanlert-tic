@@ -5,96 +5,18 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     04/19/2017
+!     19/04/2017
 !  Last version:
-!     10/16/2023 V3.0.5
+!     11/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     10/16/2023:    V3.0.5 - The decision to free the photoionization
-!                             cross-section comes from the argument to
-!                             setphotoTEI, and not the mode (TdPA)
-!
-!     11/24/2022:    V3.0.4 - Added a condition for which the
-!                             photoionization cross-section must not
-!                             be erased if doing CLE (TdPA)
-!
-!     10/25/2022:    V3.0.3 - Implemented the limitation of the
-!                             height axis (TdPA)
-!
-!     07/27/2022:    V3.0.2 - Renamed MPI to MPID (TdPA)
-!                           - Removed MPI%ierr variable (TdPA)
-!
-!     07/08/2022:    V3.0.1 - Changed a control call into a gcontrol
-!                             call (TdPA)
-!
-!     06/29/2022:    V3.0.0 - To implement the 1.5D case the following
-!                             changes were needed:
-!                              o setphoto has been split into
-!                                setphoto, which computes the cross-
-!                                section in the problem grid, and
-!                                setphotoTEI, which computes the
-!                                thermal ionization part that goes
-!                                into the SEE.
-!                              o setphoto does not require wfreq,
-!                                T, or ne variables anymore.
-!                              o The calculation of TEI needs MPI
-!                                now because is called after splitting
-!                                the frequency axes.
-!                              o Frec%exu is nullified when not needed
-!                                to avoid trying to deallocate it
-!                                when freeing memory.
-!                             (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!                           - Removed domain decomposition (TdPA)
-!
-!     09/11/2020:    V1.2.6 - The total RAM counter is not changed in
-!                             this module anymore (TdPA)
-!
-!     07/31/2020:    V1.2.5 - Allocate a dummy Frec%exu(1,1) if not
-!                             properly storing in ramphot (TdPA)
-!
-!     11/19/2019:    V1.2.4 - Removed checks in allocate and
-!                             deallocate calls (TdPA)
-!                           - It initializes RAM again (TdPA)
-!
-!     11/12/2019:    V1.2.3 - Moved elsewhere the initialization of
-!                             MPI%RAM (TdPA)
-!
-!     08/08/2019:    V1.2.2 - Cross sections are interpolated in
-!                             wavelength and not in frequencies (TdPA)
-!
-!     03/12/2019:    V1.2.1 - No need to store iexu (TdPA)
-!                           - Added information to spline
-!                             interpolation message (TdPA)
-!                           - Master stores exponentials (TdPA)
-!
-!     02/20/2019:    V1.2.0 - New verbosity (TdPA)
-!                           - Now uses diexp function (TdPA)
-!
-!     11/28/2018:    V1.1.3 - Removed a non-used parameter (TdPA)
-!
-!     09/05/2018:    V1.1.2 - Forgot to allocate the new variable
-!                             iexu in ramphot (TdPA)
-!
-!     09/04/2018:    V1.1.1 - Now the inverse of the exponential is
-!                             also stored in ramphoto (TdPA)
-!
-!     08/06/2018:    V1.1.0 - Added ramphoto that stores in RAM some
-!                             quantities that are slow to compute in
-!                             epsphoto and epsIphoto (TdPA)
-!
-!     09/08/2017:    V1.0.1 - If splines in gives a negative cross
-!                             section, use linear instead (TdPA)
-!
-!     04/19/2017:    V1.0.0 - First version (TdPA)
+!     11/12/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -104,17 +26,24 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!  setphoto:
-!    Interpolates cross section to the frequency axis
+!  setphoto
+!    Allocate and initialize photoionization related quantities that
+!  are independent of the model atmosphere
 !
-!  setphotoTEI:
-!    Define the thermal contribution that goes into the SEE
+!  setphotoTEI
+!    Calculate the photoionization thermal contribution that goes into
+!  the SEE
 !
-!  ramphoto:
-!    Allocates and pre-compute frequency quantities used in photoeps
-!    and photoepsI
+!  ramphoto
+!    Allocate and calculate frequency quantities used in photoeps
+!  and photoepsI routines
 !
 !#####################################################################
 !#####################################################################
@@ -137,17 +66,15 @@
 !#####################################################################
 !#####################################################################
 
-      !> Allocates and initializes some photoionization related
-      !! quantities independent of the model atmosphere.\n
-      !!    Atom(Atom_class): Structure with the atomic data\n
-      !!     freq(dfloat(:)): Frequency array\n
-      !!     MPID(MPI_class): Structure with MPI data
-      subroutine setphoto(Atom,freq,MPID)
+      !> Allocate and initialize photoionization related quantities
+      !! that are independent of the model atmosphere\n
+      !!    Atom(Atom_class): Structure with atomic data\n
+      !!     freq(double(:)): Frequency array
+      subroutine setphoto(Atom,freq)
 
       ! I/O
 
       type(Atom_class), intent(inout):: Atom
-      type(MPI_class), intent(in):: MPID
       double precision, dimension(:), intent(in):: freq
 
       ! Local
@@ -161,14 +88,16 @@
       double precision, dimension(:), allocatable:: sb,sc,sd,sx,sy
 
 
-      ! For every pair of levels
+      ! For every lower level
       do ilevel=1,Atom%nlevel-1
+
+        ! For every upper level
         do ilevel1=ilevel+1,Atom%nlevel
 
-          ! Check the indexing of photoionizations
+          ! Check the index of photoionization
           iphot = Atom%iphot(ilevel,ilevel1)
 
-          ! If there is not, cycle to another pair
+          ! If there is not one, cycle to another pair
           if (iphot.lt.1) cycle
 
           ! Initialize logical
@@ -182,14 +111,16 @@
           ! Adjust integration weights in boundaries
           Atom%phot(iphot)%W0 = .5d5*(freq(if0+1) - freq(if0))
           Atom%phot(iphot)%W1 = .5d5*(freq(if1) - freq(if1-1))
-          if (pid.eq.0.and.MPID%mpi) then
+
+          ! If Master and doing MPI, store
+          if (pid.eq.0.and.nproc.gt.1) then
             Atom%phot(iphot)%MW0 = Atom%phot(iphot)%W0
             Atom%phot(iphot)%MW1 = Atom%phot(iphot)%W1
           end if
 
-          ! Allocations
-          ! Cross section
+          ! Allocate cross-section
           allocate(Atom%phot(iphot)%alpha(if0:if1))
+          MRAMc = MRAMc + 1d-6*sizeof(Atom%phot(iphot)%alpha)
 
           ! If the input mode is explicit
           if (Atom%phot(iphot)%mode.eq.0) then
@@ -220,6 +151,7 @@
               allocate(sd(nfr))
             end if
 
+            ! Get x and y input axes
             sx(nfr:1:-1) = 1d2/Atom%phot(iphot)%infreq
             sy(nfr:1:-1) = Atom%phot(iphot)%inalpha
 
@@ -227,17 +159,21 @@
             call spline(sx(1:nfr),sy(1:nfr), &
                         sb(1:nfr),sc(1:nfr),sd(1:nfr),nfr)
 
-            ! Calculate the cross section for the relevant frequencies
-            ! in cm^2
+            ! For the relevant frequencies
             do ifreq=if0,if1
 
+              ! Calculate the cross section in cm^2
               Atom%phot(iphot)%alpha(ifreq) = &
                 ispline(1d2/freq(ifreq),sx(1:nfr),sy(1:nfr), &
                         sb(1:nfr),sc(1:nfr),sd(1:nfr),nfr)*1d4
 
-              ! If something negative, do linear instead
+              ! If something negative
               if (Atom%phot(iphot)%alpha(ifreq).lt.0d0) then
+
+                ! Master
                 if (pid.eq.0) then
+
+                  ! Issue warning
                   write(umsg,'(A,1x,i4,A,1x,i4,1x,A,A,A)') &
                              ' # Spline interpolation of '// &
                              'ionization cross section of '// &
@@ -246,48 +182,56 @@
                              Atom%Element,' atom gave '// &
                              'negative value, doing linear.'
                   call verbose
-                end if
+
+                end if ! Master
+
+                ! Flag to do linear and leave
                 llinear = .True.
                 exit
-              end if
 
-            end do
+              end if ! Negative cross-section
 
+            end do ! Relevant frequencies
+
+            ! If need to do it linear
             if (llinear) then
 
-              ! Calculate the cross section for the relevant
-              ! frequencies in cm^2
+              ! For the relevant frequencies
               do ifreq=if0,if1
 
+                ! Calculate the cross section
                 call linear(sx(1:nfr),sy(1:nfr), &
                             1d2/freq(ifreq), &
                             Atom%phot(iphot)%alpha(ifreq))
 
+                ! Convert units to cm^2
                 Atom%phot(iphot)%alpha(ifreq) = &
                                      Atom%phot(iphot)%alpha(ifreq)*1d4
 
-              end do
+              end do ! Relevant frequencies
 
-            end if
+            end if ! Need to interpolate linearly
 
           ! If the input mode is Hydrogenic
           else
 
-            ! Find the term and J index of the levels involved and
-            ! determine that charge and effective principal quantum
-            ! number
+            ! Find the term and J index of the levels involved
             iterm1 = Atom%term(ilevel1)
             iJ1 = Atom%sublevel(ilevel1)
             iterm = Atom%term(ilevel)
             iJ = Atom%sublevel(ilevel)
+
+            ! Charge
             Z = dble(Atom%stage(iterm1) - 1)
+
+            ! Effective principal quantum number
             neff = Z*sqrt(ryd/ &
                    (Atom%FSfreq(iJ1,iterm1) - Atom%FSfreq(iJ,iterm)))
 
             ! Gaunt factors for b-f at the edge frequency
             gbfe = gHI_bf(Atom%phot(iphot)%edge,neff,Z)
 
-            ! Calculate the cross section for the relevant frequencies
+            ! For the relevant frequencies
             do ifreq=if0,if1
 
               ! Ratio of frequencies (edge and current)
@@ -296,11 +240,11 @@
               ! Gaunt factor at this frequency
               gbf  = gHI_bf(freq(ifreq),neff,Z)
 
-              ! Hydrogenic cross section
+              ! Hydrogenic cross-section in cm^2
               Atom%phot(iphot)%alpha(ifreq) = cfreq*cfreq*cfreq* &
                               Atom%phot(iphot)%inalpha(1)*1d4*gbf/gbfe
 
-            end do
+            end do ! Relevant frequencies
 
           end if ! Photoionization input mode
 
@@ -318,32 +262,27 @@
 !#####################################################################
 !#####################################################################
 
-      !> Allocates and initializes some photoionization related
-      !! quantities.\n
-      !!       Atom(Atom_class): Structure with the atomic data\n
+      !> Calculate the photoionization thermal contribution that goes
+      !! into the SEE\n
+      !!       Atom(Atom_class): Structure with atomic data\n
       !!  Frec(Frequency_class): Structure with frequency data\n
-      !!           T(dfloat(:)): Temperature\n
-      !!          ne(dfloat(:)): Electron density\n
-      !!        MPID(MPI_class): Structure with MPI data\n
-      !!          free(logical): If allowed to free cross section
-      !!                         data
-      subroutine setphotoTEI(Atom,Frec,T,ne,MPID,free)
+      !!           T(double(:)): Temperature\n
+      !!          ne(double(:)): Electron number density\n
+      !!          free(logical): If allowed to free cross-section data
+      subroutine setphotoTEI(Atom,Frec,T,ne,free)
 
       ! I/O
 
       type(Atom_class), intent(inout):: Atom
-      type(Frequency_class):: Frec
-      type(MPI_class), intent(in):: MPID
+      type(Frequency_class), intent(in):: Frec
       logical, intent(in):: free
       double precision, dimension(:), intent(in):: T,ne
 
       ! Local
 
-      integer:: ifreq,iphot,if0,if1,iz
-      integer:: ilevel,ilevel1
+      integer:: ifreq,iphot,if0,if1,iz,ilevel,ilevel1
 
-      double precision:: c0,C1,pE,arg,argz
-      double precision:: Saha,exu
+      double precision:: c0,C1,pE,arg,argz,Saha,exu
       double precision, dimension(Rnz):: buffer
 
 
@@ -354,34 +293,42 @@
       ! h/K for the argument of the exponential
       arg = c2*1d4
 
-      ! For every pair of levels
+      ! For every lower level
       do ilevel=1,Atom%nlevel-1
+
+        ! For every upper level
         do ilevel1=ilevel+1,Atom%nlevel
 
-          ! Check the indexing of photoionizations
+          ! Check the index of the photoionization
           iphot = Atom%iphot(ilevel,ilevel1)
 
-          ! If there is not, cycle to another pair
+          ! If there is not one, cycle to another pair
           if (iphot.lt.1) cycle
 
-          ! Allocations
-          ! Integral of spontaneous or LTE recombination
+          ! Allocate integral of spontaneous or LTE recombination
           allocate(Atom%phot(iphot)%TEI(Rz0:Rz1))
+          MRAMc = MRAMc + 1d-6*sizeof(Atom%phot(iphot)%TEI)
+
+          ! Initialize
           Atom%phot(iphot)%TEI = 0d0
 
-
-          ! Absent Transition or Master in MPI case running
+          ! If absent transition or Master in MPI case running
           ! a non-CLE case
           if (Atom%phot(iphot)%absent.or. &
-              (MPID%mpi.and.pid.eq.0.and.run_mode.ne.2)) then
+              (nproc.gt.1.and.pid.eq.0.and.run_mode.ne.2)) then
 
             ! The Master with MPI cannot remove alpha
-            if (.not.(pid.eq.0.and.MPID%mpi)) then
+            if (.not.(pid.eq.0.and.nproc.gt.1)) then
 
-              ! Does not care about the value of alpha
-              if (free) deallocate(Atom%phot(iphot)%alpha)
+              ! Does not care about the value of alpha and can free it
+              if (free) then
 
-            end if
+                ! Free memory
+                MRAMc = MRAMc - 1d-6*sizeof(Atom%phot(iphot)%alpha)
+                deallocate(Atom%phot(iphot)%alpha)
+
+              end if ! Can free memory
+            end if ! Slave
 
           ! If not absent
           else
@@ -430,6 +377,7 @@
               exu = argz*Frec%omega(if0)
               exu = diexp(exu)
 
+              ! Add contribution
               Atom%phot(iphot)%TEI(iz) = Atom%phot(iphot)%TEI(iz) + &
                                          Atom%phot(iphot)%W0*pE*exu* &
                                          Atom%phot(iphot)%alpha(if0)
@@ -439,6 +387,7 @@
               exu = argz*Frec%omega(if1)
               exu = diexp(exu)
 
+              ! Add contribution
               Atom%phot(iphot)%TEI(iz) = Atom%phot(iphot)%TEI(iz) + &
                                          Atom%phot(iphot)%W1*pE*exu* &
                                          Atom%phot(iphot)%alpha(if1)
@@ -449,10 +398,10 @@
 
             end do ! Heights
 
-          end if ! If absent line
+          end if ! Absent/present ionization
 
           ! Collect TEI value if MPI
-          if (MPID%mpi) then
+          if (nproc.gt.1) then
 
             ! Sending buffer
             buffer = Atom%phot(iphot)%TEI
@@ -477,49 +426,51 @@
 !#####################################################################
 !#####################################################################
 
-      !> Allocates variables to accelerate epsIphoto.\n
-      !!       Atom(Atom_class): Structure with the atomic data\n
+      !> Allocate and calculate frequency quantities used in photoeps
+      !! and photoepsI routines\n
+      !!    Atom(Atom_class(:)): Structures with atomic data\n
       !!  Frec(Frequency_class): Structure with frequency data\n
-      !!           T(dfloat(:)): Temperature\n
-      !!        MPID(MPI_class): Structure with MPI data
-      subroutine ramphoto(Atom,Frec,T,MPID)
+      !!           T(double(:)): Temperature
+      subroutine ramphoto(Atom,Frec,T)
 
       ! I/O
 
       type(Atom_class), dimension(:), intent(in):: Atom
-      type(Frequency_class):: Frec
-      type(MPI_class), intent(inout):: MPID
+      type(Frequency_class), intent(inout):: Frec
       double precision, dimension(:), intent(in):: T
 
       ! Local
 
       logical:: alloc
 
-      integer:: ia,iz,ifreq,ilevel,ilevel1,iphot
-      integer:: if0,if1
+      integer:: ia,iz,ifreq,ilevel,ilevel1,iphot,if0,if1
 
       double precision:: c0,exu
 
-      ! Limits frequency
+
+      ! Frequency limits
       if0 = 100000000
       if1 = -1
 
+      ! Initialize if allocating
       alloc = .False.
 
       ! For each atom
       do ia=1,nA
 
-        ! For every pair of levels
+        ! For every lower level
         do ilevel=1,Atom(ia)%nlevel-1
+
+          ! For every ipper level
           do ilevel1=ilevel+1,Atom(ia)%nlevel
 
-            ! Check the indexing of photoionizations
+            ! Check the index of photoionization
             iphot = Atom(ia)%iphot(ilevel,ilevel1)
 
-            ! If there is not, cycle to another pair
+            ! If there is not one, cycle to another pair
             if (iphot.lt.1) cycle
 
-            ! Update limits
+            ! Update frequency limits
             if(Atom(ia)%phot(iphot)%if0.lt.if0) &
               if0 = Atom(ia)%phot(iphot)%if0
             if(Atom(ia)%phot(iphot)%if1.gt.if1) &
@@ -529,24 +480,39 @@
         end do ! Lower levels
       end do ! Atoms
 
+      ! If valid limits, allocate
       if (if1.ge.if0) alloc = .True.
 
+      ! If cannot allocate
       if (.not.alloc) then
-        if (.not.MPID%mpi) then
+
+        ! Serial
+        if (nproc.le.1) then
+
+          ! Dummy allocation
           allocate(Frec%exu(1,1))
+          PRAMc = PRAMc + 1d-6*sizeof(Frec%exu)
+
+        ! MPI
         else
+
+          ! Nullify pointer
           nullify(Frec%exu)
-        end if
+
+        end if ! MPI/serial
+
+        ! Check
         call control
         return
-      end if
+
+      end if ! Cannot allocate
 
       ! Allocate
-      allocate(Frec%omega3(if0:if1))
       allocate(Frec%exu(if0:if1,Rz0:Rz1))
+      PRAMc = PRAMc + 1d-6*sizeof(Frec%exu)
 
-      ! Master only needs exu
-      if (MPID%mpi.and.pid.eq.0) then
+      ! Master in MPI only needs exu
+      if (nproc.gt.1.and.pid.eq.0) then
 
         ! For each frequency
         do ifreq=if0,if1
@@ -557,20 +523,22 @@
           ! For each height
           do iz=Rz0,Rz1
 
+            ! Compute inverse exponential
             exu = c0/T(iz)
             Frec%exu(ifreq,iz) = diexp(exu)
 
           end do ! Heights
         end do ! Frequencies
 
-        MPID%PRAM = MPID%PRAM + 8d-6* dble(Rnz*(if1 - if0 + 1))
-
       ! Slaves need both
       else
 
+        ! Allocate
+        allocate(Frec%omega3(if0:if1))
+        PRAMc = PRAMc + 1d-6*sizeof(Frec%omega3)
+
         ! For each frequency
         do ifreq=if0,if1
-
 
           ! Compute frequency cube
           Frec%omega3(ifreq) = Frec%omega(ifreq)*Frec%omega(ifreq)* &
@@ -582,13 +550,12 @@
           ! For each height
           do iz=Rz0,Rz1
 
+            ! Compute inverse exponential
             exu = c0/T(iz)
             Frec%exu(ifreq,iz) = diexp(exu)
 
           end do ! Heights
         end do ! Frequencies
-
-        MPID%PRAM = MPID%PRAM + 8d-6* dble(Rnz*(if1 - if0 + 1))
 
       end if ! Master/slave
 

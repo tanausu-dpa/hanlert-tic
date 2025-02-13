@@ -5,33 +5,18 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     04/27/2017
+!     27/04/2017
 !  Last version:
-!     09/21/2023 V3.0.2
+!     19/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     09/21/2023:    V3.0.2 - Added psi_par, MatVec_2d, and Matinv_2d
-!                             routines (TdPA)
-!
-!     10/27/2022:    V3.0.1 - Introduced a factor 1/2 in yder
-!                             definition in QBezierC0 to save between
-!                             one and three products (TdPA)
-!
-!     06/29/2022:    V3.0.0 - Changed global version (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!
-!     02/20/2019:    V1.1.0 - Does not need aborted dependence, nor
-!                             TINY variable (TdPA)
-!
-!     04/27/2017:    V1.0.0 - First version (TdPA)
+!     19/12/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -41,42 +26,51 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!  RTomega:
-!    Coefficients for short characteristics with besser interpolation
+!  RTomega
+!    Calculate the coefficients for the integral of the source
+!  function in the short-characteristics with BESSER
 !
-!  psi_lin:
-!    Coefficients of short characteristics with linear interpolation
+!  psi_lin
+!    Calculate the coefficients for the integral of the source
+!  function in the short-characteristics with linear interpolation
 !
-!  psi_par:
-!    Coefficients of short characteristics with parabolic
-!  interpolation
+!  psi_par
+!    Calculate the coefficients for the integral of the source
+!  function in the short-characteristics with parabolic interpolation
 !
-!  ftau:
-!   Calculate optical distance between two points
+!  ftau
+!   Calculate the optical distance between two points
 !
 !  QBezierC0
-!    Coefficient for the P part of short characteristics in Besser
-!  interpolation
+!    Calculate the correction parameter for the integral of the
+!  source function in the short-characteristics with BESSER
 !
 !  ybetwab
-!    Returns True if monotonic a-y-b
+!    Determine if inputs (a,y,b) are in monotonic order
 !
-!  correctyab:
-!    Takes the y that keeps the a,y,b monotonic
+!  correctyab
+!    Determine the y which makes (a,y,b) monotonic
 !
-!  MatVec_2d:
-!    Computes c = a*b with a matrix and b vector of size 2
+!  MatVec_2d
+!    Calculate c = A*b with "A" a 2x2 matrix and "b" a 2 vector
 !
-!  MatVec:
-!    Computes c = a*b with a matrix and b vector of size 4
+!  MatVec
+!    Calculate c = A*b with "A" a 4x4 matrix and "b" a 4 vector
 !
-!  Matinv_2d:
-!    Explicit inverse of a 2x2 matrix with certain symmetry properties
+!  Matinv_2d
+!    Calculate the inverse of a 2x2 matrix with the symmetry
+!  properties of the propagation matrix for only I and Q
 !
-!  Matinv:
-!    Explicit inverse of a 4x4 matrix with certain symmetry properties
+!  Matinv
+!    Calculate the inverse of a 4x4 matrix with the symmetry
+!  properties of the propagation matrix
 !
 !#####################################################################
 !#####################################################################
@@ -91,13 +85,13 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes omega coefficients for BESSER short
-      !! characteristics\n
-      !!       ex(dfloat): Exponencial of the optical distance\n
-      !!        t(dfloat): Optical distance\n
-      !!  omega_m(dfloat): First omega parameter\n
-      !!  omega_o(dfloat): Second omega parameter\n
-      !!  omega_c(dfloat): Third omega parameter
+      !> Calculate the coefficients for the integral of the source
+      !! function in the short-characteristics with BESSER\n
+      !!       ex(double): Exponencial of the optical distance\n
+      !!        t(double): Optical distance\n
+      !!  omega_m(double): First omega parameter\n
+      !!  omega_o(double): Second omega parameter\n
+      !!  omega_c(double): Third omega parameter
       subroutine RTomega(ex,t,omega_m,omega_o,omega_c)
 
       ! I/O
@@ -105,26 +99,34 @@
       double precision, intent(in):: ex,t
       double precision, intent(out):: omega_m,omega_o,omega_c
 
+      ! If large enough optical distance
       if (t.gt.0.14d0) then
 
+        ! Compute
         omega_m = ((2d0 - ex*(t*t + 2d0*t + 2d0))/(t*t))
 
+      ! Small optical distance
       else
 
+        ! Compute
         omega_m = ((t*(t*(t*(t*(t*(t*((140d0 - 18d0*t)*t - &
                   945d0) + 5400d0) - 25200d0) + 90720d0) - &
                   226800d0) + 302400d0))/907200d0)
 
-      end if
+      end if ! Optical distance
 
 
+      ! If large enough optical distance
       if (t.gt.0.18d0) then
 
+        ! Compute
         omega_o = (1d0 - 2d0*(t + ex - 1d0)/(t*t))
         omega_c = (2d0*(t - 2d0 + ex*(t + 2d0))/(t*t))
 
+      ! Small optical distance
       else
 
+        ! Compute
         omega_o = ((t*(t*(t*(t*(t*(t*((10d0 - t)*t - 90d0) + &
                   720d0) - 5040d0) + 30240d0) - 151200d0) + &
                   604800d0))/1814400d0)
@@ -132,7 +134,7 @@
                   270d0) + 1800d0) - 10080d0) + 45360d0) - &
                   151200d0) + 302400d0))/907200d0)
 
-      end if
+      end if ! Optical distance
 
       end subroutine RTomega
 
@@ -140,11 +142,13 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes coefficients for linear short characteristics\n
-      !!       ex(dfloat): Exponencial of the optical distance\n
-      !!        t(dfloat): Optical distance\n
-      !!     psim(dfloat): First coefficient\n
-      !!     psio(dfloat): Second coefficient
+      !> Calculate the coefficients for the integral of the source
+      !! function in the short-characteristics with linear
+      !! interpolation\n
+      !!    ex(double): Exponencial of the optical distance\n
+      !!     t(double): Optical distance\n
+      !!  psim(double): First coefficient\n
+      !!  psio(double): Second coefficient
       subroutine psi_lin(ex,t,psim,psio)
 
       ! I/O
@@ -152,20 +156,24 @@
       double precision, intent(in):: ex,t
       double precision, intent(out):: psim,psio
 
+      ! If optical distance is large enough
       if (t.gt.0.11d0) then
 
+        ! Compute
         psim = ((1d0-ex*(1d0+t))/t)
         psio = ((ex+t-1d0)/t)
 
+      ! If optical distance is small enough
       else
 
+        ! Compute
         psim = &
           ((t*(t*(t*(t*(t*(t*((63d0 - 8d0*t)*t - 432d0) + 2520d0) - &
             12096d0) + 45360d0) - 120960d0) + 181440d0))/362880d0)
         psio = ((t*(t*(t*(t*(t*(t*((9d0 - t)*t - 72d0) + 504d0) - &
                3024d0) + 15120d0) - 60480d0) + 181440d0))/362880d0)
 
-      end if
+      end if ! Optical distance
 
       end subroutine psi_lin
 
@@ -173,13 +181,15 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes coefficients for parabolic short characteristics\n
-      !!       ex(dfloat): Exponencial of the optical distance\n
-      !!       tm(dfloat): Optical distance M-O\n
-      !!       tp(dfloat): Optical distance O-P\n
-      !!     psim(dfloat): First coefficient\n
-      !!     psio(dfloat): Second coefficient
-      !!     psip(dfloat): Second coefficient
+      !> Calculate the coefficients for the integral of the source
+      !! function in the short-characteristics with parabolic
+      !! interpolation\n
+      !!    ex(double): Exponencial of the optical distance\n
+      !!    tm(double): Optical distance M-O\n
+      !!    tp(double): Optical distance O-P\n
+      !!  psim(double): First coefficient\n
+      !!  psio(double): Second coefficient\n
+      !!  psip(double): Third coefficient
       subroutine psi_par(ex,tm,tp,psim,psio,psip)
 
       ! I/O
@@ -188,21 +198,27 @@
       double precision, intent(out):: psim,psio,psip
 
       ! Local
+
       double precision:: w0, w1, w2
+
 
       ! Initialize
       w0 = 1d0 - ex
       w1 = w0 - tm*ex
       w2 = 2d0*w1 - tm*tm*ex
 
+      ! Large enough optical distance
       if (tm.gt.0.11d0) then
 
+        ! Compute
         psim = (w2 + w1*tp)/(tm*(tm + tp))
         psio = w0 + (w1*(tm - tp) - w2)/(tm*tp)
         psip = (w2 - w1*tm)/(tp*(tm + tp))
 
+      ! Small optical distance
       else
 
+        ! Compute
         psim = (tm*tm*(tm*(tm*(tm*(tm*(tm*(7d0*tm - 48d0) + 280.0) - &
                        1344d0) + 5040d0) - 13440d0) + 20160d0)*tp + &
                 tm*tm*tm*(tm*(tm*(tm*((240d0 - 42d0*tm)*tm - &
@@ -221,7 +237,7 @@
                                        112d0) - 504d0) + 1680d0) - &
                            3360d0)) / 20160d0) / (tp*(tm + tp))
 
-      end if
+      end if ! Optical distance
 
       end subroutine psi_par
 
@@ -229,11 +245,11 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes optical distances\n
-      !!     opx(dfloat): Opacity point 1\n
-      !!     opu(dfloat): Opacity point 2\n
-      !!      ds(dfloat): Geometrical distance\n
-      !!  output(dfloat): Optical distance
+      !> Calculate the optical distance between two points\n
+      !!     opx(double): Opacity point 1\n
+      !!     opu(double): Opacity point 2\n
+      !!      ds(double): Geometrical distance\n
+      !!  output(double): Optical distance
       subroutine ftau(opx,opu,ds,output)
 
       ! I/O
@@ -241,6 +257,7 @@
       double precision, intent(in):: opx,opu,ds
       double precision, intent(out):: output
 
+      ! Linear interpolation
       output = 0.5d0*ds*(opx + opu + 2d0*vacuum)
 
       end subroutine ftau
@@ -249,13 +266,14 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes C0 parameter of BESSER algorithm\n
-      !!      h0(dfloat): Optical distance backward\n
-      !!      h1(dfloat): Optical distance forward\n
-      !!      ym(dfloat): Source function previous point\n
-      !!      yo(dfloat): Source function current point\n
-      !!      yp(dfloat): Source function next point\n
-      !!  output(dfloat): C0 parameter
+      !> Calculate the correction parameter for the integral of the
+      !! source function in the short-characteristics with BESSER\n
+      !!      h0(double): Optical distance backward\n
+      !!      h1(double): Optical distance forward\n
+      !!      ym(double): Source function previous point\n
+      !!      yo(double): Source function current point\n
+      !!      yp(double): Source function next point\n
+      !!  output(double): C0 parameter
       subroutine QBezierC0(h0,h1,ym,yo,yp,output)
 
       ! I/O
@@ -270,59 +288,82 @@
       double precision:: dm,dp,yder,c0,c1,c2
 
 
+      ! Both optical distances are positive and non-zero
       if (h0.gt.0d0.and.h1.gt.0d0) then
 
+        ! Get derivatives
         dm = (yo - ym)/h0
         dp = (yp - yo)/h1
 
+      ! One of them is zero
       else
 
+        ! Keep Source at current position
         output = yo
         return
 
-      endif
+      endif ! Positive optical distances
 
+      ! If different slopes
       if (dm*dp.le.0d0) then
 
+        ! Keep Source at current position
         output = yo
         return
 
-      endif
+      endif ! Different slopes
 
+      ! Get derivative
       yder = 0.5d0*(h0*dp + h1*dm)/(h0 + h1)
+
+      ! Get correction to both sides
       c0 = yo - h0*yder
       c1 = yo + h1*yder
 
+      ! Check if monotonic
       call ybetwab(c0,ym,yo,cond0)
       call ybetwab(c1,yo,yp,cond1)
 
-      if(cond0.and.cond1)then
+      ! If both monotonic
+      if (cond0.and.cond1) then
 
+        ! Get borrection
         output = c0
         return
 
-      elseif(.not.cond0)then
+      ! If c0 non-monotonic
+      elseif (.not.cond0) then
 
+        ! Correct C0
         call correctyab(c0,ym,yo,output)
 
+      ! If c1 non-monotonic
       elseif(.not.cond1)then
 
+        ! Correct c1
         call correctyab(c1,yo,yp,c2)
+
+        ! Correct c0
         yder = (c2 - yo)/h1
         c0 = yo - h0*yder
+
+        ! Check if not it is monotonic
         call ybetwab(c0,ym,yo,cond2)
 
+        ! If c0 non-monotonic
         if(.not.cond2)then
 
+          ! Correct c0
           call correctyab(c0,ym,yo,output)
 
+        ! If c0 monotonic
         else
 
+          ! Get this c0
           output = c0
 
-        endif
-
-      endif
+        endif ! Corrected c0 monotonic
+      endif ! Monotonic
 
       return
 
@@ -332,16 +373,19 @@
 !#####################################################################
 !#####################################################################
 
-      !> Returns true if monotonic (a,y,b)\n
-      !!     y,a,b(dfloat): Input numbers\n
-      !!   output(logical): True if (a,y,b) monotonic
+      !> Determine if inputs (a,y,b) are in monotonic order\n
+      !!         y(double): Input central number\n
+      !!         a(double): Input extreme number\n
+      !!         b(double): Input extreme number\n
+      !!   output(logical): If (a,y,b) is monotonic
       subroutine ybetwab(y,a,b,output)
 
       ! I/O
-
       logical, intent(out):: output
       double precision, intent(in):: y,a,b
 
+
+      ! Check monotonic
       output = (a.le.b.and.y.ge.a.and.y.le.b).or. &
                (a.ge.b.and.y.le.a.and.y.ge.b)
 
@@ -353,9 +397,11 @@
 !#####################################################################
 !#####################################################################
 
-      !> Takes the y that keeps (a,y,b) monotonic\n
-      !!     y,a,b(dfloat): Input numbers\n
-      !!   output(logical): y that makes (a,y,b) monotonic
+      !> Determine the y which makes (a,y,b) monotonic\n
+      !!       y(double): Input central number\n
+      !!       a(double): Input extreme number\n
+      !!       b(double): Input extreme number\n
+      !!  output(double): y that makes (a,y,b) monotonic
       subroutine correctyab(y,a,b,output)
 
       ! I/O
@@ -367,22 +413,30 @@
 
       double precision:: mini,maxi
 
+
+      ! Get extremes
       mini = minval((/ a, b /))
       maxi = maxval((/ a, b /))
 
+      ! If y between minimum and maximum
       if (y.ge.mini.and.y.le.maxi) then
 
+        ! Was correct
         output = y
 
+      ! If below minimum
       else if (y.lt.mini) then
 
+        ! Set to minimum
         output = mini
 
+      ! If above maximum
       else
 
+        ! Set to maximum
         output = maxi
 
-      end if
+      end if ! If in range our outside which range
 
       return
 
@@ -392,20 +446,21 @@
 !#####################################################################
 !#####################################################################
 
-      !> Product matrix and vector 2x2\n
-      !!    a(dfloat(:,:)): Matrix\n
-      !!      b(dfloat(:)): Vector\n
-      !!      c(dfloat(:)): Vector A*b
-      subroutine MatVec_2d(a,b,c)
+      !> Calculate c = A*b with "A" a 2x2 matrix and "b" a 2 vector\n
+      !!  A(double(:,:)): Matrix\n
+      !!    b(double(:)): Vector\n
+      !!    c(double(:)): Vector A*b
+      subroutine MatVec_2d(A,b,c)
 
       ! I/O
 
-      double precision, dimension(:,:), intent(in):: a
+      double precision, dimension(:,:), intent(in):: A
       double precision, dimension(:), intent(in):: b
       double precision, dimension(:), intent(out):: c
 
-      c(1) = a(1,1)*b(1) + a(1,2)*b(2)
-      c(2) = a(2,1)*b(1) + a(2,2)*b(2)
+      ! Product
+      c(1) = A(1,1)*b(1) + A(1,2)*b(2)
+      c(2) = A(2,1)*b(1) + A(2,2)*b(2)
 
       end subroutine MatVec_2d
 
@@ -413,22 +468,23 @@
 !#####################################################################
 !#####################################################################
 
-      !> Product matrix and vector 4x4\n
-      !!    a(dfloat(:,:)): Matrix\n
-      !!      b(dfloat(:)): Vector\n
-      !!      c(dfloat(:)): Vector A*b
-      subroutine MatVec(a,b,c)
+      !> Calculate c = A*b with "A" a 4x4 matrix and "b" a 4 vector\n
+      !!  A(double(:,:)): Matrix\n
+      !!    b(double(:)): Vector\n
+      !!    c(double(:)): Vector A*b
+      subroutine MatVec(A,b,c)
 
       ! I/O
 
-      double precision, dimension(:,:), intent(in):: a
+      double precision, dimension(:,:), intent(in):: A
       double precision, dimension(:), intent(in):: b
       double precision, dimension(:), intent(out):: c
 
-      c(1) = a(1,1)*b(1) + a(1,2)*b(2) + a(1,3)*b(3) + a(1,4)*b(4)
-      c(2) = a(2,1)*b(1) + a(2,2)*b(2) + a(2,3)*b(3) + a(2,4)*b(4)
-      c(3) = a(3,1)*b(1) + a(3,2)*b(2) + a(3,3)*b(3) + a(3,4)*b(4)
-      c(4) = a(4,1)*b(1) + a(4,2)*b(2) + a(4,3)*b(3) + a(4,4)*b(4)
+      ! Product
+      c(1) = A(1,1)*b(1) + A(1,2)*b(2) + A(1,3)*b(3) + A(1,4)*b(4)
+      c(2) = A(2,1)*b(1) + A(2,2)*b(2) + A(2,3)*b(3) + A(2,4)*b(4)
+      c(3) = A(3,1)*b(1) + A(3,2)*b(2) + A(3,3)*b(3) + A(3,4)*b(4)
+      c(4) = A(4,1)*b(1) + A(4,2)*b(2) + A(4,3)*b(3) + A(4,4)*b(4)
 
       end subroutine MatVec
 
@@ -436,9 +492,9 @@
 !#####################################################################
 !#####################################################################
 
-      !> Inverts a matrix 2x2 with the absorption matrix symmetry
-      !! properties\n
-      !!     M(dfloat(:,:)): Matrix to invert and inverted matrix
+      !> Calculate the inverse of a 2x2 matrix with the symmetry
+      !! properties of the propagation matrix for only I and Q\n
+      !!  M(double(:,:)): Matrix to invert and inverted matrix
       subroutine Matinv_2d(M)
 
       ! I/O
@@ -452,9 +508,11 @@
       ! Inverse determinant
       idet = 1d0/(1d0 - M(1,2)*M(1,2))
 
+      ! Get inverse
       M(1,2) = -M(1,2)
       M(2,1) =  M(1,2)
 
+      ! Scale
       M = M*idet
 
       return
@@ -465,9 +523,9 @@
 !#####################################################################
 !#####################################################################
 
-      !> Inverts a matrix 4x4 with the absorption matrix symmetry
-      !! properties\n
-      !!     M(dfloat(:,:)): Matrix to invert and inverted matrix
+      !> Calculate the inverse of a 4x4 matrix with the symmetry
+      !! properties of the propagation matrix\n
+      !!  M(double(:,:)): Matrix to invert and inverted matrix
       subroutine Matinv(M)
 
       ! I/O
@@ -488,6 +546,7 @@
       double precision:: S1,S2,S3,S4,S5,S6
       double precision:: idet
 
+      ! Get minimal products
       a = M(1,2)
       b = M(1,3)
       c = M(1,4)
@@ -530,6 +589,7 @@
       S5 = ad - cf
       S6 = bd + ce
 
+      ! Get inverse
       M(1,1) =   o + dd + ee + ff
       M(2,1) = - a + S6 - P6
       M(3,1) = - b - S5 + P5
@@ -547,8 +607,10 @@
       M(3,4) = - f + S1 + P1
       M(4,4) =   o - aa - bb + dd
 
+      ! Get determinant
       idet = 1d0/(M(1,1) + a*M(2,1) + b*M(3,1) + c*M(4,1))
 
+      ! Scale inverse
       M = M*idet
 
       return

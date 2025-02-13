@@ -5,207 +5,59 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !     Roberto Casini (HAO)
-!     Hao Li (IAC)
-!  Contributors:
-!     Ricky Egeland (HAO)
+!     Hao Li (IAC/NSSCC)
 !  Start:
-!     04/17/2017
+!     17/04/2017
 !  Last version:
-!     09/29/2023 V3.0.12
+!     20/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     09/29/2023:   V3.0.12 - Updated calls to rAtom (TdPA)
-!                           - Added cleaning of the array
-!                             Input%Kcut_input (TdPA)
-!
-!     09/25/2023:   V3.0.11 - Added call to set_atom_label (TdPA)
-!
-!     08/17/2023:   V3.0.10 - Improved error message when a LTE line
-!                             is in an ion with model atom (TdPA)
-!
-!     08/07/2023:    V3.0.9 - Added logic to deal with LTE lines that
-!                             exist in model atoms (TdPA)
-!
-!     07/03/2023:    V3.0.8 - Updated the call to rAtom with the
-!                             Input%skip_wave flag (TdPA)
-!                           - Added the parsing of Input%fixplt to
-!                             Atom%fixplt (TdPA)
-!
-!     03/23/2023:    V3.0.7 - Fixed call to MPI_INIT with OpenMP with
-!                             newest MPI standards (TdPA)
-!
-!     03/08/2023:    V3.0.6 - Added TIC module (TdPA)
-!
-!     02/14/2023:    V3.0.5 - Setting up the geometry is now full
-!                             responsibility for each branch (TdPA)
-!
-!     11/10/2022:    V3.0.4 - Added logic to pass zero_ion from
-!                             the Input structure to the Atom
-!                             structure (TdPA)
-!
-!     10/25/2022:    V3.0.3 - Added branch for CLE (TdPA)
-!                           - Added some memory cleaning (TdPA)
-!
-!     07/27/2022:    V3.0.2 - Renamed MPI to MPID (TdPA)
-!                           - Removed MPI%ierr variable (TdPA)
-!
-!     07/08/2022:    V3.0.1 - Bugfix: It is necessary to initialize
-!                             the M blocks in the atoms if there is
-!                             potential of having a non-zero
-!                             magnetic field (TdPA)
-!                           - Bugfix: The timer can only be stopped by
-!                             the global Master (TdPA)
-!
-!     06/29/2022:    V3.0.0 - To implement the 1.5D case the following
-!                             changes were needed:
-!                              o The old nproc and pid have been
-!                                changed to gnproc and gpid (g ==
-!                                global).
-!                              o A new MPI_COMM_CTRL communicator
-!                                has been defined, but not sure
-!                                how necessary it is.
-!                              o Changed the calls to aborted into
-!                                calls to gaborted.
-!                              o Atmosphere and magnetic field are
-!                                read elsewhere now.
-!                              o The flag KSTK is defined elsewhere.
-!                              o rMol does not requiere the argument
-!                                Atmo anymore.
-!                              o Gauss does not requiere the argument
-!                                Bfield anymore.
-!                              o check_axial is called elsewhere now.
-!                              o The Hamiltonians are diagonalized
-!                                elsewhere now.
-!                              o The fudge factors and the Kurucz
-!                                lines are read here just once.
-!                              o Atoms are flagged to fix their
-!                                populations here now.
-!                              o New routines are called to perform
-!                                the calculations depending on the
-!                                type of run.
+!     20/12/2024:    V4.0.0 - Updated to version 4 of HanleRT-TIC:
+!                             o The second order emissivity is
+!                               calculated in the comoving frame and
+!                               for all directions in the same call,
+!                               significantly reducing loop repetition
+!                               and memory in the more general cases.
+!                             o Removed the option to store Voigt
+!                               Voigt profiles in files.
+!                             o Revised and cleaned all headers.
+!                             o Improved memory accountability to
+!                               more properly limit the allocated RAM
+!                               as indicated by the user and minimize
+!                               the overshoot beyond that value.
+!                             o Removed OpenMP support.
+!                             o Fused together the different branches
+!                               for MPI, alternative MPI, and serial
+!                               for all solvers.
+!                             o Fused together angle-average and
+!                               angle-dependent routines for the
+!                               calculation of the second order
+!                               emissivity.
+!                             o Fused together the routines to compute
+!                               the RT coefficients for the quadrature
+!                               and for the arbitrary direction.
+!                             o Completely changed the indexing of
+!                               the transition components (fine
+!                               structure or magnetic) for the storage
+!                               of the normalization, the Voigt
+!                               profiles, and the redistribution.
+!                             o Completely changed the structures to
+!                               store input frequency data,
+!                               redistribution functions, Voigt
+!                               profiles, and their normalization.
+!                             o Changed how the formal solution for
+!                               arbitrary LOS manage the normalization
+!                               of profiles (in dynamic cases) and
+!                               the determination of the geometrical
+!                               tensors.
+!                             o Other changes with much less impact.
 !                             (TdPA)
-!                           - Fixed wrong indentation for the section
-!                             that creates the run ID (TdPA)
-!
-!     09/30/2021:    V2.0.1 - nthread asked from a single CPU (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!                           - Change MPI initialization when compiling
-!                             with OpenMP (TdPA)
-!                           - Fix number of OpenMP threads and make
-!                             it static (TdPA)
-!                           - Changed time calls depending on OpenMP
-!                             compilation (TdPA)
-!                           - Moved check of axial compliance into
-!                             a module (TdPA)
-!
-!     02/12/2021:   V1.2.15 - Added calls to report_time (TdPA)
-!
-!     01/12/2021:   V1.2.14 - Added definition of KSTK (TdPA)
-!
-!     09/28/2020:   V1.2.13 - Added a new method to get an unique
-!                             job ID that does not collide for
-!                             fast sends of jobs (RE)
-!
-!     09/11/2020:   V1.2.12 - The search for the Source and
-!                             Resources folders reaches one more step
-!                             up in the folder hierarchy (TdPA)
-!
-!     07/22/2020:   V1.2.11 - Changed initialization of nxb and
-!                             nxphot. There was wasted memory in the
-!                             J00P arrays. Added a control on the
-!                             dimensions instead (TdPA)
-!
-!     03/05/2020:   V1.2.10 - Passing another parameter to shiftatoms
-!                             routine (TdPA)
-!                           - Not passing lH to hanle routine (TdPA)
-!
-!     12/17/2019:    V1.2.9 - Passing a new parameter to diagon (TdPA)
-!
-!     12/11/2019:    V1.2.8 - Communication between Input and Flgsg
-!                             regarding memoization (TdPA)
-!
-!     09/26/2019:    V1.2.7 - Changes in calls due to changes inside
-!                             those modules (TdPA)
-!
-!     09/13/2019:    V1.2.6 - Changed aborting message when asking for
-!                             PRD angle-averaged with dynamics,
-!                             because now it is allowed (TdPA)
-!
-!     08/08/2019:    V1.2.5 - Added argument to setFScoeff (TdPA)
-!
-!     06/12/2019:    V1.2.4 - Fixed two abortion messages with wrong
-!                             initial 'tick' (TdPA)
-!
-!     06/03/2019:    V1.2.3 - Molecule allocation moved outside of
-!                             conditional block (TdPA)
-!
-!     05/08/2019:    V1.2.2 - Added new needed initializations (TdPA)
-!
-!     03/18/2019:    V1.2.1 - Bugfix: Wrong logic when checking file
-!                             existence (TdPA)
-!
-!     02/20/2019:    V1.2.0 - New verbosity (TdPA)
-!                           - Using unit 200 now (TdPA)
-!
-!     09/27/2018:    V1.1.1 - Added a level higher when checking the
-!                             location of the source and resources due
-!                             to my own convenience (TdPA)
-!
-!     08/09/2018:    V1.1.0 - Allows a command line argument to
-!                             specify explicitly the name of the input
-!                             file (TdPA)
-!
-!     08/08/2018:    V1.0.8 - Bugfix: time variables were not
-!                             initialized if the time was shorter than
-!                             the unit of the variable (TdPA)
-!
-!     08/06/2018:    V1.0.7 - Outputs invested time (TdPA)
-!
-!     08/03/2018:    V1.0.6 - Removed warning for Kcut and PRD (TdPA)
-!
-!     07/27/2018:    V1.0.5 - Added warning for Kcut and PRD (TdPA)
-!
-!     05/17/2018:    V1.0.4 - Added a check for the vectorial
-!                             quantities when axial symmetry is
-!                             explicit (TdPA)
-!
-!     09/15/2017:    V1.0.3 - Added run ID (TdPA)
-!                           - Added search of Source and Resources
-!                             folder (TdPA)
-!
-!     07/14/2017:    V1.0.2 - Bugfix: one loop that was suppose to
-!                             go through the background atoms was
-!                             going through the active atoms (TdPA)
-!                           - Bugfix: Initialize background atom
-!                             FS Einstein coefficients (TdPA)
-!
-!     07/05/2017:    V1.0.1 - Checks if AV PRD and dynamics to cancel
-!                             the calculation (TdPA)
-!
-!     04/17/2017:    V1.0.0 - First version (TdPA)
-!
-!#####################################################################
-!#####################################################################
-!
-!  TODO:
-!
-!    - Generalize frequency axis build to take into account magnetic
-!      splitting.
-!    - Implement the modification to the Lambda operator for blended
-!      transitions.
-!    - (Maybe) introduce the possibility of forbidden lines, following
-!      always multilevel formalism.
-!    - Implement a better alternative solveri and solver that splits
-!      frequencies within each CPU.
-!    - Optimize the input frequency axis in such a way that one avoids
-!      computing zero redistribution profiles
 !
 !#####################################################################
 !#####################################################################
@@ -215,9 +67,20 @@
 !#####################################################################
 !#####################################################################
 !
-!  Data:
+!  To do:
 !
-!    Main routine
+!    - Improve equation of state (mid priority)
+!    - Introduce the possibility of forbidden lines, following always
+!      multilevel formalism (low priority).
+!    - Generalize frequency axis build to take into account magnetic
+!      splitting (maybe irrelevant, low priority)
+!    - Implement the modification to the Lambda operator for blended
+!      transitions (haven't found problems yet, low priority).
+!
+!#####################################################################
+!#####################################################################
+!
+!  Main
 !
 !#####################################################################
 !#####################################################################
@@ -228,10 +91,10 @@
       use commons_mod
       use chemicaux_mod
       use fctsg_mod
+      use free_mod
       use rfudge_mod
       use gauss_mod
       use hanlert_mod
-      use omp_mod
       use ratom_mod
       use rinput_mod
       use rmol_mod
@@ -240,10 +103,6 @@
       use types_mod
 
       ! Variables
-
-      logical:: isPRD, lH
-
-      integer:: ia, iab
 
       type(Atom_class), dimension(:), allocatable:: Atom
       type(Atom_class), dimension(:), allocatable:: Atomb
@@ -255,26 +114,16 @@
 
       character(len=MPI_MAX_PROCESSOR_NAME) :: pname
 
-      integer :: i, slen
+      logical:: isPRD, lH
 
+      integer:: ia,iab,i,slen
       integer(kind=MPI_OFFSET_KIND):: offset
 
-      double precision:: t0, t1
-      double precision:: day, hour, minute, second
+      double precision:: t0,t1,day,hour,minute,second
 
 
-      !
       ! Initialize MPI
-      !
-#ifdef _OPENMP
-#ifdef oldmpi
-      call MPI_INIT_THREAD(MPI_THREAD_SERIALIZED)
-#else
-      call MPI_INIT_THREAD(MPI_THREAD_SERIALIZED,ierr)
-#endif
-#else
       call MPI_INIT(ierr)
-#endif
       call MPI_COMM_RANK(MPI_COMM_WORLD,gpid,ierr)
       call MPI_COMM_SIZE(MPI_COMM_WORLD,gnproc,ierr)
       MPID%gpid = gpid
@@ -289,24 +138,52 @@
                           MPI_COMM_CTRL, ierr)
 
       !
-      ! Initialize OpenMP num. threads
+      ! Initialize RAM counters
       !
-      nthread = 1
-#ifdef _OPENMP
-!$omp parallel shared(nthread)
-      call omp_set_dynamic(.False.)
-!$omp single
-      nthread = omp_get_num_threads()
-!$omp end single
-!$omp end parallel
-#endif
+      PRAMc = 0d0
+      VRAMc = 0d0
+      WRAMc = 0d0
+      RRAMc = 0d0
+      SRAMc = 0d0
+      BRAMc = 0d0
+      TRAMc = 0d0
+      ORAMc = 0d0
+      FRAMc = 0d0
+      DRAMc = 0d0
+      DRAM2c = 0d0
+      ERAMc = 0d0
+      MRAMc = 0d0
+
+      !
+      ! Add already used RAM
+      !
+
+      ! Miscellaneous
+      MRAMc = MRAMc + 1d-6*sizeof(MPID) + &
+                      1d-6*sizeof(Input) + &
+                      1d-6*sizeof(Flgsg) + &
+                      1d-6*sizeof(fudge)
+
+      !
+      ! Add RAM in commons
+      !
+      MRAMc = 1d-6*dble(500*3 + &
+                        650 + &
+                        20 + &
+                        4*28 + &
+                        4 + &
+                        4*2 + &
+                        4*2 + &
+                        4*3 + &
+                        4*2 + &
+                        4*24 + &
+                        4*3 + &
+                        4*2 + &
+                        4*3 + &
+                        8*12)
 
       ! Start timer
-#ifdef _OPENMP
-      t0 = omp_get_wtime()
-#else
       if (pid.eq.0) call cpu_time(t0)
-#endif
 
       ! Initial verbosity
       verbosity = .True.
@@ -322,47 +199,71 @@
       ! There is an argument
       if (ia.ge.1) then
 
+        ! Get command line argument
         call get_command_argument(1, Input%input)
 
         ! Check argument length
         if (len_trim(Input%input).eq.0) Input%input = 'INPUT'
 
-      ! Default name
+      ! No argument
       else
 
+        ! Default name
         Input%input = 'INPUT'
 
-      end if
+      end if ! Command line argument
 
       ! Check if input file exists
       open(200, file=trim(Input%input), status='old', iostat=ierr)
       close(200)
+
+      ! If failed to open input file
       if (ierr.ne.0) then
+
+        ! Issue error
         umsg = 'Could not find input file with name: '// &
                trim(Input%input)//''
         urou = 'hanlert'
         call gaborted
-      end if
+
+      end if ! Error
 
 
       !
       ! Identify source folder
       !
+
+      ! Try opening cheat file
       open(200, file='spath', status='old', iostat=ierr)
+
       ! If there is a path file
       if (ierr.eq.0) then
+
+        ! Read path
         read(200,'(A)') Input%source
+
+        ! Close
         close(200)
+
+        ! Try opening source file
         open(200, file=trim(Input%source)//'rinput.py', &
              status='old', iostat=ierr)
         close(200)
+
+        ! Could not find source file
         if (ierr.ne.0) then
+
+          ! Issue error
           umsg = 'Wrong source path specified in spath file'
           urou = 'hanlert'
           call gaborted
-        end if
+
+        end if ! Error
+
       ! If there is not a path file try some typical locations
       else
+
+        ! Try finding the source file up to four folders above
         open(200, file='Source/rinput.py', &
              status='old', iostat=ierr)
         close(200)
@@ -403,25 +304,44 @@
           end if
         end if
       end if
+
+
       !
       ! Specify resource folder
       !
+
+      ! Try opening cheat file
       open(200, file='sreso', status='old', iostat=ierr)
+
       ! If there is a path file
       if (ierr.eq.0) then
+
+        ! Read path
         read(200,'(A)') Input%resource
+
+        ! Close
         close(200)
+
+        ! Try opening source file
         open(200, file=trim(Input%resource)//'partfunc', &
              status='old', iostat=ierr)
         close(200)
+
+        ! Could not find source file
         if (ierr.ne.0) then
+
+          ! Issue error
           umsg = 'Wrong resource path specified in '// &
                  'sreso file'
           urou = 'hanlert'
           call gaborted
-        end if
+
+        end if ! Error
+
       ! If there is not a path file try some typical locations
       else
+
+        ! Try finding the resource files up to four folders above
         open(200, file='Resources/partfunc', &
              status='old', iostat=ierr)
         close(200)
@@ -467,27 +387,31 @@
       !
       ! Create run ID
       !
+
+      ! Master
       if (pid.eq.0) then
+
+        ! Get unique ID
         call fgetpid(ia)
         call MPI_GET_PROCESSOR_NAME(pname, slen, ierr)
-
-        do i = 1, slen
+        do i=1,slen
           ia = ia + ichar(pname(i:i))
         end do
-      end if
+
+      end if ! Master
+
+      ! Share ID
       call MPI_BCAST(ia, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+
+      ! Write string ID
       write(Input%ID,'(i9.9)') ia
 
 
-      !
       ! Read input data
-      !
       call rInput(Input)
 
 
-      !
-      ! If measuring performance
-      !
+      ! If measuring performance, write now
       if (Input%g_perf.and.pid.eq.0) &
         call report_time(Input%folder,Input%ID,.False.)
 
@@ -499,27 +423,30 @@
       ! Allocate the array of atoms and initialize common variables
       call allocateatom(Atom, NA)
       nxtran = 0 ; nxt = 0 ; nxb = 0 ; nxphot = 0
-      nkx = 0 ; nxJ = 0 ; nxS = 0 ; nxL = 0
+      nkx = 0 ; nxJ = 0 ; nxS = 0 ; nxL = 0 ; nJs = 0
       isPRD = .False.
       tbAD = .False.
 
       ! For each active atom
       do ia=1,nA
+
+        ! Read atom with index ia
         call rAtom(Input%atom(ia)%str,Input%source, &
                    Input%ID,Input%skip_wave(ia), &
                    Input%Kcut_input,Atom(ia),ia, &
                    isPRD,.True.)
 
-        ! If not the first atom, add shifts
+        ! If not the first atom, add shifts for rolling indexes
         if (ia.gt.1) then
           Atom(ia)%tshift = Atom(ia-1)%tshift + Atom(ia-1)%ntran
           Atom(ia)%tfshift = Atom(ia-1)%tfshift + Atom(ia-1)%nftran
           Atom(ia)%pshift = Atom(ia-1)%pshift + Atom(ia-1)%nphot
         end if
 
-      end do
+      end do ! Active atoms
 
-      ! Control dimensions
+      ! Control dimensions, need minimum of 1 to avoid allocations
+      ! with zero size
       if (nxb.lt.1) nxb = 1
       if (nxphot.lt.1) nxphot = 1
 
@@ -532,7 +459,6 @@
         urou = 'hanlert'
         call aborted
       end if
-
 
       ! Check if dynamic and angle-averaged
       if(PRD.and.dyn.and.AV.and.pid.eq.0) then
@@ -549,21 +475,29 @@
       ! Mblock sizes
       if (.not.Input%unmagnetized) call initMblock(Atom)
 
-      ! Read atomic background data
+      ! If there are background atoms to load
       if (Input%nAb.gt.0) then
-        ! Call to allocate
+
+        ! Allocate Atomb array
         call allocateatom(Atomb, nAb)
+
+        ! For each background atom to read
         do iab=1,Input%nAb
+
+          ! Read atom with index iab
           call rAtom(Input%atomback(iab)%str,Input%source, &
                      Input%ID,.True.,Input%Kcut_input, &
                      Atomb(iab),iab,isPRD,.False.)
-        end do
-      end if
+
+        end do ! background atoms to read
+
+      end if ! Background atoms to read
 
       ! If there were custom K cut inputs
       if (allocated(Input%Kcut_input)) then
 
         ! Free used Input data if allocated
+        MRAMc = MRAMc - 1d-6*sizeof(Input%Kcut_input)
         deallocate(Input%Kcut_input)
 
         ! Update Kradl
@@ -572,19 +506,19 @@
           ! Get maximum K rad
           Kradl = max(Kradl,maxval(Atom(ia)%Krad))
 
-        end do
+        end do ! Atoms
 
       end if ! Custom K cut inputs
 
       !
       ! Check that H existed in the background and, if not, create
-      ! a hardwired one if its not active neither
+      ! a hard-coded one if its not active neither
       !
 
       ! Initialize
       lH = .False.
 
-      ! Check between active atoms
+      ! Check between active atoms if there is Hydrogen
       do ia=1,nA
         if (Atom(ia)%Element.eq.' H') then
           lH = .True.
@@ -592,28 +526,40 @@
         end if
       end do
 
-      ! Check between non active atoms
-      if (nAb.gt.0) then
-        do ia=1,nAb
-          if (Atomb(ia)%Element.eq.' H') then
-            lH = .True.
-            exit
-          end if
-        end do
-      end if
+      ! Check between non active atoms if there is Hydrogen
+      ! and have not found it yet
+      if (.not.lH) then
+        if (nAb.gt.0) then
+          do ia=1,nAb
+            if (Atomb(ia)%Element.eq.' H') then
+              lH = .True.
+              exit
+            end if ! Atom is hydrogen
+          end do ! Background atoms
+        end if ! There are background atoms
+      end if ! Not found Hydrogen yet
 
       ! Get file labels for atomic stuff
       call set_atom_label(Atom,nA)
 
-      ! If there was no H, add H to the beginning
+      ! If there was no H
       if (.not.lH) then
+
+        ! Shift all background atoms one position to the
+        ! right
         call shiftatoms(Atomb,Input%popuback)
+
+        ! Update Input variable (nAb added one in shiftatoms)
         Input%nAb = nAb
+
+        ! Get hard-coded Hydrogen in position 1
         call AtomH(Atomb(1))
-      end if
+
+      end if ! No Hydrogen model to read
 
       !
-      ! Check there is no atom both in calculation and input
+      ! Check there is no repeated atom both in active and
+      ! in background
       do ia=1,NA
         do iab=1,nAb
           if (Atom(ia)%Element.eq.Atomb(iab)%Element) then
@@ -630,20 +576,23 @@
       !
       if (nLTEl.gt.0) then
 
-        ! Check if active as well
+        ! Run over active atoms
         do ia=1,NA
+
+          ! Run over LTE transitions
           do iab=1,nLTEl
 
-            ! Check element
+            ! If LTE line from active atom
             if (atom_char2index(Atom(ia)%Element).eq. &
                 Input%LTEline(iab)%ele) then
 
-              ! Check stage
+              ! Check if ion for LTE line included in model
               if (minval(Atom(ia)%stage).le. &
                   Input%LTEline(iab)%stage.and. &
                   maxval(Atom(ia)%stage).ge. &
                   Input%LTEline(iab)%stage) then
 
+                ! Abort because the ion is in the model
                 write(umsg,'(A,i2,A)') &
                   'You have the same atom in the list of input '// &
                   'and in LTE lines, '//Atom(ia)%Element// &
@@ -652,17 +601,19 @@
                 urou = 'hanlert'
                 call aborted
 
-              end if
-            end if
+              end if ! Ion in the model
+            end if ! LTE line from an atom with model
 
           end do ! LTE lines
         end do ! Active atoms
 
-        ! Check if passive as well
+        ! Run over background atoms
         do ia=1,NAb
+
+          ! Run over LTE transitions
           do iab=1,nLTEl
 
-            ! If the passive atom has LTE line
+            ! If LTE line from background atom
             if (atom_char2index(Atomb(ia)%Element).eq. &
                 Input%LTEline(iab)%ele) then
 
@@ -670,46 +621,65 @@
               Input%LTEline(iab)%is_passive = .True.
               Input%LTEline(iab)%ia = ia
 
-              ! Remove the transition in the atom, if present and in
-              ! same stage
+              ! If the LTE line stage is in the model
               if (minval(Atomb(ia)%stage).le. &
                   Input%LTEline(iab)%stage.and. &
                   maxval(Atomb(ia)%stage).ge. &
                   Input%LTEline(iab)%stage) &
+                ! Remove the LTE transition from the
+                ! atomic model
                 call remove_LTE_transition(Atomb(ia), &
                                            Input%LTEline(iab))
 
-            end if
+            end if ! LTE line in background model atom
 
           end do ! LTE lines
         end do ! Passive atoms
 
-        ! For each LTE line, get atomic quantities
+        ! For each LTE line
         do ia=1,nLTEl
+
+          ! Setup atomic quantities
           call setup_LTE_transition(Atomb,Input%LTEline(ia))
-        end do
+
+        end do ! LTE lines
 
       end if ! If there are LTE lines
 
 
       !
-      ! Read Molecules
+      ! Molecules
       !
+
+      ! Allocate molecules array
       call allocatemol(Mol,Input%nM)
+
+      ! If there are molecules to read
       if (Input%nM.gt.0) then
+
+        ! For each molecule to read
         do ia=1,Input%nM
+
+          ! Read molecule model
           call rMol(Input%mol(ia)%str,Input%source,Input%ID,Mol(ia))
-        end do
-      end if
+
+        end do ! Molecules
+
+      end if ! Molecules to read
 
 
       !
       ! Initialize Racah algebra
       !
+
       ! Tell structure if doing memoization
       Flgsg%memo = Input%memo
+
+      ! Initialize factorials and signs
       call fctsg(Flgsg)
-      if(pid.eq.0) then
+
+      ! Verbose
+      if (pid.eq.0) then
         umsg = ' - Factorials and signs initialized'
         call verbose
       end if
@@ -718,21 +688,40 @@
       !
       ! Initialize FS Einstein coefficients
       !
-      do ia=1,NA
+
+      ! For every active atom
+      do ia=1,nA
+
+        ! Setup Einstein coefficients for FS transitions
         call setFScoeff(Atom(ia),Flgsg)
-      end do
+
+      end do ! Active atoms
+
+      ! For every background atom
       do ia=1,NAb
+
+        ! Skip hard-coded Hydrogen
         if (.not.lH.and.Atomb(ia)%Element.eq.' H') cycle
+
+        ! Setup Einstein coefficients for FS transitions
         call setFScoeff(Atomb(ia),Flgsg)
-      end do
+
+      end do ! Background atoms
 
 
       !
       ! Calculate dipole strengths
       !
+
+      ! For every active atom
       do ia=1,nA
+
+        ! Call strength routine
         call strength(Atom(ia),Flgsg)
-      end do
+
+      end do ! Active atoms
+
+      ! Verbose
       if(pid.eq.0) then
         umsg = ' - Dipole strengths calculated'
         call verbose
@@ -741,28 +730,31 @@
 
       !
       ! Read fudge data
-      !
       call rFudge(Input%fudge,Input%source,Input%ID,fudge)
+
 
       !
       ! Tell the atoms if their populations are fixed
       !
 
-      ! For each atom
-      do ia=1,na
+      ! For each active atom
+      do ia=1,nA
 
         ! Copy from input
         Atom(ia)%fixp = Input%fixp(ia)
         Atom(ia)%fixplt = Input%fixplt(ia)
         Atom(ia)%zero_ion = Input%zero_ion(ia)
 
-      end do ! Atoms
+      end do ! Active atoms
 
       ! Deallocate fixp, fixplt, zero_ion, and filenames
       deallocate(Input%fixp,Input%zero_ion,Input%atom,Input%fixplt)
+      if (allocated(Input%atomback)) deallocate(Input%atomback)
+      if (allocated(Input%mol)) deallocate(Input%mol)
 
       ! Maximum value of offset MPI kind
       offlimit = 2d0**(MIN(kind(ia),kind(offset))*8d0 - 1d0) - 1d0
+
 
       !
       ! Branch the code here for different running modes
@@ -771,33 +763,41 @@
       ! Inversion mode
       if (run_mode.eq.-1) then
 
+        ! Verbose inversion mode
         umsg = ' - Inversion mode'
         if (gpid.eq.0) call verbose
 
+         ! Call the Tenerife Inversion Code
         call TIC(Input,Atom,Atomb,Mol,Flgsg,fudge,MPID)
 
       ! 1D Synthesis mode
       else if (run_mode.eq.0) then
 
+        ! Verbose 1D synthesis mode
         umsg = ' - 1D synthesis mode'
         if (gpid.eq.0) call verbose
 
+        ! Call the manager for a single 1D synthesis
         call HanleRT1DS(Input,Atom,Atomb,Mol,Flgsg,fudge,MPID)
 
       ! 1.5D Sythesis mode
       else if (run_mode.eq.1) then
 
+        ! Verbose 1.5D synthesis mode
         umsg = ' - 1.5D synthesis mode'
         if (gpid.eq.0) call verbose
 
+        ! Call the manager for 1.5D synthesis in a 3D model
         call HanleRT15DS(Input,Atom,Atomb,Mol,Flgsg,fudge,MPID)
 
       ! CLE Sythesis mode
       else if (run_mode.eq.2) then
 
+        ! Verbose CLE synthesis mode
         umsg = ' - CLE synthesis mode'
         if (gpid.eq.0) call verbose
 
+        ! Call the manager for the coronal line emission
         call HanleCLE(Input,Atom,Atomb,Mol,Flgsg,fudge,MPID)
 
       end if
@@ -805,73 +805,86 @@
       !
       ! Cleaning up
       !
-      if (allocated(Atom)) deallocate(Atom)
-      if (allocated(Atomb)) deallocate(Atomb)
-      if (allocated(Mol)) deallocate(Mol)
+      call free_atom_full(Atom)
+      call free_atom_full(Atomb)
+      call free_mol_full(Mol)
 
 
-      ! Stop timer, handle time, and finish
+      ! Global master
       if (gpid.eq.0) then
 
-#ifdef _OPENMP
-        t1 = omp_get_wtime()
-#else
+        ! Final timer
         call cpu_time(t1)
-#endif
 
+        ! Initialize time components
         second = t1 - t0
         minute = 0d0
         hour = 0d0
         day = 0d0
 
+        ! Transform overflowing second to minutes
         if (second.ge.60.0) then
           minute = real(floor(second/60.))
           second = second - minute*60.0
         end if
 
+        ! Transform overflowing minutes to hours
         if (minute.ge.60.0) then
           hour = real(floor(minute/60.))
           minute = minute - hour*60.0
         end if
 
+        ! Transform overflowing hours to days
         if (hour.ge.24.) then
           day = real(floor(hour/24.))
           hour = hour - day*24.
         end if
 
-
         !
         ! Program finished
         !
 
+        ! Verbose finished
         umsg = ' - Hanle+RT finished without '// &
                'technical problems'
         call verbose
 
-        ! Output time it took
+        !
+        ! Verbose time elapsed
+        !
+
+        ! If took days
         if (nint(day).gt.0) then
 
+          ! Write d-h-m-s
           write(umsg,'(" - Time: ",i2," days, ",i2," hours, "'// &
                     ',i2," minutes, and ",i2," seconds")') &
                 nint(day),nint(hour),nint(minute),nint(second)
 
+        ! If took hours
         else if (nint(hour).gt.0) then
 
+          ! Write h-m-s
           write(umsg,'(" - Time: ",i2," hours, ",i2,'// &
                     '" minutes, and ",i2," seconds")') &
                 nint(hour),nint(minute),nint(second)
 
+        ! If took minutes
         else if (nint(minute).gt.0) then
 
+          ! Write m-s
           write(umsg,'(" - Time: ",i2," minutes and "'// &
                     ',i2," seconds")') nint(minute),nint(second)
 
+        ! If took seconds
         else
 
+          ! Write s
           write(umsg,'(" - Time: ",i2," seconds")') nint(second)
 
         end if
 
+        ! Output time elapsed
         call verbose
 
         !
@@ -881,7 +894,6 @@
           call report_time(Input%folder,Input%ID,.True.)
 
       endif ! Master
-
 
       !
       ! Finalize MPI

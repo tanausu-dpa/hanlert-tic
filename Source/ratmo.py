@@ -3,39 +3,9 @@ import sys, math, os
 #####################
 # rAtmo()
 #
-# Tanaus\'u del Pino Alem\'an
-# Ricky Egeland
+# Tanaus\'u del Pino Alem\'an (IAC)
 #
-# 08/07/2023:  V3.0.2 - Bugfix: Wrong indents (TdPA)
-#
-# 07/03/2023:  V3.0.1 - Now the type of model atmosphere is
-#                       written in the temporal file before
-#                       the thermal variables (TdPA)
-#
-# 06/29/2022:  V3.0.0 - Changed global version (TdPA)
-#
-# 03/17/2021:  V2.0.0 - Changed global version (TdPA)
-#
-# 01/13/2021 : V1.1.5 - Added proper abortion in abort() (TdPA)
-#                     - Corrected typo in error message (TdPA)
-#
-# 06/05/2020 : V1.1.4 - Python 3 compatible (RE)
-#
-# 10/12/2019 : V1.1.3 - Bugfix: Improved verbosity of error for
-#                       wrong reference wavelength (TdPA)
-#
-# 09/24/2019 : V1.1.2 - Added alternative inputs for the density
-#                       specification (TdPA)
-#
-# 09/13/2019 : V1.1.1 - Added tau scale to the possible inputs (TdPA)
-#                     - tau scales also admit specifying the reference
-#                       wavelength (TdPA)
-#
-# 02/14/2019 : V1.1.0 - Improved verbosity (TdPA)
-#
-# 09/14/2017:  V1.0.1 - Added an ID to the files (TdPA)
-#
-# 04/17/2017:  V1.0.0 - First version (TdPA)
+# 17/12/2024:  V4.0.0 - Changed global version (TdPA)
 #
 #####################
 
@@ -43,35 +13,50 @@ def rAtmo():
   ''' Reads the input atmospheric file specified as argument.
   '''
 
+  # Aborting method
   def abort(f,name):
+    # Close file
     f.close()
+    # Reset file and just write -1 to flag failure
     f = open(name,'w')
     f.write('-1')
     f.close()
+    # Leave
     sys.exit()
 
+  # Verbose routine
   def verbose(msg, fil, verb):
-
     # If being verbose
     if (verb):
+      # Just print
       print((msg+' in ratmo.py'))
     else:
+      # Check file exists
       exist = os.path.isfile(fil)
+      # Open to write or append
       if (exist):
         fv = open(fil,'a')
       else:
         fv = open(fil,'w')
+      # Write in file and close
       fv.write(msg+' in ratmo.py\n')
       fv.close()
 
+  #
   # Argument control
+  #
+
+  # Requires one argument
   if len(sys.argv) < 1:
-   #sys.exit(' # At least one argument needed')
     sys.exit()
+
+  # Try getting ID
   try:
     dni = sys.argv[2]
   except:
     dni = '000000000'
+
+  # If more arguments, there is verbosity file
   if len(sys.argv) > 3:
     verbosity = False
     verbfile = sys.argv[3]
@@ -79,8 +64,10 @@ def rAtmo():
     verbosity = True
     verbfile = ''
 
+  # Try to open file
   try:
     f=open(sys.argv[1],'r')
+  # Failed to open file
   except:
     verbose(' # No atmospheric file found', verbfile, verbosity)
     filename = 'tmp_atmo_'+dni
@@ -107,12 +94,16 @@ def rAtmo():
       lines_n.append(line)
   lines = lines_n
 
-  # Output file
+  # Start output file
   filename = 'tmp_atmo_'+dni
   f = open(filename,'w')
   f.write('1\n')
 
+  #
   # File build
+  #
+
+  # Get model's name
   iline = 0
   line = lines[iline].strip()
   name = line
@@ -121,6 +112,7 @@ def rAtmo():
   iline += 1
   line = lines[iline].strip()
   scale = line.split()
+  # If info on reference frequency
   if len(scale) > 2:
     try:
       tf = '{0}\n'.format(1e2/float(scale[2]))
@@ -135,21 +127,22 @@ def rAtmo():
           msg += '   ' + err + '\n'
       verbose(msg,verbfile, verbosity)
       abort(f,filename)
+  # If no info on reference frequency, assume 500 nm (0.2 kaiser)
   else:
     tf = '0.2\n'
+  # Write scale
   if 'HEIGHT' in scale[0]:
     f.write('H\n')
   elif 'TAU' in scale[0]:
     f.write('T\n')
- #elif 'MASS' in scale:
- #  f.write('M\n')
   else:
     verbose(' # Scale not recognized in model atmosphere', \
             verbfile, verbosity)
     abort(f,filename)
+  # Write reference frequency
   f.write(tf)
 
-  # Log(g), not used
+  # Log(g), only used in inversion mode
   iline += 1
   line = lines[iline].strip()
   try:
@@ -163,7 +156,6 @@ def rAtmo():
             verbfle, verbosity)
     abort(f,filename)
   f.write(line+'\n')
-  #f.write('{0:6.2f}\n'.format(logg))
 
   # Number of height nodes
   iline += 1
@@ -179,26 +171,32 @@ def rAtmo():
             verbfile, verbosity)
     abort(f,filename)
   f.write(line+'\n')
-  #f.write('{0:5d}'.format(NZ))
 
   # Initialize atmo to write
   thermo = []
   dens = []
   nd = False
 
+  #
   # Thermodynamical quantities
+  #
+
+  # For each height
   for iz in range(NZ):
     iline += 1
     line = lines[iline].strip()
     columns = line.split()
+    # 5 numbers are required
     if len(columns) < 5:
       verbose(' # Needed at least five columns in ' + \
               'data block 1, got {0}'.format(len(colums)), \
               verbfile, verbosity)
       abort(f,filename)
+    # If less than 7, fill horizontal velocity components with 0
     while len(columns) < 7:
       columns.append('0')
       line += ' 0'
+    # Check they are numbers
     for ii in range(len(columns)):
       try:
         lst = list(columns[ii].lower())
@@ -210,9 +208,8 @@ def rAtmo():
         verbose(' # Non numerical value in atmosphere', \
                 verbfile, verbosity)
         abort(f,filename)
+    # Add to buffer to write
     thermo.append(line+'\n')
-    #form = '{22.16e}'*5 + '\n'
-    #f.write(form.format(columns))
 
   # Read one more line and check if it is an specifier
   iline += 1
@@ -240,28 +237,39 @@ def rAtmo():
 
   # If we expect number densities
   else:
+
+    # Flag number densities
     f.write('0\n')
     nd = True
 
     # Go back one line
     iline -= 1
 
+    #
     # Hydrogen densities
+    #
+
+    # For each height
     for iz in range(NZ):
       iline += 1
       line = lines[iline].strip()
       columns = line.split()
+      # Required at least two numbers
       if (len(columns)) < 2:
         verbose(' # Needed at least two columns in ' + \
                 'data block 2, got {0}'.format(len(columns)), \
                 verbfile, verbosity)
         abort(f,filename)
       changed = False
+      # If less than 6 numbers, fill with zero the populations
+      # of the missing levels until 5 neutral levels
       while (len(columns)) < 6:
         columns.insert(-1,'0')
         changed = True
+      # Reconstruct the line if we changed it
       if changed:
         line = ' '.join(columns)
+      # Check the line is made of numbers
       for ii in range(len(columns)):
         try:
           lst = list(columns[ii].lower())
@@ -274,12 +282,11 @@ def rAtmo():
                   verbfile, verbosity)
           abort(f,filename)
       dens.append(line+'\n')
-      #form = '{22.16e}'*6 + '\n'
-      #f.write(form.format(columns))
 
-  # Output thermo
+  # Output thermodynamic quantities
   for line in thermo:
     f.write(line)
+
   # Output number densities
   for line in dens:
     f.write(line)
@@ -287,21 +294,26 @@ def rAtmo():
   # If number densities
   if nd:
 
-    # Helium densities
+    # Try to read helium number density
     try:
       outhe = ['1']
+      # For each height
       for iz in range(NZ):
         iline += 1
         line = lines[iline].strip()
         columns = line.split()
+        # Require at least three columns
         if (len(columns)) < 3:
           raise Exception
         changed = False
+        # If less than for, add a zero in neutral stage
         while (len(columns)) < 4:
           columns.insert(1,'0')
           changed = True
+        # If we added zeros, reconstruct the line
         if changed:
           line = ' '.join(columns)
+        # Check the line is made of numbers
         for ii in range(len(columns)):
           try:
             lst = list(columns[ii].lower())
@@ -311,9 +323,12 @@ def rAtmo():
             columns[ii] = float(columns[ii])
           except:
             raise Exception
+        # Add to writing buffer
         outhe.append(line+'\n')
+      # Write buffer
       for out in outhe:
           f.write(out)
+    # Could not read the helium number density, so output none
     except:
       f.write('0\n')
 

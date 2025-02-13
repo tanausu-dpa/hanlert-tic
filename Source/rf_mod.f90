@@ -5,74 +5,19 @@
 !#####################################################################
 !
 !  Authors:
-!     Hao Li (IAC)
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Hao Li (IAC/NSSCC)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     02/27/2023
+!     27/02/2023
 !  Last version:
-!     09/08/2023 V3.0.5
+!     17/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     09/08/2023:    V3.0.5 - Verbosity update (TdPA)
-!
-!     07/31/2023:    V3.0.4 - Change the verbosity level in the
-!                             inversion (HL)
-!
-!     07/03/2023:    V3.0.3 - Renamed Inf_File to Input (TdPA)
-!                           - Removed checks in the parameter index
-!                             in the RF functions, as the calling
-!                             function takes care of calling the
-!                             correct ones (TdPA)
-!                           - RF routines no longer have a saying
-!                             in the synthesis configuration, they
-!                             just call HanleRTTIC indicating that
-!                             a RF is being calculated (TdPA)
-!                           - The variable factor is no longer
-!                             hard-coded. Instead, the user can
-!                             specify a minimum relative perturbation
-!                             and factor will be adjusted to this
-!                             request (TdPA)
-!                           - Added RF_fInt and RF_fPol to
-!                             compute the diffuse light factor RF
-!                             without calling a synthesis (TdPA)
-!                           - Added Atmo_Modify_var to get the
-!                             stratification for a perturbation of
-!                             a given variable, what allows to
-!                             significantly simplify the source (TdPA)
-!                           - Hydrostatic equilibrium is not
-!                             mandatory (TdPA)
-!                           - Copies of model atmosphere are made
-!                             using cAtmo, ensuring no undesired
-!                             memory space sharing (TdPA)
-!                           - Copies of model atmosphere are fred
-!                             with free_Atmo, ensuring that the
-!                             memory is correctly released (TdPA)
-!                           - Added get_value_corr to significantly
-!                             simplify the source code when acquiring
-!                             the value of any variable when it is
-!                             set as correction (TdPA)
-!                           - Fixed typo in verbosity (TdPA)
-!
-!     04/11/2023:    V3.0.2 - Remove the keyword Hanle_Effect (HL)
-!
-!     03/15/2023:    V3.0.1 - CheckPerturb now accounts for the
-!                             additional limits possible in the
-!                             input (TdPA)
-!                           - Atmo_Modify does not need the Flgsg
-!                             argument (TdPA)
-!                           - The Blos variables are in the same
-!                             structure than the polar ones (TdPA)
-!                           - Removed some commented lines (TdPA)
-!                           - Removed some superflous lines (TdPA)
-!
-!     03/08/2023:    V3.0.0 - First working version (TdPA)
-!
-!     02/27/2023:    V0.0.0 - Started from 12/05/2020
-!                             TIC@rf_mod.f90 revision (TdPA)
+!     17/12/2024:    V4.0.0 - Updated headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -82,47 +27,51 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    RF_Thermo:
-!      Compute the response function of the intensity to the
-!    perturbation in a thermal parameter node
+!  RF_Thermo
+!    Calculate the response function of the intensity profile to the
+!  perturbation in a thermal parameter node
 !
-!    RF_Mag:
-!      Compute the response function of the polarization to the
-!    perturbation in a magnetic parameter node
+!  RF_Mag
+!    Calculate the response function of the Stokes profiles to the
+!  perturbation in a magnetic parameter node
 !
-!    RF_All:
-!      Compute the response function of the polarization to the
-!    perturbation in a node
+!  RF_All
+!    Calculate the response function of the Stokes profiles to the
+!  perturbation in an inversion parameter node
 !
-!    RF_fInt:
-!      Compute the response function of the intensity to a
-!    perturbation of the diffuse light factor
+!  RF_fInt
+!    Calculate the response function of the intensity profile to the
+!  perturbation in the diffuse light factor
 !
-!    RF_fPol:
-!      Compute the response function of the polarization to a
-!    perturbation of the diffuse light factor
+!  RF_fPol
+!    Calculate the response function of the Stokes profile to the
+!  perturbation in the diffuse light factor
 !
-!    CheckPerturb:
-!      Check that a perturbation is suitable, both up and down,
-!    keeping the variable within the valid limits
+!  CheckPerturb
+!    Check that the current perturbation is suitable, keeping the
+!  inversion variable within valid limits
 !
-!    Nodes_Perturb:
-!      Perturbe a given node for a given variable in a given sign
-!    direction
+!  Nodes_Perturb
+!    Perturb a node of an inversion parameter in the given direction
 !
-!    get_value_corr:
-!      Get the value of a given variable from the model atmosphere,
-!    for nodes set to specify corrections
+!  get_value_corr
+!    Get the value of the correction for an inversion parameter from
+!  the model atmosphere
 !
-!    Atmo_Modify_var:
-!      Get the stratification for a given variable aster node
-!    perturbation
+!  Atmo_Modify_var
+!    Get a model atmosphere in which one inversion parameter is
+!  perturbed at a specific node
 !
-!    Atmo_Modify:
-!      Modify the atmospheric model to account for the perturbation
-!    to one node
+!  Atmo_Modify
+!    Modify the model atmosphere to account for the perturbation of
+!  one node of an inversion parameter
 !
 !#####################################################################
 !#####################################################################
@@ -143,49 +92,54 @@
 !#####################################################################
 !#####################################################################
 
-      !> Compute the response function of the intensity to the
-      !! perturbation in a thermal parameter node\n
-      !!           Atom(Atom_class): Structure with the atomic data\n
-      !!          Atomb(Atom_class): Structure with the atomic data
-      !!                             for background opacities\n
-      !!             Mol(Mol_class): Structure with the molecule
-      !!                             data\n
-      !!      GeomI(Geometry_class): Structure with the geometry data
-      !!                             for the intensity problem\n
-      !!       Geom(Geometry_class): Structure with the geometry
-      !!                             data\n
-      !!         Flgsg(Fctsg_class): Structure with factorials and
-      !!                             signs\n
-      !!      Frec(Frequency_class): Structure with frequency data\n
-      !!         fudge(fudge_class): Structure with fudge data\n
-      !!       kurucz(kurucz_class): Structure with Kurucz line data\n
-      !!            MPID(MPI_class): Structure with MPI data
-      !!           Atmo(Atmo_class): Structure with atmospheric data\n
-      !!       Bfield(Bfield_class): Structure with the vertical
-      !!                             magnetic field data\n
-      !!     Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!              Indx(integer): Index of the node in the
-      !!                             Jacobian\n
-      !!              RF(double(:)): Response function\n
-      !!        Sol(Solution_class): Class with the data of the RT
-      !!                             solution\n
-      !!     SolF(Solution_F_class): Class with the full RT
-      !!                             solution\n
-      !!         Input(Input_class): Structure with settings data
+      !> Calculate the response function of the intensity profile to
+      !! the perturbation in a thermal parameter node\n
+      !!     Atom(Atom_class(:)): Structures with atomic data\n
+      !!    Atomb(Atom_class(:)): Structures with atomic data for
+      !!                          background atoms\n
+      !!       Mol(Mol_class(:)): Structures with molecular data\n
+      !!   GeomI(Geometry_class): Structure with geometric data for
+      !!                          the intensity problem\n
+      !!    Geom(Geometry_class): Structure with geometric data\n
+      !!      Flgsg(Fctsg_class): Structure with factorials, signs,
+      !!                          and J-symbols\n
+      !!   Frec(Frequency_class): Structure with frequency data\n
+      !!      fudge(fudge_class): Structure with fudge data\n
+      !!    kurucz(kurucz_class): Structure with Kurucz line data\n
+      !!         MPID(MPI_class): Structure with MPI data\n
+      !!        Atmo(Atmo_class): Structure with atmospheric data\n
+      !!    Bfield(Bfield_class): Structure with magnetic field data\n
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
+      !!           Indx(integer): Index of the node in the
+      !!                           Jacobian\n
+      !!           RF(double(:)): Response function\n
+      !!     Sol(Solution_class): Structure with the frequency and
+      !!                          synthetic Stokes parameters in the
+      !!                          frequency range of the inverted
+      !!                          data\n
+      !!  SolF(Solution_F_class): Structure with the solution of the
+      !!                          self-consistent problem and the
+      !!                          corresponding emergent profiles,
+      !!                          contribution function, and height
+      !!                          for optical depth equal to one\n
+      !!      Input(Input_class): Structure with configuration data
       subroutine RF_Thermo(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec, &
                            fudge,kurucz,MPID,Atmo,Bfield,Inf_Nodes, &
                            Indx,RF,Sol,SolF,Input)
 
-      ! IO
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Fctsg_class):: Flgsg
-      type(Geometry_class):: GeomI, Geom
-      type(Frequency_class):: Frec
-      type(fudge_class):: fudge
-      type(kurucz_class):: kurucz
-      type(MPI_class):: MPID
+      ! I/O
+
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
+      type(Fctsg_class), intent(inout):: Flgsg
+      type(Geometry_class), intent(inout):: GeomI,Geom
+      type(Frequency_class), intent(inout):: Frec
+      type(fudge_class), intent(in):: fudge
+      type(kurucz_class), intent(in):: kurucz
+      type(MPI_class), intent(inout):: MPID
       type(Atmo_class), intent(inout):: Atmo
       type(Bfield_class), intent(inout):: Bfield
       type(Nodes_class), intent(inout):: Inf_Nodes
@@ -196,17 +150,16 @@
       double precision, dimension(:), intent(out):: RF
 
       ! Local
+
       type(Atmo_class):: Tmp_Atmo
 
       logical, dimension(2):: Flag
 
-      integer:: Indx_Nodes, Indx_Para
+      integer:: Indx_Nodes,Indx_Para
 
-      double precision:: factor
-
-      double precision:: tmp_H, tmp_value, Pg, daux
+      double precision:: factor,tmp_H,tmp_value,Pg,daux,RAM
       double precision, dimension(:), allocatable:: Tmp_Var
-      double precision, dimension(:), allocatable:: I_up, I_down
+      double precision, dimension(:), allocatable:: I_up,I_down
       double precision, dimension(:,:), allocatable:: Stokes_out
 
 
@@ -241,7 +194,7 @@
 
       end if
 
-      ! If hydrostatic equilibrium
+      ! If need to compute hydrostatic equilibrium
       if (Inf_Nodes%hydroeq) then
 
         ! If inverting gas pressure
@@ -258,19 +211,29 @@
 
         end if ! Inverting gas pressure
 
-      ! Otherwise, no value
+      ! Otherwise
       else
 
+        ! No valud
         Pg = 0d0
 
-      end if
+      end if ! If need to compute hydrostatic equilibrium
 
-      ! Allocate space for Stokes parameters and temporal
-      ! node values
+      ! Allocate space for Stokes parameters
       allocate(I_up(size(Sol%omega_input)))
-      if (Input%centered) allocate(I_down(size(Sol%omega_input)))
+      RAM = 1d-6*sizeof(I_up)
+      if (Input%centered) then
+        allocate(I_down(size(Sol%omega_input)))
+        RAM = RAM + 1d-6*sizeof(I_down)
+      end if
       allocate(Stokes_out(0:3,size(Sol%omega_input)))
+      RAM = RAM + 1d-6*sizeof(Stokes_out)
+      ! And for node values
       allocate(Tmp_Var(Inf_Nodes%Num_Nodes(Indx_Para)))
+      RAM = RAM + 1d-6*sizeof(Tmp_Var)
+
+      ! Memory count
+      MRAMc = MRAMc + RAM
 
       ! Initialize with current values to recover later
       Tmp_Var = Inf_Nodes%Node(Indx_Para)%Var
@@ -297,31 +260,35 @@
 
       end if ! Type of node
 
-      ! Correct factor?
+      ! If there is a minimum relative perturbation
       if (Inf_Nodes%min_rel_Pert(Indx_Para).gt.0d0) then
 
-        ! Get absolute
+        ! Get absolute value of parameter
         daux = abs(tmp_value)
 
         ! Only if larger than 0
         if (daux.gt.0d0) then
 
+          ! Get inverse
           daux = 1d0/daux
 
+          ! If perturbation is less than the minimum relative
+          ! perturbation
           do while (Inf_Nodes%Perturb(Indx_Para)*factor*daux.lt. &
                     Inf_Nodes%min_rel_Pert(Indx_Para))
 
+            ! Enhance factor
             factor = factor*2d0
 
-          end do
+          end do ! Too small relative perturbation
 
         end if ! Value larger than zero
       end if ! Correct perturbation
 
       ! Check if the perturbation is fine
-      call CheckPerturb(tmp_H, tmp_value, &
+      call CheckPerturb(tmp_H,tmp_value, &
                         Inf_Nodes%Perturb(Indx_Para)*factor, &
-                        Inf_Nodes%Node(Indx_Para), Flag)
+                        Inf_Nodes%Node(Indx_Para),Flag)
       if (laborted) return
 
       ! If not doing centered or if one of the two perturbations is
@@ -449,7 +416,8 @@
       Sol%Stokes_out = Stokes_out
 
       ! Free memory
-      deallocate(I_up, Stokes_out, Tmp_Var)
+      MRAMc = MRAMc - RAM
+      deallocate(I_up,Stokes_out,Tmp_Var)
       if (Input%centered) deallocate(I_down)
       call free_Atmo(Tmp_Atmo,.True.)
 
@@ -461,49 +429,54 @@
 !#####################################################################
 !#####################################################################
 
-      !> Compute the response function of the polarization to the
+      !> Calculate the response function of the Stokes profiles to the
       !! perturbation in a magnetic parameter node\n
-      !!           Atom(Atom_class): Structure with the atomic data\n
-      !!          Atomb(Atom_class): Structure with the atomic data
-      !!                             for background opacities\n
-      !!             Mol(Mol_class): Structure with the molecule
-      !!                             data\n
-      !!      GeomI(Geometry_class): Structure with the geometry data
-      !!                             for the intensity problem\n
-      !!       Geom(Geometry_class): Structure with the geometry
-      !!                             data\n
-      !!         Flgsg(Fctsg_class): Structure with factorials and
-      !!                             signs\n
-      !!      Frec(Frequency_class): Structure with frequency data\n
-      !!         fudge(fudge_class): Structure with fudge data\n
-      !!       kurucz(kurucz_class): Structure with Kurucz line data\n
-      !!            MPID(MPI_class): Structure with MPI data
-      !!           Atmo(Atmo_class): Structure with atmospheric data\n
-      !!       Bfield(Bfield_class): Structure with the vertical
-      !!                             magnetic field data\n
-      !!     Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!              Indx(integer): Index of the node in the
-      !!                             Jacobian\n
-      !!              RF(double(:)): Response function\n
-      !!        Sol(Solution_class): Class with the data of the RT
-      !!                             solution\n
-      !!     SolF(Solution_F_class): Class with the full RT
-      !!                             solution\n
-      !!         Input(Input_class): Structure with settings data
+      !!     Atom(Atom_class(:)): Structures with atomic data\n
+      !!    Atomb(Atom_class(:)): Structures with atomic data for
+      !!                          background atoms\n
+      !!       Mol(Mol_class(:)): Structures with molecular data\n
+      !!   GeomI(Geometry_class): Structure with geometric data for
+      !!                          the intensity problem\n
+      !!    Geom(Geometry_class): Structure with geometric data\n
+      !!      Flgsg(Fctsg_class): Structure with factorials, signs,
+      !!                          and J-symbols\n
+      !!   Frec(Frequency_class): Structure with frequency data\n
+      !!      fudge(fudge_class): Structure with fudge data\n
+      !!    kurucz(kurucz_class): Structure with Kurucz line data\n
+      !!         MPID(MPI_class): Structure with MPI data\n
+      !!        Atmo(Atmo_class): Structure with atmospheric data\n
+      !!    Bfield(Bfield_class): Structure with magnetic field data\n
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
+      !!           Indx(integer): Index of the node in the
+      !!                           Jacobian\n
+      !!           RF(double(:)): Response function\n
+      !!     Sol(Solution_class): Structure with the frequency and
+      !!                          synthetic Stokes parameters in the
+      !!                          frequency range of the inverted
+      !!                          data\n
+      !!  SolF(Solution_F_class): Structure with the solution of the
+      !!                          self-consistent problem and the
+      !!                          corresponding emergent profiles,
+      !!                          contribution function, and height
+      !!                          for optical depth equal to one\n
+      !!      Input(Input_class): Structure with configuration data
       subroutine RF_Mag(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec,fudge, &
                         kurucz,MPID,Atmo,Bfield,Inf_Nodes,Indx,RF, &
                         Sol,SolF,Input)
 
-      ! IO
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Fctsg_class):: Flgsg
-      type(Geometry_class):: GeomI, Geom
-      type(Frequency_class):: Frec
-      type(fudge_class):: fudge
-      type(kurucz_class):: kurucz
-      type(MPI_class):: MPID
+      ! I/O
+
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
+      type(Fctsg_class), intent(inout):: Flgsg
+      type(Geometry_class), intent(inout):: GeomI,Geom
+      type(Frequency_class), intent(inout):: Frec
+      type(fudge_class), intent(in):: fudge
+      type(kurucz_class), intent(in):: kurucz
+      type(MPI_class), intent(inout):: MPID
       type(Atmo_class), intent(inout):: Atmo
       type(Bfield_class), intent(inout):: Bfield
       type(Nodes_class), intent(inout)::Inf_Nodes
@@ -511,18 +484,17 @@
       type(Solution_F_class), intent(inout):: SolF
       type(Input_class), intent(inout):: Input
       integer, intent(in):: Indx
-      double precision, dimension(:,:):: RF
+      double precision, dimension(:,:), intent(out):: RF
 
       ! Local
+
       type(Bfield_class):: Tmp_Bfield
 
       logical, dimension(2):: Flag
 
-      integer:: Indx_Nodes, Indx_Para
+      integer:: Indx_Nodes,Indx_Para
 
-      double precision:: factor
-
-      double precision:: tmp_H, tmp_value, Pg, daux
+      double precision:: factor,tmp_H,tmp_value,Pg, daux,RAM
       double precision, dimension(:), allocatable:: Tmp_Var
       double precision, dimension(:,:), allocatable:: Stokes_up
       double precision, dimension(:,:), allocatable:: Stokes_down
@@ -552,7 +524,7 @@
       !
       if (Indx_Para.eq.Inf_Nodes%index_f) then
 
-        ! RF for diffuse light, only intensity
+        ! RF for diffuse light
         call RF_fPol(Inf_Nodes,RF,Sol,Input%centered)
 
         ! We are done here
@@ -560,18 +532,28 @@
 
       end if
 
-      ! Allocate space for Stokes parameters and temporal
-      ! node values
+      ! Allocate space for Stokes parameters
       allocate(Stokes_up(0:3,size(Sol%omega_input)))
+      RAM = 1d-6*sizeof(Stokes_up)
       allocate(Stokes_out(0:3,size(Sol%omega_input)))
-      if (Input%centered) &
+      RAM = RAM + 1d-6*sizeof(Stokes_out)
+      if (Input%centered) then
         allocate(Stokes_down(0:3,size(Sol%omega_input)))
+        RAM = RAM + 1d-6*sizeof(Stokes_down)
+      end if
+      ! And for node values
       allocate(Tmp_Var(Inf_Nodes%Num_Nodes(Indx_Para)))
+      RAM = RAM + 1d-6*sizeof(Tmp_Var)
+
+      ! Memory count
+      MRAMc = MRAMc + RAM
 
       ! Store current values to recover later
       Tmp_Var = Inf_Nodes%Node(Indx_Para)%Var
-      Tmp_Bfield = Bfield
       Stokes_out = Sol%Stokes_out
+
+      ! Copy Magnetic field
+      call cBfield(Bfield,Tmp_Bfield)
 
       ! Save node height
       Tmp_H = Inf_Nodes%Node(Indx_Para)%H(Indx_Nodes)
@@ -591,32 +573,35 @@
 
       end if ! Value or correction
 
-
-      ! Correct factor?
+      ! If there is a minimum relative perturbation
       if (Inf_Nodes%min_rel_Pert(Indx_Para).gt.0d0) then
 
-        ! Get absolute
+        ! Get absolute value of parameter
         daux = abs(tmp_value)
 
         ! Only if larger than 0
         if (daux.gt.0d0) then
 
+          ! Get inverse
           daux = 1d0/daux
 
+          ! If perturbation is less than the minimum relative
+          ! perturbation
           do while (Inf_Nodes%Perturb(Indx_Para)*factor*daux.lt. &
                     Inf_Nodes%min_rel_Pert(Indx_Para))
 
+            ! Enhance factor
             factor = factor*2d0
 
-          end do
+          end do ! Too small relative perturbation
 
-        end if
+        end if ! Value larger than zero
       end if ! Correct perturbation
 
       ! Check if the perturbation is fine
-      call CheckPerturb(tmp_H, tmp_value, &
+      call CheckPerturb(tmp_H,tmp_value, &
                         Inf_Nodes%Perturb(Indx_Para)*factor, &
-                        Inf_Nodes%Node(Indx_Para), Flag)
+                        Inf_Nodes%Node(Indx_Para),Flag)
       if (laborted) return
 
       ! If not doing centered or if one of the two perturbations is
@@ -738,16 +723,18 @@
              Inf_Nodes%Perturb(Indx_Para)/ &
              factor
 
-      end if ! Centered derivative
+      end if ! Centered and valid perturbations in both directions
 
       ! Recover solution
       Sol%Stokes_out = Stokes_out
 
       ! Free memory
+      MRAMc = MRAMc - RAM
       if (allocated(Stokes_up)) deallocate(Stokes_up)
       if (allocated(Stokes_down)) deallocate(Stokes_down)
       if (allocated(Stokes_out)) deallocate(Stokes_out)
       if (allocated(Tmp_Var)) deallocate(Tmp_Var)
+      call free_B(Tmp_Bfield)
 
       return
 
@@ -757,49 +744,54 @@
 !#####################################################################
 !#####################################################################
 
-      !> Compute the response function of the polarization to the
-      !! perturbation in a node\n
-      !!           Atom(Atom_class): Structure with the atomic data\n
-      !!          Atomb(Atom_class): Structure with the atomic data
-      !!                             for background opacities\n
-      !!             Mol(Mol_class): Structure with the molecule
-      !!                             data\n
-      !!      GeomI(Geometry_class): Structure with the geometry data
-      !!                             for the intensity problem\n
-      !!       Geom(Geometry_class): Structure with the geometry
-      !!                             data\n
-      !!         Flgsg(Fctsg_class): Structure with factorials and
-      !!                             signs\n
-      !!      Frec(Frequency_class): Structure with frequency data\n
-      !!         fudge(fudge_class): Structure with fudge data\n
-      !!       kurucz(kurucz_class): Structure with Kurucz line data\n
-      !!            MPID(MPI_class): Structure with MPI data
-      !!           Atmo(Atmo_class): Structure with atmospheric data\n
-      !!       Bfield(Bfield_class): Structure with the vertical
-      !!                             magnetic field data\n
-      !!     Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!              Indx(integer): Index of the node in the
-      !!                             Jacobian\n
-      !!              RF(double(:)): Response function\n
-      !!        Sol(Solution_class): Class with the data of the RT
-      !!                             solution\n
-      !!     SolF(Solution_F_class): Class with the full RT
-      !!                             solution\n
-      !!         Input(Input_class): Structure with settings data
+      !> Calculate the response function of the Stokes profiles to the
+      !! perturbation in an inversion parameter node\n
+      !!     Atom(Atom_class(:)): Structures with atomic data\n
+      !!    Atomb(Atom_class(:)): Structures with atomic data for
+      !!                          background atoms\n
+      !!       Mol(Mol_class(:)): Structures with molecular data\n
+      !!   GeomI(Geometry_class): Structure with geometric data for
+      !!                          the intensity problem\n
+      !!    Geom(Geometry_class): Structure with geometric data\n
+      !!      Flgsg(Fctsg_class): Structure with factorials, signs,
+      !!                          and J-symbols\n
+      !!   Frec(Frequency_class): Structure with frequency data\n
+      !!      fudge(fudge_class): Structure with fudge data\n
+      !!    kurucz(kurucz_class): Structure with Kurucz line data\n
+      !!         MPID(MPI_class): Structure with MPI data\n
+      !!        Atmo(Atmo_class): Structure with atmospheric data\n
+      !!    Bfield(Bfield_class): Structure with magnetic field data\n
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
+      !!           Indx(integer): Index of the node in the
+      !!                           Jacobian\n
+      !!           RF(double(:)): Response function\n
+      !!     Sol(Solution_class): Structure with the frequency and
+      !!                          synthetic Stokes parameters in the
+      !!                          frequency range of the inverted
+      !!                          data\n
+      !!  SolF(Solution_F_class): Structure with the solution of the
+      !!                          self-consistent problem and the
+      !!                          corresponding emergent profiles,
+      !!                          contribution function, and height
+      !!                          for optical depth equal to one\n
+      !!      Input(Input_class): Structure with configuration data
       subroutine RF_All(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec,fudge, &
                         kurucz,MPID,Atmo,Bfield,Inf_Nodes,Indx,RF, &
                         Sol,SolF,Input)
 
-      ! IO
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Fctsg_class):: Flgsg
-      type(Geometry_class):: GeomI, Geom
-      type(Frequency_class):: Frec
-      type(fudge_class):: fudge
-      type(kurucz_class):: kurucz
-      type(MPI_class):: MPID
+      ! I/O
+
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
+      type(Fctsg_class), intent(inout):: Flgsg
+      type(Geometry_class), intent(inout):: GeomI, Geom
+      type(Frequency_class), intent(inout):: Frec
+      type(fudge_class), intent(in):: fudge
+      type(kurucz_class), intent(in):: kurucz
+      type(MPI_class), intent(inout):: MPID
       type(Atmo_class), intent(inout):: Atmo
       type(Bfield_class), intent(inout):: Bfield
       type(Nodes_class), intent(inout)::Inf_Nodes
@@ -807,9 +799,10 @@
       type(Solution_F_class), intent(inout):: SolF
       type(Input_class), intent(inout):: Input
       integer, intent(in):: Indx
-      double precision, dimension(:,:):: RF
+      double precision, dimension(:,:), intent(out):: RF
 
       ! Local
+
       type(Bfield_class):: Tmp_Bfield
       type(Atmo_class):: Tmp_Atmo
 
@@ -817,9 +810,7 @@
 
       integer:: Indx_Nodes, Indx_Para
 
-      double precision:: factor
-
-      double precision:: tmp_H, tmp_value, Pg, daux
+      double precision:: factor,tmp_H,tmp_value,Pg,daux,RAM
       double precision, dimension(:), allocatable:: Tmp_Var
       double precision, dimension(:,:), allocatable:: Stokes_up
       double precision, dimension(:,:), allocatable:: Stokes_down
@@ -842,14 +833,14 @@
           'and node = ', Indx_Nodes
         call verboseI(3)
 
-      end if
+      end if ! Master
 
       !
       ! If diffuse light
       !
       if (Indx_Para.eq.Inf_Nodes%index_f) then
 
-        ! RF for diffuse light, only intensity
+        ! RF for diffuse light
         call RF_fPol(Inf_Nodes,RF,Sol,Input%centered)
 
         ! We are done here
@@ -857,7 +848,7 @@
 
       end if
 
-      ! If hydrostatic equilibrium
+      ! If need to compute hydrostatic equilibrium
       if (Inf_Nodes%hydroeq) then
 
         ! If inverting gas pressure
@@ -874,25 +865,37 @@
 
         end if ! Inverting gas pressure
 
-      ! Otherwise, no value
+      ! Otherwise
       else
 
+        ! No value
         Pg = 0d0
 
-      end if
+      end if ! If need to compute hydrostatic equilibrium
 
+      ! Allocate space for Stokes parameters
       allocate(Stokes_up(0:3,size(Sol%omega_input)))
+      RAM = 1d-6*sizeof(Stokes_up)
       allocate(Stokes_out(0:3,size(Sol%omega_input)))
-      allocate(Stokes_down(0:3,size(Sol%omega_input)))
+      RAM = RAM + 1d-6*sizeof(Stokes_out)
+      if (Input%centered) then
+        allocate(Stokes_down(0:3,size(Sol%omega_input)))
+        RAM = RAM + 1d-6*sizeof(Stokes_down)
+      end if
+      ! And for node values
       allocate(Tmp_Var(Inf_Nodes%Num_Nodes(Indx_Para)))
+      RAM = RAM + 1d-6*sizeof(Tmp_Var)
+
+      ! Memory count
+      MRAMc = MRAMc + RAM
 
       ! Store current values to recover later
       Tmp_Var = Inf_Nodes%Node(Indx_Para)%Var
-      Tmp_Bfield = Bfield
       Stokes_out = Sol%Stokes_out
 
       ! Copy atmosphere
       call cAtmo(Atmo,Tmp_Atmo)
+      call cBfield(Bfield,Tmp_Bfield)
 
       ! Save node height
       Tmp_H = Inf_Nodes%Node(Indx_Para)%H(Indx_Nodes)
@@ -909,36 +912,40 @@
         ! Get value from model
         call get_value_corr(Inf_Nodes,Atmo,Bfield, &
                             Indx_Para,Indx_Nodes,tmp_value)
+
       end if ! Type of node
 
-      ! Correct factor?
+      ! If there is a minimum relative perturbation
       if (Inf_Nodes%min_rel_Pert(Indx_Para).gt.0d0) then
 
-        ! Get absolute
+        ! Get absolute value of parameter
         daux = abs(tmp_value)
 
         ! Only if larger than 0
         if (daux.gt.0d0) then
 
+          ! Get inverse
           daux = 1d0/daux
 
+          ! If perturbation is less than the minimum relative
           do while (Inf_Nodes%Perturb(Indx_Para)*factor*daux.lt. &
                     Inf_Nodes%min_rel_Pert(Indx_Para))
 
+            ! Enhance factor
             factor = factor*2d0
 
-          end do
+          end do ! Too small relative perturbation
 
-        end if
+        end if ! Value larger than zero
       end if ! Correct perturbation
 
       ! If inverting asymmetry, signal input
       if (Inf_Nodes%Num_Asymmetry.gt.0) Input%nasym = 1
 
       ! Check if perturbation is fine
-      call CheckPerturb(tmp_H, tmp_value, &
+      call CheckPerturb(tmp_H,tmp_value, &
                         Inf_Nodes%Perturb(Indx_Para)*factor, &
-                        Inf_Nodes%Node(Indx_Para), Flag)
+                        Inf_Nodes%Node(Indx_Para),Flag)
       if (laborted) return
 
       ! If not doing centered or if one of the two perturbations is
@@ -1068,11 +1075,13 @@
       Sol%Stokes_out = Stokes_out
 
       ! Free memory
+      MRAMc = MRAMc - RAM
       if (allocated(Stokes_up)) deallocate(Stokes_up)
       if (allocated(Stokes_down)) deallocate(Stokes_down)
       if (allocated(Stokes_out)) deallocate(Stokes_out)
       if (allocated(Tmp_Var)) deallocate(Tmp_Var)
       call free_Atmo(Tmp_Atmo,.True.)
+      call free_B(Tmp_Bfield)
 
       return
 
@@ -1082,27 +1091,31 @@
 !#####################################################################
 !#####################################################################
 
-      !> Compute the response function of the intensity to the
-      !! perturbation in the diffuse light factor\n
-      !!     Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!              RF(double(:)): Response function\n
-      !!        Sol(Solution_class): Class with the data of the RT
-      !!                             solution\n
-      !!          centered(logical): If centered derivative
+      !> Calculate the response function of the intensity profile to
+      !! the perturbation in the diffuse light factor\n
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
+      !!           RF(double(:)): Response function\n
+      !!     Sol(Solution_class): Structure with the frequency and
+      !!                          synthetic Stokes parameters in the
+      !!                          frequency range of the inverted
+      !!                          data\n
+      !!       centered(logical): If centered derivative
       subroutine RF_fInt(Inf_Nodes,RF,Sol,centered)
 
-      ! IO
+      ! I/O
+
       type(Nodes_class), intent(inout):: Inf_Nodes
       type(Solution_class), intent(inout):: Sol
       logical, intent(in):: centered
       double precision, dimension(:), intent(out):: RF
 
       ! Local
+
       logical, dimension(2):: Flag
 
       integer:: indx,ir
 
-      double precision:: tmp_H, tmp_value
+      double precision:: tmp_H,tmp_value,RAM
       double precision, dimension(:), allocatable:: Tmp_Var
       double precision, dimension(:), allocatable:: I_up, I_down
       double precision, dimension(:), allocatable:: I_clean
@@ -1112,23 +1125,33 @@
       ! Variable index
       indx = Inf_Nodes%index_f
 
-      ! Allocate space for Stokes parameters and temporal
-      ! node values
+      ! Allocate space for Stokes parameters
       allocate(I_up(size(Sol%omega_input)))
-      if (centered) allocate(I_down(size(Sol%omega_input)))
+      RAM = 1d-6*sizeof(I_up)
+      if (centered) then
+        allocate(I_down(size(Sol%omega_input)))
+        RAM = RAM + 1d-6*sizeof(I_down)
+      end if
       allocate(I_clean(size(Sol%omega_input)))
+      RAM = RAM + 1d-6*sizeof(I_clean)
       allocate(I_diff(size(Sol%omega_input)))
+      RAM = RAM + 1d-6*sizeof(I_diff)
+      ! And for temporal node values
       allocate(Tmp_Var(1))
+      RAM = RAM + 1d-6*sizeof(Tmp_Var)
 
-      ! Get scaled diffuse light
+      ! Memory count
+      MRAMc = MRAMc + RAM
+
+      ! For each wavelength range
       do ir=1,Sol%Num_Range
 
-        ! Scale to the range
+        ! Scale diffuse light to the range
         I_diff(Sol%Range(ir,1):Sol%Range(ir,2)) = &
                Sol%Stokes_diff(0,Sol%Range(ir,1):Sol%Range(ir,2))/ &
                Sol%Scal_Stokes(ir)
 
-      end do
+      end do ! Wavelength ranges
 
       ! Initialize with current values to recover later
       Tmp_Var = Inf_Nodes%Node(indx)%Var(1)
@@ -1191,6 +1214,7 @@
       end if ! Centered and valid perturbations in both directions
 
       ! Free memory
+      MRAMc = MRAMc - RAM
       deallocate(I_up,I_diff,Tmp_Var)
       if (centered) deallocate(I_down)
 
@@ -1202,27 +1226,31 @@
 !#####################################################################
 !#####################################################################
 
-      !> Compute the response function of the Stokes parameters to the
+      !> Calculate the response function of the Stokes profile to the
       !! perturbation in the diffuse light factor\n
-      !!     Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!            RF(double(:,:)): Response function\n
-      !!        Sol(Solution_class): Class with the data of the RT
-      !!                             solution\n
-      !!          centered(logical): If centered derivative
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
+      !!           RF(double(:)): Response function\n
+      !!     Sol(Solution_class): Structure with the frequency and
+      !!                          synthetic Stokes parameters in the
+      !!                          frequency range of the inverted
+      !!                          data\n
+      !!       centered(logical): If centered derivative
       subroutine RF_fPol(Inf_Nodes,RF,Sol,centered)
 
-      ! IO
+      ! I/O
+
       type(Nodes_class), intent(inout):: Inf_Nodes
       type(Solution_class), intent(inout):: Sol
       logical, intent(in):: centered
       double precision, dimension(:,:), intent(out):: RF
 
       ! Local
+
       logical, dimension(2):: Flag
 
       integer:: indx,ir
 
-      double precision:: tmp_H, tmp_value
+      double precision:: tmp_H,tmp_value,RAM
       double precision, dimension(:), allocatable:: Tmp_Var
       double precision, dimension(:,:), allocatable:: Stokes_up
       double precision, dimension(:,:), allocatable:: Stokes_down
@@ -1233,28 +1261,38 @@
       ! Variable index
       indx = Inf_Nodes%index_f
 
-      ! Allocate space for Stokes parameters and temporal
-      ! node values
+      ! Allocate space for Stokes parameters
       allocate(Stokes_up(0:3,size(Sol%omega_input)))
-      if (centered) allocate(Stokes_down(0:3,size(Sol%omega_input)))
+      RAM = 1d-6*sizeof(Stokes_up)
+      if (centered) then
+        allocate(Stokes_down(0:3,size(Sol%omega_input)))
+        RAM = RAM + 1d-6*sizeof(Stokes_down)
+      end if
       allocate(Stokes_clean(0:3,size(Sol%omega_input)))
+      RAM = RAM + 1d-6*sizeof(Stokes_clean)
       allocate(Stokes_diff(0:3,size(Sol%omega_input)))
+      RAM = RAM + 1d-6*sizeof(Stokes_diff)
+      ! And for temporal node values
       allocate(Tmp_Var(1))
+      RAM = RAM + 1d-6*sizeof(Tmp_Var)
+
+      ! Memory count
+      MRAMc = MRAMc + RAM
 
       ! Store current values to recover later
       Tmp_Var = Inf_Nodes%Node(indx)%Var(1)
       Tmp_H = Inf_Nodes%Node(indx)%H(1)
       tmp_value = Tmp_var(1)
 
-      ! Get scaled diffuse light
+      ! For each wavelength range
       do ir=1,Sol%Num_Range
 
-        ! Scale to the range
+        ! Scale diffuse light to the range
         Stokes_diff(:,Sol%Range(ir,1):Sol%Range(ir,2)) = &
                Sol%Stokes_diff(:,Sol%Range(ir,1):Sol%Range(ir,2))/ &
                Sol%Scal_Stokes(ir)
 
-      end do
+      end do ! Wavelength ranges
 
       !
       ! Get clean value
@@ -1286,9 +1324,9 @@
                   Stokes_clean(:,Sol%Range(ir,1):Sol%Range(ir,2))/ &
                   Sol%Scal_Stokes(ir)
 
-        end do
+        end do ! Wavelength ranges
 
-      end if
+      end if ! Fractional polarization
 
       ! Get clean profile
       Stokes_clean = (Stokes_clean - Tmp_var(1)*Stokes_diff)/ &
@@ -1311,14 +1349,14 @@
         Stokes_up = Stokes_clean*(1d0 - Tmp_var(1)) + &
                     Tmp_var(1)*Stokes_diff
 
-        ! Fractional?
+        ! Fractional polarization
         if (Sol%Fractional) then
 
           Stokes_up(1,:) = 1d2*Stokes_up(1,:)/Stokes_up(0,:)
           Stokes_up(2,:) = 1d2*Stokes_up(2,:)/Stokes_up(0,:)
           Stokes_up(3,:) = 1d2*Stokes_up(3,:)/Stokes_up(0,:)
 
-        end if
+        end if ! Fractional polarization
 
         ! Get response function
         RF = (Stokes_up - Sol%Stokes_out)* &
@@ -1343,14 +1381,14 @@
         Stokes_up = Stokes_clean*(1d0 - Tmp_var(1)) + &
                     Tmp_var(1)*Stokes_diff
 
-        ! Fractional?
+        ! Fractional polarization
         if (Sol%Fractional) then
 
           Stokes_up(1,:) = 1d2*Stokes_up(1,:)/Stokes_up(0,:)
           Stokes_up(2,:) = 1d2*Stokes_up(2,:)/Stokes_up(0,:)
           Stokes_up(3,:) = 1d2*Stokes_up(3,:)/Stokes_up(0,:)
 
-        end if
+        end if ! Fractional polarization
 
         ! Perturb the node down
         call Nodes_Perturb(indx, 1, Inf_Nodes, Tmp_Var, 1d0, .False.)
@@ -1359,14 +1397,14 @@
         Stokes_down = Stokes_clean*(1d0 - Tmp_var(1)) + &
                       Tmp_var(1)*Stokes_diff
 
-        ! Fractional?
+        ! Fractional polarization
         if (Sol%Fractional) then
 
           Stokes_down(1,:) = 1d2*Stokes_down(1,:)/Stokes_down(0,:)
           Stokes_down(2,:) = 1d2*Stokes_down(2,:)/Stokes_down(0,:)
           Stokes_down(3,:) = 1d2*Stokes_down(3,:)/Stokes_down(0,:)
 
-        end if
+        end if ! Fractional polarization
 
         ! Get response function
         RF = (Stokes_up - Stokes_down)* &
@@ -1376,6 +1414,7 @@
       end if ! Centered derivative
 
       ! Free memory
+      MRAMc = MRAMc - RAM
       if (allocated(Stokes_up)) deallocate(Stokes_up)
       if (allocated(Stokes_down)) deallocate(Stokes_down)
       if (allocated(Stokes_clean)) deallocate(Stokes_clean)
@@ -1390,23 +1429,26 @@
 !#####################################################################
 !#####################################################################
 
-      !> Check that a perturbation is suitable, keeping the variable
-      !! within valid limits\n
-      !!          H(double): Height\n
-      !!        Par(double): Node value\n
-      !!    Perturb(double): Perturbation\n
-      !!   Node(Node_class): Structure with the nodes data\n
-      !!   Flag(logical(2)): Validity flags for perturbations up and
-      !!                     down
+      !> Check that the current perturbation is suitable, keeping the
+      !! inversion variable within valid limits\n
+      !!         H(double): Current height (optical depth)\n
+      !!       Par(double): Node value\n
+      !!   Perturb(double): Perturbation\n
+      !!  Node(Node_class): Structure with the node data\n
+      !!  Flag(logical(2)): Validity flags for perturbations up and
+      !!                    down
       subroutine CheckPerturb(H,Par,Perturb,Node,Flag)
 
-      ! IO
+      ! I/O
+
       type(Node_class), intent(in):: Node
       logical, dimension(2), intent(inout):: Flag
-      double precision, intent(in):: H,Par, Perturb
+      double precision, intent(in):: H,Par,Perturb
 
       ! Local
+
       integer:: j
+
 
       ! For each special limit
       do j=1,Node%nebound
@@ -1414,19 +1456,22 @@
         ! If height within this special limit
         if (H.ge.Node%ebound(1,j).and.H.le.Node%ebound(2,j)) then
 
-          ! If perturbation up is below upper limit
+          ! Check if perturbation up is below upper limit
           Flag(1) = (Par + Perturb).le.Node%ebound(4,j)
 
-          ! If perturbation down is above upper limit
+          ! Check if perturbation down is above upper limit
           Flag(2) = (Par - Perturb).ge.Node%ebound(3,j)
 
           ! If both invalid
           if ((.not.Flag(1)).and.(.not.Flag(2))) then
+
+            ! Issue error
             umsg = 'Purturbation is too large'
             urou = 'CheckPerturb'
             call aborted
             return
-          end if
+
+          end if ! Invalid perturbation
 
           ! Return
           return
@@ -1443,11 +1488,14 @@
 
       ! If both invalid
       if ((.not.Flag(1)).and.(.not.Flag(2))) then
+
+        ! Issue error
         umsg = 'Purturbation is too large'
         urou = 'CheckPerturb'
         call aborted
         return
-      end if
+
+      end if ! Invalid perturbation
 
       return
 
@@ -1457,19 +1505,21 @@
 !#####################################################################
 !#####################################################################
 
-      !> Perturbe a given node for a given variable in a given sign
+      !> Perturb a node of an inversion parameter in the given
       !! direction\n
-      !!     Indx_Para(integer): Index of the parameter to perturb\n
-      !!    Indx_Nodes(integer): Index of the node to perturb\n
-      !! Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!     Tmp_var(double(:)): Array with original values for the
-      !!                         node variable\n
-      !!         factor(double): Factor to multiply the perturbation\n
-      !!            Up(logical): If the perturbation is positive
+      !!      Indx_Para(integer): Index of the parameter to perturb\n
+      !!     Indx_Nodes(integer): Index of the node to perturb\n
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
+      !!      Tmp_var(double(:)): Original values for the node
+      !!                          variable\n
+      !!          factor(double): Factor to multiply the
+      !!                          perturbation by\n
+      !!             Up(logical): If the perturbation is positive
       subroutine Nodes_Perturb(Indx_Para,Indx_Nodes,Inf_Nodes, &
                                Tmp_Var,factor,Up)
 
-      ! IO
+      ! I/O
+
       type(Nodes_class), intent(in):: Inf_Nodes
       logical, intent(in):: Up
       integer, intent(in):: Indx_Para, Indx_Nodes
@@ -1477,15 +1527,23 @@
       double precision, dimension(:), intent(inout):: Tmp_Var
 
       ! Local
+
       double precision:: sig
 
 
       ! If up
       if (Up) then
+
+        ! Positive sign
         sig = 1d0
+
+      ! If down
       else
+
+        ! Negative sign
         sig = -1d0
-      end if
+
+      end if ! Perturbation direction
 
       ! If by value
       if (Inf_Nodes%Node_Type(Indx_Para).le.3) then
@@ -1514,18 +1572,19 @@
 !#####################################################################
 !#####################################################################
 
-      !> Get the value of the correction for the appropriate parameter
-      !! and node\n
-      !!  Inf_Nodes(Nodes_class): Structure with nodes data\n
+      !> Get the value of the correction for an inversion parameter
+      !! from the model atmosphere\n
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
       !!        Atmo(Atmo_class): Structure with atmospheric data\n
-      !!    Bfield(Bfield_class): Structure with the vertical
-      !!                          magnetic field data\n
-      !!      Indx_Para(integer): Parameter index\n
-      !!     Indx_Nodes(integer): Node index\n
+      !!    Bfield(Bfield_class): Structure with magnetic field data\n
+      !!      Indx_Para(integer): Index of the parameter to perturb\n
+      !!     Indx_Nodes(integer): Index of the node to perturb\n
       !!       tmp_value(double): Output value
       subroutine get_value_corr(Inf_Nodes,Atmo,Bfield, &
                                 Indx_Para,Indx_Nodes,tmp_value)
+
       ! I/O
+
       type(Atmo_class), intent(in):: Atmo
       type(Bfield_class), intent(in):: Bfield
       type(Nodes_class), intent(in)::Inf_Nodes
@@ -1540,8 +1599,8 @@
 
           ! Get value from stratification
           tmp_value = Bfield%Bstrength(Inf_Nodes% &
-                                        Node(Indx_Para)% &
-                                        Tau_Indx(Indx_Nodes))
+                                           Node(Indx_Para)% &
+                                           Tau_Indx(Indx_Nodes))
         ! If LOS/POS
         else
 
@@ -1559,8 +1618,8 @@
 
           ! Get value from model
           tmp_value = Bfield%Btheta(Inf_Nodes% &
-                                     Node(Indx_Para)% &
-                                     Tau_Indx(Indx_Nodes))
+                                        Node(Indx_Para)% &
+                                        Tau_Indx(Indx_Nodes))
         ! If LOS/POS
         else
 
@@ -1579,7 +1638,7 @@
 
           ! Get value from model
           tmp_value = Bfield%Bphi(Inf_Nodes%Node(Indx_Para)% &
-                                            Tau_Indx(Indx_Nodes))
+                                      Tau_Indx(Indx_Nodes))
         ! If LOS/POS
         else
 
@@ -1595,7 +1654,7 @@
 
         ! Get value from atmosphere
         tmp_value = Atmo%T(Inf_Nodes%Node(Indx_Para)% &
-                                       Tau_Indx(Indx_Nodes))
+                               Tau_Indx(Indx_Nodes))
       ! X velocity
       else if (Indx_Para.eq.Inf_Nodes%index_vx) then
 
@@ -1604,13 +1663,13 @@
 
           ! Get value from atmosphere
           tmp_value = Atmo%vx(Inf_Nodes%Node(Indx_Para)% &
-                              Tau_Indx(Indx_Nodes))
+                                  Tau_Indx(Indx_Nodes))
         ! If LOS/POS
         else
 
           ! Get value from stratification
           tmp_value = Atmo%vpos(Inf_Nodes%Node(Indx_Para)% &
-                                Tau_Indx(Indx_Nodes))
+                                    Tau_Indx(Indx_Nodes))
 
         end if ! Reference frame
 
@@ -1622,13 +1681,13 @@
 
           ! Get value from atmosphere
           tmp_value = Atmo%vy(Inf_Nodes%Node(Indx_Para)% &
-                              Tau_Indx(Indx_Nodes))
+                                  Tau_Indx(Indx_Nodes))
         ! If LOS/POS
         else
 
           ! Get value from stratification
           tmp_value = Atmo%vphi(Inf_Nodes%Node(Indx_Para)% &
-                                Tau_Indx(Indx_Nodes))
+                                    Tau_Indx(Indx_Nodes))
 
         end if ! Reference frame
 
@@ -1640,13 +1699,13 @@
 
           ! Get value from atmosphere
           tmp_value = Atmo%vz(Inf_Nodes%Node(Indx_Para)% &
-                              Tau_Indx(Indx_Nodes))
+                                  Tau_Indx(Indx_Nodes))
         ! If LOS/POS
         else
 
           ! Get value from stratification
           tmp_value = Atmo%vlos(Inf_Nodes%Node(Indx_Para)% &
-                                Tau_Indx(Indx_Nodes))
+                                    Tau_Indx(Indx_Nodes))
 
         end if ! Reference frame
 
@@ -1690,9 +1749,9 @@
 !#####################################################################
 !#####################################################################
 
-      !> Get stratification for a given variable after node
-      !! perturbation\n
-      !!  Inf_Nodes(Nodes_class): Structure with nodes data\n
+      !> Get a model atmosphere in which one inversion parameter is
+      !! perturbed at a specific node\n
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
       !!          Var(double(:)): Node values\n
       !!        o_var(double(:)): Output stratification\n
       !!            z(double(:)): Optical depth axis\n
@@ -1701,13 +1760,16 @@
       subroutine Atmo_Modify_var(Inf_Nodes,Var,o_var,z,nn,indx)
 
       ! I/O
+
       type(Nodes_class), intent(in):: Inf_Nodes
-      integer, intent(in):: nn, indx
-      double precision, dimension(:), intent(in):: z, Var
+      integer, intent(in):: nn,indx
+      double precision, dimension(:), intent(in):: z,Var
       double precision, dimension(:), intent(inout):: o_var
 
       ! Local
+
       double precision, dimension(nn):: i_var
+
 
       ! If by value
       if (Inf_Nodes%Node_Type(indx).le.3) then
@@ -1736,43 +1798,41 @@
 !#####################################################################
 !#####################################################################
 
-      !> Modify the atmospheric model to account for the perturbation
-      !! to one node\n
-      !!       Bfield(Bfield_class): Structure with the vertical
-      !!                             magnetic field data\n
-      !!           Atmo(Atmo_class): Structure with atmospheric data\n
-      !!           Atmo(Atmo_class): Structure with the model\n
-      !!           Atom(Atom_class): Structure with the atomic data\n
-      !!          Atomb(Atom_class): Structure with the atomic data
-      !!                             for background opacities\n
-      !!             Mol(Mol_class): Structure with the molecule
-      !!                             data\n
-      !!         Input(Input_class): Structure with settings data\n
-      !!         fudge(fudge_class): Structure with fudge data\n
-      !!     Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!         Indx_Para(integer): Index of the parameter to
-      !!                             perturb\n
-      !!         Tmp_var(double(:)): Array with original values for
-      !!                             the node variable\n
-      !!                 Pg(double): Gas pressure boundary value
-      subroutine Atmo_Modify(Bfield,Atmo,Atom,Atomb,Mol,Input, &
-                             fudge,Inf_Nodes,Indx_Para, &
-                             Tmp_Var,Pg)
+      !> Modify the model atmosphere to account for the perturbation
+      !! of one node of an inversion parameter\n
+      !!    Bfield(Bfield_class): Structure with magnetic field data\n
+      !!        Atmo(Atmo_class): Structure with atmospheric data\n
+      !!     Atom(Atom_class(:)): Structures with atomic data\n
+      !!    Atomb(Atom_class(:)): Structures with atomic data for
+      !!                          background atoms\n
+      !!       Mol(Mol_class(:)): Structures with molecular data\n
+      !!      Input(Input_class): Structure with configuration data\n
+      !!      fudge(fudge_class): Structure with fudge data\n
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
+      !!      Indx_Para(integer): Index of the parameter to perturb\n
+      !!      Tmp_var(double(:)): Original values for the node
+      !!                          variable\n
+      !!              Pg(double): Gas pressure boundary value
+      subroutine Atmo_Modify(Bfield,Atmo,Atom,Atomb,Mol,Input,fudge, &
+                             Inf_Nodes,Indx_Para,Tmp_Var,Pg)
 
-      ! IO
+      ! I/O
       type(Bfield_class), intent(inout):: Bfield
       type(Atmo_class), intent(inout):: Atmo
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Input_class):: Input
-      type(fudge_class):: fudge
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
+      type(Input_class), intent(in):: Input
+      type(fudge_class), intent(in):: fudge
       type(Nodes_class), intent(inout)::Inf_Nodes
       integer, intent(in):: Indx_Para
-      double precision:: Pg
+      double precision, intent(in):: Pg
       double precision, dimension(:), intent(in):: Tmp_Var
 
       ! Local
+
       double precision:: Pg_new
       double precision, dimension(:), allocatable:: Z
 
@@ -2008,7 +2068,7 @@
 
       end if ! LOS magnetic field parameter
 
-      ! If velocity is in LOS and parameter is magnetic
+      ! If velocity is in LOS and parameter is velocity
       if (Inf_Nodes%vtype.eq.1.and. &
           (Indx_Para.eq.Inf_Nodes%index_vx.or. &
            Indx_Para.eq.Inf_Nodes%index_vy.or. &

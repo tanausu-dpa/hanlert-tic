@@ -3,22 +3,9 @@ import sys, math, os
 #####################
 # rBField()
 #
-# Tanaus\'u del Pino Alem\'an
-# Ricky Egeland
+# Tanaus\'u del Pino Alem\'an (IAC)
 #
-# 06/29/2022:  V3.0.0 - Changed global version (TdPA)
-#
-# 03/17/2021:  V2.0.0 - Changed global version (TdPA)
-#
-# 01/13/2021 : V1.1.2 - Added proper abortion in abort() (TdPA)
-#
-# 06/05/2020 : V1.1.1 - Python 3 compatible (RE)
-#
-# 02/14/2019 : V1.1.0 - Improved verbosity (TdPA)
-#
-# 09/14/2017(US):  V1.0.1 - Added an ID to the files
-#
-# 04/17/2017(US):  V1.0.0 - First version
+# 17/12/2024:  V4.0.0 - Changed global version (TdPA)
 #
 #####################
 
@@ -27,35 +14,50 @@ def rBField():
   ''' Reads the magnetic field file specified as argument.
   '''
 
+  # Aborting method
   def abort(f,name):
+    # Close file
     f.close()
+    # Reset file and just write -1 to flag failure
     f = open(name,'w')
     f.write('-1')
     f.close()
+    # Leave
     sys.exit()
 
+  # Verbose routine
   def verbose(msg, fil, verb):
-
     # If being verbose
     if (verb):
+      # Just print
       print((msg+' in rbfield.py'))
     else:
+      # Check file exists
       exist = os.path.isfile(fil)
+      # Open to write or append
       if (exist):
         fv = open(fil,'a')
       else:
         fv = open(fil,'w')
+      # Write in file and close
       fv.write(msg+' in rbfield.py\n')
       fv.close()
 
+  #
   # Argument control
+  #
+
+  # Requires one argument
   if len(sys.argv) < 1:
-   #sys.exit(' # At least one argument needed')
     sys.exit()
+
+  # Try getting ID
   try:
     dni = sys.argv[2]
   except:
     dni = '000000000'
+
+  # If more arguments, there is verbosity file
   if len(sys.argv) > 3:
     verbosity = False
     verbfile = sys.argv[3]
@@ -63,8 +65,10 @@ def rBField():
     verbosity = True
     verbfile = ''
 
+  # Try to open file
   try:
     f=open(sys.argv[1],'r')
+  # Failed to open file
   except:
     verbose(' # No field file found', verbfile, verbosity)
     filename = 'tmp_bfield_'+dni
@@ -88,12 +92,16 @@ def rBField():
       lines_n.append(line.upper())
   lines = lines_n
 
-  # Output file
+  # Start output file
   filename='tmp_bfield_'+dni
   f=open(filename,'w')
   f.write('1\n')
 
+  #
   # File build
+  #
+
+  # Get dimenions
   val = lines[0].split()[0]
   try:
     NZ=int(float(val))
@@ -107,6 +115,8 @@ def rBField():
             'magnetic file is not equal to number ' + \
             'specified', verbfile, verbosity)
     abort(f, filename)
+
+  # Get angular units
   val = lines[1].split()[0]
   try:
     val = val.upper()
@@ -122,7 +132,10 @@ def rBField():
     verbose(' # Second line in magnetic file not understood,' + \
             ' set to DEG(DEFAULT)', verbfile, verbosity)
     f.write('DEG\n')
+
+  # For each height
   for i in range(NZ):
+    # Read field in polar coordinates
     val = lines[2+i].split()
     if(len(val) != 3):
       verbose(' # The format must have three columns', \
@@ -131,6 +144,8 @@ def rBField():
     for j in range(3):
       f.write('{0:22.16e} '.format(float(val[j])))
     f.write('\n')
+
+  # Close file
   f.close()
 
 if __name__ == "__main__":

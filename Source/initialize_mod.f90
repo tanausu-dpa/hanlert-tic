@@ -5,83 +5,19 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     04/20/2017
+!     20/04/2017
 !  Last version:
-!     02/14/2024 V3.0.5
+!     11/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     02/14/2024:    V3.0.5 - RAM variable for radiation does not
-!                             assume not initialized (TdPA)
-!
-!     08/07/2023:    V3.0.4 - Added initialize_failread and
-!                             initializeI_failread (TdPA)
-!
-!     11/10/2022:    V3.0.3 - When doing PRD with velocities, the
-!                             slaves also need JKQa to add it in
-!                             emiss2ord/NB (TdPA)
-!
-!     10/25/2022:    V3.0.2 - Implemented the height range limitation
-!                             in the allocation of the radiation
-!                             variables (TdPA)
-!                           - Implemented the 1.5D case for the ad-hoc
-!                             radiation field tensors (TdPA)
-!
-!     07/27/2022:    V3.0.1 - Renamed MPI to MPID (TdPA)
-!
-!     06/29/2022:    V3.0.0 - Changed global version (TdPA)
-!
-!     03/23/2021:    V2.0.1 - Changed call to abortedS (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!                           - Removed domain decomposition (TdPA)
-!                           - Allocate dummy asymmetry JKQ if not
-!                             input (TdPA)
-!
-!     01/13/2021:    V1.2.6 - Added initialize_asym subroutine (TdPA)
-!
-!     01/12/2021:    V1.2.5 - Use KSTK to determine how to initialize
-!                             Stokes (TdPA)
-!
-!     09/11/2020:    V1.2.4 - Now the RAM used by the radiation
-!                             variables is counted and kept (TdPA)
-!
-!     03/18/2020:    V1.2.3 - Initialized radiation quantities when
-!                             allocating (TdPA)
-!
-!     11/19/2019:    V1.2.2 - Removed checks in allocate and
-!                             deallocate calls (TdPA)
-!
-!     09/13/2019:    V1.2.1 - Added condition to store only 2 heights
-!                             of Stokes to only the static case when
-!                             there is angle-averaged PRD (TdPA)
-!
-!     05/08/2019:    V1.2.0 - Got rid of the (atomic,transition) pair
-!                             of indexes in every radiation tensor and
-!                             now they have been compressed in just
-!                             one dimension (TdPA)
-!
-!     02/20/2019:    V1.1.0 - New verbosity (TdPA)
-!
-!     05/16/2018:    V1.0.3 - Stokes has dimension nPh (and not nPh2)
-!                             for the azimuth. If there is axial
-!                             symmetry, that dimension is not
-!                             necessary (TdPA)
-!
-!     06/23/2017:    V1.0.2 - Only initializing JKQC (TdPA)
-!                           - Cleaned unused variables (TdPA)
-!
-!     06/22/2017:    V1.0.1 - Removed initializePtoI and
-!                             initializeItoP (TdPA)
-!                           - Not initializing to zero (TdPA)
-!
-!     04/20/2017:    V1.0.0 - First version (TdPA)
+!     11/12/2024:    V4.0.0 - Removed references to threads in the
+!                             calls to abortedS (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -91,27 +27,32 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    This subroutine initializes the radiation field tensors with a
-!  Planckian function and allocates memory for everything
-!
 !  initialize
-!    Initialize Stokes(polarization) and JKQ(terms)
+!    Allocate and initialize the Stokes parameters and radiation field
+!  tensors for the polarization problem
 !
 !  initializeI
-!    Initialize Stokes(intensity) and J00(levels)
+!    Allocate and initialize the intensity parameters and mean
+!  intensity
 !
 !  initialize_failread
-!    Initialize Stokes(polarization) and JKQC when cannot be read from
-!  solution file
+!    Initialize the Stokes parameters and JKQC radiation field tensors
+!  if they could not be read from the solution file
 !
 !  initializeI_failread
-!    Initialize Stokes(intensity) and J00C when cannot be read from
-!  solution file
+!    Initialize the intensity and J00C mean intensity if they could
+!  not be read from the solution file
 !
 !  initialize_asym
-!    Initialize factor for ad-hoc asymmetries in JKQ
+!    Initialize factor for ad-hoc asymmetries in radiation field
+!  tensors
 !
 !#####################################################################
 !#####################################################################
@@ -130,39 +71,43 @@
 !#####################################################################
 !#####################################################################
 
-      !> Allocates and initializes Stokes parameters and radiation
-      !! field tensors (initializes when not reading a previous
-      !! solution).\n
-      !!     Frec(Frequency_class): Structure with frequency data\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !! Stokes(dfloat(:,:,:,:,:)): Stokes parameters\n
-      !!    JKQ(dcomplex(:,:,:,:)): Radiation field tensors integrated
-      !!                            over absorption profile\n
-      !!   JKQS(dcomplex(:,:,:,:)): Radiation field tensors integrated
-      !!                            over emission profile\n
-      !!   JKQC(dcomplex(:,:,:,:)): Radiation field tensors with
-      !!                            frequency dependence\n
-      !!       J00P(dfloat(:,:,:)): Intensity integrals in the
-      !!                            photoionization rates\n
-      !!           mode(character): Mode of operation (solving,
-      !!                            reading or both)
-      subroutine initialize(Frec,Geom,Atmo,MPID,Stokes,JKQ, &
-                            JKQS,JKQC,J00P,mode)
+      !> Allocate and initialize the Stokes parameters and radiation
+      !! field tensors for the polarization problem\n
+      !!      Frec(Frequency_class): Structure with frequency data\n
+      !!       Geom(Geometry_class): Structure with geometric data\n
+      !!           Atmo(Atmo_class): Structure with atmospheric data\n
+      !!  Stokes(double(:,:,:,:,:)): Stokes parameters\n
+      !!     JKQ(dcomplex(:,:,:,:)): Radiation field tensors
+      !!                             integrated over the absorption
+      !!                             profile\n
+      !!    JKQS(dcomplex(:,:,:,:)): Radiation field tensors
+      !!                             integrated over the emission
+      !!                             profile\n
+      !!    JKQC(dcomplex(:,:,:,:)): Radiation field tensors with
+      !!                             frequency dependence\n
+      !!        J00P(double(:,:,:)): Intensity integrals in the
+      !!                             photoionization rates\n
+      !!            mode(character): Mode of operation (solving,
+      !!                             reading, or both)
+      subroutine initialize(Frec,Geom,Atmo,Stokes,JKQ,JKQS, &
+                            JKQC,J00P,mode)
 
       ! I/O
 
       type(Atmo_class), intent(in):: Atmo
       type(Geometry_class), intent(in):: Geom
       type(Frequency_class), intent(in):: Frec
-      type(MPI_class), intent(inout):: MPID
       character(len=1), intent(in)::  mode
-      double precision, dimension(:,:,:,:,:), allocatable:: Stokes
-      double precision, dimension(:,:,:), allocatable:: J00P
-      complex(kind=8), dimension(:,:,:,:), allocatable:: JKQ
-      complex(kind=8), dimension(:,:,:,:), allocatable:: JKQS
-      complex(kind=8), dimension(:,:,:,:), allocatable:: JKQC
+      double precision, dimension(:,:,:,:,:), &
+                        allocatable, intent(out):: Stokes
+      double precision, dimension(:,:,:), &
+                        allocatable, intent(out):: J00P
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(out):: JKQ
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(out):: JKQS
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(out):: JKQC
 
       ! Local
 
@@ -175,41 +120,47 @@
       ! Allocations
       !
 
-      ! If we are doing angle averaged, we only need one height,
-      ! we allocate two to store the emergence in the quadrature
+      ! If for any reason the Stokes parameters are needed at
+      ! all heights
       if (KSTK) then
+
+        ! Allocate and save limits
         allocate(Stokes(0:3,nfreq,Geom%nPh,Geom%nTh,Rz0:Rz1))
         giz0 = Rz0
         giz1 = Rz1
-        MPID%RRAM = MPID%RRAM + &
-                    8d-6*dble(4*nfreq*Geom%nPh*Geom%nTh*Rnz)
+
+      ! If only needed at one height
       else
+
+        ! Allocate and save limits
         allocate(Stokes(0:3,nfreq,Geom%nPh,Geom%nTh,Rz0:Rz0+1))
         giz0 = Rz0
         giz1 = Rz0+1
-        MPID%RRAM = MPID%RRAM + &
-                    8d-6*dble(4*nfreq*Geom%nPh*Geom%nTh*2)
-      end if
+
+      end if ! If Stokes is needed at all heights
+
+      ! Add memory and initialize
+      RRAMc = RRAMc + 1d-6*sizeof(Stokes)
       Stokes = 0d0
 
-      ! JKQ for absorptivity
+      ! JKQ integrated over absorption profiles
       allocate(JKQ(-2:2,0:2,nxtran,Rz0:Rz1))
+      RRAMc = RRAMc + 1d-6*sizeof(JKQ)
       JKQ = cZero
 
-      ! JKQ for stimulated emission
+      ! JKQ integrated over emission profiles
       allocate(JKQS(-2:2,0:2,nxtran,Rz0:Rz1))
+      RRAMc = RRAMc + 1d-6*sizeof(JKQS)
       JKQS = cZero
 
       ! JKQ frequency dependent
       allocate(JKQC(-2:2,0:2,nfreq,Rz0:Rz1))
+      RRAMc = RRAMc + 1d-6*sizeof(JKQC)
 
       ! J00 for photoionizations
       allocate(J00P(nxphot,2,Rz0:Rz1))
+      RRAMc = RRAMc + 1d-6*sizeof(J00P)
       J00P = 0d0
-
-      ! Compute allocated memory
-      MPID%RRAM = MPID%RRAM + 8d-6*dble(Rnz*(nxphot*2 + &
-                                        2*5*3*(2*nxtran + nfreq)))
 
       ! If we are reading a solution, do not initialize to LTE
       if (mode.eq.'R'.or.mode.eq.'B') return
@@ -230,8 +181,8 @@
           ! Initialize with planckian
           JKQC(0,0,ifreq,iz) = dcmplx(planck(omg,Atmo%T(iz)),0d0)
 
-        end do ! frequencies
-      end do ! heights
+        end do ! Frequencies
+      end do ! Heights
 
       ! Control
       call control
@@ -244,39 +195,40 @@
 !#####################################################################
 !#####################################################################
 
-      !> Allocates and initializes intensity and radiation mean
-      !! intensity (initializes when not reading a previous
-      !! solution)\n
-      !!     Frec(Frequency_class): Structure with frequency data\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!   Stokes(dfloat(:,:,:,:)): Intensity\n
-      !!          J00(dfloat(:,:)): Mean intensity integrated over
-      !!                            absorption profile\n
-      !!         J00S(dfloat(:,:)): Mean intensity integrated over
-      !!                            emission profile\n
-      !!         J00C(dfloat(:,:)): Mean intensity with frequency
-      !!                            dependence\n
-      !!       J00P(dfloat(:,:,:)): Intensity integrals in the
-      !!                            photoionization rates\n
-      !!           mode(character): Mode of operation (solving,
-      !!                            reading or both)
-      subroutine initializeI(Frec,Geom,Atmo,MPID,Stokes,J00, &
-                            J00S,J00C,J00P,mode)
+      !> Allocate and initialize the intensity parameters and mean
+      !! intensity\n
+      !!    Frec(Frequency_class): Structure with frequency data\n
+      !!     Geom(Geometry_class): Structure with geometric data\n
+      !!         Atmo(Atmo_class): Structure with atmospheric data\n
+      !!  Stokes(double(:,:,:,:)): Intensity\n
+      !!         J00(double(:,:)): Mean intensity integrated over the
+      !!                           absorption profile\n
+      !!        J00S(double(:,:)): Mean intensity integrated over the
+      !!                           emission profile\n
+      !!        J00C(double(:,:)): Mean intensity with frequency
+      !!                           dependence\n
+      !!      J00P(double(:,:,:)): Intensity integrals in the
+      !!                           photoionization rates\n
+      !!          mode(character): Mode of operation (solving,
+      !!                           reading, or both)
+      subroutine initializeI(Frec,Geom,Atmo,Stokes,J00,J00S, &
+                             J00C,J00P,mode)
 
       ! I/O
 
       type(Atmo_class), intent(in):: Atmo
       type(Geometry_class), intent(in):: Geom
       type(Frequency_class), intent(in):: Frec
-      type(MPI_class), intent(inout):: MPID
       character(len=1), intent(in)::  mode
-      double precision, dimension(:,:,:,:), allocatable:: Stokes
-      double precision, dimension(:,:), allocatable:: J00
-      double precision, dimension(:,:), allocatable:: J00S
-      double precision, dimension(:,:), allocatable:: J00C
-      double precision, dimension(:,:,:), allocatable:: J00P
+      double precision, dimension(:,:,:,:), &
+                        allocatable, intent(out):: Stokes
+      double precision, dimension(:,:), allocatable, intent(out):: J00
+      double precision, dimension(:,:), &
+                        allocatable, intent(out):: J00S
+      double precision, dimension(:,:), &
+                        allocatable, intent(out):: J00C
+      double precision, dimension(:,:,:), &
+                        allocatable, intent(out):: J00P
 
       ! Local
 
@@ -289,44 +241,49 @@
       ! Allocations
       !
 
-      ! If we are doing angle averaged, we only need one height,
-      ! we allocate two to store the emergence in the quadrature
+      ! If for any reason the intensity is needed at all heights
       if (KSTK) then
+
+        ! Allocate and save limits
         allocate(Stokes(nfreq,Geom%nPh,Geom%nTh,Rz0:Rz1))
         giz0 = Rz0
         giz1 = Rz1
-        MPID%RRAM = MPID%RRAM + &
-                    8d-6*dble(nfreq*Geom%nph*Geom%nTh*Rnz)
+
+      ! If only needed at one height
       else
+
+        ! Allocate and save limits
         allocate(Stokes(nfreq,Geom%nPh,Geom%nTh,Rz0:Rz0+1))
         giz0 = Rz0
         giz1 = Rz0+1
-        MPID%RRAM = MPID%RRAM + &
-                    8d-6*dble(nfreq*Geom%nph*Geom%nTh*2)
-      end if
+
+      end if ! If intensity is needed at all heights
+
+      ! Add memory and initialize
+      RRAMc = RRAMc + 1d-6*sizeof(Stokes)
       Stokes = 0d0
 
-      ! J00 for absorptivity
+      ! J00 integrated over absorption profiles
       allocate(J00(nxt,Rz0:Rz1))
+      RRAMc = RRAMc + 1d-6*sizeof(J00)
       J00 = 0d0
 
-      ! J00 for stimulated emission
+      ! J00 integrated over emission profiles
       allocate(J00S(nxt,Rz0:Rz1))
+      RRAMc = RRAMc + 1d-6*sizeof(J00S)
       J00S = 0d0
 
       ! J00 frequency dependent
       allocate(J00C(nfreq,Rz0:Rz1))
-
-      ! If we are reading a solution, do not initialize to LTE
-      if (mode.eq.'R'.or.mode.eq.'B') return
+      RRAMc = RRAMc + 1d-6*sizeof(J00C)
 
       ! J00 for photoionizations
       allocate(J00P(nxphot,2,Rz0:Rz1))
+      RRAMc = RRAMc + 1d-6*sizeof(J00P)
       J00P = 0d0
 
-      ! Compute allocated memory
-      MPID%RRAM = MPID%RRAM + 8d-6*dble(Rnz*(nxphot*2 + &
-                                        2*nxt + nfreq))
+      ! If we are reading a solution, do not initialize to LTE
+      if (mode.eq.'R'.or.mode.eq.'B') return
 
 
       !
@@ -346,7 +303,7 @@
           J00C(ifreq,iz) = planck(omg,Atmo%T(iz))
 
         end do ! Frequencies
-      end do ! heights
+      end do ! Heights
 
       ! Control
       call control
@@ -359,20 +316,23 @@
 !#####################################################################
 !#####################################################################
 
-      !> Initializes JKQC for K=Q=0 when failing to read file\n
-      !!     Frec(Frequency_class): Structure with frequency data\n
-      !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !! Stokes(dfloat(:,:,:,:,:)): Stokes parameters\n
-      !!   JKQC(dcomplex(:,:,:,:)): Radiation field tensors with
-      !!                            frequency dependence
+      !> Initialize the Stokes parameters and JKQC radiation field
+      !! tensors if they could not be read from the solution file\n
+      !!      Frec(Frequency_class): Structure with frequency data\n
+      !!           Atmo(Atmo_class): Structure with atmospheric data\n
+      !!  Stokes(double(:,:,:,:,:)): Stokes parameters\n
+      !!    JKQC(dcomplex(:,:,:,:)): Radiation field tensors with
+      !!                             frequency dependence
       subroutine initialize_failread(Frec,Atmo,Stokes,JKQC)
 
       ! I/O
 
       type(Atmo_class), intent(in):: Atmo
       type(Frequency_class), intent(in):: Frec
-      double precision, dimension(:,:,:,:,:), allocatable:: Stokes
-      complex(kind=8), dimension(:,:,:,:), allocatable:: JKQC
+      double precision, dimension(:,:,:,:,:), &
+                        allocatable, intent(inout):: Stokes
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(inout):: JKQC
 
       ! Local
 
@@ -400,8 +360,8 @@
           ! Initialize with planckian
           JKQC(0,0,ifreq,iz) = dcmplx(planck(omg,Atmo%T(iz)),0d0)
 
-        end do ! frequencies
-      end do ! heights
+        end do ! Frequencies
+      end do ! Heights
 
       ! Need Stokes
       if (KSTK) then
@@ -418,7 +378,7 @@
           end do ! frequencies
         end do ! heights
 
-      end if
+      end if ! Need Stokes
 
       ! Control
       call control
@@ -431,22 +391,23 @@
 !#####################################################################
 !#####################################################################
 
-      !> Allocates and initializes intensity and radiation mean
-      !! intensity (initializes when not reading a previous
-      !! solution)\n
-      !!     Frec(Frequency_class): Structure with frequency data\n
-      !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !!   Stokes(dfloat(:,:,:,:)): Intensity\n
-      !!         J00C(dfloat(:,:)): Mean intensity with frequency
-      !!                            dependence
+      !> Initialize the intensity and J00C mean intensity if they
+      !! could not be read from the solution file\n
+      !!    Frec(Frequency_class): Structure with frequency data\n
+      !!         Atmo(Atmo_class): Structure with atmospheric data\n
+      !!  Stokes(double(:,:,:,:)): Intensity\n
+      !!        J00C(double(:,:)): Mean intensity with frequency
+      !!                           dependence
       subroutine initializeI_failread(Frec,Atmo,Stokes,J00C)
 
       ! I/O
 
       type(Atmo_class), intent(in):: Atmo
       type(Frequency_class), intent(in):: Frec
-      double precision, dimension(:,:,:,:), allocatable:: Stokes
-      double precision, dimension(:,:), allocatable:: J00C
+      double precision, dimension(:,:,:,:), &
+                        allocatable, intent(inout):: Stokes
+      double precision, dimension(:,:), &
+                        allocatable, intent(inout):: J00C
 
       ! Local
 
@@ -472,7 +433,7 @@
           J00C(ifreq,iz) = planck(omg,Atmo%T(iz))
 
         end do ! Frequencies
-      end do ! heights
+      end do ! Heights
 
       ! Need Stokes
       if (KSTK) then
@@ -486,10 +447,10 @@
             ! Initialize with planckian
             Stokes(ifreq,:,:,iz) = dble(J00C(ifreq,iz))
 
-          end do ! frequencies
-        end do ! heights
+          end do ! Frequencies
+        end do ! Heights
 
-      end if
+      end if ! Need Stokes
 
       ! Control
       call control
@@ -502,77 +463,76 @@
 !#####################################################################
 !#####################################################################
 
-      !> Allocates and initializes anisotropy inputs.\n
-      !!      Input(Input_class): Structure with input data
-      !!         MPID(MPI_class): Structure with MPI data\n
-      !!      Flgsg(Fctsg_class): Structure with factorials and
-      !!                          signs\n
-      !!        JKQin(double(:)): Radiation field tensors extra
-      !!                          asymmetries, 1.5D input\n
-      !!   JKQa(dcomplex(:,:,:)): Radiation field tensors extra
-      !!                          asymmetries\n
-      subroutine initialize_asym(Input,MPID,Flgsg,JKQin,JKQa)
+      !> Initialize factor for ad-hoc asymmetries in radiation field
+      !! tensors\n
+      !!     Input(Input_class): Structure with configuration data\n
+      !!     Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                         J-symbols\n
+      !!       JKQin(double(:)): Data with ad-hoc JKQ tensors\n
+      !!  JKQa(dcomplex(:,:,:)): Extra asymmetry for the radiation
+      !!                         field tensors
+      subroutine initialize_asym(Input,Flgsg,JKQin,JKQa)
 
       ! I/O
 
-      type(Input_class), intent(inout):: Input
-      type(MPI_class), intent(inout):: MPID
-      type(Fctsg_class):: Flgsg
-      double precision, dimension(:), allocatable:: JKQin
-      complex(kind=8), dimension(:,:,:), allocatable:: JKQa
+      type(Input_class), intent(in):: Input
+      type(Fctsg_class), intent(in):: Flgsg
+      double precision, dimension(:), allocatable, intent(in):: JKQin
+      complex(kind=8), dimension(:,:,:), &
+                       allocatable, intent(out):: JKQa
 
       ! Local
 
       logical, dimension(0:2,1:2):: setable
+
       integer:: iz,ientry,K,iQ,ifentry,nfentry,fnz,ios
+
       double precision:: daux1,daux2
 
 
-      !
-      ! Only the master needs this (although leave if no
-      ! inputs)
-      !
+      ! If a slave CPU or no inputs
       if (pid.gt.0.or.Input%nasym.le.0) then
 
-        ! If there is input, it is slave, and it is dynamic
+        ! If there are inputs (so this is a slave) and there is PRD
+        ! PRD and dynamics
         if (Input%nasym.ge.1.and.dyn.and.PRD) then
 
-          !
-          ! Allocate asymmetry input and add to RAM
-          !
+          ! Allocate asymmetry input
           allocate(JKQa(-2:2,1:2,Rz0:Rz1))
-          MPID%RRAM = MPID%RRAM + 16d-6*dble(nz)*10d0
 
           ! Size
           iz = 5*2*Rnz
 
-          ! Share
+          ! Master is going to share
           call MPI_BCAST(JKQa(-2,1,Rz0),iz,MPI_DOUBLE_COMPLEX,0, &
                          MPI_COMM_RT,ios)
 
-        ! There is no input or it is static
+        ! There is no input, it is static, or not even PRD
         else
 
-          ! Allocate dummy
+          ! Allocate dummy variable
           allocate(JKQa(1,1,1))
 
         end if ! Need to share
+
+        ! Memory count
+        RRAMc = RRAMc + 1d-6*sizeof(JKQa)
 
         ! Control and leave
         call control
         return
 
-      end if ! There is something to read
+      end if ! There is something to read or it is a slave
 
       !
+      ! Only the master with available data should reach this
+      !
+
       ! Allocate asymmetry input and add to RAM
-      !
       allocate(JKQa(-2:2,1:2,Rz0:Rz1))
-      MPID%RRAM = MPID%RRAM + 16d-6*dble(nz)*10d0
+      RRAMc = RRAMc + 1d-6*sizeof(JKQa)
 
-      !
       ! Initialize to zero
-      !
       JKQa = cZero
 
       !
@@ -580,16 +540,19 @@
       !
       if (allocated(JKQin)) then
 
-        ! Convert to JKQa array
+        ! For every considered height
         do iz=Rz0,Rz1
+
+          ! Convert to JKQa array
           JKQa(0,1,iz) = dcmplx(JKQin(iz),0d0)
           JKQa(1,1,iz) = dcmplx(JKQin(nz+iz),JKQin(2*nz+iz))
           JKQa(0,2,iz) = dcmplx(JKQin(3*nz+iz),0d0)
           JKQa(1,2,iz) = dcmplx(JKQin(4*nz+iz),JKQin(5*nz+iz))
           JKQa(2,2,iz) = dcmplx(JKQin(6*nz+iz),JKQin(7*nz+iz))
-        end do
 
-        ! Get negatives
+        end do ! Heights
+
+        ! Get negatives from conjugation properties
         JKQa(-1,1,:) = -conjg(JKQa(1,1,:))
         JKQa(-1,2,:) = -conjg(JKQa(1,2,:))
         JKQa(-2,2,:) =  conjg(JKQa(2,2,:))
@@ -599,44 +562,51 @@
       !
       else
 
-        !
         ! Initialize set
-        !
         setable = .True.
 
-        !
         ! For each numberic entry
-        !
         do ientry=1,Input%nasym_num
 
-          ! Get K, Q
+          ! Get K and Q
           K = nint(dble(Input%asym_num(1,ientry)))
           iQ = nint(dimag(Input%asym_num(1,ientry)))
 
-
           ! Check setable
           if (setable(iQ,K)) then
+
+            ! Flag as not setable anymore
             setable(iQ,K) = .False.
+
+          ! No setable
           else
+
+            ! Error
             write(umsg,'(A,1x,i1,1x,i1)') &
               'You have specified more than one anysotropy '// &
               'factor for the multipole',K,iQ
             urou = 'initialize_asym'
-            call abortedS(umsg,urou,-1,.True.,.True.)
-          end if
+            call abortedS(umsg,urou,.True.,.True.)
+
+          end if ! Check setable
 
           !
           ! Set factor
+          !
 
-          ! Get other Q
+          ! If asymmetry
           if (iQ.gt.0) then
 
+            ! Get from input
             JKQa(iQ,K,:) = Input%asym_num(2,ientry)
+
+            ! Get other Q from conjugation properties
             JKQa(-iQ,K,:) = Flgsg%sg(iQ)*conjg(JKQa(iQ,K,:))
 
-          ! Q = 0, ensure real
+          ! Q = 0
           else
 
+            ! Ensure real
             JKQa(0,K,:) = dcmplx(dble(Input%asym_num(2,ientry)), 0d0)
 
           end if ! Q > 0 or Q = 0
@@ -649,25 +619,26 @@
         do ientry=1,Input%nasym_fil
 
           ! Deal with the file in python
-           call system('python '//trim(Input%source)//'rasym.py '// &
-                        trim(Input%asym_fil(ientry)%str)// &
-                       ' '//Input%ID//' '//verbosef)
+          call system('python '//trim(Input%source)//'rasym.py '// &
+                       trim(Input%asym_fil(ientry)%str)// &
+                      ' '//Input%ID//' '//verbosef)
 
           ! Open the file
-           open(100, file='tmp_asym_'//Input%ID, status='old', &
-                iostat=ios, err=1000)
+          open(100, file='tmp_asym_'//Input%ID, status='old', &
+               iostat=ios, err=1000)
 
-          ! Success
+          ! Read if success
           read (100,*,err=1100) ios
 
-          ! If no correct file, abort
+          ! If no correct file
           if (ios.lt.0) then
 
+            ! Abort
             umsg = 'Problem translating the asymmetry file'
             urou = 'initialize_asym'
-            call abortedS(umsg,urou,-1,.True.,.True.)
+            call abortedS(umsg,urou,.True.,.True.)
 
-          end if
+          end if ! Reading issue
 
           ! Get number of entries in this file
           read(100,*,err=1100) nfentry
@@ -680,14 +651,21 @@
 
             ! Check setable
             if (setable(iQ,K)) then
+
+              ! Flag as not setable
               setable(iQ,K) = .False.
+
+            ! If was already set
             else
+
+              ! Issue error
               write(umsg,'(A,1x,i1,1x,i1)') &
                 'You have specified more than one anysotropy '// &
                 'factor for the multipole',K,iQ
               urou = 'initialize_asym'
-              call abortedS(umsg,urou,-1,.True.,.True.)
-            end if
+              call abortedS(umsg,urou,.True.,.True.)
+
+            end if ! If can be set
 
             ! If only one height
             if (fnz.eq.1) then
@@ -695,18 +673,19 @@
               ! Read factor
               read(100,*,err=1100) daux1,daux2
 
-              !
-              ! Set factor
-
-              ! Get other Q
+              ! If Q > 0
               if (iQ.gt.0) then
 
+                ! Save JKQ
                 JKQa(iQ,K,:) = dcmplx(daux1, daux2)
+
+                ! Get other sign from conjugation properties
                 JKQa(-iQ,K,:) = Flgsg%sg(iQ)*conjg(JKQa(iQ,K,:))
 
-              ! Q = 0, ensure real
+              ! Q = 0
               else
 
+                ! Ensure real
                 JKQa(0,K,:) = dcmplx(daux1, 0d0)
 
               end if ! Q > 0 or Q = 0
@@ -720,66 +699,71 @@
                 ! Read factor
                 read(100,*,err=1100) daux1,daux2
 
-                ! Check in limits
+                ! Check within considered limits
                 if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
 
-                !
-                ! Set factor
-
-                ! Get other Q
+                ! If Q > 0
                 if (iQ.gt.0) then
 
+                  ! Set JKQ
                   JKQa(iQ,K,iz) = dcmplx(daux1, daux2)
+
+                  ! Compute other sign from conjugation properties
                   JKQa(-iQ,K,iz) = Flgsg%sg(iQ)*conjg(JKQa(iQ,K,iz))
 
-                ! Q = 0, ensure real
+                ! Q = 0
                 else
 
+                  ! Ensure real
                   JKQa(0,K,iz) = dcmplx(daux1, 0d0)
 
                 end if ! Q > 0 or Q = 0
 
-              end do ! Height nodes
+              end do ! Heights
 
-            ! None of them
+            ! Wrong number of heights
             else
 
+              ! Issue error
               write(umsg,'(A,1x,i3,A,1x,i3)') &
                 'You have specified the wrong number of '// &
                 'height nodes:',fnz,'. Must be:',nz
               urou = 'initialize_asym'
-              call abortedS(umsg,urou,-1,.True.,.True.)
+              call abortedS(umsg,urou,.True.,.True.)
 
-            end if
+            end if ! Number of heights in input file
 
           end do ! Entry in the current file
 
           ! Close file
           close(100)
 
-          ! Delete temporal input file
+          ! If master
           if (pid.eq.0) then
+
+            ! Delete temporal input file
             call system('rm tmp_asym_'//Input%ID)
             umsg = ' - Asymmetry input '// &
                    trim(Input%asym_fil(ientry)%str)//' read'
             call verbose
-          end if
+
+          end if ! Master
 
         end do ! File entries
 
       end if ! Type of run
 
-      ! If MPI and dynamic, share
+      ! If MPI, PRD, and dynamic
       if (dyn.and.PRD.and.nproc.gt.1) then
 
         ! Size
         iz = 5*2*Rnz
 
-        ! Share
+        ! Share with rest of CPU in RT calculation
         call MPI_BCAST(JKQa(-2,1,Rz0),iz,MPI_DOUBLE_COMPLEX,0, &
                        MPI_COMM_RT,ios)
 
-      end if
+      end if ! MPI, PRD, and dynamic
 
       ! Control
       call control
@@ -788,11 +772,11 @@
 
 1000  umsg = ' - Error opening asymmetry file'
       urou = 'initialize_asym'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
 1100  umsg = ' - Error reading asymmetry file'
       urou = 'initialize_asym'
       close(100)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
 
       end subroutine initialize_asym
 

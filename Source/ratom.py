@@ -3,58 +3,9 @@ import sys, math, os
 #####################
 # rAtom()
 #
-# Tanaus\'u del Pino Alem\'an
-# Ricky Egeland
+# Tanaus\'u del Pino Alem\'an (IAC)
 #
-# 10/04/2023:  V3.0.1 - Just formatting, not advancing version (TdPA)
-#
-# 04/25/2023:  V3.0.1 - Bugfix: The float check in the collisions
-#                       was happening before fully correcting for
-#                       python suitable format (TdPA)
-#
-# 06/29/2022:  V3.0.0 - Changed global version (TdPA)
-#                     - Removed the possibility of explicit
-#                       input for depolarizing collisions (TdPA)
-#
-# 09/30/2021:  V2.0.1 - Prepare to deal with forbidden lines (TdPA)
-#
-# 03/17/2021:  V2.0.0 - Changed global version (TdPA)
-#
-# 01/13/2021 : V1.3.6 - Added proper abortion in abort() (TdPA)
-#
-# 09/28/2020 : V1.3.5 - Change defaults of unsold (TdPA)
-#
-# 06/05/2020 : V1.3.4 - Python 3 compatible (RE)
-#
-# 08/14/2019 : V1.3.3 - Bugfix: Indexes in coldic dictionary had
-#                       to be strings, not integers (TdPA)
-#
-# 07/23/2019 : V1.3.2 - More possible flags for the type of
-#                       photoionization: neutral, ion, lneutral,
-#                       lion, sneutral, sion, none, linear, and
-#                       spline (TdPA)
-#
-# 03/06/2019 : V1.3.1 - Now there is an extra integer in the radiative
-#                       transition line in atomic models, and it is
-#                       optional (TdPA)
-#
-# 02/14/2019 : V1.3.0 - Improved verbosity (TdPA)
-#
-# 11/02/2017:  V1.2.1 - Multilevel expects a Land\'e factor
-#
-# 10/30/2017:  V1.2.0 - Changed how the multilevel works
-#
-# 10/11/2017:  V1.1.0 - Changed the structure of the energy part
-#
-# 09/22/2017:  V1.0.3 - Removed some nested index duplicity
-#
-# 09/14/2017:  V1.0.2 - Added an ID to the files
-#
-# 07/19/2017:  V1.0.1 - Typo in one error mesagge
-#                     - No message for No collisions (moved to main
-#                       code)
-#
-# 04/18/2017:  V1.0.0 - First version
+# 17/12/2024:  V4.0.0 - Changed global version (TdPA)
 #
 #####################
 
@@ -62,34 +13,48 @@ def rAtom():
   ''' Reads the input atomic file specified as argument.
   '''
 
+  # Aborting method
   def abort(f,name):
+    # Reset file and just write -1 to flag failure
     f = open(name,'w')
     f.write('-1')
     f.close()
+    # Leave
     sys.exit()
 
+  # Verbose routine
   def verbose(msg, fil, verb):
-
     # If being verbose
     if (verb):
+      # Just print
       print((msg+' in ratom.py'))
     else:
+      # Check file exists
       exist = os.path.isfile(fil)
+      # Open to write or append
       if (exist):
         fv = open(fil,'a')
       else:
         fv = open(fil,'w')
+      # Write in file and close
       fv.write(msg+' in ratom.py\n')
       fv.close()
 
+  #
   # Argument control
+  #
+
+  # Requires one argument
   if len(sys.argv) < 1:
-   #sys.exit(' # At least one argument needed')
     sys.exit()
+
+  # Try getting ID
   try:
     dni = sys.argv[2]
   except:
     dni = '000000000'
+
+  # If more arguments, there is verbosity file
   if len(sys.argv) > 3:
     verbosity = False
     verbfile = sys.argv[3]
@@ -97,8 +62,10 @@ def rAtom():
     verbosity = True
     verbfile = ''
 
+  # Try to open file
   try:
     f=open(sys.argv[1],'r')
+  # Failed to open file
   except:
     verbose(' # No atomic file found', verbfile, verbosity)
     filename = 'tmp_atom_'+dni
@@ -122,13 +89,15 @@ def rAtom():
       lines_n.append(line)
   lines = lines_n
 
-  # Output file
+  # Start output file
   filename = 'tmp_atom_'+dni
   output = ['1\n']
 
+  #
   # File build
+  #
 
-  #  Label of the atom
+  # Label of the atom
   iline = 0
   line = lines[iline]
   name = list(line.upper())
@@ -150,7 +119,7 @@ def rAtom():
   output.append(line)
   output.append('\n')
 
-  #  Abundance, isotopic % and renormalization
+  # Abundance, isotope %, and renormalization
   iline += 1
   line = lines[iline]
   cols = line.split()
@@ -169,7 +138,7 @@ def rAtom():
     output.append('{0}'.format(col))
     output.append('\n')
 
-  #  Type of model
+  # Type of model
   models = ['MULTILEVEL','MULTITERM','MLEVEL','MTERM','ML','MT']
   iline += 1
   line = lines[iline]
@@ -187,7 +156,7 @@ def rAtom():
   output.append('{0}'.format(model))
   output.append('\n')
 
-  #  Number of levels, lines, photoionizations and depol. col.
+  #  Number of levels, lines, photoionizations, and depol. col.
   iline += 1
   line = lines[iline]
   dims = line.split()
@@ -331,13 +300,15 @@ def rAtom():
       output.append(line)
       output.append('\n')
 
-  # Transition lines
+  # Auxiliars for transitions
   bark = ['s','p','d','f']
   bardic = {'s':'0','p':'1','d':'2','f':'3'}
   broads = ['barklem','unsold','param']
   broads_dic = {'barklem':'0','unsold':'1','param':'2'}
   classe = ['e1','m1','e2','m2','un']
   classe_dic = {'e1':1,'m1':2,'e2':3,'m2':4,'un':5}
+
+  # Transitions
   nfor = 0
   for ii in range(dims[1]):
     iline += 1
@@ -497,7 +468,6 @@ def rAtom():
         num = float(cols[kk])
       output.append(' '.join(cols[0:3]))
       output.append('\n')
-#     output.append('1\n')
       output.append(broads_dic[cols[3]])
       output.append('\n')
       for jj in range(4,8):
@@ -505,7 +475,6 @@ def rAtom():
         output.append('\n')
       output.append(' '.join(cols[8:]))
       output.append('\n')
-# output[idim] += ' {0:14d}'.format(nfor)
 
   # Depolarizing collisions
   depcol = ['fit']
@@ -561,7 +530,7 @@ def rAtom():
         output.append(' '.join(cols))
         output.append('\n')
 
-  # Photoionization cross section
+  # Photoionization cross-section
   photo = ['hydrogenic','explicit']
   for ii in range(dims[2]):
     iline += 1

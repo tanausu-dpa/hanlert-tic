@@ -113,12 +113,11 @@ are required:
 * An MPI library with fortran support.
 * The cfitsio library to handle fits files (optional, only for fits support).
 * The lapack and blas libraries (or equivalents, such as Intel's mkl or openblas).
-* The OpenMP library if you choose to compile and run the code with OpenMP.
 
 .. note::
-   HanleRT-TIC has been mostly tested with the *gcc* compiler, *OpenMPI* version 4,
-   and *openblas*. Please, report about incompatibilities that you find with other
-   software combinations.
+   HanleRT-TIC has been mostly tested with the *gcc* compiler, and *openblas*.
+   Please, report about incompatibilities that you find with other software
+   combinations.
 
 .. warning::
    At the date of September 2024, the intel mpiifx compiler changes the behavior
@@ -241,8 +240,6 @@ simple as::
         all:
           compiler: [<system_compiler>]
 
-The user can add *openmp* to the list of *specs* if planning to compile the *OpenMP* [1]_ support.
-
 If using a compiler installed with *Spack*, the *yaml* file is slightly more complicated. First, we
 need the path to the compiler, e.g.::
 
@@ -358,5 +355,3 @@ directory to start the compilation. The objects and modules will be stored in th
    Run ``make clean`` in order to remove the compiled objects, modules, and
    excutable, or run ``make clean_obj`` to remove the compiled objects and
    modules.
-
-.. [1] While at some point there was support for OpenMP, significant structural changes have rendered the OpenMP inneficient at best (with PRD), and wrong at worst. Support for OpenMP will come back in a future version.

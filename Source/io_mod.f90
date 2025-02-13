@@ -5,128 +5,18 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     06/29/2022
+!     29/06/2022
 !  Last version:
-!     07/18/2024 V3.0.16
+!     11/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     07/18/2024:   V3.0.16 - Added logic to deal with the 1.5D
-!                             writing of the elastic rates (TdPA)
-!                           - Added subroutine check_qel_limit (TdPA)
-!
-!     03/01/2024:   V3.0.15 - Forgot to account for the inversion
-!                             result models when checking the velocity
-!                             and temperature extrema (TdPA)
-!
-!     02/23/2024:   V3.0.14 - Properly cycle if before the box in x
-!                             when checking limits (TdPA)
-!
-!     02/19/2024:   V3.0.13 - Added get_lims routine (TdPA)
-!
-!     02/14/2024:   V3.0.12 - Bugfix: Wrong label for 1.5D output file
-!                             for height of optical depth unity (TdPA)
-!
-!     11/24/2023:   V3.0.11 - Crash wrong cache dimensions (TdPA)
-!
-!     09/25/2023:   V3.0.10 - Change names for population and
-!                             departure coefficient files (TdPA)
-!
-!     08/25/2023:    V3.0.9 - Reverse the inversion ranges with
-!                             respect to the output ranges, as they
-!                             are expected to run in opposite
-!                             directions (TdPA)
-!
-!     08/08/2023:    V3.0.8 - Write in the cache file to initialize
-!                             only if it does not exists (TdPA)
-!
-!     07/03/2023:    V3.0.7 - Added get_atmo_type, open_atm,
-!                             get_dims_info, and prepare_lambda_limits
-!                             to manage part of the inversion input
-!                             and output (TdPA)
-!                           - Added the output inversion model as
-!                             readable format (TdPA)
-!
-!     04/25/2023:    V3.0.6 - Adapted the output in 1.5D synthesis to
-!                             the difference between Geom and GeomI
-!                             structures (TdPA)
-!
-!     03/21/2023:    V3.0.5 - Added missing GeomI argument to
-!                             create_io_files, as we now need to
-!                             distinguish GeomI from Geom (TdPA)
-!
-!     02/10/2022:    V3.0.4 - Added verbosity to indicate which
-!                             atmospheric file is being read (TdPA)
-!                           - Fixed typo in verbose message (TdPA)
-!                           - Added verbosity to indicate which
-!                             asymmetry file is being read (TdPA)
-!                           - Added number of bytes of data to the
-!                             header of the output atmosphere (TdPA)
-!
-!     11/24/2022:    V3.0.3 - Bugfix: Wrong variable when initializing
-!                             the tau file when there were limits
-!                             for the tau wavelengths (TdPA)
-!                           - Added set_io_CLE_buffers,
-!                             check_io_CLE_buffers_exist, and
-!                             create_io_CLE_files (TdPA)
-!
-!     10/25/2022:    V3.0.2 - Changes in open_atm_and_cache, get_dims,
-!                             and get_column due to additional options
-!                             in the atmospheric models and the CLE
-!                             case (TdPA)
-!                           - Added open_asymm to manage files with
-!                             ad-hoc radiation field tensors (TdPA)
-!                           - Added check_reasonable routine, which
-!                             used to be part of get_dims (TdPA)
-!                           - Added get_axes to retrieve axes in
-!                             the cartesian CLE case (TdPA)
-!                           - Added get_point to retrieve the
-!                             position in the non-cartesian CLE
-!                             case (TdPA)
-!                           - Added get_column_ion to retrieve the
-!                             ionization fraction from a file (TdPA)
-!                           - Removing unnecesary data from the tau
-!                             file and buffer (TdPA)
-!                           - Generalized set_io_buffers to allow
-!                             the quick switch off of the buffered
-!                             outputs if not cartesian model (TdPA)
-!
-!     07/08/2022:    V3.0.1 - Bugfix: The order of dimensions when
-!                             allocating cache was inverted (TdPA)
-!                           - Bugfix: Forgot to read the label of the
-!                             atmospheric model (TdPA)
-!                           - Bugfix: An additional verbose call was
-!                             needed in get_dims (TdPA)
-!                           - Bugfix: Typo (* instead of +) when
-!                             determining the size of outputs for
-!                             collisional rates  and damping parameter
-!                             when no limits are imposed (TdPA)
-!                           - Bugfix: When creating the output files,
-!                             change the writing depending on the
-!                             imposed limits for the spectral
-!                             quantities (TdPA)
-!                           - Bugfix: When creating the population
-!                             and departure coefficient files, there
-!                             was no case for atoms with two letters
-!                             in its atomic symbol (TdPA)
-!                           - Bugfix: Wrong size indicator in the
-!                             population and departure coefficient
-!                             files (TdPA)
-!                           - Added the horizontal dimensions to the
-!                             output files and updated the header
-!                             sizes (TdPA)
-!                           - Added a check to consider that there is
-!                             no cache if the cache is filled with
-!                             .False. (TdPA)
-!
-!     06/29/2022:    V3.0.0 - First version. Taken from the last
-!                             hanlert-15d (TdPA)
+!     11/12/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -136,123 +26,133 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    Manges MPI I/O for 1.5D solution of HanleRT
-!
 !  get_atmo_type:
-!    Return is the atmosphere is 3D and what type
+!    Determine to what format of model atmosphere corresponds to the
+!  specified file
 !
 !  open_atm:
-!    Opens the atmospheric model file
+!    Open the atmospheric model file and determine the success
 !
 !  open_atm_and_cache:
-!    Opens the atmospheric model file and the cache file if exists
+!    Open the atmospheric model file and the cache file if exists,
+!  and determine the success
 !
-!  open_asymm:
-!    Opens the ad-hoc radiation field file
+!  open_asymm
+!    Open the ad-hoc radiation field tensor file and determine the
+!  success
 !
-!  open_file:
-!    Manages the opening of any binary file
+!  open_file
+!    Open any binary file and determine success
 !
-!  close_file:
-!    Manages the closing of any binary file
+!  close_file
+!    Close the specified unit
 !
-!  get_dims:
-!    Reads three integers from a file that are expected to be the
-!  model dimensions
+!  get_dims
+!    Read three integers from a file that are expected to be the
+!  model dimensions and check that they are reasonable
 !
-!  get_dims_info:
-!    Get the dimensions and properties of a data file for inversion
+!  get_dims_info
+!    Read the dimension and the data properties in a data file for
+!  the inversion
 !
-!  check_reasonable:
-!    Check if a dimension has a reasonable size
+!  check_reasonable
+!    Check if a given integer is reasonable for being the size of a
+!  discretized axis
 !
-!  get_axes:
-!    Read cartesian CLE axes
+!  get_axes
+!    Read the cartesian axes of a model atmosphere for the CLE mode
 !
-!  get_point:
-!    Read non-cartesian CLE LOS axis
+!  get_point
+!    Read pixel data for a non-cartesian CLE model atmosphere
 !
-!  get_column:
-!    Read data to fill the specified buffer from an opened file
-!  (atmospheric model)
+!  get_column
+!    Read data from an opened file into the given buffer
 !
-!  get_lims:
-!    Check the temperature and velocity limits for an opened
-!  atmospheric model
+!  get_lims
+!    Check the temperature and velocity limits for an atmospheric
+!  model
 !
-!  get_column_ion:
-!    Read data to fill the specified buffer from an opened file
-!  (ionization fraction file)
+!  get_column_ion
+!    Read data about ionization in the given buffer after the
+!  specified offset
 !
-!  get_cache:
-!    Initialize cache array
+!  get_cache
+!    Read the cache from an existing cache file
 !
-!  start_cache:
+!  start_cache
 !    Initialize the cache file
 !
-!  write_cache:
-!    Writes into the cache file
+!  write_cache
+!    Write entry into the cache file
 !
-!  prepare_lambda_limits:
-!    Define the inputs to specify wavelength cuts in the synthesis
-!  output based on the available wavelengths in a inversion data
-!  file
+!  prepare_lambda_limits
+!    Allocate and setup the index limits in the wavelength dependent
+!  variables to cut the synthesis input based on the wavelengths in
+!  the inversion data
 !
-!  set_lambda_limit:
-!    Specifies the limits of what is going to be the 1.5D output
-!  for frequency dependent variables
+!  set_lambda_limit
+!    Specify the index limit to choose what to write in the output
+!  of a wavelength dependent variable
 !
-!  set_cols_limit:
-!    Specifies the limits of what is going to be the 1.5D output
-!  for collisions
+!  set_cols_limit
+!    Specify the buffer size to write in the output for collisions
 !
-!  set_damp_limit:
-!    Specifies the limits of what is going to be the 1.5D output
-!  for damping parameters
+!  set_damp_limit
+!    Specify the buffer size to write in the output for damping
+!  parameters
 !
-!  set_pop_limit:
-!    Specifies the limits of what is going to be the 1.5D output
-!  for populations and departure coefficients
+!  set_pop_limit
+!    Specify the buffer size to write in the output for populations
+!  and departure coefficients
 !
-!  set_io_buffers:
-!    Prepare the sizes needed to write later the 1.5D outputs
+!  set_io_buffers
+!    Setup buffer sizes and limits to write the output in 1.5D
+!  synthesis mode
 !
-!  check_cols_limit:
+!  check_cols_limit
 !    Checks that the specified limits for the collisional output
 !  comply with the atomic models
 !
-!  check_damp_limit:
-!    Checks that the specified limits for the damping output
+!  check_damp_limit
+!    Checks that the specified limits for the damping parameter output
 !  comply with the atomic models
 !
-!  check_qel_limit:
+!  check_qel_limit
 !    Checks that the specified limits for the elastic rates output
 !  comply with the atomic models
 !
-!  check_pop_limit:
+!  check_pop_limit
 !    Checks that the specified limits for the population output
 !  comply with the atomic models
 !
-!  check_io_buffers_sanity_check:
-!    Calls the check_*_limit routines in sequence to check that
+!  check_io_buffers_sanity_check
+!    Call the check_*_limit routines in sequence to check that
 !  the specified limits make sense for the actual atomic models
 !
-!  check_io_buffers_exists:
-!    Check if the output files exist already
+!  check_io_buffers_exist
+!    Check if the output files for the 1.5D synthesis already exist
 !
-!  create_io_files:
-!    Initialize the output files in 1.5D
+!  create_io_files
+!    Create the output files for the 1.5D synthesis and write their
+!  headers
 !
-!  set_io_CLE_buffers:
-!    Prepare the sizes needed to write later the CLE outputs
+!  set_io_CLE_buffers
+!    Setup buffer sizes and limits to write the output in CLE
+!  synthesis mode
 !
-!  check_io_CLE_buffers_exist:
-!    Check if the output files exist already for CLE
+!  check_io_CLE_buffers_exist
+!    Check if the output files for the CLE synthesis already exist
 !
 !  create_io_CLE_files:
-!    Initialize the output files in CLE
+!    Create the output files for the CLE synthesis and write their
+!  headers
 !
 !#####################################################################
 !#####################################################################
@@ -270,18 +170,26 @@
 !#####################################################################
 !#####################################################################
 
-      !> Return if the atmosphere is 3D\n
+      !> Determine to what format of model atmosphere corresponds to
+      !! the specified file\n
       !!  filename(character(500)): Filename\n
-      !!      atmoin_type(integer): Type of 3D model
+      !!      atmoin_type(integer): Type of model\n
+      !!                             1: 1.5D synthesis model\n
+      !!                             2: 1.5D inversion model\n
+      !!                            -1: Not a valid model
       subroutine get_atmo_type(filename,atmoin_type)
 
-      ! IO
+      ! I/O
+
       character(len=500), intent(in):: filename
       integer, intent(out):: atmoin_type
 
       ! Local
+
       character(len=4):: label
+
       logical:: check
+
       integer:: unitA
 
 
@@ -300,11 +208,13 @@
         ! Flag
         atmoin_type = 1
 
+      ! If inversion 3D
       else if (label.eq.'invo') then
 
         ! Flag
         atmoin_type = 2
 
+      ! None of the above
       else
 
         ! Flag
@@ -317,6 +227,7 @@
 
       return
 
+      ! Error
 1100  atmoin_type = -1
       return
 
@@ -326,19 +237,20 @@
 !#####################################################################
 !#####################################################################
 
-      !> Open atmospheric file. Return sucess\n
-      !!     Input(Input_class): Structure with settings data\n
-      !!      run_mode(integer): Running mode\n
-      !!         unitA(integer): Unit to open atmospheric model\n
-      !!      aborting(logical): Indicate failure at output\n
-      !!       dims(integer(:)): Grid dimensions (X,Y,Z)\n
-      !!          mode(integer): Type of atmospheric model\n
-      !!        double(logical): If data in double precision\n
-      !!          norm(integer): If normalized axis
-      subroutine open_atm(Input,run_mode,unitA,aborting,dims, &
-                          mode,double,norm)
+      !> Open the atmospheric model file and determine the success\n
+      !!  Input(Input_class): Structure with configuration data\n
+      !!   run_mode(integer): Mode of the run\n
+      !!      unitA(integer): Unit where to open atmospheric model\n
+      !!   aborting(logical): Indicate failure at output\n
+      !!    dims(integer(:)): Grid dimensions (X,Y,Z)\n
+      !!       mode(integer): Type of atmospheric model\n
+      !!     double(logical): If data in double precision\n
+      !!       norm(integer): If the geometrical axes are normalized
+      subroutine open_atm(Input,run_mode,unitA,aborting,dims,mode, &
+                          double,norm)
 
       ! I/O
+
       type(Input_class), intent(in):: Input
       logical, intent(out):: aborting,double
       integer, intent(in):: run_mode
@@ -346,7 +258,9 @@
       integer, dimension(:), intent(out):: dims
 
       ! Local
+
       logical:: check
+
 
       !
       ! Give unit a number
@@ -360,15 +274,23 @@
 
       ! Check could open
       if (.not.check) then
+
+        ! Flag error and return
         aborting = .True.
         return
+
       end if
 
       ! Get dimensions from atmosphere file
       call get_dims(unitA,run_mode,mode,double,norm,dims,check)
+
+      ! Check could read
       if (.not.check) then
+
+        ! Flag error and return
         aborting = .True.
         return
+
       end if
 
       ! Verbose
@@ -384,26 +306,26 @@
 !#####################################################################
 !#####################################################################
 
-      !> Open atmospheric file and cache file if present. Return
-      !! sucess and cache file usage\n
-      !!     Input(Input_class): Structure with settings data\n
-      !!      run_mode(integer): Running mode\n
-      !!         unitA(integer): Unit to open atmospheric model\n
-      !!         unitC(integer): Unit to open cache file\n
-      !!      aborting(logical): Indicate failure at output\n
-      !!       dims(integer(:)): Grid dimensions (X,Y,Z)\n
-      !!          mode(integer): Type of atmospheric model\n
-      !!        double(logical): If data in double precision\n
-      !!          norm(integer): If normalized axis\n
-      !!    cache(logical(:,:)): Data with the info of what columns
-      !!                         are already done\n
-      !!        lcache(logical): Indicate if there is a cache at
-      !!                         output
+      !> Open the atmospheric model file and the cache file if
+      !! exists, and determine the success\n
+      !!   Input(Input_class): Structure with configuration data\n
+      !!    run_mode(integer): Mode of the run\n
+      !!       unitA(integer): Unit where to open atmospheric model\n
+      !!       unitC(integer): Unit where to open cache\n
+      !!    aborting(logical): Indicate failure at output\n
+      !!     dims(integer(:)): Grid dimensions (X,Y,Z)\n
+      !!        mode(integer): Type of atmospheric model\n
+      !!      double(logical): If data in double precision\n
+      !!        norm(integer): If the geometrical axes are
+      !!                       normalized\n
+      !!  cache(logical(:,:)): Cache of already done columns\n
+      !!      lcache(logical): If there is a cache at output
       subroutine open_atm_and_cache(Input,run_mode,unitA,unitC, &
                                     aborting,dims,mode,double,norm, &
                                     cache,lcache)
 
       ! I/O
+
       type(Input_class), intent(in):: Input
       logical, intent(out):: aborting,lcache,double
       logical, dimension(:,:), allocatable, intent(out):: cache
@@ -412,14 +334,18 @@
       integer, dimension(:), intent(out):: dims
 
       ! Local
+
       logical:: check
+
 
       !
       ! Give units a number and order to open
       !
-      ! Unit of atmosphere
+
+      ! Unit of atmosphere file
       unitA = 16
-      ! Unit of cache
+
+      ! Unit of cache file
       unitC = 17
 
       !
@@ -429,15 +355,23 @@
 
       ! Check could open
       if (.not.check) then
+
+        ! Flag error and return
         aborting = .True.
         return
+
       end if
 
       ! Get dimensions from atmosphere file
       call get_dims(unitA,run_mode,mode,double,norm,dims,check)
+
+      ! Check could open
       if (.not.check) then
+
+        ! Flag error and return
         aborting = .True.
         return
+
       end if
 
       !
@@ -470,16 +404,30 @@
 
         end if
 
+        ! Check if valid cache
         lcache = check
 
-        ! Check if there is something actually done
+        ! If there is a cache file
         if (lcache) then
+
+          ! If nothing actually done, ignore cache
           if (.not.any(cache)) lcache = .False.
+
         end if
 
-        ! If there is no cache, no need to allocate it
-        if (.not.lcache) deallocate(cache)
+        ! If there is cache afterall
+        if (lcache) then
 
+          ! Count memory
+          MRAMc = MRAMc + 1d-6*sizeof(cache)
+
+        ! There is no cache
+        else
+
+          ! Free its space
+          deallocate(cache)
+
+        end if ! There is cache, actually
       endif ! If there is cache
 
       ! 1.5D
@@ -487,6 +435,8 @@
 
         ! Open or initialize cache
         call start_cache(unitC,Input%cache,dims(1:2),lcache,check)
+
+        ! Check success
         aborting = .not.check
 
       ! CLE
@@ -494,9 +444,11 @@
 
         ! Open or initialize cache
         call start_cache(unitC,Input%cache,dims(2:3),lcache,check)
+
+        ! Check success
         aborting = .not.check
 
-      end if
+      end if ! 1.5D or CLE
 
       ! Verbose
       write(umsg,'(A)') ' - Reading atmospheric file '// &
@@ -511,20 +463,23 @@
 !#####################################################################
 !#####################################################################
 
-      !> Open asymmetry JKQ file\n
-      !!     Input(Input_class): Structure with settings data\n
-      !!         unitJ(integer): Unit to open asymetry file\n
-      !!      aborting(logical): Indicate failure at output\n
-      !!       dims(integer(:)): Grid dimensions (X,Y,Z)
+      !> Open the ad-hoc radiation field tensor file and determine the
+      !! success\n
+      !!   Input(Input_class): Structure with configuration data\n
+      !!       unitH(integer): Unit where to open asymmetry\n
+      !!    aborting(logical): Indicate failure at output\n
+      !!     dims(integer(:)): Grid dimensions (X,Y,Z)
       subroutine open_asymm(Input,unitJ,aborting,dims)
 
       ! I/O
+
       type(Input_class), intent(in):: Input
       logical, intent(out):: aborting
       integer, intent(out):: unitJ
       integer, dimension(:), intent(in):: dims
 
       ! Local
+
       character(len=3):: label
 
       logical:: check
@@ -535,18 +490,22 @@
       !
       ! Give units a number and order to open
       !
-      ! Unit of atmosphere
+
+      ! Unit of JKQ asymmetry file
       unitJ = 18
 
       !
-      ! Open atmospheric file to read
+      ! Open file to read
       !
       call open_file(unitJ, Input%asym_fil(1)%str, 0, .False., check)
 
       ! Check could open
       if (.not.check) then
+
+        ! Flag error and return
         aborting = .True.
         return
+
       end if
 
       ! Read label
@@ -554,6 +513,8 @@
 
       ! Check label
       if (label.ne.'JKQ') then
+
+        ! Issue error
         urou = 'open_asymm'
         write(umsg,'(A)') ' # Wrong file identifier in '// &
                           'the asymmetry file, '// &
@@ -562,13 +523,16 @@
         call verbose
         aborting = .True.
         return
+
       end if
 
       ! Read precision
       read(unitJ, err=1100) prec
 
-      ! Check double
+      ! Check if not double
       if (prec.ne.8) then
+
+        ! Issue error
         urou = 'open_asymm'
         write(umsg,'(A)') ' # The asymmetry file only '// &
                           'admits double precision right '// &
@@ -576,14 +540,19 @@
         call verbose
         aborting = .True.
         return
+
       end if
 
       ! Read integers
       read(unitJ, err=1100) ldims(1:3)
 
-      ! Check dimensions
+      ! For each dimension
       do ii=1,3
+
+        ! Check if different size
         if (dims(ii).ne.ldims(ii)) then
+
+          ! Issue error
           urou = 'open_asymm'
           write(umsg,'(A,3(1x,i4),A,3(1x,i4),A)') &
                             ' # The asymmetry file has '// &
@@ -593,8 +562,10 @@
           call verbose
           aborting = .True.
           return
-        end if
-      end do
+
+        end if ! Different size
+
+      end do ! Dimensions
 
       ! Verbose
       write(umsg,'(A)') ' - Reading asymmetry file '// &
@@ -615,8 +586,8 @@
 !#####################################################################
 !#####################################################################
 
-      !> Opens a binary file.\n
-      !!     unit_index(integer): Index of the unit to open\n
+      !> Open any binary file and determine success\n
+      !!     unit_index(integer): Unit where to open the file\n
       !!  filename(character(:)): Name of the file to open\n
       !!     write_flag(integer): Specifies if it is opening for
       !!                          writing\n
@@ -626,29 +597,52 @@
                            check)
 
       ! I/O
+
       character(len=500), intent(in):: filename
       logical, intent(in):: append
       logical, intent(out):: check
       integer, intent(in):: unit_index, write_flag
 
       ! Local
+
       character(len=5), allocatable:: caction
       character(len=6), allocatable:: cpos
 
       integer:: ios
 
+
+      !
       ! Define caction and cpos
+      !
+
+      ! If not writing
       if (write_flag.eq.0) then
+
+        ! Action is read
         caction = 'read '
+
+        ! If appending
         if (append) then
+
+          ! Set append
           cpos = 'APPEND'
+
+        ! Otherwise
         else
+
+          ! Not appending
           cpos = 'ASIS  '
-        end if
+
+        end if ! Appending
+
+      ! Writing
       else
+
+        ! Set action
         caction = 'write'
         cpos = 'ASIS'
-      end if
+
+      end if ! Read or writing
 
       ! Open file
       open (unit_index, file=trim(filename), status='unknown', &
@@ -656,6 +650,7 @@
             action=trim(caction), form='unformatted', &
             position=trim(cpos))
 
+      ! If reached this, it was a success
       check = .True.
 
       return
@@ -672,13 +667,16 @@
 !#####################################################################
 !#####################################################################
 
-      !> Closes a file.\n
-      !!   unit_index(integer): Index of the unit to close
+      !> Close the specified unit\n
+      !!   unit_index(integer): Unit to close
       subroutine close_file(unit_index)
 
       ! I/O
+
       integer, intent(in):: unit_index
 
+
+      ! Close the unit
       close(unit_index)
 
       end subroutine close_file
@@ -687,28 +685,33 @@
 !#####################################################################
 !#####################################################################
 
-      !> Reads three integers from a file and check that they have
-      !! a reasonable size\n
-      !!  unit_index(integer): Index of the unit to read from\n
-      !!      run_mode(integer): Running mode\n
-      !!          mode(integer): Type of atmospheric model\n
-      !!        double(logical): If data in double precision\n
-      !!          norm(integer): If normalized axis\n
-      !!     dims(integer(:)): Dimensions in atmospheric file\n
+      !> Read three integers from a file that are expected to be the
+      !! model dimensions and check that they are reasonable\n
+      !!  unit_index(integer): Unit to read from\n
+      !!    run_mode(integer): Mode of the run\n
+      !!        mode(integer): Type of atmospheric model\n
+      !!      double(logical): If data in double precision\n
+      !!        norm(integer): If the geometrical axes are
+      !!                       normalized\n
+      !!     dims(integer(:)): Grid dimensions (X,Y,Z)\n
       !!       check(logical): Success flag
       subroutine get_dims(unit_index,run_mode,mode,double,norm,dims, &
                           check)
 
       ! I/O
+
       logical, intent(out):: check,double
       integer, intent(in):: unit_index,run_mode
       integer, intent(out):: mode,norm
       integer, dimension(:), intent(out):: dims
 
       ! Local
+
       character(len=3):: lavel
       character(len=4):: label
+
       integer:: prec
+
 
       ! 1.5D synthesis or inversion
       if (run_mode.eq.1.or.run_mode.eq.-1) then
@@ -718,6 +721,8 @@
 
         ! Check label
         if (label.ne.'2Dat'.and.label.ne.'invo') then
+
+          ! Issue error
           check = .False.
           urou = 'get_dims'
           write(umsg,'(A)') ' # Wrong file identifier in '// &
@@ -726,6 +731,7 @@
                             label//'"'
           call verbose
           return
+
         end if
 
         ! If 1.5DS model
@@ -733,6 +739,8 @@
 
           ! Read precision
           read(unit_index, err=1100) prec
+
+          ! Unused variables
           mode = -1
           norm = -1
 
@@ -745,26 +753,40 @@
           ! Force single precision
           prec = 4
 
+          ! Unused variable
+          norm = -1
+
         end if ! Type of input
 
         ! Check precision
         if (prec.ne.4.and.prec.ne.8) then
+
+          ! Issue error
           check = .False.
           urou = 'get_dims'
           write(umsg,'(A,i6)') ' # Precision must be 4 or 8 '// &
                                'and got ',prec
           call verbose
           return
+
         end if
 
-        ! Read integers
+        ! Read integers with sizes
         read(unit_index, err=1100) dims(1:3)
 
+        !
         ! Check dimensions
+        !
+
+        ! X
         call check_reasonable(dims(1),'NX',check)
         if (.not.check) return
+
+        ! Y
         call check_reasonable(dims(2),'NY',check)
         if (.not.check) return
+
+        ! Z
         call check_reasonable(dims(3),'NZ',check)
         if (.not.check) return
 
@@ -776,6 +798,8 @@
 
         ! Check label
         if (lavel.ne.'CLE') then
+
+          ! Issue error
           check = .False.
           urou = 'get_dims'
           write(umsg,'(A)') ' # Wrong file identifier in '// &
@@ -784,6 +808,7 @@
                             lavel//'"'
           call verbose
           return
+
         end if
 
         ! Read precision
@@ -791,12 +816,15 @@
 
         ! Check precision
         if (prec.ne.4.and.prec.ne.8) then
+
+          ! Issue error
           check = .False.
           urou = 'get_dims'
           write(umsg,'(A,i6)') ' # Precision must be 4 or 8 and '// &
                                'got ',prec
           call verbose
           return
+
         end if
 
         ! Read type of atmospheric file
@@ -813,11 +841,19 @@
           ! Read dimensions
           read(unit_index, err=1100) dims
 
+          !
           ! Check dimensions
+          !
+
+          ! X
           call check_reasonable(dims(1),'NX',check)
           if (.not.check) return
+
+          ! Y
           call check_reasonable(dims(2),'NY',check)
           if (.not.check) return
+
+          ! Z
           call check_reasonable(dims(3),'NZ',check)
           if (.not.check) return
 
@@ -830,10 +866,12 @@
 
           ! Get dimension
           read(unit_index,err=1100) dims(2)
+
+          ! Unused dimensions
           dims(1) = 1
           dims(3) = 1
 
-          ! Check dimensions
+          ! Check dimension
           call check_reasonable(dims(2),'NS',check)
           if (.not.check) return
 
@@ -846,24 +884,27 @@
 
           ! Get dimensions
           read(unit_index, err=1100) dims(2)
+
+          ! Unused variables
           dims(1) = 1
           dims(3) = 1
 
-          ! Check dimensions
+          ! Check dimension
           call check_reasonable(dims(2),'NL',check)
           if (.not.check) return
 
         ! No recognized mode
         else
 
+          ! Issue error
           check = .False.
           umsg = ' # Atmospheric model mode not recognized'
           call verbose
           return
 
-        end if
+        end if ! CLE model type
 
-      ! Unexpected
+      ! Unexpected running mode
       else
 
         ! Return failure
@@ -874,13 +915,15 @@
         call verbose
         return
 
-      end if
+      end if ! Running mode
 
-      ! Set double
+      ! Set double precision flag
       double = prec.eq.8
 
-      ! Success
+      ! Success if reached this
       check = .True.
+
+      ! Return
       return
 
 1100  check = .False.
@@ -896,14 +939,16 @@
 !#####################################################################
 !#####################################################################
 
-      !> Get dimensions and file info for inversion input file\n
-      !!  unit_index(integer): Index of the unit to read from\n
-      !!     dims(integer(:)): Dimensions in input file\n
-      !!    finfo(integer(:)): Additional information in input file\n
+      !> Read the dimension and the data properties in a data file for
+      !! the inversion\n
+      !!  unit_index(integer): Unit to read from\n
+      !!     dims(integer(:)): Dimensions in data file\n
+      !!    finfo(integer(:)): Input data information\n
       !!       check(logical): Success flag
       subroutine get_dims_info(unit_index,dims,finfo,check)
 
       ! I/O
+
       logical, intent(out):: check
       integer, intent(in):: unit_index
       integer, dimension(:), intent(out):: dims,finfo
@@ -911,11 +956,14 @@
       ! Local
       character(len=4):: label
 
+
       ! Read label
       read(unit_index, err=1100) label
 
       ! Check label
       if (label.ne.'invi') then
+
+        ! Issue error
         check = .False.
         urou = 'get_dims_info'
         write(umsg,'(A)') ' # Wrong file identifier in '// &
@@ -924,16 +972,25 @@
                           label//'"'
         call verbose
         return
+
       end if
 
       ! Read integers (nx,ny,nl)
       read(unit_index, err=1100) dims(1:3)
 
+      !
       ! Check dimensions
+      !
+
+      ! X
       call check_reasonable(dims(1),'NX',check)
       if (.not.check) return
+
+      ! Y
       call check_reasonable(dims(2),'NY',check)
       if (.not.check) return
+
+      ! Wavelength
       call check_reasonable(dims(3),'NL',check)
       if (.not.check) return
 
@@ -992,8 +1049,10 @@
 
       end if
 
-      ! Success
+      ! Success if reached this
       check = .True.
+
+      ! Return
       return
 
 1100  check = .False.
@@ -1009,42 +1068,64 @@
 !#####################################################################
 !#####################################################################
 
-      !> Check if an integer is a reasonable value for a dimension\n
-      !!         val(integer): Value of the integer\n
-      !!  label(character(2)): Axis name\n
+      !> Check if a given integer is reasonable for being the size of
+      !! a discretized axis\n
+      !!         val(integer): Value of the integer to evaluate\n
+      !!  label(character(2)): Axis name for verbosity\n
       !!       check(logical): Success flag
       subroutine check_reasonable(val,label,check)
 
       ! I/O
+
       character(len=2), intent(in):: label
       integer, intent(in):: val
       logical, intent(out):: check
 
       ! Local
+
       integer, parameter:: reason=10000
 
-      ! Wrong
+
+      ! Wrong because too small or too big
       if (val.lt.1.or.val.gt.reason) then
+
+        ! Issue error
         check = .False.
         urou = 'get_dims'
+
+        ! Inversion
         if (run_mode.eq.-1) then
+
+          ! Message
           umsg = ' # Dimension in the input inversion '// &
                  'file out of reasonable limits, probably '// &
                  'wrong file.'
+
+        ! Synthesis
         else
+
+          ! Message
           umsg = ' # Dimension in '// &
                  'the atmospheric file out of '// &
                  'reasonable limits, probably '// &
                  'wrong model.'
         end if
+
+        ! Verbose message
         call verbose
+
+        ! Complete message with wrong dimension
         write(umsg,'(A,A,A,1x,i6)') ' ',label,' =',val
         call verbose
+
+        ! Leave
         return
+
       end if
 
-      ! Correct
+      ! Correct if reached this
       check = .True.
+
       return
 
       end subroutine check_reasonable
@@ -1053,17 +1134,19 @@
 !#####################################################################
 !#####################################################################
 
-      !> Read cartesian axes\n
-      !!  unit_index(integer): Index of the unit to open\n
-      !!     dims(integer(:)): Sizes for axes\n
+      !> Read the cartesian axes of a model atmosphere for the CLE
+      !! mode\n
+      !!  unit_index(integer): Unit to read from\n
+      !!     dims(integer(:)): Grid dimensions (X,Y,Z)\n
       !!         x(double(:)): X axis\n
       !!         y(double(:)): Y axis\n
       !!         z(double(:)): Z axis\n
       !!      double(logical): If data in double precision\n
-      !!     reading(logical): Actually read axes
+      !!     reading(logical): If actually reading the axes
       subroutine get_axes(unit_index, dims, x, y, z, double, reading)
 
       ! I/O
+
       logical, intent(in):: reading,double
       integer, intent(in):: unit_index
       integer, dimension(3), intent(in):: dims
@@ -1071,36 +1154,62 @@
       double precision, dimension(:), allocatable, intent(out):: y
       double precision, dimension(:), allocatable, intent(out):: z
 
-      ! Reading buffers
+      ! Local
+
       real, dimension(:), allocatable:: xf
       real, dimension(:), allocatable:: yf
       real, dimension(:), allocatable:: zf
 
-      ! Allocate
-      allocate(x(dims(1)))
-      allocate(y(dims(2)))
-      allocate(z(dims(3)))
+      !
+      ! Allocate axes
+      !
 
-      ! Only the master should read
+      ! x
+      allocate(x(dims(1)))
+      MRAMc = MRAMc + 1d-6*sizeof(x)
+
+      ! y
+      allocate(y(dims(2)))
+      MRAMc = MRAMc + 1d-6*sizeof(y)
+
+      ! z
+      allocate(z(dims(3)))
+      MRAMc = MRAMc + 1d-6*sizeof(z)
+
+      ! If actually reading, only the master should have this
       if (reading) then
+
         ! If double precision
         if (double) then
+
+          ! Read directly into output variables
           read(unit_index, err=1100) x
           read(unit_index, err=1100) y
           read(unit_index, err=1100) z
+
         ! If single precision
         else
+
+          ! Allocate auxiliar reals
           allocate(xf(dims(1)))
           allocate(yf(dims(2)))
           allocate(zf(dims(3)))
+
+          ! Read reals
           read(unit_index, err=1100) xf
           read(unit_index, err=1100) yf
           read(unit_index, err=1100) zf
+
+          ! Convert ot double
           x = dble(xf)
           y = dble(yf)
           z = dble(zf)
-        end if
-      end if
+
+          ! Free
+          deallocate(xf,yf,zf)
+
+        end if ! Double precision
+      end if ! Actually reading
 
       return
 
@@ -1115,22 +1224,25 @@
 !#####################################################################
 !#####################################################################
 
-      !> Read point data for non-cartesian model\n
-      !!  unit_index(integer): Index of the unit to read from\n
+      !> Read pixel data for a non-cartesian CLE model atmosphere\n
+      !!  unit_index(integer): Unit to read from\n
       !!          nx(integer): X axis size\n
       !!            y(double): Y position\n
       !!            z(double): Z position\n
       !!      double(logical): If data in double precision
-      subroutine get_point(unit_index, nx, y, z, double)
+      subroutine get_point(unit_index,nx,y,z,double)
 
       ! I/O
+
       logical, intent(in):: double
       integer, intent(in):: unit_index
       integer, intent(out):: nx
       double precision, intent(out):: y,z
 
       ! Local
+
       real:: yf,zf
+
 
       !
       ! Read y and z coordinates
@@ -1138,15 +1250,23 @@
 
       ! If double precision
       if (double) then
+
+        ! Read directly into double
         read(unit_index, err=1100) y
         read(unit_index, err=1100) z
+
       ! If single
       else
+
+        ! Read into float
         read(unit_index, err=1100) yf
         read(unit_index, err=1100) zf
+
+        ! Transform into double
         y = dble(yf)
         z = dble(zf)
-      end if
+
+      end if ! Precision
 
       ! Read size of LOS axis
       read(unit_index, err=1100) nx
@@ -1164,33 +1284,49 @@
 !#####################################################################
 !#####################################################################
 
-      !> Reads a columns from the atmospheric model\n
-      !!  unit_index(integer): Index of the unit to read from\n
-      !!    buffer(double(:)): Buffer to store the data\n
+      !> Read data from an opened file into the given buffer\n
+      !!  unit_index(integer): Unit to read from\n
+      !!    buffer(double(:)): Buffer to read the data into\n
       !!      double(logical): If data in double precision\n
       !!       check(logical): Success flag
-      subroutine get_column(unit_index, buffer, double, check)
+      subroutine get_column(unit_index,buffer,double,check)
 
       ! I/O
+
       logical, intent(in):: double
       logical, intent(out):: check
       integer, intent(in):: unit_index
       double precision, dimension(:), intent(out):: buffer
 
       ! Local
+
       real, dimension(:), allocatable:: bufferr
 
 
       ! If double precision
       if (double) then
+
+        ! Read directly into buffer
         read(unit_index, err=1100) buffer
+
       ! If single precision
       else
-        allocate(bufferr(size(buffer)))
-        read(unit_index, err=1100) bufferr
-        buffer = dble(bufferr)
-      end if
 
+        ! Allocate float buffer
+        allocate(bufferr(size(buffer)))
+
+        ! Read into float buffer
+        read(unit_index, err=1100) bufferr
+
+        ! Convert to double precision
+        buffer = dble(bufferr)
+
+        ! Free float buffer
+        deallocate(bufferr)
+
+      end if ! Precision
+
+      ! Success
       check = .True.
 
       return
@@ -1207,23 +1343,28 @@
 !#####################################################################
 !#####################################################################
 
-      !> Get limits for temperature and velocity for a given model\n
-      !!     Input(Input_class): Structure with settings data\n
-      !!      run_mode(integer): Running mode\n
-      !!      aborting(logical): Indicate failure at output
+      !> Check the temperature and velocity limits for an atmospheric
+      !! model\n
+      !!  Input(Input_class): Structure with configuration data\n
+      !!   run_mode(integer): Mode of the run\n
+      !!   aborting(logical): Indicate failure at output
       subroutine get_lims(Input,run_mode,aborting)
 
       ! I/O
+
       type(Input_class), intent(inout):: Input
       logical, intent(out):: aborting
       integer, intent(in):: run_mode
 
       ! Local
+
       logical:: double,check,readx,readxy
+
       integer:: unitA,mode,norm,sizeA,jump,ix,iy,iz,i0,i1
       integer:: d0,di0,di1,it,iv
       integer, dimension(3):: dims
       integer, dimension(4):: sol_box
+
       double precision:: minT,maxT,maxV,lv,ycoor,zcoor
       double precision, dimension(:), allocatable:: x,y,z
       double precision, dimension(:), allocatable, target:: buffer
@@ -1234,333 +1375,369 @@
       !
       if (gpid.eq.0) then
 
-      ! Initialize good
-      aborting = .False.
+        ! Initialize good
+        aborting = .False.
 
-      ! Dummy loop
-      do while (.True.)
+        ! Dummy loop
+        do while (.True.)
 
-      !
-      ! Give unit a number
-      !
-      unitA = 16
+          !
+          ! Give unit a number (local scope)
+          !
+          unitA = 16
 
-      !
-      ! Open atmospheric file to read
-      !
-      call open_file(unitA, Input%atmo, 0, .False., check)
+          !
+          ! Open atmospheric file to read
+          !
+          call open_file(unitA, Input%atmo, 0, .False., check)
 
-      ! Check could open
-      if (.not.check) then
-        aborting = .True.
-        exit
-      end if
+          ! Check could open
+          if (.not.check) then
 
-      ! Get dimensions from atmosphere file
-      call get_dims(unitA,run_mode,mode,double,norm,dims,check)
-      if (.not.check) then
-        aborting = .True.
-        exit
-      end if
+            ! Issue error
+            aborting = .True.
+            exit
 
-      ! Initialize
-      minT = 1d299
-      maxT = -1d299
-      if (Input%static) then
-        maxV = 0d0
-      else
-        maxV = -1d299
-      end if
-      nullify(p_T,p_vx,p_vy,p_vz)
-
-      ! If 1.5D or inversion with 1.5D model
-      if (run_mode.eq.1.or.(run_mode.eq.-1.and.mode.lt.0)) then
-
-        ! Fix wildcards in input
-        if (run_mode.eq.1) then
-          sol_box = Input%sol_box
-          if (sol_box(1).lt.1) sol_box(1) = 1
-          if (sol_box(2).lt.1) sol_box(2) = dims(1)
-          if (sol_box(3).lt.1) sol_box(3) = 1
-          if (sol_box(4).lt.1) sol_box(4) = dims(2)
-        else
-          sol_box = (/ 1, dims(1), 1, dims(2) /)
-        end if
-
-        ! Allocate column buffer
-        sizeA = dims(3)*24
-        jump = sizeA*8
-        allocate(buffer(sizeA))
-
-        ! For each X
-        do ix=1,dims(1)
-
-          ! Aborting
-          if (aborting) exit
-
-          ! Read?
-          readx = ix.ge.sol_box(1).and.ix.le.sol_box(2)
-          if (ix.lt.sol_box(1)) then
-            call fseek(unitA,jump*dims(2),1)
-            cycle
           end if
-          if (ix.gt.sol_box(2)) exit
 
-          ! For each Y
-          do iy=1,dims(2)
+          ! Get dimensions from atmosphere file
+          call get_dims(unitA,run_mode,mode,double,norm,dims,check)
 
-            ! Read?
-            readxy = readx.and. &
-                     iy.ge.sol_box(3).and.iy.le.sol_box(4)
+          ! Check could read
+          if (.not.check) then
 
-            ! If reading
-            if (readxy) then
+            ! Issue error
+            aborting = .True.
+            exit
 
-              ! Get column
-              call get_column(unitA,buffer,double,check)
+          end if
 
-              ! Check could read
-              if (.not.check) then
-                aborting = .True.
-                exit
-              end if
+          ! Initialize limits
+          minT = 1d299
+          maxT = -1d299
+          if (Input%static) then
+            maxV = 0d0
+          else
+            maxV = -1d299
+          end if
 
-              ! Temperature
-              p_T => buffer(3*dims(3)+1:4*dims(3))
-              minT = min(minT,minval(p_T))
-              maxT = max(maxT,maxval(p_T))
+          ! Nullify pointers
+          nullify(p_T,p_vx,p_vy,p_vz)
 
-              ! Velocity
-              if (.not.Input%static) then
-                p_vx => buffer(9*dims(3)+1:10*dims(3))
-                p_vy => buffer(10*dims(3)+1:11*dims(3))
-                p_vz => buffer(11*dims(3)+1:12*dims(3))
-                maxV = max(maxV,maxval(sqrt(p_vx*p_vx + &
-                                            p_vy*p_vy + &
-                                            p_vz*p_vz)))
-              end if
+          ! If 1.5D or inversion with 1.5D model
+          if (run_mode.eq.1.or.(run_mode.eq.-1.and.mode.lt.0)) then
 
-            ! Not reading
+            ! If 1.5D synthesis
+            if (run_mode.eq.1) then
+
+              ! Get copy of solution box and fix wildcard indexes
+              sol_box = Input%sol_box
+              if (sol_box(1).lt.1) sol_box(1) = 1
+              if (sol_box(2).lt.1) sol_box(2) = dims(1)
+              if (sol_box(3).lt.1) sol_box(3) = 1
+              if (sol_box(4).lt.1) sol_box(4) = dims(2)
+
+            ! Otherwise
             else
 
-              ! Skip
-              call fseek(unitA,jump,1)
+              ! Set box from dimension
+              sol_box = (/ 1, dims(1), 1, dims(2) /)
+
+            end if ! Type of run
+
+            ! Allocate column buffer
+            sizeA = dims(3)*24
+            allocate(buffer(sizeA))
+
+            ! Specify amount to jump to skip columns
+            jump = sizeA*8
+
+            ! For each X
+            do ix=1,dims(1)
+
+              ! Check error
+              if (aborting) exit
+
+              ! Read?
+              readx = ix.ge.sol_box(1).and.ix.le.sol_box(2)
+
+              ! If below lower limit
+              if (ix.lt.sol_box(1)) then
+
+                ! Skip full line
+                call fseek(unitA,jump*dims(2),1)
+                cycle
+
+              end if ! Below X lower limit
+
+              ! If beyond limit, stop already
+              if (ix.gt.sol_box(2)) exit
+
+              ! For each Y
+              do iy=1,dims(2)
+
+                ! Read?
+                readxy = readx.and. &
+                         iy.ge.sol_box(3).and.iy.le.sol_box(4)
+
+                ! If reading
+                if (readxy) then
+
+                  ! Get column
+                  call get_column(unitA,buffer,double,check)
+
+                  ! Check could read
+                  if (.not.check) then
+
+                    ! Issue error
+                    aborting = .True.
+                    exit
+
+                  end if
+
+                  ! Point to temperature and check limit
+                  p_T => buffer(3*dims(3)+1:4*dims(3))
+                  minT = min(minT,minval(p_T))
+                  maxT = max(maxT,maxval(p_T))
+
+                  ! Non-static
+                  if (.not.Input%static) then
+
+                    ! Point to velocity and update limit
+                    p_vx => buffer(9*dims(3)+1:10*dims(3))
+                    p_vy => buffer(10*dims(3)+1:11*dims(3))
+                    p_vz => buffer(11*dims(3)+1:12*dims(3))
+                    maxV = max(maxV,maxval(sqrt(p_vx*p_vx + &
+                                                p_vy*p_vy + &
+                                                p_vz*p_vz)))
+                  end if
+
+                ! Not reading
+                else
+
+                  ! Skip column
+                  call fseek(unitA,jump,1)
+
+                end if ! Reasing column
+
+              end do ! Y
+            end do ! X
+
+          ! If inversion and previous solution
+          else if (run_mode.eq.-1) then
+
+            ! If jkq
+            if (mode.gt.7) then
+
+              ! Size atmosphere
+              sizeA = dims(3)*27 + 1
+
+            ! No jkq
+            else
+
+              ! Size atmosphere
+              sizeA = dims(3)*19 + 1
 
             end if
 
-          end do ! Y
-        end do ! X
+            ! Allocate column buffer
+            jump = sizeA*8
+            allocate(buffer(sizeA))
 
-      ! If inversion and previous solution
-      else if (run_mode.eq.-1) then
+            ! For each X
+            do ix=1,dims(1)
 
-        ! If jkq
-        if (mode.gt.7) then
+              ! For each Y
+              do iy=1,dims(2)
 
-          ! Size atmosphere
-          sizeA = dims(3)*27 + 1
+                ! Get column
+                call get_column(unitA,buffer,double,check)
 
-        ! No jkq
-        else
+                ! Check could read
+                if (.not.check) then
 
-          ! Size atmosphere
-          sizeA = dims(3)*19 + 1
+                  ! Issue error
+                  aborting = .True.
+                  exit
 
-        end if
+                end if
 
-        ! Allocate column buffer
-        jump = sizeA*8
-        allocate(buffer(sizeA))
+                ! Point to temperature and update limits
+                p_T => buffer(  dims(3)+1:2*dims(3))
+                minT = min(minT,minval(p_T))
+                maxT = max(maxT,maxval(p_T))
 
-        ! For each X
-        do ix=1,dims(1)
+                ! If non-static
+                if (.not.Input%static) then
 
-          ! For each Y
-          do iy=1,dims(2)
+                  ! Point to velocity and update limit
+                  p_vx => buffer(6*dims(3)+1:7*dims(3))
+                  p_vy => buffer(7*dims(3)+1:8*dims(3))
+                  p_vz => buffer(8*dims(3)+1:9*dims(3))
+                  maxV = max(maxV,maxval(sqrt(p_vx*p_vx + &
+                                              p_vy*p_vy + &
+                                              p_vz*p_vz)))
 
-            ! Get column
-            call get_column(unitA,buffer,double,check)
+                end if ! Non-static
 
-            ! Check could read
-            if (.not.check) then
-              aborting = .True.
-              exit
-            end if
+              end do ! Y
+            end do ! X
 
-            ! Temperature
-            p_T => buffer(  dims(3)+1:2*dims(3))
-            minT = min(minT,minval(p_T))
-            maxT = max(maxT,maxval(p_T))
+          ! If CLE
+          else if (run_mode.eq.2) then
 
-            ! Velocity
-            if (.not.Input%static) then
-              p_vx => buffer(6*dims(3)+1:7*dims(3))
-              p_vy => buffer(7*dims(3)+1:8*dims(3))
-              p_vz => buffer(8*dims(3)+1:9*dims(3))
-              maxV = max(maxV,maxval(sqrt(p_vx*p_vx + &
-                                          p_vy*p_vy + &
-                                          p_vz*p_vz)))
-            end if
+            ! If cartesian or slab
+            if (mode.eq.0.or.mode.eq.1) then
 
-          end do ! Y
-        end do ! X
+              ! Get axes if cartesian
+              if (mode.eq.0) &
+                call get_axes(unitA,dims,x,y,z,double,gpid.eq.0)
 
-      ! If CLE
-      else if (run_mode.eq.2) then
+              ! Size
+              sizeA = dims(1)*22
+              if (mode.eq.1) sizeA = sizeA + 3
 
-        ! If cartesian or slab
-        if (mode.eq.0.or.mode.eq.1) then
+              ! Cartesian
+              if (mode.eq.0) then
 
-          ! Get axes if cartesian
-          if (mode.eq.0) &
-            call get_axes(unitA,dims,x,y,z,double,gpid.eq.0)
+                ! Indexes for buffer call
+                d0 = dims(1)
+                di0 = 1
+                di1 = dims(1)
+                it = 1
+                iv = 7
 
-          ! Size
-          sizeA = dims(1)*22
-          if (mode.eq.1) sizeA = sizeA + 3
+              ! Slab
+              else
 
-          ! Cartesian
-          if (mode.eq.0) then
+                ! Indexes for buffer call
+                d0 = 1
+                di0 = 0
+                di1 = 0
+                it = 5
+                iv = 11
 
-            ! Indexes for buffer call
-            d0 = dims(1)
-            di0 = 1
-            di1 = dims(1)
-            it = 1
-            iv = 7
-
-          ! Slab
-          else
-
-            ! Indexes for buffer call
-            d0 = 1
-            di0 = 0
-            di1 = 0
-            it = 5
-            iv = 11
-
-          end if
-
-        ! If not cartesian
-        else if (mode.eq.2) then
-
-          ! Size
-          sizeA = dims(1)*23
-
-          ! Indexes for buffer call
-          d0 = dims(1)
-          di0 = 1
-          di1 = dims(1)
-          it = 2
-          iv = 8
-
-        end if
-
-        ! Allocate buffer
-        allocate(buffer(sizeA))
-
-        ! Static
-        if (Input%static) then
-
-          ! For each column
-          do iy=1,dims(2)
-
-            ! Aborting
-            if (aborting) exit
-
-            do iz=1,dims(3)
-
-              ! Not cartesian
-              if (mode.eq.2) &
-                call get_point(unitA,dims(1),ycoor,zcoor,double)
-
-              ! Get data
-              call get_column(unitA,buffer,double,check)
-
-              ! Check could read
-              if (.not.check) then
-                aborting = .True.
-                exit
               end if
 
-              ! For each point
-              do ix=1,dims(1)
+            ! If not cartesian
+            else if (mode.eq.2) then
 
-                ! Coordinate
-                i1 = di0*ix
+              ! Size
+              sizeA = dims(1)*23
 
-                ! Temperature
-                i0 = it*d0
-                minT = min(minT,buffer(i0+iz))
-                maxT = max(maxT,buffer(i0+iz))
+              ! Indexes for buffer call
+              d0 = dims(1)
+              di0 = 1
+              di1 = dims(1)
+              it = 2
+              iv = 8
 
+            end if
+
+            ! Allocate buffer
+            allocate(buffer(sizeA))
+
+            ! Static
+            if (Input%static) then
+
+              ! For each column
+              do iy=1,dims(2)
+
+                ! Aborting
+                if (aborting) exit
+
+                do iz=1,dims(3)
+
+                  ! Not cartesian
+                  if (mode.eq.2) &
+                    call get_point(unitA,dims(1),ycoor,zcoor,double)
+
+                  ! Get data
+                  call get_column(unitA,buffer,double,check)
+
+                  ! Check could read
+                  if (.not.check) then
+                    aborting = .True.
+                    exit
+                  end if
+
+                  ! For each point
+                  do ix=1,dims(1)
+
+                    ! Coordinate
+                    i1 = di0*ix
+
+                    ! Update temperature limits
+                    i0 = it*d0
+                    minT = min(minT,buffer(i0+iz))
+                    maxT = max(maxT,buffer(i0+iz))
+
+                  end do
+                end do
               end do
-            end do
-          end do
 
-        ! Not static
-        else
+            ! Not static
+            else
 
-          ! For each column
-          do iy=1,dims(2)
+              ! For each column
+              do iy=1,dims(2)
 
-            ! Aborting
-            if (aborting) exit
+                ! Aborting
+                if (aborting) exit
 
-            do iz=1,dims(3)
+                do iz=1,dims(3)
 
-              ! Not cartesian
-              if (mode.eq.2) &
-                call get_point(unitA,dims(1),ycoor,zcoor,double)
+                  ! Not cartesian
+                  if (mode.eq.2) &
+                    call get_point(unitA,dims(1),ycoor,zcoor,double)
 
-              ! Get data
-              call get_column(unitA,buffer,double,check)
+                  ! Get data
+                  call get_column(unitA,buffer,double,check)
 
-              ! Check could read
-              if (.not.check) then
-                aborting = .True.
-                exit
-              end if
+                  ! Check could read
+                  if (.not.check) then
+                    aborting = .True.
+                    exit
+                  end if
 
-              ! For each point
-              do ix=1,dims(1)
+                  ! For each point
+                  do ix=1,dims(1)
 
-                ! Coordinate
-                i1 = di0*ix
+                    ! Coordinate
+                    i1 = di0*ix
 
-                ! Temperature
-                i0 = it*d0
-                minT = min(minT,buffer(i0+iz))
-                maxT = max(maxT,buffer(i0+iz))
+                    ! Update temperature limits
+                    i0 = it*d0
+                    minT = min(minT,buffer(i0+iz))
+                    maxT = max(maxT,buffer(i0+iz))
 
-                ! Velocity
-                lv = 0d0
-                i0 = iv*d0
-                lv = lv + buffer(i0+iz)*buffer(i0+iz)
-                i0 = i0 + d0
-                lv = lv + buffer(i0+iz)*buffer(i0+iz)
-                i0 = i0 + d0
-                lv = lv + buffer(i0+iz)*buffer(i0+iz)
-                maxV = max(maxV,sqrt(lv))
+                    ! Update velocity limit
+                    lv = 0d0
+                    i0 = iv*d0
+                    lv = lv + buffer(i0+iz)*buffer(i0+iz)
+                    i0 = i0 + d0
+                    lv = lv + buffer(i0+iz)*buffer(i0+iz)
+                    i0 = i0 + d0
+                    lv = lv + buffer(i0+iz)*buffer(i0+iz)
+                    maxV = max(maxV,sqrt(lv))
 
+                  end do
+                end do
               end do
-            end do
-          end do
 
-        end if ! Static
-      end if ! 15D/CLE
+            end if ! Static
+          end if ! 15D/CLE
 
-      ! Dummy loop
-      exit
-      end do
+        ! Dummy loop
+        exit
+        end do
 
-      ! Close
-      call close_file(unitA)
+        ! Close
+        call close_file(unitA)
 
-      ! Clean
-      nullify(p_T,p_vx,p_vy,p_vz)
+        ! Clean
+        nullify(p_T,p_vx,p_vy,p_vz)
 
-      !!
       end if ! Master
 
       ! Master share status
@@ -1572,8 +1749,10 @@
       ! Minimun temperature
       if (Input%minT.lt.0d0) then
 
-        ! Update
+        ! Master update input
         if (gpid.eq.0) Input%minT = minT
+
+        ! Share
         call MPI_BCAST(Input%minT,1,MPI_DOUBLE_PRECISION, &
                        0,MPI_COMM_WORLD,ierr)
 
@@ -1582,8 +1761,10 @@
       ! Maximum temperature
       if (Input%maxT.lt.0d0) then
 
-        ! Update
+        ! Master update input
         if (gpid.eq.0) Input%maxT = maxT
+
+        ! Share
         call MPI_BCAST(Input%maxT,1,MPI_DOUBLE_PRECISION, &
                        0,MPI_COMM_WORLD,ierr)
 
@@ -1595,11 +1776,13 @@
         ! Just 0
         Input%maxV = 0d0
 
-      ! Not specific
+      ! Not explicitly static
       else if (Input%maxV.lt.0d0) then
 
-        ! Update
+        ! Master update
         if (gpid.eq.0) Input%maxV = maxV
+
+        ! Share
         call MPI_BCAST(Input%maxV,1,MPI_DOUBLE_PRECISION, &
                        0,MPI_COMM_WORLD,ierr)
 
@@ -1613,8 +1796,9 @@
 !#####################################################################
 !#####################################################################
 
-      !> Reads a columns for each ion file\n
-      !!  unit_index(integer(:)): Index of the units to read from\n
+      !> Read data about ionization in the given buffer after the
+      !! specified offset\n
+      !!  unit_index(integer(:)): Units to read from\n
       !!       buffer(double(:)): Buffer to store the data\n
       !!             nx(integer): Size of LOS axis\n
       !!         offset(integer): Positions already filled with the
@@ -1625,6 +1809,7 @@
                                 double,check)
 
       ! I/O
+
       logical, intent(in):: double
       logical, intent(out):: check
       integer, intent(in):: nx,offset
@@ -1632,30 +1817,49 @@
       double precision, dimension(:), intent(out):: buffer
 
       ! Local
+
       integer:: ion,i0,i1
+
       real, dimension(:), allocatable:: bufferr
 
-      ! Read first
+
+      ! Indexes to read into
       i0 = offset + 1
       i1 = offset + nx
 
-      ! If single, allocate buffer
+      ! If single precision, allocate float buffer
       if (.not.double) allocate(bufferr(nx))
 
       ! For each ion
       do ion=1,size(unit_index)
+
         ! Double
         if (double) then
+
+          ! Read directly into double
           read(unit_index(ion), err=1100) buffer(i0:i1)
+
         ! Single
         else
+
+          ! Read into float buffer
           read(unit_index(ion), err=1100) bufferr
+
+          ! Transform into double precision
           buffer(i0:i1) = dble(bufferr)
-        end if
+
+        end if ! Double precision
+
+        ! Shift position in buffer
         i0 = i0 + nx
         i1 = i1 + nx
-      end do
 
+      end do ! Ions we need to read
+
+      ! If single, deallocate float buffer
+      if (.not.double) deallocate(bufferr)
+
+      ! Success
       check = .True.
 
       return
@@ -1672,15 +1876,16 @@
 !#####################################################################
 !#####################################################################
 
-      !> Reads a cache file\n
-      !!     unit_index(integer): Index of the unit to open\n
+      !> Read the cache from an existing cache file\n
+      !!     unit_index(integer): Unit to read from\n
       !!  filename(character(:)): Name of the file to open\n
-      !!        dims(integer(:)): Dimensions in atmospheric file\n
-      !!     cache(logical(:,:)): Column solved cache\n
+      !!        dims(integer(:)): Grid dimensions (X,Y,Z)\n
+      !!     cache(logical(:,:)): Cache of already done columns\n
       !!          check(logical): Success flag
       subroutine get_cache(unit_index, filename, dims, cache, check)
 
       ! I/O
+
       character(len=500), intent(in):: filename
       logical, intent(out):: check
       logical, dimension(:,:), intent(inout):: cache
@@ -1688,26 +1893,39 @@
       integer, dimension(:), intent(in):: dims
 
       ! Local
+
       character(len=5):: label
 
       integer:: ios,buffer,ix,iy
       integer, dimension(2):: ldims
 
-      ! Initialize flag
+
+      ! Initialize success flag
       check = .False.
 
+      ! Open file
       open (unit_index, file=trim(filename), status='unknown', &
             iostat=ios, err=1000, access='stream', action='read', &
             form='unformatted')
 
+      ! Read label
       read(unit_index,err=1100,end=1100) label
 
+      ! Wrong label
       if (label.ne.'cache') then
+
+        ! Issue error
         umsg = ' # Cache file has wrong label'
         call verbose
+        goto 1100
+
+      ! Correct label
       else
+
+        ! Verbose
         umsg = ' # Read cache file: '//trim(filename)
         call verbose
+
       end if
 
       ! Read dimensions in cache
@@ -1715,24 +1933,31 @@
 
       ! Check dimensions
       if (ldims(1).ne.dims(1).or.ldims(2).ne.dims(2)) then
+
+        ! Issue error
         umsg = ' # Cache file has wrong dimensions'
         call verbose
         goto 1100
+
       end if
 
+      ! Success if got here
       check = .True.
 
       ! Read cache
       do ix=1,dims(1)
         do iy=1,dims(2)
 
+          ! Read data and stop if failure to do so
           read(unit_index,err=1100,end=1100) buffer
 
+          ! Transform to bool
           cache(iy,ix) = buffer.gt.0
 
-        end do
-      end do
+        end do ! Y
+      end do ! X
 
+      ! Close unit and leave
 1100  close(unit_index)
 1000  return
 
@@ -1742,16 +1967,16 @@
 !#####################################################################
 !#####################################################################
 
-      !> Prepares the cache for writing\n
-      !!     unit_index(integer): Index of the unit to open\n
+      !> Initialize the cache file\n
+      !!     unit_index(integer): Unit where to open the file\n
       !!  filename(character(:)): Name of the file to open\n
-      !!        dims(integer(:)): Dimensions in atmospheric file\n
+      !!        dims(integer(:)): Grid dimensions (X,Y,Z)\n
       !!         lcache(logical): If cache exists\n
       !!          check(logical): Success flag
-      subroutine start_cache(unit_index, filename, dims, lcache, &
-                             check)
+      subroutine start_cache(unit_index,filename,dims,lcache,check)
 
       ! I/O
+
       character(len=500), intent(in):: filename
       logical, intent(in):: lcache
       logical, intent(out):: check
@@ -1759,18 +1984,27 @@
       integer, dimension(:), intent(in):: dims
 
       ! Local
+
       character(len=6), allocatable:: cpos
 
       integer:: ios,ic,NC
 
-      ! Initialize flag
+
+      ! Initialize success flag
       check = .False.
 
       ! Define cpos
       if (lcache) then
+
+        ! If the cache exists, we are appending
         cpos = 'APPEND'
+
+      ! If cache does not exist
       else
+
+        ! We are initializing
         cpos = 'ASIS  '
+
       end if
 
       ! Open file
@@ -1778,22 +2012,32 @@
             iostat=ios, err=1000, access='stream', action='write', &
             form='unformatted',position=trim(cpos))
 
-      ! If file does not exist, write header
+      ! If file does not exist
       if (.not.lcache) then
 
+        ! Write header
         write(unit_index,err=1000) 'cache'
         write(unit_index,err=1000) dims(1:2)
 
         ! Initialize full file
         NC = dims(1)*dims(2)
+
+        ! For all columns
         do ic=1,NC
+
+          ! Write 0
           write(unit_index,err=1000) 0
-        end do
+
+        end do ! Columns
 
       end if ! File does not exist
 
+      ! Success
       check = .True.
+
+      ! Close unit
       close(unit_index)
+
       return
 
 1000  umsg = ' # Error initializing cache file'
@@ -1806,24 +2050,27 @@
 !#####################################################################
 !#####################################################################
 
-      !> Writes entry in cache\n
-      !!     unit_index(integer): Index of the unit to write\n
+      !> Write entry into the cache file\n
+      !!     unit_index(integer): Unit to write to\n
       !!  filename(character(:)): Name of the file to open\n
-      !!    register(integer(2)): Coordinates of column and result\n
+      !!    register(integer(:)): Coordinates of column and result\n
       !!          cache(integer): Status of solution\n
       !!          check(logical): Success flag
-      subroutine write_cache(unit_index, filename, register, check)
+      subroutine write_cache(unit_index,filename,register,check)
 
       ! I/O
+
       character(len=500), intent(in):: filename
       logical, intent(out):: check
       integer, intent(in):: unit_index
       integer, dimension(:), intent(in):: register
 
       ! Local
+
       integer:: ios,offset,whence
 
-      ! Initialize flag
+
+      ! Initialize success flag
       check = .False.
 
       ! Open file
@@ -1832,16 +2079,22 @@
             form='unformatted',position='APPEND')
 
       ! Seek position in file
-
       offset = 13 + (register(1)-1)*4
       whence = 0
       call fseek(unit_index, offset, whence, ios)
+
+      ! Check error
       if (ios.ne.0) goto 1000
 
+      ! Write result
       write(unit_index,err=1000) register(3)
 
+      ! Success if here
       check = .True.
+
+      ! Close
       close(unit_index)
+
       return
 
 1000  umsg = ' # Error writing in cache file'
@@ -1853,29 +2106,42 @@
 !#####################################################################
 !#####################################################################
 
-      !> Allocate and set-up the limiters for the output with
-      !! wavelength depencence\n
-      !!       Input(Input_class): Structure with settings data\n
-      !! Inf_Stokes(Stokes_class): Structure with the Stokes data\n
-      !!         omega(double(:)): Observation wavelength axis
+      !> Allocate and setup the index limits in the wavelength
+      !! dependent variables to cut the synthesis input based on the
+      !! wavelengths in the inversion data\n
+      !!        Input(Input_class): Structure with configuration
+      !!                            data\n
+      !!  Inf_Stokes(Stokes_class): Structure with inversion Stokes
+      !!                            parameters data\n
+      !!          omega(double(:)): Wavelength axis in the observation
       subroutine prepare_lambda_limits(Input,Inf_Stokes,omega)
 
       ! I/O
+
       type(Input_class), intent(inout):: Input
       type(Stokes_class), intent(inout):: Inf_Stokes
       double precision, dimension(:), intent(in):: omega
 
       ! Local
+
       integer:: iran,jran
 
-      ! Allocate Stokes ranges
-      Input%lim_stk%nran = Inf_Stokes%Num_Range
-      allocate(Input%lim_stk%doub(2,Input%lim_stk%nran))
 
+      ! Copy number of ranges in data
+      Input%lim_stk%nran = Inf_Stokes%Num_Range
+
+      ! Allocate Stokes ranges
+      allocate(Input%lim_stk%doub(2,Input%lim_stk%nran))
+      MRAMc = MRAMc + 1d-6*sizeof(Input%lim_stk%doub)
+
+      !
       ! Set-up Stokes ranges
+      !
+
+      ! For each range
       do iran=1,Input%lim_stk%nran
 
-        ! Ranges are usually reversed
+        ! Ranges are usually reversed, so get correct index
         jran = Input%lim_stk%nran - iran + 1
 
         ! Get from input axis
@@ -1884,19 +2150,26 @@
         Input%lim_stk%doub(2,jran) = &
                                    1d2/omega(Inf_Stokes%Range(iran,1))
 
-      end do
+      end do ! Ranges
 
       ! Output tau
       if (Input%out_tau1) then
 
-        ! Allocate Tau ranges
+        ! Copy number of ranges in data
         Input%lim_tau%nran = Inf_Stokes%Num_Range
-        allocate(Input%lim_tau%doub(2,Input%lim_tau%nran))
 
+        ! Allocate Tau ranges
+        allocate(Input%lim_tau%doub(2,Input%lim_tau%nran))
+        MRAMc = MRAMc + 1d-6*sizeof(Input%lim_tau%doub)
+
+        !
         ! Set-up Stokes ranges
+        !
+
+        ! For each range
         do iran=1,Input%lim_tau%nran
 
-          ! Ranges are usually reversed
+          ! Ranges are usually reversed, so get correct index
           jran = Input%lim_stk%nran - iran + 1
 
           ! Get from input axis
@@ -1905,21 +2178,28 @@
           Input%lim_tau%doub(2,jran) = &
                                    1d2/omega(Inf_Stokes%Range(iran,1))
 
-        end do
+        end do ! Ranges
 
       end if ! Output tau
 
-      ! Output contribution
+      ! Output contribution function
       if (Input%out_contr) then
 
-        ! Allocate Tau ranges
+        ! Copy number of ranges in data
         Input%lim_ctr%nran = Inf_Stokes%Num_Range
-        allocate(Input%lim_ctr%doub(2,Input%lim_ctr%nran))
 
+        ! Allocate contribution function ranges
+        allocate(Input%lim_ctr%doub(2,Input%lim_ctr%nran))
+        MRAMc = MRAMc + 1d-6*sizeof(Input%lim_ctr%doub)
+
+        !
         ! Set-up Stokes ranges
+        !
+
+        ! For each range
         do iran=1,Input%lim_ctr%nran
 
-          ! Ranges are usually reversed
+          ! Ranges are usually reversed, so get correct index
           jran = Input%lim_stk%nran - iran + 1
 
           ! Get from input axis
@@ -1928,9 +2208,9 @@
           Input%lim_ctr%doub(2,jran) = &
                                    1d2/omega(Inf_Stokes%Range(iran,1))
 
-        end do
+        end do ! Ranges
 
-      end if ! Output contribution
+      end if ! Output contribution function
 
       end subroutine prepare_lambda_limits
 
@@ -1938,49 +2218,62 @@
 !#####################################################################
 !#####################################################################
 
-      !> Prepare the data needed for MPI write in 1.5D and initialize
-      !! files (frequency dependent)\n
-      !!   buff(IO_helper_class): Structure with IO data\n
-      !!   Frec(Frequency_class): Structure with frequency data
+      !> Specify the index limit to choose what to write in the output
+      !! of a wavelength dependent variable\n
+      !!  buff(IO_helper_class): Structure with IO limit data\n
+      !!  Frec(Frequency_class): Structure with frequency data
       subroutine set_lambda_limit(buff,Frec)
 
       ! I/O
+
       type(Frequency_class), intent(in):: Frec
       type(IO_helper_class), intent(inout):: buff
 
       ! Local
+
       integer:: iran
 
-      ! If specified
+
+      ! If limits specified
       if (buff%nran.gt.0) then
 
         ! Allocate indexes limits and range size
         allocate(buff%indx(2,buff%nran))
+        MRAMc = MRAMc + 1d-6*sizeof(buff%indx)
         allocate(buff%nbuff(buff%nran))
+        MRAMc = MRAMc + 1d-6*sizeof(buff%nbuff)
 
         ! Initialize size
         buff%nn = 0
 
         ! Look for indexes in each range
         do iran=1,buff%nran
+
+          ! Check location of closest frequencies
           buff%indx(1,iran) = minloc(abs(Frec%omega - &
                                          buff%doub(1,iran)),1)
           buff%indx(2,iran) = minloc(abs(Frec%omega - &
                                          buff%doub(2,iran)),1)
+
+          ! Get size of this range
           buff%nbuff(iran) = buff%indx(2,iran) - buff%indx(1,iran) + 1
+
+          ! Get cumulative size
           buff%nn = buff%nn + buff%nbuff(iran)
-        end do
+
+        end do ! Ranges
 
         ! Deallocate doubles
+        MRAMc = MRAMc - 1d-6*sizeof(buff%doub)
         deallocate(buff%doub)
 
       ! Not specified
       else
 
-        ! Just the full range
+        ! Just write the full range
         buff%nn = nfreq
 
-      end if
+      end if ! Specified limits
 
       end subroutine set_lambda_limit
 
@@ -1988,20 +2281,27 @@
 !#####################################################################
 !#####################################################################
 
-      !> Prepare the data needed for MPI write in 1.5D and initialize
-      !! files (collisions)\n
+      !> Specify the buffer size to write in the output for
+      !! collisions\n
       !!  buff1(IO_helper_class): Structure with IO data\n
       !!  buff2(IO_helper_class): Structure with IO data\n
       !!        Atom(Atom_class): Structure with the atomic data
       subroutine set_cols_limit(buff1,buff2,Atom)
 
       ! I/O
+
       type(Atom_class), dimension(:), intent(in):: Atom
       type(IO_helper_class), intent(inout):: buff1
       type(IO_helper_class), intent(inout):: buff2
 
       ! Local
+
       integer:: ia
+
+
+      !
+      ! First set (term to term)
+      !
 
       ! If specified
       if (buff1%nran.gt.0) then
@@ -2017,11 +2317,17 @@
 
         ! For each atom
         do ia=1,na
-          ! Add to size
-          buff1%nn = buff1%nn + Atom(ia)%nMulti*Atom(ia)%nMulti
-        end do
 
-      end if
+          ! Add everything to size
+          buff1%nn = buff1%nn + Atom(ia)%nMulti*Atom(ia)%nMulti
+
+        end do ! Atoms
+
+      end if ! Specified
+
+      !
+      ! Second set (level to level)
+      !
 
       ! If specified
       if (buff2%nran.gt.0) then
@@ -2037,11 +2343,13 @@
 
         ! For each atom
         do ia=1,na
-          ! Add to size
-          buff2%nn = buff2%nn + Atom(ia)%nlevel*Atom(ia)%nlevel
-        end do
 
-      end if
+          ! Add everything to size
+          buff2%nn = buff2%nn + Atom(ia)%nlevel*Atom(ia)%nlevel
+
+        end do ! Atoms
+
+      end if ! Specified
 
       end subroutine set_cols_limit
 
@@ -2049,18 +2357,21 @@
 !#####################################################################
 !#####################################################################
 
-      !> Prepare the data needed for MPI write in 1.5D and initialize
-      !! files (damping parameter)\n
+      !> Specify the buffer size to write in the output for damping
+      !! parameters\n
       !!  buff(IO_helper_class): Structure with IO data\n
       !!       Atom(Atom_class): Structure with the atomic data
       subroutine set_damp_limit(buff,Atom)
 
       ! I/O
+
       type(Atom_class), dimension(:), intent(in):: Atom
       type(IO_helper_class), intent(inout):: buff
 
       ! Local
+
       integer:: ia
+
 
       ! If specified
       if (buff%nran.gt.0) then
@@ -2076,11 +2387,13 @@
 
         ! For each atom
         do ia=1,na
-          ! Add to size
-          buff%nn = buff%nn + Atom(ia)%ntran
-        end do
 
-      end if
+          ! Add everythingto size
+          buff%nn = buff%nn + Atom(ia)%ntran
+
+        end do ! Atoms
+
+      end if ! Specified
 
       end subroutine set_damp_limit
 
@@ -2088,8 +2401,8 @@
 !#####################################################################
 !#####################################################################
 
-      !> Prepare the data needed for MPI write in 1.5D and initialize
-      !! files (population and departure coefficient)\n
+      !> Specify the buffer size to write in the output for
+      !! populations and departure coefficients\n
       !!  buff(IO_helper_class): Structure with IO data\n
       !!       Atom(Atom_class): Structure with the atomic data
       subroutine set_pop_limit(buff,Atom)
@@ -2103,6 +2416,9 @@
 
       ! Allocate buffer per atom
       allocate(buff%nbuff(nA))
+      MRAMc = MRAMc + 1d-6*sizeof(buff%nbuff)
+
+      ! Initialize size
       buff%nbuff = 0
 
       ! If specified
@@ -2114,23 +2430,25 @@
           ! For each range
           do iran=1,buff%nran
 
-            ! If coincide
+            ! If atom coincide coincide, add
             if (ia.eq.buff%indx(1,iran)) &
               buff%nbuff(ia) = buff%nbuff(ia) + 1
 
-          end do
-        end do
+          end do ! Range
+        end do ! Atoms
 
       ! Not specified
       else
 
         ! For each atom
         do ia=1,na
-          ! Add to size
-          buff%nbuff(ia) = Atom(ia)%nlevel
-        end do
 
-      end if
+          ! Add everything to size
+          buff%nbuff(ia) = Atom(ia)%nlevel
+
+        end do ! Atoms
+
+      end if ! Specified
 
       end subroutine set_pop_limit
 
@@ -2138,15 +2456,16 @@
 !#####################################################################
 !#####################################################################
 
-      !> Prepare the data needed for MPI write in 1.5D and initialize
-      !! files\n
-      !!      Input(Input_class): Structure with settings data\n
-      !!           mode(integer): Type of atmospheric model\n
-      !!        Atom(Atom_class): Structure with the atomic data\n
-      !!   Frec(Frequency_class): Structure with frequency data
+      !> Setup buffer sizes and limits to write the output in 1.5D
+      !! synthesis mode\n
+      !!     Input(Input_class): Structure with configuration data\n
+      !!          mode(integer): Type of atmospheric model\n
+      !!    Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Frec(Frequency_class): Structure with frequency data
       subroutine set_io_buffers(Input,mode,Atom,Frec)
 
       ! I/O
+
       type(Atom_class), dimension(:), intent(in):: Atom
       type(Frequency_class), intent(in):: Frec
       type(Input_class), intent(inout):: Input
@@ -2179,8 +2498,10 @@
 
       end if
 
-      ! If mode is not cartesian, skip
+      ! If mode is not cartesian
       if (mode.ne.0) then
+
+        ! Skip rest
         Input%out_contr = .False.
         Input%keep_cols = .False.
         Input%keep_damp = .False.
@@ -2190,11 +2511,12 @@
         Input%keep_dep = .False.
         Input%keep_atmo = .False.
         return
+
       end if
 
 
       !
-      ! Contribution
+      ! Contribution function
       !
       if (Input%out_contr) then
 
@@ -2226,11 +2548,11 @@
 
 
       !
-      ! Damping
+      ! Damping parameter
       !
       if (Input%keep_damp) then
 
-        ! Set collision limits
+        ! Set damping parameter limits
         call set_damp_limit(Input%lim_damp,Atom)
 
         ! Header and buffer sizes
@@ -2245,7 +2567,7 @@
       !
       if (Input%keep_qel) then
 
-        ! Set collision limits
+        ! Set elastic rates limits
         call set_damp_limit(Input%lim_qel,Atom)
 
         ! Header and buffer sizes
@@ -2298,10 +2620,11 @@
 !#####################################################################
 !#####################################################################
 
-      !> Check the limits on the 1.5D output (collisions)\n
+      !> Checks that the specified limits for the collisional output
+      !! comply with the atomic models\n
       !!  buff1(IO_helper_class): Structure with IO data\n
       !!  buff2(IO_helper_class): Structure with IO data\n
-      !!        Atom(Atom_class): Structure with the atomic data
+      !!     Atom(Atom_class(:)): Structures with atomic data
       subroutine check_cols_limit(buff1,buff2,Atom)
 
       ! I/O
@@ -2310,7 +2633,13 @@
       type(IO_helper_class), intent(inout):: buff2
 
       ! Local
+
       integer:: ia,i1,i2,iran
+
+
+      !
+      ! Term-term collisions
+      !
 
       ! If specified
       if (buff1%nran.gt.0) then
@@ -2325,27 +2654,37 @@
 
           ! Check atom
           if (ia.gt.nA) then
+
+            ! Error
             umsg = 'You have specified an atomic index to '//&
                    'output term to term collisions larger '//&
                    'than the number of atoms'
             urou = 'check_cols_limit'
             call aborted
             return
+
           end if
 
           ! Check terms
           if (i1.gt.Atom(ia)%nmulti.or.i2.gt.Atom(ia)%nmulti) then
+
+            ! Error
             umsg = 'You have specified a term index to '//&
                    'output term to term collisions larger '//&
                    'than the number of terms in the atom'
             urou = 'check_cols_limit'
             call aborted
             return
+
           end if
 
-        end do
+        end do ! Atoms
 
       end if
+
+      !
+      ! Level-level collisions
+      !
 
       ! If specified
       if (buff2%nran.gt.0) then
@@ -2360,27 +2699,33 @@
 
           ! Check atom
           if (ia.gt.nA) then
+
+            ! Error
             umsg = 'You have specified an atomic index to '//&
                    'output level to level collisions larger '//&
                    'than the number of atoms'
             urou = 'check_cols_limit'
             call aborted
             return
+
           end if
 
-          ! Check terms
+          ! Check level
           if (i1.gt.Atom(ia)%nlevel.or.i2.gt.Atom(ia)%nlevel) then
+
+            ! Error
             umsg = 'You have specified a level index to '//&
                    'output level to level collisions larger '//&
                    'than the number of levels in the atom'
             urou = 'check_cols_limit'
             call aborted
             return
+
           end if
 
-        end do
+        end do ! Atoms
 
-      end if
+      end if ! Specified limits
 
       end subroutine check_cols_limit
 
@@ -2388,16 +2733,19 @@
 !#####################################################################
 !#####################################################################
 
-      !> Check the limits on the 1.5D output (damping parameter)\n
+      !> Checks that the specified limits for the damping parameter
+      !! output comply with the atomic models\n
       !!  buff(IO_helper_class): Structure with IO data\n
-      !!       Atom(Atom_class): Structure with the atomic data
+      !!    Atom(Atom_class(:)): Structures with atomic data
       subroutine check_damp_limit(buff,Atom)
 
       ! I/O
+
       type(Atom_class), dimension(:), intent(in):: Atom
       type(IO_helper_class), intent(inout):: buff
 
       ! Local
+
       integer:: ia,iran,it
 
 
@@ -2413,27 +2761,33 @@
 
           ! Check atom
           if (ia.gt.nA) then
+
+            ! Issue error
             umsg = 'You have specified an atomic index to '//&
                    'output damping parameter larger '//&
                    'than the number of atoms'
             urou = 'check_damp_limit'
             call aborted
             return
+
           end if
 
           ! Check terms
           if (it.gt.Atom(ia)%ntran) then
+
+            ! Issue error
             umsg = 'You have specified a transition index to '//&
                    'output damping parameter larger '//&
                    'than the number of transitions in the atom'
             urou = 'check_damp_limit'
             call aborted
             return
+
           end if
 
-        end do
+        end do ! Atoms
 
-      end if
+      end if ! Specified limits
 
       end subroutine check_damp_limit
 
@@ -2441,16 +2795,19 @@
 !#####################################################################
 !#####################################################################
 
-      !> Check the limits on the 1.5D output (elastic rates)\n
+      !> Checks that the specified limits for the elastic rates output
+      !! comply with the atomic models\n
       !!  buff(IO_helper_class): Structure with IO data\n
-      !!       Atom(Atom_class): Structure with the atomic data
+      !!    Atom(Atom_class(:)): Structures with atomic data
       subroutine check_qel_limit(buff,Atom)
 
       ! I/O
+
       type(Atom_class), dimension(:), intent(in):: Atom
       type(IO_helper_class), intent(inout):: buff
 
       ! Local
+
       integer:: ia,iran,it
 
 
@@ -2466,27 +2823,33 @@
 
           ! Check atom
           if (ia.gt.nA) then
+
+            ! Issue error
             umsg = 'You have specified an atomic index to '//&
                    'output elastic rates larger '//&
                    'than the number of atoms'
             urou = 'check_qel_limit'
             call aborted
             return
+
           end if
 
           ! Check terms
           if (it.gt.Atom(ia)%ntran) then
+
+            ! Issue error
             umsg = 'You have specified a transition index to '//&
                    'output elastic rates larger '//&
                    'than the number of transitions in the atom'
             urou = 'check_qel_limit'
             call aborted
             return
+
           end if
 
-        end do
+        end do ! Atoms
 
-      end if
+      end if ! Specified limits
 
       end subroutine check_qel_limit
 
@@ -2494,18 +2857,21 @@
 !#####################################################################
 !#####################################################################
 
-      !> Check the limits on the 1.5D output (population and departure
-      !! coefficients)\n
+      !> Checks that the specified limits for the population output
+      !! comply with the atomic models\n
       !!  buff(IO_helper_class): Structure with IO data\n
-      !!       Atom(Atom_class): Structure with the atomic data
+      !!    Atom(Atom_class(:)): Structures with atomic data
       subroutine check_pop_limit(buff,Atom)
 
       ! I/O
+
       type(Atom_class), dimension(:), intent(in):: Atom
       type(IO_helper_class), intent(inout):: buff
 
       ! Local
+
       integer:: iran,ia,il
+
 
       ! If specified
       if (buff%nran.gt.0) then
@@ -2519,27 +2885,33 @@
 
           ! Check atom
           if (ia.gt.nA) then
+
+            ! Issue error
             umsg = 'You have specified an atomic index to '//&
                    'output populations larger '//&
                    'than the number of atoms'
             urou = 'check_pop_limit'
             call aborted
             return
+
           end if
 
-          ! Check terms
+          ! Check levels
           if (il.gt.Atom(ia)%nlevel) then
+
+            ! Issue error
             umsg = 'You have specified a level index to '//&
                    'output populations larger '//&
                    'than the number of levels in the atom'
             urou = 'check_pop_limit'
             call aborted
             return
+
           end if
 
-        end do
+        end do ! Atoms
 
-      end if
+      end if ! Specified limits
 
       end subroutine check_pop_limit
 
@@ -2547,13 +2919,16 @@
 !#####################################################################
 !#####################################################################
 
-      !> Sanity check the specified 1.5D outputs\n
-      !!      Input(Input_class): Structure with settings data\n
-      !!        Atom(Atom_class): Structure with the atomic data\n
-      !!   Frec(Frequency_class): Structure with frequency data
+      !> Call the check_*_limit routines in sequence to check that
+      !! the specified limits make sense for the actual atomic
+      !! models\n
+      !!     Input(Input_class): Structure with configuration data\n
+      !!    Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Frec(Frequency_class): Structure with frequency data
       subroutine check_io_buffers_sanity_check(Input,Atom)
 
       ! I/O
+
       type(Atom_class), dimension(:), intent(in):: Atom
       type(Input_class), intent(inout):: Input
 
@@ -2562,7 +2937,8 @@
       if (Input%keep_cols) &
         call check_cols_limit(Input%lim_cols_tt, &
                               Input%lim_cols_ll,Atom)
-      ! Damping
+
+      ! Damping parameter
       if (Input%keep_damp) call check_damp_limit(Input%lim_damp,Atom)
 
       ! Elastic rates
@@ -2578,51 +2954,51 @@
 !#####################################################################
 !#####################################################################
 
-      !> Inquiry existing files\n
-      !!    Input(Input_class): Structure with settings data\n
-      !!      Atom(Atom_class): Structure with the atomic data\n
-      !!  Geom(Geometry_class): Structure with geometry data\n
-      !!     aborting(logical): Signals if something goes wrong
+      !> Check if the output files for the 1.5D synthesis already
+      !! exist\n
+      !!    Input(Input_class): Structure with configuration data\n
+      !!   Atom(Atom_class(:)): Structures with the atomic data\n
+      !!  Geom(Geometry_class): Structure with geometric data\n
+      !!     aborting(logical): If something goes wrong
       subroutine check_io_buffers_exist(Input,Atom,Geom,aborting)
 
       ! I/O
+
       type(Atom_class), dimension(:), intent(in):: Atom
       type(Geometry_class), intent(in):: Geom
       type(Input_class), intent(inout):: Input
       logical, intent(out):: aborting
 
       ! Local
+
       character(len=4):: cth,cph
       integer:: ith,iph,ios,ia
+
 
       ! Initialize
       aborting = .False.
 
       !
-      ! Stokes, Contribution, Tau
+      ! Stokes, Contribution, and Tau
       !
 
-      ! Polar directions
+      ! For each LOS polar direction
       do ith=1,Geom%nThLOS
 
-        !
         ! Convert the integers into appropriate length strings
-        !
         if (ith.lt.1000.and.ith.ge.100) write(cth,'(i3)') ith
         if (ith.lt.100 .and.ith.ge.10 ) write(cth,'(i2)') ith
         if (ith.lt.10  .and.ith.ge.0  ) write(cth,'(i1)') ith
 
-        ! Azimuths
+        ! For each LOS azimuth
         do iph=1,Geom%nPhLOS
 
-          !
           ! Convert the integers into appropriate length strings
-          !
           if (iph.lt.1000.and.iph.ge.100) write(cph,'(i3)') iph
           if (iph.lt.100 .and.iph.ge.10 ) write(cph,'(i2)') iph
           if (iph.lt.10  .and.iph.ge.0  ) write(cph,'(i1)') iph
 
-          ! Intensity calc.
+          ! If intensity calc.
           if (Input%force.eq.'I') then
 
             ! Try opening Stokes
@@ -2631,7 +3007,7 @@
                   iostat=ios, access='stream', action='read', &
                   form='unformatted')
 
-          ! Polarization calc.
+          ! If polarization calc.
           else
 
             ! Try opening Stokes
@@ -2640,14 +3016,17 @@
                   iostat=ios, access='stream', action='read', &
                   form='unformatted')
 
-          end if
+          end if ! Intensity or polarization
 
           ! If could not open
           if (ios.ne.0) then
+
+            ! Issue error
             umsg = 'There is no existing Stokes files'
             call verbose
             aborting = .True.
             return
+
           end if
 
           ! Close
@@ -2664,17 +3043,20 @@
 
             ! If could not open
             if (ios.ne.0) then
+
+              ! Issue error
               umsg = 'There is no existing contribution '// &
                      'function files'
               call verbose
               aborting = .True.
               return
+
             end if
 
             ! Close
             close(200)
 
-          end if
+          end if ! Contribution function output
 
           ! If tau output
           if (Input%out_tau1) then
@@ -2687,16 +3069,19 @@
 
             ! If could not open
             if (ios.ne.0) then
+
+              ! Issue error
               umsg = 'There is no existing tau_1 files'
               call verbose
               aborting = .True.
               return
+
             end if
 
             ! Close
             close(200)
 
-          end if
+          end if ! Tau output
 
         end do ! Azimuth (LOS)
       end do ! Polar (LOS)
@@ -2704,60 +3089,69 @@
       ! If storing collisions
       if (Input%keep_cols) then
 
-        ! Try opening collisions file
+        ! Try opening collisions file term-term
         open (200,file=trim(Input%folder)//'/cols-TT', status='old', &
               iostat=ios, access='stream', action='read', &
               form='unformatted')
 
         ! If could not open
         if (ios.ne.0) then
+
+          ! Issue error
           umsg = 'There is no existing cols-TT file'
           call verbose
           aborting = .True.
           return
+
         end if
 
         ! Close
         close(200)
 
-        ! Try opening collisions file
+        ! Try opening collisions file level-level
         open (200,file=trim(Input%folder)//'/cols-LL', status='old', &
               iostat=ios, access='stream', action='read', &
               form='unformatted')
 
         ! If could not open
         if (ios.ne.0) then
+
+          ! Issue error
           umsg = 'There is no existing cols-LL file'
           call verbose
           aborting = .True.
           return
+
         end if
 
         ! Close
         close(200)
 
-      end if
+      end if ! Storing collisions
 
-      ! If storing damping
+      ! If storing damping parameter
       if (Input%keep_damp) then
 
-        ! Try opening damping file
+        ! Try opening damping parameter file
         open (200,file=trim(Input%folder)//'/damping', status='old', &
               iostat=ios, access='stream', action='read', &
               form='unformatted')
 
         ! If could not open
         if (ios.ne.0) then
+
+          ! Issue error
           umsg = 'There is no existing damping file'
           call verbose
           aborting = .True.
           return
+
         end if
 
         ! Close
         close(200)
 
-      end if
+      end if ! Storing damping parameter
 
       ! If storing elastic rates
       if (Input%keep_qel) then
@@ -2769,16 +3163,19 @@
 
         ! If could not open
         if (ios.ne.0) then
+
+          ! Issue error
           umsg = 'There is no existing elastic rates file'
           call verbose
           aborting = .True.
           return
+
         end if
 
         ! Close
         close(200)
 
-      end if
+      end if ! Storing elastic rates
 
       ! If storing background
       if (Input%keep_back) then
@@ -2790,16 +3187,19 @@
 
         ! If could not open
         if (ios.ne.0) then
+
+          ! Issue error
           umsg = 'There is no existing background file'
           call verbose
           aborting = .True.
           return
+
         end if
 
         ! Close
         close(200)
 
-      end if
+      end if ! Storing background quantities
 
       ! If storing populations or departure coeff.
       if (Input%keep_pop.or.Input%keep_dep) then
@@ -2821,16 +3221,19 @@
 
             ! If could not open
             if (ios.ne.0) then
+
+              ! Issue error
               umsg = 'There is no existing population file'
               call verbose
               aborting = .True.
               return
+
             end if
 
             ! Close
             close(200)
 
-          end if
+          end if ! Storing population
 
           ! If storing dep
           if (Input%keep_dep) then
@@ -2843,21 +3246,24 @@
 
             ! If could not open
             if (ios.ne.0) then
+
+              ! Issue error
               umsg = 'There is no existing departura coefficient '//&
                      'file'
               call verbose
               aborting = .True.
               return
+
             end if
 
             ! Close
             close(200)
 
-          end if
+          end if ! Storing departure coefficient
 
         end do ! Atoms
 
-      end if
+      end if ! Storing population or departure coefficient
 
       ! If storing atmosphere
       if (Input%keep_atmo) then
@@ -2869,6 +3275,8 @@
 
         ! If could not open
         if (ios.ne.0) then
+
+          ! Issue error
           umsg = 'There is no existing atmosphere file'
           call verbose
           aborting = .True.
@@ -2878,7 +3286,7 @@
         ! Close
         close(200)
 
-      end if
+      end if ! Storing atmosphere
 
       ! If storing MRC
       if (Input%keep_MRC) then
@@ -2890,16 +3298,19 @@
 
         ! If could not open
         if (ios.ne.0) then
+
+          ! Issue error
           umsg = 'There is no existing MRC file'
           call verbose
           aborting = .True.
           return
+
         end if
 
         ! Close
         close(200)
 
-      end if
+      end if ! Storing atmosphere
 
       end subroutine check_io_buffers_exist
 
@@ -2907,17 +3318,19 @@
 !#####################################################################
 !#####################################################################
 
-      !> Create the files so the slaves can write later\n
-      !!      Input(Input_class): Structure with settings data\n
-      !!        Atom(Atom_class): Structure with the atomic data\n
-      !!        dims(integer(:)): Dimensions in atmospheric file\n
-      !!  Geom(Geometry_class): Structure with geometry data\n
-      !! GeomI(Geometry_class): Structure with geometry data for the
-      !!                        intensity problem\n
-      !!   Frec(Frequency_class): Structure with frequency data
+      !> Create the output files for the 1.5D synthesis and write
+      !! their headers\n
+      !!     Input(Input_class): Structure with configuration data\n
+      !!    Atom(Atom_class(:)): Structures with atomic data\n
+      !!       dims(integer(:)): Grid dimensions (X,Y,Z)\n
+      !!   Geom(Geometry_class): Structure with geometric data\n
+      !!  GeomI(Geometry_class): Structure with geometric data for the
+      !!                         intensity problem\n
+      !!  Frec(Frequency_class): Structure with frequency data
       subroutine create_io_files(Input,Atom,dims,Geom,GeomI,Frec)
 
       ! I/O
+
       type(Atom_class), dimension(:), intent(in):: Atom
       type(Frequency_class), intent(in):: Frec
       type(Geometry_class), intent(in):: Geom, GeomI
@@ -2925,21 +3338,29 @@
       integer, dimension(:), intent(in):: dims
 
       ! Local
+
       character(len=4):: cth,cph
+
       integer:: ith,iph,ios,ia,iran,nThLOS,nPhLOS
+
       double precision, dimension(:), allocatable:: Tlos, PLos
 
 
-      ! If intensity
+      ! If intensity only
       if (Input%force.eq.'I') then
 
-        ! Get from GeomI
+        ! Get number of LOS directions from GeomI
         nThLOS = GeomI%nThLOS
         nPhLOS = GeomI%nPhLOS
+
+        ! If more than zero
         if (nThLOS.gt.0) then
+
+          ! Allocate space and copy
           allocate(Tlos(nThLOS),Plos(nPhLOS))
           Tlos = GeomI%L_theta
           Plos = GeomI%L_phi
+
         end if
 
       ! If polarization
@@ -2948,10 +3369,15 @@
         ! Get from Geom
         nThLOS = Geom%nThLOS
         nPhLOS = Geom%nPhLOS
+
+        ! If more than zero
         if (nThLOS.gt.0) then
+
+          ! Allocate space and copy
           allocate(Tlos(nThLOS),Plos(nPhLOS))
           Tlos = Geom%L_theta
           Plos = Geom%L_phi
+
         end if
 
       end if ! intensity or polarization
@@ -2961,22 +3387,18 @@
       ! Stokes, Contribution, Tau
       !
 
-      ! Polar directions
+      ! For each polar LOS direction
       do ith=1,nThLOS
 
-        !
         ! Convert the integers into appropriate length strings
-        !
         if (ith.lt.1000.and.ith.ge.100) write(cth,'(i3)') ith
         if (ith.lt.100 .and.ith.ge.10 ) write(cth,'(i2)') ith
         if (ith.lt.10  .and.ith.ge.0  ) write(cth,'(i1)') ith
 
-        ! Azimuths
+        ! For each azimuths LOS direction
         do iph=1,nPhLOS
 
-          !
           ! Convert the integers into appropriate length strings
-          !
           if (iph.lt.1000.and.iph.ge.100) write(cph,'(i3)') iph
           if (iph.lt.100 .and.iph.ge.10 ) write(cph,'(i2)') iph
           if (iph.lt.10  .and.iph.ge.0  ) write(cph,'(i1)') iph
@@ -2984,7 +3406,7 @@
           ! Intensity calc.
           if (Input%force.eq.'I') then
 
-            ! Open Stokes
+            ! Open intensity file
             open (200,file=trim(Input%folder)//'/StokesI_'//&
                   trim(cth)//'_'//trim(cph), status='unknown', &
                   iostat=ios, access='stream', action='write', &
@@ -2999,7 +3421,7 @@
                   iostat=ios, access='stream', action='write', &
                   form='unformatted')
 
-          end if
+          end if ! Intensity/polarization
 
           ! Write header
           write(200) '2Dbe'
@@ -3007,14 +3429,26 @@
           write(200) dims(1:2)
           write(200) Tlos(ith)*180d0/PI
           write(200) Plos(iph)*180d0/PI
+
+          ! If specified ranges
           if (Input%lim_stk%nran.gt.0) then
+
+            ! For each range
             do iran=1,Input%lim_stk%nran
+
+              ! Write relevant frequencies
               write(200) Frec%omega(Input%lim_stk%indx(1,iran): &
                                     Input%lim_stk%indx(2,iran))
-            end do
+
+            end do ! Ranges
+
+          ! Full range
           else
+
+            ! Write frequency
             write(200) Frec%omega
-          end if
+
+          end if ! Specified ranges
 
           ! Close
           close(200)
@@ -3034,14 +3468,25 @@
             write(200) dims
             write(200) Tlos(ith)*180d0/PI
             write(200) Plos(iph)*180d0/PI
+
+            ! If specified ranges
             if (Input%lim_ctr%nran.gt.0) then
+
+              ! For each range
               do iran=1,Input%lim_ctr%nran
+
+                ! Write relevant frequencies
                 write(200) Frec%omega(Input%lim_ctr%indx(1,iran): &
                                       Input%lim_ctr%indx(2,iran))
-              end do
+              end do ! Ranges
+
+            ! Full range
             else
+
+              ! Write frequency
               write(200) Frec%omega
-            end if
+
+            end if ! Specified ranges
 
             ! Close
             close(200)
@@ -3063,19 +3508,30 @@
             write(200) dims(1:2)
             write(200) Tlos(ith)*180d0/PI
             write(200) Plos(iph)*180d0/PI
+
+            ! If specified ranges
             if (Input%lim_tau%nran.gt.0) then
+
+              ! For each range
               do iran=1,Input%lim_tau%nran
+
+                ! Write relevant frequencies
                 write(200) Frec%omega(Input%lim_tau%indx(1,iran): &
                                       Input%lim_tau%indx(2,iran))
-              end do
+              end do ! Ranges
+
+            ! Full range
             else
+
+              ! Write frequency
               write(200) Frec%omega
-            end if
+
+            end if ! Specified ranges
 
             ! Close
             close(200)
 
-          end if
+          end if ! Output tau
 
         end do ! Azimuth (LOS)
       end do ! Polar (LOS)
@@ -3086,7 +3542,7 @@
       !
       if (Input%keep_cols) then
 
-        ! Open collisions file
+        ! Open collisions file term-term
         open (200,file=trim(Input%folder)//'/cols-TT', &
               status='unknown', iostat=ios, access='stream', &
               action='write', form='unformatted')
@@ -3100,7 +3556,7 @@
         ! Close
         close(200)
 
-        ! Open collisions file
+        ! Open collisions file level-level
         open (200,file=trim(Input%folder)//'/cols-LL', &
               status='unknown', iostat=ios, access='stream', &
               action='write', form='unformatted')
@@ -3114,15 +3570,15 @@
         ! Close
         close(200)
 
-      end if
+      end if ! Output collisions
 
 
       !
-      ! Damping
+      ! Damping parameter
       !
       if (Input%keep_damp) then
 
-        ! Open damping file
+        ! Open damping parameter file
         open (200,file=trim(Input%folder)//'/damping', &
               status='unknown', iostat=ios, access='stream', &
               action='write', form='unformatted')
@@ -3136,7 +3592,7 @@
         ! Close
         close(200)
 
-      end if
+      end if ! Output damping parameter
 
 
       !
@@ -3158,7 +3614,7 @@
         ! Close
         close(200)
 
-      end if
+      end if ! Output elastic rates
 
 
       !
@@ -3176,19 +3632,30 @@
         write(200) dims
         write(200) Input%lim_back%nn
         write(200) 1
+
+        ! If specified ranges
         if (Input%lim_back%nran.gt.0) then
+
+          ! For each range
           do iran=1,Input%lim_back%nran
+
+            ! Write relevant frequencies
             write(200) Frec%omega(Input%lim_back%indx(1,iran): &
                                   Input%lim_back%indx(2,iran))
-          end do
+          end do ! Ranges
+
+        ! Full range
         else
+
+          ! Write frequency
           write(200) Frec%omega
-        end if
+
+        end if ! Specified ranges
 
         ! Close
         close(200)
 
-      end if
+      end if ! Output background quantities
 
 
       !
@@ -3216,9 +3683,9 @@
           ! Close
           close(200)
 
-        end do
+        end do ! Atoms
 
-      end if
+      end if ! Output populations
 
 
       !
@@ -3246,9 +3713,10 @@
           ! Close
           close(200)
 
-        end do
+        end do ! Atoms
 
-      end if
+      end if ! Output departure coefficients
+
 
       !
       ! Atmosphere
@@ -3268,7 +3736,8 @@
         ! Close
         close(200)
 
-      end if
+      end if ! Output atmosphere
+
 
       !
       ! MRC
@@ -3287,7 +3756,7 @@
         ! Close
         close(200)
 
-      end if
+      end if ! Output MRC
 
       ! Free
       if (allocated(Tlos)) deallocate(Tlos,Plos)
@@ -3298,18 +3767,21 @@
 !#####################################################################
 !#####################################################################
 
-      !> Prepare the data needed for MPI write in CLE\n
-      !!      Input(Input_class): Structure with settings data\n
-      !!           mode(integer): Type of atmospheric model\n
-      !!        dims(integer(:)): Dimensions in atmospheric file\n
-      !!   Frec(Frequency_class): Structure with frequency data
+      !> Setup buffer sizes and limits to write the output in CLE
+      !! synthesis mode\n
+      !!     Input(Input_class): Structure with configuration data\n
+      !!          mode(integer): Type of atmospheric model\n
+      !!       dims(integer(:)): Grid dimensions (X,Y,Z)\n
+      !!  Frec(Frequency_class): Structure with frequency data
       subroutine set_io_CLE_buffers(Input,mode,dims,Frec)
 
       ! I/O
+
       type(Frequency_class), intent(in):: Frec
       type(Input_class), intent(inout):: Input
       integer, intent(in):: mode
       integer, dimension(3), intent(in):: dims
+
 
       !
       ! Stokes
@@ -3328,12 +3800,14 @@
       ! Cartesian
       if (mode.eq.0) then
 
+        ! Header and column size
         Input%lim_stk%head_size = 20 + Input%lim_stk%nn*8
         Input%lim_stk%geom_size = (dims(2) + dims(3))*8
 
       ! Slab or non-cartesian
       else if (mode.eq.1.or.mode.eq.2) then
 
+        ! Header and column size
         Input%lim_stk%head_size = 16 + Input%lim_stk%nn*8
         Input%lim_stk%geom_size = dims(2)*16
 
@@ -3345,23 +3819,27 @@
 !#####################################################################
 !#####################################################################
 
-      !> Inquiry existing CLE files\n
-      !!    Input(Input_class): Structure with settings data\n
+      !> Check if the output files for the CLE synthesis already
+      !! exist\n
+      !!    Input(Input_class): Structure with configuration data\n
       !!     aborting(logical): Signals if something goes wrong
       subroutine check_io_CLE_buffers_exist(Input,aborting)
 
       ! I/O
+
       type(Input_class), intent(inout):: Input
       logical, intent(out):: aborting
 
       ! Local
+
       integer:: ios
+
 
       ! Initialize
       aborting = .False.
 
       !
-      ! Stokes, Tau
+      ! Stokes
       !
 
       ! Try opening Stokes
@@ -3371,16 +3849,21 @@
 
       ! If could not open
       if (ios.ne.0) then
+
+        ! Issue error
         umsg = 'There is no existing Stokes files'
         call verbose
         aborting = .True.
         return
+
       end if
 
       ! Close
       close(200)
 
-      ! If tau output
+      !
+      ! Tau output
+      !
       if (Input%out_tau1) then
 
         ! Try opening tau
@@ -3390,10 +3873,13 @@
 
         ! If could not open
         if (ios.ne.0) then
+
+          ! Issue error
           umsg = 'There is no existing tau_1 files'
           call verbose
           aborting = .True.
           return
+
         end if
 
         ! Close
@@ -3407,16 +3893,18 @@
 !#####################################################################
 !#####################################################################
 
-      !> Create the CLE files so the slaves can write later\n
-      !!      Input(Input_class): Structure with settings data\n
-      !!           mode(integer): Type of atmospheric model\n
-      !!            y(double(:)): Y axis\n
-      !!            z(double(:)): Z axis\n
-      !!        dims(integer(:)): Dimensions in atmospheric file\n
-      !!   Frec(Frequency_class): Structure with frequency data
+      !> Create the output files for the CLE synthesis and write their
+      !! headers\n
+      !!     Input(Input_class): Structure with configuration data\n
+      !!          mode(integer): Type of atmospheric model\n
+      !!           y(double(:)): Y axis\n
+      !!           z(double(:)): Z axis\n
+      !!       dims(integer(:)): Grid dimensions (X,Y,Z)\n
+      !!  Frec(Frequency_class): Structure with frequency data
       subroutine create_io_CLE_files(Input,mode,y,z,dims,Frec)
 
       ! I/O
+
       type(Frequency_class), intent(in):: Frec
       type(Input_class), intent(inout):: Input
       integer, intent(in):: mode
@@ -3424,10 +3912,12 @@
       double precision, dimension(:), intent(in):: y,z
 
       ! Local
+
       integer:: ios,iran
 
+
       !
-      ! Stokes, Tau
+      ! Stokes
       !
 
       ! Open Stokes
@@ -3439,14 +3929,26 @@
       write(200) 'CLEe'
       write(200) mode
       write(200) Input%lim_stk%nn
+
+      ! If specified ranges
       if (Input%lim_stk%nran.gt.0) then
+
+        ! For each range
         do iran=1,Input%lim_stk%nran
+
+          ! Write relevant frequency
           write(200) Frec%omega(Input%lim_stk%indx(1,iran): &
                                 Input%lim_stk%indx(2,iran))
-        end do
+
+        end do ! Ranges
+
+      ! No specified ranges
       else
+
+        ! Write whole axis
         write(200) Frec%omega
-      end if
+
+      end if ! Specified ranges
 
       ! Cartesian
       if (mode.eq.0) then
@@ -3465,12 +3967,14 @@
         ! Write dim
         write(200) dims(2)
 
-      end if
+      end if ! Type of model
 
       ! Close
       close(200)
 
-      ! If tau output
+      !
+      ! Tau output
+      !
       if (Input%out_tau1) then
 
         ! Open tau
@@ -3482,14 +3986,26 @@
         write(200) 'CLEc'
         write(200) mode
         write(200) Input%lim_stk%nn
+
+        ! If specified range
         if (Input%lim_stk%nran.gt.0) then
+
+          ! For each range
           do iran=1,Input%lim_stk%nran
+
+            ! Write relevant frequencies
             write(200) Frec%omega(Input%lim_stk%indx(1,iran): &
                                   Input%lim_stk%indx(2,iran))
-          end do
+
+          end do ! Ranges
+
+        ! No range specified
         else
+
+          ! Write full axis
           write(200) Frec%omega
-        end if
+
+        end if ! Specified ranges
 
         ! Cartesian
         if (mode.eq.0) then
@@ -3508,12 +4024,12 @@
           ! Write dim
           write(200) dims(2)
 
-        end if
+        end if ! Type of model
 
         ! Close
         close(200)
 
-      end if
+      end if ! Output tau
 
       end subroutine create_io_CLE_files
 

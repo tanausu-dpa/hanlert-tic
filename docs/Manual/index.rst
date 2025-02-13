@@ -28,9 +28,8 @@ coronal line emission (CLE) problem, in which the radiation field is assumed
 to be dominated by the underlying stellar disk.
 
 HanleRT-TIC is written in standard Fortran 2008, parallelized with the OpenMPI
-(`<https://www.open-mpi.org/>`_) and OpenMP [1]_ (`<https://www.openmp.org/>`_)
-libraries. The code also has some parsing routines written in python to
-allow for more flexible input formats.
+(`<https://www.open-mpi.org/>`_) library. The code also has some parsing
+routines written in python to allow for more flexible input formats.
 
 The code has been made publicly available within the framework of the POLMAG
 project funded by an Advanced Grant of the European Research Council (see the
@@ -52,5 +51,3 @@ project funded by an Advanced Grant of the European Research Council (see the
    faq/index
    publications/index
 
-
-.. [1] While at some point there was support for OpenMP, significant structural changes have rendered the OpenMP inneficient at best (with PRD), and wrong at worst. Support for OpenMP will come back in a future version.

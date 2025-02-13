@@ -1,52 +1,64 @@
 import sys, math, os
 
 #####################
-# razym()
+# rasym()
 #
-# Tanaus\'u del Pino Alem\'an
+# Tanaus\'u del Pino Alem\'an (IAC)
 #
-# 06/29/2022(US):  V3.0.0 - Changed global version (TdPA)
-#
-# 03/17/2021(US):  V2.0.0 - Changed global version (TdPA)
-#
-# 12/16/2020(US):  V1.0.0 - First version
+# 13/12/2024:  V4.0.0 - Changed global version (TdPA)
 #
 #####################
 
 
 def rasym():
-  ''' Reads the magnetic field file specified as argument.
+  ''' Reads the ad-hoc radiation field tensors file specified as
+      argument
   '''
 
+  # Aborting method
   def abort(f,name):
+    # Close file
     f.close()
+    # Reset file and just write -1 to flag failure
     f = open(name,'w')
     f.write('-1')
     f.close()
+    # Leave
     sys.exit()
 
-  def verbose(msg, fil, verb):
-
+  # Verbose routine
+  def verbose(msg,fil,verb):
     # If being verbose
     if (verb):
+      # Just print
       print((msg+' in rasym.py'))
     else:
+      # Check file exists
       exist = os.path.isfile(fil)
+      # Open to write or append
       if (exist):
         fv = open(fil,'a')
       else:
         fv = open(fil,'w')
+      # Write in file and close
       fv.write(msg+' in rasym.py\n')
       fv.close()
 
+  #
   # Argument control
+  #
+
+  # Requires one argument
   if len(sys.argv) < 1:
-   #sys.exit(' # At least one argument needed')
     sys.exit()
+
+  # Try getting ID
   try:
     dni = sys.argv[2]
   except:
     dni = '000000000'
+
+  # If more arguments, there is verbosity file
   if len(sys.argv) > 3:
     verbosity = False
     verbfile = sys.argv[3]
@@ -54,8 +66,10 @@ def rasym():
     verbosity = True
     verbfile = ''
 
+  # Try to open file
   try:
     f=open(sys.argv[1],'r')
+  # Failed to open file
   except:
     verbose(' # No asymmetry file found', verbfile, verbosity)
     filename = 'tmp_asym_'+dni
@@ -79,7 +93,7 @@ def rasym():
       lines_n.append(line.upper())
   lines = lines_n
 
-  # Output file
+  # Start output file
   filename='tmp_asym_'+dni
   f=open(filename,'w')
   f.write('1\n')
@@ -95,6 +109,8 @@ def rasym():
 
     # Advance line
     iline += 1
+
+    # EoF
     if iline == len(lines):
         break
 
@@ -104,14 +120,17 @@ def rasym():
     # If four elements
     if len(val) == 4:
 
+      # Try parsing
       try:
 
+        # Parse
         K = int(val[0])
         Q = int(val[1])
         nz = 1
         ar = float(val[2])
         ai = float(val[3])
 
+        # Sanity check
         if K < 1 or K > 2:
           verbose(' # Input asymmetry must have ' + \
                   'multipole K in the [1,2] range, '+ \
@@ -135,7 +154,9 @@ def rasym():
         out.append('{0} {1} {2}'.format(K,Q,nz))
         out.append('{0} {1}'.format(ar,ai))
 
+      # Could not parse
       except:
+        # Interpretation error
         verbose(' # Error reading K, Q, and factor from ' + \
                 '{0},{1},{2},{3}'.format(*val), \
                 verbfile,verbosity)
@@ -144,12 +165,15 @@ def rasym():
     # If three elements
     elif len(val) == 3:
 
+      # Try parsing
       try:
 
+        # Parse
         K = int(val[0])
         Q = int(val[1])
         nz = int(val[2])
 
+        # Sanity check
         if K < 1 or K > 2:
           verbose(' # Input asymmetry must have ' + \
                   'multipole K in the [1,2] range, '+ \
@@ -172,12 +196,15 @@ def rasym():
         nentry += 1
         out.append('{0} {1} {2}'.format(K,Q,nz))
 
+      # Could not parse
       except:
+        # Interpretation error
         verbose(' # Error reading K, Q, and nz from ' + \
                 '{0},{1},{2}'.format(*val), \
                 verbfile,verbosity)
         abort(f, filename)
 
+      # Try getting stratification
       try:
 
         # For each nz
@@ -188,6 +215,7 @@ def rasym():
 
           # If EoF
           if iline == len(lines):
+            # Error
             verbose(' # End of file {0}'.format(filename) + \
                     'reached before finishing entry', \
                     verbfile,verbosity)
@@ -207,6 +235,7 @@ def rasym():
           ar = float(lval[0])
           ai = float(lval[1])
 
+          # Sanity check
           if (ar*ar + ai*ai) < 0. or math.sqrt(ar*ar + ai*ai) > 1.:
             verbose(' # Input asymmetry absolute value must ' + \
                     'be in the (0,1] range, your input is ' + \
@@ -216,7 +245,9 @@ def rasym():
           # Add to writing buffer
           out.append('{0} {1}'.format(ar,ai))
 
+      # Could not get stratification
       except:
+        # Error
         verbose(' # Error reading anisotropy factor from line ' + \
                 '{0} {1}'.format(*lval), \
                 verbfile,verbosity)
@@ -226,6 +257,8 @@ def rasym():
   f.write('{0}\n'.format(nentry))
   for o in out:
       f.write(o+'\n')
+
+  # And close
   f.close()
 
 if __name__ == "__main__":
