@@ -385,6 +385,17 @@ MIT_NODE
 
   * Description: Factor for which to divide the number of nodes in the frequency/wavelength axis to allocate for the MIT with respect to the permitted transitions of a multiplet.
 
+ANISOTROPY_FOCUS
+----------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string: Yes, No; default: No
+
+  * Description: When computing the maximum relative change to decide for convergence, consider only the K=0 and K=2 multipoles.
+
 K_CUT
 -----
 

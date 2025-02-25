@@ -385,6 +385,17 @@ SOLUTION_INPUT
 
   * Description: Path, absolute or relative to the running directory, to the Solution file of a previous run to be read to initialize this run for appropriate modes. | Path, absolute or relative to the running directory, to the Solution folder of a previous run to be read to initialize this run for appropriate modes.
 
+ANISOTROPY_FOCUS
+----------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string: Yes, No; default: No
+
+  * Description: When computing the maximum relative change to decide for convergence, consider only the K=0 and K=2 multipoles.
+
 K_CUT
 -----
 

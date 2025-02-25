@@ -519,6 +519,17 @@ SOLUTION_KEEPS
 
   * Description: Force the solution file to store the full Stokes parameters instead of the radiation field tensors independently of the parameters which decide it automatically.
 
+ANISOTROPY_FOCUS
+----------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string: Yes, No; default: No
+
+  * Description: When computing the maximum relative change to decide for convergence, consider only the K=0 and K=2 multipoles.
+
 K_CUT
 -----
 

@@ -274,6 +274,17 @@ MIT_OFF
 
   * Description: Neglect (Yes) or force the inclusion (No) of frequencies corresponding to magnetically induced transitions in multi-term model atoms. By default, they are only included if there is a magnetic field.
 
+ANISOTROPY_FOCUS
+----------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string: Yes, No; default: No
+
+  * Description: When computing the maximum relative change to decide for convergence, consider only the K=0 and K=2 multipoles.
+
 K_CUT
 -----
 

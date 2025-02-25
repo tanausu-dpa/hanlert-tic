@@ -10,18 +10,14 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     17/12/2024 V4.0.0
+!     20/02/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     17/12/2024:    V4.0.0 - Removed reading of VIFIL, VPFIL, WIFIL,
-!                             WPFIL, TIRAM, TPRAM, %altbcast,
-!                             %MPIdetail, %operform, and
-!                             %IWskip (TdPA)
-!                           - Added reading of %PRD_int_mode (TdPA)
+!     20/02/2025:    V4.0.1 - Read Input%anisotropy_only (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -612,6 +608,10 @@
       ! Keep Stokes in solution
       read(100,*,err=1100) cdump
       KSTK = cdump.eq.'Y'
+
+      ! Keep Stokes in solution
+      read(100,*,err=1100) cdump
+      Input%anisotropy_only = cdump.eq.'Y'
 
       ! Cut rhoKQ multipole orders
       read(100,*,err=1100) Kcut

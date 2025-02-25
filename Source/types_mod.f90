@@ -11,16 +11,15 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     20/12/2024 V4.0.0
+!     20/02/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/12/2024:    V4.0.0 - Ordered and cleaned types and variables,
-!                             consistently with the big changes in
-!                             version 4 of HanleRT-TIC (TdPA)
+!     20/02/2025:    V4.0.1 - Added anisotropy_only to
+!                             Input_class (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1190,7 +1189,8 @@
         ! Allen quantities for incoming intensity in CLE, assume flat
         ! spectrum when computing input JKQ in CLE if no input
         ! spectra, if restricting height for redistribution, if
-        ! restricting tau for redistribution
+        ! restricting tau for redistribution, if considering only K=2
+        ! for MRC
         logical:: AV,appendMRC,appendMRCI,out_contr,out_tau1,store, &
                   storeI,Pcorr,Raman,keepIsol,NG,keep_back, &
                   keep_damp,keep_cols,bfieldn,keep_aparam,addbb, &
@@ -1202,7 +1202,8 @@
                   linv_weight,keep_coll,keep_mpil,keep_mpidl, &
                   two_step_pol,lexcl,rest_tau_strc,rest_z_strc, &
                   ALI_force,init_J_bb,keep_qel,add_cont_cle, &
-                  use_allen,flat_cle_in,rest_z_red,rest_tau_red
+                  use_allen,flat_cle_in,rest_z_red,rest_tau_red, &
+                  anisotropy_only
 
         ! If asymmetry input
         logical, dimension(2):: lasym

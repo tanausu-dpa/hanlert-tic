@@ -9,22 +9,15 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     19/12/2024 V4.0.0
+!     20/02/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     19/12/2024:    V4.0.0 - Removed OpenMP (TdPA)
-!                           - Completely rewrote all routines. Instead
-!                             of having one routine for the different
-!                             MPI approaches and the serial version,
-!                             the different tasks in each of the old
-!                             routines have been split into their
-!                             own routines, accounting for the type
-!                             of MPI or if it is serial when
-!                             necessary in each of them (TdPA)
+!     20/02/2025:    V4.0.1 - Added argument to the MRCJKQ_sb and
+!                             MRC_sb calls (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -321,7 +314,7 @@
             if (PRD.and.Input%iter_prd.gt.1) then
 
               ! Call the routine
-              call MRCJKQ_sb(JKQC,JKQC_old,MRC)
+              call MRCJKQ_sb(JKQC,JKQC_old,Input%anisotropy_only,MRC)
 
               ! Convert cm into km
               MRC%values(1,1) = Atmo%z(MRC%indexes(2,1))*1d-5
@@ -2733,7 +2726,7 @@
       if (pid.eq.0) then
 
         ! Calculate MRC
-        call MRC_sb(Atom,Rho_old,MRC)
+        call MRC_sb(Atom,Rho_old,Input%anisotropy_only,MRC)
 
         ! Convert cm into km
         MRC%values(1,1) = Atmo%z(MRC%indexes(2,1))*1d-5

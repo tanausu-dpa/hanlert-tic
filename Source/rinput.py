@@ -6,12 +6,7 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an (IAC)
 # Hao Li (IAC/NSSCC)
 #
-# 17/12/2024:  V4.0.0 - Removed VOI_IFIL, VOI_PFIL, RED_IFIL,
-#                       RED_PFIL, INT_IRAM, INT_PRAM, BCAST_MODE,
-#                       MPIDETAIL, OPERFORM, and MPISKIP (TdPA)
-#                     - Added RED_INT_MODE, ITER_PRD, ITER_MRC_R,
-#                       ITER_MRC_P_R, RED_RESTRICT_Z, and
-#                       RED_RETRICT_TAUC (TdPA)
+# 20/02/2025:  V4.0.2 - Added ANISOTROPY_FOCUS (TdPA)
 #
 #####################
 
@@ -1328,7 +1323,7 @@ def rInput():
         f2=open(cols[0])
         f2.close()
       except:
-        verbose(' # ATOM_INPUT file not found '+atom, \
+        verbose(' # ATOM_POPU file not found '+atom, \
                 ofolder, verbosity)
         abort(f, filename)
 
@@ -2474,6 +2469,20 @@ def rInput():
   if rmode >= 0:
     if 'SOLUTION_KEEPS' in Dictionary:
       val = Dictionary['SOLUTION_KEEPS'][0]
+      if val == 'Y' or val == 'YE' or val == 'YES' or \
+         val == 'S' or val =='SI':
+        f.write('Y\n')
+      else:
+        f.write('N\n')
+    else:
+      f.write('N\n')
+  else:
+    f.write('N\n')
+
+  # ANISOTROPY_FOCUS
+  if rmode < 2:
+    if 'ANISOTROPY_FOCUS' in Dictionary:
+      val = Dictionary['ANISOTROPY_FOCUS'][0]
       if val == 'Y' or val == 'YE' or val == 'YES' or \
          val == 'S' or val =='SI':
         f.write('Y\n')

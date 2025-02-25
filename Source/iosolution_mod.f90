@@ -11,15 +11,16 @@
 !  Start:
 !     20/04/2016
 !  Last version:
-!     13/12/2024 V4.0.0
+!     20/02/2024 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     13/12/2024:    V4.0.0 - Removed references to threads in the
-!                             calls to abortedS (TdPA)
+!     20/02/2024:    V4.0.1 - Bugfix: Forgot to skip non-used heights
+!                             when computing the JKQC tensors from
+!                             read Stokes parameters (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1292,6 +1293,9 @@
                     end if ! Input axial
 
                   end do ! polar nodes
+
+                  ! Skip out of limits
+                  if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
 
                   ! For each frequency
                   do ifreq=1,nfreq

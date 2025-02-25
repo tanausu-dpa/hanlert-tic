@@ -9,25 +9,17 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     13/12/2024 V4.0.0
+!     25/02/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     13/12/2024:    V4.0.0 - Updated to the new and completely
-!                             different way of storing the norm and
-!                             profile variables (TdPA)
-!                           - Changed how to deal with the
-!                             normalization data regarding the final
-!                             formal solutions (TdPA)
-!                           - Added new routines to deal with the
-!                             new structures and to the normalization
-!                             that is now needed for PRD (TdPA)
-!                           - The option to store absorption profiles
-!                             in files has been removed (TdPA)
-!                           - Removed OpenMP support (TdPA)
+!     25/02/2025:    V4.0.1 - Bugfix: The routines to normalize the
+!                             PRD first order profiles did not take
+!                             into account the possibility of a CPU
+!                             carrying only one frequency (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1671,6 +1663,7 @@
               W0(jtran) = Frec%W_freq(if0)
             if (if1.ne.Atom(ia)%tif1(jtran)) &
               W1(jtran) = Frec%W_freq(if1)
+            if (if1.le.if0) W1(jtran) = 0d0
 
             ! Identify the terms
             itermf = Atom(ia)%fst(jtran)%iterml
@@ -1741,93 +1734,102 @@
 
               end if ! Storing
 
-              !
-              ! Proper normalization
-              !
+              ! If there are frequencies
+              if (nf.gt.0) then
 
-              ! Common quantities
-              d1 = 1d-5*iDw/sqrt(PI)
-              atuf = (au+af+auf)*iDw
+                !
+                ! Proper normalization
+                !
 
-              ! sum over Ju
-              do iU=1,Atom(ia)%nJ(itermu)
+                ! Common quantities
+                d1 = 1d-5*iDw/sqrt(PI)
+                atuf = (au+af+auf)*iDw
 
-                ! Get energy
-                eu = Atom(ia)%FSfreq(iU,itermu)
-
-                ! Get indexes
-                indU = Atom(ia)%irho(itermu)%irho_ij(iU)
-
-                ! Get Ju
-                rJu = Atom(ia)%rJval(iU,itermu)
-
-                ! sum over Jf
-                do mF=1,Atom(ia)%nJ(itermf)
-
-                  ! Get Jl
-                  rJf = Atom(ia)%rJval(mF,itermf)
+                ! sum over Ju
+                do iU=1,Atom(ia)%nJ(itermu)
 
                   ! Get energy
-                  el = Atom(ia)%FSfreq(mF,itermf)
+                  eu = Atom(ia)%FSfreq(iU,itermu)
 
                   ! Get indexes
-                  indF = Atom(ia)%irho(itermf)%irho_ij(mF)
-                  indK = Atom(ia)%trano(jtran)%indNB(indF,indU)
+                  indU = Atom(ia)%irho(itermu)%irho_ij(iU)
 
-                  ! Skip 0
-                  if (indK.lt.1) cycle
+                  ! Get Ju
+                  rJu = Atom(ia)%rJval(iU,itermu)
 
-                  ! Common quantities
-                  Dfreq = eu - el
+                  ! sum over Jf
+                  do mF=1,Atom(ia)%nJ(itermf)
 
-                  ! Boundaries
+                    ! Get Jl
+                    rJf = Atom(ia)%rJval(mF,itermf)
 
-                  ! Lower
+                    ! Get energy
+                    el = Atom(ia)%FSfreq(mF,itermf)
 
-                  ! Voigt
-                  call voigt((Dfreq - Frec%omega(if0))*iDw,atuf,prof)
+                    ! Get indexes
+                    indF = Atom(ia)%irho(itermf)%irho_ij(mF)
+                    indK = Atom(ia)%trano(jtran)%indNB(indF,indU)
 
-                  ! Add to the integral
-                  Red%pzao(indx)%Norm(indK) = dble(prof)*W0(jtran)*d1
+                    ! Skip 0
+                    if (indK.lt.1) cycle
 
-                  ! Save profile
-                  if (Red%pzao(indx)%VRAM) &
-                    Red%pzao(indx)%cp(if0,indK) = prof
+                    ! Common quantities
+                    Dfreq = eu - el
 
-                  ! For each frequency
-                  do ifreq=if0+1,if1-1
+                    ! Boundaries
+
+                    ! Lower
 
                     ! Voigt
-                    call voigt((Dfreq - Frec%omega(ifreq))*iDw, &
+                    call voigt((Dfreq - Frec%omega(if0))*iDw, &
+                               atuf,prof)
+
+                    ! Add to the integral
+                    Red%pzao(indx)%Norm(indK) = dble(prof)* &
+                                                W0(jtran)*d1
+
+                    ! Save profile
+                    if (Red%pzao(indx)%VRAM) &
+                      Red%pzao(indx)%cp(if0,indK) = prof
+
+                    ! For each frequency
+                    do ifreq=if0+1,if1-1
+
+                      ! Voigt
+                      call voigt((Dfreq - Frec%omega(ifreq))*iDw, &
+                                 atuf,prof)
+
+                      ! Add to the integral
+                      Red%pzao(indx)%Norm(indK) = &
+                                     Red%pzao(indx)%Norm(indK) + &
+                                     dble(prof)* &
+                                     (Frec%W_freq(ifreq)*d1)
+
+                      ! Save profile
+                      if (Red%pzao(indx)%VRAM) &
+                        Red%pzao(indx)%cp(ifreq,indK) = prof
+
+                    end do ! frequencies
+
+                    ! Upper
+
+                    ! Voigt
+                    call voigt((Dfreq - Frec%omega(if1))*iDw, &
                                atuf,prof)
 
                     ! Add to the integral
                     Red%pzao(indx)%Norm(indK) = &
-                                   Red%pzao(indx)%Norm(indK) + &
-                                   dble(prof)*(Frec%W_freq(ifreq)*d1)
-
-                    ! Save profile
-                    if (Red%pzao(indx)%VRAM) &
-                      Red%pzao(indx)%cp(ifreq,indK) = prof
-
-                  end do ! frequencies
-
-                  ! Upper
-
-                  ! Voigt
-                  call voigt((Dfreq - Frec%omega(if1))*iDw,atuf,prof)
-
-                  ! Add to the integral
-                  Red%pzao(indx)%Norm(indK) = &
                                          Red%pzao(indx)%Norm(indK) + &
                                          dble(prof)*W1(jtran)*d1
                                            
-                  ! Save profile
-                  if (Red%pzao(indx)%VRAM) &
-                    Red%pzao(indx)%cp(if1,indK) = prof
+                    ! Save profile
+                    if (Red%pzao(indx)%VRAM) &
+                      Red%pzao(indx)%cp(if1,indK) = prof
 
-                end do ! Jf
-              end do ! Ju
+                  end do ! Jf
+                end do ! Ju
+
+              end if ! There are frequencies
 
               ! If MPI
               if (nproc.gt.1) then
@@ -1945,103 +1947,108 @@
 
               end if ! Storing
 
-              ! Common quantities
-              d1 = 1d-5*iDw/sqrt(PI)
-              atuf = (au+af+auf)*iDw
+              ! There are frequencies
+              if (nf.gt.0) then
 
-              ! Run over Mu
-              do iMu=1,nMu
+                ! Common quantities
+                d1 = 1d-5*iDw/sqrt(PI)
+                atuf = (au+af+auf)*iDw
 
-                ! Get M
-                rMu = -rJumax + dble(iMu-1)
+                ! Run over Mu
+                do iMu=1,nMu
 
-                ! Run over mu_u
-                do iU=1,Atom(ia)%nblk(iMu,itermu)
+                  ! Get M
+                  rMu = -rJumax + dble(iMu-1)
 
-                  ! Get energy
-                  eu = Atom(ia)%eval(iU,iMu,itermu,iz)
+                  ! Run over mu_u
+                  do iU=1,Atom(ia)%nblk(iMu,itermu)
 
-                  ! Get index
-                  indU = Atom(ia)%irho(itermu)%jM(iU,iMu)
+                    ! Get energy
+                    eu = Atom(ia)%eval(iU,iMu,itermu,iz)
 
-                  ! Run over Mf
-                  do iMf=1,nMf
+                    ! Get index
+                    indU = Atom(ia)%irho(itermu)%jM(iU,iMu)
 
-                    ! Get M
-                    rMf = -rJfmax + dble(iMf-1)
+                    ! Run over Mf
+                    do iMf=1,nMf
 
-                    ! Selection rules
-                    if (nint(abs(rMu-rMf)).gt.1) cycle
+                      ! Get M
+                      rMf = -rJfmax + dble(iMf-1)
 
-                    ! Run over mu_f
-                    do mF=1,Atom(ia)%nblk(iMf,itermf)
+                      ! Selection rules
+                      if (nint(abs(rMu-rMf)).gt.1) cycle
 
-                      ! Get energy
-                      el = Atom(ia)%eval(mF,iMf,itermf,iz)
+                      ! Run over mu_f
+                      do mF=1,Atom(ia)%nblk(iMf,itermf)
 
-                      ! Get indexes
-                      indF = Atom(ia)%irho(itermf)%jM(mF,iMf)
-                      indK = Atom(ia)%trano(jtran)%indB(indF,indU)
+                        ! Get energy
+                        el = Atom(ia)%eval(mF,iMf,itermf,iz)
 
-                      ! Skip 0
-                      if (indK.lt.1) cycle
+                        ! Get indexes
+                        indF = Atom(ia)%irho(itermf)%jM(mF,iMf)
+                        indK = Atom(ia)%trano(jtran)%indB(indF,indU)
 
-                      ! Common quantities
-                      Dfreq = eu - el + Atom(ia)%Dfreq(jtran)
+                        ! Skip 0
+                        if (indK.lt.1) cycle
 
-                      ! Boundaries
+                        ! Common quantities
+                        Dfreq = eu - el + Atom(ia)%Dfreq(jtran)
 
-                      ! Lower
+                        ! Boundaries
 
-                      ! Voigt
-                      call voigt((Dfreq - Frec%omega(if0))*iDw, &
-                                 atuf,prof)
-
-                      ! Add to the integral
-                      Red%pzao(indx)%Norm(indK) = &
-                                              dble(prof)*W0(jtran)*d1
-
-                      ! Save profile
-                      if (Red%pzao(indx)%VRAM) &
-                        Red%pzao(indx)%cp(if0,indK) = prof
-
-                      ! For each frequency
-                      do ifreq=if0+1,if1-1
+                        ! Lower
 
                         ! Voigt
-                        call voigt((Dfreq - Frec%omega(ifreq))*iDw, &
+                        call voigt((Dfreq - Frec%omega(if0))*iDw, &
                                    atuf,prof)
 
                         ! Add to the integral
                         Red%pzao(indx)%Norm(indK) = &
-                                      Red%pzao(indx)%Norm(indK) + &
-                                      dble(prof)*Frec%W_freq(ifreq)*d1
+                                              dble(prof)*W0(jtran)*d1
 
                         ! Save profile
                         if (Red%pzao(indx)%VRAM) &
-                          Red%pzao(indx)%cp(ifreq,indK) = prof
+                          Red%pzao(indx)%cp(if0,indK) = prof
 
-                      end do ! frequencies
+                        ! For each frequency
+                        do ifreq=if0+1,if1-1
 
-                      ! Upper
+                          ! Voigt
+                          call voigt((Dfreq - Frec%omega(ifreq))*iDw,&
+                                     atuf,prof)
 
-                      ! Voigt
-                      call voigt((Dfreq - Frec%omega(if1))*iDw, &
-                                 atuf,prof)
+                          ! Add to the integral
+                          Red%pzao(indx)%Norm(indK) = &
+                                      Red%pzao(indx)%Norm(indK) + &
+                                      dble(prof)*Frec%W_freq(ifreq)*d1
 
-                      ! Add to the integral
-                      Red%pzao(indx)%Norm(indK) = &
+                          ! Save profile
+                          if (Red%pzao(indx)%VRAM) &
+                            Red%pzao(indx)%cp(ifreq,indK) = prof
+
+                        end do ! frequencies
+
+                        ! Upper
+
+                        ! Voigt
+                        call voigt((Dfreq - Frec%omega(if1))*iDw, &
+                                   atuf,prof)
+
+                        ! Add to the integral
+                        Red%pzao(indx)%Norm(indK) = &
                                      Red%pzao(indx)%Norm(indK) + &
                                      dble(prof)*W1(jtran)*d1 
 
-                      ! Save profile
-                      if (Red%pzao(indx)%VRAM) &
-                        Red%pzao(indx)%cp(if1,indK) = prof
+                        ! Save profile
+                        if (Red%pzao(indx)%VRAM) &
+                          Red%pzao(indx)%cp(if1,indK) = prof
 
-                    end do ! if
-                  end do ! Mf
-                end do ! iU
-              end do ! Mu
+                      end do ! if
+                    end do ! Mf
+                  end do ! iU
+                end do ! Mu
+
+              end if ! Valid frequencies
 
               ! If MPI
               if (nproc.gt.1) then
@@ -3343,6 +3350,7 @@
                 W0 = Frec%W_freq(if0)
               if (if1.ne.Atom(ia)%tif1(jtran)) &
                 W1 = Frec%W_freq(if1)
+              if (if1.le.if0) W1 = 0d0
 
               ! Allocate profile itself if storing and it is present
               if (VIRAM.and.nf.gt.0) then

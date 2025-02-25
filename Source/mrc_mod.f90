@@ -9,14 +9,16 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     13/12/2024 V4.0.0
+!     20/02/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     13/12/2024:    V4.0.0 - Revised headers (TdPA)
+!     20/02/2025:    V4.0.1 - Added the possibility of only
+!                             considering multipoles with K=0 and
+!                             K=2 when checking the MRC (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -66,13 +68,15 @@
       !!   Atom(Atom_class(:)): Structures with atomic data\n
       !!  Atom0(Rhoc_class(:)): Structure to store the density matrix
       !!                        of the previous iteration\n
+      !!         anis(logical): If only considering K=2\n
       !!        MRC(MRC_class): Structure with the MRC data
-      subroutine MRC_sb(Atom,Atom0,MRC)
+      subroutine MRC_sb(Atom,Atom0,anis,MRC)
 
       ! I/O
 
       type(Atom_class), dimension(:), intent(in):: Atom
       type(Rhoc_class), dimension(:), intent(in):: Atom0
+      logical, intent(in):: anis
       type(MRC_class), intent(out):: MRC
 
       ! Local
@@ -166,6 +170,9 @@
                 ! For each K
                 do K=nint(abs(rJ-rJ1)), &
                      min(nint(rJ+rJ1),Atom(ia)%Kcut(it))
+
+                  ! Check focus anisotropy
+                  if (anis.and.(K.ne.0.and.K.ne.2)) cycle
 
                   ! For each Q
                   do iQ=-K,K
@@ -417,11 +424,13 @@
       !!  JCold(dcomplex(:,:,:,:)): Radiation field tensors with
       !!                            frequency dependence in the
       !!                            previous iteration\n
+      !!             anis(logical): If only considering K=2\n
       !!            MRC(MRC_class): Structure with the MRC data
-      subroutine MRCJKQ_sb(JC,JCold,MRC)
+      subroutine MRCJKQ_sb(JC,JCold,anis,MRC)
 
       ! I/O
 
+      logical, intent(in):: anis
       complex(kind=8), dimension(-2:2,0:2,nfreq,Rz0:Rz1), &
                        intent(in):: JC
       complex(kind=8), dimension(0:2,0:2,nfreq,Rz0:Rz1), &
@@ -469,6 +478,9 @@
 
           ! For each K
           do K=0,Krad
+
+            ! Check focus anisotropy
+            if (anis.and.(K.ne.0.and.K.ne.2)) cycle
 
             ! For each Q
             do iQ=0,K

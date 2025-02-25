@@ -9,22 +9,15 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     19/12/2024 V4.0.0
+!     20/02/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     19/12/2024:    V4.0.0 - Removed OpenMP (TdPA)
-!                           - Completely rewrote all routines. Instead
-!                             of having one routine for the different
-!                             MPI approaches and the serial version,
-!                             the different tasks in each of the old
-!                             routines have been split into their
-!                             own routines, accounting for the type
-!                             of MPI or if it is serial when
-!                             necessary in each of them (TdPA)
+!     20/02/2025:    V4.0.2 - Added argument to JKQgen routine (TdPA)
+!                           - Added argument to the MRC_sb call (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -540,9 +533,11 @@
 
           ! Control check
           call control
-          if (laborted) goto 2000
 
         end if ! Store partial solution
+
+        ! Control
+        if (laborted) goto 2000
 
         ! If in the mandatory non-PRD
         if (iter.le.Input%PRD_delay) goout = .False.
@@ -5741,6 +5736,8 @@
       !!                             data\n
       !!       Geom(Geometry_class): Structure with geometric data\n
       !!            MPID(MPI_class): Structure with MPI data\n
+      !!         Input(Input_class): Structure with configuration
+      !!                             data\n
       !!         Flgsg(Fctsg_class): Structure with factorials, signs,
       !!                             and J-symbols\n
       !!             Pcorr(logical): If the mean intensities are to be
@@ -5766,15 +5763,9 @@
       !!                             frequency dependence\n
       !!        J00P(double(:,:,:)): Intensity integrals in the
       !!                             photoionization rates
-#ifdef DEBUGSEE
-      subroutine JKQgen(Atom,Rho_old,Atmo,Frec,Red,Geom,MPID,Flgsg, &
-                        Pcorr,Bfield,rnPh,Stokes0,J00,J00S,J00C, &
-                        Stokes,JKQ,JKQS,JKQC,J00P,Input)
-#else
-      subroutine JKQgen(Atom,Rho_old,Atmo,Frec,Red,Geom,MPID,Flgsg, &
-                        Pcorr,Bfield,rnPh,Stokes0,J00,J00S,J00C, &
-                        Stokes,JKQ,JKQS,JKQC,J00P)
-#endif
+      subroutine JKQgen(Atom,Rho_old,Atmo,Frec,Red,Geom,MPID,Input, &
+                        Flgsg,Pcorr,Bfield,rnPh,Stokes0,J00,J00S, &
+                        J00C,Stokes,JKQ,JKQS,JKQC,J00P)
 
       ! I/O
 
@@ -5783,13 +5774,11 @@
       type(Atmo_class), intent(in):: Atmo
       type(Frequency_class), intent(in):: Frec
       type(Red_class), intent(in):: Red
+      type(Input_class), intent(in):: Input
       type(Fctsg_class), intent(inout):: Flgsg
       type(MPI_class), intent(in):: MPID
       type(Geometry_class), intent(in):: Geom
       type(Bfield_class), intent(in):: Bfield
-#ifdef DEBUGSEE
-      type(Input_class), intent(in):: Input
-#endif
       logical, intent(in):: Pcorr
       integer, intent(in):: rnPh
       double precision, dimension(:,:,:,:), &
@@ -5968,7 +5957,7 @@
         if (pid.eq.0) then
 
           ! Calculate MRC
-          call MRC_sb(Atom,Rho_old,MRC)
+          call MRC_sb(Atom,Rho_old,Input%anisotropy_only,MRC)
 
           ! Convert cm into km
           MRC%values(1,1) = Atmo%z(MRC%indexes(2,1))*1d-5

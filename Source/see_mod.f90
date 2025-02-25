@@ -10,14 +10,15 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     19/12/2024 V4.0.0
+!     18/02/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     19/12/2024:    V4.0.0 - Removed all references to threads (TdPA)
+!     18/02/2025:    V4.0.1 - Bugfix: fixed the implementation of the
+!                             zero_ion option (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -195,6 +196,14 @@
       ! For each term (row)
       do iterm=1,Atom%nMulti
 
+        ! Skip last ion for zero_ion
+        if (Atom%zero_ion) then
+
+          ! If we are in the row for the last ion, skip
+          if (Atom%stage(iterm).eq.Atom%stage(Atom%nMulti)) cycle
+
+        end if ! Zero_ion
+
         ! Get term quantities
         rL = Atom%rLval(iterm)
         S = Atom%Sval(iterm)
@@ -274,6 +283,15 @@
 
                 ! For each term (column)
                 do itterm=1,Atom%nMulti
+
+                  ! Skip last ion for zero_ion
+                  if (Atom%zero_ion) then
+
+                    ! If we are in the column for the last ion. skip
+                    if (Atom%stage(itterm).eq. &
+                        Atom%stage(Atom%nMulti)) cycle
+
+                  end if ! Zero_ion
 
                   ! Get the term quantities
                   rLL = Atom%rLval(itterm)
@@ -1138,6 +1156,16 @@
           ! And update last iR
           liR = cIR - 1
 
+          ! For each level
+          do iJ=1,Atom%nJ(it)
+
+            ! Get iR
+            iR = Atom%irho(it)%Jrho(iJ,iJ)%kq(0,0)
+
+            ! Make the independent terms the rho
+            rho(iR) = dble(Atom%crho(iR,iz))
+
+          end do ! Levels
         end do ! Terms
 
       end if ! Zero ion

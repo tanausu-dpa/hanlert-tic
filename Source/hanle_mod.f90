@@ -11,20 +11,14 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     05/12/2024 V4.0.0
+!     20/02/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     05/12/2024:    V4.0.0 - Changes to accommodate the new way of
-!                             dealing with the calculation of
-!                             profiles (and their normalization),
-!                             the input frequency axis and the
-!                             calculation of the PRD emissivity,
-!                             including the RAM storage of the
-!                             redistribution function (TdPA)
+!     20/02/2025:    V4.0.1 - Added argument to JKQgen call (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1972,17 +1966,10 @@
         l1 = NCHLT
         if (NCHLT) NCHLT = .False.
         ! Correct the JKQ tensors
-#ifdef DEBUGSEE
         call JKQgen(Atom,Rho_old,Atmo,Frec,Red,Geom, &
-                    MPID,Flgsg,Input%Pcorr,Bfield,rnPh, &
-                    StokesI,J00,J00S,J00C, &
-                    Stokes,JKQ,JKQS,JKQC,J00P,Input)
-#else
-        call JKQgen(Atom,Rho_old,Atmo,Frec,Red,Geom, &
-                    MPID,Flgsg,Input%Pcorr,Bfield,rnPh, &
-                    StokesI,J00,J00S,J00C, &
+                    MPID,Input,Flgsg,Input%Pcorr,Bfield, &
+                    rnPh,StokesI,J00,J00S,J00C, &
                     Stokes,JKQ,JKQS,JKQC,J00P)
-#endif
         if (laborted) goto 1000
 
         ! Only if synthesis
