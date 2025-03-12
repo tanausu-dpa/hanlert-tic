@@ -11,15 +11,15 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     20/02/2025 V4.0.1
+!     12/03/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/02/2025:    V4.0.1 - Added anisotropy_only to
-!                             Input_class (TdPA)
+!     12/03/2025:    V4.0.2 - Added ndzaoA to Red_class (TdPA)
+!                           - Added warning to Solution_class (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1748,7 +1748,7 @@
       type Red_class
 
         ! Sizes
-        integer:: ndzao, nzao
+        integer:: ndzao, nzao, ndzaoA
 
         ! Indexing height-atom-transition for PRD data and
         ! indexing for direction-height-atom_transition for
@@ -1873,6 +1873,9 @@
 
         !
         !type(Sol_class):: Sol_Tmp, Sol_Min, Sol_Sav
+
+        ! If can issue warning for wrong memory count
+        logical:: warning
 
         ! If interpolating frequencies, if return fractional
         ! polarization, if project the magnetic field, if

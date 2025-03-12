@@ -9,14 +9,15 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     28/11/2024 V4.0.0
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     28/11/2024:    V4.0.0 - Revised headers (TdPA)
+!     12/03/2025:    V4.0.1 - Moved the memory count out of the
+!                             module (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -793,9 +794,6 @@
         end if ! Including b-b transitions
 
       end do ! Frequencies
-
-      ! Count memory in background quantities
-      BRAMc = 1d-6*sizeof(Cont%c)
 
       ! Free
       deallocate(eta,sig,eps,bplanck,vfac)

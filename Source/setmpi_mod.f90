@@ -267,7 +267,6 @@
       ! Routine name
       urou = 'setmpi'
 
-
       !
       ! If we have more than one slave
       !

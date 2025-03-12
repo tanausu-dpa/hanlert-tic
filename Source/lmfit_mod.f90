@@ -10,14 +10,20 @@
 !  Start:
 !     22/03/2023
 !  Last version:
-!     13/12/2024 V4.0.0
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     13/12/2024:    V4.0.0 - Revised headers (TdPA)
+!     12/03/2025:    V4.0.1 - Explicitly count the innate size of
+!                             the Solution_F_class structure in the
+!                             SRAMc counter (TdPA)
+!                           - Bugfix: the memory count for the
+!                             emergent variables duplicated in the
+!                             set_best routine was not being accounted
+!                             for (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1012,6 +1018,9 @@
 
       ! Free solutions
       call free_inv_solution(SolF)
+
+      ! Free innate memory of local structure
+      SRAMc = SRAMc - 1d-6*sizeof(SolF)
 
       return
 
@@ -3024,12 +3033,21 @@
       type(Solution_F_class), intent(inout):: Sol
       logical, intent(in):: best, copy
 
+      ! Local
+
+      logical:: ex1,ex2,ex3
+
 
       ! Slaves, leave
       if (pid.gt.0) return
 
       ! Truly the best
       if (best) then
+
+        ! Existence flags
+        ex1 = allocated(Sol%e_Stk_b)
+        ex2 = allocated(Sol%e_tau1_b)
+        ex3 = allocated(Sol%e_Ctr_b)
 
         ! If copying
         if (copy) then
@@ -3067,8 +3085,20 @@
 
         end if ! Copying from backtrace?
 
+        ! Memory
+        if (.not.ex1) SRAMc = SRAMc + 1d-6*sizeof(Sol%e_Stk_b)
+        if (.not.ex2.and.allocated(Sol%e_Ctr_b)) &
+          SRAMc = SRAMc + 1d-6*sizeof(Sol%e_Ctr_b)
+        if (.not.ex3.and.allocated(Sol%e_tau1_b)) &
+          SRAMc = SRAMc + 1d-6*sizeof(Sol%e_tau1_b)
+
       ! Provisional best
       else
+
+        ! Existence flags
+        ex1 = allocated(Sol%e_Stk_t)
+        ex2 = allocated(Sol%e_tau1_t)
+        ex3 = allocated(Sol%e_Ctr_t)
 
         ! Copy what is allocated
         if (allocated(Sol%i_J00)) Sol%i_J00_t = Sol%i_J00
@@ -3083,6 +3113,13 @@
         if (allocated(Sol%i_JKQC)) Sol%i_JKQS_t = Sol%i_JKQS
         if (allocated(Sol%i_JKQC)) Sol%i_JKQC_t = Sol%i_JKQC
         if (allocated(Sol%i_rhoes)) Sol%i_rhoes_t = Sol%i_rhoes
+
+        ! Memory
+        if (.not.ex1) SRAMc = SRAMc + 1d-6*sizeof(Sol%e_Stk_t)
+        if (.not.ex2.and.allocated(Sol%e_Ctr_t)) &
+          SRAMc = SRAMc + 1d-6*sizeof(Sol%e_Ctr_t)
+        if (.not.ex3.and.allocated(Sol%e_tau1_t)) &
+          SRAMc = SRAMc + 1d-6*sizeof(Sol%e_tau1_t)
 
       end if ! Truly the best
 

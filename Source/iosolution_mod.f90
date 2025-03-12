@@ -11,16 +11,17 @@
 !  Start:
 !     20/04/2016
 !  Last version:
-!     20/02/2024 V4.0.1
+!     12/03/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/02/2024:    V4.0.1 - Bugfix: Forgot to skip non-used heights
-!                             when computing the JKQC tensors from
-!                             read Stokes parameters (TdPA)
+!     12/03/2025:    V4.0.2 - Bugfix: The wrong Stokes variables was
+!                             being used to count the allocated
+!                             memory in getsol for the intensity only
+!                             case (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -2352,7 +2353,7 @@
         end if
 
         ! Count memory
-        RRAMc = RRAMc + 1d-6*sizeof(Stokes)
+        RRAMc = RRAMc + 1d-6*sizeof(Stokes0)
 
         ! J00 for absorptivity
         allocate(J00(nxt,Rz0:Rz1))
@@ -10956,6 +10957,23 @@
       ! Standard or final
       if (Atmo%typo.eq.0.or.iter.eq.1) then
         write(800,*) 'Number densities'
+        write(800,*) '               z', &
+                     '             tau', &
+                     '               T', &
+                     '              vx', &
+                     '              vy', &
+                     '              vz', &
+                     '              vm', &
+                     '               B', &
+                     '          Btheta', &
+                     '            Bphi', &
+                     '              ne', &
+                     '             nH0', &
+                     '             nH1', &
+                     '             nH2', &
+                     '             nH3', &
+                     '             nH4', &
+                     '              np'
         do iz=iRz0,iRz1
           write(800,'(17(1x,es15.8))') &
             z(iz),tau(iz),Atmo%T(iz),Atmo%vx(iz)*1d6*c, &
@@ -10971,8 +10989,19 @@
       else if (Atmo%typo.eq.1.or.Atmo%typo.eq.2.or. &
                Atmo%typo.eq.3) then
         write(800,*) 'Electron number density'
+        write(800,*) '               z', &
+                     '             tau', &
+                     '               T', &
+                     '              vx', &
+                     '              vy', &
+                     '              vz', &
+                     '              vm', &
+                     '               B', &
+                     '          Btheta', &
+                     '            Bphi', &
+                     '              ne'
         do iz=iRz0,iRz1
-          write(800,'(17(1x,es15.8))') &
+          write(800,'(11(1x,es15.8))') &
             z(iz),tau(iz),Atmo%T(iz),Atmo%vx(iz)*1d6*c, &
                                      Atmo%vy(iz)*1d6*c, &
                                      Atmo%vz(iz)*1d6*c, &
@@ -10984,8 +11013,19 @@
         end do
       else if (Atmo%typo.eq.4) then
         write(800,*) 'Gas pressure'
+        write(800,*) '               z', &
+                     '             tau', &
+                     '               T', &
+                     '              vx', &
+                     '              vy', &
+                     '              vz', &
+                     '              vm', &
+                     '               B', &
+                     '          Btheta', &
+                     '            Bphi', &
+                     '              Pg'
         do iz=iRz0,iRz1
-          write(800,'(17(1x,es15.8))') &
+          write(800,'(11(1x,es15.8))') &
             z(iz),tau(iz),Atmo%T(iz),Atmo%vx(iz)*1d6*c, &
                                      Atmo%vy(iz)*1d6*c, &
                                      Atmo%vz(iz)*1d6*c, &
@@ -10997,8 +11037,19 @@
         end do
       else if (Atmo%typo.eq.4) then
         write(800,*) 'Gas density'
+        write(800,*) '               z', &
+                     '             tau', &
+                     '               T', &
+                     '              vx', &
+                     '              vy', &
+                     '              vz', &
+                     '              vm', &
+                     '               B', &
+                     '          Btheta', &
+                     '            Bphi', &
+                     '             rho'
         do iz=iRz0,iRz1
-          write(800,'(17(1x,es15.8))') &
+          write(800,'(11(1x,es15.8))') &
             z(iz),tau(iz),Atmo%T(iz),Atmo%vx(iz)*1d6*c, &
                                      Atmo%vy(iz)*1d6*c, &
                                      Atmo%vz(iz)*1d6*c, &

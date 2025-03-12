@@ -9,15 +9,16 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     03/12/2024 V4.0.0
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     03/12/2024:    V4.0.0 - Changed indexing of geometrical tensors
-!                             and made them pointers (TdPA)
+!     12/03/2025:    V4.0.1 - Explicitly nullify the pointers in
+!                             Geometry_class for the intensity problem
+!                             structure (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -35,9 +36,9 @@
 !  Data:
 !
 !  gauss
-!    Generate the necessary directional quadratures, organize the lines
-!  of sight, and initialize the geometrical tensors in the vertical
-!  reference frame is necessary
+!    Generate the necessary directional quadratures, organize the
+!  lines of sight, and initialize the geometrical tensors in the
+!  vertical reference frame is necessary
 !
 !  setTB
 !    Calculate the geometrical irreducible spherical tensors in the
@@ -108,6 +109,7 @@
 
 
       ! Nullify pointers
+      nullify(GeomI%TS,GeomI%TSL,GeomI%TB,GeomI%TBL)
       nullify(Geom%TS,Geom%TSL,Geom%TB,Geom%TBL)
 
       !
@@ -697,7 +699,6 @@
 
       ! Check if everything is fine
       call control
-
       return
 
       end subroutine gauss
@@ -826,6 +827,7 @@
       ! Local
 
       integer:: iz
+
 
       ! Clean the TSL variable
       if (associated(Geom%TSL)) then

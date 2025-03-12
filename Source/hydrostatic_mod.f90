@@ -10,14 +10,17 @@
 !  Start:
 !     17/02/2023
 !  Last version:
-!     05/12/2024 V4.0.0
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     05/12/2024:    V4.0.0 - Revised headers (TdPA)
+!     12/03/2025:    V4.0.1 - The temporal and fake atmospheric model
+!                             is now created in the dAtmo routine
+!                             in rAtmo_mod in order to correctly
+!                             count the allocated memory (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -56,6 +59,7 @@
       use initmodel_mod
       use initpopu_mod
       use parameters_mod, only: vacuum
+      use ratmo_mod
       use types_mod
 
       contains
@@ -109,18 +113,10 @@
       nZ = 1
 
       ! Allocate variables in temporal atmosphere
-      allocate(Atmo_tmp%ne(1),Atmo_tmp%T(1),Atmo_tmp%nh(1,6))
-      allocate(Atmo_tmp%nHT(1),Atmo_tmp%nHm(1),Atmo_tmp%nHa(1))
-      allocate(Atmo_tmp%rho(1),Atmo_tmp%Pg(1))
-      nullify(Atmo_tmp%z,Atmo_tmp%vmi,Atmo_tmp%zeros)
-      nullify(Atmo_tmp%Bx,Atmo_tmp%By,Atmo_tmp%Bz)
-      nullify(Atmo_tmp%vx,Atmo_tmp%vy,Atmo_tmp%vz)
-      nullify(Atmo_tmp%vxa,Atmo_tmp%vya,Atmo_tmp%vza)
+      call dAtmo(Atmo,Atmo_tmp)
 
       ! Setup temporal atmosphere defined by the gas pressure, i.e,
       ! typo = 4
-      Atmo_tmp%alloc_a = .True.
-      Atmo_tmp%alloc_b = .False.
       Atmo_tmp%tfreq = Atmo%tfreq
       Atmo_tmp%typo = 4
       Atmo_tmp%Pg(1) = Pg_input
@@ -131,23 +127,16 @@
       Atmo_tmp%nHT = 0d0
       Atmo_tmp%nHm = 0d0
       Atmo_tmp%nHa = 0d0
-      Atmo_tmp%ele = Atmo%ele
-      Atmo_tmp%nele = Atmo%nele
-      Atmo_tmp%NT = Atmo%NT
-      Atmo_tmp%pT = Atmo%pT
       Atmo_tmp%logg = Atmo%logg
-      Atmo_tmp%tfreq = Atmo%tfreq
-      Atmo_tmp%ele = Atmo%ele
       Atmo_tmp%scal = Atmo%scal
-      Atmo_tmp%abund = Atmo%abund
       Atmo_tmp%nZ = 1
 
       ! Fake total population size in active atoms
       call prepareatomol(Atom,Atomb,Mol,Input%nM)
 
       ! Compute opacity at current point
-      call Compute_Opacity(Atmo_tmp, Atom, Atomb, Mol, &
-                           Input, fudge, Beta_old, Pg)
+      call Compute_Opacity(Atmo_tmp,Atom,Atomb,Mol, &
+                           Input,fudge,Beta_old,Pg)
 
       ! Dump data into boundary node
       call Fill_Atmo(Atmo, Atmo_tmp, 1)
@@ -174,8 +163,8 @@
         Atmo_tmp%nHa = 0d0
 
         ! Compute opacity at current point
-        call Compute_Opacity(Atmo_tmp, Atom, Atomb, Mol, &
-                             Input, fudge, Beta_new, Pg_new)
+        call Compute_Opacity(Atmo_tmp,Atom,Atomb,Mol, &
+                             Input,fudge,Beta_new,Pg_new)
 
         ! Iterate
         do iter=1,maxiter
@@ -195,8 +184,8 @@
           Atmo_tmp%nHa = 0d0
 
           ! Compute opacity
-          call Compute_Opacity(Atmo_tmp, Atom, Atomb, Mol, &
-                               Input, fudge, Beta_new, Pg_new)
+          call Compute_Opacity(Atmo_tmp,Atom,Atomb,Mol, &
+                               Input,fudge,Beta_new,Pg_new)
 
           ! Compute difference
           dif = abs((dif-Pg_new)/(dif+Pg_new))

@@ -10,14 +10,16 @@
 !  Start:
 !     22/02/2023
 !  Last version:
-!     11/12/2024 V4.0.0
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     11/12/2024:    V4.0.0 - Revised headers (TdPA)
+!     12/03/2025:    V4.0.1 - Added a warning for unexpected values
+!                             in the SRAMc memory counter at the
+!                             end of the Inversion routine (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -47,6 +49,7 @@
 
       use aborted_mod
       use bounds_mod
+      use commons_mod
       use initinv_mod
       use lmfit_mod
       use model_mod
@@ -253,7 +256,7 @@
           Bfield%Bpos = 0d0
           Bfield%Azimuth = 0d0
 
-        end if ! MAgnetic field exists
+        end if ! Magnetic field exists
       end if ! LOS field
 
       ! If LOS velocity
@@ -882,6 +885,36 @@
 
         end if ! Global or local master
       end if ! Master
+
+      ! Round
+      MRAMc = 1d-6*nint(MRAMc*1d6)
+      SRAMc = 1d-6*nint(SRAMc*1d6)
+
+      ! Sanity
+      if (abs(SRAMc).gt.0d0) then
+
+        ! Warning
+        if (Sol%warning) then
+
+          ! Deflag
+          Sol%warning = .False.
+
+          ! Write message
+          urou = 'Inversion'
+          write(umsg,'(A,es13.6,A)') &
+            'The Solution RAM counter is not equal to '// &
+            'zero at the exit of the Inversion function ',SRAMc, &
+            ' != 0. It is being corrected, but '// &
+            'this should not happen. Please, notify of '// &
+            'the issue providing your inputs'
+          call abortedS(umsg,urou,.False.,.True.)
+
+        end if ! Can issue warning
+
+        ! Correct
+        SRAMc = 0d0
+
+      end if ! Sanify check
 
       return
 

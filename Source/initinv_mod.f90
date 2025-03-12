@@ -10,14 +10,16 @@
 !  Start:
 !     23/02/2023
 !  Last version:
-!     11/12/2024 V4.0.0
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     11/12/2024:    V4.0.0 - Revised headers (TdPA)
+!     12/03/2025:    V4.0.1 - Bugfix: Forgot to count the memory
+!                             allocated in Bfield in the routine
+!                             Atmo_Stratify (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -2247,6 +2249,9 @@
       MRAMc = MRAMc + 1d-6*sizeof(Atmo%nhm)
       MRAMc = MRAMc + 1d-6*sizeof(Atmo%nhe)
       MRAMc = MRAMc + 1d-6*sizeof(Atmo%zeros)
+      MRAMc = MRAMc + 1d-6*sizeof(Bfield%Bstrength)
+      MRAMc = MRAMc + 1d-6*sizeof(Bfield%Btheta)
+      MRAMc = MRAMc + 1d-6*sizeof(Bfield%Bphi)
 
       ! Type of model allocation
       Atmo%alloc_a = .True.

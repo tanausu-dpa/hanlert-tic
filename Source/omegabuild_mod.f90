@@ -11,18 +11,16 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     13/12/2024 V4.0.0
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     13/12/2024:    V4.0.0 - Full revamp of the way the second order
-!                             emissivity is calculated, which entails
-!                             a full rewrite of everything related
-!                             to that in this module (TdPA)
-!                           - Removed OpenMP support (TdPA)
+!     12/03/2025:    V4.0.1 - The 'dzao' index for the normalization
+!                             now has all the LTE lines indexes after
+!                             all the active atoms (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -5981,6 +5979,31 @@
 
             end do ! Transitions
           end do ! Atoms
+        end do ! Heights
+      end do ! Directions
+
+      ! Save size for only active atoms (no LTE lines)
+      Red%ndzaoA = Red%ndzao
+
+      ! For each direction
+      do idir=1,njdir
+
+        ! For each considered height
+        do iz=Rz0,Rz1
+
+          ! If dynamic
+          if (dyn) then
+
+            ! Check local velocity
+            vel = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                       Atmo%vy(iz)*Atmo%vy(iz) + &
+                       Atmo%vz(iz)*Atmo%vz(iz))
+            lvel = vel.gt.TINYVEL
+
+          end if ! Dynamic
+
+          ! Magnetic?
+          field = Bfield%Bstrength(iz).gt.TINYB
 
           ! For each LTE line
           do ia=1,nl

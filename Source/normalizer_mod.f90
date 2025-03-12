@@ -9,17 +9,20 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     25/02/2025 V4.0.1
+!     12/03/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     25/02/2025:    V4.0.1 - Bugfix: The routines to normalize the
-!                             PRD first order profiles did not take
-!                             into account the possibility of a CPU
-!                             carrying only one frequency (TdPA)
+!     12/03/2025:    V4.0.2 - Bugfix: There was an issue when
+!                             deallocating the %Norm array in mass
+!                             because the indexes of the LTE lines
+!                             were mixed with the active atoms (TdPA)
+!                           - Bugfix: in normalize, the sending buffer
+!                             with normalization data could have the
+!                             wrong size (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -291,6 +294,7 @@
         extracomm = .True.
       else
         extracomm = .False.
+        call reset_mpirequest(MPID)
       end if
 
       ! Get real size of the direction dimension
@@ -561,6 +565,9 @@
         ! SLAVE OR SINGLE PROCESSOR
         !
         else
+
+          ! Initialize buff
+          buff1 = 0d0
 
           !
           ! Calculate normalization
@@ -912,16 +919,19 @@
                     end do
                   end if
 
+                  ! Fill buffer
+                  buff1(1:size1(jtran,iz,jdir)) = Red%dzao(indx)%Norm
+
                   ! Send the actual normalization values
                   if (extracomm) then
                     do while (.True.)
-                      call MPI_SEND(Red%dzao(indx)%Norm(1), &
+                      call MPI_SEND(buff1, &
                                     nbf1(pid), MPI_DOUBLE_PRECISION, &
                                     0, pid, MPI_COMM_RT, ierr)
                       if (ierr.eq.0) exit
                     end do
                   else
-                    call MPI_ISEND(Red%dzao(indx)%Norm(1), &
+                    call MPI_ISEND(buff1(1), &
                                    nbf1(pid), MPI_DOUBLE_PRECISION, &
                                    0, pid, MPI_COMM_RT, &
                                    MPID%request2, ierr)
@@ -1088,7 +1098,7 @@
         if (MPID%mpi.and.pid.eq.0) then
 
           ! Run over indexes
-          do indx=1,Red%ndzao
+          do indx=1,Red%ndzaoA
 
             ! Deallocate
             deallocate(Red%dzao(indx)%Norm)
@@ -2209,6 +2219,7 @@
         extracomm = .True.
       else
         extracomm = .False.
+        call reset_mpirequest(MPID)
       end if
 
       ! Get real size of the direction dimension
@@ -2858,7 +2869,7 @@
         if (MPID%mpi.and.pid.eq.0) then
 
           ! Run over indexes
-          do indx=1,Red%ndzao
+          do indx=1,Red%ndzaoA
 
             ! Deallocate
             deallocate(Red%dzao(indx)%Norm)

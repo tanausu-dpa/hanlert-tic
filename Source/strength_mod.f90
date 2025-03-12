@@ -369,7 +369,6 @@
 
       ! Check if everything is fine
       call control
-
       return
 
       end subroutine strength_ev

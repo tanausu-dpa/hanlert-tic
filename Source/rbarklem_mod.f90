@@ -9,14 +9,16 @@
 !  Start:
 !     12/07/2022
 !  Last version:
-!     17/12/2024 V4.0.0
+!     25/02/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     17/12/2024:    V4.0.0 - Revised headers (TdPA)
+!     25/02/2025:    V4.0.1 - Bugfix: When checking the background
+!                             atoms, the transition data from the
+!                             active atom list was used instead (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -415,11 +417,11 @@
       do ia=1,nab
 
         ! For each transition
-        do itran=1,Atom(ia)%ntran
+        do itran=1,Atomb(ia)%ntran
 
           ! Get terms
-          iterm  = Atom(ia)%fst(itran)%iterml
-          iterm1 = Atom(ia)%fst(itran)%itermu
+          iterm  = Atomb(ia)%fst(itran)%iterml
+          iterm1 = Atomb(ia)%fst(itran)%itermu
 
           ! Check if doing Barklem
           call getBarklem(Atomb(ia),itran,iterm,iterm1, &
@@ -704,7 +706,7 @@
           ! Error type 3: Values out of the tabulation
           if (msg.eq.3) &
           write(umsg,'(A,i2,3A)') ' # Could not find values '// &
-                                  'in the tables for the levels'// &
+                                  'in the tables for the levels '// &
                                   'of transition ',itran,' of ', &
                                   Atom%Element,' atom, '// &
                                   'switch to Unsold without '// &

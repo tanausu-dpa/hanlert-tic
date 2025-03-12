@@ -9,15 +9,17 @@
 !  Start:
 !     03/12/2019
 !  Last version:
-!     05/12/2024 V4.0.0
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     02/16/2024:    V4.0.0 - Removed references to threads in error
-!                             calls (TdPA)
+!     12/03/2025:    V4.0.1 - Explicitly account for changes in the
+!                             memory allocated in Atmo_class (TdPA)
+!                           - Only consider the limitation for PRD
+!                             if there is PRD (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -84,7 +86,6 @@
 
       double precision:: dz,dt,mint,chi
 
-
       ! If MPI, master needs to receive chi500
       if (nproc.gt.1) then
 
@@ -92,8 +93,10 @@
         if (pid.eq.0) then
 
           ! Allocate chi500
-          if (.not.allocated(Atmo%chi500)) &
+          if (.not.allocated(Atmo%chi500)) then
             allocate(Atmo%chi500(nZ))
+            MRAMc = MRAMc + 1d-6*sizeof(Atmo%chi500)
+          end if
 
           call MPI_RECV(Atmo%chi500,nZ,MPI_DOUBLE_PRECISION, &
                         1,1,MPI_COMM_RT,MPI_STATUS_IGNORE,ierr)
@@ -114,13 +117,8 @@
           if (.not.ztau.and.can_leave) then
 
             ! Free
+            MRAMc = MRAMc - 1d-6*sizeof(Atmo%chi500)
             deallocate(Atmo%chi500)
-
-          ! If has to keep it
-          else
-
-            ! Count memory
-            MRAMc = MRAMc + 1d-6*sizeof(Atmo%chi500)
 
           end if ! Keeping Atmo%chi500
         end if ! Master or slave
@@ -128,9 +126,6 @@
 
       ! Rest of CPU can leave now
       if (pid.gt.0.and.can_leave) return
-
-      ! Count memory
-      MRAMc = MRAMc + 1d-6*sizeof(Atmo%chi500)
 
       ! If zalt is already allocated
       if (allocated(Atmo%zalt)) then
@@ -518,9 +513,6 @@
         end if ! Restricting both tau and z
 
         ! Correct PRD lim.
-        Rz1_PRD = Rz1
-
-        ! If doing PRD and restricting
         if (PRD.and.(Input%rest_z_red.or.Input%rest_tau_red)) then
 
           ! Initialize

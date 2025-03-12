@@ -9,14 +9,16 @@
 !  Start:
 !     24/10/2024
 !  Last version:
-!     28/11/2024 V4.0.0
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     28/11/2024:    V4.0.0 - First version (TdPA)
+!     12/03/2025:    V4.0.1 - JKQin now is counted in RRAMc instead
+!                             of in MRAMc (TdPA)
+!                           - Added cram_report routine (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -35,6 +37,10 @@
 !
 !  cram
 !    Count RAM allocated in all structures entering hanle()
+!
+!  cram_report
+!    Report RAM allocated in all structures entering hanle() and
+!    contribute to MRAMc
 !
 !  cram_solf
 !    Count memory allocated in the SolF variable
@@ -81,6 +87,7 @@
 !#####################################################################
 
       ! Use
+      use commons_mod
       use parameters_mod , only : TINYVEL, TINYB
       use types_mod
 
@@ -230,9 +237,160 @@
       MRAMc = MRAMc + num
 
       ! JKQin
-      MRAMc = MRAMc + 1d-6*sizeof(JKQin)
+      RRAMc = RRAMc + 1d-6*sizeof(JKQin)
 
       end subroutine cram
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Report RAM allocated in all structures entering hanle()
+      !! and contribute to MRAMc\n
+      !!        Atom(Atom_class(:)): Structures with atomic data\n
+      !!       Atomb(Atom_class(:)): Structures with atomic data for
+      !!                             background atoms\n
+      !! LTElines(LTEline_class(:)): Structures with LTE line data\n
+      !!          Mol(Mol_class(:)): Structures with molecular data\n
+      !!           Atmo(Atmo_class): Structure with atmospheric data\n
+      !!            MPID(MPI_class): Structure with MPI data\n
+      !!         Input(Input_class): Structure with configuration
+      !!                             data\n
+      !!      GeomI(Geometry_class): Structure with geometric data for
+      !!                             the intensity problem\n
+      !!       Geom(Geometry_class): Structure with geometric data\n
+      !!       Bfield(Bfield_class): Structure with magnetic field
+      !!                             data\n
+      !!      Frec(Frequency_class): Structure with frequency data\n
+      !!         Flgsg(Fctsg_class): Structure with factorials, signs,
+      !!                             and J-symbols\n
+      !!         fudge(fudge_class): Structure with fudge data\n
+      !!       kurucz(kurucz_class): Structure with Kurucz line data\n
+      !!              init(logical): If initializing file
+      subroutine cram_report(Atom,Atomb,LTElines,Mol,Atmo,MPID, &
+                             Input,GeomI,Geom,Bfield,Frec,Flgsg, &
+                             fudge,kurucz,init)
+
+      ! I/O
+
+      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), allocatable, intent(in):: Atomb
+      type(LTEline_class), dimension(:), &
+                           allocatable, intent(in):: LTElines
+      type(Mol_class), dimension(:), allocatable, intent(in):: Mol
+      type(Atmo_class), intent(in):: Atmo
+      type(Bfield_class), intent(in):: Bfield
+      type(Fctsg_class), intent(in):: Flgsg
+      type(fudge_class), intent(in):: fudge
+      type(kurucz_class), intent(in):: kurucz
+      type(Frequency_class), intent(in):: Frec
+      type(Geometry_class), intent(in):: GeomI,Geom
+      type(Input_class), intent(in):: Input
+      type(MPI_class), intent(inout):: MPID
+      logical, intent(in):: init
+
+      ! Local
+
+      character(len=9):: FIL
+
+      double precision:: num,tot
+
+
+      ! Filename
+      write(FIL,'("LOG_",i0.5)') gpid
+
+      ! File
+      if (init) then
+        open(800,file=FIL,action='write')
+      else
+        open(800,file=FIL,position='append')
+      end if
+
+      ! Initialize total
+      tot = 0d0
+
+      !
+      ! Count memory misc.
+      !
+
+      ! Atoms
+      write(800,*) ''
+      if (nA.gt.0) then
+        call cram_atom(Atom,num)
+        write(800,'("Atom      ",es15.8)') num
+        tot = tot + num
+      end if
+      if (allocated(Atomb)) then
+        write(800,'("Atomb     ",es15.8)') num
+        call cram_atom(Atomb,num)
+        tot = tot + num
+      end if
+
+      ! LTE lines
+      if (allocated(LTElines)) then
+        call cram_ltelines(LTElines,num)
+        write(800,'("LTElines  ",es15.8)') num
+        tot = tot + num
+      end if
+
+      ! Molecules
+      if (allocated(Mol)) then
+        call cram_mol(Mol,num)
+        write(800,'("LTElines  ",es15.8)') num
+        tot = tot + num
+      end if
+
+      ! Atmosphere
+      call cram_atmo(Atmo,num)
+      write(800,'("Atmo      ",es15.8)') num
+      tot = tot + num
+
+      ! MPID
+      call cram_mpi(MPID,num)
+      write(800,'("MPID      ",es15.8)') num
+      tot = tot + num
+
+      ! Input
+      call cram_input(Input,num)
+      write(800,'("Input     ",es15.8)') num
+      tot = tot + num
+
+      ! Geometry
+      call cram_geom(GeomI,num)
+      write(800,'("GeomI     ",es15.8)') num
+      tot = tot + num
+      call cram_geom(Geom,num)
+      write(800,'("Geom      ",es15.8)') num
+      tot = tot + num
+
+      ! Bfield
+      call cram_bfield(Bfield,num)
+      write(800,'("Bfield    ",es15.8)') num
+      tot = tot + num
+
+      ! Frec
+      call cram_frec(Frec,num)
+      write(800,'("Frec      ",es15.8)') num
+      tot = tot + num
+
+      ! Flgsg
+      call cram_flgsg(Flgsg,num)
+      write(800,'("Flgsg     ",es15.8)') num
+      tot = tot + num
+
+      ! Fudge
+      call cram_fudge(fudge,num)
+      write(800,'("fudge     ",es15.8)') num
+      tot = tot + num
+
+      ! Kurucz
+      call cram_kurucz(kurucz,num)
+      write(800,'("kurucz    ",es15.8)') num
+      tot = tot + num
+
+      write(800,'("Total     ",es15.8)') tot
+
+      end subroutine cram_report
 
 !#####################################################################
 !#####################################################################

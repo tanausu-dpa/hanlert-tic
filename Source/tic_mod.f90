@@ -10,15 +10,16 @@
 !  Start:
 !     16/02/2023
 !  Last version:
-!     20/12/2024 V4.0.0
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/12/2024:    V4.0.0 - Call the new routine to index the atomic
-!                             level and transition components (TdPA)
+!     12/03/2025:    V4.0.1 - Added warnings for unexpected changes
+!                             in the MRAMc memory counter between
+!                             calls to Inversion (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -104,7 +105,7 @@
 
       logical:: aborting,check,lcache,double,restoring
       logical:: update_tlim,update_vlim,update_blim
-      logical:: double_jkq,receiving,atmojkq,lexcl
+      logical:: double_jkq,receiving,atmojkq,lexcl,warning
       logical, dimension(:,:), allocatable:: cache
 
       integer:: unitD,unitC,unitA,unitJ,unitM
@@ -116,7 +117,7 @@
       integer, dimension(4):: int_buff,finfo
       integer, dimension(:), allocatable:: cpu_free
 
-      double precision:: maxB, DwTa
+      double precision:: maxB,DwTa,lMRAMc
 
       ! Pointers
 
@@ -133,6 +134,11 @@
                             sizeof(Inf_Stokes) + &
                             sizeof(Inf_Nodes) + &
                             sizeof(Sol))
+
+      ! Initialize miscellaneous memory warning
+      Sol%warning = .True.
+      warning = .True.
+      lMRAMc = -2.5d0
 
 
       !
@@ -1828,6 +1834,49 @@
 
             end if
 
+            ! Skip first
+            if (lMRAMc.lt.-2d0) then
+
+              ! Upgrade
+              lMRAMc = -1.5d0
+
+            ! If no lMRAMc data
+            else if (lMRAMc.lt.0d0) then
+
+              ! Set-up
+              lMRAMc = MRAMc
+
+            ! Check MRAMc
+            else
+
+              ! If different
+              if (nint(1d6*abs(lMRAMc - MRAMc)).gt.1d0) then
+
+                ! Warning
+                if (warning) then
+
+                  ! Deflag
+                  warning = .False.
+
+                  ! Write message
+                  urou = 'TIC'
+                  write(umsg,'(2(A,es13.6),A)') &
+                    'The miscellaneous RAM counter is different '// &
+                    'between calls to the Inversion function ', &
+                    MRAMc,' != ',lMRAMc,'. It is being '// &
+                    'corrected, but this should not happen. '// &
+                    'Please, notify of the issue providing '// &
+                    'your inputs'
+                  call abortedS(umsg,urou,.False.,.True.)
+
+                end if ! Can issue warning
+
+                ! Correct
+                MRAMc = lMRAMc
+
+              end if ! Different
+            end if ! lMRAMc data
+
             ! Carry out the inversion
             call Inversion(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec, &
                            fudge,kurucz,MPID,Atmo_in, &
@@ -2101,6 +2150,49 @@
             end if
 
           end if
+
+          ! Skip first
+          if (lMRAMc.lt.-2d0) then
+
+            ! Upgrade
+            lMRAMc = -1.5d0
+
+          ! If no lMRAMc data
+          else if (lMRAMc.lt.0d0) then
+
+            ! Set-up
+            lMRAMc = MRAMc
+
+          ! Check MRAMc
+          else
+
+            ! If different
+            if (nint(1d6*abs(lMRAMc - MRAMc)).gt.1d0) then
+
+              ! Warning
+              if (warning) then
+
+                ! Deflag
+                warning = .False.
+
+                ! Write message
+                urou = 'TIC'
+                write(umsg,'(2(A,es13.6),A)') &
+                  'The miscellaneous RAM counter is different '// &
+                  'between calls to the Inversion function ', &
+                  MRAMc,' != ',lMRAMc,'. It is being '// &
+                  'corrected, but this should not happen. '// &
+                  'Please, notify of the issue providing '// &
+                  'your inputs'
+                call abortedS(umsg,urou,.False.,.True.)
+
+              end if ! Can issue warning
+
+              ! Correct
+              MRAMc = lMRAMc
+
+            end if ! Different
+          end if ! lMRAMc data
 
           ! Carry out the inversion
           call Inversion(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec, &

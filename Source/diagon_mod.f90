@@ -75,6 +75,7 @@
 
       double precision:: larmork
 
+
       ! Allocate eigenvalues and eigenvectors
       allocate(Atom%eval(Atom%nJmax,Atom%nMmax, &
                          Atom%nMulti,Rz0:Rz1))

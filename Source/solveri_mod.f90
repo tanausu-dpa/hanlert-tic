@@ -9,15 +9,29 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     20/02/2025 V4.0.2
+!     12/03/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/02/2025:    V4.0.2 - Added argument to JKQgen routine (TdPA)
-!                           - Added argument to the MRC_sb call (TdPA)
+!     12/03/2025:    V4.0.3 - Bugfix: The %crho variables in
+!                             Atom_class and in Rhoc_class have, in
+!                             general, different sizes. Just equating
+!                             them was changing the size of the
+!                             Rhoc_class one and messing the memory
+!                             couting (TdPA)
+!                           - Bugfix: NG_scratch should be allocatable
+!                             in solveI_SEE (TdPA)
+!                           - Bugfix: the memory to be stored in the
+!                             tau and contribution functions for
+!                             the inversion were counted in excess by
+!                             a factor of two because they are single
+!                             precision (TdPA)
+!                           - Bugfix: removed an umbalanced call to
+!                             control during the inversion (TdPA)
+!                           - Explicitly initialize NG_dim (TdPA) 
 !
 !#####################################################################
 !#####################################################################
@@ -301,7 +315,7 @@
         do ia=1,nA
 
           ! Copy current density matrix
-          Rho_old(ia)%crho = Atom(ia)%crho
+          Rho_old(ia)%crho = Atom(ia)%crho(:,Rz0:Rz1)
 
         end do ! Atoms
 
@@ -1091,6 +1105,7 @@
 
       ! Initialize entry index
       NG_entry = 0
+      NG_dim = 0
       doNG = .False.
       NGI = Input%NGI
 
@@ -2884,7 +2899,8 @@
       double precision, dimension(nxt,Rz0:Rz1), intent(in):: J00S
       double precision, dimension(nxphot,2,Rz0:Rz1), intent(in):: J00P
       double precision, dimension(nfreq,Rz0:Rz1), intent(inout):: J00C
-      double precision, dimension(:,:), intent(inout):: NG_scratch
+      double precision, dimension(:,:), &
+                        allocatable, intent(inout):: NG_scratch
 
       ! Local
 
@@ -3529,15 +3545,16 @@
 
             ! Return height where optical depth is one
             if (Input%out_tau1) &
-              SRAMc = SRAMc + 8d-6*dble(Input%lim_tau%nn* &
+              SRAMc = SRAMc + 4d-6*dble(Input%lim_tau%nn* &
                                         Geom%nPhLOS* &
                                         Geom%nThLOS)
 
             ! Return contribution function
             if (Input%out_contr) &
-              SRAMc = SRAMc + 8d-6*dble(Input%lim_ctr%nn* &
+              SRAMc = SRAMc + 4d-6*dble(Input%lim_ctr%nn* &
                                         Geom%nPhLOS* &
                                         Geom%nThLOS*Rnz)
+
           end if ! Inversion
 
         ! Slave
@@ -3577,17 +3594,17 @@
 
           ! Returning Stokes output
           SRAMc = SRAMc + 8d-6*dble(nfreq*Geom%nPhLOS* &
-                                                  Geom%nThLOS)
+                                          Geom%nThLOS)
 
           ! If output height tau equal 1
           if (Input%out_tau1) &
-            SRAMc = SRAMc + 8d-6*dble(Geom%nPhLOS* &
+            SRAMc = SRAMc + 4d-6*dble(Geom%nPhLOS* &
                                       Geom%nThLOS* &
                                       Input%lim_tau%nn)
 
           ! If output contribution function
           if (Input%out_contr) &
-            SRAMc = SRAMc + 8d-6*dble(Geom%nPhLOS* &
+            SRAMc = SRAMc + 4d-6*dble(Geom%nPhLOS* &
                                       Geom%nThLOS* &
                                       Input%lim_ctr%nn*Rnz)
         end if ! Inversion
@@ -3963,10 +3980,6 @@
                          Atmo%z,ContrG,Input%lim_ctr)
           if (laborted) return
         end if
-
-        ! Call control
-        call control
-        if (laborted) return
 
       end if ! Inversion or synthesis
 
@@ -4621,10 +4634,6 @@
         call MPI_ISEND(Stokes_s(if0), MPID%nf(pid), &
                        MPI_DOUBLE_PRECISION, 0, pid, &
                        MPI_COMM_RT, MPID%request4, ierr)
-
-        ! Control
-        call control
-        if (laborted) goto 2000
 
       end if ! Serial or slave
 
@@ -6264,7 +6273,7 @@
 
       ! For each atom
       do ia=1,nA
-        Rho_old(ia)%crho = Atom(ia)%crho
+        Rho_old(ia)%crho = Atom(ia)%crho(:,Rz0:Rz1)
       end do
 
       end subroutine JKQgen_init

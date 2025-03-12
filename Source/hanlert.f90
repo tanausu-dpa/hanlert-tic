@@ -11,53 +11,17 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     20/12/2024 V4.0.0
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/12/2024:    V4.0.0 - Updated to version 4 of HanleRT-TIC:
-!                             o The second order emissivity is
-!                               calculated in the comoving frame and
-!                               for all directions in the same call,
-!                               significantly reducing loop repetition
-!                               and memory in the more general cases.
-!                             o Removed the option to store Voigt
-!                               Voigt profiles in files.
-!                             o Revised and cleaned all headers.
-!                             o Improved memory accountability to
-!                               more properly limit the allocated RAM
-!                               as indicated by the user and minimize
-!                               the overshoot beyond that value.
-!                             o Removed OpenMP support.
-!                             o Fused together the different branches
-!                               for MPI, alternative MPI, and serial
-!                               for all solvers.
-!                             o Fused together angle-average and
-!                               angle-dependent routines for the
-!                               calculation of the second order
-!                               emissivity.
-!                             o Fused together the routines to compute
-!                               the RT coefficients for the quadrature
-!                               and for the arbitrary direction.
-!                             o Completely changed the indexing of
-!                               the transition components (fine
-!                               structure or magnetic) for the storage
-!                               of the normalization, the Voigt
-!                               profiles, and the redistribution.
-!                             o Completely changed the structures to
-!                               store input frequency data,
-!                               redistribution functions, Voigt
-!                               profiles, and their normalization.
-!                             o Changed how the formal solution for
-!                               arbitrary LOS manage the normalization
-!                               of profiles (in dynamic cases) and
-!                               the determination of the geometrical
-!                               tensors.
-!                             o Other changes with much less impact.
-!                             (TdPA)
+!     12/03/2025:    V4.0.1 - Bugfix: The MRAMc counter needs to be
+!                             initialized with the memory in
+!                             commons_mod before adding the memory
+!                             in innate structures (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -144,25 +108,15 @@
       VRAMc = 0d0
       WRAMc = 0d0
       RRAMc = 0d0
-      SRAMc = 0d0
       BRAMc = 0d0
+      MRAMc = 0d0
       TRAMc = 0d0
       ORAMc = 0d0
       FRAMc = 0d0
+      ERAMc = 0d0
+      SRAMc = 0d0
       DRAMc = 0d0
       DRAM2c = 0d0
-      ERAMc = 0d0
-      MRAMc = 0d0
-
-      !
-      ! Add already used RAM
-      !
-
-      ! Miscellaneous
-      MRAMc = MRAMc + 1d-6*sizeof(MPID) + &
-                      1d-6*sizeof(Input) + &
-                      1d-6*sizeof(Flgsg) + &
-                      1d-6*sizeof(fudge)
 
       !
       ! Add RAM in commons
@@ -181,6 +135,16 @@
                         4*2 + &
                         4*3 + &
                         8*12)
+
+      !
+      ! Add already used RAM
+      !
+
+      ! Miscellaneous
+      MRAMc = MRAMc + 1d-6*sizeof(MPID) + &
+                      1d-6*sizeof(Input) + &
+                      1d-6*sizeof(Flgsg) + &
+                      1d-6*sizeof(fudge)
 
       ! Start timer
       if (pid.eq.0) call cpu_time(t0)
@@ -509,6 +473,7 @@
         end do ! Atoms
 
       end if ! Custom K cut inputs
+
 
       !
       ! Check that H existed in the background and, if not, create

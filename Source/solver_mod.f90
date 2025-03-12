@@ -9,15 +9,29 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     20/02/2025 V4.0.1
+!     12/03/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/02/2025:    V4.0.1 - Added argument to the MRCJKQ_sb and
-!                             MRC_sb calls (TdPA)
+!     12/03/2025:    V4.0.2 - Bugfix: The %crho variables in
+!                             Atom_class and in Rhoc_class have, in
+!                             general, different sizes. Just equating
+!                             them was changing the size of the
+!                             Rhoc_class one and messing the memory
+!                             couting (TdPA)
+!                           - Bugfix: the memory to be stored in the
+!                             tau and contribution functions for
+!                             the inversion were counted in excess by
+!                             a factor of two because they are single
+!                             precision (TdPA)
+!                           - The LOS pointers in Geometry_class are
+!                             now deallocated in its own routine,
+!                             free_los_geom (TdPA)
+!                           - Moved some MPI_WAIT calls to a more
+!                             appropriate location (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -262,7 +276,7 @@
         do ia=1,nA
 
           ! Copy density matrix
-          Rho_old(ia)%crho = Atom(ia)%crho
+          Rho_old(ia)%crho = Atom(ia)%crho(:,Rz0:Rz1)
 
         end do
 
@@ -2980,8 +2994,7 @@
           end if
 
           ! Free LOS geometrical tensors
-          deallocate(Geom%TSL,Geom%TBL)
-          nullify(Geom%TSL,Geom%TBL)
+          call free_los_geom(Geom)
 
           ! If dynamic, free LOS norms
           if (dyn) call free_norm(Red,.False.)
@@ -3078,13 +3091,13 @@
 
             ! If keeping height for tau equal 1
             if (Input%out_tau1) &
-              SRAMc = SRAMc + 8d-6*dble(4*Geom%nPhLOS* &
-                                          Geom%nThLOS* &
-                                          Input%lim_tau%nn)
+              SRAMc = SRAMc + 4d-6*dble(Geom%nPhLOS* &
+                                        Geom%nThLOS* &
+                                        Input%lim_tau%nn)
 
             ! If keeping contribution
             if (Input%out_contr) &
-              SRAMc = SRAMc + 8d-6*dble(4*Geom%nPhLOS* &
+              SRAMc = SRAMc + 4d-6*dble(4*Geom%nPhLOS* &
                                           Geom%nThLOS*Rnz* &
                                           Input%lim_ctr%nn)
           end if ! Inversion
@@ -3130,13 +3143,13 @@
 
           ! If keeping height for tau equal 1
           if (Input%out_tau1) &
-            SRAMc = SRAMc + 8d-6*dble(4*Geom%nPhLOS* &
+            SRAMc = SRAMc + 4d-6*dble(Geom%nPhLOS* &
                                       Geom%nThLOS* &
                                       Input%lim_tau%nn)
 
           ! If keeping contribution
           if (Input%out_contr) &
-            SRAMc = SRAMc + 8d-6*dble(4*Geom%nPhLOS* &
+            SRAMc = SRAMc + 4d-6*dble(4*Geom%nPhLOS* &
                                       Geom%nThLOS*Rnz* &
                                       Input%lim_ctr%nn)
         end if ! Inversion
@@ -3698,8 +3711,6 @@
       if (pid.gt.0) then
 
         ! Wait till last communication was received
-        call MPI_WAIT(MPID%request3,MPI_STATUS_IGNORE,ierr)
-        call MPI_WAIT(MPID%request4,MPI_STATUS_IGNORE,ierr)
         call MPI_WAIT(MPID%request5,MPI_STATUS_IGNORE,ierr)
 
       end if
@@ -4235,6 +4246,10 @@
 
       ! MPI (slave)
       else
+
+        ! Wait till last communication was received
+        call MPI_WAIT(MPID%request3,MPI_STATUS_IGNORE,ierr)
+        call MPI_WAIT(MPID%request4,MPI_STATUS_IGNORE,ierr)
 
         !
         ! Send to master

@@ -9,17 +9,14 @@
 !  Start:
 !     01/10/2022
 !  Last version:
-!     03/12/2024 V4.0.0
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     03/12/2024:    V4.0.0 - Added calls to normalize_cle,
-!                             strength_ev, free_norm, and updated the
-!                             arguments for the boundary condition
-!                             subroutines (TdPA)
+!     12/03/2025:    V4.0.1 - Gave access to commonds_mod (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -51,6 +48,7 @@
       use broad_mod
       use btens_mod
       use chemic_mod
+      use commons_mod
       use diagon_mod
       use free_mod
       use geometry_mod

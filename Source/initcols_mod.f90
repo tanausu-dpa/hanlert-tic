@@ -9,14 +9,17 @@
 !  Start:
 !     25/09/2019
 !  Last version:
-!     05/12/2025 V4.0.0
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     05/12/2024:    V4.0.0 - Revised headers (TdPA)
+!     12/03/2025:    V4.0.1 - Ensure that collisional arrays are
+!                             allocated before trying to deallocate
+!                             them (TdPA)
+!                           - Ensure that p_col_p is nullified (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1034,12 +1037,18 @@
         if (.not.active) then
 
           ! Remove collisional data
-          MRAMc = MRAMc - 1d-6*sizeof(Atom%Ccoeff)
-          MRAMc = MRAMc - 1d-6*sizeof(Atom%CcoeffJ)
-          MRAMc = MRAMc - 1d-6*sizeof(Atom%icol)
-          deallocate(Atom%Ccoeff)
-          deallocate(Atom%CcoeffJ)
-          deallocate(Atom%icol)
+          if (allocated(Atom%Ccoeff)) then
+            MRAMc = MRAMc - 1d-6*sizeof(Atom%Ccoeff)
+            deallocate(Atom%Ccoeff)
+          end if
+          if (allocated(Atom%CcoeffJ)) then
+            MRAMc = MRAMc - 1d-6*sizeof(Atom%CcoeffJ)
+            deallocate(Atom%CcoeffJ)
+          end if
+          if (allocated(Atom%icol)) then
+            MRAMc = MRAMc - 1d-6*sizeof(Atom%icol)
+            deallocate(Atom%icol)
+          end if
 
           ! If we can free memory, do it
           if (allocated(Atom%fcflag).and.free) then
@@ -1052,6 +1061,7 @@
 
             ! Initialize
             p_col => Atom%Ccoeff_special
+            nullify(p_col_p)
 
             ! Go to the last one
             do while (associated(p_col%next))
@@ -1426,6 +1436,7 @@
 
               ! Initialize
               p_col => Atom%Ccoeff_special
+              nullify(p_col_p)
 
               ! Go to the last one
               do while (associated(p_col%next))

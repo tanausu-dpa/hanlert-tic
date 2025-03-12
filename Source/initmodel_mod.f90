@@ -9,14 +9,18 @@
 !  Start:
 !     16/06/2023
 !  Last version:
-!     11/12/2024 V4.0.0
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     11/12/2024:    V4.0.0 - Revised headers (TdPA)
+!     12/03/2025:    V4.0.1 - Bugfix: the LTElines variable in
+!                             setlte_lines routine had to be
+!                             allocatable (TdPA)
+!                           - Bugfix: Missing couting of chi500 in
+!                             MRAMc in setup_Atmo_ininv (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -437,7 +441,8 @@
       ! I/O
 
       type(Atom_class), dimension(:), intent(in):: Atomb
-      type(LTEline_class), dimension(:), intent(inout):: LTElines
+      type(LTEline_class), dimension(:), &
+                           allocatable, intent(inout):: LTElines
       type(Atmo_class), intent(in):: Atmo
       type(Input_class), intent(in):: Input
 
@@ -962,7 +967,7 @@
       ! If error, skip
       if (laborted) goto 1000
 
-      ! If there are NLTE lines
+      ! If there are LTE lines
       if (nLTEl.gt.0) then
 
         ! Prepare LTE lines
@@ -1091,9 +1096,10 @@
         if (laborted) return
 
         ! Allocate chi500
-        ! The memory, if kept, is counted in getztau
-        if (.not.allocated(Atmo_tmp%chi500)) &
+        if (.not.allocated(Atmo_tmp%chi500)) then
           allocate(Atmo_tmp%chi500(nz))
+          MRAMc = MRAMc + 1d-6*sizeof(Atmo_tmp%chi500)
+        end if
 
         ! Calculate continuum opacity at reference frequency
         call chi_freq(Atom,Atomb,Mol,Atmo_tmp,fudge,Input, &

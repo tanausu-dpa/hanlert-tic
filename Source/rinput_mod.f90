@@ -71,7 +71,6 @@
 
       double precision:: ddump,ddump2
 
-
       ! Routine name
       urou = 'rInput'
 

@@ -9,17 +9,34 @@
 !  Start:
 !     28/06/2022
 !  Last version:
-!     03/12/2024 V4.0.0
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     03/12/2024:    V4.0.0 - Adding a number of new routines used in
-!                             the new version (TdPA)
-!                           - Added memory counters when freeing
-!                             variables (TdPA)
+!     12/03/2025:    V4.0.1 - Bugfixes:
+!                             o Missing memory counters when freeing
+!                               redipev in the Atom_class.
+!                             o Missing the indexing in the structure
+!                               Geometry_class.
+!                             o Counting the size of pT in the
+!                               structure Atmo_class after having
+!                               deallocated them.
+!                             o Added explicit deallocation of %pf
+!                               and %Ei in %ele in Atmo_class.
+!                             o Removed deallocation of %rho in
+!                               Rhoc_class because the variable no
+!                               longer exists.
+!                             o Ensure that the p_col_p pointer is
+!                               nullified when it should.
+!                                                               (TdPA)
+!                           - Reordered the deallocations in
+!                             free_inv_solution to follow the
+!                             allocation order for a better debugging
+!                             experience (TdPA)
+!                           - Added free_los_geom routine (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -38,6 +55,10 @@
 !
 !  free_local_Atom
 !    Deallocate quantities in Atom_class generated in a hanle call
+!
+!  free_los_geom
+!    Deallocate LOS quantities in Geometry_class generated in a hanle
+!  call
 !
 !  free_local_geom
 !    Deallocate quantities in Geometry_class generated in a hanle call
@@ -144,6 +165,7 @@
 
       integer:: ii,jj,kk
 
+
       !
       ! Atom
       !
@@ -198,12 +220,19 @@
                   deallocate(Atom(ii)%rdipev(jj)%rdipev(kk)%rdip)
                 end if
 
+                ! Free element space
+                MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%rdipev(jj)% &
+                                                     rdipev(kk))
+
               end do ! Elements
 
               ! Array
               deallocate(Atom(ii)%rdipev(jj)%rdipev)
 
             end if ! Dipole strength
+
+            ! Free element space
+            MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%rdipev(jj))
 
           end do ! Elements
 
@@ -222,7 +251,39 @@
 !#####################################################################
 !#####################################################################
 
-      !> Deallocate quantities in Geomtry_class generated in a hanle
+      !> Deallocate LOS quantities in Geometry_class generated in a
+      !! hanle call\n
+      !!  Geom(Geometry_class): Structure with geometric data
+      subroutine free_los_geom(Geom)
+
+      ! I/O
+
+      type(Geometry_class), intent(inout):: Geom
+
+
+      !
+      ! Geometry
+      !
+
+      ! TKQ S frame for LOS
+      MRAMc = MRAMc - 1d-6*sizeof(Geom%TSL)
+      deallocate(Geom%TSL)
+      nullify(Geom%TSL)
+
+      ! TKQ B frame for LOS
+      MRAMc = MRAMc - 1d-6*sizeof(Geom%TBL)
+      deallocate(Geom%TBL)
+      nullify(Geom%TBL)
+
+      return
+
+      end subroutine free_los_geom
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Deallocate quantities in Geometry_class generated in a hanle
       !! call\n
       !!  Geom(Geometry_class): Structure with geometric data
       subroutine free_local_geom(Geom)
@@ -260,6 +321,24 @@
         MRAMc = MRAMc - 1d-6*sizeof(Geom%TBL)
         deallocate(Geom%TBL)
         nullify(Geom%TBL)
+      end if
+
+      ! Indexes mapping
+      if (allocated(Geom%i_geom)) then
+        MRAMc = MRAMc - 1d-6*sizeof(Geom%i_geom)
+        deallocate(Geom%i_geom)
+      end if
+
+      ! Index inclination
+      if (allocated(Geom%ithv)) then
+        MRAMc = MRAMc - 1d-6*sizeof(Geom%ithv)
+        deallocate(Geom%ithv)
+      end if
+
+      ! Index azimuth
+      if (allocated(Geom%iphv)) then
+        MRAMc = MRAMc - 1d-6*sizeof(Geom%iphv)
+        deallocate(Geom%iphv)
       end if
 
       return
@@ -578,8 +657,8 @@
 
         ! Temperature tabulation
         if (allocated(Atmo%pT)) then
-          deallocate(Atmo%pT)
           MRAMc = MRAMc - 1d-6*sizeof(Atmo%pT)
+          deallocate(Atmo%pT)
         end if
 
         ! Element data
@@ -590,6 +669,8 @@
             MRAMc = MRAMc - 1d-6*sizeof(Atmo%ele(ii))
             MRAMc = MRAMc - 1d-6*sizeof(Atmo%ele(ii)%pf)
             MRAMc = MRAMc - 1d-6*sizeof(Atmo%ele(ii)%Ei)
+            deallocate(Atmo%ele(ii)%pf)
+            deallocate(Atmo%ele(ii)%Ei)
           end do
 
           ! Remove data
@@ -980,12 +1061,6 @@
       ! For each atom
       do ia=1,size(Rho_old)
 
-        ! Population
-        if (allocated(Rho_old(ia)%rho)) then
-          MRAMc = MRAMc - 1d-6*sizeof(Rho_old(ia)%rho)
-          deallocate(Rho_old(ia)%rho)
-        end if
-
         ! Density matrix
         if (allocated(Rho_old(ia)%crho)) then
           MRAMc = MRAMc - 1d-6*sizeof(Rho_old(ia)%crho)
@@ -1206,6 +1281,10 @@
                   deallocate(Atom(ii)%rdipev(jj)%rdipev(kk)%rdip)
                 end if
 
+                ! Free element space
+                MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%rdipev(jj)% &
+                                                     rdipev(kk))
+
               end do ! Elements
 
               ! Array
@@ -1213,12 +1292,15 @@
 
             end if ! Dipole strength
 
+            ! Free element space
+            MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%rdipev(jj))
+
           end do ! Elements
 
           ! Array
           deallocate(Atom(ii)%rdipev)
 
-        end if
+        end if ! Allocated rdipev
 
       end do ! Active atoms
 
@@ -1636,6 +1718,7 @@
 
             ! Initialize
             p_col => Atom(ia)%Ccoeff_special
+            nullify(p_col_p)
 
             ! Go to the last one
             do while (associated(p_col%next))
@@ -1800,12 +1883,19 @@
                   deallocate(Atom(ia)%rdipev(ii)%rdipev(jj)%rdip)
                 end if
 
+                ! Free element space
+                MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%rdipev(jj)% &
+                                                     rdipev(kk))
+
               end do ! Elements
 
               ! Array
               deallocate(Atom(ia)%rdipev(ii)%rdipev)
 
             end if ! Dipole strength
+
+            ! Free element space
+            MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%rdipev(jj))
 
           end do ! Elements
 
@@ -2610,6 +2700,10 @@
 
       type(Solution_F_class), intent(inout):: Sol
 
+      ! Local
+
+      integer:: ii
+
 
       ! Slaves, leave, because you do not allocate these
       if (pid.gt.0) return
@@ -2617,6 +2711,27 @@
       !
       ! Free all allocated
       !
+
+      !
+      ! i_StkI
+      if (allocated(Sol%i_StkI)) then
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_StkI)
+        deallocate(Sol%i_StkI)
+      end if
+
+      !
+      ! i_StkI_b
+      if (allocated(Sol%i_StkI_b)) then
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_StkI_b)
+        deallocate(Sol%i_StkI_b)
+      end if
+
+      !
+      ! i_StkI_t
+      if (allocated(Sol%i_StkI_t)) then
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_StkI_t)
+        deallocate(Sol%i_StkI_t)
+      end if
 
       !
       ! i_J00
@@ -2633,13 +2748,6 @@
       end if
 
       !
-      ! e_tau1
-      if (allocated(Sol%e_tau1)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%e_tau1)
-        deallocate(Sol%e_tau1)
-      end if
-
-      !
       ! i_J00P
       if (allocated(Sol%i_J00P)) then
         SRAMc = SRAMc - 1d-6*sizeof(Sol%i_J00P)
@@ -2647,24 +2755,96 @@
       end if
 
       !
-      ! e_Stk
-      if (allocated(Sol%e_Stk)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%e_Stk)
-        deallocate(Sol%e_Stk)
+      ! i_J00_b
+      if (allocated(Sol%i_J00_b)) then
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_J00_b)
+        deallocate(Sol%i_J00_b)
       end if
 
       !
-      ! e_Ctr
-      if (allocated(Sol%e_Ctr)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%e_Ctr)
-        deallocate(Sol%e_Ctr)
+      ! i_J00C_b
+      if (allocated(Sol%i_J00C_b)) then
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_J00C_b)
+        deallocate(Sol%i_J00C_b)
       end if
 
       !
-      ! i_StkI
-      if (allocated(Sol%i_StkI)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_StkI)
-        deallocate(Sol%i_StkI)
+      ! i_J00P_b
+      if (allocated(Sol%i_J00P_b)) then
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_J00P_b)
+        deallocate(Sol%i_J00P_b)
+      end if
+
+      !
+      ! i_J00_t
+      if (allocated(Sol%i_J00_t)) then
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_J00_t)
+        deallocate(Sol%i_J00_t)
+      end if
+
+      !
+      ! i_J00C_t
+      if (allocated(Sol%i_J00C_t)) then
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_J00C_t)
+        deallocate(Sol%i_J00C_t)
+      end if
+
+      !
+      ! i_J00P_t
+      if (allocated(Sol%i_J00P_t)) then
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_J00P_t)
+        deallocate(Sol%i_J00P_t)
+      end if
+
+      !
+      ! i_rhoes
+      if (allocated(Sol%i_rhoes)) then
+        do ii=lbound(Sol%i_rhoes,1),ubound(Sol%i_rhoes,1)
+          if (allocated(Sol%i_rhoes(ii)%rho)) then
+            SRAMc = SRAMc - 1d-6*sizeof(Sol%i_rhoes(ii)%rho)
+            deallocate(Sol%i_rhoes(ii)%rho)
+          end if
+          if (allocated(Sol%i_rhoes(ii)%crho)) then
+            SRAMc = SRAMc - 1d-6*sizeof(Sol%i_rhoes(ii)%crho)
+            deallocate(Sol%i_rhoes(ii)%crho)
+          end if
+        end do
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_rhoes)
+        deallocate(Sol%i_rhoes)
+      end if
+
+      !
+      ! i_rhoes_b
+      if (allocated(Sol%i_rhoes_b)) then
+        do ii=lbound(Sol%i_rhoes_b,1),ubound(Sol%i_rhoes_b,1)
+          if (allocated(Sol%i_rhoes_b(ii)%rho)) then
+            SRAMc = SRAMc - 1d-6*sizeof(Sol%i_rhoes_b(ii)%rho)
+            deallocate(Sol%i_rhoes_b(ii)%rho)
+          end if
+          if (allocated(Sol%i_rhoes_b(ii)%crho)) then
+            SRAMc = SRAMc - 1d-6*sizeof(Sol%i_rhoes_b(ii)%crho)
+            deallocate(Sol%i_rhoes_b(ii)%crho)
+          end if
+        end do
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_rhoes_b)
+        deallocate(Sol%i_rhoes_b)
+      end if
+
+      !
+      ! i_rhoes_t
+      if (allocated(Sol%i_rhoes_t)) then
+        do ii=lbound(Sol%i_rhoes_t,1),ubound(Sol%i_rhoes_t,1)
+          if (allocated(Sol%i_rhoes_t(ii)%rho)) then
+            SRAMc = SRAMc - 1d-6*sizeof(Sol%i_rhoes_t(ii)%rho)
+            deallocate(Sol%i_rhoes_t(ii)%rho)
+          end if
+          if (allocated(Sol%i_rhoes_t(ii)%crho)) then
+            SRAMc = SRAMc - 1d-6*sizeof(Sol%i_rhoes_t(ii)%crho)
+            deallocate(Sol%i_rhoes_t(ii)%crho)
+          end if
+        end do
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_rhoes_t)
+        deallocate(Sol%i_rhoes_t)
       end if
 
       !
@@ -2672,6 +2852,20 @@
       if (allocated(Sol%i_Stk)) then
         SRAMc = SRAMc - 1d-6*sizeof(Sol%i_Stk)
         deallocate(Sol%i_Stk)
+      end if
+
+      !
+      ! i_Stk_b
+      if (allocated(Sol%i_Stk_b)) then
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_Stk_b)
+        deallocate(Sol%i_Stk_b)
+      end if
+
+      !
+      ! i_Stk_t
+      if (allocated(Sol%i_Stk_t)) then
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_Stk_t)
+        deallocate(Sol%i_Stk_t)
       end if
 
       !
@@ -2696,69 +2890,6 @@
       end if
 
       !
-      ! i_rhoes
-      if (allocated(Sol%i_rhoes)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_rhoes)
-        deallocate(Sol%i_rhoes)
-      end if
-
-      !
-      ! i_J00_b
-      if (allocated(Sol%i_J00_b)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_J00_b)
-        deallocate(Sol%i_J00_b)
-      end if
-
-      !
-      ! i_J00C_b
-      if (allocated(Sol%i_J00C_b)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_J00C_b)
-        deallocate(Sol%i_J00C_b)
-      end if
-
-      !
-      ! e_tau1_b
-      if (allocated(Sol%e_tau1_b)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%e_tau1_b)
-        deallocate(Sol%e_tau1_b)
-      end if
-
-      !
-      ! i_J00P_b
-      if (allocated(Sol%i_J00P_b)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_J00P_b)
-        deallocate(Sol%i_J00P_b)
-      end if
-
-      !
-      ! e_Stk_b
-      if (allocated(Sol%e_Stk_b)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%e_Stk_b)
-        deallocate(Sol%e_Stk_b)
-      end if
-
-      !
-      ! e_Ctr_b
-      if (allocated(Sol%e_Ctr_b)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%e_Ctr_b)
-        deallocate(Sol%e_Ctr_b)
-      end if
-
-      !
-      ! i_StkI_b
-      if (allocated(Sol%i_StkI_b)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_StkI_b)
-        deallocate(Sol%i_StkI_b)
-      end if
-
-      !
-      ! i_Stk_b
-      if (allocated(Sol%i_Stk_b)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_Stk_b)
-        deallocate(Sol%i_Stk_b)
-      end if
-
-      !
       ! i_JKQ_b
       if (allocated(Sol%i_JKQ_b)) then
         SRAMc = SRAMc - 1d-6*sizeof(Sol%i_JKQ_b)
@@ -2777,69 +2908,6 @@
       if (allocated(Sol%i_JKQC_b)) then
         SRAMc = SRAMc - 1d-6*sizeof(Sol%i_JKQC_b)
         deallocate(Sol%i_JKQC_b)
-      end if
-
-      !
-      ! i_rhoes_b
-      if (allocated(Sol%i_rhoes_b)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_rhoes_b)
-        deallocate(Sol%i_rhoes_b)
-      end if
-
-      !
-      ! i_J00_t
-      if (allocated(Sol%i_J00_t)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_J00_t)
-        deallocate(Sol%i_J00_t)
-      end if
-
-      !
-      ! i_J00C_t
-      if (allocated(Sol%i_J00C_t)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_J00C_t)
-        deallocate(Sol%i_J00C_t)
-      end if
-
-      !
-      ! e_tau1_t
-      if (allocated(Sol%e_tau1_t)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%e_tau1_t)
-        deallocate(Sol%e_tau1_t)
-      end if
-
-      !
-      ! i_J00P_t
-      if (allocated(Sol%i_J00P_t)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_J00P_t)
-        deallocate(Sol%i_J00P_t)
-      end if
-
-      !
-      ! e_Stk_t
-      if (allocated(Sol%e_Stk_t)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%e_Stk_t)
-        deallocate(Sol%e_Stk_t)
-      end if
-
-      !
-      ! e_Ctr_t
-      if (allocated(Sol%e_Ctr_t)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%e_Ctr_t)
-        deallocate(Sol%e_Ctr_t)
-      end if
-
-      !
-      ! i_StkI_t
-      if (allocated(Sol%i_StkI_t)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_StkI_t)
-        deallocate(Sol%i_StkI_t)
-      end if
-
-      !
-      ! i_Stk_t
-      if (allocated(Sol%i_Stk_t)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_Stk_t)
-        deallocate(Sol%i_Stk_t)
       end if
 
       !
@@ -2864,10 +2932,66 @@
       end if
 
       !
-      ! i_rhoes_t
-      if (allocated(Sol%i_rhoes_t)) then
-        SRAMc = SRAMc - 1d-6*sizeof(Sol%i_rhoes_t)
-        deallocate(Sol%i_rhoes_t)
+      ! e_Stk
+      if (allocated(Sol%e_Stk)) then
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%e_Stk)
+        deallocate(Sol%e_Stk)
+      end if
+
+      !
+      ! e_tau1
+      if (allocated(Sol%e_tau1)) then
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%e_tau1)
+        deallocate(Sol%e_tau1)
+      end if
+
+      !
+      ! e_Ctr
+      if (allocated(Sol%e_Ctr)) then
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%e_Ctr)
+        deallocate(Sol%e_Ctr)
+      end if
+
+      !
+      ! e_Stk_b
+      if (allocated(Sol%e_Stk_b)) then
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%e_Stk_b)
+        deallocate(Sol%e_Stk_b)
+      end if
+
+      !
+      ! e_tau1_b
+      if (allocated(Sol%e_tau1_b)) then
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%e_tau1_b)
+        deallocate(Sol%e_tau1_b)
+      end if
+
+      !
+      ! e_Ctr_b
+      if (allocated(Sol%e_Ctr_b)) then
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%e_Ctr_b)
+        deallocate(Sol%e_Ctr_b)
+      end if
+
+      !
+      ! e_Stk_t
+      if (allocated(Sol%e_Stk_t)) then
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%e_Stk_t)
+        deallocate(Sol%e_Stk_t)
+      end if
+
+      !
+      ! e_tau1_t
+      if (allocated(Sol%e_tau1_t)) then
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%e_tau1_t)
+        deallocate(Sol%e_tau1_t)
+      end if
+
+      !
+      ! e_Ctr_t
+      if (allocated(Sol%e_Ctr_t)) then
+        SRAMc = SRAMc - 1d-6*sizeof(Sol%e_Ctr_t)
+        deallocate(Sol%e_Ctr_t)
       end if
 
       end subroutine free_inv_solution

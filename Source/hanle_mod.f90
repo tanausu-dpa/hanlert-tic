@@ -11,14 +11,20 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     20/02/2025 V4.0.1
+!     12/03/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/02/2025:    V4.0.1 - Added argument to JKQgen call (TdPA)
+!     12/03/2025:    V4.0.2 - Added the JKQ_asym variable to the RRAMc
+!                             counter (TdPA)
+!                           - The BRAMc counter has been moved from
+!                             background_mod to here (TdPA)
+!                           - Explicitly free memory in GeomI (TdPA)
+!                           - Explicitly reset the prediction TRAMc
+!                             memory counter (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -200,6 +206,7 @@
       MRAMc = MRAMc + 1d-6*sizeof(Bfield0)
       MRAMc = MRAMc + 1d-6*sizeof(Cont)
       MRAMc = MRAMc + 1d-6*sizeof(Rho_old)
+      if (allocated(JKQ_asym)) RRAMc = 1d-6*(sizeof(JKQ_asym))
 
       ! Original RAM storage flags
       rVIRAM = VIRAM
@@ -625,6 +632,13 @@
       ! Restore dyn just in case we got here due to error
       dyn = rdyn
 
+      ! Memory count
+      if (allocated(JKQ_asym)) then
+        RRAMc = 1d-6*(sizeof(JKQ_asym))
+      else
+        RRAMc = 0d0
+      end if
+
       return
 
       end subroutine hanle
@@ -712,10 +726,16 @@
         MRAMc = MRAMc + 1d-6*sizeof(Atmo%chi500)
       end if
 
-
       ! Calculate background continuum quantities
       call background(Atom,Atomb,Mol,Atmo,fudge,kurucz, &
                       Input,Frec%omega,Cont,GeomI,MPID,Flgsg)
+
+      ! Memory count
+      if (allocated(Cont%c)) then
+        BRAMc = 1d-6*sizeof(Cont%c)
+      else
+        BRAMc = 0d0
+      end if
 
       ! Control
       if (laborted) return
@@ -980,8 +1000,12 @@
       call background(Atom,Atomb,Mol,Atmo,fudge,kurucz, &
                       Input,Frec%omega,Cont,Geom,MPID,Flgsg)
 
-      ! Add current background to RAM
-      BRAMc = 1d-6*sizeof(Cont%c)
+      ! Memory count
+      if (allocated(Cont%c)) then
+        BRAMc = 1d-6*sizeof(Cont%c)
+      else
+        BRAMc = 0d0
+      end if
 
       ! Control
       if (laborted) return
@@ -1651,6 +1675,10 @@
 
       ! Clean Red structure
 1000  call free_red(Red)
+      call free_local_geom(GeomI)
+
+      ! Prediction counter
+      TRAMc = 0d0
 
       return
 
@@ -2174,6 +2202,9 @@
       ! Clean Red structures and geometrical tensors
 1000  call free_red(Red)
       call free_local_geom(Geom)
+
+      ! Prediction counter
+      TRAMc = 0d0
 
       return
 

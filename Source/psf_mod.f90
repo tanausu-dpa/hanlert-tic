@@ -10,15 +10,18 @@
 !  Start:
 !     23/02/2023
 !  Last version:
-!     13/12/2024 V4.0.0
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     13/12/2024:    V4.0.0 - Removed references to threads in the
-!                             calls to abortedS (TdPA)
+!     12/03/2025:    V4.0.1 - Gave access to commons_mod (TdPA)
+!                           - Bugfix: the emergent Stokes array
+!                             changes its size here and that needs to
+!                             be taken into account in the memory
+!                             counter SRAMc (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -53,6 +56,7 @@
 !#####################################################################
 
       use aborted_mod
+      use commons_mod
       use inter_mod
       use parameters_mod, only: sqrt2, fw2sg, TINYO
       use types_mod
@@ -458,9 +462,15 @@
       integer:: iran,ii,i0,i1,nn
 
 
+      ! Resize memory count
+      SRAMc = SRAMc - 1d-6*sizeof(o_stk)
+
       ! Reallocate
       deallocate(o_stk)
       allocate(o_stk(0:nstk,buff%nn,1,1))
+
+      ! Resize memory count
+      SRAMc = SRAMc + 1d-6*sizeof(o_stk)
 
       ! Initialize buffer
       ii = 0

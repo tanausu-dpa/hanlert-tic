@@ -10,14 +10,20 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     13/12/2024 V4.0.0
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     13/12/2024:    V4.0.0 - Revised headers (TdPA)
+!     12/03/2025:    V4.0.1 - Bugfix: in cAtmo, the memory allocated
+!                             in the partition function and ionization
+!                             energy data was being subtracted from
+!                             the counter instead of added (TdPA)
+!                           - Bugfix: rAtmo_frombuffer was missing
+!                             the counting of the %ne variable (TdPA)
+!                           - Added the dAtmo routine (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -47,6 +53,9 @@
 !
 !  cAtmo
 !    Create a copy of a model atmosphere
+!
+!  dAtmo
+!    Create a dummy copy of a model atmosphere with dimension 1
 !
 !  rAtmo
 !    Read a 1D atmospheric model from an ASCII file
@@ -235,12 +244,12 @@
 
       ! Count memory in ele
       if (allocated(Aou%ele)) then
-        do lnz=1,size(Aou%ele)
+        do lnz=lbound(Aou%ele,1),ubound(Aou%ele,1)
           if (allocated(Aou%ele(lnz)%Ei)) &
-            MRAMc = MRAMc - 1d-6*sizeof(Aou%ele(lnz)%Ei)
+            MRAMc = MRAMc + 1d-6*sizeof(Aou%ele(lnz)%Ei)
           if (allocated(Aou%ele(lnz)%pf)) &
-            MRAMc = MRAMc - 1d-6*sizeof(Aou%ele(lnz)%pf)
-          MRAMc = MRAMc - 1d-6*sizeof(Aou%ele(lnz))
+            MRAMc = MRAMc + 1d-6*sizeof(Aou%ele(lnz)%pf)
+          MRAMc = MRAMc + 1d-6*sizeof(Aou%ele(lnz))
         end do
       end if
 
@@ -283,6 +292,96 @@
       return
 
       end subroutine cAtmo
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Create a dummy copy of a model atmosphere with dimension 1\n
+      !!  Ain(Atmo_class): Structure to copy from\n
+      !!  Aou(Atmo_class): Structure to copy to
+      subroutine dAtmo(Ain,Aou)
+
+      ! I/O
+
+      type(Atmo_class), intent(in):: Ain
+      type(Atmo_class), intent(out):: Aou
+
+      ! Local
+
+      integer:: lnz
+
+
+      ! Routine name
+      urou = 'dAtmo'
+
+      ! Dimension
+      lnz = 1
+
+      ! Generate pointers
+      nullify(Aou%z)
+      nullify(Aou%T)
+      allocate(Aou%T(lnz))
+      MRAMc = MRAMc + 1d-6*sizeof(Aou%T)
+      nullify(Aou%vmi)
+      nullify(Aou%vx)
+      nullify(Aou%vy)
+      nullify(Aou%vz)
+      nullify(Aou%Bx)
+      nullify(Aou%By)
+      nullify(Aou%Bz)
+      nullify(Aou%zeros)
+      nullify(Aou%vxa)
+      nullify(Aou%vya)
+      nullify(Aou%vza)
+
+      ! Allocs
+      Aou%alloc_a = .True.
+      Aou%alloc_b = .False.
+
+      ! Count memory in arrays
+      allocate(Aou%nht(lnz))
+      MRAMc = MRAMc + 1d-6*sizeof(Aou%nht)
+      allocate(Aou%nhm(lnz))
+      MRAMc = MRAMc + 1d-6*sizeof(Aou%nhm)
+      allocate(Aou%Pg(lnz))
+      MRAMc = MRAMc + 1d-6*sizeof(Aou%Pg)
+      allocate(Aou%rho(lnz))
+      MRAMc = MRAMc + 1d-6*sizeof(Aou%rho)
+      allocate(Aou%Pe(lnz))
+      MRAMc = MRAMc + 1d-6*sizeof(Aou%Pe)
+      allocate(Aou%nHa(lnz))
+      MRAMc = MRAMc + 1d-6*sizeof(Aou%nHa)
+      Aou%NT = Ain%NT
+      Aou%pT = Ain%pT
+      if (allocated(Aou%pT)) &
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%pT)
+      Aou%abund = Ain%abund
+      if (allocated(Aou%abund)) &
+        MRAMc = MRAMc + 1d-6*sizeof(Aou%abund)
+      allocate(Aou%ne(lnz))
+      MRAMc = MRAMc + 1d-6*sizeof(Aou%ne)
+      allocate(Aou%nh(lnz,6))
+      MRAMc = MRAMc + 1d-6*sizeof(Aou%nh)
+
+      ! Copy ele
+      Aou%ele = Ain%ele
+      Aou%nele = Ain%nele
+
+      ! Count memory in ele
+      if (allocated(Aou%ele)) then
+        do lnz=lbound(Aou%ele,1),ubound(Aou%ele,1)
+          if (allocated(Aou%ele(lnz)%Ei)) &
+            MRAMc = MRAMc + 1d-6*sizeof(Aou%ele(lnz)%Ei)
+          if (allocated(Aou%ele(lnz)%pf)) &
+            MRAMc = MRAMc + 1d-6*sizeof(Aou%ele(lnz)%pf)
+          MRAMc = MRAMc + 1d-6*sizeof(Aou%ele(lnz))
+        end do
+      end if
+
+      return
+
+      end subroutine dAtmo
 
 !#####################################################################
 !#####################################################################
@@ -1643,6 +1742,7 @@
       ! Allocate nH and ne
       allocate(Atmo%nH(nz,6),Atmo%ne(nz))
       MRAMc = MRAMc + 1d-6*sizeof(Atmo%nH)
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%ne)
 
       !
       ! Depending on type of scale
@@ -1766,7 +1866,6 @@
       ! Check if dynamic (yes if > 1m/s)
       dyn = maxval(Atmo%vx(:)*Atmo%vx(:) + Atmo%vy(:)*Atmo%vy(:) + &
                    Atmo%vz(:)*Atmo%vz(:)).gt.TINYVEL
-
 
       !
       ! Magnetic field

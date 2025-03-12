@@ -10,18 +10,18 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     17/12/2024 V4.0.0
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     17/12/2024:    V4.0.0 - Count the magnetic components in a LTE
-!                             line (TdPA)
-!                           - Added set_atom_indexes to get all the
-!                             necessary indexing of atomic quantities
-!                             since the beginning (TdPA)
+!     12/03/2025:    V4.0.1 - Bugfix: the Ccoeff_special pointer was
+!                             not nullified for the hard-coded
+!                             hydrogen atom (TdPA)
+!                           - Removed an unnecessary nullification
+!                             of Ccoeff_special in rAtom (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -225,9 +225,6 @@
 
       ! Maximum vectorial dimension for levels
       Atom%NNN = Atom%nMulti*Atom%nJmax
-
-      ! Point pointer of extra collisions to null
-      nullify(Atom%Ccoeff_special)
 
 
       !!!!!!!!!!!!!!!!!!!!!
@@ -1701,7 +1698,7 @@
 
 
       ! Initialize pointer
-      nullify(p_T)
+      nullify(p_T,Atom%Ccoeff_special)
 
       ! If master
       if (pid.eq.0) then

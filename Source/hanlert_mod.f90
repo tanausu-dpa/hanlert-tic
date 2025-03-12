@@ -10,15 +10,19 @@
 !  Start:
 !     22/06/2022
 !  Last version:
-!     05/12/2024 V4.0.0
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     05/12/2024:    V4.0.0 - Added the possibility of running in
-!                             serial to the CLE mode (TdPA)
+!     12/03/2025:    V4.0.1 - Added warnings for unexpected changes
+!                             in the MRAMc memory counter between
+!                             calls to hanle in HanleRT15DS (TdPA)
+!                           - Explicitly free the space allocated
+!                             in LTEline_class when finished with
+!                             the synthesis in one pixel (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -510,7 +514,7 @@
       type(LTEline_class), dimension(:), allocatable:: LTElines
 
       logical:: aborting,check,receiving,lcache,double,lexcl,lDK
-      logical:: lio,lie,lp,lpe,lporlpe,lload,l1,l2
+      logical:: lio,lie,lp,lpe,lporlpe,lload,l1,l2,warning
       logical, dimension(:,:), allocatable:: cache
 
       integer:: unitA,unitC,unitJ
@@ -519,10 +523,20 @@
       integer, dimension(3):: dims,out_dims,int_buff
       integer, dimension(:), allocatable:: cpu_free
 
-      double precision:: maxB,DwTa
+      double precision:: maxB,DwTa,lMRAMc
       double precision, dimension(:), allocatable,target:: buffer_atmo
       double precision, dimension(:), allocatable,target:: buffer_JKQ
 
+
+      !
+      ! Initialize
+      !
+
+      ! Can issue memory RAM count warning
+      warning = .True.
+
+      ! No info on last MRAMc
+      lMRAMc = -1d0
 
       ! Count non-allocatable memory in local structures
       MRAMc = MRAMc + 1d-6*(sizeof(Atmo) + &
@@ -1442,6 +1456,42 @@
             ! If error, skip
             if (laborted) goto 1100
 
+            ! If no lMRAMc data
+            if (lMRAMc.lt.0d0) then
+
+              ! Set-up
+              lMRAMc = MRAMc
+
+            ! Check MRAMc
+            else
+
+              ! If different
+              if (nint(1d6*abs(lMRAMc - MRAMc)).gt.1d0) then
+
+                ! Warning
+                if (warning) then
+
+                  ! Deflag
+                  warning = .False.
+
+                  ! Write message
+                  urou = 'HanleRT15DS'
+                  write(umsg,'(2(A,es13.6),A)') &
+                    'The miscellaneous RAM counter is different '// &
+                    'between calls to the hanle function ',MRAMc, &
+                    ' != ',lMRAMc,'. It is being corrected, but '// &
+                    'this should not happen. Please, notify of '// &
+                    'the issue providing your inputs'
+                  call abortedS(umsg,urou,.False.,.True.)
+
+                end if ! Can issue warning
+
+                ! Correct
+                MRAMc = lMRAMc
+
+              end if ! Different
+            end if ! lMRAMc data
+
             !
             ! Solve NLTE problem in pixel
             call hanle(Atom,Atomb,LTElines,Mol,Atmo,MPID,Input, &
@@ -1457,6 +1507,7 @@
             ! Clean memory
 1100        call free_pix(Atom,Atomb,Mol,Bfield)
             call free_Atmo(Atmo,.False.)
+            call free_LTElines_full(LTElines)
 
             ! If liutenant, send message to grand master
             if (pid.eq.0) then
@@ -1594,6 +1645,42 @@
           ! If error, skip
           if (laborted) goto 1200
 
+          ! If no lMRAMc data
+          if (lMRAMc.lt.0d0) then
+
+            ! Set-up
+            lMRAMc = MRAMc
+
+          ! Check MRAMc
+          else
+
+            ! If different
+            if (nint(1d6*abs(lMRAMc - MRAMc)).gt.1d0) then
+
+              ! Warning
+              if (warning) then
+
+                ! Deflag
+                warning = .False.
+
+                ! Write message
+                urou = 'HanleRT15DS'
+                write(umsg,'(2(A,es13.6),A)') &
+                  'The miscellaneous RAM counter is different '// &
+                  'between calls to the hanle function ',MRAMc, &
+                  ' != ',lMRAMc,'. It is being corrected, but '// &
+                  'this should not happen. Please, notify of '// &
+                  'the issue providing your inputs'
+                call abortedS(umsg,urou,.False.,.True.)
+
+              end if ! Can issue warning
+
+              ! Correct
+              MRAMc = lMRAMc
+
+            end if ! Different
+          end if ! lMRAMc data
+
           !
           ! Solve NLTE problem
           call hanle(Atom,Atomb,LTElines,Mol,Atmo,MPID,Input,GeomI, &
@@ -1609,6 +1696,7 @@
           ! Clean memory
 1200      call free_pix(Atom,Atomb,Mol,Bfield)
           call free_Atmo(Atmo,.False.)
+          call free_LTElines_full(LTElines)
 
           ! Copy coordinates
           int_buff = icoords
@@ -1659,9 +1747,6 @@
         MRAMc = MRAMc - 1d-6*sizeof(buffer_JKQ)
         deallocate(buffer_JKQ)
       end if
-
-      ! Free
-      call free_LTElines_full(LTElines)
 
       end subroutine HanleRT15DS
 
@@ -1824,6 +1909,7 @@
         Input%out_contr = .False.
 
       end if
+
 
       !
       ! Solve the NLTE problem
