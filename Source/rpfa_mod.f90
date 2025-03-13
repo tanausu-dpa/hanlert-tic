@@ -5,19 +5,18 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     07/12/2022
+!     12/07/2022
 !  Last version:
-!     07/12/2022 V3.0.0
+!     19/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     07/12/2022:    V3.0.0 - First version (TdPA)
+!     19/12/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -27,10 +26,17 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!  This subroutine reads the partition function data and sets up
-!  abundances
+!  rParfunAbund
+!    Read data on the partition function from the specified file.
+!  Read data on abundances from the specified file or initialize them
+!  to the hard-coded tabulation
 !
 !#####################################################################
 !#####################################################################
@@ -48,8 +54,10 @@
 !#####################################################################
 !#####################################################################
 
-      !> Reads the partition function file and sets up abundances.\n
-      !!  Input(Input_class): Structure with settings data\n
+      !> Read data on the partition function from the specified file.
+      !! Read data on abundances from the specified file or
+      !! initialize them to the hard-coded tabulation\n
+      !!  Input(Input_class): Structure with configuration data\n
       !!    Atmo(Atmo_class): Structure with atmospheric data
       subroutine rParfunAbund(Input,Atmo)
 
@@ -79,50 +87,59 @@
       ! If specific input
       if (trim(Input%pf).ne.'NONE') then
 
+        ! Open file
         open (200,file=trim(Input%pf), &
               status='unknown', iostat=ios, err=1000, &
               access='stream', action='read', &
               form='unformatted')
 
+        ! Master
         if (gpid.eq.0) then
+
+          ! Verbose
           umsg = ' - Read partition functions from '// &
                  trim(Input%pf)
           call verbose
-        end if
+
+        end if ! Master
 
       ! Default input
       else
 
+        ! Open default file
         open (200,file=trim(Input%resource)//'partfunc', &
               status='unknown', iostat=ios, err=1000, &
               access='stream', action='read', &
               form='unformatted')
 
+        ! Master
         if (gpid.eq.0) then
+
+          ! Verbose
           umsg = ' - Read partition functions from '// &
                  trim(Input%resource)//'partfunc'
           call verbose
-        end if
 
-      end if
+        end if ! Master
 
-      ! Number of temperature input for the data table
+      end if ! Specified file
+
+      ! Number of temperatures for the tabulated data
       read(200,err=1100) Atmo%NT
 
       ! Temperature inputs
       allocate(Atmo%pT(Atmo%NT))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%pT)
 
-      ! Read the Temperature
+      ! Read the temperature
       read(200,err=1100) Atmo%pT
 
-      !
       ! Allocate elements
-      !
       allocate(Atmo%ele(Atmo%nele))
 
 
       !
-      ! For each element get the partition function table
+      ! For each element get the partition function tabulation
       !
 
       ! For each element
@@ -131,6 +148,7 @@
         ! Read first character
         read(200,err=1100) cdump
         cbuff(1:1) = cdump
+
         ! Read second character
         read(200,err=1100) cdump
 
@@ -143,20 +161,26 @@
           cbuff(2:2) = cdump
         end if
 
-        ! Get index
+        ! Get index for this atom
         iele = atom_char2index(cbuff)
 
-        ! Save name
+        ! Memory count
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo%ele(iele))
+
+        ! Save element name
         Atmo%ele(iele)%Element = cbuff
 
         ! Unnecessary character
         read(200,err=1100) cdump
+
         ! Read the number of stages that follows
         read(200,err=1100) Atmo%ele(iele)%nstg
 
         ! Allocate the partition function and ionization energies
         allocate(Atmo%ele(iele)%pf(Atmo%nT,Atmo%ele(iele)%nstg))
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo%ele(iele)%pf)
         allocate(Atmo%ele(iele)%Ei(Atmo%ele(iele)%nstg))
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo%ele(iele)%Ei)
 
         ! Read the pf data
         read(200,err=1100) Atmo%ele(iele)%pf
@@ -168,6 +192,7 @@
 
       end do ! Elements in the partition function file
 
+      ! Close partition function file
       close(200)
 
       !
@@ -176,15 +201,17 @@
 
       ! Allocate abundance
       allocate(Atmo%abund(99))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%abund)
 
-      ! Set default for each element
+      ! Set default abundance for each element
       do iele=1,99
         Atmo%abund(iele) = recallabund_ind(iele)
       end do
 
-      ! Now read from file if any
+      ! If there is an abundance file
       if (trim(Input%abund).ne.'NONE') then
 
+        ! Open file
         open (200,file=trim(Input%abund), &
               status='unknown', iostat=ios, err=1001, &
               access='stream', action='read', &
@@ -199,19 +226,25 @@
           ! Read index and abundance
           read(200,err=1101) iele
           read(200,err=1101) Atmo%abund(iele)
+
+          ! Transform to ratio
           Atmo%abund(iele) = 1d1**(Atmo%abund(iele) - 12d0)
 
-        end do
+        end do ! Elements in input
 
+        ! Close file
         close(200)
 
+        ! Master
         if (gpid.eq.0) then
+
+          ! Verbose
           umsg = ' - Read abundances from '// &
                  trim(Input%abund)
           call verbose
-        end if
 
-      end if
+        end if ! Master
+      end if ! Specified an abundance file
 
       return
 

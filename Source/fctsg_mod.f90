@@ -5,28 +5,19 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !     Roberto Casini (HAO)
 !  Start:
-!     04/18/2017
+!     18/04/2017
 !  Last version:
-!     06/29/2022 V3.0.0
+!     03/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     06/29/2022:    V3.0.0 - Changed global version (TdPA)
-!
-!     12/10/2019:    V1.1.2 - Nullifies the jagged arrays (TdPA)
-!
-!     11/19/2019:    V1.1.1 - Removed checks in allocate and
-!                             deallocate calls (TdPA)
-!
-!     02/20/2019:    V1.1.0 - New verbosity (TdPA)
-!
-!     04/18/2017:    V1.0.0 - First version (TdPA)
+!     03/12/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -36,10 +27,15 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    Calculates and stores log-factorials and signum values to be
-!  used in 3n-j routines
+!  Fctsg
+!    Compute factorials in logarithm and the of the powers of -1
 !
 !#####################################################################
 !#####################################################################
@@ -56,19 +52,27 @@
 !#####################################################################
 !#####################################################################
 
-      !> Pre-computes factorials and signs\n
-      !!    Flgsg(Fctsg_class): Structure with factorials and signs
+      !> Compute factorials in logarithm and the of the powers of -1\n
+      !!  Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                      J-symbols\n
       subroutine fctsg(Flgsg)
 
       ! I/O
+
       type(Fctsg_class), intent(inout):: Flgsg
 
       ! Local
+
       integer:: i, i1
+
 
       ! Allocations
       allocate(Flgsg%flg(0:nxdim))
       allocate(Flgsg%sg(-nxdim:nxdim))
+
+      ! Memory count
+      MRAMc = MRAMc + 1d-6*sizeof(Flgsg%flg)
+      MRAMc = MRAMc + 1d-6*sizeof(Flgsg%sg)
 
       ! Initialize first element
       Flgsg%flg(0)=.0D0
@@ -77,16 +81,19 @@
       ! Calculate rest of elements
       do i=1,nxdim
 
+        ! Get index or last element
         i1 = i - 1
 
+        ! Get logarithm of the factorial
         Flgsg%flg(i) = log(dble(i)) + Flgsg%flg(i1)
 
+        ! Get power of -1
         Flgsg%sg(i)  = -Flgsg%sg(i1)
         Flgsg%sg(-i) =  Flgsg%sg(i)
 
-      end do
+      end do ! Elements to compute
 
-      ! Nullify jagged arrays
+      ! Nullify jagged arrays for memoization
       nullify(Flgsg%J3%d)
       nullify(Flgsg%J6%d)
       nullify(Flgsg%J9%d)

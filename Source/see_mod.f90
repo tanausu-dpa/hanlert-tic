@@ -5,132 +5,20 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !     Roberto Casini (HAO)
 !  Start:
-!     04/26/2017
+!     20/04/2017
 !  Last version:
-!     09/29/2023 V3.0.7
+!     18/02/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     09/29/2023:    V3.0.7 - Updated to term- and transition-wise
-!                             K cut limits (TdPA)
-!
-!     07/03/2023:    V3.0.6 - Added an alternative trace equation
-!                             which fixes the lower term population
-!                             but not ensures the particle
-!                             conservation (TdPA)
-!
-!     03/08/2023:    V3.0.5 - Bugfix: iJJ1 cannot be limited to
-!                             use with zconj1 if iJJ is also limited
-!                             to use with zconj. Removed zconj1 and
-!                             extended to the full iJJ1 loop (TdPA)
-!                           - The normalization condition for the
-!                             atomic trace is now imposed at the
-!                             end of SEbuild (TdPA)
-!
-!     02/01/2023:    V3.0.4 - Added an argument with the number of
-!                             transitions to rA and rS (TdPA)
-!
-!     11/24/2022:    V3.0.3 - Removed non-used variables (TdPA)
-!
-!     11/10/2022:    V3.0.2 - Added the option to zero out the
-!                             density matrix of the last ion of the
-!                             atom. This is useful when using
-!                             two-level atoms while keeping the
-!                             ionization stage to compute the
-!                             broadening parameters (TdPA)
-!
-!     10/26/2022:    V3.0.1 - Changed the indexing of atomic levels
-!                             in Atom (TdPA)
-!
-!     06/29/2022:    V3.0.0 - Changed global version (TdPA)
-!
-!     03/23/2021:    V2.0.1 - Changed call to abortedS and generation
-!                             of the error message (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!                           - Stopped using Atom%rho and created a
-!                             local variable to be able to call
-!                             SEE with threads (TdPA)
-!
-!     02/17/2021:    V1.3.5 - Added argument to forbidden collisional
-!                             transfer calls (TdPA)
-!                           - Added back the factorials and signs
-!                             argument to forbidden collisional
-!                             transfer calls (TdPA)
-!
-!     10/18/2019:    V1.3.4 - Possibility to keep populations fixed
-!                             if specified in the input (TdPA)
-!                           - Added initrho routine (TdPA)
-!
-!     05/08/2019:    V1.3.3 - Got rid of the (atomic,transition) pair
-!                             of indexes in every radiation tensor and
-!                             now they have been compressed in just
-!                             one dimension (TdPA)
-!                           - There is a parameter that allows for
-!                             wrong physics (TdPA)
-!
-!     04/12/2019:    V1.3.2 - Changed ifill (integer) to lfill
-!                             (logical). They have the same use (TdPA)
-!
-!     03/18/2019:    V1.3.1 - Physical errors do not make rhosol to
-!                             return (TdPA)
-!
-!     02/20/2019:    V1.3.0 - New verbosity (TdPA)
-!                           - Now uses especific TINY variables (TdPA)
-!
-!     11/14/2017:    V1.2.4 - Bugfix: Relaxation rates were called
-!                             for photoionizations even when there
-!                             were not in the model atom (TdPA)
-!
-!     10/30/2017:    V1.2.3 - Using the multilevel flag instead of
-!                             the comparison with S (TdPA)
-!                           - By popular demand, stored 1/4 into a
-!                             parameter (what is used to determine
-!                             if two quantum numbers are the
-!                             same (TdPA)
-!
-!     10/25/2017:    V1.2.2 - Bugfix: For the multilevel case, forgot
-!                             to check K diagonality (TdPA)
-!
-!     10/13/2017:    V1.2.1 - Improved information given when see
-!                             solution is not physical when it is not
-!                             diagonal in J (TdPA)
-!
-!     10/11/2017:    V1.2.0 - Able to consider multi-level if spin
-!                             is zero (TdPA)
-!
-!     09/22/2017:    V1.1.0 - Possibility to limit number K (TdPA)
-!
-!     09/14/2017:    V1.0.5 - Bugfix: The way to force rhoKQ=0 in
-!                             isolted ground states was wrong because
-!                             of the application of conjugation
-!                             properties (TdPA)
-!
-!     09/08/2017:    V1.0.4 - Added checks for physicallity of the
-!                             solution of the SEE (TdPA)
-!                           - The ionizing collisional rates are
-!                             only taken into account for K=0 (TdPA)
-!                           - Solved a memory problem with the
-!                             forbidden collisions when there were
-!                             no collisions (TdPA)
-!
-!     06/15/2017:    V1.0.3 - Added check L=L1=0 in SEbuild (TdPA)
-!                           - Added check S=SS in SEbuild (TdPA)
-!                           - Bugfix: rLL used before defining (TdPA)
-!
-!     06/14/2017:    V1.0.2 - In densmatrI, rho is intent(inout), to
-!                             avoid valgrind complains (TdPA)
-!
-!     05/05/2017:    V1.0.1 - Fixed multilevel part, the conditional
-!                             logic was wrong (TdPA)
-!
-!     04/26/2017:    V1.0.0 - First version (TdPA)
+!     18/02/2025:    V4.0.1 - Bugfix: fixed the implementation of the
+!                             zero_ion option (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -140,23 +28,25 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!  SEE:
-!    Manage the solution of the statistical equilibrium equations
+!  SEE
+!    Manage the solution of the statistical equilibrium equations for
+!  the atomic density matrix
 !
 !  SEbuild:
-!    This subroutine builds the coefficient matrix for the system
-!  of S.E. equations, for the multi-term atom in the L-S coupling
-!  approximation (real version)
+!    Build the statistical equilibrium equations
 !
-!  initrho:
-!    Initializes rho vector or considers fixed populations and zero
-!  ion
+!  initrho
+!    Initialize independent vector and manage additional atomic flags
 !
-!  densmatr:
-!    This subroutine calculates the density matrix solution
-!  of the SE equations
+!  densmatr
+!    Solve the statistical equilibrium equations
 !
 !  rhosol:
 !    Restore the solution density matrix
@@ -178,106 +68,92 @@
 !#####################################################################
 !#####################################################################
 
-      !> Calls subroutines to solve the statistical equilibrium
-      !! equations.\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!       JRad(dcmplx(:,:,:)): Radiation field tensors integrated
-      !!                            over absorption profile\n
-      !!      JRadS(dcmplx(:,:,:)): Radiation field tensors integrated
-      !!                            over emission profile\n
-      !!        JPhot(dfloat(:,:)): Mean intensity integrated with
-      !!                            photoionizations\n
-      !!            larmor(dfloat): Magnetic field in larmor frequency
-      !!                            units\n
-      !!        Flgsg(Fctsg_class): Structure with factorials and
-      !!                            signs\n
-      !!               iz(integer): Height index\n
-      !!              tid(integer): thread index
-      subroutine SEE(Atom,JRad,JRadS,Jphot,larmor,Flgsg,iz,tid)
+      !> Manage the solution of the statistical equilibrium equations
+      !! for the atomic density matrix\n
+      !!        Atom(Atom_class): Structure with atomic data\n
+      !!   JRad(dcomplex(:,:,:)): Radiation field tensors integrated
+      !!                          over the absorption profile\n
+      !!  JRadS(dcomplex(:,:,:)): Radiation field tensors integrated
+      !!                          over the emission profile\n
+      !!      JPhot(double(:,:)): Intensity integrals in the
+      !!                          photoionization rates\n
+      !!          larmor(double): Magnetic field in larmor frequency
+      !!                          units\n
+      !!      Flgsg(Fctsg_class): Structure with factorials, signs,
+      !!                          and J-symbols\n
+      !!             iz(integer): Height index
+      subroutine SEE(Atom,JRad,JRadS,Jphot,larmor,Flgsg,iz)
 
       ! I/O
 
       type(Atom_class), intent(inout):: Atom
       type(Fctsg_class), intent(in):: Flgsg
-      integer, intent(in):: iz,tid
+      integer, intent(in):: iz
       double precision, intent(in):: larmor
-      double precision, dimension(:,:),intent(in):: Jphot
+      double precision, dimension(:,:), intent(in):: Jphot
       complex(kind=8), dimension(-2:2,0:2,Atom%ntran), &
-                                             intent(in):: JRad,JRadS
+                       intent(in):: JRad,JRadS
 
       ! Local
+
       double precision:: rho(Atom%ndim)
       double precision:: STcoeff(Atom%ndim,Atom%ndim)
 
 
-      !
       ! Build SEE equations for multi-term atom
-      !
       call SEbuild(Atom,JRad(:,:,1:Atom%ntran), &
                    JRadS(:,:,1:Atom%ntran),Jphot, &
-                   larmor,STcoeff,Flgsg,iz,tid)
+                   larmor,STcoeff,Flgsg,iz)
 
-
-      !
       ! Initialize rho and fix populations if requested
-      !
       call initrho(Atom,STcoeff,rho,iz)
 
-
-      !
       ! Solve the SEE
-      !
       call densmatr(rho,Atom%ndim,STcoeff)
 
-      !
       ! Rearrange the solution into the rhoKQ matrices
-      !
-      call rhosol(Atom,rho,Flgsg,iz,tid)
+      call rhosol(Atom,rho,Flgsg,iz)
 
       end subroutine SEE
 
-
 !#####################################################################
 !#####################################################################
 !#####################################################################
 
-      !> Builds the statistical equilibrium equations system\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!       RadJ(dcmplx(:,:,:)): Radiation field tensors integrated
-      !!                            over absorption profile\n
-      !!      RadJS(dcmplx(:,:,:)): Radiation field tensors integrated
-      !!                            over emission profile\n
-      !!           JP(dfloat(:,:)): Mean intensity integrated with
-      !!                            photoionizations\n
-      !!            larmor(dfloat): Magnetic field in larmor frequency
-      !!                            units\n
-      !!      STcoeff(dfloat(:,:)): Statistical equilibrium equations
-      !!                            system\n
-      !!        Flgsg(Fctsg_class): Structure with factorials and
-      !!                            signs\n
-      !!               iz(integer): Height index\n
-      !!              tid(integer): Thread index
+      !> Build the statistical equilibrium equations\n
+      !!        Atom(Atom_class): Structure with atomic data\n
+      !!   RadJ(dcomplex(:,:,:)): Radiation field tensors integrated
+      !!                          over the absorption profile\n
+      !!  RadJS(dcomplex(:,:,:)): Radiation field tensors integrated
+      !!                          over the emission profile\n
+      !!         JP(double(:,:)): Intensity integrals in the
+      !!                          photoionization rates\n
+      !!          larmor(double): Magnetic field in larmor frequency
+      !!                          units\n
+      !!    STcoeff(double(:,:)): Statistical equilibrium equations\n
+      !!      Flgsg(Fctsg_class): Structure with factorials, signs,
+      !!                          and J-symbols\n
+      !!             iz(integer): Height index
       subroutine SEbuild(Atom,RadJ,RadJS,JP,larmor,STcoeff, &
-                         Flgsg,iz,tid)
+                         Flgsg,iz)
 
       ! I/O
 
       type(Atom_class), intent(inout):: Atom
       type(Fctsg_class), intent(in):: Flgsg
-      integer, intent(in):: iz,tid
+      integer, intent(in):: iz
       double precision, intent(in):: larmor
       double precision, dimension(:,:),intent(in):: JP
       double precision, dimension(:,:), intent(out):: STcoeff
-      complex(kind=8),dimension(-2:2,0:2,Atom%ntran), &
-                                             intent(in):: RadJ,RadJS
+      complex(kind=8), dimension(-2:2,0:2,Atom%ntran), &
+                       intent(in):: RadJ,RadJS
 
       ! Local
 
       logical:: zJ,zJ1,zK,zQ,zJ_JJ,zJ1_JJ1,zK1KK,zK2KK,zJlt,zJgt,zJeq
       logical:: zpermit,zpermitJ,zRpermit,zCpermit,zRpermitJ,zCpermitJ
       logical:: zrelax,zupper,zlower,zrelaxJ,zupperJ,zlowerJ,zion
-      logical:: zflag,zreal,zzreal,zTS,zTA,zR,zdiag,zconj
-      logical:: zMK_J,zMK
+      logical:: zflag,zreal,zzreal,zTS,zTA,zR,zdiag,zconj,zMK_J,zMK
       logical, dimension(Atom%ndim,Atom%ndim):: lfill
 
       integer:: itran,icol,iphot,iterm,itterm,iJ,iJ1,iJJ,iJJ1
@@ -295,17 +171,13 @@
       double precision, dimension(Atom%ndim,Atom%ndim):: Scoeff
       double precision, dimension(Atom%ndim,Atom%ndim):: Tcoeff
 
-      complex(kind=8):: rScoeff,rAcoeff
-      complex(kind=8):: tScoeff,tAcoeff
+      complex(kind=8):: rScoeff,rAcoeff,tScoeff,tAcoeff
 
 
       ! Routine name
       urou = 'SEbuild'
 
-
-      !
       ! Initialize flag matrix and SEE coefficients
-      !
       lfill = .True.
       Scoeff = 0d0
       Tcoeff = 0d0
@@ -323,6 +195,14 @@
 
       ! For each term (row)
       do iterm=1,Atom%nMulti
+
+        ! Skip last ion for zero_ion
+        if (Atom%zero_ion) then
+
+          ! If we are in the row for the last ion, skip
+          if (Atom%stage(iterm).eq.Atom%stage(Atom%nMulti)) cycle
+
+        end if ! Zero_ion
 
         ! Get term quantities
         rL = Atom%rLval(iterm)
@@ -403,6 +283,15 @@
 
                 ! For each term (column)
                 do itterm=1,Atom%nMulti
+
+                  ! Skip last ion for zero_ion
+                  if (Atom%zero_ion) then
+
+                    ! If we are in the column for the last ion. skip
+                    if (Atom%stage(itterm).eq. &
+                        Atom%stage(Atom%nMulti)) cycle
+
+                  end if ! Zero_ion
 
                   ! Get the term quantities
                   rLL = Atom%rLval(itterm)
@@ -917,10 +806,9 @@
                         ! And unflag it
                         zflag = .False.
 
-                      end if
-                    end if
-                  end if
-
+                      end if ! Line term in the ion
+                    end if ! No population
+                  end if ! Last term
                 end if ! Empty row
 
                 ! If the row is empty
@@ -928,8 +816,10 @@
 
                   ! If we are zeroing out the ion
                   if (Atom%zero_ion) then
+
                     ! And this is from the last ion
-                    if (Atom%stage(iterm).eq.Atom%stage(Atom%nMulti)) then
+                    if (Atom%stage(iterm).eq. &
+                        Atom%stage(Atom%nMulti)) then
 
                       ! Then do not worry and just continue
                       cycle
@@ -937,9 +827,10 @@
                     end if ! Last stage
                   end if ! zeroing out the ion
 
+                  ! Issue error
                   write(umsg,*) ' # Element',iterm,real(rJ), &
                                 real(rJ1),K,iQ,' isolated'
-                  call abortedS(umsg,urou,tid,.True.,.True.)
+                  call abortedS(umsg,urou,.True.,.True.)
 
                   return
 
@@ -956,9 +847,12 @@
       ! Check that we have an square SE
       !
       if (i.ne.ii) then
+
+        ! Issue error
         umsg = 'STcoeff is not square'
-        call abortedS(umsg,urou,tid,.True.,.True.)
+        call abortedS(umsg,urou,.True.,.True.)
         return
+
       end if
 
 
@@ -997,9 +891,11 @@
                 ! Check if special equation
                 if (rho(i).lt.0d0) then
 
+                  ! Fixed row variable
                   STcoeff(i,i) = 1d0
                   rho(i) = 0d0
 
+                ! Normal equation
                 else
 
                   ! Check if Q<0 OR (Q==0 and J!=J')
@@ -1116,24 +1012,26 @@
 !#####################################################################
 !#####################################################################
 
-      !> Initializes independent vector and changes the SEE matrix if
-      !! requested\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !! STcoeff(dfloat(:,:)): Statistical equilibrium equations\n
-      !!       rho(dfloat(:)): Array to store the solution of the
-      !!                       statistical equilibrium equations\n
-      !!          iz(integer): Height index
+      !> Initialize independent vector and manage additional atomic
+      !! flags\n
+      !!      Atom(Atom_class): Structure with atomic data\n
+      !!  STcoeff(double(:,:)): Statistical equilibrium equations\n
+      !!        rho(double(:)): Independent vector of the statistical
+      !!                        equilibrium equations\n
+      !!           iz(integer): Height index
       subroutine initrho(Atom,STcoeff,rho,iz)
 
       ! I/O
 
-      type(Atom_class), intent(inout):: Atom
+      type(Atom_class), intent(in):: Atom
       double precision, dimension(:), intent(inout):: rho
       double precision, dimension(:,:), intent(inout):: STcoeff
       integer, intent(in):: iz
 
       ! Local
+
       integer:: it,iJ,iR,lstage,liR,ciR
+
       double precision:: rJJ
 
 
@@ -1157,6 +1055,7 @@
 
             ! Make the row zero
             STcoeff(iR,:) = 0d0
+
             ! Except the diagonal
             STcoeff(iR,iR) = 1d0
 
@@ -1257,9 +1156,19 @@
           ! And update last iR
           liR = cIR - 1
 
+          ! For each level
+          do iJ=1,Atom%nJ(it)
+
+            ! Get iR
+            iR = Atom%irho(it)%Jrho(iJ,iJ)%kq(0,0)
+
+            ! Make the independent terms the rho
+            rho(iR) = dble(Atom%crho(iR,iz))
+
+          end do ! Levels
         end do ! Terms
 
-      end if
+      end if ! Zero ion
 
       return
 
@@ -1269,12 +1178,12 @@
 !#####################################################################
 !#####################################################################
 
-      !> Solves the statistical equilibrium equations\n
-      !!        rho(dfloat(:)): Array to store the solution of the
+      !> Solve the statistical equilibrium equations\n
+      !!        rho(double(:)): Independent vector and solution of the
       !!                        statistical equilibrium equations\n
-      !!         ndim(integer): Size of the statistical
-      !!                        equilibrium equations system\n
-      !!  STcoeff(dfloat(:,:)): Statistical equilibrium equations
+      !!         ndim(integer): Dimensionality of the statistical
+      !!                        equilibrium system\n
+      !!  STcoeff(double(:,:)): Statistical equilibrium equations
       subroutine densmatr(rho,ndim,STcoeff)
 
       ! I/O
@@ -1289,9 +1198,7 @@
       integer, dimension(ndim):: indx
 
 
-      !
       ! Solve SEE
-      !
       call DGESV(ndim,1,STcoeff,ndim,indx,rho,ndim,i)
 
       end subroutine densmatr
@@ -1302,20 +1209,19 @@
 
       !> Assigns the solution of the statistical equilibrium
       !! equations to the correct indexed variable.\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!       rho(dfloat(:)): Array to store the solution of the
-      !!                       statistical equilibrium equations\n
-      !!        Flgsg(Fctsg_class): Structure with factorials and
-      !!                            signs\n
-      !!               iz(integer): Height index\n
-      !!              tid(integer): Thread index
-      subroutine rhosol(Atom,rho,Flgsg,iz,tid)
+      !!     Atom(Atom_class): Structure with atomic data\n
+      !!       rho(double(:)): Solution of the statistical equilibrium
+      !!                       equations\n
+      !!   Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                       J-symbols\n
+      !!          iz(integer): Height index
+      subroutine rhosol(Atom,rho,Flgsg,iz)
 
       ! I/O
 
       type(Atom_class), intent(inout):: Atom
       type(Fctsg_class), intent(in):: Flgsg
-      integer, intent(in):: iz,tid
+      integer, intent(in):: iz
       double precision, dimension(:), intent(in):: rho
 
       ! Local
@@ -1330,11 +1236,9 @@
       ! Routine name
       urou = 'rhosol'
 
-
-      !
       ! Initialize null flag
-      !
       Atom%rhonull(:,iz) = .False.
+
 
       !
       ! Rearrange solution of SEE into rhoKQ array
@@ -1368,7 +1272,7 @@
             !
 
             ! If J!=J'
-            if(i.ne.j)then
+            if (i.ne.j) then
 
               ! Get SEE index of level i
               iR0 = Atom%irho(it)%Jrho(iJ,iJ)%kq(0,0)
@@ -1380,28 +1284,28 @@
               if (isnan(rho(iR0)).or. &
                   isnan(rho(iR1))) then
 
-                ! Not aborted
+                ! Issue error
                 write(umsg,'(A,i4,3(",",i4),A,2(1x,es11.4))') &
                   'NaN in SEE solution'//new_line('A')// &
                   '(iz,it,iJ,iJ1)=(',iz,it,iJ,iJ1,')'// &
                   new_line('A')//'rho00: ',rho(iR0),rho(iR1)
+                call abortedS(umsg,urou,.True.,.True.)
 
-                call abortedS(umsg,urou,tid,.True.,.True.)
-
-              end if
+              end if ! NaN
 
               ! Check negativity
               if (rho(iR0).lt.0d0.or.rho(iR1).lt.0d0) then
 
+                ! Issue error
                 write(umsg,'(A,i4,3(",",i4),A,2(1x,es11.4))') &
                   'Negative population in SEE solution'// &
                    new_line('A')// &
                   '(iz,it,iJ,iJ1)=(',iz,it,iJ,iJ1,')'// &
                   new_line('A')//'rho00: ',rho(iR0),rho(iR1)
 
-                call abortedS(umsg,urou,tid,.not.nphysR,.True.)
+                call abortedS(umsg,urou,.not.nphysR,.True.)
 
-              end if
+              end if ! Negative population
 
               ! Geometric average of the two rho00
               rho0 = sqrt(abs(rho(iR0)*rho(iR1)))
@@ -1422,27 +1326,29 @@
               ! Check NaN
               if (isnan(rho(iR0))) then
 
+                ! Issue error
                 write(umsg,'(A,i4,2(",",i4),A,1x,es11.4)') &
                   'NaN in SEE solution'//new_line('A')// &
                   '(iz,it,iJ)=(',iz,it,iJ,')'// &
                   new_line('A')//'rho00: ',rho(iR0)
 
-                call abortedS(umsg,urou,tid,.True.,.True.)
+                call abortedS(umsg,urou,.True.,.True.)
 
-              end if
+              end if ! NaN
 
               ! Check negativity
               if (rho(iR0).lt.0d0) then
 
+                ! Issue error
                 write(umsg,'(A,i4,2(",",i4),A,1x,es11.4)') &
                   'Negative population in SEE solution'// &
                   new_line('A')// &
                   '(iz,it,iJ)=(',iz,it,iJ,')'// &
                   new_line('A')//'rho00: ',rho(iR0)
 
-                call abortedS(umsg,urou,tid,.not.nphysR,.True.)
+                call abortedS(umsg,urou,.not.nphysR,.True.)
 
-              end if
+              end if ! Negative population
 
               ! rho00
               rho0 = rho(iR0)
@@ -1476,15 +1382,16 @@
                 ! Check NaN
                 if (isnan(rho(iR)).or.isnan(rho(iI))) then
 
+                  ! Issue error
                   write(umsg,'(A,i4,3(",",i4),",",i1,",",i2,'// &
                              'A,2(1x,es11.4))') &
                     'NaN in SEE solution'//new_line('A')// &
                     '(iz,it,iJ,iJ1,K,Q)=(',iz,it,iJ,iJ1,K,iQ,')'// &
                     new_line('A')//'rhoKQ: ',rho(iR),rho(iI)
 
-                  call abortedS(umsg,urou,tid,.True.,.True.)
+                  call abortedS(umsg,urou,.True.,.True.)
 
-                end if
+                end if ! NaN
 
                 ! Check magnitude
                 if (abs(rho(iR)).gt.rho0.or.abs(rho(iI)).gt.rho0) then
@@ -1492,6 +1399,7 @@
                   ! If J=J'
                   if (i.eq.j) then
 
+                    ! Error message
                     write(umsg,'(A,i4,3(",",i4),",",i1,",",i2,'// &
                                'A,1x,es11.4,A,2(1x,es11.4))') &
                       'Atomic polarization larger than '// &
@@ -1504,6 +1412,7 @@
                   ! If J!=J'
                   else
 
+                    ! Error message
                     write(umsg,'(A,i4,3(",",i4),",",i1,",",i2,'// &
                                '3(A,1x,es11.4),A,2(1x,es11.4))') &
                       'Atomic polarization larger than '// &
@@ -1516,27 +1425,33 @@
 
                   end if ! J diagonality
 
-                  call abortedS(umsg,urou,tid,.not.nphysR,.True.)
+                  ! Issue error
+                  call abortedS(umsg,urou,.not.nphysR,.True.)
 
-                end if
+                end if ! Physicality
+
+                ! If Q==0 and diagonal, no imaginary part
+                if (iQ.eq.0.and.iJ.eq.iJ1) then
+
+                   ! Real
+                   Atom%crho(iR,iz) = dcmplx(rho(iR),.0d0)
 
                 ! If Q<0 or (Q'==0 and iJ<=iJ')
-                if (zreal) then
+                else if (zreal) then
 
+                  ! Get densit matrix
                   Atom%crho(iR,iz) = dcmplx(rho(iR), &
                                             -tsgn*rho(iI))
 
                 ! If Q>=0 and (Q'!=0 or iJ>iJ')
                 else
 
+                  ! Get densit matrix
                   Atom%crho(iR,iz) = dcmplx(tsgn*rho(iI), &
                                             rho(iR))
 
                 end if
 
-                ! If Q==0 and diagonal, no imaginary part
-                if (iQ.eq.0.and.iJ.eq.iJ1) &
-                   Atom%crho(iR,iz) = dcmplx(rho(iR),.0d0)
 
                 !
                 ! Test if rhoKQ is significant

@@ -1,34 +1,24 @@
-      !> Reading of atmospheric data
+      !> Reading Barklem broadening parameters
       module rbarklem_mod
 !#####################################################################
 !############################# HEADER ################################
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     07/12/2022
+!     12/07/2022
 !  Last version:
-!     08/07/2023 V3.0.2
+!     25/02/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     08/07/2023:    V3.0.2 - Added initialization of Barklem
-!                             parameters for LTE lines (TdPA)
-!                           - Expect the energies in the model atom
-!                             to be in cm^-1 (TdPA)
-!                           - Added getBarklem_line (TdPA)
-!
-!     08/30/2022:    V3.0.1 - Bugfix: There were hard-coded indexes
-!                             in the reading loops for default files.
-!                             Changed to the appropriate variables
-!                             now (TdPA)
-!
-!     07/12/2022:    V3.0.0 - First version (TdPA)
+!     25/02/2025:    V4.0.1 - Bugfix: When checking the background
+!                             atoms, the transition data from the
+!                             active atom list was used instead (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -38,19 +28,28 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!  rBarklem:
-!    Read the Barklem data (or initializes it)
+!  rBarklem
+!    Read and initialize the Barklem broadening data
 !
-!  getBarklem:
-!    Get Barklem data of an atomic model
+!  getBarklem
+!    Setup the Barklem quantities to calculate the Van der Waals
+!  contribution to the elastic broadening in a given transition from
+!  an atomic model
 !
-!  getBarklem_line:
-!    Get Barklem data of an LTE line
+!  getBarklem_line
+!    Setup the Barklem quantities to calculate the Van der Waals
+!  contribution to the elastic broadening in a given LTE transition
 !
-!  barklem_inter:
-!    Interpolation in the Barklem tables
+!  barklem_inter
+!    Get the interpolated Barklem coefficients for a given pair of
+!  effective quantum numbers
 !
 !#####################################################################
 !#####################################################################
@@ -70,13 +69,14 @@
 !#####################################################################
 
       !> Reads a file with the atmospheric data.\n
-      !!  Input(Input_class): Structure with settings data\n
-      !!    Atom(Atom_class): Structure with the atomic data\n
-      !!   Atomb(Atom_class): Structure with the atomic data for
-      !!                      background opacities
+      !!    Input(Input_class): Structure with configuration data\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atoms
       subroutine rBarklem(Input,Atom,Atomb)
 
       ! I/O
+
       type(Atom_class), dimension(:), intent(inout):: Atom
       type(Atom_class), dimension(:), intent(inout):: Atomb
       type(Input_class), intent(inout):: Input
@@ -86,14 +86,15 @@
       logical:: barklem,bin
 
       integer:: ia,itran,iterm,iterm1,i1,ios
-
       integer:: n1sp,n2sp,n1pd,n2pd,n1df,n2df
+
       double precision, dimension(:), allocatable:: x1sp,x2sp
       double precision, dimension(:), allocatable:: x1pd,x2pd
       double precision, dimension(:), allocatable:: x1df,x2df
       double precision, dimension(:,:), allocatable:: sp1,sp2
       double precision, dimension(:,:), allocatable:: pd1,pd2
       double precision, dimension(:,:), allocatable:: df1,df2
+
 
       !
       ! Check there is at least a barklem line
@@ -102,93 +103,127 @@
       ! Initialize
       barklem = .False.
 
-      ! For each active transition
+      ! For each active atom
       do ia=1,nA
+
         ! For each transition
         do itran=1,Atom(ia)%ntran
+
           ! If Barklem
           if (Atom(ia)%broad_type(itran).eq.0) then
+
+            ! Flag true and stop searching
             barklem = .True.
             exit
-          end if
-        end do
-        if (barklem) exit
-      end do
 
-      ! If no Barklem yet
+          end if ! Barklem broadening
+
+        end do ! Transitions
+
+        ! If found, stop search
+        if (barklem) exit
+
+      end do ! Active atoms
+
+      ! If no Barklem found yet
       if (.not.barklem) then
 
-        ! For each passive transition
+        ! For each background atom
         do ia=1,nAb
+
           ! For each transition
           do itran=1,Atomb(ia)%ntran
+
             ! If Barklem
             if (Atomb(ia)%broad_type(itran).eq.0) then
+
+              ! Flag found and stop search
               barklem = .True.
-             exit
-            end if
-          end do
+              exit
+
+            end if ! Barklem broadening
+
+          end do ! Transitions
+
+          ! If found, stop search
           if (barklem) exit
-        end do
 
-      end if ! No Barklem yet
+        end do ! Backgrdouna atoms
 
-      ! If no Barklem yet
+      end if ! No Barklem found yet
+
+      ! If no Barklem found yet
       if (.not.barklem) then
 
-        ! For each passive transition
+        ! For each LTE line
         do ia=1,nLTEl
+
           ! If Barklem
           if (Input%LTEline(ia)%broad_type.eq.0) then
+
+            ! Flag found and stop
             barklem = .True.
             exit
-          end if
-        end do
 
-      end if ! No Barklem yet
+          end if ! Barklem broadening
 
-      ! If no Barklem, just leave
+        end do ! LTE lines
+
+      end if ! No Barklem found yet
+
+      ! If no Barklem found, just leave
       if (.not.barklem) return
+
 
       !
       ! Read Barklem SP data
       !
 
-      ! If there is file
+      ! If there is a specified file
       if (Input%bark_sp.ne.'NONE') then
 
+        ! Open file
         open (200,file=trim(Input%bark_sp), &
               status='unknown', iostat=ios, err=1000, &
               access='stream', action='read', &
               form='unformatted')
 
+        ! Get dimensions
         read(200,err=1100) n1sp
         read(200,err=1100) n2sp
+
+        ! Flag customized
         bin = .True.
 
       ! Hard-code
       else
 
+        ! Open default
         open(200,file=trim(Input%resource)//'spdata.dat',err=1000)
 
+        ! Set dimensions
         n1sp = 21
         n2sp = 18
+
+        ! Flag default
         bin = .False.
 
-      end if
+      end if ! Specified file
 
+      ! Allocate space for tabulation
       allocate(x1sp(n1sp),x2sp(n2sp))
       allocate(sp1(n2sp,n1sp),sp2(n2sp,n1sp))
 
-      ! If there is file
+      ! If there is a custom file
       if (bin) then
 
+        ! Read tabulation
         read(200,err=1100) x1sp
         read(200,err=1100) x2sp
         read(200,err=1100) sp1
         read(200,err=1100) sp2
 
-      ! Hard-code
+      ! Hard-coded default
       else
 
         ! Efective quantum numbers in the tables
@@ -199,7 +234,7 @@
                   2.1d0,2.2d0,2.3d0,2.4d0,2.5d0,2.6d0,2.7d0,2.8d0, &
                   2.9d0,3.0d0 /)
 
-        ! s-p data from Anstee and O'Mara 1995, MNRAS 276,859
+        ! Read s-p data from Anstee and O'Mara 1995, MNRAS 276,859
         do i1=1,n1sp
           read(200,*,err=1100) sp1(:,i1)
         end do
@@ -207,49 +242,61 @@
           read(200,*,err=1100) sp2(:,i1)
         end do
 
-      end if
+      end if ! Custom or default file
 
+      ! Close file
       close(200)
+
 
       !
       ! Read Barklem PD data
       !
 
-      ! If there is file
+      ! If there is a specified file
       if (Input%bark_pd.ne.'NONE') then
 
+        ! Open file
         open (200,file=trim(Input%bark_pd), &
               status='unknown', iostat=ios, err=2000, &
               access='stream', action='read', &
               form='unformatted')
 
+        ! Get dimensions
         read(200,err=2100) n1pd
         read(200,err=2100) n2pd
+
+        ! Flag customized
         bin = .True.
 
       ! Hard-code
       else
 
+        ! Open default
         open(200,file=trim(Input%resource)//'pddata.dat',err=2000)
 
+        ! Set dimensions
         n1pd = 18
         n2pd = 18
+
+        ! Flag default
         bin = .False.
 
-      end if
+      end if ! Specified file
 
+      ! Allocate space for tabulation
       allocate(x1pd(n1pd),x2pd(n2pd))
       allocate(pd1(n2pd,n1pd),pd2(n2pd,n1pd))
 
-      ! If there is file
+      ! If there is a custom file
       if (bin) then
 
+        ! Read tabulation
         read(200,err=2100) x1pd
         read(200,err=2100) x2pd
         read(200,err=2100) pd1
         read(200,err=2100) pd2
 
-      ! Hard-code
+      ! Hard-coded default
       else
 
         ! Efective quantum numbers in the tables
@@ -260,7 +307,7 @@
                   3.1d0,3.2d0,3.3d0,3.4d0,3.5d0,3.6d0,3.7d0,3.8d0, &
                   3.9d0,4.0d0 /)
 
-        ! s-p data from Anstee and O'Mara 1995, MNRAS 276,859
+        ! Read p-s data from Barklem and O'Mara 1997, MNRAS 290,102
         do i1=1,n1pd
           read(200,*,err=2100) pd1(:,i1)
         end do
@@ -268,49 +315,61 @@
           read(200,*,err=2100) pd2(:,i1)
         end do
 
-      end if
+      end if ! Custom or default file
 
+      ! Close file
       close(200)
+
 
       !
       ! Read Barklem DF data
       !
 
-      ! If there is file
+      ! If there is a specified file
       if (Input%bark_df.ne.'NONE') then
 
+        ! Open file
         open (200,file=trim(Input%bark_df), &
               status='unknown', iostat=ios, err=3000, &
               access='stream', action='read', &
               form='unformatted')
 
+        ! Get dimensions
         read(200,err=3100) n1df
         read(200,err=3100) n2df
+
+        ! Flag customized
         bin = .True.
 
       ! Hard-code
       else
 
+        ! Open default
         open(200,file=trim(Input%resource)//'dfdata.dat',err=3000)
 
+        ! Set dimensions
         n1df = 18
         n2df = 18
+
+        ! Flag default
         bin = .False.
 
-      end if
+      end if ! Specified file
 
+      ! Allocate space for tabulation
       allocate(x1df(n1df),x2df(n2df))
       allocate(df1(n2df,n1df),df2(n2df,n1df))
 
-      ! If there is file
+      ! If there is a custom file
       if (bin) then
 
+        ! Read tabulation
         read(200,err=3100) x1df
         read(200,err=3100) x2df
         read(200,err=3100) df1
         read(200,err=3100) df2
 
-      ! Hard-code
+      ! Hard-coded default
       else
 
         ! Efective quantum numbers in the tables
@@ -321,7 +380,8 @@
                   4.1d0,4.2d0,4.3d0,4.4d0,4.5d0,4.6d0,4.7d0,4.8d0, &
                   4.9d0,5.0d0 /)
 
-        ! s-p data from Anstee and O'Mara 1995, MNRAS 276,859
+        ! Read d-f data from Anstee, O'Mara, and Ross 1998, MNRAS
+        ! 296,1057
         do i1=1,n1df
           read(200,*,err=3100) df1(:,i1)
         end do
@@ -329,57 +389,50 @@
           read(200,*,err=3100) df2(:,i1)
         end do
 
-      end if
+      end if ! Custom or default file
 
+      ! Close file
       close(200)
 
       ! For each active atom
       do ia=1,na
 
-        ! Pair of terms
-        do iterm=1,Atom(ia)%nMulti-1
-          do iterm1=iterm+1,Atom(ia)%nMulti
+        ! For each transition
+        do itran=1,Atom(ia)%ntran
 
-            ! Transition
-            itran = Atom(ia)%irad(iterm1,iterm)
+          ! Get terms
+          iterm  = Atom(ia)%fst(itran)%iterml
+          iterm1 = Atom(ia)%fst(itran)%itermu
 
-            ! No transition, continue
-            if (itran.le.0) cycle
+          ! Check if doing Barklem
+          call getBarklem(Atom(ia),itran,iterm,iterm1, &
+                          n1sp,n2sp,x1sp,x2sp,sp1,sp2, &
+                          n1pd,n2pd,x1pd,x2pd,pd1,pd2, &
+                          n1df,n2df,x1df,x2df,df1,df2)
 
-            ! Check if doing Barklem
-            call getBarklem(Atom(ia),itran,iterm,iterm1, &
-                            n1sp,n2sp,x1sp,x2sp,sp1,sp2, &
-                            n1pd,n2pd,x1pd,x2pd,pd1,pd2, &
-                            n1df,n2df,x1df,x2df,df1,df2)
+        end do ! Transitions
+      end do ! Atoms
 
-          end do
-        end do
-      end do
-
-      ! Do with passives as well
+      ! For each background atom
       do ia=1,nab
 
-        ! Pair of terms
-        do iterm=1,Atomb(ia)%nMulti-1
-          do iterm1=iterm+1,Atomb(ia)%nMulti
+        ! For each transition
+        do itran=1,Atomb(ia)%ntran
 
-            ! Transition
-            itran = Atomb(ia)%irad(iterm1,iterm)
+          ! Get terms
+          iterm  = Atomb(ia)%fst(itran)%iterml
+          iterm1 = Atomb(ia)%fst(itran)%itermu
 
-            ! No transition, continue
-            if (itran.le.0) cycle
+          ! Check if doing Barklem
+          call getBarklem(Atomb(ia),itran,iterm,iterm1, &
+                          n1sp,n2sp,x1sp,x2sp,sp1,sp2, &
+                          n1pd,n2pd,x1pd,x2pd,pd1,pd2, &
+                          n1df,n2df,x1df,x2df,df1,df2)
 
-            ! Check if doing Barklem
-            call getBarklem(Atomb(ia),itran,iterm,iterm1, &
-                            n1sp,n2sp,x1sp,x2sp,sp1,sp2, &
-                            n1pd,n2pd,x1pd,x2pd,pd1,pd2, &
-                            n1df,n2df,x1df,x2df,df1,df2)
+        end do ! Transitions
+      end do ! Background atoms
 
-          end do
-        end do
-      end do
-
-      ! And LTE
+      ! For each LTE line
       do ia=1,nLTEl
 
         ! Check if doing Barklem
@@ -387,7 +440,13 @@
                              n1sp,n2sp,x1sp,x2sp,sp1,sp2, &
                              n1pd,n2pd,x1pd,x2pd,pd1,pd2, &
                              n1df,n2df,x1df,x2df,df1,df2)
-      end do
+
+      end do ! LTE lines
+
+      ! Free
+      deallocate(x1sp,x2sp,sp1,sp2)
+      deallocate(x1pd,x2pd,pd1,pd2)
+      deallocate(x1df,x2df,df1,df2)
 
       return
 
@@ -419,8 +478,10 @@
 !#####################################################################
 !#####################################################################
 
-      !> Get Barklem data for an atomic model\n
-      !!  Atom(Atom_class): Structure with the atomic data\n
+      !> Setup the Barklem quantities to calculate the Van der Waals
+      !! contribution to the elastic broadening in a given transition
+      !! from an atomic model\n
+      !!  Atom(Atom_class): Structure with atomic data\n
       !!    itran(integer): Transition index\n
       !!    iterm(integer): Lower term index\n
       !!   iterm1(integer): Upper term index\n
@@ -448,6 +509,7 @@
                             n1df,n2df,x1df,x2df,df1,df2)
 
       ! I/O
+
       type(Atom_class), intent(inout):: Atom
       integer, intent(in):: itran,iterm,iterm1
       integer, intent(in):: n1sp,n2sp,n1pd,n2pd,n1df,n2df
@@ -461,11 +523,13 @@
       ! Local
 
       logical:: check
+
       integer:: itermc,i1,i2,t1,t2,msg,id,Z
+
       double precision:: aryd,alpha,sigma,neff1,neff2
       double precision, dimension(4):: args
 
-      ! If not Barklem, return
+      ! If Van der Waals broadening is not Barklem, return
       if (Atom%broad_type(itran).ne.0) return
 
       ! Correct rydberg energy for mass shift and calculate
@@ -483,24 +547,35 @@
       ! flag
       itermc = -1
 
+      !
       ! Find the next continuum
+      !
+
+      ! For all terms above the upper term
       do i1=iterm1,Atom%nMulti
 
+        ! If stage larger than the upper term's
         if (Atom%stage(i1).gt.Atom%stage(iterm1)) then
+
+          ! Assume we found the next continuum
           itermc = i1
           exit
-        end if
 
-      end do
+        end if ! Stage larger than upper term's
+
+      end do ! All terms above the upper term
 
       ! If we did not find the continuum
       if (itermc.lt.0.and.Atom%broad_type(itran).ne.2) then
+
+        ! Issue error
         umsg = 'Could not find continuum in atom '// &
                Atom%Element//' and Van der Waals '// &
                'broadening not set to parametric.'
         call aborted
         return
-      end if
+
+      end if ! Continuum not found
 
       ! Next ion charge
       Z = Atom%stage(iterm)
@@ -510,75 +585,91 @@
       check = .False.
       msg = 1
 
+      !
       ! Identify the type of transition
+      !
+
+      ! s-p
       if (nint(args(1)).eq.0.and.nint(args(3)).eq.1) then
         t1 = iterm1
         i1 = 1
         t2 = iterm
         i2 = 3
         id = 0
+      ! p-s
       else if (nint(args(1)).eq.1.and.nint(args(3)).eq.0) then
         t1 = iterm
         i1 = 3
         t2 = iterm1
         i2 = 1
         id = 0
+      ! p-d
       else if (nint(args(1)).eq.1.and.nint(args(3)).eq.2) then
         t1 = iterm1
         i1 = 1
         t2 = iterm
         i2 = 3
         id = 1
+      ! d-p
       else if (nint(args(1)).eq.2.and.nint(args(3)).eq.1) then
         t1 = iterm
         i1 = 3
         t2 = iterm1
         i2 = 1
         id = 1
+      ! d-f
       else if (nint(args(1)).eq.2.and.nint(args(3)).eq.3) then
         t1 = iterm1
         i1 = 1
         t2 = iterm
         i2 = 3
         id = 2
+      ! f-d
       else if (nint(args(1)).eq.3.and.nint(args(3)).eq.2) then
         t1 = iterm
         i1 = 3
         t2 = iterm1
         i2 = 1
         id = 2
-      end if
+      end if ! Type of transition
 
+      ! No Barklem for ions
       if (Z.gt.1) then
         id = -1
         msg = 2
       end if
 
-      ! If we identified the transition as s-p, p-d or d-f
+      ! If we identified the transition as s-p, p-d, or d-f
       if (id.ge.0) then
 
+        ! Type of message
         msg = 3
 
         ! Calculate effective quantum numbers
         neff1 = Z*sqrt(aryd/(args(i1+1)*1d-5 - Atom%TRfreq(t1)))
         neff2 = Z*sqrt(aryd/(args(i2+1)*1d-5 - Atom%TRfreq(t2)))
 
+        !
         ! Get Barklem parameters from tables
+        !
+
+        ! sp
         if (id.eq.0) then
           call barklem_inter(neff1,neff2,n1sp,n2sp, &
                              x1sp,x2sp,sp1,sp2, &
                              sigma,alpha,check)
+        ! pd
         else if (id.eq.1) then
           call barklem_inter(neff1,neff2,n1pd,n2pd, &
                              x1pd,x2pd,pd1,pd2, &
                              sigma,alpha,check)
+        ! df
         else if (id.eq.2) then
           call barklem_inter(neff1,neff2,n1df,n2df, &
                              x1df,x2df,df1,df2, &
                              sigma,alpha,check)
-        end if
-
-      end if
+        end if ! electron orbital quantum numbers
+      end if ! Correct transition identification
 
       ! If sucessfull
       if (id.ge.0.and.check) then
@@ -594,6 +685,7 @@
         ! Verbosity of error
         if (gpid.eq.0) then
 
+          ! Error type 1: Wrong parameters
           if (msg.eq.1) &
           write(umsg,'(A,i2,3A)') ' # Wrong parameters for '// &
                                   'Barklem broadening for '// &
@@ -601,6 +693,8 @@
                                   Atom%Element,' atom, '// &
                                   'switch to Unsold without '// &
                                   'any enhancement'
+
+          ! Error type 2: Transition in an ion
           if (msg.eq.2) &
           write(umsg,'(A,i2,3A)') ' # Barklem broadening only '// &
                                   'valid for neutral ions, '// &
@@ -608,21 +702,25 @@
                                   Atom%Element,' atom '// &
                                   'switch to Unsold without '// &
                                   'any enhancement'
+
+          ! Error type 3: Values out of the tabulation
           if (msg.eq.3) &
           write(umsg,'(A,i2,3A)') ' # Could not find values '// &
-                                  'in the tables for the levels'// &
+                                  'in the tables for the levels '// &
                                   'of transition ',itran,' of ', &
                                   Atom%Element,' atom, '// &
                                   'switch to Unsold without '// &
                                   'any enhancement'
+          ! Verbose error
           call verbose
 
-        end if
+        end if ! There was an error
 
+        ! Switch to Unsold
         Atom%broad_type(itran) = 1
         Atom%broad_args(:,itran) = (/ 1d0,0d0,1d0,0d0 /)
 
-      end if ! Barklem inputs
+      end if ! Success or failure with setup of Barklem inputs
 
       end subroutine getBarklem
 
@@ -631,7 +729,10 @@
 !#####################################################################
 
       !> Get Barklem data for a LTE line\n
-      !! line(LTEline_class): Structure with the LTE line data\n
+      !> Setup the Barklem quantities to calculate the Van der Waals
+      !! contribution to the elastic broadening in a given LTE
+      !! transition\n
+      !! line(LTEline_class): Structure with LTE line data\n
       !!       n1sp(integer): Dimension axis 1 sp\n
       !!       n2sp(integer): Dimension axis 1 sp\n
       !!     x1sp(dfloat(:)): Axis 1 sp\n
@@ -656,6 +757,7 @@
                                  n1df,n2df,x1df,x2df,df1,df2)
 
       ! I/O
+
       type(LTEline_class), intent(inout):: line
       integer, intent(in):: n1sp,n2sp,n1pd,n2pd,n1df,n2df
       double precision, dimension(:), intent(in):: x1sp,x2sp
@@ -668,11 +770,14 @@
       ! Local
 
       logical:: check
+
       integer:: i1,i2,msg,id,Z
+
       double precision:: e1,e2,aryd,alpha,sigma,neff1,neff2
       double precision, dimension(4):: args
 
-      ! If not Barklem, return
+
+      ! If Van der Waals broadening is not Barklem, return
       if (line%broad_type.ne.0) return
 
       ! Correct rydberg energy for mass shift and calculate
@@ -690,45 +795,55 @@
       check = .False.
       msg = 1
 
+      !
       ! Identify the type of transition
+      !
+
+      ! s-p
       if (nint(args(1)).eq.0.and.nint(args(3)).eq.1) then
         e1 = line%Eu
         i1 = 1
         e2 = line%El
         i2 = 3
         id = 0
+      ! p-s
       else if (nint(args(1)).eq.1.and.nint(args(3)).eq.0) then
         e1 = line%El
         i1 = 3
         e2 = line%Eu
         i2 = 1
         id = 0
+      ! p-d
       else if (nint(args(1)).eq.1.and.nint(args(3)).eq.2) then
         e1 = line%Eu
         i1 = 1
         e2 = line%El
         i2 = 3
         id = 1
+      ! d-p
       else if (nint(args(1)).eq.2.and.nint(args(3)).eq.1) then
         e1 = line%El
         i1 = 3
         e2 = line%Eu
         i2 = 1
         id = 1
+      ! d-f
       else if (nint(args(1)).eq.2.and.nint(args(3)).eq.3) then
         e1 = line%Eu
         i1 = 1
         e2 = line%El
         i2 = 3
         id = 2
+      ! f-d
       else if (nint(args(1)).eq.3.and.nint(args(3)).eq.2) then
         e1 = line%El
         i1 = 3
         e2 = line%Eu
         i2 = 1
         id = 2
-      end if
+      end if ! Type of transition
 
+      ! No Barklem for ions
       if (Z.gt.1) then
         id = -1
         msg = 2
@@ -737,28 +852,34 @@
       ! If we identified the transition as s-p, p-d or d-f
       if (id.ge.0) then
 
+        ! Type of message
         msg = 3
 
         ! Calculate effective quantum numbers
         neff1 = Z*sqrt(aryd/(args(i1+1)*1d-5 - e1))
         neff2 = Z*sqrt(aryd/(args(i2+1)*1d-5 - e2))
 
+        !
         ! Get Barklem parameters from tables
+        !
+
+        ! sp
         if (id.eq.0) then
           call barklem_inter(neff1,neff2,n1sp,n2sp, &
                              x1sp,x2sp,sp1,sp2, &
                              sigma,alpha,check)
+        ! pd
         else if (id.eq.1) then
           call barklem_inter(neff1,neff2,n1pd,n2pd, &
                              x1pd,x2pd,pd1,pd2, &
                              sigma,alpha,check)
+        ! df
         else if (id.eq.2) then
           call barklem_inter(neff1,neff2,n1df,n2df, &
                              x1df,x2df,df1,df2, &
                              sigma,alpha,check)
-        end if
-
-      end if
+        end if ! electron orbital quantum numbers
+      end if ! Correct transition identification
 
       ! If sucessfull
       if (id.ge.0.and.check) then
@@ -774,6 +895,7 @@
         ! Verbosity of error
         if (gpid.eq.0) then
 
+          ! Error type 1: Wrong parameters
           if (msg.eq.1) &
           write(umsg,'(A)') ' # Wrong parameters for '// &
                             'Barklem broadening for '// &
@@ -781,6 +903,8 @@
                             line%Element// &
                             ' atom, switch to Unsold without '// &
                             'any enhancement'
+
+          ! Error type 2: Transition in an ion
           if (msg.eq.2) &
           write(umsg,'(A)') ' # Barklem broadening only '// &
                             'valid for neutral ions, '// &
@@ -788,6 +912,8 @@
                             line%Element// &
                             ' atom switch to Unsold without '// &
                             'any enhancement'
+
+          ! Error type 3: Values out of the tabulation
           if (msg.eq.3) &
           write(umsg,'(A)') ' # Could not find values '// &
                             'in the tables for the levels'// &
@@ -795,14 +921,16 @@
                             line%Element// &
                             ' atom, switch to Unsold without '// &
                             'any enhancement'
+          ! Verbose error
           call verbose
 
-        end if
+        end if ! There was an error
 
+        ! Switch to Unsold
         line%broad_type = 1
         line%broad_args = (/ 1d0,0d0,1d0,0d0 /)
 
-      end if ! Barklem inputs
+      end if ! Success or failure with setup of Barklem inputs
 
       end subroutine getBarklem_line
 
@@ -810,8 +938,8 @@
 !#####################################################################
 !#####################################################################
 
-      !> Gets coefficients by Barklem et al. given the effective
-      !! principal quantum number\n
+      !> Get the interpolated Barklem coefficients for a given pair of
+      !! effective quantum numbers\n
       !!             n1(dfloat): Effective quantum number level 1\n
       !!             n2(dfloat): Effective quantum number level 2\n
       !!           nn1(integer): Dimension axis 1\n

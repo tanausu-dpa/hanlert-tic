@@ -84,7 +84,7 @@ ATOM_FIX_POP
     
     - string: a single word and unique label
 
-  * Description: The model atom with the corresponding label will kept their initial populations fixed when solving the iterative problem. These populations are calculated in LTE unless ATOM_POPU is specified for the same model atom.
+  * Description: The model atom with the corresponding label will keep their initial populations fixed when solving the iterative problem. These populations are calculated in LTE unless ATOM_POPU is specified for the same model atom.
 
 ATOM_FIX_POP_LTERM
 ------------------
@@ -95,7 +95,7 @@ ATOM_FIX_POP_LTERM
     
     - string: a single word and unique label
 
-  * Description: The model atom with the corresponding label will kept the initial populations of the ground level/term fixed when solving the iterative problem. These populations are calculated in LTE unless ATOM_POPU is specified for the same model atom.
+  * Description: The model atom with the corresponding label will keep the initial populations of the ground level/term fixed when solving the iterative problem. These populations are calculated in LTE unless ATOM_POPU is specified for the same model atom.
 
 ATOM_ZERO_ION
 -------------
@@ -326,7 +326,7 @@ RAM_LIMIT
     
     - integer; default: -1
 
-  * Description: Maximum amount of Megabytes which can be allocated in the form of Voigt profiles, photoionization pre-calculated quantities, interpolation precalculated quantities (partial frequency redistribution), or redistribution functions. Negative means no limit (NOT RECOMMENDED for complex problems).
+  * Description: Maximum amount of Megabytes which can be allocated per CPU, used to limit the amount of Voigt and redistribution profiles to store in RAM. The counting is not perfect, so be conservative if there is a RAM limit.
 
 FORCE_MICRO
 -----------

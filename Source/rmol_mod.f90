@@ -5,61 +5,18 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     04/18/2017
+!     18/04/2017
 !  Last version:
-!     11/24/2023 V3.0.4
+!     17/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     11/24/2023:    V3.0.4 - Added Moleq_T (TdPA)
-!
-!     09/26/2023:    V3.0.3 - Bugfix: Needed absolute value for
-!                             energy, not mavxal (TdPA)
-!
-!     09/25/2023:    V3.0.2 - Receive frequencies in cm^-1 and
-!                             transform after reading (TdPA)
-!
-!     07/03/2023:    V3.0.1 - Now preparemol only allocates and
-!                             initializes the number density (TdPA)
-!                           - Added setupmol_eq and setupmol_pf to
-!                             allocate and prepare Mol%eq and Mol%pf
-!                             variables (TdPA)
-!
-!     06/29/2022:    V3.0.0 - To implement the 1.5D case the following
-!                             changes were needed:
-!                              o Variables with height dimension are
-!                                now allocated elsewhere.
-!                              o Atmo is no longer an input for
-!                                rMol.
-!                              o Changed aborted calls to gaborted
-!                                in rMol.
-!                              o Added routine preparemol.
-!                             (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!
-!     11/19/2019:    V1.1.1 - Removed checks in allocate and
-!                             deallocate calls (TdPA)
-!
-!     02/20/2019:    V1.1.0 - New verbosity (TdPA)
-!                           - Checks for success of python routine
-!                             and unit is now 100 (TdPA)
-!                           - Added allocatemol (TdPA)
-!
-!     11/26/2018:    V1.0.3 - Removed an empty loop (TdPA)
-!
-!     09/14/2017:    V1.0.2 - Added a path and ID to the file (TdPA)
-!
-!     07/20/2017:    V1.0.1 - Changed the declaration of T in
-!                             Molpf and Moleq to fixed size (TdPA)
-!
-!     04/18/2017:    V1.0.0 - Started coding (TdPA)
+!     17/12/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -69,35 +26,41 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!  This subroutine reads the molecular data
+!  rMol
+!    Read a model molecule from the specified file
 !
-!  rMol:
-!    The proper reader
+!  Molpf
+!    Calculate the partition function given a temperature
+!  stratification
 !
-!  Molpf:
-!    Interpolates the partition function given the type of fit
+!  Moleq
+!    Calculate the equilibrium constant given a temperature
+!  stratification
 !
-!  Moleq:
-!    Interpolates the equilibrium constant given the type of fit
-!
-!  Moleq_T:
-!    Interpolates the equilibrium constant given the type of fit
+!  Moleq_T
+!    Calculate the equilibrium constant given the type of fit
 !  for a given temperature
 !
-!  allocatemol:
-!    Allocates array of Mol_class
+!  allocatemol
+!    Allocate an array of Mol_class
 !
-!  preparemol:
-!    Allocates variables the molecule number density and initializes
-!  them to zero
+!  preparemol
+!    Allocate the molecules number density and initialize them to zero
 !
-!  setupmol_eq:
-!    Prepares molecule %eq data for current model
+!  setupmol_eq
+!    Calculate the equilibrium constant of all molecules in a given
+!  model atmosphere
 !
-!  setupmol_pf:
-!    Prepares molecule %pf data for current model
+!  setupmol_pf
+!    Calculate the partition function of all molecules in a given
+!  model atmosphere
 !
 !#####################################################################
 !#####################################################################
@@ -115,11 +78,11 @@
 !#####################################################################
 !#####################################################################
 
-      !> Reads a file with molecular data.\n
-      !!   filename(character(:)): Name of the file to read\n
+      !> Read a model molecule from the specified file\n
+      !!   filename(character(:)): Name of the file to read from\n
       !!     source(character(:)): Path to the source code\n
       !!         ID(character(:)): ID of this run\n
-      !!           Mol(Mol_class): Structure with the molecule data
+      !         Mol(Mol_class(:)): Structures with molecular data
       subroutine rMol(filename,source,ID,Mol)
 
       ! I/O
@@ -138,32 +101,43 @@
       ! Routine name
       urou = 'rMol'
 
-
-      ! Read the atomic data
+      ! Master translate the molecule model with python
       if(pid.eq.0) call system('python '//trim(source)// &
                                'rmol.py '//trim(filename)//' '// &
                                ID//' '//verbosef)
 
+      ! Wait till master is done
       call MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
+      ! Open translated file
       open(100,file='tmp_mol_'//ID,status='old',iostat=ios,err=1000)
 
-      ! Success
+      ! Read success
       read (100,*,err=1100) ios
 
-      ! If no correct file, abort
+      ! If no correct file
       if (ios.lt.0) then
 
+        ! Issue error
         umsg = 'Problem translating the molecular file '// &
                trim(filename)
         goto 1200
 
-      end if
+      end if ! Wrong file
 
+      ! Memory count
+      MRAMc = MRAMc + 1d-6*sizeof(Mol)
+
+      !
       ! Molecule name
+      !
+
       ! Read the number of characters and allocate the string
       read(100,*,err=1100) ii
+
+      ! Allocate string for molecule name
       allocate(character(len=ii) :: Mol%Molecule)
+      MRAMc = MRAMc + 1d-6*sizeof(Mol%molecule)
 
       ! Read the proper name
       read(100,*,err=1100) Mol%Molecule
@@ -174,36 +148,61 @@
       ! Charge
       read(100,*,err=1100) Mol%Charge
 
+      !
       ! Components
+      !
+
+      ! Number of components
       read(100,*,err=1100) Mol%nA
+
+      ! Allocate components
       allocate(Mol%natom(Mol%nA))
+      MRAMc = MRAMc + 1d-6*sizeof(Mol%natom)
       allocate(Mol%catom(Mol%nA))
       allocate(Mol%iatom(Mol%nA))
+      MRAMc = MRAMc + 1d-6*sizeof(Mol%iatom)
+
+      ! Initialize number of atoms per species
       Mol%nAT = 0
+
+      ! For each component
       do ii=1,Mol%nA
+
+        ! Memory count
+        MRAMc = MRAMc + 1d-6*sizeof(Mol%catom(ii))
+
+        ! Read number of atoms and name
         read(100,*,err=1100) Mol%natom(ii)
         read(100,*,err=1100) cdump
+
+        ! Correct single letter names
         if (cdump(2:2).eq.' ') then
           cdump(2:2) = cdump(1:1)
           cdump(1:1) = ' '
         end if
+
+        ! Save name and number of atoms
         Mol%catom(ii)%s = cdump
         Mol%nAT = Mol%nAT + Mol%natom(ii)
-      end do
+
+      end do ! Components
 
       ! Dissociation energy
       read(100,*,err=1100) Mol%Den
+
+      ! Convert units to kaiser
       Mol%Den = Mol%Den*1d-5
 
       ! Sanity check
       if (abs(Mol%Den).lt.1d-4) then
 
+        ! Issue error
         write(umsg,'(A)') ' # Dissociation energy in '// &
              trim(Mol%Molecule)//' molecule is smaller than '// &
              '10 cm^-1, you may be using an old atomic model format'
         call verbose
 
-      end if
+      end if ! Sanity check
 
       ! Type of partition
       read(100,*,err=1100) Mol%pffit
@@ -215,6 +214,7 @@
       read(100,*,err=1100) Mol%npfcoeff
       if (Mol%npfcoeff.gt.0) then
         allocate(Mol%pfcoeff(Mol%npfcoeff))
+        MRAMc = MRAMc + 1d-6*sizeof(Mol%pfcoeff)
         read(100,*,err=1100) Mol%pfcoeff(Mol%npfcoeff:1:-1)
       end if
 
@@ -222,23 +222,30 @@
       read(100,*,err=1100) Mol%neqcoeff
       if (Mol%neqcoeff.gt.0) then
         allocate(Mol%eqcoeff(Mol%neqcoeff))
+        MRAMc = MRAMc + 1d-6*sizeof(Mol%neqcoeff)
         read(100,*,err=1100) Mol%eqcoeff(Mol%neqcoeff:1:-1)
       end if
 
       ! Calculate the molecular part of the Doppler width
       Mol%cDopp = dopp/sqrt(Mol%rmass)
 
+      ! Close file
       close (100)
 
       ! Control that everything went fine
       call control
 
-      ! Remove temporal file
+      ! Master
       if (pid.eq.0) then
+
+        ! Remove temporal file
         call system('rm tmp_mol_'//ID)
+
+        ! Verbose
         umsg = ' - Molecule '//trim(filename)//' read'
         call verbose
-      end if
+
+      end if ! Master
 
       return
 
@@ -256,10 +263,10 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes the molecular partition function for the atmospheric
-      !! temperature.\n
-      !!    Mol(Mol_class): Structure with the molecule data\n
-      !!      T(dfloat(:)): Temperature
+      !> Calculate the partition function given a temperature
+      !! stratification\n
+      !!  Mol(Mol_class(:)): Structures with molecular data\n
+      !!       T(double(:)): Temperature
       subroutine Molpf(Mol,T)
 
       ! I/O
@@ -272,6 +279,7 @@
       integer:: ii,iz
 
       double precision:: x
+
 
       ! Routine name
       urou = 'Molpf'
@@ -288,61 +296,82 @@
         ! If temperature out of limits of molecule existence, skip
         if (T(iz).lt.Mol%Tmin.or.T(iz).gt.Mol%Tmax) cycle
 
+        ! Initialize constant
         Mol%pf(iz) = Mol%pfcoeff(1)
 
+        ! Kurucz 1970
         if (Mol%pffit.eq.0) then
 
+          ! Get temperature
           x = T(iz)
 
+          ! Complete calculation
           do ii=2,Mol%npfcoeff
             Mol%pf(iz) = Mol%pf(iz)*x + Mol%pfcoeff(ii)
           end do
 
+          ! Take exponential
           Mol%pf(iz) = exp(Mol%pf(iz))
 
+        ! Kurucz 1985
         else if (Mol%pffit.eq.1) then
 
+          ! Scale temperature
           x = T(iz)*1d-4
 
+          ! Complete calculation
           do ii=2,Mol%npfcoeff
             Mol%pf(iz) = Mol%pf(iz)*x + Mol%pfcoeff(ii)
           end do
 
+          ! Take exponential
           Mol%pf(iz) = exp(Mol%pf(iz))
 
+        ! Sauval and Tatum 1984
         else if (Mol%pffit.eq.2) then
 
+          ! Get logarithm of temperature in eV
           x = log10(ktoev/T(iz))
 
+          ! Complete calculation
           do ii=2,Mol%npfcoeff
             Mol%pf(iz) = Mol%pf(iz)*x + Mol%pfcoeff(ii)
           end do
 
+          ! Take power of 10
           Mol%pf(iz) = 1d1**(Mol%pf(iz))
 
+        ! Irwin 1981
         else if (Mol%pffit.eq.3) then
 
+          ! Get temperature logarithm
           x = log(T(iz))
 
+          ! Complete calculation
           do ii=2,Mol%npfcoeff
             Mol%pf(iz) = Mol%pf(iz)*x + Mol%pfcoeff(ii)
           end do
 
+          ! Take exponential
           Mol%pf(iz) = exp(Mol%pf(iz))
 
+        ! Tsuji 1973
         else if (Mol%pffit.eq.4) then
 
+          ! Constant
           return
 
+        ! Unknown
         else
 
+          ! Issue error
           umsg = 'Unknown fit for molecular partition '// &
                  'function'
           call aborted
 
-        end if
+        end if ! Type of fit
 
-      end do
+      end do ! Heights
 
       end subroutine Molpf
 
@@ -350,10 +379,10 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes the molecular equilibrium parameter for the
-      !! atmospheric temperature\n
-      !!    Mol(Mol_class): Structure with the molecule data\n
-      !!      T(dfloat(:)): Temperature
+      !> Calculate the equilibrium constant given a temperature
+      !! stratification\n
+      !!  Mol(Mol_class(:)): Structures with molecular data\n
+      !!       T(double(:)): Temperature
       subroutine Moleq(Mol,T)
 
       ! I/O
@@ -365,12 +394,11 @@
 
       integer:: ii,iz
 
-      double precision:: x1, x2, x3, C0, fact
+      double precision:: x1,x2,x3,C0,fact
 
 
       ! Routine name
       urou = 'Moleq'
-
 
       ! Initialize
       Mol%eq = 0d0
@@ -384,69 +412,90 @@
         ! If temperature out of limits of molecule existence, skip
         if (T(iz).lt.Mol%Tmin.or.T(iz).gt.Mol%Tmax) cycle
 
+        ! Initialize equilibrium constant
         Mol%eq(iz) = Mol%eqcoeff(1)
 
+        ! Kurucz 1970
         if (Mol%pffit.eq.0) then
 
+          ! Get inverse kb*T and its logarithm
           x1 = T(iz)
           x2 = fktoJ/kb/T(iz)
           x3 = log(T(iz))
           C0 = Mol%nAT - 1 - Mol%charge
 
+          ! Add contributions
           do ii=2,Mol%neqcoeff
             Mol%eq(iz) = Mol%eq(iz)*x1 + Mol%eqcoeff(ii)
           end do
 
+          ! Get exponential
           Mol%eq(iz) = exp(Mol%Den*x2 + Mol%eq(iz) - 1.5d0*C0*x3)
 
+        ! Kurucz 1985
         else if (Mol%pffit.eq.1) then
 
+          ! Get the inverse of the scaled kb*T and its logarithm
           x1 = T(iz)*1d-4
           x2 = fktoJ/kb/T(iz)
           x3 = log(T(iz))
           C0 = Mol%nAT - 1 - Mol%charge
 
+          ! Add contributions
           do ii=2,Mol%neqcoeff
             Mol%eq(iz) = Mol%eq(iz)*x1 + Mol%eqcoeff(ii)
           end do
 
+          ! Get exponential
           Mol%eq(iz) = exp(Mol%Den*x2 + Mol%eq(iz) - 1.5d0*C0*x3)
 
+        ! Sauval and Tatum 1984 or Irwin 1981
         else if (Mol%pffit.eq.2.OR.Mol%pffit.eq.3) then
 
+          ! Get inverse temperature in eV and its logarithm
           x1 = ktoev/T(iz)
           x2 = kb*T(iz)
           x3 = log10(x1)
           C0 = Mol%nAT - 1 - Mol%charge
 
-          fact = 1d4/(1d-2**C0) !J->erg and m->cm / 10^3 ad-hoc
+          ! Factor
+          ! J->erg and m->cm / 10^3 ad-hoc
+          fact = 1d4/(1d-2**C0)
 
+          ! Add contributions
           do ii=2,Mol%neqcoeff
             Mol%eq(iz) = Mol%eq(iz)*x3 + Mol%eqcoeff(ii)
           end do
 
+          ! Get power of ten
           Mol%eq(iz) = 1d1**(Mol%Den*fktoev*x1 - Mol%eq(iz))*x2*fact
 
+        ! Tsuji 1973
         else if (Mol%pffit.eq.4) then
 
+          ! Get T in eV and kb*T
           x1 = ktoev/T(iz)
           x2 = kb*T(iz)
 
+          ! Add contributions
           do ii=2,Mol%neqcoeff
             Mol%eq(iz) = Mol%eq(iz)*x1 + Mol%eqcoeff(ii)
           end do
 
+          ! Get power of ten
           Mol%eq(iz) = 1d1**(-Mol%eq(iz))*x2*x2
 
+        ! Unknown fit method
         else
 
+          ! Issue error
           umsg = ' # Unknown fit for equilibrium constant '// &
                  'function'
           call aborted
 
-        end if
+        end if ! Fit method
 
-      end do
+      end do ! Heights
 
       end subroutine Moleq
 
@@ -454,10 +503,10 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes the molecular equilibrium parameter for a given
-      !! temperature\n
-      !!    Mol(Mol_class): Structure with the molecule data\n
-      !!         T(dfloat): Temperature
+      !> Calculate the equilibrium constant given the type of fit for
+      !! a given temperature\n
+      !!  Mol(Mol_class(:)): Structures with molecular data\n
+      !!          T(double): Temperature
       double precision function Moleq_T(Mol,T)
 
       ! I/O
@@ -469,12 +518,11 @@
 
       integer:: ii
 
-      double precision:: x1, x2, x3, C0, fact
+      double precision:: x1,x2,x3,C0,fact
 
 
       ! Routine name
       urou = 'Moleq_T'
-
 
       ! Initialize
       Moleq_T = 0d0
@@ -485,67 +533,88 @@
       ! If temperature out of limits of molecule existence, skip
       if (T.lt.Mol%Tmin.or.T.gt.Mol%Tmax) return
 
+      ! Initialize equilibrium constant
       Moleq_T = Mol%eqcoeff(1)
 
+      ! Kurucz 1970
       if (Mol%pffit.eq.0) then
 
+        ! Get inverse kb*T and its logarithm
         x1 = T
         x2 = fktoJ/kb/T
         x3 = log(T)
         C0 = Mol%nAT - 1 - Mol%charge
 
+        ! Add contributions
         do ii=2,Mol%neqcoeff
           Moleq_T = Moleq_T*x1 + Mol%eqcoeff(ii)
         end do
 
+        ! Get exponential
         Moleq_T = exp(Mol%Den*x2 + Moleq_T - 1.5d0*C0*x3)
 
+      ! Kurucz 1985
       else if (Mol%pffit.eq.1) then
 
+        ! Get the inverse of the scaled kb*T and its logarithm
         x1 = T*1d-4
         x2 = fktoJ/kb/T
         x3 = log(T)
         C0 = Mol%nAT - 1 - Mol%charge
 
+        ! Add contributions
         do ii=2,Mol%neqcoeff
           Moleq_T = Moleq_T*x1 + Mol%eqcoeff(ii)
         end do
 
+        ! Get exponential
         Moleq_T = exp(Mol%Den*x2 + Moleq_T - 1.5d0*C0*x3)
 
+      ! Sauval and Tatum 1984 or Irwin 1981
       else if (Mol%pffit.eq.2.or.Mol%pffit.eq.3) then
 
+        ! Get inverse temperature in eV and its logarithm
         x1 = ktoev/T
         x2 = kb*T
         x3 = log10(x1)
         C0 = Mol%nAT - 1 - Mol%charge
 
-        fact = 1d4/(1d-2**C0) !J->erg and m->cm / 10^3 ad-hoc
+        ! Factor
+        ! J->erg and m->cm / 10^3 ad-hoc
+        fact = 1d4/(1d-2**C0)
 
+        ! Add contributions
         do ii=2,Mol%neqcoeff
           Moleq_T = Moleq_T*x3 + Mol%eqcoeff(ii)
         end do
 
+        ! Get power of ten
         Moleq_T = 1d1**(Mol%Den*fktoev*x1 - Moleq_T)*x2*fact
 
+      ! Tsuji 1973
       else if (Mol%pffit.eq.4) then
 
+        ! Get T in eV and kb*T
         x1 = ktoev/T
         x2 = kb*T
 
+        ! Add contributions
         do ii=2,Mol%neqcoeff
           Moleq_T = Moleq_T*x1 + Mol%eqcoeff(ii)
         end do
 
+        ! Get power of ten
         Moleq_T = 1d1**(-Moleq_T)*x2*x2
 
+      ! Unknown fit method
       else
 
+        ! Issue error
         umsg = ' # Unknown fit for equilibrium constant '// &
                'function'
         call aborted
 
-      end if
+      end if ! Fit method
 
       end function Moleq_T
 
@@ -553,30 +622,35 @@
 !#####################################################################
 !#####################################################################
 
-      !> Allocates array of Mol_class.\n
-      !!  Mol(Mol_class): Structure to allocate\n
-      !!     nn(integer): Size to allocate
+      !> Allocate an array of Mol_class\n
+      !!  Mol(Mol_class(:)): Structures with molecular data\n
+      !!        nn(integer): Size to allocate
       subroutine allocatemol(Mol,nn)
 
       ! I/O
-      type(Mol_class), dimension(:), allocatable:: Mol
+
+      type(Mol_class), dimension(:), allocatable, intent(out):: Mol
       integer, intent(in):: nn
 
       ! Local
+
       integer:: ios
 
 
       ! Routine name
       urou = 'allocatemol'
 
-      ! Allocate 1 even if no molecules
+      ! If no molecules
       if (nn.lt.1) then
 
+        ! Allocate 1 at least
         allocate(Mol(1), stat=ios)
+        MRAMc = MRAMc + 1d-6*sizeof(Mol(1))
 
-      ! Allocate molecules to read
+      ! Proper molecules
       else
 
+        ! Allocate molecules to read
         allocate(Mol(nn), stat=ios)
 
       end if
@@ -592,26 +666,33 @@
 !#####################################################################
 !#####################################################################
 
-      !> Allocate molecule data\n
-      !!    Mol(Mol_class): Structure to allocate\n
-      !!       nn(integer): Size of molecule array
+      !> Allocate the molecules number density and initialize them to
+      !! zero\n
+      !!  Mol(Mol_class(:)): Structures with molecular data\n
+      !!        nn(integer): Size of molecule array
       subroutine preparemol(Mol,nn)
 
       ! I/O
+
       type(Mol_class), dimension(:), intent(inout):: Mol
       integer, intent(in):: nn
 
       ! Local
+
       integer:: im
+
 
       ! For each molecule
       do im=1,nn
 
-        ! Allocate space por populations and parameters
+        ! Allocate space por populations
         allocate(Mol(im)%n(NZ))
+        MRAMc = MRAMc + 1d-6*sizeof(Mol(im)%n)
+
+        ! Initialize populations to zero
         Mol(im)%n = 0d0
 
-      end do
+      end do ! Molecules
 
       end subroutine preparemol
 
@@ -619,20 +700,25 @@
 !#####################################################################
 !#####################################################################
 
-      !> Prepares molecule eq data for current model\n
-      !!    Mol(Mol_class): Structure with molecules\n
-      !!       nn(integer): Size of molecule array\n
-      !!  Atmo(Atmo_class): Structure with atmospheric data
+      !> Calculate the equilibrium constant of all molecules in a
+      !! given model atmosphere\n
+      !!  Mol(Mol_class(:)): Structures with molecular data\n
+      !!        nn(integer): Size of molecule array\n
+      !!   Atmo(Atmo_class): Structure with atmospheric data
       subroutine setupmol_eq(Mol,nn,Atmo)
 
       ! I/O
+
       type(Mol_class), dimension(:), intent(inout):: Mol
       type(Atmo_class), intent(in):: Atmo
       integer, intent(in):: nn
 
       ! Local
+
       logical:: free
+
       integer:: im
+
 
       !
       ! Check if need to free input data
@@ -642,22 +728,41 @@
       ! For each molecule
       do im=1,nn
 
-        ! Make sure allocated
+        ! If allocated
         if (allocated(Mol(im)%eq)) then
+
+          ! If wrong size
           if (size(Mol(im)%eq).ne.NZ) then
+
+            ! Reallocate
+            MRAMc = MRAMc - 1d-6*sizeof(Mol(im)%eq)
             deallocate(Mol(im)%eq)
             allocate(Mol(im)%eq(NZ))
-          end if
-        else
-          allocate(Mol(im)%eq(NZ))
-        end if
+            MRAMc = MRAMc + 1d-6*sizeof(Mol(im)%eq)
 
-        ! Interpolate into T grid
+          end if ! Wrong size
+
+        ! Not allocated
+        else
+
+          ! Allocate
+          allocate(Mol(im)%eq(NZ))
+
+        end if ! Allocated equilibrium constant array
+
+        ! Calculate equilibrium constant for temperature grid
         call Moleq(Mol(im),Atmo%T)
-        if (Mol(im)%neqcoeff.gt.0.and.free) &
+
+        ! If there are saved coefficients and we can free them
+        if (Mol(im)%neqcoeff.gt.0.and.free) then
+
+          ! Free tabulation
+          MRAMc = MRAMc - 1d-6*sizeof(Mol(im)%eqcoeff)
           deallocate(Mol(im)%eqcoeff)
 
-      end do
+        end if ! Free tabulation
+
+      end do ! Molecules
 
       end subroutine setupmol_eq
 
@@ -665,20 +770,25 @@
 !#####################################################################
 !#####################################################################
 
-      !> Prepares molecule pf data for current model\n
-      !!    Mol(Mol_class): Structure with molecules\n
-      !!       nn(integer): Size of molecule array\n
-      !!  Atmo(Atmo_class): Structure with atmospheric data
+      !> Calculate the partition function of all molecules in a given
+      !! model atmosphere\n
+      !!  Mol(Mol_class(:)): Structures with molecular data\n
+      !!        nn(integer): Size of molecule array\n
+      !!   Atmo(Atmo_class): Structure with atmospheric data
       subroutine setupmol_pf(Mol,nn,Atmo)
 
       ! I/O
+
       type(Mol_class), dimension(:), intent(inout):: Mol
       type(Atmo_class), intent(in):: Atmo
       integer, intent(in):: nn
 
       ! Local
+
       logical:: free
+
       integer:: im
+
 
       !
       ! Check if need to free input data
@@ -688,22 +798,41 @@
       ! For each molecule
       do im=1,nn
 
-        ! Make sure allocated
+        ! If allocated
         if (allocated(Mol(im)%pf)) then
+
+          ! If wrong size
           if (size(Mol(im)%pf).ne.NZ) then
+
+            ! Reallocate
+            MRAMc = MRAMc - 1d-6*sizeof(Mol(im)%pf)
             deallocate(Mol(im)%pf)
             allocate(Mol(im)%pf(NZ))
-          end if
-        else
-          allocate(Mol(im)%pf(NZ))
-        end if
+            MRAMc = MRAMc + 1d-6*sizeof(Mol(im)%pf)
 
-        ! Interpolate into T grid
+          end if ! Wrong size
+
+        ! Not allocated
+        else
+
+          ! Allocate
+          allocate(Mol(im)%pf(NZ))
+
+        end if ! Allocated equilibrium constant array
+
+        ! Calculate partition function for temperature grid
         call Molpf(Mol(im),Atmo%T)
-        if (Mol(im)%npfcoeff.gt.0.and.free) &
+
+        ! If there are saved coefficients and we can free them
+        if (Mol(im)%npfcoeff.gt.0.and.free) then
+
+          ! Free tabulation
+          MRAMc = MRAMc - 1d-6*sizeof(Mol(im)%pfcoeff)
           deallocate(Mol(im)%pfcoeff)
 
-      end do
+        end if ! Free tabulation
+
+      end do ! Molecules
 
       end subroutine setupmol_pf
 

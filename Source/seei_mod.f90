@@ -5,93 +5,20 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !     Roberto Casini (HAO)
 !  Start:
-!     04/20/2017
+!     20/04/2017
 !  Last version:
-!     02/23/2024 V3.0.5
+!     18/02/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     02/23/2024:    V3.0.5 - Do not skip the first row when adding
-!                             the lambda operator (TdPA)
-!                           - It is possible to accept negative
-!                             populations if specified in input (TdPA)
-!
-!     07/03/2023:    V3.0.4 - Renamed SEEI to SEEI_actual and added
-!                             a new SEEI that calls it. Now, if
-!                             populations are negative and you are
-!                             running with ALI, the SEEI try again
-!                             switching it off (TdPA)
-!                           - Added an alternative trace equation
-!                             which fixes the lower term population
-!                             but not ensures the particle
-!                             conservation (TdPA)
-!
-!     11/24/2022:    V3.0.3 - Removed non-used variables (TdPA)
-!
-!     11/10/2022:    V3.0.2 - Added the option to zero out the
-!                             populations of the last ion of the
-!                             atom. This is useful when using
-!                             two-level atoms while keeping the
-!                             ionization stage to compute the
-!                             broadening parameters (TdPA)
-!                           - Added the initrhoI routine to
-!                             achieve the latter (TdPA)
-!
-!     10/26/2022:    V3.0.1 - Changed the indexing of atomic levels
-!                             in Atom (TdPA)
-!
-!     06/29/2022:    V3.0.0 - Changed global version (TdPA)
-!
-!     03/23/2021:    V2.0.1 - Changed call to abortedS and generation
-!                             of the error message (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!                           - Stopped using Atom%rho and created a
-!                             local variable to be able to call
-!                             SEE with threads (TdPA)
-!
-!     11/13/2019:    V1.3.7 - The Atom%popu variable is updated with
-!                             the normalized population (TdPA)
-!
-!     10/18/2019:    V1.3.6 - Skip if the atom ask to keep the
-!                             populations fixed (TdPA)
-!
-!     08/19/2019:    V1.3.5 - Bugfix: In 1.3.4, when the checking was
-!                             changed to level indexes, they were put
-!                             after a conditional that needed them
-!                             defined already (TdPA)
-!
-!     08/08/2019:    V1.3.4 - Removed check on L values for permitted
-!                             radiative transition (TdPA)
-!                           - Checking zupper, zlower, and zrelax on
-!                             the level indexes directly (TdPA)
-!
-!     06/04/2019:    V1.3.3 - Bugfix: The Lambda contributions for
-!                             the RA associated coefficients had the
-!                             wrong sign (TdPA)
-!
-!     05/31/2019:    V1.3.2 - LamL and LamP do not need to have
-!                             declared sizes (TdPA)
-!
-!     03/18/2019:    V1.3.1 - Physical errors do not make rhosol to
-!                             return (TdPA)
-!                           - Can skip ALI calculations (TdPA)
-!
-!     02/20/2019:    V1.1.0 - New verbosity (TdPA)
-!
-!     09/08/2017:    V1.0.2 - Added checks to avoid non physical
-!                             solutions (TdPA)
-!
-!     06/14/2017:    V1.0.1 - In densmatrI, rho is intent(inout), to
-!                             avoid valgrind complains (TdPA)
-!
-!     04/20/2017:    V1.0.0 - First version (TdPA)
+!     18/02/2025:    V4.0.1 - Bugfix: fixed the implementation of the
+!                             zero_ion option (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -101,32 +28,38 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!  SEEI:
-!    Manage the solution of the statistical equilibrium equations by
-!  calling the actual manager with/out ALI
+!  SEEI
+!    Manage the solution of the statistical equilibrium equations for
+!  the atomic populations
 !
-!  SEEI_actual:
-!    Manage the solution of the statistical equilibrium equations
+!  SEEI_actual
+!    Solve the statistical equilibrium equations for the atomic
+!  populations
 !
-!  SEbuildI:
-!    This subroutine builds the coefficient matrix for the system
-!  of S.E. equations, for the multi-level atom
+!  SEbuildI
+!    Build the statistical equilibrium equations
 !
-!  ALIbuildI:
-!    This subroutine builds the lambda operator coefficient matrix
-!  for the system of S.E. equations, for the multi-level atom
+!  ALIbuildI
+!    Add the Accelerated Lambda Iteration terms to the statistical
+!  equilibrium equations
 !
-!  initrho:
-!    Initializes rho vector or considers zero ion
+!  initrhoI
+!    Initialize independent vector and manage additional atomic
+!  flags
 !
-!  densmatrI:
-!    This subroutine calculates the density matrix solution
-!  of the SE equations
+!  densmatrI
+!    Solve the statistical equilibrium equations
 !
-!  rhosolI:
-!    Restore the solution density matrix
+!  rhosolI
+!    Transform the solution of the statistical equilibrium equations
+!  into atomic populations
 !
 !#####################################################################
 !#####################################################################
@@ -145,31 +78,28 @@
 !#####################################################################
 !#####################################################################
 
-      !> Calls subroutines to solve the statistical equilibrium
-      !! equations for the populations.\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!         Atom0(Rhoc_class): A copy of Atom\n
-      !!           JRad(dfloat(:)): Mean intensity integrated over
-      !!                            absorption profile\n
-      !!          JRadS(dfloat(:)): Mean intensity integrated over
-      !!                            emission profile\n
-      !!        JPhot(dfloat(:,:)): Mean intensity integrated with
-      !!                            photoionizations\n
-      !!         J00P(dfloat(:,:)): Intensity integrals in the
-      !!                            photoionization rates\n
-      !!         LamL(dfloat(:,:)): Lambda operator for bound-bound
-      !!                            transitions\n
-      !!       LamP(dfloat(:,:,:)): Lambda operator for bound-free
-      !!                            transitions\n
-      !!               iz(integer): Height index\n
-      !!             lALI(logical): Apply ALI\n
-      !!              tid(integer): thread index
+      !> Manage the solution of the statistical equilibrium equations
+      !! for the atomic populations\n
+      !!     Atom(Atom_class): Structure with atomic data\n
+      !!    Atom0(Rhoc_class): Structure to store the density matrix
+      !!                       of the previous iteration\n
+      !!      JRad(double(:)): Mean intensity integrated over the
+      !!                       absorption profile\n
+      !!     JRadS(double(:)): Mean intensity integrated over the
+      !!                       emission profile\n
+      !!   JPhot(double(:,:)): Intensity integrals in the
+      !!                       photoionization rates\n
+      !!    LamL(double(:,:)): Lambda operator for bound-bound
+      !!                       transitions\n
+      !!  LamP(double(:,:,:)): Lambda operator for bound-free
+      !!                       transitions\n
+      !!          iz(integer): Height index\n
+      !!        lALI(logical): If to apply ALI
 #ifdef DEBUGSEE
       subroutine SEEI(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP,iz,lALI, &
-                      tid,INPUT)
+                      INPUT)
 #else
-      subroutine SEEI(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP,iz,lALI, &
-                      tid)
+      subroutine SEEI(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP,iz,lALI)
 #endif
 
       ! I/O
@@ -178,15 +108,16 @@
       type(Input_class), intent(in):: INPUT
 #endif
       type(Atom_class), intent(inout):: Atom
-      type(Rhoc_class), intent(inout):: Atom0
+      type(Rhoc_class), intent(in):: Atom0
       logical, intent(in):: lALI
-      integer, intent(in):: iz,tid
+      integer, intent(in):: iz
       double precision, dimension(:), intent(in):: JRad,JRadS
       double precision, dimension(:,:), intent(in):: LamL
-      double precision, dimension(:,:),intent(in):: Jphot
-      double precision, dimension(:,:,:),intent(in):: LamP
+      double precision, dimension(:,:), intent(in):: Jphot
+      double precision, dimension(:,:,:), intent(in):: LamP
 
       ! Local
+
       logical:: try_no_ALI
 
 
@@ -198,10 +129,10 @@
       !
 #ifdef DEBUGSEE
       call SEEI_actual(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP, &
-                       iz,lALI,try_no_ALI,tid,INPUT)
+                       iz,lALI,try_no_ALI,INPUT)
 #else
       call SEEI_actual(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP, &
-                       iz,lALI,try_no_ALI,tid)
+                       iz,lALI,try_no_ALI)
 #endif
 
       !
@@ -212,10 +143,10 @@
 
 #ifdef DEBUGSEE
         call SEEI_actual(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP, &
-                         iz,.False.,try_no_ALI,tid,INPUT)
+                         iz,.False.,try_no_ALI,INPUT)
 #else
         call SEEI_actual(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP, &
-                         iz,.False.,try_no_ALI,tid)
+                         iz,.False.,try_no_ALI)
 #endif
 
       end if
@@ -226,32 +157,30 @@
 !#####################################################################
 !#####################################################################
 
-      !> Calls subroutines to solve the statistical equilibrium
-      !! equations for the populations.\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!         Atom0(Rhoc_class): A copy of Atom\n
-      !!           JRad(dfloat(:)): Mean intensity integrated over
-      !!                            absorption profile\n
-      !!          JRadS(dfloat(:)): Mean intensity integrated over
-      !!                            emission profile\n
-      !!        JPhot(dfloat(:,:)): Mean intensity integrated with
-      !!                            photoionizations\n
-      !!         J00P(dfloat(:,:)): Intensity integrals in the
-      !!                            photoionization rates\n
-      !!         LamL(dfloat(:,:)): Lambda operator for bound-bound
-      !!                            transitions\n
-      !!       LamP(dfloat(:,:,:)): Lambda operator for bound-free
-      !!                            transitions\n
-      !!               iz(integer): Height index\n
-      !!             lALI(logical): Apply ALI\n
-      !!       try_no_ALI(logical): Output signal to try without ALI\n
-      !!              tid(integer): thread index
+      !> Solve the statistical equilibrium equations for the atomic
+      !! populations\n
+      !!     Atom(Atom_class): Structure with atomic data\n
+      !!    Atom0(Rhoc_class): Structure to store the density matrix
+      !!                       of the previous iteration\n
+      !!      JRad(double(:)): Mean intensity integrated over the
+      !!                       absorption profile\n
+      !!     JRadS(double(:)): Mean intensity integrated over the
+      !!                       emission profile\n
+      !!   JPhot(double(:,:)): Intensity integrals in the
+      !!                       photoionization rates\n
+      !!    LamL(double(:,:)): Lambda operator for bound-bound
+      !!                       transitions\n
+      !!  LamP(double(:,:,:)): Lambda operator for bound-free
+      !!                       transitions\n
+      !!          iz(integer): Height index\n
+      !!        lALI(logical): If to apply ALI\n
+      !!  try_no_ALI(logical): If we need to try again without ALI
 #ifdef DEBUGSEE
       subroutine SEEI_actual(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP, &
-                             iz,lALI,try_no_ALI,tid,INPUT)
+                             iz,lALI,try_no_ALI,INPUT)
 #else
       subroutine SEEI_actual(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP, &
-                             iz,lALI,try_no_ALI,tid)
+                             iz,lALI,try_no_ALI)
 #endif
 
       ! I/O
@@ -260,14 +189,14 @@
       type(Input_class), intent(in):: INPUT
 #endif
       type(Atom_class), intent(inout):: Atom
-      type(Rhoc_class), intent(inout):: Atom0
+      type(Rhoc_class), intent(in):: Atom0
       logical, intent(in):: lALI
       logical, intent(out):: try_no_ALI
-      integer, intent(in):: iz,tid
+      integer, intent(in):: iz
       double precision, dimension(:), intent(in):: JRad,JRadS
       double precision, dimension(:,:), intent(in):: LamL
-      double precision, dimension(:,:),intent(in):: Jphot
-      double precision, dimension(:,:,:),intent(in):: LamP
+      double precision, dimension(:,:), intent(in):: Jphot
+      double precision, dimension(:,:,:), intent(in):: LamP
 
       ! Local
 
@@ -275,41 +204,30 @@
       double precision:: STcoeff(Atom%nlevel,Atom%nlevel)
 
 
-      !
       ! Build SEE equations for multi-level atom
-      !
-      call SEbuildI(Atom,JRad,JRadS,Jphot,STcoeff,iz,tid)
+      call SEbuildI(Atom,JRad,JRadS,Jphot,STcoeff,iz)
 
 #ifdef DEBUGSEE
-      if (pid.eq.0)call dump_see(Atom,STcoeff,INPUT%folder,iz,.False.)
+      if (pid.eq.0) call dump_see(Atom,STcoeff,INPUT%folder, &
+                                  iz,.False.)
 #endif
 
-      !
       ! Add the contributions due to Lambda operator
-      !
       if (lALI) call ALIbuildI(Atom,Atom0,LamL,LamP,STcoeff,iz)
 
 #ifdef DEBUGSEE
-      if (lALI.and.pid.eq.0) call dump_see(Atom,STcoeff,INPUT%folder,iz,.True.)
+      if (lALI.and.pid.eq.0) &
+        call dump_see(Atom,STcoeff,INPUT%folder,iz,.True.)
 #endif
 
-      !
       ! Initialize rho and fix populations if requested
-      !
       call initrhoI(Atom,Atom0,STcoeff,rho,iz)
 
-
-      !
       ! Solve the SEE
-      !
       call densmatrI(rho,Atom%nlevel,STcoeff)
 
-
-      !
       ! Rearrange the solution into the rhoKQ matrices
-      !
-      call rhosolI(Atom,rho,iz,lALI,try_no_ALI,tid)
-
+      call rhosolI(Atom,rho,iz,lALI,try_no_ALI)
 
       end subroutine SEEI_actual
 
@@ -317,57 +235,45 @@
 !#####################################################################
 !#####################################################################
 
-      !> Builds the statistical equilibrium equations system for the
-      !! populations\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!           RadJ(dfloat(:)): Mean intensity integrated over
-      !!                            absorption profile\n
-      !!          RadJS(dfloat(:)): Mean intensity integrated over
-      !!                            emission profile\n
-      !!             JP(dfloat(:)): Mean intensity integrated with
-      !!                            photoionizations\n
-      !!      STcoeff(dfloat(:,:)): Statistical equilibrium equations
-      !!                            system\n
-      !!               iz(integer): Height index\n
-      !!              tid(integer): thread index
-      subroutine SEbuildI(Atom,RadJ,RadJS,JP,STcoeff,iz,tid)
+      !> Build the statistical equilibrium equations\n
+      !!      Atom(Atom_class): Structure with atomic data\n
+      !!       RadJ(double(:)): Mean intensity integrated over the
+      !!                        absorption profile\n
+      !!      RadJS(double(:)): Mean intensity integrated over the
+      !!                        emission profile\n
+      !!       JP(double(:,:)): Intensity integrals in the
+      !!                        photoionization rates\n
+      !!  STcoeff(double(:,:)): Statistical equilibrium equations\n
+      !!           iz(integer): Height index
+      subroutine SEbuildI(Atom,RadJ,RadJS,JP,STcoeff,iz)
 
       ! I/O
 
       type(Atom_class), intent(in):: Atom
-      integer, intent(in):: iz,tid
-      double precision,dimension(:),intent(in):: RadJ,RadJS
-      double precision,dimension(:,:),intent(in):: JP
+      integer, intent(in):: iz
+      double precision,dimension(:), intent(in):: RadJ,RadJS
+      double precision,dimension(:,:), intent(in):: JP
       double precision, dimension(:,:), intent(out):: STcoeff
 
       ! Local
 
-      logical:: zpermit,zpermitJ,zPpermit,zRpermitJ
+      logical:: zpermit,zpermitJ,zPpermit,zRpermitJ,zJ,zflag
       logical:: zrelax,zupper,zlower,zrelaxJ,zupperJ,zlowerJ
-      logical:: zJ,zflag
 
       integer:: itran,ftran,fftran,iphot,iterm,itterm,iJ,iJJ,i,ii
 
       double precision:: rL,S,rJ,rLL,SS,rJJ
-      double precision:: rSCcoeff,rACcoeff
-      double precision:: tSCcoeff,tACcoeff
-      double precision:: rEcoeff,tEcoeff
-      double precision:: rScoeff,rAcoeff
-      double precision:: tScoeff,tAcoeff
-      double precision:: rEPcoeff,tEPcoeff
-      double precision:: rSPcoeff,rAPcoeff
-      double precision:: tSPcoeff,tAPcoeff
+      double precision:: rSCcoeff,rACcoeff,tSCcoeff,tACcoeff
+      double precision:: rEcoeff,tEcoeff,rScoeff,rAcoeff
+      double precision:: tScoeff,tAcoeff,rEPcoeff,tEPcoeff
+      double precision:: rSPcoeff,rAPcoeff,tSPcoeff,tAPcoeff
 
 
       ! Routine name
       urou = 'SEbuildI'
 
-
-      !
       ! Initialize SEE coefficients
-      !
       STcoeff = 0d0
-
 
       !
       ! Build SEE
@@ -375,6 +281,14 @@
 
       ! For each term (row)
       do iterm=1,Atom%nMulti
+
+        ! Skip last ion for zero_ion
+        if (Atom%zero_ion) then
+
+          ! If we are in the row for the last ion, skip
+          if (Atom%stage(iterm).eq.Atom%stage(Atom%nMulti)) cycle
+
+        end if ! Zero_ion
 
         ! Get term quantities
         rL = Atom%rLval(iterm)
@@ -400,6 +314,14 @@
 
           ! For each term (column)
           do itterm=1,Atom%nMulti
+
+            ! Skip last ion for zero_ion
+            if (Atom%zero_ion) then
+
+              ! If we are in the column for the last ion, skip
+              if (Atom%stage(itterm).eq.Atom%stage(Atom%nMulti)) cycle
+
+            end if ! No correction
 
             ! Check how the column relates to the row
             zrelax = itterm.eq.iterm
@@ -429,15 +351,27 @@
               ! the levels
               if (itran.gt.0) then
 
+                ! If up-down
                 if (zupper) then
+
+                  ! Get index
                   ftran = Atom%fst(itran)%irad(iJJ,iJ)
+
+                ! If down-up
                 else
+
+                  ! Get index
                   ftran = Atom%fst(itran)%irad(iJ,iJJ)
-                end if
+
+                end if ! up->down or inverse
+
+                ! If valid, get rolling index
                 if (ftran.gt.0) fftran = Atom%ifst_ij(ftran,itran)
 
+              ! If not valid
               else
 
+                ! Dummy indexes
                 ftran = 0
                 fftran = 0
 
@@ -467,7 +401,7 @@
                 call tEPI(rJ,rJJ,Atom%phot(iphot)%TEI(iz),tEPcoeff)
 
       !
-      ! Reset the Identation
+      ! Reset the Indentation
       !
 
       ! If there is a transition between levels
@@ -489,10 +423,10 @@
               call tSI(rJ,rJJ,Atom%fst(itran)%Blu(iJ,iJJ), &
                        RadJS(fftran),tScoeff)
 
+              ! Up-down b-b transfer rate
               STcoeff(i,ii) = tScoeff + STcoeff(i,ii)
 
             end if ! Stimulated emission
-
           end if ! b-b transition
 
           ! If it is a b-f transition
@@ -505,7 +439,6 @@
             STcoeff(i,ii) = tEPcoeff + tSPcoeff + STcoeff(i,ii)
 
           end if ! b-f transition
-
         end if ! column > row
 
         ! If row > column
@@ -518,6 +451,7 @@
             call tAI(rJ,rJJ,Atom%fst(itran)%Blu(iJJ,iJ), &
                      RadJ(fftran),tAcoeff)
 
+            ! Down-up b-b transfer rate
             STcoeff(i,ii) = tAcoeff
 
           end if ! b-b transition
@@ -528,18 +462,17 @@
             ! Absorption b-f transfer rate
             call tAPI(rJ,rJJ,JP(iphot,1),tAPcoeff)
 
+            ! Down-up b-f transfer rate
             STcoeff(i,ii) = STcoeff(i,ii) + tAPcoeff
 
           end if ! b-f transition
-
         end if ! row > column
-
       end if ! There is a transition
-
 
       ! Diagonal element
       if (zrelax) then
 
+        ! Diagonal level
         if (zJ) then
 
           ! Spontaneous relaxation rates
@@ -553,8 +486,10 @@
                      Atom%ifst_ij,Atom%nJ,Atom%rJval,rJ, &
                      RadJS,rScoeff)
 
+          ! No stimulated
           else
 
+            ! No rate
             rScoeff = 0d0
 
           end if ! Stimulated emission
@@ -563,6 +498,7 @@
           call rAI(iterm,iJ,Atom%irad(:,iterm),Atom%fst, &
                    Atom%ifst_ij,Atom%nJ,Atom%nMulti,RadJ,rAcoeff)
 
+          ! Relaxation b-b
           STcoeff(i,ii) = -rScoeff - rAcoeff + STcoeff(i,ii)
 
           ! Stimulated b-f relaxation rate
@@ -572,10 +508,10 @@
           call rAPI(i,Atom%iphot(:,i),Atom%nlevel, &
                     JP(:,1),rAPcoeff)
 
+          ! Relaxation b-f
           STcoeff(i,ii)= -rSPcoeff - rAPcoeff + STcoeff(i,ii)
 
         end if ! Same level
-
       end if ! Same term
 
       ! Collisions
@@ -593,6 +529,7 @@
           ! Colisional de-excitation transfer rate
           call tSFCI(rJ,rJJ,Atom%CcoeffJ(ii,i,iz),tSCcoeff)
 
+          ! Up-down collisional
           STcoeff(i,ii) = tSCcoeff + STcoeff(i,ii)
 
         ! row > column
@@ -601,6 +538,7 @@
           ! Colisional excitation transfer rate
           call tAFCI(rJ,rJJ,Atom%CcoeffJ(ii,i,iz),tACcoeff)
 
+          ! Down-up collisional
           STcoeff(i,ii) = STcoeff(i,ii) + tACcoeff
 
         ! diagonal element
@@ -612,6 +550,7 @@
           ! Colisional excitation relaxation rate
           call rAFCI(i,Atom%nlevel,Atom%CcoeffJ(i,:,iz),rACcoeff)
 
+          ! Relaxation collisional
           STcoeff(i,ii) = -rSCcoeff - rACcoeff + STcoeff(i,ii)
 
         end if ! Relation between levels
@@ -621,7 +560,7 @@
       if (zflag.and.(abs(STcoeff(i,ii)).gt..0D0)) zflag=.false.
 
               !
-              ! Recover the identation
+              ! Recover the indentation
               !
 
             end do ! iJJ
@@ -632,6 +571,7 @@
 
             ! If we are zeroing out the ion
             if (Atom%zero_ion) then
+
               ! And this is from the last ion
               if (Atom%stage(iterm).eq.Atom%stage(Atom%nMulti)) then
 
@@ -641,12 +581,10 @@
               end if ! Last stage
             end if ! zeroing out the ion
 
-
-            ! If not aborted yet
+            ! If not aborted yet, fail now
             write(umsg,*) ' # Element',iterm,real(rJ), &
                           ' isolated'
-            call abortedS(umsg,urou,tid,.True.,.True.)
-
+            call abortedS(umsg,urou,.True.,.True.)
             return
 
           end if ! Singular matrix
@@ -656,10 +594,13 @@
 
       ! Check the matrix is actually square
       if (i.ne.ii) then
+
+        ! Issue error
         umsg = 'STcoeff is not square'
-        call abortedS(umsg,urou,tid,.True.,.True.)
+        call abortedS(umsg,urou,.True.,.True.)
         return
-      end if
+
+      end if ! Non-square matrix
 
       return
 
@@ -669,26 +610,26 @@
 !#####################################################################
 !#####################################################################
 
-      !> Adds the ALI terms to the statistical equilibrium equations
-      !! system for the populations.\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!         Atom0(Rhoc_class): A copy of Atom\n
-      !!         LamL(dfloat(:,:)): Lambda operator for bound-bound
-      !!                            transitions\n
-      !!       LamP(dfloat(:,:,:)): Lambda operator for bound-free
-      !!                            transitions\n
-      !!      STcoeff(dfloat(:,:)): Statistical equilibrium equations
-      !!                            system\n
-      !!               iz(integer): Height index
+      !> Add the Accelerated Lambda Iteration terms to the statistical
+      !! equilibrium equations\n
+      !!      Atom(Atom_class): Structure with atomic data\n
+      !!     Atom0(Rhoc_class): Structure to store the density matrix
+      !!                        of the previous iteration\n
+      !!     LamL(double(:,:)): Lambda operator for bound-bound
+      !!                        transitions\n
+      !!   LamP(double(:,:,:)): Lambda operator for bound-free
+      !!                        transitions\n
+      !!  STcoeff(double(:,:)): Statistical equilibrium equations\n
+      !!           iz(integer): Height index
       subroutine ALIbuildI(Atom,Atom0,LamL,LamP,STcoeff,iz)
 
       ! I/O
 
       type(Atom_class), intent(in):: Atom
-      type(Rhoc_class), intent(inout):: Atom0
+      type(Rhoc_class), intent(in):: Atom0
       integer, intent(in):: iz
-      double precision,dimension(:,:),intent(in):: LamL
-      double precision,dimension(:,:,:),intent(in):: LamP
+      double precision,dimension(:,:), intent(in):: LamL
+      double precision,dimension(:,:,:), intent(in):: LamP
       double precision, dimension(:,:), intent(inout):: STcoeff
 
       ! Local
@@ -699,8 +640,7 @@
       integer:: itran,ftran,fftran,iphot,iterm,itterm
       integer:: iJ,iJJ,i,ii,iR,iRR
 
-      double precision:: rL,S,rJ,rLL,SS,rJJ
-      double precision:: tAcoeff,tAPcoeff
+      double precision:: rL,S,rJ,rLL,SS,rJJ,tAcoeff,tAPcoeff
 
 
       !
@@ -709,6 +649,14 @@
 
       ! For each term (row)
       do iterm=1,Atom%nMulti
+
+        ! Skip last ion for zero_ion
+        if (Atom%zero_ion) then
+
+          ! If we are in the row for the last ion, skip
+          if (Atom%stage(iterm).eq.Atom%stage(Atom%nMulti)) cycle
+
+        end if ! Zero_ion
 
         ! Get term quantities
         rL = Atom%rLval(iterm)
@@ -728,6 +676,14 @@
 
           ! For each term (column)
           do itterm=1,Atom%nMulti
+
+            ! Skip last ion for zero_ion
+            if (Atom%zero_ion) then
+
+              ! If we are in the column for the last ion. skip
+              if (Atom%stage(itterm).eq.Atom%stage(Atom%nMulti)) cycle
+
+            end if ! Zero_ion
 
             ! Get term quantities
             rLL = Atom%rLval(itterm)
@@ -761,19 +717,31 @@
               ! the levels
               if (itran.gt.0) then
 
+                ! If up-down
                 if (zupper) then
+
+                  ! Get index
                   ftran = Atom%fst(itran)%irad(iJJ,iJ)
+
+                ! If down-up
                 else
+
+                  ! Get index
                   ftran = Atom%fst(itran)%irad(iJ,iJJ)
-                end if
+
+                end if ! Up-down or reversed
+
+                ! If valid transition, get rolling index
                 if(ftran.gt.0) fftran = Atom%ifst_ij(ftran,itran)
 
+              ! No valid transition
               else
 
+                ! Dummy indexes
                 ftran = 0
                 fftran = 0
 
-              end if
+              end if ! Valid transitions
 
               ! Check if there is a b-f transition between the levels
               iphot = Atom%iphot(ii,i)
@@ -788,13 +756,9 @@
               ! Same J for the two levels
               zJ = iJ.eq.iJJ
 
-
       !
-      ! Reset the Identation
+      ! Reset the Indentation
       !
-
-      ! First row is not modified, it is the trace
-!     if (i.eq.1) cycle
 
       ! If there is a transition between levels
       if (zpermitJ) then
@@ -809,6 +773,7 @@
             call tAI(0d0,0d0,Atom%fst(itran)%Blu(iJ,iJJ), &
                      LamL(1,fftran),tAcoeff)
 
+            ! ALI correction
             STcoeff(i,ii) = STcoeff(i,ii) - &
                             tAcoeff*dble(Atom0%crho(iR,iz))
             STcoeff(i,i) = STcoeff(i,i) + &
@@ -822,13 +787,13 @@
             ! ALI contribution is like absorption transfer rate
             call tAPI(0d0,0d0,LamP(1,iphot,1),tAPcoeff)
 
+            ! ALI correction
             STcoeff(i,ii) = STcoeff(i,ii) - &
                            tAPcoeff*dble(Atom0%crho(iR,iz))
             STcoeff(i,i) = STcoeff(i,i) + &
                            tAPcoeff*dble(Atom0%crho(iRR,iz))
 
           end if ! b-f transition
-
         end if ! column > row
 
         ! If row > column
@@ -841,6 +806,7 @@
             call tAI(rJ,rJJ,Atom%fst(itran)%Blu(iJJ,iJ), &
                      LamL(1,fftran),tAcoeff)
 
+            ! ALI correction
             STcoeff(i,ii) = STcoeff(i,ii) - &
                             tAcoeff*dble(Atom0%crho(iR,iz))
             STcoeff(i,i) = STcoeff(i,i) + &
@@ -854,6 +820,7 @@
             ! ALI contribution is like absorption transfer rate
             call tAPI(rJ,rJJ,LamP(1,iphot,1),tAPcoeff)
 
+            ! ALI correction
             STcoeff(i,ii)= STcoeff(i,ii) - &
                            tAPcoeff*dble(Atom0%crho(iR,iz))
             STcoeff(i,i) = STcoeff(i,i) + &
@@ -864,7 +831,7 @@
       end if ! There is a transition
 
               !
-              ! Recover identation
+              ! Recover indentation
               !
 
             end do ! iJJ
@@ -880,26 +847,29 @@
 !#####################################################################
 !#####################################################################
 
-      !> Initializes independent vector and changes the SEE matrix if
-      !! requested\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!    Atom0(Rhoc_class): A copy of Atom\n
-      !! STcoeff(dfloat(:,:)): Statistical equilibrium equations\n
-      !!       rho(dfloat(:)): Array to store the solution of the
-      !!                       statistical equilibrium equations\n
-      !!          iz(integer): Height index
+      !> Initialize independent vector and manage additional atomic
+      !! flags\n
+      !!      Atom(Atom_class): Structure with atomic data\n
+      !!     Atom0(Rhoc_class): Structure to store the density matrix
+      !!                        of the previous iteration\n
+      !!  STcoeff(double(:,:)): Statistical equilibrium equations\n
+      !!        rho(double(:)): Independent vector of the statistical
+      !!                        equilibrium equations\n
+      !!           iz(integer): Height index
       subroutine initrhoI(Atom,Atom0,STcoeff,rho,iz)
 
       ! I/O
 
-      type(Atom_class), intent(inout):: Atom
-      type(Rhoc_class), intent(inout):: Atom0
+      type(Atom_class), intent(in):: Atom
+      type(Rhoc_class), intent(in):: Atom0
       integer, intent(in):: iz
       double precision, dimension(:), intent(inout):: rho
       double precision, dimension(:,:), intent(inout):: STcoeff
 
       ! Local
+
       integer:: it,iJ,i,iR,lstage
+
       double precision:: rJJ
 
 
@@ -968,7 +938,6 @@
 
       end if ! Type of population fixing
 
-
       ! If zero_ion
       if (Atom%zero_ion) then
 
@@ -998,7 +967,7 @@
           end do ! Term-levels
         end do ! Term
 
-      end if
+      end if ! Zero ion
 
       return
 
@@ -1008,14 +977,12 @@
 !#####################################################################
 !#####################################################################
 
-      !> Solves the statistical equilibrium equations for
-      !! populations equations for the populations.\n
-      !!         rho(dfloat(:)): Array to store the solution of the
-      !!                         statistical equilibrium equations\n
-      !!          ndim(integer): Size of the statistical
-      !!                         equilibrium equations system\n
-      !!   STcoeff(dfloat(:,:)): Statistical equilibrium equations
-      !!                         system
+      !> Solve the statistical equilibrium equations\n
+      !!        rho(double(:)): Independent vector and solution of the
+      !!                        statistical equilibrium equations\n
+      !!         ndim(integer): Dimensionality of the statistical
+      !!                        equilibrium system\n
+      !!  STcoeff(double(:,:)): Statistical equilibrium equations
       subroutine densmatrI(rho,ndim,STcoeff)
 
       ! I/O
@@ -1029,9 +996,8 @@
       integer:: i
       integer, dimension(ndim):: indx
 
-      !
+
       ! Solve SEE
-      !
       call DGESV(ndim,1,STcoeff,ndim,indx,rho,ndim,i)
 
       end subroutine densmatrI
@@ -1040,27 +1006,28 @@
 !#####################################################################
 !#####################################################################
 
-      !> Assigns the solution of the statistical equilibrium
-      !! equations to the correct indexed variable.\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!       rho(dfloat(:)): Solution of SEE\n
-      !!               iz(integer): Height index\n
-      !!             lALI(logical): Apply ALI\n
-      !!       try_no_ALI(logical): Output signal to try without ALI\n
-      !!              tid(integer): thread index
-      subroutine rhosolI(Atom,rho,iz,lALI,try_no_ALI,tid)
+      !> Transform the solution of the statistical equilibrium
+      !! equations into atomic populations\n
+      !!     Atom(Atom_class): Structure with atomic data\n
+      !!       rho(double(:)): Solution of the statistical equilibrium
+      !!                       equations\n
+      !!          iz(integer): Height index\n
+      !!        lALI(logical): If to apply ALI\n
+      !!  try_no_ALI(logical): If we need to try again without ALI
+      subroutine rhosolI(Atom,rho,iz,lALI,try_no_ALI)
 
       ! I/O
 
       type(Atom_class), intent(inout):: Atom
       logical, intent(in):: lALI
       logical, intent(out):: try_no_ALI
-      integer, intent(in):: iz,tid
+      integer, intent(in):: iz
       double precision, dimension(:), intent(in):: rho
 
       ! Local
 
-      integer:: i, it, iJ, iR
+      integer:: i,it,iJ,iR
+
       double precision:: rJ
 
 
@@ -1070,36 +1037,34 @@
       ! Initialize check flag
       try_no_ALI = .False.
 
-
-      !
       ! Initialize null flag
-      !
       Atom%rhonull(:,iz) = .True.
 
-      !
       ! Check negative populations
-      !
       if (minval(rho).lt.0d0) then
 
         ! If allowing
         if (nphysR) then
 
+          ! Issue warning
           write(umsg,'(A)') 'Negative population in SEEI '// &
                             'solution, but allowed'
-          call abortedS(umsg,urou,tid,.False.,.True.)
+          call abortedS(umsg,urou,.False.,.True.)
 
+        ! Not allowing
         else
 
           ! If doing ALI
           if (lALI) then
 
-              write(umsg,'(A)') 'Negative population in SEEI '// &
-                                'solution, will try without ALI'
-              call abortedS(umsg,urou,tid,.False.,.True.)
+            ! Issue warning
+            write(umsg,'(A)') 'Negative population in SEEI '// &
+                              'solution, will try without ALI'
+            call abortedS(umsg,urou,.False.,.True.)
 
-              ! Flag and go back
-              try_no_ALI = .True.
-              return
+            ! Flag and go back
+            try_no_ALI = .True.
+            return
 
           ! Not doing ALI
           else
@@ -1110,13 +1075,13 @@
               ! Check negativity
               if(rho(i).lt.0d0)then
 
+                ! Issue error
                 write(umsg,'(A,i4,",",i4,A,1x,es11.4)') &
                   'Negative population in SEE solution'// &
                   new_line('A')// &
                   '(iz,il)=(',iz,i,')'// &
                   new_line('A')//'rho00: ',rho(i)
-
-                call abortedS(umsg,urou,tid,.not.nphysR,.True.)
+                call abortedS(umsg,urou,.not.nphysR,.True.)
 
               end if ! Negative population at this heright
 
@@ -1152,14 +1117,14 @@
           ! Check NaN
           if(isnan(rho(i)))then
 
+            ! Issue error
             write(umsg,'(A,i4,",",i4,A,1x,es11.4)') &
               'NaN in SEE solution'//new_line('A')// &
               '(iz,il)=(',iz,i,')'// &
               new_line('A')//'rho00: ',rho(i)
+            call abortedS(umsg,urou,.True.,.True.)
 
-            call abortedS(umsg,urou,tid,.True.,.True.)
-
-          end if
+          end if ! NaN
 
           ! Store the corresponding element
           Atom%crho(iR,iz) = dcmplx(rho(i),0d0)
@@ -1181,15 +1146,14 @@
 !#####################################################################
 
       !> Dump SEE matrix into a file.\n
-      !!       Atmo(Atmo_class): Structure with atmospheric data\n
-      !!   Bfield(Bfield_blass): Structure with magnetic field
-      !!                         data\n
-      !! folder(character(500)): Output folder\n
-      !!            iz(integer): Height index\n
-      !!          lALI(logical): Lambda operator included
+      !!        Atmo(Atmo_class): Structure with atmospheric data\n
+      !!  folder(character(500)): Path to the output folder\n
+      !!             iz(integer): Height index\n
+      !!           lALI(logical): If to apply ALI
       subroutine dump_see(Atom,STcoeff,folder,iz,lALI)
 
-      ! IO
+      ! I/O
+
       type(Atom_class), intent(inout):: Atom
       character(len=500), intent(in):: folder
       logical, intent(in):: lALI
@@ -1197,32 +1161,48 @@
       double precision, dimension(:,:):: STcoeff
 
       ! Local
+
       character(len=500):: filename,formating
+
       logical:: exists
-      integer:: ilevel,jlevel
+
+      integer:: ilevel
+
 
       ! Get file name for 1D
       if (run_mode.eq.0) then
 
+        ! Get file name
         filename = trim(folder)//'/debug_see'
 
       ! Get file name for rest
       else
 
+        ! Get file name
         write(filename,'(A,I0.7)') trim(folder)//'/debug_see_', &
                                    icoords(3)
 
-      end if
+      end if ! Run mode
 
       !
       ! Exists?
       inquire(file=trim(filename), exist=exists)
-      if(.not.exists) then
-        open(800,file=trim(filename))
-      else
-        open(800,file=trim(filename),position='append')
-      endif
 
+      ! If no exist
+      if(.not.exists) then
+
+        ! Open new
+        open(800,file=trim(filename))
+
+      ! If exists
+      else
+
+        ! Open old
+        open(800,file=trim(filename),position='append')
+
+      endif ! File exists
+
+      ! Write header
       write(800,*) ''
       write(800,*) ''
       if (lALI) then

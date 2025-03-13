@@ -3,22 +3,9 @@ import sys, math, os
 #####################
 # rfudge()
 #
-# Tanaus\'u del Pino Alem\'an
-# Ricky Egeland
+# Tanaus\'u del Pino Alem\'an (IAC)
 #
-# 06/29/2022:  V3.0.0 - Changed global version (TdPA)
-#
-# 03/17/2021:  V2.0.0 - Changed global version (TdPA)
-#
-# 01/13/2021 : V1.1.5 - Added proper abortion in abort() (TdPA)
-#
-# 06/05/2020 : V1.1.4 - Python 3 compatible (RE)
-#
-# 02/15/2019 : V1.1.0 - Improved verbosity (TdPA)
-#
-# 09/14/2017:  V1.0.1 - Added an ID to the files
-#
-# 04/19/2017:  V1.0.0 - First Version
+# 13/12/2024:  V4.0.0 - Changed global version (TdPA)
 #
 #####################
 
@@ -26,35 +13,50 @@ def rfudge():
   ''' Reads the fudge file specified as argument.
   '''
 
+  # Aborting method
   def abort(f,name):
+    # Close file
     f.close()
+    # Reset file and just write -1 to flag failure
     f = open(name,'w')
     f.write('-1')
     f.close()
+    # Leave
     sys.exit()
 
+  # Verbose routine
   def verbose(msg, fil, verb):
-
     # If being verbose
     if (verb):
+      # Just print
       print((msg+' in rfudge.py'))
     else:
+      # Check file exists
       exist = os.path.isfile(fil)
+      # Open to write or append
       if (exist):
         fv = open(fil,'a')
       else:
         fv = open(fil,'w')
+      # Write in file and close
       fv.write(msg+' in rfudge.py\n')
       fv.close()
 
+  #
   # Argument control
+  #
+
+  # Requires one argument
   if len(sys.argv) < 1:
-   #sys.exit(' # At least one argument needed')
     sys.exit()
+
+  # Try getting ID
   try:
     dni = sys.argv[2]
   except:
     dni = '000000000'
+
+  # If more arguments, there is verbosity file
   if len(sys.argv) > 3:
     verbosity = False
     verbfile = sys.argv[3]
@@ -62,8 +64,10 @@ def rfudge():
     verbosity = True
     verbfile = ''
 
+  # Try to open file
   try:
     f=open(sys.argv[1],'r')
+  # Failed to open file
   except:
     verbose(' # No fudge file found', verbfile, verbosity)
     filename = 'tmp_fud_'+dni
@@ -90,18 +94,22 @@ def rfudge():
       lines_n.append(line)
   lines = lines_n
 
-  # Output file
+  # Start output file
   filename = 'tmp_fud_'+dni
   f = open(filename,'w')
   f.write('1\n')
 
-  # Output buff
+  # Output buffer
   output = []
 
   # Direction checker
   freq = []
 
+  #
   # File build
+  #
+
+  # For each read line
   for line in lines:
       cols = line.split()
       ncol = len(cols)
@@ -123,13 +131,16 @@ def rfudge():
       freq.append(cols[0])
       output.append(' '.join(cols[:5]))
 
+  # If reverse wavelength order
   if float(freq[0]) > float(freq[1]):
     output = output[::-1]
 
+  # Output in file
   f.write('{0}\n'.format(len(output)))
   for out in output:
     f.write(out+'\n')
 
+  # Close file
   f.close()
 
 if __name__ == "__main__":

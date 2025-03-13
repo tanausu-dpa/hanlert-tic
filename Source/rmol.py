@@ -3,25 +3,9 @@ import sys, math, os
 #####################
 # rAtom()
 #
-# Tanaus\'u del Pino Alem\'an
-# Ricky Egeland
+# Tanaus\'u del Pino Alem\'an (IAC)
 #
-# 06/29/2022:  V3.0.0 - Changed global version (TdPA)
-#
-# 03/17/2021:  V2.0.0 - Changed global version (TdPA)
-#
-# 01/13/2021 : V1.1.3 - Added proper abortion in abort() (TdPA)
-#
-# 06/05/2020 : V1.1.2 - Python 3 compatible (RE)
-#
-# 03/05/2020 : V1.1.1 - Bugfix: The molecule is now made capital
-#                               letters (TdPA)
-#
-# 02/15/2019 : V1.1.0 - Improved verbosity (TdPA)
-#
-# 09/14/2017:  V1.0.1 - Added an ID to the files
-#
-# 04/18/2017:  V1.0.0 - First version
+# 17/12/2024:  V4.0.0 - Changed global version (TdPA)
 #
 #####################
 
@@ -29,35 +13,51 @@ def rMol():
   ''' Reads the input molecule file specified as argument.
   '''
 
+  # Aborting method
   def abort(f,name):
+    # Close file
     f.close()
+    # Reset file and just write -1 to flag failure
     f = open(name,'w')
     f.write('-1')
     f.close()
+    # Leave
     sys.exit()
 
+  # Verbose routine
   def verbose(msg, fil, verb):
-
     # If being verbose
     if (verb):
+      # Just print
       print((msg+' in rmol.py'))
     else:
+      # Check file exists
       exist = os.path.isfile(fil)
+      # Open to write or append
       if (exist):
         fv = open(fil,'a')
       else:
         fv = open(fil,'w')
+      # Write in file and close
       fv.write(msg+' in rmol.py\n')
       fv.close()
 
+
+  #
   # Argument control
+  #
+
+  # Requires one argument
   if len(sys.argv) < 1:
-   #sys.exit(' # At least one argument needed')
     sys.exit()
+
+  # Try getting ID
   try:
     dni = sys.argv[2]
   except:
     dni = '000000000'
+
+  # If more arguments, there is verbosity file
   if len(sys.argv) > 3:
     verbosity = False
     verbfile = sys.argv[3]
@@ -65,8 +65,10 @@ def rMol():
     verbosity = True
     verbfile = ''
 
+  # Try to open file
   try:
     f=open(sys.argv[1],'r')
+  # Failed to open file
   except:
     verbose(' # No molecule file found', verbfile, verbosity)
     filename = 'tmp_mol_'+dni
@@ -90,15 +92,17 @@ def rMol():
       lines_n.append(line)
   lines = lines_n
 
-  # Output file
+  # Start output file
   filename = 'tmp_mol_'+dni
   f = open(filename,'w')
   f.write('1\n')
 
 
+  #
   # File build
+  #
 
-  #  Label of the atom
+  # Label of the molecule
   iline = 0
   line = lines[iline]
   name = list(line.upper())
@@ -106,9 +110,8 @@ def rMol():
   line = ''.join(name)
   f.write(line)
   f.write('\n')
-  #f.write('{}\n'.format(line))
 
-  #  Mass of molecule
+  #  Mass of the molecule
   iline += 1
   line = lines[iline]
   lst = list(line.lower())
@@ -118,7 +121,6 @@ def rMol():
   mass = float(line.strip())
   f.write(line)
   f.write('\n')
-  #f.write('{}\n'.format(mass))
 
   #  Charge of the molecule
   iline += 1
@@ -130,7 +132,6 @@ def rMol():
   z = int(line.strip())
   f.write(line)
   f.write('\n')
-  #f.write('{}\n'.format(z))
 
   # List of atoms
   numbers = ['1','2','3','4','5','6','7','8','9']
@@ -169,7 +170,7 @@ def rMol():
     f.write('{0}\n'.format(num))
     f.write('{0}\n'.format(name.upper()))
 
-  #  Energy of dissociation
+  #  Dissociation energy
   iline += 1
   line = lines[iline]
   lst = list(line.lower())
@@ -179,7 +180,6 @@ def rMol():
   den = float(line.strip())
   f.write(line)
   f.write('\n')
-  #f.write('{}\n'.format(den))
 
   # Partition function type
   if z == 0:
@@ -209,7 +209,6 @@ def rMol():
     abort(f,filename)
   f.write(dpft[line])
   f.write('\n')
-  #f.write('{}\n'.format(line))
 
   # Tmin and Tmax
   iline += 1
@@ -228,7 +227,6 @@ def rMol():
     tmps[ii] = float(tmps[ii])
   f.write(line)
   f.write('\n')
-  #f.write('{}     {}\n'.format(tmps))
 
   # Partition function coefficients
   iline += 1
@@ -266,6 +264,7 @@ def rMol():
     f.write(line)
     f.write('\n')
 
+  # Close file
   f.close()
 
 if __name__ == "__main__":

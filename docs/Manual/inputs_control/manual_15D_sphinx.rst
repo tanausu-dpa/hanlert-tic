@@ -84,7 +84,7 @@ ATOM_FIX_POP
     
     - string: a single word and unique label
 
-  * Description: The model atom with the corresponding label will kept their initial populations fixed when solving the iterative problem. These populations are calculated in LTE unless ATOM_POPU is specified for the same model atom.
+  * Description: The model atom with the corresponding label will keep their initial populations fixed when solving the iterative problem. These populations are calculated in LTE unless ATOM_POPU is specified for the same model atom.
 
 ATOM_FIX_POP_LTERM
 ------------------
@@ -95,7 +95,7 @@ ATOM_FIX_POP_LTERM
     
     - string: a single word and unique label
 
-  * Description: The model atom with the corresponding label will kept the initial populations of the ground level/term fixed when solving the iterative problem. These populations are calculated in LTE unless ATOM_POPU is specified for the same model atom.
+  * Description: The model atom with the corresponding label will keep the initial populations of the ground level/term fixed when solving the iterative problem. These populations are calculated in LTE unless ATOM_POPU is specified for the same model atom.
 
 ATOM_ZERO_ION
 -------------
@@ -518,6 +518,17 @@ SOLUTION_KEEPS
 
   * Description: Force the solution file to store the full Stokes parameters instead of the radiation field tensors independently of the parameters which decide it automatically.
 
+ANISOTROPY_FOCUS
+----------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string: Yes, No; default: No
+
+  * Description: When computing the maximum relative change to decide for convergence, consider only the K=0 and K=2 multipoles.
+
 K_CUT
 -----
 
@@ -606,17 +617,6 @@ VOI_IRAM
 
   * Description: To store in RAM the Voigt profiles in the only intensity problem.
 
-VOI_IFIL
---------
-
-  * OPTIONAL, ADVANCED
-
-  * Formats:
-    
-    - string: Yes, No; default: No
-
-  * Description: To store in a file the Voigt profiles in the only intensity problem.
-
 LTE_VOI_IRAM
 ------------
 
@@ -639,17 +639,6 @@ VOI_PRAM
 
   * Description: To store in RAM the complex Voigt profiles.
 
-VOI_PFIL
---------
-
-  * OPTIONAL, ADVANCED
-
-  * Formats:
-    
-    - string: Yes, No; default: No
-
-  * Description: To store in a file the complex Voigt profiles.
-
 RAM_LIMIT
 ---------
 
@@ -659,7 +648,7 @@ RAM_LIMIT
     
     - integer; default: -1
 
-  * Description: Maximum amount of Megabytes which can be allocated in the form of Voigt profiles, photoionization pre-calculated quantities, interpolation precalculated quantities (partial frequency redistribution), or redistribution functions. Negative means no limit (NOT RECOMMENDED for complex problems).
+  * Description: Maximum amount of Megabytes which can be allocated per CPU, used to limit the amount of Voigt and redistribution profiles to store in RAM. The counting is not perfect, so be conservative if there is a RAM limit.
 
 RAMAN
 -----
@@ -683,6 +672,28 @@ NO_COH_L_TERM
 
   * Description: Asumme a non-coherent lower term when computing the radiative transfer coefficients.
 
+RED_RESTRICT_HEIGHT
+-------------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - float
+
+  * Description: Upper limit in the decimal logarithm of the optical depth where to consider partial frequency distribution effects.
+
+RED_RESTRICT_TAUC
+-----------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - float
+
+  * Description: Lower limit in height in kilometers where to consider partial frequency distribution effects.
+
 RED_COHW
 --------
 
@@ -704,6 +715,17 @@ REDI_COHW
     - float / string: No; Default: RED_COHW
 
   * Description: Doppler widths from the line center from where to assume that the scattering is fully coherent in only intensity problems.
+
+RED_INT_MODE
+------------
+
+  * OPTIONAL, ADVANCED
+
+  * Formats:
+    
+    - string: Linear, Splines; default: Splines
+
+  * Description: Type of interpolation of the second order emissivity when transforming from the comoving to the observer's reference frame.
 
 RED_MOD
 -------
@@ -748,28 +770,6 @@ RED_PRAM
     - string: Yes, No; default: No
 
   * Description: To store in RAM the complex redistribution function.
-
-INT_IRAM
---------
-
-  * OPTIONAL, ADVANCED
-
-  * Formats:
-    
-    - string: Yes, No; default: Yes
-
-  * Description: To store in RAM the interpolation data for the partial frequency redistribution in the only intensity problem.
-
-INT_PRAM
---------
-
-  * OPTIONAL, ADVANCED
-
-  * Formats:
-    
-    - string: Yes, No; default: Yes
-
-  * Description: To store in RAM the interpolation data for the partial frequency redistribution in the polarized problem.
 
 RED_NODE
 --------
@@ -1267,8 +1267,8 @@ ITER_J
 
   * Description: Number of preliminar no-line iterations to perform to relax the initial radiation field.
 
-ITER_PRD
---------
+ITERI_PRD
+---------
 
   * OPTIONAL
 
@@ -1278,8 +1278,8 @@ ITER_PRD
 
   * Description: Maximum number of only-radiation iterations to perform when there is partial frequency redistribution in the only intensity problem.
 
-ITER_MRC_R
-----------
+ITERI_MRC_R
+-----------
 
   * OPTIONAL
 
@@ -1287,7 +1287,40 @@ ITER_MRC_R
     
     - float; default: 1e-3
 
-  * Description: Maximum relative change of the intensity or mean intensity in only-radiation iterations to consider that it is converged.
+  * Description: Maximum relative change of the mean intensity in only-radiation iterations to consider that it is converged in the intensity problem.
+
+ITER_PRD
+--------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - integer; default: 1
+
+  * Description: Maximum number of only-radiation iterations to perform when there is partial frequency redistribution.
+
+ITER_MRC_R
+----------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - float; default: 1e-2
+
+  * Description: Maximum relative change of the mean intensity in only-radiation iterations to consider that it is converged.
+
+ITER_MRC_P_R
+------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - float; default: 1e-1
+
+  * Description: Maximum relative change of the radiation field tensors (not mean intensity) in only-radiation iterations to consider that it is converged.
 
 NG_ACC
 ------
@@ -1387,17 +1420,6 @@ ALI_FORCE
     - string: Yes, No; default: No
 
   * Description: Force more iterations with ALI if converged with delayed ALI iterations.
-
-BCAST_MODE
-----------
-
-  * OPTIONAL, ADVANCED
-
-  * Formats:
-    
-    - string: BROADCAST, ALTSEND; default: BROADCAST
-
-  * Description: Type of algorithm for message passing interface broadcasting.
 
 ALLOW_NPHYS_STK
 ---------------
@@ -1750,39 +1772,6 @@ CHEM_PROTECT_ALL
     - string: Yes, No; default: No
 
   * Description: Do not let the chemical equilibrium to change the atomic number density of any atom.
-
-MPIDETAIL
----------
-
-  * OPTIONAL, ADVANCED
-
-  * Formats:
-    
-    - string: file path
-
-  * Description: Path, absolute or relative to the running directory, of a MPI detail file from a previous run.
-
-OPERFORM
---------
-
-  * OPTIONAL, ADVANCED
-
-  * Formats:
-    
-    - string: file path
-
-  * Description: Path, absolute or relative to the running directory, of a performance detail file from a previous run.
-
-MPISTKIP
---------
-
-  * OPTIONAL, ADVANCED
-
-  * Formats:
-    
-    - string: Yes, No
-
-  * Description: Skip the first iteration when trying to optimize the distribution of frequencies between processes.
 
 VERBOSE
 -------

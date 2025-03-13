@@ -5,127 +5,21 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Hao Li (IAC)
+!     Tanaus\'u del Pino Alem\'an (IAC)
+!     Hao Li (IAC/NSSCC)
 !  Start:
-!     02/16/2023
+!     16/02/2023
 !  Last version:
-!     09/23/2024 V3.1.17
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     09/23/2024:   V3.1.17 - Changed MPI tags to comply with the
-!                             standard (TdPA)
-!
-!     03/01/2024:   V3.1.16 - Fixed call to get_lims (TdPA)
-!
-!     02/23/2024:   V3.1.15 - Added void argument to rAtmo call (TdPA)
-!
-!     02/19/2024:   V3.1.14 - Added call to get_lims (TdPA)
-!
-!     02/14/2024:   V3.1.13 - Added option to skip individual pixels,
-!                             without specifying mask (TdPA)
-!
-!     11/24/2023:   V3.1.12 - Added management of mask file (TdPA)
-!
-!     10/16/2023:   V3.1.11 - Fits support is optional now (TdPA)
-!
-!     09/28/2023:   V3.1.10 - Bugfix: The error message for when
-!                             data, output, and input model atmosphere
-!                             have different dimensions had the wrong
-!                             format, producing a crash without the
-!                             actual aborting message (TdPA)
-!
-!     09/21/2023:    V3.1.9 - Ensure that ratmo and rbfield are called
-!                             by the whole WORLD communicator (TdPA)
-!                           - Do not call set_up_limits with global
-!                             master if splitting pixels (TdPA)
-!
-!     09/08/2023:    V3.1.8 - Bugfix: Delay the change of verbosity
-!                             output, some wrong messages were sent
-!                             to synthesis file (TdPA)
-!                           - Removed argument from
-!                             set_up_data_frombuffer call (TdPA)
-!
-!     08/30/2023:    V3.1.7 - Bugfix: The writing of the cache file
-!                             was inconsistent when using a solution
-!                             box (TdPA; pointed out by Hao)
-!
-!     08/24/2023:    V3.1.6 - Added arguments to omegabuild and
-!                             set_psf_ranges (TdPA)
-!
-!     08/11/2023:    V3.1.5 - Bugfix: Verbosity directed to the
-!                             wrong files (TdPA)
-!
-!     08/11/2023:    V3.1.4 - Added call to inversion_weights (TdPA)
-!                           - Bugfix: Missing exit condition in the
-!                             loop for serial mode (TdPA)
-!
-!     08/07/2023:    V3.1.3 - Added arguments for LTE lines (TdPA)
-!
-!     07/31/2023:    V3.1.2 - Bugfix: the size of the output for the
-!                             global master processor should be
-!                             out_dims (HL)
-!                           - Bugfix: cache index is not correct for
-!                             the sulution box  (HL)
-!                           - Updates related to the size of the
-!                             initial model (HL)
-!
-!     07/06/2023:    V3.1.1 - Added call to gAtmo_strat (TdPA)
-!
-!     07/03/2023:    V3.1.0 - Full rewriting to implement
-!                             parallelization in pixels (TdPA)
-!
-!     06/13/2023:    V3.0.7 - the wavelength changed to nm (HL)
-!                           - do not reverse the profiles (HL)
-!                           - remove and update the projection (HL)
-!                           - update for multi waveleng ranges (HL)
-!                           - the wavelength in Sol changed to nm (HL)
-!                           - reduce the calling of erf functions (HL)
-!                           - rename the variable Inf_Input (HL)
-!                           - update the IO (HL)
-!
-!     05/24/2023:    V3.0.6 - Bugfix: Fixed an issue when a path
-!                             had more than one underscore (TdPA)
-!
-!     05/16/2023:    V3.0.5 - Actual restarting options for binary
-!                             files. This is a temporal patch until I
-!                             introduce the actual binary file (TdPA)
-!
-!     04/27/2023:    V3.0.4 - Fixed verbosity typo (TdPA)
-!
-!     04/26/2023:    V3.0.3 - Considering that a problem has
-!                             scattering if either Krad or Kcut is
-!                             not zero (TdPA)
-!                           - Bugfix: Wrong construction of the
-!                             format in the verbosity when more than
-!                             two characters were needed (TdPA)
-!
-!     04/11/2023:    V3.0.2 - Update for multi-wavelength ranges (HL)
-!                           - Remove the keywords Hanle_Effect and
-!                             CRD_RF (HL)
-!                           - Missed call to verbosity (HL)
-!
-!     03/15/2023:    V3.0.1 - The restore file can be only a file or
-!                             INIT (TdPA)
-!                           - Removed branching in index of variable
-!                             when storing H_min in the node (TdPA)
-!                           - Extended setting the H_max and H_min
-!                             limits for the asymmetry parameters
-!                             as well (TdPA)
-!                           - Adjusted transfer to structures and
-!                             verbosity of new or not longer
-!                             present inputs (TdPA)
-!                           - Read input atmosphere and magnetic
-!                             field (TdPA)
-!
-!     03/08/2023:    V3.0.0 - First working version (TdPA)
-!
-!     02/16/2023:    V0.0.0 - Started from 05/12/2020 TIC@tic.f90
-!                             revision from Hao (TdPA)
+!     12/03/2025:    V4.0.1 - Added warnings for unexpected changes
+!                             in the MRAMc memory counter between
+!                             calls to Inversion (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -135,9 +29,15 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    Main program of the inversion module
+!  TIC
+!    Perform the inversion of the given spectropolarimetric data
 !
 !#####################################################################
 !#####################################################################
@@ -169,31 +69,35 @@
 !#####################################################################
 !#####################################################################
 
-      !> TIC module main program\n
-      !!        Input(Input): Structure with settings data\n
-      !!    Atom(Atom_class): Structure with the atomic data\n
-      !!   Atomb(Atom_class): Structure with the atomic data for
-      !!                      background opacities\n
-      !!      Mol(Mol_class): Structure with the molecule data\n
-      !!  Flgsg(Fctsg_class): Structure with factorials and signs\n
-      !!  fudge(fudge_class): Structure with fudge data\n
-      !!     MPID(MPI_class): Structure with MPI data
+      !> Perform the inversion of the given spectropolarimetric data\n
+      !!    Input(Input_class): Structure with configuration data\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atoms\n
+      !!     Mol(Mol_class(:)): Structures with molecular data\n
+      !!    Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                        J-symbols\n
+      !!    fudge(fudge_class): Structure with fudge data\n
+      !!       MPID(MPI_class): Structure with MPI data
       subroutine TIC(Input,Atom,Atomb,Mol,Flgsg,fudge,MPID)
 
       ! I/O
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Input_class):: Input
-      type(Fctsg_class):: Flgsg
-      type(fudge_class):: fudge
-      type(MPI_class):: MPID
+
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), allocatable, intent(inout):: Mol
+      type(Input_class), intent(inout):: Input
+      type(Fctsg_class), intent(inout):: Flgsg
+      type(fudge_class), intent(inout):: fudge
+      type(MPI_class), intent(inout):: MPID
 
       ! Local
+
       type(Atmo_class):: Atmo_in
       type(Bfield_class):: Bfield_in
       type(Frequency_class):: Frec
-      type(Geometry_class):: GeomI, Geom
+      type(Geometry_class):: GeomI,Geom
       type(kurucz_class):: kurucz
       type(Stokes_class):: Inf_Stokes
       type(Nodes_class):: Inf_Nodes
@@ -201,22 +105,40 @@
 
       logical:: aborting,check,lcache,double,restoring
       logical:: update_tlim,update_vlim,update_blim
-      logical:: double_jkq,receiving,atmojkq,lexcl
+      logical:: double_jkq,receiving,atmojkq,lexcl,warning
       logical, dimension(:,:), allocatable:: cache
 
       integer:: unitD,unitC,unitA,unitJ,unitM
       integer:: ix0,iy0,ix1,iy1,ix2,iy2,ix,iy,inod,ip,iproc,imask
       integer:: ia,ii,jj,NLOS,NLOSr,aindex,type_atmo_size
+      integer:: s_data_buffer,s_atmo_buffer
+      integer:: s_jkq_buffer,s_transfer_buffer
       integer, dimension(3):: dims,out_dims,dims_atmo
       integer, dimension(4):: int_buff,finfo
       integer, dimension(:), allocatable:: cpu_free
 
-      double precision:: maxB, DwTa
+      double precision:: maxB,DwTa,lMRAMc
 
       ! Pointers
-      integer:: s_data_buffer, s_atmo_buffer
-      integer:: s_jkq_buffer,  s_transfer_buffer
+
       double precision, dimension(:), pointer:: p_transfer_buffer
+
+
+      ! Memory count
+      MRAMc = MRAMc + 1d-6*(sizeof(Atmo_in) + &
+                            sizeof(Bfield_in) + &
+                            sizeof(Frec) + &
+                            sizeof(GeomI) + &
+                            sizeof(Geom) + &
+                            sizeof(kurucz) + &
+                            sizeof(Inf_Stokes) + &
+                            sizeof(Inf_Nodes) + &
+                            sizeof(Sol))
+
+      ! Initialize miscellaneous memory warning
+      Sol%warning = .True.
+      warning = .True.
+      lMRAMc = -2.5d0
 
 
       !
@@ -231,9 +153,12 @@
       call set_up_inversion(Input,Inf_Nodes,Inf_Stokes,Sol)
 
 
-      !
-      ! Check if fits file
-      !
+      ! Get index atoms
+      call set_atom_indexes(Atom,Input,.True., &
+                            Inf_Nodes%Num_Thermal.ne.0, &
+                            .True., &
+                            Inf_Nodes%Num_Thermal.ne.0)
+
 
 #ifdef FITSSUP
       ! Determine if fits file
@@ -247,9 +172,7 @@
 #endif
 
 
-      !
       ! Split in groups of tasks
-      !
       call setmpi15D(MPID,Input)
       if (gpid.eq.0) then
         umsg = ' - Tasks distributed'
@@ -282,7 +205,10 @@
 
         ! The master does not need the background atoms or
         ! molecules
-        if (MPID%mpi15d) deallocate(Atomb,Mol)
+        if (MPID%mpi15d) then
+          call free_atom_full(Atomb)
+          call free_mol_full(Mol)
+        end if
 
         ! Check if could read
         laborted = aborting
@@ -329,6 +255,9 @@
       allocate(Sol%omega_input(Inf_Stokes%Num_Wavelength))
       allocate(Sol%Stokes_out(0:3,Inf_Stokes%Num_Wavelength))
       allocate(Inf_Stokes%Stokes_Ob(0:3,Inf_Stokes%Num_Wavelength))
+      MRAMc = MRAMc + 1d-6*sizeof(Sol%omega_input)
+      MRAMc = MRAMc + 1d-6*sizeof(Sol%Stokes_out)
+      MRAMc = MRAMc + 1d-6*sizeof(Inf_Stokes%Stokes_ob)
 
       ! Master
       if (gpid.eq.0) then
@@ -412,33 +341,34 @@
         ! If sigma constant
         if (finfo(3).eq.3) then
 
+          ! Add four numbers
           s_data_buffer = s_data_buffer + 4
 
         ! If sigma wavelength dependent
         else if (finfo(3).eq.4) then
 
+          ! Add four profiles
           s_data_buffer = s_data_buffer + dims(3)*4
 
-        end if
+        end if ! Constant or profile sigma
 
         ! If intensity diffuse light
         if (finfo(4).eq.3) then
 
+          ! Add one profile
           s_data_buffer = s_data_buffer + dims(3)
 
         ! If polarized diffuse light
         else if (finfo(4).eq.4) then
 
+          ! Add four profiles
           s_data_buffer = s_data_buffer + dims(3)*4
 
-        end if
-
+        end if ! Only intensity or polarized diffuse light
       end if ! Intensity/Polarization
 
 
-      !
-      ! Get constant LOS now (TODO FITS)
-      !
+      ! Get constant LOS now
       if (finfo(2).eq.0) then
 
         ! Master
@@ -446,7 +376,7 @@
 
           call get_data_los(unitD,aborting,Inf_Stokes,Input%FITSFILE)
 
-        endif
+        endif ! Master
 
         ! Check if aborting
         call gcontrol
@@ -457,16 +387,15 @@
         call MPI_BCAST(Inf_Stokes%azimuth,1,MPI_DOUBLE_PRECISION, &
                        0,MPI_COMM_WORLD,ierr)
 
-      end if
+      end if ! If constant LOS
 
 
-      !
-      ! Get "constant" sigma now (TODO FITS)
-      !
+      ! Get "constant" sigma now
       if (finfo(3).eq.1.or.finfo(3).eq.2) then
 
         ! Allocate input sigma
         allocate(Inf_Stokes%Sigma_in(0:3,Inf_Stokes%Num_Wavelength))
+        MRAMc = MRAMc + 1d-6*sizeof(Inf_Stokes%Sigma_in)
 
         ! Flag
         Inf_Stokes%Sigma_ct = .True.
@@ -474,6 +403,7 @@
         ! Master
         if (gpid.eq.0) then
 
+          ! Get sigma
           call get_data_sigma(unitD,aborting,finfo, &
                               Inf_Stokes,Input%FITSFILE)
 
@@ -482,14 +412,19 @@
         ! Check if aborting
         call gcontrol
 
-        ! Share LOS
+        ! Share sigma
         call MPI_BCAST(Inf_Stokes%Sigma_in(0,1), &
                        Inf_Stokes%Num_Wavelength*4, &
                        MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
 
-        ! Master, forget
-        if (gpid.eq.0.and.MPID%mpi15d) &
+        ! Master manager
+        if (gpid.eq.0.and.MPID%mpi15d) then
+
+          ! Forget
+          MRAMc = MRAMc - 1d-6*sizeof(Inf_Stokes%Sigma_in)
           deallocate(Inf_Stokes%Sigma_in)
+
+        end if ! Master manager
 
       ! Not constant
       else
@@ -497,17 +432,16 @@
         ! Flag
         Inf_Stokes%Sigma_ct = .False.
 
-      end if
+      end if ! If constant sigma
 
 
-      !
       ! Get "constant" diffuse light now (assuming FITS are going
       ! to read it pixel by pixel)
-      !
       if (finfo(4).eq.1.or.finfo(4).eq.2) then
 
         ! Allocate input sigma
         allocate(Inf_Stokes%Diff_in(0:3,Inf_Stokes%Num_Wavelength))
+        MRAMc = MRAMc + 1d-6*sizeof(Inf_Stokes%Diff_in)
 
         ! Flag
         Inf_Stokes%Diff_ct = .True.
@@ -515,10 +449,11 @@
         ! Master
         if (gpid.eq.0) then
 
+          ! Read diffuse light
           call get_data_diff(unitD,aborting,finfo,Inf_Stokes, &
                              Input%FITSFILE)
 
-        endif
+        endif ! Master
 
         ! Check if aborting
         call gcontrol
@@ -528,28 +463,32 @@
                        Inf_Stokes%Num_Wavelength*4, &
                        MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
 
-        ! Master, forget
-        if (gpid.eq.0.and.MPID%mpi15d) &
+        ! Master manager
+        if (gpid.eq.0.and.MPID%mpi15d) then
+
+          ! Forget
+          MRAMc = MRAMc - 1d-6*sizeof(Inf_Stokes%Diff_in)
           deallocate(Inf_Stokes%Diff_in)
+
+        end if ! Master manager
 
       ! Not constant
       else
 
-        ! Flag
+        ! Flag no constant diffuse light
         Inf_Stokes%Diff_ct = .False.
 
+      end if ! Constant diffuse light
+
+
+      ! Slaves allocate sigma if needed
+      if ((gpid.gt.0.or..not.MPID%mpi15d).and.finfo(3).gt.0) then
+        allocate(Inf_Stokes%Sigma_W(0:3,Inf_Stokes%Num_wavelength))
+        MRAMc = MRAMc + 1d-6*sizeof(Inf_Stokes%Sigma_W)
       end if
 
 
-      !
-      ! Slaves allocate sigma if needed
-      if ((gpid.gt.0.or..not.MPID%mpi15d).and.finfo(3).gt.0) &
-        allocate(Inf_Stokes%Sigma_W(0:3,Inf_Stokes%Num_wavelength))
-
-
-      !
       ! Slaves allocate diffuse light if needed
-      !
       if (gpid.gt.0.or..not.MPID%mpi15d) then
 
         ! There is diffuse light in the file
@@ -557,15 +496,19 @@
 
           ! Allocate
           allocate(Sol%Stokes_diff(0:3,Inf_Stokes%Num_wavelength))
+          MRAMc = MRAMc + 1d-6*sizeof(Sol%Stokes_diff)
 
-          ! Flag?
+          ! If there is diffuse light
           if (Inf_Nodes%Nodes_Flags(Inf_Nodes%index_f).or. &
               Input%f_diff.gt.0d0) then
 
+            ! There is diffuse light
             Sol%Diff_flag = .True.
 
+          ! No diffuse light
           else
 
+            ! There is no diffuse light afterall
             Sol%Diff_flag = .False.
 
           end if ! Diffuse light?
@@ -579,29 +522,28 @@
           ! If inverting diffuse light
           if (Inf_Nodes%Nodes_Flags(Inf_Nodes%index_f)) then
 
+            ! Issue error
             umsg = 'Cannot invert diffuse light if not '// &
                    'provided in the data file'
             urou = 'TIC'
             call aborted
 
-          end if
-        end if
-      end if
+          end if ! Inverting diffuse light
+        end if ! If there is diffuse light
+      end if ! Slaves or no-manager master
 
       ! Control
       call gcontrol
 
 
-      !
       ! Read partition function data and abundances
-      !
       if (gpid.gt.0.or..not.MPID%mpi15d) &
         call rParfunAbund(Input,Atmo_in)
 
 
-      !
       ! Initialize J from atmosphere
       atmojkq = .False.
+
 
       !
       ! Deal with input model
@@ -634,7 +576,7 @@
           urou = 'TIC'
           call gabortedv
 
-        end if
+        end if ! Error
 
         ! No automatic gas pressure
         Inf_Nodes%Pg_auto = .False.
@@ -661,6 +603,7 @@
             ! If thermal
             if (Input%Type_Inversion.eq.0) then
 
+              ! Zero field
               Input%bfieldv = (/ 0d0, 0d0, 0d0 /)
 
             ! Magnetic
@@ -669,27 +612,35 @@
               ! Depending on the inverted quantities
               ii = Inf_Nodes%index_Bt
               jj = Inf_Nodes%index_Bp
+
+              ! If inverting Bt or Bp
               if (Inf_Nodes%Nodes_Flags(ii).and. &
                   Inf_Nodes%Nodes_Flags(jj)) then
 
+                ! Add an arbitrary direction field
                 Input%bfieldv = (/ 1d0, PI*0.25d0, 5.7d0 /)
 
+              ! If inverting Bt and not Bp
               else if (Inf_Nodes%Nodes_Flags(ii)) then
 
+                ! Add an inclined field at azimuth 0
                 Input%bfieldv = (/ 1d0, PI*0.25d0, 0.0d0 /)
 
+              ! If inverting Bp and not Bt
               else if (Inf_Nodes%Nodes_Flags(jj)) then
 
+                ! Add a vertical magnetic field
                 Input%bfieldv = (/ 1d0,       0d0, 5.7d0 /)
 
+              ! Not inverting either
               else
 
+                ! Add a vertical magnetic field
                 Input%bfieldv = (/ 1d0,       0d0,   0d0 /)
 
-              end if
-            end if
-
-          end if
+              end if ! Inverting Bt or Bp
+            end if ! Thermal or magnetic inversion
+          end if ! No magnetic field model and no input
 
           ! Set-up initial field (global master does not care)
           call rBField(Input%bfield,Input%source, &
@@ -726,6 +677,7 @@
               ! If thermal
               if (Input%Type_Inversion.eq.0) then
 
+                ! No magnetic field
                 Input%bfieldv = (/ 0d0, 0d0, 0d0 /)
 
               ! Magnetic
@@ -734,26 +686,35 @@
                 ! Depending on the inverted quantities
                 ii = Inf_Nodes%index_Bt
                 jj = Inf_Nodes%index_Bp
+
+                ! If inverting Bt or Bp
                 if (Inf_Nodes%Nodes_Flags(ii).and. &
                     Inf_Nodes%Nodes_Flags(jj)) then
 
+                  ! Add an arbitrary direction field
                   Input%bfieldv = (/ 1d0, PI*0.25d0, 5.7d0 /)
 
+                ! If inverting Bt and not Bp
                 else if (Inf_Nodes%Nodes_Flags(ii)) then
 
+                  ! Add an inclined field at azimuth 0
                   Input%bfieldv = (/ 1d0, PI*0.25d0, 0.0d0 /)
 
+                ! If inverting Bp and not Bt
                 else if (Inf_Nodes%Nodes_Flags(jj)) then
 
+                  ! Add a vertical magnetic field
                   Input%bfieldv = (/ 1d0,       0d0, 5.7d0 /)
 
+                ! Not inverting either
                 else
 
+                  ! Add a vertical magnetic field
                   Input%bfieldv = (/ 1d0,       0d0,   0d0 /)
 
-                end if
-              end if
-            end if
+                end if ! Inverting Bt or Bp
+              end if ! Thermal or magnetic inversion
+            end if ! No magnetic field model and no input
 
             ! Set-up initial field
             call rBField(Input%bfield,Input%source, &
@@ -782,7 +743,7 @@
       if (Input%sol_box(3).lt.1) Input%sol_box(3) = 1
       if (Input%sol_box(4).lt.1) Input%sol_box(4) = dims(2)
 
-      ! Get new dimensions
+      ! Global master
       if (gpid.eq.0) then
 
         ! Get output dimensions
@@ -790,17 +751,17 @@
         out_dims(2) = Input%sol_box(4) - Input%sol_box(3) + 1
         out_dims(3) = dims(3)
 
+      ! Others
       else
 
+        ! Overwrite dimensions
         dims(1) = Input%sol_box(2) - Input%sol_box(1) + 1
         dims(2) = Input%sol_box(4) - Input%sol_box(3) + 1
 
-      end if
+      end if ! Global master or not
 
 
-      !
       ! If reading from a 3D model, open the file
-      !
       if (Input%atmoin_type.gt.0) then
 
         ! Check known atmospheric limits
@@ -815,7 +776,7 @@
           ! Check if could read
           laborted = aborting
 
-        end if
+        end if ! Unknown atmospheric limits
 
         ! Master
         if (gpid.eq.0.and..not.laborted) then
@@ -844,9 +805,10 @@
               ! Model atmosphere same dimensions than output
               type_atmo_size = 2
 
+            ! Problem with sizes
             else
 
-              ! Msg
+              ! Issue error
               write(umsg,'(3(A,i4,",",i4))') &
                 ' # Error: X-Y size in data ', &
                 dims(1:2), &
@@ -883,6 +845,7 @@
         ! If 1.5DS model
         if (Input%atmoin_type.eq.1) then
 
+          ! Full synthesis size
           s_atmo_buffer = dims_atmo(3)*24
 
         ! If inversion model
@@ -891,20 +854,22 @@
           ! Yes JKQ
           if (atmojkq) then
 
+            ! Full inversion size
             s_atmo_buffer = dims_atmo(3)*27 + 1
 
           ! No JKQ
           else
 
+            ! Reduced inversion size
             s_atmo_buffer = dims_atmo(3)*19 + 1
 
-          end if
-
-        end if
+          end if ! JKQ data
+        end if ! Synthesis or inversion model
 
       ! Just 1D model
       else
 
+        ! Flag type of atmosphere
         s_atmo_buffer = 0
 
       end if ! Reading from a 3D model
@@ -947,6 +912,7 @@
         ! Flag restore
         double_jkq = .True.
 
+      ! No asymmetry file
       else
 
         ! No buffer size
@@ -957,11 +923,10 @@
       end if ! Asymmetry file
 
 
-      !
       ! Allocate transfer buffer
-      !
       s_transfer_buffer = s_data_buffer + s_atmo_buffer + s_jkq_buffer
       allocate(p_transfer_buffer(s_transfer_buffer))
+      MRAMc = MRAMc + 1d-6*sizeof(p_transfer_buffer)
 
 
       !
@@ -991,7 +956,7 @@
           Atmo_in%scal = Input%atm_scale
           Atmo_in%logg = 4.44d0
 
-        end if
+        end if ! Not a 1D input model
 
         ! If more than 0 nodes in the atmosphere
         if (Input%Atmo_Input.gt.0) then
@@ -1025,16 +990,19 @@
         end if ! Number of nodes
       end if ! File not specified
 
-      ! If nodes in JKQin, allocate
+      ! If nodes in JKQin
       if ((Inf_Nodes%Num_Asymmetry.gt.0.or.s_jkq_buffer.gt.0).and. &
           (gpid.gt.0.or..not.MPID%mpi15d)) then
-        allocate(Atmo_in%JKQin(8*nz))
-        Atmo_in%JKQin = 0d0
-      end if
 
-      !
+        ! Allocate and initialize
+        allocate(Atmo_in%JKQin(8*nz))
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo_in%JKQin)
+        Atmo_in%JKQin = 0d0
+
+      end if ! JKQ nodes
+
+
       ! Read barklem data
-      !
       if (.not.MPID%mpi15d.or.gpid.gt.0) &
         call rBarklem(Input,Atom,Atomb)
 
@@ -1042,21 +1010,19 @@
       call gcontrol
 
 
-      !
       ! Get limits for T, v, and B (global master does not care)
       if (.not.MPID%mpi15d.or.gpid.gt.0) &
         call set_up_limits(Input,Inf_Nodes,Atmo_in,Bfield_in, &
                            maxB,update_Tlim,update_vlim,update_Blim)
 
 
-      !
       ! Decide if need to keep Stokes
-      !
       if (.not.MPID%mpi15d.or.(pid.eq.0.and.gpid.ne.0)) then
         KSTK = KSTK.or.(PRD.and.(dyn.or..not.AV))
       else
         KSTK = PRD.and.(dyn.or..not.AV)
       end if
+
 
       !
       ! Set angular quadrature
@@ -1072,25 +1038,19 @@
 
         call gauss(Input,GeomI,Geom,1,.True.,.True.,Flgsg)
 
-      end if
-      if(gpid.eq.0) then
+      end if ! Thermal or not-only-thermal inversion
+
+      ! Master verbose
+      if (gpid.eq.0) then
         umsg = ' - Angular quadrature initialized'
         call verbosev
       end if
 
 
-      !
       ! Define the output frequency axis
-      !
-      ! If only thermal
-      if (Input%Type_inversion.eq.0) then
-        call omegabuild(Frec, Atom, Input, maxB, .False., &
-                        Sol%omega_input)
-      ! Not only thermal
-      else
-        call omegabuild(Frec, Atom, Input, maxB, .True., &
-                        Sol%omega_input)
-      end if
+      call omegabuild(Frec,Atom,Input,maxB,Sol%omega_input)
+
+      ! Master verbose
       if (gpid.eq.0) then
         write(umsg,'(" - Frequency axis initialized with",'// &
                    '1x,i6," frequencies")') nfreq
@@ -1109,12 +1069,9 @@
       !
       ! Organize the tasks splitting
       !
-      if (.not.MPID%mpi15d.or.gpid.gt.0) then
 
-        !
-        ! Improve the weight determination?
-        !
-        if (nproc.gt.1) call adjust_IW(Input,Frec%IW_freq)
+      ! Not manager
+      if (.not.MPID%mpi15d.or.gpid.gt.0) then
 
         ! Distribute
         call setmpi(MPID,Input,Frec%IW_freq)
@@ -1127,13 +1084,16 @@
       else
 
         ! Remove fudge
-        if (allocated(fudge%fudge_v)) deallocate(fudge%fudge_v)
+        if (allocated(fudge%fudge_v)) then
+          MRAMc = MRAMc - 1d-6*sizeof(fudge%fudge_v)
+          deallocate(fudge%fudge_v)
+        end if
 
         ! Verbose
         umsg = ' - Tasks within groups distributed'
         call verbosev
 
-      end if
+      end if ! Manager or not
 
 
       !
@@ -1156,10 +1116,11 @@
         ! If there are not
         else
 
+          ! No Kurucz input
           kurucz%ntran = 0
 
-        end if
-      end if
+        end if ! Kurucz data
+      end if ! May need Kurucz data
 
       ! Control
       call gcontrol
@@ -1167,15 +1128,27 @@
       !
       ! Photoionization quantites
       !
-      if (.not.MPID%mpi15d.or.gpid.gt.0) then
-        do ia=1,nA
-          call setphoto(Atom(ia),Frec%omega,MPID)
-        end do
-      else
-        call gcontrol
-      end if
 
-      ! Verbose
+      ! If not manager
+      if (.not.MPID%mpi15d.or.gpid.gt.0) then
+
+        ! For every atom
+        do ia=1,nA
+
+          ! Set constant part of photoionization information
+          call setphoto(Atom(ia),Frec%omega)
+
+        end do ! Atoms
+
+      ! Manager
+      else
+
+        ! Match setphoto control call
+        call gcontrol
+
+      end if ! Manager or not
+
+      ! Master verbose
       if (gpid.eq.0) then
         umsg = ' - Initialized photoionization quantities '//&
                '(cross section)'
@@ -1186,35 +1159,29 @@
       ! Not global master
       if (.not.MPID%mpi15d.or.gpid.gt.0) then
 
-        !
         ! Resize some frequency quantities if doing MPI
-        !
         call frecresize(Frec,Atom,Input,MPID)
 
-        !
-        ! Compute size for MPI messages in solvers
-        !
+        ! If RT MPI
         if (MPID%mpi) then
 
           ! If only thermal
           if (Input%Type_inversion.eq.0) then
 
+            ! Compute size for MPI messages in solvers
             call setmpi_sizes(MPID,GeomI,Geom,Frec,.True.,.False., &
                               .True.,.False.,.False.)
 
           ! If full Stokes
           else
 
+            ! Compute size for MPI messages in solvers
             call setmpi_sizes(MPID,GeomI,Geom,Frec,.True.,.True., &
                               .True.,.True.,.False.)
 
           end if ! Intensity/Stokes
         end if ! Freq. MPI
       end if ! Global master
-
-      ! Deallocate things not needed
-      if (allocated(Input%atomback)) deallocate(Input%atomback)
-      if (allocated(Input%mol)) deallocate(Input%mol)
 
       ! Determine if JKQ in the output
       Input%out_jkqa = s_jkq_buffer.gt.0.or. &
@@ -1233,7 +1200,7 @@
           Input%atmoin_type.eq.0) then
 
         ! Set up input model
-        call setup_Atmo_ininv(Atom,Atomb,Mol,Atmo_in,MPID,Input, &
+        call setup_Atmo_ininv(Atom,Atomb,Mol,Atmo_in,Input, &
                               fudge,Atmo_in%zalt,.True.)
 
         ! Initialize diffuse light
@@ -1250,6 +1217,7 @@
 
       ! Initialize buffer sizes (synthesis)
       call set_io_buffers(Input,0,Atom,Frec)
+
       ! Initialize buffer sizes (inversion)
       if (gpid.eq.0) then
         call set_inv_io_buffers(Input,Inf_Nodes,out_dims,nz)
@@ -1268,6 +1236,7 @@
 
         end if ! Existing cache
 
+        ! Get abortion flag
         laborted = aborting
 
       end if ! Master
@@ -1284,8 +1253,7 @@
         call verbosev
       end if
 
-      ! From now on, the synthesis output points to a different
-      ! file
+      ! From now on, the synthesis output points to a different file
       verbosef = trim(verbosef)//'_syn'
 
       !
@@ -1327,6 +1295,7 @@
 
           ! Allocate cpu_free with group status
           allocate(cpu_free(MPID%ngroup))
+          MRAMc = MRAMc + 1d-6*sizeof(cpu_free)
           cpu_free = 1
 
           ! Initialize indexes and sizes
@@ -1379,6 +1348,9 @@
                 end do ! Receive from everyone
               end do ! While there is someone working
 
+              ! And break the work loop
+              exit
+
             end if ! Aborting
 
             ! If there are LOS to do and at least one free CPU
@@ -1406,28 +1378,38 @@
                 if (Input%atmoin_type.ge.1.and. &
                     s_atmo_buffer.gt.0.and.type_atmo_size.eq.1) then
 
+                  ! Get input atmosphere data
                   ii = s_data_buffer + 1
                   jj = s_data_buffer + s_atmo_buffer
                   call get_column(unitA,p_transfer_buffer(ii:jj), &
                                   double,check)
 
-                end if
+                end if ! If input atmosphere data
 
                 ! If JKQ data
                 if (s_jkq_buffer.gt.0) then
 
+                  ! Get input ad-hoc JKQ data
                   ii = s_data_buffer + s_atmo_buffer + 1
                   jj = s_transfer_buffer
                   call get_column(unitJ,p_transfer_buffer(ii:jj), &
                                   double_jkq,check)
-                end if
 
-                ! Get mask
+                end if ! If JKQ data
+
+                ! If mask unit
                 if (unitM.gt.0) then
+
+                  ! Get mask
                   read(unitM) imask
+
+                ! No masks
                 else
+
+                  ! Flag unmasked
                   imask = 0
-                end if
+
+                end if ! Mask unit
 
                 ! Store last read
                 ix1 = ix
@@ -1435,7 +1417,7 @@
 
               end if ! Loopìng
 
-              ! Check if out of box
+              ! Skip if out of box
               if (ix.lt.Input%sol_box(1).or. &
                   ix.gt.Input%sol_box(2).or. &
                   iy.lt.Input%sol_box(3).or. &
@@ -1448,19 +1430,19 @@
                 if (Input%atmoin_type.ge.1.and. &
                     s_atmo_buffer.gt.0.and.type_atmo_size.eq.2) then
 
+                  ! Get input atmosphere data
                   ii = s_data_buffer + 1
                   jj = s_data_buffer + s_atmo_buffer
                   call get_column(unitA,p_transfer_buffer(ii:jj), &
                                   double,check)
 
-                end if
+                end if ! If input atmosphere data
 
                 ! Store last read
                 ix2 = ix
                 iy2 = iy
 
-              end if
-
+              end if ! Not looping
 
               ! Now advance LOS and set slave indexes
               inod = inod + 1
@@ -1475,25 +1457,43 @@
                 end if
               end if
 
-              ! If excluding
+              ! If excluding data
               if (Input%lexcl) then
+
+                ! Check x coordinate could be excluded
                 if (ix.ge.Input%excl(1,1).and. &
                     ix.le.Input%excl(1,Input%nexcl)) then
+
+                  ! Initialize as no
                   lexcl = .False.
+
+                  ! For all exclusion entries
                   do ia=1,Input%nexcl
+
+                    ! If x coordinate below minimum x excluded, skip
                     if (Input%excl(1,ia).lt.ix) cycle
+
+                    ! If x coordinate above maximum x excluded, leave
                     if (Input%excl(1,ia).gt.ix) exit
+
+                    ! If y coordinate is excluded
                     if (Input%excl(2,ia).eq.iy) then
+
+                      ! Flag as excluded
                       lexcl = .True.
                       exit
-                    end if
-                  end do
+
+                    end if ! Excluded pixel
+
+                  end do ! Exclusion entries
+
+                  ! Skip if excluded pixel
                   if (lexcl) then
                     NLOSr = NLOSr + 1
                     cycle
-                  end if
-                end if
-              end if
+                  end if ! Excluded pixel
+                end if ! x coordinate could be excluded
+              end if ! Exclusion data
 
               ! Take a free cpu
               ip = maxloc(cpu_free, 1)
@@ -1508,7 +1508,7 @@
                             2+MPID%ltslave(ip), &
                             MPI_COMM_WORLD, ierr)
 
-              ! If failed
+              ! If failed, try again
               if (ierr.ne.0) then
                 inod = inod - 1
                 ix = ix0
@@ -1524,7 +1524,7 @@
                             3+MPID%ltslave(ip), &
                             MPI_COMM_WORLD, ierr)
 
-              ! If failed
+              ! If failed, try again
               if (ierr.ne.0) then
                 inod = inod - 1
                 ix = ix0
@@ -1568,7 +1568,7 @@
 
                   exit
 
-                end do
+                end do ! Until received
 
                 ! Convert ix coordinate into node coordinate
                 int_buff(1) = &
@@ -1587,8 +1587,10 @@
 
               end if ! Receiving from a CPU group
 
+              ! Advance group
               ip = ip + 1
 
+              ! Leave if checked all groups
               if (ip.gt.MPID%ngroup) exit
 
             end do ! Slaves
@@ -1612,11 +1614,17 @@
             ! If it fails
             if (ierr.ne.0) cycle
 
+            ! Advance group
             iproc = iproc + 1
 
+            ! Leave if sent to all groups
             if (iproc.gt.MPID%ngroup) exit
 
           end do ! slaves
+
+          ! Free cpu_free
+          MRAMc = MRAMc - 1d-6*sizeof(cpu_free)
+          deallocate(cpu_free)
 
         !
         ! Slaves
@@ -1662,9 +1670,9 @@
                 ! Success
                 exit
 
-              end do
+              end do ! Until received successfully
 
-            end if
+            end if ! Leader
 
             ! If liutenant has friends
             if (nproc.gt.1) then
@@ -1748,7 +1756,7 @@
                 ! Set-up input model
                 !
                 call setup_Atmo_ininv(Atom,Atomb,Mol,Atmo_in, &
-                                      MPID,Input,fudge, &
+                                      Input,fudge, &
                                       Atmo_in%zalt,.False.)
 
               ! Inversion result
@@ -1808,8 +1816,8 @@
                 dyn = .False.
                 Input%maxV = 0d0
                 Input%static = .True.
-              end if
-            end if
+              end if ! Determine dynamic
+            end if ! If we need to update vlim
 
             ! Need to update B
             if (update_blim) then
@@ -1825,6 +1833,49 @@
               end if
 
             end if
+
+            ! Skip first
+            if (lMRAMc.lt.-2d0) then
+
+              ! Upgrade
+              lMRAMc = -1.5d0
+
+            ! If no lMRAMc data
+            else if (lMRAMc.lt.0d0) then
+
+              ! Set-up
+              lMRAMc = MRAMc
+
+            ! Check MRAMc
+            else
+
+              ! If different
+              if (nint(1d6*abs(lMRAMc - MRAMc)).gt.1d0) then
+
+                ! Warning
+                if (warning) then
+
+                  ! Deflag
+                  warning = .False.
+
+                  ! Write message
+                  urou = 'TIC'
+                  write(umsg,'(2(A,es13.6),A)') &
+                    'The miscellaneous RAM counter is different '// &
+                    'between calls to the Inversion function ', &
+                    MRAMc,' != ',lMRAMc,'. It is being '// &
+                    'corrected, but this should not happen. '// &
+                    'Please, notify of the issue providing '// &
+                    'your inputs'
+                  call abortedS(umsg,urou,.False.,.True.)
+
+                end if ! Can issue warning
+
+                ! Correct
+                MRAMc = lMRAMc
+
+              end if ! Different
+            end if ! lMRAMc data
 
             ! Carry out the inversion
             call Inversion(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec, &
@@ -1857,7 +1908,7 @@
 
             end if ! Send info back to grand master
 
-          end do
+          end do ! Working loop
 
         end if ! Master or slave
 
@@ -2021,7 +2072,7 @@
               ! Set-up input model
               !
               call setup_Atmo_ininv(Atom,Atomb,Mol,Atmo_in, &
-                                    MPID,Input,fudge, &
+                                    Input,fudge, &
                                     Atmo_in%zalt,.False.)
 
             ! Inversion result
@@ -2099,6 +2150,49 @@
             end if
 
           end if
+
+          ! Skip first
+          if (lMRAMc.lt.-2d0) then
+
+            ! Upgrade
+            lMRAMc = -1.5d0
+
+          ! If no lMRAMc data
+          else if (lMRAMc.lt.0d0) then
+
+            ! Set-up
+            lMRAMc = MRAMc
+
+          ! Check MRAMc
+          else
+
+            ! If different
+            if (nint(1d6*abs(lMRAMc - MRAMc)).gt.1d0) then
+
+              ! Warning
+              if (warning) then
+
+                ! Deflag
+                warning = .False.
+
+                ! Write message
+                urou = 'TIC'
+                write(umsg,'(2(A,es13.6),A)') &
+                  'The miscellaneous RAM counter is different '// &
+                  'between calls to the Inversion function ', &
+                  MRAMc,' != ',lMRAMc,'. It is being '// &
+                  'corrected, but this should not happen. '// &
+                  'Please, notify of the issue providing '// &
+                  'your inputs'
+                call abortedS(umsg,urou,.False.,.True.)
+
+              end if ! Can issue warning
+
+              ! Correct
+              MRAMc = lMRAMc
+
+            end if ! Different
+          end if ! lMRAMc data
 
           ! Carry out the inversion
           call Inversion(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec, &

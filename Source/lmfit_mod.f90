@@ -5,155 +5,25 @@
 !#####################################################################
 !
 !  Authors:
-!     Hao Li (IAC)
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Hao Li (IAC/NSSCC)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     02/22/2023
+!     22/03/2023
 !  Last version:
-!     09/23/2024 V3.0.21
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     09/23/2024:   V3.0.21 - Added a sanity check for inversions
-!                             that fail to compute the initial value
-!                             of the merit function (TdPA)
-!
-!     05/28/2024:   V3.0.20 - Added the routine write_result_inv and
-!                             added the option to save non-finished
-!                             inversion results (TdPA)
-!
-!     05/28/2024:   V3.0.19 - Moved the deallocation of
-!                             Trial_Synthesis local variables before
-!                             the return in case of error (TdPA)
-!                           - If the forward solution fails during
-!                             a trial in the backtracking, the
-!                             algorithm will try to keep going with
-!                             different lambda parameters. Have not
-!                             checked the generality (TdPA)
-!
-!     05/20/2024:   V3.0.18 - Introduce an additional factor to
-!                             scale regularization penalties (TdPA)
-!
-!     05/13/2024:   V3.0.17 - Completed the "shake-up" of the
-!                             backtracking with parameters that can be
-!                             changed in the input file (TdPA)
-!
-!     05/08/2024:   V3.0.16 - Testing new "shake-ups" to the
-!                             backtracking (TdPA)
-!
-!     05/07/2024:   V3.0.15 - Added the possibility to track the
-!                             lambda constant in the LM optimization
-!                             to decide its initial value in the
-!                             next iteration (TdPA)
-!                           - Added the option to use 'emergency'
-!                             measures when the backtracking gets
-!                             stuck. This option is for experimenting
-!                             and not ready to be documented for
-!                             general use (TdPA)
-!                           - Added predict_lambda and update_lambda
-!                             subroutines (TdPA)
-!
-!     11/27/2023:   V3.0.14 - Wrong initialization of the variable
-!                             to ensure that the error gets
-!                             calculated (TdPA)
-!
-!     11/24/2023:   V3.0.13 - Added argument to LMFIT to skip the
-!                             iterations for the pixel (TdPA)
-!
-!     10/04/2023:   V3.0.12 - Ensure that the '*' character before an
-!                             iteration is also in the secondary
-!                             verbosity file (TdPA)
-!                           - If the solution is stored is decided by
-!                             the new saving argument in LMFIT (TdPA)
-!                           - Added new type of inversion (TdPA)
-!
-!     09/28/2023:   V3.0.11 - Add print priority to the '*' character
-!                             before an iteration line (TdPA)
-!                           - Conclusion of the bracketing is not
-!                             printed with '+' symbol, similarly to
-!                             the trials (TdPA)
-!
-!     09/26/2023:   V3.0.10 - Bugfix: There was no print of chi2
-!                             in 15D mode (TdPA)
-!
-!     09/08/2023:    V3.0.9 - Verbosity update (TdPA)
-!
-!     08/17/2023:    V3.0.8 - Set penalty to 0 in backtracking when
-!                             there is no regularization (TdPA)
-!
-!     07/31/2023:    V3.0.7 - Change the verbosity level in the
-!                             inversion (HL)
-!
-!     07/03/2023:    V3.0.6 - Added reallocation of LM_Stru arrays
-!                             at the beginning in case there was
-!                             a failure doing a previous pixel (TdPA)
-!                           - Initialize the synthesis solution as
-!                             empty (TdPA)
-!                           - No more file renaming, now set a given
-!                             solution as best in RAM. To this end,
-!                             the set_best routine has been added
-!                             to the module (TdPA)
-!                           - Added bound folding for velocity
-!                             azimuth (TdPA)
-!                           - If the iteration are exhausted, the
-!                             check happens after checking for
-!                             convergence (TdPA)
-!                           - Only cycle if overflown Broyden if
-!                             iterations are not exhausted (TdPA)
-!                           - The results are written at the end
-!                             of lmfit (TdPA)
-!                           - Added verbosity of the model in
-!                             Trial_synthesis, as well as a true
-!                             copy (and freeing) of the model
-!                             atmosphere (TdPA)
-!
-!     06/12/2023:    V3.0.5 - Rename the variable Inf_File (HL)
-!                           - Keep penalty if the ratio is smaller
-!                             than one (HL)
-!
-!     05/16/2023:    V3.0.4 - Added alternative method to compute the
-!                             errors (TdPA)
-!
-!     04/25/2023:    V3.0.3 - Added the option to write the response
-!                             functions into a file (TdPA)
-!                           - Bugfix: The best chi2 was not being
-!                             updated when there was an improvement
-!                             after finding a worse chi2, stalling
-!                             the backtracking and making it fail
-!                             when it should not; this was also
-!                             solved by HL in his own branch, merged
-!                             before, but I changed it because it
-!                             requires less lines (TdPA)
-!
-!     04/11/2023:    V3.0.2 - Verbose the lambda factor (HL)
-!                           - Bugfix: update best index and chi2 (HL)
-!
-!     03/15/2023:    V3.0.1 - Made the limit to decide the initial
-!                             penalty ratio parameters in module
-!                             parameters_mod (TdPA)
-!                           - Intpol_Atmo_all does not need the Flgsg
-!                             argument (TdPA)
-!                           - Cleaned not used variables (TdPA)
-!                           - Removed unecessary broadcasts (TdPA)
-!                           - Removed some commented lines (TdPA)
-!                           - Removed some false branching
-!                             conditionals (TdPA)
-!                           - The Blos variables are in the same
-!                             structure than the polar ones (TdPA)
-!                           - The limits on the LM lambda, and the
-!                             accepted and rejected factors are
-!                             decided in the input, instead of
-!                             hard-coded (TdPA)
-!
-!     03/08/2023:    V3.0.0 - First working version (TdPA)
-!
-!     02/23/2023:    V0.0.0 - Started from 12/12/2021
-!                             TIC@lmfit_mod.f90 revision and
-!                             05/12/2020 TIC@propose_mod.f90 revision
-!                             from Hao (TdPA)
+!     12/03/2025:    V4.0.1 - Explicitly count the innate size of
+!                             the Solution_F_class structure in the
+!                             SRAMc counter (TdPA)
+!                           - Bugfix: the memory count for the
+!                             emergent variables duplicated in the
+!                             set_best routine was not being accounted
+!                             for (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -163,44 +33,51 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    LMFIT:
-!      Levenberg-Marquardt fit of Stokes parameters
+!  LMFIT
+!    Levenberg-Marquardt fit of Stokes parameters
 !
-!    write_result_inv:
-!      Output the results of the inversion into the Result file
+!  write_result_inv
+!    Prepare the model atmosphere and Stokes profiles to write the
+!  current result in the output and call such writing
 !
-!    Convergence_Check:
-!      Check if LM problem is converged
+!  Convergence_Check
+!    Check the convergence of the merit function
 !
-!    Err:
-!      Compute the error in the parameters
+!  Err
+!    Calculate an estimation of the error in the inverted parameters
 !
-!    Trial_Synthesis:
-!      Do a LM step and get new Stokes profiles
+!  Trial_Synthesis
+!    Give a Levenberg-Marquardt step and compute emergent profiles
 !
-!    Backtracking:
-!      Optimize lambda parameter with backtracking algorithm
+!  Backtracking
+!    Optimize the Levenberg-Marquardt lambda parameter with the
+!  backtracking algorithm
 !
-!    Lambda_propose_fix:
-!      Propose a lambda factor for the LM
+!  Lambda_propose_fix
+!    Propose a new Levenberg-Marquardt lambda parameter
 !
-!    predict_lambda:
-!      Propose the value of lambda for the next iteration
+!  predict_lambda
+!    Propose the value of the Levenberg-Marquardt lambda parameter for
+!  the next iteration
 !
-!    update_lambda:
-!      Update the tracked values of the lambda constant
+!  update_lambda
+!    Update history of Levenberg-Marquardt lambda parameter
 !
-!    Nodes_Modify:
-!      Modify the node values according to the SVD solution
+!  Nodes_Modify
+!    Modify the parameter node values according to the SVD solution
 !
-!    CheckLambda:
-!      Check limits of lambda factor
+!  CheckLambda
+!    Enforce limits of Levenberg-Marquardt lambda parameter
 !
-!    set_best:
-!      Sets the current solution as the best of the backtracking
-!    or the global problem
+!  set_best
+!    Set a self-consistent solution as the best
 !
 !#####################################################################
 !#####################################################################
@@ -229,51 +106,55 @@
 !#####################################################################
 !#####################################################################
 
-      !> Levenberg-Marquardt fit of Stokes parameters
-      !!           Atom(Atom_class): Structure with the atomic data\n
-      !!          Atomb(Atom_class): Structure with the atomic data
-      !!                             for background opacities\n
-      !!             Mol(Mol_class): Structure with the molecule
-      !!                             data\n
-      !!       Geom(Geometry_class): Structure with the geometry
-      !!                             data\n
-      !!      GeomI(Geometry_class): Structure with the geometry data
-      !!                             for the intensity problem\n
-      !!         Flgsg(Fctsg_class): Structure with factorials and
-      !!                             signs\n
-      !!    Frec(Frequency_class): Structure with frequency data\n
-      !!         fudge(fudge_class): Structure with fudge data\n
-      !!       kurucz(kurucz_class): Structure with Kurucz line data\n
-      !!            MPID(MPI_class): Structure with MPI data
-      !!           Atmo(Atmo_class): Structure with atmospheric data\n
-      !!       Bfield(Bfield_class): Structure with the vertical
-      !!                             magnetic field data\n
-      !!         Input(Input_class): Structure with settings data\n
-      !!   Inf_Stokes(Stokes_class): Structure with Stokes parameters
-      !!                             data\n
-      !!     Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!        Sol(Solution_class): Class with the data of the RT
-      !!                             solution\n
-      !!       LM_Stru(LMFIT_class): Structure with Jacobian and
-      !!                             other LM quantities\n
-      !!             imask(integer): Indicate if this pixel is masked
-      !!                             in the restart\n
-      !!            saving(logical): If the result is to be stored
+      !> Levenberg-Marquardt fit of Stokes parameters\n
+      !!       Atom(Atom_class(:)): Structures with atomic data\n
+      !!      Atomb(Atom_class(:)): Structures with atomic data for
+      !!                            background atoms\n
+      !!         Mol(Mol_class(:)): Structures with molecular data\n
+      !!      Geom(Geometry_class): Structure with geometric data\n
+      !!     GeomI(Geometry_class): Structure with geometric data for
+      !!                            the intensity problem\n
+      !!        Flgsg(Fctsg_class): Structure with factorials, signs,
+      !!                            and J-symbols\n
+      !!     Frec(Frequency_class): Structure with frequency data\n
+      !!        fudge(fudge_class): Structure with fudge data\n
+      !!      kurucz(kurucz_class): Structure with Kurucz line data\n
+      !!           MPID(MPI_class): Structure with MPI data\n
+      !!          Atmo(Atmo_class): Structure with atmospheric data\n
+      !!      Bfield(Bfield_class): Structure with magnetic field
+      !!                            data\n
+      !!        Input(Input_class): Structure with configuration
+      !!                            data\n
+      !!  Inf_Stokes(Stokes_class): Structure with inversion Stokes
+      !!                            parameters data\n
+      !!    Inf_Nodes(Nodes_class): Structure with inversion node
+      !!                            data\n
+      !!       Sol(Solution_class): Structure with the frequency and
+      !!                            synthetic Stokes parameters in the
+      !!                            frequency range of the inverted
+      !!                            data\n
+      !!      LM_Stru(LMFIT_class): Structure with data for the
+      !!                            Levenberg–Marquardt\n
+      !!            imask(integer): Indicate if this pixel is masked
+      !!                            when restarting the inversion\n
+      !!           saving(logical): If the result is to be stored
       subroutine LMFIT(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge, &
                        kurucz,MPID,Atmo,Bfield,Input,Inf_Stokes, &
                        Inf_Nodes,Sol,LM_Stru,imask,saving)
 
+      ! I/O
 
-      ! IO
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Fctsg_class):: Flgsg
-      type(Geometry_class):: GeomI, Geom
-      type(Frequency_class):: Frec
-      type(fudge_class):: fudge
-      type(kurucz_class):: kurucz
-      type(MPI_class):: MPID
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
+      type(Fctsg_class), intent(inout):: Flgsg
+      type(Geometry_class), intent(inout):: GeomI, Geom
+      type(Frequency_class), intent(inout):: Frec
+      type(fudge_class), intent(in):: fudge
+      type(kurucz_class), intent(in):: kurucz
+      type(MPI_class), intent(inout):: MPID
       type(Atmo_class), intent(inout):: Atmo
       type(Bfield_class), intent(inout):: Bfield
       type(Input_class), intent(inout):: Input
@@ -286,39 +167,51 @@
 
       ! Local
 
-      ! RT full solution
       type(Solution_F_class):: SolF
 
-      ! Hessian computing
-      double precision, dimension(:), allocatable:: Solution, Errors
-      double precision, dimension(:,:), allocatable:: Stokes_Min
-      double precision, dimension(:,:), allocatable:: Stokes_best
-
-      ! Lambda boundary
       logical:: Flag_Convg, Flag_Jac
 
       integer:: indx_iter, indx_rej, i, Num_Broyden, max_iters
 
       double precision:: Chisq_old, Ratio
       double precision, dimension(:), allocatable:: Lam_track
+      double precision, dimension(:), allocatable:: Solution, Errors
+      double precision, dimension(:,:), allocatable:: Stokes_Min
+      double precision, dimension(:,:), allocatable:: Stokes_best
 
+
+      ! Count innate memory of local structure
+      SRAMc = SRAMc + 1d-6*sizeof(SolF)
 
       ! Check allocations (in case of previous failure)
       if (allocated(LM_Stru%Hessian)) then
 
+        ! Free residual for intensity if allocated
         if (allocated(LM_Stru%ResidualI)) then
+          MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%ResidualI)
+          MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%WeightI)
+          MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%JacobianI)
           deallocate(LM_Stru%ResidualI)
           deallocate(LM_Stru%WeightI)
           deallocate(LM_Stru%JacobianI)
         end if
 
+        ! Free residual for polarization if allocated
         if (allocated(LM_Stru%Residual)) then
+          MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%Residual)
+          MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%Weight)
+          MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%Jacobian)
           deallocate(LM_Stru%Residual)
           deallocate(LM_Stru%Weight)
           deallocate(LM_Stru%Jacobian)
         end if
 
         ! Free memory
+        MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%Jacfvec)
+        MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%diag)
+        MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%Hessian)
+        MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%Hessian_og)
+        MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%Jacfvec_og)
         deallocate(LM_Stru%Jacfvec,LM_Stru%diag)
         deallocate(LM_Stru%Hessian,LM_Stru%Hessian_og)
         deallocate(LM_Stru%Jacfvec_og)
@@ -326,9 +219,9 @@
         ! Free solutions
         call free_inv_solution(SolF)
 
-      end if
+      end if ! Previous failure
 
-
+      !
       ! If Thermal inversion
       if (Inf_Nodes%Nodes_Type.eq.0) then
 
@@ -336,6 +229,9 @@
         allocate(LM_Stru%ResidualI(Inf_Stokes%Num_Wavelength))
         allocate(LM_Stru%WeightI(Inf_Stokes%Num_Wavelength))
         allocate(LM_Stru%JacobianI(Sol%Num_Wavelength,LM_Stru%Num))
+        MRAMc = MRAMc + 1d-6*sizeof(LM_Stru%ResidualI)
+        MRAMc = MRAMc + 1d-6*sizeof(LM_Stru%WeightI)
+        MRAMc = MRAMc + 1d-6*sizeof(LM_Stru%JacobianI)
 
       ! Magnetic or full inversion
       else
@@ -344,6 +240,9 @@
         allocate(LM_Stru%Residual(0:3,Inf_Stokes%Num_Wavelength))
         allocate(LM_Stru%Weight(0:3,Inf_Stokes%Num_Wavelength))
         allocate(LM_Stru%Jacobian(0:3,Sol%Num_Wavelength,LM_Stru%Num))
+        MRAMc = MRAMc + 1d-6*sizeof(LM_Stru%Residual)
+        MRAMc = MRAMc + 1d-6*sizeof(LM_Stru%Weight)
+        MRAMc = MRAMc + 1d-6*sizeof(LM_Stru%Jacobian)
 
       end if ! Type of inversion
 
@@ -365,10 +264,18 @@
       allocate(LM_Stru%Hessian(LM_Stru%Num,LM_Stru%Num))
       allocate(LM_Stru%Hessian_og(LM_Stru%Num,LM_Stru%Num))
       allocate(LM_Stru%Jacfvec_og(LM_Stru%Num))
+      MRAMc = MRAMc + 1d-6*sizeof(Solution)
+      MRAMc = MRAMc + 1d-6*sizeof(Errors)
+      MRAMc = MRAMc + 1d-6*sizeof(LM_Stru%Jacfvec)
+      MRAMc = MRAMc + 1d-6*sizeof(LM_Stru%diag)
+      MRAMc = MRAMc + 1d-6*sizeof(LM_Stru%Hessian)
+      MRAMc = MRAMc + 1d-6*sizeof(LM_Stru%Hessian_og)
+      MRAMc = MRAMc + 1d-6*sizeof(LM_Stru%Jacfvec_og)
 
       ! Allocate lambda array
       if (Input%l_Lam_track) then
         allocate(Lam_track(Input%Lam_track))
+        MRAMc = MRAMc + 1d-6*sizeof(Lam_track)
         Lam_track = 0d0
       end if
 
@@ -387,24 +294,23 @@
         umsg = ' - First synthesis'
         call verboseI(3)
 
-      end if
+      end if ! Master
 
-
-      ! Get synthesis results
+      ! Get first synthesis
       call HanleRTTIC(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec,fudge, &
                       kurucz,MPID,Atmo,Bfield,Input,Sol,SolF,.False.)
 
-      ! Set best
+      ! Set the first solution as current best
       call set_best(SolF,.True.,.False.)
 
-      ! Compute merit function
+      ! Compute initial merit function
       call Merit_function(Inf_Stokes, Sol%Stokes_out, &
                           Inf_Nodes%Nodes_Type,LM_Stru)
 
       ! Check NaN
       if (isnan(LM_Stru%Chisq)) then
 
-        ! Aborting
+        ! Issue error
         umsg = 'The first value of the merit function (without '// &
                'penalties) is NaN. Check that there are no '// &
                'zeros in the "sigma" values in the data'
@@ -412,7 +318,7 @@
         call aborted
         return
 
-      end if
+      end if ! NaN chi^2
 
       ! If regularizing
       if (Inf_Nodes%Regul_Flag) then
@@ -420,6 +326,8 @@
         ! Allocate space for regularization
         allocate(LM_Stru%Rgl%Regul_H(LM_Stru%Num,LM_Stru%Num))
         allocate(LM_Stru%Rgl%Regul_F(LM_Stru%Num))
+        MRAMc = MRAMc + 1d-6*sizeof(LM_Stru%Rgl%Regul_H)
+        MRAMc = MRAMc + 1d-6*sizeof(LM_Stru%Rgl%Regul_F)
 
         ! Get regularization
         call Get_Regl_all(Inf_Nodes,.False.,LM_Stru%Rgl)
@@ -477,6 +385,7 @@
            ' * Iteration = ',0, &
               'Chi2 = ',LM_Stru%Chisq
 
+        ! Verbose depending on the MPI regime
         if (gpid.eq.0) then
           call verboseI(0)
           call verboseI(4)
@@ -555,14 +464,14 @@
 
             ! Write to files
             call write_result_inv(Atom,Atomb,Mol,GeomI,Geom,Frec, &
-                                  fudge,MPID,Atmo,Bfield,Input, &
+                                  fudge,Atmo,Bfield,Input, &
                                   Inf_Stokes,Inf_Nodes,Sol,SolF, &
                                   LM_Stru,saving,.False.)
 
-          end if
-        end if
+          end if ! Is time to produce a partial result file
+        end if ! If producing not finished result files
 
-        ! Predict lambda
+        ! Predict lambda for LM
         if (Input%l_Lam_track) &
           call predict_lambda(indx_iter,Lam_track, \
                               Input%Lam_track,LM_Stru)
@@ -612,7 +521,7 @@
           LM_Stru%Jacfvec = LM_Stru%Jacfvec + &
                             LM_Stru%Rgl%Regul_F*LM_Stru%Rgl%Ratio
 
-        end if
+        end if ! Regularizing
 
         ! Diagonal from Hessian
         do i=1,LM_Stru%Num
@@ -797,7 +706,6 @@
               call Intpol_Atmo_all(Inf_Nodes,Atmo,Bfield, &
                                    Atom,Atomb,Mol,Input,fudge)
 
-
               ! If Jacobi flagged
               if (Flag_Jac) then
 
@@ -842,6 +750,7 @@
               'Chi2 = ',LM_Stru%Chisq, &
               'Chi2 (no regularization) = ',LM_Stru%Chisq_og
 
+            ! Verbose depending on MPI regime
             if (gpid.eq.0) then
               call verboseI(0)
               call verboseI(4)
@@ -849,7 +758,6 @@
               call verboseI(0)
               if (vlevel.eq.0) call verboseI(3)
             end if
-
 
             ! If regularizing
             if (Inf_Nodes%Regul_Flag) then
@@ -893,6 +801,7 @@
                 write(umsg,'(A,es15.4)') &
                   ' * LM converged. Chi2 = ',LM_Stru%Chisq
 
+                ! Verbose depending on the MPI regime
                 if (gpid.eq.0) then
                   call verboseI(0)
                   call verboseI(4)
@@ -925,13 +834,14 @@
               ! Verbose
               umsg = ' - LM iterations exhausted'
 
+              ! Verbose depending on the MPI regime
               if (gpid.eq.0) then
                 call verboseI(0)
                 call verboseI(4)
               else
                 call verboseI(0)
                 if (vlevel.eq.0) call verboseI(3)
-              end if
+              end if ! MPI regime
             end if ! Master
 
             ! Exit loop
@@ -1053,7 +963,7 @@
       ! Write the results into file
       !
       call write_result_inv(Atom,Atomb,Mol,GeomI,Geom,Frec, &
-                            fudge,MPID,Atmo,Bfield,Input, &
+                            fudge,Atmo,Bfield,Input, &
                             Inf_Stokes,Inf_Nodes,Sol,SolF, &
                             LM_Stru,saving,.True.)
 
@@ -1062,6 +972,9 @@
       if (Inf_Nodes%Nodes_Type.eq.0) then
 
         ! Deallocate intensity quantities
+        MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%ResidualI)
+        MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%WeightI)
+        MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%JacobianI)
         deallocate(LM_Stru%ResidualI)
         deallocate(LM_Stru%WeightI)
         deallocate(LM_Stru%JacobianI)
@@ -1070,6 +983,9 @@
       else
 
         ! Deallocate polarization quantities
+        MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%Residual)
+        MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%Weight)
+        MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%Jacobian)
         deallocate(LM_Stru%Residual)
         deallocate(LM_Stru%Weight)
         deallocate(LM_Stru%Jacobian)
@@ -1077,13 +993,34 @@
       end if ! Type of inversion
 
       ! Free memory
+      MRAMc = MRAMc - 1d-6*sizeof(Solution)
+      MRAMc = MRAMc - 1d-6*sizeof(Errors)
+      MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%Jacfvec)
+      MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%diag)
+      MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%Hessian)
+      MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%Hessian_og)
+      MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%Jacfvec_og)
       deallocate(Solution,Errors,LM_Stru%Jacfvec,LM_Stru%diag)
       deallocate(LM_Stru%Hessian,LM_Stru%Hessian_og)
       deallocate(LM_Stru%Jacfvec_og)
-      if (Input%l_Lam_track) deallocate(Lam_track)
+      if (Input%l_Lam_track) then
+        MRAMc = MRAMc - 1d-6*sizeof(Lam_track)
+        deallocate(Lam_track)
+      end if
+
+      ! If regularizing, free memory
+      if (Inf_Nodes%Regul_Flag) then
+        MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%Rgl%Regul_H)
+        MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%Rgl%Regul_F)
+        deallocate(LM_Stru%Rgl%Regul_H)
+        deallocate(LM_Stru%Rgl%Regul_F)
+      end if
 
       ! Free solutions
       call free_inv_solution(SolF)
+
+      ! Free innate memory of local structure
+      SRAMc = SRAMc - 1d-6*sizeof(SolF)
 
       return
 
@@ -1093,47 +1030,55 @@
 !#####################################################################
 !#####################################################################
 
-      !> Write result of inversion\n
-      !!           Atom(Atom_class): Structure with the atomic data\n
-      !!          Atomb(Atom_class): Structure with the atomic data
-      !!                             for background opacities\n
-      !!             Mol(Mol_class): Structure with the molecule
-      !!                             data\n
-      !!       Geom(Geometry_class): Structure with the geometry
-      !!                             data\n
-      !!      GeomI(Geometry_class): Structure with the geometry data
-      !!                             for the intensity problem\n
-      !!    Frec(Frequency_class): Structure with frequency data\n
-      !!         fudge(fudge_class): Structure with fudge data\n
-      !!            MPID(MPI_class): Structure with MPI data
-      !!        Atmo_in(Atmo_class): Structure with atmospheric data\n
-      !!       Bfield(Bfield_class): Structure with the vertical
-      !!                             magnetic field data\n
-      !!         Input(Input_class): Structure with settings data\n
-      !!   Inf_Stokes(Stokes_class): Structure with Stokes parameters
-      !!                             data\n
-      !!     Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!        Sol(Solution_class): Class with the data of the RT
-      !!                             solution\n
-      !!     SolF(Solution_F_class): Class with the data of the RT
-      !!                             solution\n
-      !!       LM_Stru(LMFIT_class): Structure with Jacobian and
-      !!                             other LM quantities\n
-      !!            saving(logical): If the result is to be stored\n
-      !!            ifinal(logical): If the inversion is finished
+      !> Prepare the model atmosphere and Stokes profiles to write the
+      !! current result in the output and call such writing\n
+      !!       Atom(Atom_class(:)): Structures with atomic data\n
+      !!      Atomb(Atom_class(:)): Structures with atomic data for
+      !!                            background atoms\n
+      !!         Mol(Mol_class(:)): Structures with molecular data\n
+      !!      Geom(Geometry_class): Structure with geometric data\n
+      !!     GeomI(Geometry_class): Structure with geometric data for
+      !!                            the intensity problem\n
+      !!     Frec(Frequency_class): Structure with frequency data\n
+      !!        fudge(fudge_class): Structure with fudge data\n
+      !!       Atmo_in(Atmo_class): Structure with atmospheric data\n
+      !!      Bfield(Bfield_class): Structure with magnetic field
+      !!                            data\n
+      !!        Input(Input_class): Structure with configuration
+      !!                            data\n
+      !!  Inf_Stokes(Stokes_class): Structure with inversion Stokes
+      !!                            parameters data\n
+      !!    Inf_Nodes(Nodes_class): Structure with inversion node
+      !!                            data\n
+      !!       Sol(Solution_class): Structure with the frequency and
+      !!                            synthetic Stokes parameters in the
+      !!                            frequency range of the inverted
+      !!                            data\n
+      !!    SolF(Solution_F_class): Structure with the solution of
+      !!                            the self-consistent problem and
+      !!                            the corresponding emergent
+      !!                            profiles, contribution function,
+      !!                            and height for optical depth
+      !!                            equal to one\n
+      !!      LM_Stru(LMFIT_class): Structure with data for the
+      !!                            Levenberg–Marquardt\n
+      !!           saving(logical): If the result is to be stored\n
+      !!           ifinal(logical): If the inversion is finished
       subroutine write_result_inv(Atom,Atomb,Mol,GeomI,Geom,Frec, &
-                                  fudge,MPID,Atmo_in,Bfield,Input, &
+                                  fudge,Atmo_in,Bfield,Input, &
                                   Inf_Stokes,Inf_Nodes,Sol,SolF, &
                                   LM_Stru,saving,ifinal)
 
-      ! IO
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Geometry_class):: GeomI, Geom
-      type(Frequency_class):: Frec
-      type(fudge_class):: fudge
-      type(MPI_class):: MPID
+      ! I/O
+
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
+      type(Geometry_class), intent(in):: GeomI, Geom
+      type(Frequency_class), intent(in):: Frec
+      type(fudge_class), intent(in):: fudge
       type(Atmo_class), intent(inout):: Atmo_in
       type(Bfield_class), intent(inout):: Bfield
       type(Input_class), intent(inout):: Input
@@ -1141,7 +1086,7 @@
       type(Nodes_class), intent(inout):: Inf_Nodes
       type(Solution_class), intent(inout):: Sol
       type(LMFIT_class), intent(inout):: LM_Stru
-      type(Solution_F_class):: SolF
+      type(Solution_F_class), intent(in):: SolF
       logical, intent(in):: saving
       logical, intent(in):: ifinal
 
@@ -1155,7 +1100,7 @@
       if (ifinal) then
 
         ! Prepare output model atmosphere
-        call setup_Atmo_ouinv(Atom,Atomb,Mol,Atmo_in,MPID,Input,fudge)
+        call setup_Atmo_ouinv(Atom,Atomb,Mol,Atmo_in,Input,fudge)
 
         ! Get a copy of model atmosphere
         call cAtmo(Atmo_in,Atmo)
@@ -1167,7 +1112,7 @@
         call cAtmo(Atmo_in,Atmo)
 
         ! Prepare output model atmosphere
-        call setup_Atmo_ouinv(Atom,Atomb,Mol,Atmo,MPID,Input,fudge)
+        call setup_Atmo_ouinv(Atom,Atomb,Mol,Atmo,Input,fudge)
 
       end if
 
@@ -1240,7 +1185,7 @@
                 if (laborted) exit
               end if
 
-            end if
+            end if ! Thermal or not
 
             ! Thermal not from a full inversion or non-thermal
             if ((Inf_Nodes%Nodes_type.eq.0.and. &
@@ -1253,7 +1198,8 @@
                 call writetau_inv(Input%folder, &
                                   SolF%e_tau1_b(:,1,1), &
                                   Input%lim_tau)
-            end if
+
+            end if ! Thermal not from full or non-thermal
 
             exit
 
@@ -1282,20 +1228,21 @@
 !#####################################################################
 !#####################################################################
 
-      !> Check if LM problem is converged\n
-      !!    Input(Input_class): Structure with settings data\n
-      !!     Chisq_old(double): Previous chi2\n
-      !!         Chisq(double): Current chi2\n
-      !!   Flag_Convg(logical): If converged
-      subroutine Convergence_Check(Input,Chisq_old,Chisq, &
-                                   Flag_Convg)
+      !> Check the convergence of the merit function\n
+      !!   Input(Input_class): Structure with configuration data\n
+      !!    Chisq_old(double): Previous chi^2\n
+      !!        Chisq(double): Current chi^2\n
+      !!  Flag_Convg(logical): If chi^2 is converged
+      subroutine Convergence_Check(Input,Chisq_old,Chisq,Flag_Convg)
 
-      ! IO
+      ! I/O
+
       type(Input_class), intent(in):: Input
       logical, intent(out):: Flag_Convg
       double precision, intent(in):: Chisq_old, Chisq
 
       ! Local
+
       double precision:: Chisq_fraction
 
 
@@ -1324,18 +1271,24 @@
 !#####################################################################
 !#####################################################################
 
-      !> Compute the error in the parameters\n
-      !!     LM_Stru(LMFIT_class): Structure with Jacobian and other
-      !!                           LM quantities\n
-      !!       Input(Input_class): Structure with settings data\n
-      !! Inf_Stokes(Stokes_class): Structure with Stokes parameters
-      !!                           data\n
-      !!      Sol(Solution_class): Class with the data of the RT
-      !!                           solution\n
-      !!   Inf_Nodes(Nodes_class): Structure with nodes data
+      !> Calculate an estimation of the error in the inverted
+      !! parameters\n
+      !!      LM_Stru(LMFIT_class): Structure with data for the
+      !!                            Levenberg–Marquardt\n
+      !!        Input(Input_class): Structure with configuration
+      !!                            data\n
+      !!  Inf_Stokes(Stokes_class): Structure with inversion Stokes
+      !!                            parameters data\n
+      !!       Sol(Solution_class): Structure with the frequency and
+      !!                            synthetic Stokes parameters in the
+      !!                            frequency range of the inverted
+      !!                            data\n
+      !!    Inf_Nodes(Nodes_class): Structure with inversion node
+      !!                            data
       subroutine Err(LM_Stru,Input,Inf_Stokes,Sol,Inf_Nodes)
 
-      ! IO
+      ! I/O
+
       type(LMFIT_class), intent(in):: LM_Stru
       type(Input_class), intent(in):: Input
       type(Stokes_class), intent(in):: Inf_Stokes
@@ -1343,9 +1296,10 @@
       type(Nodes_class), intent(inout):: Inf_Nodes
 
       ! Local
-      integer:: tmp, i, j, k
 
-      double precision:: Error1, Error2, Num, Den
+      integer:: tmp,i,j,k
+
+      double precision:: Error1,Error2,Num,Den
       double precision, dimension(:), allocatable:: Errors
 
 
@@ -1511,7 +1465,7 @@
               ! Get error from RF
               Errors(i) = sqrt(2d0*Num/Den/dble(LM_Stru%Num))
 
-            end do
+            end do ! Inverted variables
 
           end if ! Sigma
         end if ! Intensity/polarization
@@ -1737,60 +1691,73 @@
 !#####################################################################
 !#####################################################################
 
-      !> Do a LM step and get new Stokes profiles\n
-      !!       LM_Stru(LMFIT_class): Structure with Jacobian and
-      !!                             other LM quantities
-      !!     Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!             Lambda(double): LM lambda factor\n
-      !!        Solution(double(:)): SVD solution\n
-      !!           Atmo(Atmo_class): Structure with atmospheric data\n
-      !!       Bfield(Bfield_class): Structure with the vertical
-      !!                             magnetic field data\n
-      !!           Atom(Atom_class): Structure with the atomic data\n
-      !!          Atomb(Atom_class): Structure with the atomic data
-      !!                             for background opacities\n
-      !!             Mol(Mol_class): Structure with the molecule
-      !!                             data\n
-      !!       Geom(Geometry_class): Structure with the geometry
-      !!                             data\n
-      !!      GeomI(Geometry_class): Structure with the geometry data
-      !!                             for the intensity problem\n
-      !!         Flgsg(Fctsg_class): Structure with factorials and
-      !!                             signs\n
-      !!      Frec(Frequency_class): Structure with frequency data\n
-      !!         fudge(fudge_class): Structure with fudge data\n
-      !!       kurucz(kurucz_class): Structure with Kurucz line data\n
-      !!            MPID(MPI_class): Structure with MPI data
-      !!         Input(Input_class): Structure with settings data\n
-      !!        Sol(Solution_class): Class with the data of the RT
-      !!                             solution
-      !!     SolF(Solution_F_class): Full solution of the RT problem
+      !> Give a Levenberg-Marquardt step and compute emergent
+      !! profiles\n
+      !!      LM_Stru(LMFIT_class): Structure with data for the
+      !!                            Levenberg–Marquardt\n
+      !!  Inf_Stokes(Stokes_class): Structure with inversion Stokes
+      !!            Lambda(double): Levenberg-Marquardt lambda
+      !!                            parameter\n
+      !!       Solution(double(:)): SVD solution\n
+      !!          Atmo(Atmo_class): Structure with atmospheric data\n
+      !!      Bfield(Bfield_class): Structure with magnetic field
+      !!                            data\n
+      !!       Atom(Atom_class(:)): Structures with atomic data\n
+      !!      Atomb(Atom_class(:)): Structures with atomic data for
+      !!                            background atoms\n
+      !!         Mol(Mol_class(:)): Structures with molecular data\n
+      !!      Geom(Geometry_class): Structure with geometric data\n
+      !!     GeomI(Geometry_class): Structure with geometric data for
+      !!                            the intensity problem\n
+      !!        Flgsg(Fctsg_class): Structure with factorials, signs,
+      !!                            and J-symbols\n
+      !!     Frec(Frequency_class): Structure with frequency data\n
+      !!        fudge(fudge_class): Structure with fudge data\n
+      !!      kurucz(kurucz_class): Structure with Kurucz line data\n
+      !!           MPID(MPI_class): Structure with MPI data\n
+      !!        Input(Input_class): Structure with configuration
+      !!                            data\n
+      !!       Sol(Solution_class): Structure with the frequency and
+      !!                            synthetic Stokes parameters in the
+      !!                            frequency range of the inverted
+      !!                            data\n
+      !!    SolF(Solution_F_class): Structure with the solution of
+      !!                            the self-consistent problem and
+      !!                            the corresponding emergent
+      !!                            profiles, contribution function,
+      !!                            and height for optical depth
+      !!                            equal to one
       subroutine Trial_Synthesis(LM_Stru,Inf_Nodes,Lambda,Solution, &
                                  Atmo,Bfield,Atom,Atomb,Mol,Geom, &
                                  GeomI,Flgsg,Frec,fudge,kurucz,MPID, &
                                  Input,Sol,SolF)
 
-      ! IO
+      ! I/O
+
       type(LMFIT_class), intent(inout):: LM_Stru
       type(Nodes_class), intent(in):: Inf_Nodes
       type(Atmo_class), intent(inout):: Atmo
       type(Bfield_class), intent(inout):: Bfield
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Fctsg_class):: Flgsg
-      type(Geometry_class):: GeomI, Geom
-      type(Frequency_class):: Frec
-      type(fudge_class):: fudge
-      type(kurucz_class):: kurucz
-      type(MPI_class):: MPID
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
+      type(Fctsg_class), intent(inout):: Flgsg
+      type(Geometry_class), intent(inout):: GeomI, Geom
+      type(Frequency_class), intent(inout):: Frec
+      type(fudge_class), intent(in):: fudge
+      type(kurucz_class), intent(in):: kurucz
+      type(MPI_class), intent(inout):: MPID
       type(Input_class), intent(inout):: Input
       type(Solution_class), intent(inout):: Sol
       type(Solution_F_class), intent(inout):: SolF
       double precision, intent(in):: Lambda
-      double precision, dimension(:), allocatable:: Solution
+      double precision, dimension(:), &
+                        allocatable, intent(inout):: Solution
 
       ! Local
+
       type(Atmo_class):: Tmp_Atmo
       type(Bfield_class):: Tmp_Bfield
       type(Nodes_class):: Inf_Nodes_tmp
@@ -1800,6 +1767,11 @@
       double precision, dimension(:), allocatable:: Jacfvec_new
       double precision, dimension(:,:), allocatable:: Hessian_new
 
+      ! Count memory
+      ! Neglecting the data in Inf_Nodes_tmp%Node and
+      ! Inf_Nodes%Inf_Inv
+      MRAMc = MRAMc + 1d-6*sizeof(Tmp_Atmo)
+      MRAMc = MRAMc + 1d-6*sizeof(Inf_Nodes_tmp)
 
       ! Copy current Nodes
       Inf_Nodes_tmp = Inf_Nodes
@@ -1807,6 +1779,8 @@
       ! Allocate new Hessian and Jacobian vector
       allocate(Hessian_new(LM_Stru%Num,LM_Stru%Num))
       allocate(Jacfvec_new(LM_Stru%Num))
+      MRAMc = MRAMc + 1d-6*sizeof(Hessian_new)
+      MRAMc = MRAMc + 1d-6*sizeof(Hessian_new)
 
       ! Copy current Hessian and Jacobian vectors
       Hessian_new = LM_Stru%Hessian
@@ -1851,7 +1825,7 @@
       else if (Inf_Nodes%Nodes_Type.eq.1) then
 
         ! Get a copy of the magnetic field
-        Tmp_Bfield = Bfield
+        call cBfield(Bfield,Tmp_Bfield)
 
         ! Generate new stratification
         call Intpol_Bfield(Inf_Nodes_tmp, Atmo, Tmp_Bfield)
@@ -1867,7 +1841,7 @@
 
         ! Get a copy of atmosphere and field
         call cAtmo(Atmo,Tmp_Atmo)
-        Tmp_Bfield = Bfield
+        call cBfield(Bfield,Tmp_Bfield)
 
         ! Get new stratification
         call Intpol_Atmo_all(Inf_Nodes_tmp, Tmp_Atmo, Tmp_Bfield, &
@@ -1893,7 +1867,13 @@
       end if ! Type of inversion
 
       ! Deallocate auxiliar Hessian and Jacobian
+      MRAMc = MRAMc - 1d-6*sizeof(Hessian_new)
+      MRAMc = MRAMc - 1d-6*sizeof(Hessian_new)
       deallocate(Hessian_new,Jacfvec_new)
+
+      ! Remove non-array memory of local structures
+      MRAMc = MRAMc - 1d-6*sizeof(Tmp_Atmo)
+      MRAMc = MRAMc - 1d-6*sizeof(Inf_Nodes_tmp)
 
       ! Error
       if (laborted) return
@@ -1913,54 +1893,63 @@
 !#####################################################################
 !#####################################################################
 
-      !> Optimize lambda parameter with backtracking algorithm\n
-      !!       LM_Stru(LMFIT_class): Structure with Jacobian and
-      !!                             other LM quantities
-      !!           Atom(Atom_class): Structure with the atomic data\n
-      !!          Atomb(Atom_class): Structure with the atomic data
-      !!                             for background opacities\n
-      !!             Mol(Mol_class): Structure with the molecule
-      !!                             data\n
-      !!       Geom(Geometry_class): Structure with the geometry
-      !!                             data\n
-      !!      GeomI(Geometry_class): Structure with the geometry data
-      !!                             for the intensity problem\n
-      !!         Flgsg(Fctsg_class): Structure with factorials and
-      !!                             signs\n
-      !!    Frec(Frequency_class): Structure with frequency data\n
-      !!         fudge(fudge_class): Structure with fudge data\n
-      !!       kurucz(kurucz_class): Structure with Kurucz line data\n
-      !!            MPID(MPI_class): Structure with MPI data
-      !!           Atmo(Atmo_class): Structure with atmospheric data\n
-      !!       Bfield(Bfield_class): Structure with the vertical
-      !!                             magnetic field data\n
-      !!        Sol(Solution_class): Class with the data of the RT
-      !!                             solution\n
-      !!     SolF(Solution_F_class): Class with the full RT problem
-      !!                             solution\n
-      !!     Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!         Input(Input_class): Structure with settings data\n
-      !!   Inf_Stokes(Stokes_class): Structure with Stokes parameters
-      !!                             data\n
-      !!        Solution(double(:)): Current SVD solution\n
-      !!        Stokes(double(:,:)): Current minimum chi2 Stokes
-      !!                             parameters\n
+      !> Optimize the Levenberg-Marquardt lambda parameter with the
+      !! backtracking algorithm\n
+      !!      LM_Stru(LMFIT_class): Structure with data for the
+      !!                            Levenberg–Marquardt\n
+      !!       Atom(Atom_class(:)): Structures with atomic data\n
+      !!      Atomb(Atom_class(:)): Structures with atomic data for
+      !!                            background atoms\n
+      !!         Mol(Mol_class(:)): Structures with molecular data\n
+      !!      Geom(Geometry_class): Structure with geometric data\n
+      !!     GeomI(Geometry_class): Structure with geometric data for
+      !!                            the intensity problem\n
+      !!        Flgsg(Fctsg_class): Structure with factorials, signs,
+      !!                            and J-symbols\n
+      !!     Frec(Frequency_class): Structure with frequency data\n
+      !!        fudge(fudge_class): Structure with fudge data\n
+      !!      kurucz(kurucz_class): Structure with Kurucz line data\n
+      !!           MPID(MPI_class): Structure with MPI data\n
+      !!          Atmo(Atmo_class): Structure with atmospheric data\n
+      !!      Bfield(Bfield_class): Structure with magnetic field
+      !!                            data\n
+      !!       Sol(Solution_class): Structure with the frequency and
+      !!                            synthetic Stokes parameters in the
+      !!                            frequency range of the inverted
+      !!                            data\n
+      !!    SolF(Solution_F_class): Structure with the solution of
+      !!                            the self-consistent problem and
+      !!                            the corresponding emergent
+      !!                            profiles, contribution function,
+      !!                            and height for optical depth
+      !!                            equal to one\n
+      !!    Inf_Nodes(Nodes_class): Structure with inversion node
+      !!                            data\n
+      !!        Input(Input_class): Structure with configuration
+      !!                            data\n
+      !!  Inf_Stokes(Stokes_class): Structure with inversion Stokes
+      !!                            parameters data\n
+      !!   Solution_Min(double(:)): SVD solution\n
+      !!   Stokes_Min(double(:,:)): Currently best Stokes parameters
       subroutine Backtracking(LM_Stru,Atom,Atomb,Mol,Geom,GeomI, &
                               Flgsg,Frec,fudge,kurucz,MPID,Atmo, &
                               Bfield,Sol,SolF,Inf_Nodes,Input, &
                               Inf_Stokes,Solution_Min,Stokes_Min)
 
-      ! IO
+      ! I/O
+
       type(LMFIT_class), intent(inout):: LM_Stru
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Fctsg_class):: Flgsg
-      type(Geometry_class):: GeomI, Geom
-      type(Frequency_class):: Frec
-      type(fudge_class):: fudge
-      type(kurucz_class):: kurucz
-      type(MPI_class):: MPID
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
+      type(Fctsg_class), intent(inout):: Flgsg
+      type(Geometry_class), intent(inout):: GeomI, Geom
+      type(Frequency_class), intent(inout):: Frec
+      type(fudge_class), intent(in):: fudge
+      type(kurucz_class), intent(in):: kurucz
+      type(MPI_class), intent(inout):: MPID
       type(Atmo_class), intent(inout):: Atmo
       type(Bfield_class), intent(inout):: Bfield
       type(Input_class), intent(inout):: Input
@@ -1968,14 +1957,15 @@
       type(Nodes_class), intent(inout):: Inf_Nodes
       type(Solution_class), intent(inout):: Sol
       type(Solution_F_class), intent(inout):: SolF
-      double precision, dimension(:), allocatable:: Solution_Min
-      double precision, dimension(:,:), allocatable:: Stokes_Min
+      double precision, dimension(:), &
+                        allocatable, intent(inout):: Solution_Min
+      double precision, dimension(:,:), &
+                        allocatable, intent(inout):: Stokes_Min
 
       ! Local
-      character(len=9):: ID
 
-      logical:: Bracketed, up_first, converged, changed
-      logical:: second_lap, early_exit
+      logical:: Bracketed,up_first,converged,changed
+      logical:: second_lap,early_exit
 
       integer, parameter:: Length = 10
       integer, parameter:: Max_fail = 3
@@ -1989,12 +1979,13 @@
       double precision, dimension(:), allocatable:: Solution
 
 
-      ! Create ID
-      ID = 'MINIMUMSL'
-
       ! Create auxiliar arrays
       allocate(Lambda_array(Length+1),Chisq_array(Length+1))
       allocate(Solution(LM_Stru%Num),Penalty_array(Length+1))
+      MRAMc = MRAMc + 1d-6*sizeof(Lambda_array)
+      MRAMc = MRAMc + 1d-6*sizeof(Chisq_array)
+      MRAMc = MRAMc + 1d-6*sizeof(Solution)
+      MRAMc = MRAMc + 1d-6*sizeof(Penalty_array)
 
       ! Master
       if (pid.eq.0) then
@@ -2010,6 +2001,11 @@
       early_exit = .False.
       Penalty_TMP = LM_Stru%Rgl%Penalty
       Chisq_indx = -1
+      chisq_old = LM_Stru%Chisq
+      up_first = .True.
+      Chisq_best = chisq_old
+      jndx = 1
+      second_lap = .False.
       if (Input%l_Lam_track) then
         Lambda_array(1) = LM_Stru%lambda/LM_Stru%factoraccept
       else
@@ -2020,12 +2016,6 @@
           Lambda_array(1) = LM_Stru%Lambda_bounds(1)
       if (Lambda_array(1).gt.LM_Stru%Lambda_bounds(2)) &
           Lambda_array(1) = LM_Stru%Lambda_bounds(2)
-
-      chisq_old = LM_Stru%Chisq
-      up_first = .True.
-      Chisq_best = chisq_old
-      jndx = 1
-      second_lap = .False.
 
       ! Fake loop
       do while (.True.)
@@ -2093,11 +2083,13 @@
                   ! Repeated
                   if (abs(Lambda_array(kndx) - &
                           Lambda_array(indx)).lt.1d-3) then
+
                     ! Flag, edit, and leave
                     changed = .True.
                     Lambda_array(indx) = Lambda_array(indx)* &
                                          LM_Stru%factorreject
                     exit
+
                   end if ! Repeated
                 end do ! Check older lambda
 
@@ -2133,7 +2125,7 @@
               nfail = nfail + 1
 
               ! If beyond saving
-              if (nfail.ge.Max_fail) return
+              if (nfail.ge.Max_fail) goto 1000
 
               ! Verbose
               if (gpid.eq.0) then
@@ -2251,22 +2243,6 @@
 
             ! Is the worse result
             else
-
-             !! If index is beyond the second
-             !if (indx.ge.3) then
-
-             !    ! It is bracketed
-             !    Bracketed = .True.
-             !    exit
-
-             !! Otherwise
-             !else
-
-             !    ! It is not bracketed
-             !    Bracketed = .False.
-             !    exit
-
-             !end if ! Index
 
               ! If index is beyond the second and it was
               ! improvement at some point
@@ -2597,6 +2573,10 @@
       end do
 
       ! Free memory
+1000  MRAMc = MRAMc - 1d-6*sizeof(Lambda_array)
+      MRAMc = MRAMc - 1d-6*sizeof(Chisq_array)
+      MRAMc = MRAMc - 1d-6*sizeof(Solution)
+      MRAMc = MRAMc - 1d-6*sizeof(Penalty_array)
       deallocate(Lambda_array,Chisq_array,Solution,Penalty_array)
 
       return
@@ -2607,13 +2587,13 @@
 !#####################################################################
 !#####################################################################
 
-      !> Propose a lambda factor for the LM\n
-      !! LM_Stru(LMFIT_class): Structure with Jacobian and other LM
-      !!                       quantities\n
-      !!       Lambda(double): The Lambda factor
+      !> Propose a new Levenberg-Marquardt lambda parameter\n
+      !!  LM_Stru(LMFIT_class): Structure with data for the
+      !!                        Levenberg–Marquardt\n
+      !!        Lambda(double): Levenberg–Marquardt lambda parameter
       subroutine Lambda_propose_fix(LM_Stru,Lambda)
 
-      ! IO
+      ! I/O
       type(LMFIT_class), intent(in):: LM_Stru
       double precision, intent(inout):: Lambda
 
@@ -2640,20 +2620,23 @@
 !#####################################################################
 !#####################################################################
 
-      !> Predict the next value for lambda\n
-      !!        iter(integer): Current iteration\n
-      !!       track(dble(:)): Lambda history\n
-      !!      ntrack(integer): Size of information stored\n
-      !! LM_Stru(LMFIT_class): Structure with Jacobian and
-      !!                       other LM quantities
+      !> Propose the value of the Levenberg-Marquardt lambda parameter
+      !! for the next iteration\n
+      !!         iter(integer): Current iteration\n
+      !!      track(double(:)): Lambda parameter history\n
+      !!       ntrack(integer): Size of history stored\n
+      !!  LM_Stru(LMFIT_class): Structure with data for the
+      !!                        Levenberg–Marquardt
       subroutine predict_lambda(iter,track,ntrack,LM_Stru)
 
-      ! IO
+      ! I/O
+
       integer, intent(in):: iter,ntrack
       double precision, dimension(:), intent(in):: track
       type(LMFIT_class), intent(inout):: LM_Stru
 
       ! Local
+
       double precision:: d1,d2,d3
       double precision, dimension(ntrack):: x,a,b,c
 
@@ -2677,6 +2660,7 @@
             write(umsg,'(A,1x,es15.4)')  &
               ' - Tracking lambda:',track(1)
 
+            ! Verbose depending on MPI regime
             if (gpid.eq.0) then
               call verboseI(0)
               call verboseI(4)
@@ -2731,6 +2715,7 @@
                 ' - Tracking lambda:',track(1),track(2), &
                 ' -> ',LM_Stru%Lambda
 
+              ! Verbose depending on MPI regime
               if (gpid.eq.0) then
                 call verboseI(0)
                 call verboseI(4)
@@ -2764,6 +2749,7 @@
               write(umsg,'(A,1x,es15.4)')  &
                 ' - Tracking lambda:',track(3)
 
+              ! Verbose depending on MPI regime
               if (gpid.eq.0) then
                 call verboseI(0)
                 call verboseI(4)
@@ -2792,6 +2778,7 @@
                 ' - Tracking lambda:',track(2),track(3), &
                 ' -> ',LM_Stru%Lambda
 
+              ! Verbose depending on MPI regime
               if (gpid.eq.0) then
                 call verboseI(0)
                 call verboseI(4)
@@ -2824,6 +2811,7 @@
                 ' - Tracking lambda:',track(1),track(2), &
                 track(3),' -> ',LM_Stru%Lambda
 
+              ! Verbose depending on MPI regime
               if (gpid.eq.0) then
                 call verboseI(0)
                 call verboseI(4)
@@ -2836,7 +2824,11 @@
             ! Sanity check
             if (LM_Stru%Lambda.lt.LM_Stru%Lambda_bounds(1).or.&
                 LM_Stru%Lambda.gt.LM_Stru%Lambda_bounds(2)) then
+
+                ! Set
                 LM_Stru%Lambda = track(3)
+
+            ! Invalid value
             else
 
               ! Check derivatives
@@ -2875,6 +2867,7 @@
         write(umsg,'(A,1x,es15.4)')  &
           ' - New lambda:',LM_Stru%Lambda
 
+        ! Verbose depending on MPI regime
         if (gpid.eq.0) then
           call verboseI(0)
           call verboseI(4)
@@ -2892,13 +2885,13 @@
 !#####################################################################
 !#####################################################################
 
-      !> Update the tracking of lambda\n
-      !!       track(dble(:)): Lambda history\n
-      !!      ntrack(integer): Size of information stored\n
-      !!       lambda(double): The Lambda factor
+      !> Update history of Levenberg-Marquardt lambda parameter\n
+      !!  track(double(:)): Lambda parameter history\n
+      !!   ntrack(integer): Size of history stored\n
+      !!    lambda(double): Levenberg-Marquardt lambda parameter
       subroutine update_lambda(track,ntrack,lambda)
 
-      ! IO
+      ! I/O
       integer, intent(in):: ntrack
       double precision, intent(in):: Lambda
       double precision, dimension(:), intent(inout):: track
@@ -2922,17 +2915,21 @@
 !#####################################################################
 !#####################################################################
 
-      !> Modify the node values according to the SVD solution\n
-      !!    Solution(double(:)): Last solution of the Hessian\n
-      !! Inf_Nodes(Nodes_class): Structure with nodes data
+      !> Modify the parameter node values according to the SVD
+      !! solution\n
+      !!     Solution(double(:)): SVD solution\n
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
       subroutine Nodes_Modify(Solution,Inf_Nodes)
 
-      ! IO
+      ! I/O
+
       type(Nodes_class), intent(inout):: Inf_Nodes
-      double precision, dimension(:), allocatable:: Solution
+      double precision, dimension(:), &
+                        allocatable, intent(in):: Solution
 
       ! Local
-      integer:: tmp, i
+
+      integer:: tmp,i
 
 
       ! Initialize running index
@@ -2985,12 +2982,16 @@
 !#####################################################################
 !#####################################################################
 
-      !> Check limits of lambda factor\n
-      !!           Lambda(double): Value of lambda factor\n
-      !! Lambda_limits(double(2)): Boundary limits for lambda factor
+      !> Enforce limits of Levenberg-Marquardt lambda parameter\n
+      !!            Lambda(double): Levenberg-Marquardt lambda
+      !!                            parameter\n
+      !!  Lambda_limits(double(:)): Boundary limits for
+      !!                            Levenberg-Marquardt lambda
+      !!                            parameter
       subroutine CheckLambda(Lambda,Lambda_limits)
 
-      ! IO
+      ! I/O
+
       double precision, intent(inout):: Lambda
       double precision, dimension(2), intent(in):: Lambda_limits
 
@@ -3016,23 +3017,37 @@
 !#####################################################################
 !#####################################################################
 
-      !> Set best solution\n
-      !!  Sol(Solution_F_class): Class with the data of the RT
-      !!                         solution\n
-      !!          best(logical): If really the best or just in
-      !!                         backtracking\n
-      !!          copy(logical): If getting from backtracking
+      !> Set a self-consistent solution as the best\n
+      !!  Sol(Solution_class): Structure with the frequency and
+      !!                       synthetic Stokes parameters in the
+      !!                       frequency range of the inverted data\n
+      !!        best(logical): If the proposed solution is really the
+      !!                       best and not just the best of the
+      !!                       backtracking\n
+      !!        copy(logical): If the solution comes from the
+      !!                       backtracking
       subroutine set_best(Sol,best,copy)
 
       ! I/O
+
       type(Solution_F_class), intent(inout):: Sol
       logical, intent(in):: best, copy
+
+      ! Local
+
+      logical:: ex1,ex2,ex3
+
 
       ! Slaves, leave
       if (pid.gt.0) return
 
       ! Truly the best
       if (best) then
+
+        ! Existence flags
+        ex1 = allocated(Sol%e_Stk_b)
+        ex2 = allocated(Sol%e_tau1_b)
+        ex3 = allocated(Sol%e_Ctr_b)
 
         ! If copying
         if (copy) then
@@ -3070,8 +3085,20 @@
 
         end if ! Copying from backtrace?
 
+        ! Memory
+        if (.not.ex1) SRAMc = SRAMc + 1d-6*sizeof(Sol%e_Stk_b)
+        if (.not.ex2.and.allocated(Sol%e_Ctr_b)) &
+          SRAMc = SRAMc + 1d-6*sizeof(Sol%e_Ctr_b)
+        if (.not.ex3.and.allocated(Sol%e_tau1_b)) &
+          SRAMc = SRAMc + 1d-6*sizeof(Sol%e_tau1_b)
+
       ! Provisional best
       else
+
+        ! Existence flags
+        ex1 = allocated(Sol%e_Stk_t)
+        ex2 = allocated(Sol%e_tau1_t)
+        ex3 = allocated(Sol%e_Ctr_t)
 
         ! Copy what is allocated
         if (allocated(Sol%i_J00)) Sol%i_J00_t = Sol%i_J00
@@ -3086,6 +3113,13 @@
         if (allocated(Sol%i_JKQC)) Sol%i_JKQS_t = Sol%i_JKQS
         if (allocated(Sol%i_JKQC)) Sol%i_JKQC_t = Sol%i_JKQC
         if (allocated(Sol%i_rhoes)) Sol%i_rhoes_t = Sol%i_rhoes
+
+        ! Memory
+        if (.not.ex1) SRAMc = SRAMc + 1d-6*sizeof(Sol%e_Stk_t)
+        if (.not.ex2.and.allocated(Sol%e_Ctr_t)) &
+          SRAMc = SRAMc + 1d-6*sizeof(Sol%e_Ctr_t)
+        if (.not.ex3.and.allocated(Sol%e_tau1_t)) &
+          SRAMc = SRAMc + 1d-6*sizeof(Sol%e_tau1_t)
 
       end if ! Truly the best
 

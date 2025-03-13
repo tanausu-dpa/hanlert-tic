@@ -5,19 +5,19 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
 !     11/11/2022
 !  Last version:
-!     11/24/2022 V3.0.0
+!     28/11/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     11/24/2022:    V3.0.0 - First version (TdPA)
+!     28/11/2024:    V4.0.0 - Updated calls to abortedS to not include
+!                             thread information (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -27,12 +27,15 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    Manages everything related to CHIANTI data
-!
-!    rCHIANTI
-!      Read ionization fraction from the CHIANTI database
+!  rCHIANTI
+!    Read the ionization fraction data from the CHIANTI database
 !
 !#####################################################################
 !#####################################################################
@@ -50,8 +53,8 @@
 !#####################################################################
 !#####################################################################
 
-      !> Read CHIANTI data\n
-      !!      Input(Input_class): Structure with settings data\n
+      !> Read the ionization fraction data from the CHIANTI database\n
+      !!      Input(Input_class): Structure with configuration data\n
       !!  chianti(chianti_class): Structure with the CHIANTI data
       subroutine rCHIANTI(Input,chianti)
 
@@ -66,20 +69,20 @@
       real, dimension(:), allocatable:: buffer
 
 
-      !
-      ! If no input, exit
-      !
+      ! If no input
       if (trim(Input%chianti_path).eq.'NONE') then
 
           ! This signals the lack of data
           chianti%nT = -1
           chianti%nE = -1
+
+          ! And exit
           return
 
-      end if
+      end if ! No Input
 
       !
-      ! Master reads and shared
+      ! Master
       !
       if (gpid.eq.0) then
 
@@ -104,7 +107,7 @@
         ! Initialize last position
         last = nT
 
-        ! Read elements
+        ! For each element
         do iel=1,nels
 
           ! Read into buffer
@@ -127,7 +130,7 @@
         deallocate(buffer)
 
       !
-      ! Slaves receive and store
+      ! Slaves
       !
       else
 
@@ -143,6 +146,9 @@
         allocate(chianti%ioneq_data(chianti%Nioneq))
         allocate(chianti%ioneq(chianti%nE))
 
+        ! Add memory count
+        MRAMc = MRAMc + 1d-6*sizeof(chianti%ioneq_data)
+
         ! Receive data
         call MPI_BCAST(chianti%ioneq_data,chianti%Nioneq, &
                        MPI_REAL,0,MPI_COMM_WORLD,ios)
@@ -155,6 +161,9 @@
 
         ! For each element
         do i1=1,chianti%nE
+
+          ! Add memory count
+          MRAMc = MRAMc + 1d-6*sizeof(chianti%ioneq(i1))
 
           ! Number of stages
           chianti%ioneq(i1)%nI = i1+1
@@ -170,14 +179,19 @@
           allocate(chianti%ioneq(i1)% &
                            d(chianti%nT,chianti%ioneq(i1)%nI))
 
-          ! For each ionization
+          ! Add memory count
+          MRAMc = MRAMc + 1d-6*sizeof(chianti%ioneq(i1)%b)
+          MRAMc = MRAMc + 1d-6*sizeof(chianti%ioneq(i1)%c)
+          MRAMc = MRAMc + 1d-6*sizeof(chianti%ioneq(i1)%d)
+
+          ! For each ionization stage
           do i2=1,chianti%ioneq(i1)%nI
 
             ! Point to ionization data
             chianti%ioneq(i1)%stage(i2)%p =>  &
                 chianti%ioneq_data(last+1:last+chianti%nT)
 
-            ! Get splines
+            ! Calculate coefficients for splines
             call spline(dble(chianti%ioneq_T), &
                         dble(chianti%ioneq(i1)%stage(i2)%p), &
                         chianti%ioneq(i1)%b(:,i2), &
@@ -197,13 +211,15 @@
 
 1000  umsg = 'Error opening CHIANTI ioneq file'
       urou = 'rCHIANTI'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
+      return
 1100  umsg = 'Error reading CHIANTI ioneq file'
       urou = 'rCHIANTI'
       close(100)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
+      return
 
       end subroutine rCHIANTI
 

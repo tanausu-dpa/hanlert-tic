@@ -5,185 +5,120 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     04/19/2017
+!     19/04/2017
 !  Last version:
-!     11/24/2023 V3.0.4
+!     28/11/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     11/24/2023:    V3.0.4 - Added getpf_T routine (TdPA)
-!
-!     09/08/2023:    V3.0.3 - Added return value to recallabund_ind
-!                             and recallmass_ind in case of failure,
-!                             valgrind catched those (TdPA)
-!
-!     11/24/2022:    V3.0.2 - Added chianti_fraction subroutine (TdPA)
-!
-!     10/25/2022:    V3.0.1 - Updated header of LTEiz routine (TdPA)
-!
-!     07/13/2022:    V3.0.1 - The checkpf function is no longer needed
-!                             and has been removed (TdPA)
-!                           - getpf no longer reads the partition
-!                             function file. Instead, it gets its data
-!                             from the Atmo structure. Therefore, the
-!                             argument resource has been changed to
-!                             Atmo (TdPA)
-!
-!     03/23/2021:    V2.0.1 - Changed call to abortedS (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!                           - Removed domain decomposition (TdPA)
-!
-!     09/11/2020:    V1.5.0 - The equation of state routines and the
-!                             ionization fractions for metals take
-!                             into account the option to input
-!                             departure coefficients (TdPA)
-!                           - Added H_fraction subroutine (TdPA)
-!                           - Added LTEiz subroutine (TdPA)
-!
-!     03/05/2020:    V1.4.1 - In the partial pressure routines, put
-!                             the computation of metal ionization
-!                             fraction with nlte data in a new
-!                             routine. If no neutral and first ion
-!                             stage, reverts back to LTE (TdPA)
-!                           - Added metal_fraction routine (TdPA)
-!
-!     03/05/2019:    V1.4.0 - Added another return option for getfrc
-!                             routine, although not used (TdPA)
-!                           - Added getdfrc that also returns the
-!                             derivative of the ionization fraction
-!                             to be used in redo_ne (TdPA)
-!                           - Simplified the eqstate_ routines. The
-!                             parts reomved went into other new
-!                             routines. They take into account
-!                             provided nlte populations (TdPA)
-!                           - Removed partial_press routine and
-!                             added partial_press_known,
-!                             partial_press_Pg, partial_press_Pe,
-!                             and set_Hdensities (TdPA)
-!
-!     11/19/2019:    V1.3.1 - Removed checks in allocate and
-!                             deallocate calls (TdPA)
-!
-!     09/26/2019:    V1.3.0 - Added subroutines eqstate_known,
-!                             eqstate_gas, eqstate_ele,
-!                             partial_press, and set_densities and
-!                             functions recallnumber, fsaha, and
-!                             moldata_ind, to be able to receive
-!                             different density/pressure inputs (TdPA)
-!
-!     04/08/2019:    V1.2.0 - Added several routines for atomic data
-!                             and partition function request (TdPA)
-!                           - Getpf can now request one ion (TdPA)
-!
-!     02/20/2019:    V1.1.0 - New verbosity (TdPA)
-!                           - Changed file unit to 200 (TdPA)
-!
-!     09/15/2017:    V1.0.1 - Variable path for partfunc file (TdPA)
-!
-!     04/19/2017:    V1.0.0 - First version (TdPA)
+!     28/11/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
 !
 !  Known bugs:
 !
-!    We could give some freedom with the abundances, maybe taking
-!  them from a file?
+!#####################################################################
+!#####################################################################
+!
+!  To do:
+!
+!    Implement better equation of state
 !
 !#####################################################################
 !#####################################################################
 !
 !  Data:
 !
-!    Auxiliar routines for chemic_mod
+!  recallnumber
+!    Return number of atoms in database
 !
-!  recallnumber:
-!    Gets maximum index of atom in the hardwired tables
+!  recallabund
+!    Return hard-coded abundance of an atom specified by name in
+!  N/NH
 !
-!  recallabund:
-!    Gets the abundance of the atom from the hardwired table given
-!  the ID
+!  recallabund_ind
+!    Return hard-coded abundance of an atom specified by index in
+!  N/NH
 !
-!  recallabund_ind:
-!    Gets the abundance of the atom from the hardwired table given
-!  the atomic number
+!  recallmass_ind
+!    Return hard-coded mass of an atom specified by index in AMU
 !
-!  recallmass_ind:
-!    Gets the mass of the atom in AMU given the atomic number
+!  atom_char2index
+!    Return the index of an atom specified by name
 !
-!  atom_char2index:
-!    Gets the atomic number given the ID
+!  atom_index2char
+!    Return name of an atom specified by index
 !
-!  atom_index2char:
-!    Gets the atom ID given the atomic number
+!  getpf_T
+!    Get partition function, ionization energy, and number of stages
+!  of the atom specified by name at a given temperature
 !
-!  getpf_T:
-!    Gets the partition function of an element or ion for an specific
-!  temperature
+!  getpf
+!    Get partition function, ionization energy, and number of stages
+!  of the atom specified by name at all heights
 !
-!  getpf:
-!    Gets the partition function of an element or ion
+!  getfrc
+!    Get ionization fraction for the specified stages at a given
+!  temperature and for a given electron density
 !
-!  getfrc:
-!    Gets the fractions of an element in an ionization stage
+!  getdfrc
+!    Get ionization fraction derivative at a given temperature and
+!  for a given electron density
 !
-!  getdfrc:
-!    Gets the derivative of the fraction of an element in an
-!  ionization stage
+!  eqstate_known
+!    Get pressure and mass density for known number densities at every
+!  height
 !
-!  eqstate_known:
-!    Computes pressures/densities when number densities were fully
-!  given
+!  eqstate_gas
+!    Get pressure and mass density for known gas pressure at every
+!  height
 !
-!  eqstate_gas:
-!    Computes pressures/densities from the gas pressure
+!  eqstate_ele
+!    Get pressure and mass density for known electron pressure at
+!  every height
 !
-!  eqstate_ele:
-!    Computes pressures/densities from the electron pressure
+!  partial_press_known
+!    Compute partial pressures of ions from known ionization data
 !
-!  partial_press_known:
-!    Compute partial pressure of ions with known ionization data
+!  partial_press_Pg
+!    Compute partial pressures of ions from known gas pressure
 !
-!  partial_press_Pg:
-!    Compute partial pressure of ions with known gas pressure
+!  partial_press_Pe
+!    Compute partial pressures of ions from known electron pressure
 !
-!  partial_press_Pe:
-!    Compute partial pressure of ions with known electron pressure
+!  metal_fraction
+!    Compute ion fraction from populations in an atomic model
 !
-!  metal_fraction:
-!    Computes ion fraction from populations in an atomic model
+!  chianti_fraction
+!    Compute ionization fraction of stages in an atomic model from
+!  CHIANTI data for a given temperature
 !
-!  chianti_fraction:
-!    Return the ionization fraction of all the stages in a model
-!  atom from the data from the CHIANTI database
+!  H_fraction
+!    Compute ion fraction from populations in Hydrogen model
 !
-!  H_fraction:
-!    Computes ion fraction from populations in Hydrogen model
+!  LTEiz
+!    Computes LTE populations at a given height
 !
-!  LTEiz:
-!    Computes LTE populations for a given height
-!
-!  set_densities:
-!    Sets the atmospheric quantities from the computed partial
+!  set_densities
+!    Set the atmospheric quantities from the computed partial
 !  pressures
 !
-!  set_Hdensities:
-!    Sets the H atmospheric quantities from the computed partial
-!  pressures
+!  set_Hdensities
+!    Set the hydrogen density atmospheric quantities from the computed
+!  partial pressures
 !
-!  fsaha:
-!    Computes Saha coefficients for partial_press
+!  fsaha
+!    Compute Saha factor for equation of state
 !
-!  moldata_ind:
-!    For a molecule index and temperature, returns the coefficient
-!  needed in partial_press
+!  moldata_ind
+!    Get molecular quantities for equation of state. Data taken from
+!  the SIR code
 !
 !#####################################################################
 !#####################################################################
@@ -202,11 +137,14 @@
 
       ! Number of atoms contributing in partial_pressure
       integer, parameter:: natom = 28
+
       ! Number of molecules contributing in partial_pressure
       integer, parameter:: nmol = 2
+
       ! Maxumum iterations in eqstate_gas
       integer, parameter:: maxitereq = 50
-      ! MRC in eqstate_gas
+
+      ! MRC tolerance in eqstate_gas
       double precision, parameter:: eps = 1d-2
 
       contains
@@ -215,10 +153,11 @@
 !#####################################################################
 !#####################################################################
 
-      !> Returns number of atoms in database
+      !> Return number of atoms in database\n
+      !!  x(integer):: Dummy argument
       integer function recallnumber(x)
 
-      integer:: x
+      integer, intent(in):: x
 
       recallnumber = x
       recallnumber = 99
@@ -229,13 +168,17 @@
 !#####################################################################
 !#####################################################################
 
-      !> Returns abundance of atom in N/NH\n
-      !!    atm(character(:)): ID of the atom
+      !> Return hard-coded abundance of an atom specified by name in
+      !! N/NH\n
+      !!  atm(character(:)): ID name of the atom
       double precision function recallabund(atm)
 
       ! I/O
+
       character(len=2), intent(in):: atm
 
+
+      ! Select return value given the name
       select case (atm)
         case (' H')
           recallabund = 12.00
@@ -436,11 +379,13 @@
         case ('ES')
           recallabund = -7.96
         case default
+          urou = 'recallabund'
           umsg = 'Atom '//atm//' not found in abundance list'
           call aborted
           return
       end select
 
+      ! Convert to N/NH ratio
       recallabund = 1d1**(recallabund - 12d0)
 
       return
@@ -451,14 +396,18 @@
 !#####################################################################
 !#####################################################################
 
-      !> Returns abundance of atom in N/NH\n
-      !!    atm(integer): Index of the atom
+      !> Return hard-coded abundance of an atom specified by index in
+      !! N/NH\n
+      !!  atm(integer): Index of the atom
       double precision function recallabund_ind(atm)
 
       ! I/O
-      integer:: atm
 
-      ! Data
+      integer, intent(in):: atm
+
+      ! Local
+
+      ! Asplund (2009) abundances
       real, dimension(99), parameter:: aspl2009 = &
            (/ 12.00, 10.99, 1.16, 1.15, 2.6, 8.39, 8.00, 8.66, 4.56, &
               8.09, 6.33 , 7.58, 6.47, 7.55, 5.45, 7.21, 5.50, 6.56, &
@@ -473,15 +422,24 @@
               0.12, -7.96, -0.47, -7.96, -7.96, -7.96, -7.96, -7.96, &
               -7.96, -7.96 /)
 
-      ! Check in bounds
+      ! Check if the index is out of bounds
       if (atm.lt.1.or.atm.gt.99) then
+
+        ! Call error
         write(umsg,'(A,i2,A)') 'Index ',atm, &
                                ' not found in abundance list'
+        urou = 'recallabund_ind'
         call aborted
-        recallabund_ind = 0d0
-        return
-      end if
 
+        ! Dummy value
+        recallabund_ind = 0d0
+
+        ! Return
+        return
+
+      end if ! Invalid index
+
+      ! Get abundance in N/NH
       recallabund_ind = 1d1**(dble(aspl2009(atm)) - 12d0)
 
       return
@@ -492,14 +450,17 @@
 !#####################################################################
 !#####################################################################
 
-      !> Returns mass of atom in amu\n
-      !!    atm(integer): Index of the atom
+      !> Return hard-coded mass of an atom specified by index in AMU\n
+      !!   atm(integer): Index of the atom
       double precision function recallmass_ind(atm)
 
       ! I/O
-      integer:: atm
 
-      ! Data
+      integer, intent(in):: atm
+
+      ! Local
+
+      ! List of masses
       real, dimension(99), parameter:: mass = &
            (/ 1.008,4.003,6.939,9.013,10.810,12.010,14.010,16.000, &
               19.000,20.180,22.990,24.310,26.980,28.090,30.980, &
@@ -518,15 +479,24 @@
               238.000,237.000,244.000,243.000,247.000,247.000, &
               251.000,254.000 /)
 
-      ! Check in bounds
+      ! Check if the index is out of bounds
       if (atm.lt.1.or.atm.gt.99) then
+
+        ! Call error
         write(umsg,'(A,i2,A)') 'Index ',atm, &
                                ' not found in mass list'
+        urou = 'recallmass_ind'
         call aborted
-        recallmass_ind = -1
-        return
-      end if
 
+        ! Dummy value
+        recallmass_ind = -1d0
+
+        ! Return
+        return
+
+      end if ! Invalid index
+
+      ! Get mass in AMU
       recallmass_ind = dble(mass(atm))
 
       return
@@ -537,13 +507,16 @@
 !#####################################################################
 !#####################################################################
 
-      !> Returns index of atom\n
-      !!    atm(character(:)): ID of the atom
+      !> Return the index of an atom specified by name\n
+      !!  atm(character(:)): ID name of the atom
       integer function atom_char2index(atm)
 
       ! I/O
+
       character(len=2), intent(in):: atm
 
+
+      ! Select return value given the name
       select case (atm)
         case (' H')
           atom_char2index = 1
@@ -744,13 +717,13 @@
         case ('ES')
           atom_char2index = 99
         case default
+          urou = 'atom_char2index'
           umsg = 'Atom '//atm//' not found in index list'
           call aborted
           return
       end select
 
-      return
-
+      ! Return
       return
 
       end function atom_char2index
@@ -759,28 +732,37 @@
 !#####################################################################
 !#####################################################################
 
-      !> Returns symbol of atom\n
-      !!    atm(integer): Index of the atom
+      !> Return name of an atom specified by index\n
+      !!  atm(integer): Index of the atom
       character(len=2) function atom_index2char(atm)
 
       ! I/O
-      integer:: atm
+      integer, intent(in):: atm
 
-      ! Data
+      ! Local
+
+      ! List of names
       character(len=198), parameter:: symbols = &
           ' HHELIBE B C N O FNENAMGALSI P SCLAR KCASCTI VCRMNFE'// &
           'CONICUZNGAGEASSEBRKRRBSR YZRNBMOTCRURHPDAGCDINSNSBTE'// &
           ' IXECSBALACEPRNDPMSMEUGDTBDYHOERTMYBLUHFTA WREOSIRPT'// &
           'AUHGTLPBBIPOATRNFRRAACTHPA UNPPUAMCMBKCFES'
 
-      ! Check in bounds
+      ! Check if the index is out of bounds
       if (atm.lt.1.or.atm.gt.99) then
+
+        ! Call error
+        urou = 'atom_index2char'
         write(umsg,'(A,i2,A)') 'Index ',atm, &
                                ' not found in atom symbol list'
         call aborted
-        return
-      end if
 
+        ! Return
+        return
+
+      end if ! Invalid index
+
+      ! Get atom ID name
       atom_index2char = symbols(atm*2-1:atm*2)
 
       end function atom_index2char
@@ -789,15 +771,14 @@
 !#####################################################################
 !#####################################################################
 
-      !> Returns particion function of the atom for one given
-      !! temperature\n
-      !!       Ele(character(:)): ID of the atom\n
-      !!           nstg(integer): Number of stages there is
-      !!                          information on partition function\n
-      !!         pf(dfloat(:,:)): Partition function\n
-      !!           Ei(dfloat(:)): Ionization energy\n
-      !!        Atmo(Atmo_class): Structure with PF data\n
-      !!               T(dfloat): Temperature
+      !> Get partition function, ionization energy, and number of
+      !! stages of the atom specified by name at a given temperature\n
+      !!  Ele(character(:)): ID name of the atom\n
+      !!      nstg(integer): Number of stages\n
+      !!    pf(double(:,:)): Partition function\n
+      !!      Ei(double(:)): Ionization energy\n
+      !!   Atmo(Atmo_class): Structure with PF data\n
+      !!          T(double): Temperature
       subroutine getpf_T(Ele,nstg,pf,Ei,Atmo,T)
 
       ! I/O
@@ -806,60 +787,69 @@
       character(len=2), intent(in):: Ele
       integer, intent(out):: nstg
       double precision, intent(in):: T
-      double precision, dimension(:), allocatable, intent(out):: Ei
-      double precision, dimension(:), allocatable, intent(out):: pf
+      double precision, dimension(:), allocatable, intent(inout):: Ei
+      double precision, dimension(:), allocatable, intent(inout):: pf
 
       ! Local
 
       logical:: interp
 
-      integer:: istg, ii, iele, ind
+      integer:: istg,ii,iele,ind
 
-      double precision:: x0, x1, y0, y1, dx
+      double precision:: x0,x1,y0,y1,dx
 
-      ! Routine name
-      urou = 'getpf_T'
 
       ! Allocate the partition function and ionization energies
+      ! They are not added to memory count because they live
+      ! only in the chemeq() subroutine
       iele = atom_char2index(Ele)
       nstg = Atmo%ele(iele)%nstg
       allocate(pf(nstg))
       allocate(Ei(nstg))
 
-      ! If out of boundaries, take it constant
+      ! If temperature below lower limit
       if (T.le.Atmo%pT(1)) then
 
+        ! Take constant in first data position
         interp = .False.
         ind = 1
 
+      ! If temperature above upper limit
       else if (T.ge.(Atmo%pT(Atmo%NT) - 1d-6)) then
 
+        ! Take constant in last data position
         interp = .False.
         ind = Atmo%NT
 
-      ! If within boundaries, look for the index of the
-      ! lower input boundary and store the denominator
-      ! of the interpolation
+      ! If within boundaries
       else
 
+        ! Run over all tabulated temperatures
         do ii=1,Atmo%NT-1
 
-          ! Exact
+          ! If found an exact value
           if (abs(T - Atmo%pT(ii)).le.1d-6) then
+
+            ! Take constant in found position
             interp = .False.
             ind = ii
             exit
+
+          ! If temperature between two tabulated temperatures
           else if (T.gt.Atmo%pT(ii).and. &
                    T.lt.Atmo%pT(ii+1)) then
+
+            ! Linear interpolation between the two points
             interp = .True.
             ind = ii
             dx = 1d0/(Atmo%pT(ii+1) - Atmo%pT(ii))
             exit
-          end if
 
-        end do
+          end if ! Exact or found between
 
-      end if
+        end do ! Tabulated temperatures
+
+      end if ! Out/in boundaries
 
       ! For each stage
       do istg=1,nstg
@@ -867,19 +857,22 @@
         ! If interpolating
         if (interp) then
 
+          ! Get x and y axis data for the two involved points
           y1 = Atmo%ele(iele)%pf(ind + 1,istg)
           y0 = Atmo%ele(iele)%pf(ind,istg)
           x1 = Atmo%pT(ind + 1)
           x0 = Atmo%pT(ind)
 
+          ! Linear interpolation (dx was pre-calculated above)
           pf(istg) = ((y1 - y0)*T + y0*x1 - y1*x0)*dx
 
-        ! if not interpolating
+        ! If not interpolating
         else
 
+          ! Just take the value at the suitable location
           pf(istg) = Atmo%ele(iele)%pf(ind,istg)
 
-        end if
+        end if ! Interpolating
 
         ! Ionization energy
         Ei(istg) = Atmo%ele(iele)%Ei(istg)
@@ -894,14 +887,13 @@
 !#####################################################################
 !#####################################################################
 
-      !> Returns particion function of the atom for the given
-      !! temperature\n
-      !!       Ele(character(:)): ID of the atom\n
-      !!           nstg(integer): Number of stages there is
-      !!                          information on partition function\n
-      !!         pf(dfloat(:,:)): Partition function\n
-      !!           Ei(dfloat(:)): Ionization energy\n
-      !!        Atmo(Atmo_class): Structure with atmospheric data
+      !> Get partition function, ionization energy, and number of
+      !! stages of the atom specified by name at all heights\n
+      !!  Ele(character(:)): ID name of the atom\n
+      !!      nstg(integer): Number of stages\n
+      !!    pf(double(:,:)): Partition function\n
+      !!      Ei(double(:)): Ionization energy\n
+      !!   Atmo(Atmo_class): Structure with atmospheric data
       subroutine getpf(Ele,nstg,pf,Ei,Atmo)
 
       ! I/O
@@ -909,21 +901,22 @@
       type(Atmo_class), intent(in):: Atmo
       character(len=2), intent(in):: Ele
       integer, intent(out):: nstg
-      double precision, dimension(:), allocatable, intent(out):: Ei
-      double precision, dimension(:,:), allocatable, intent(out):: pf
+      double precision, dimension(:), allocatable, intent(inout):: Ei
+      double precision, dimension(:,:), &
+                        allocatable, intent(inout):: pf
 
       ! Local
 
       logical:: interp
 
-      integer:: istg, ii, iele, iz, ind
+      integer:: istg,ii,iele,iz,ind
 
-      double precision:: x0, x1, y0, y1, dx
+      double precision:: x0,x1,y0,y1,dx
 
-      ! Routine name
-      urou = 'getpf'
 
       ! Allocate the partition function and ionization energies
+      ! They are not added to memory count because they live
+      ! only in the chemeq() subroutine
       iele = atom_char2index(Ele)
       nstg = Atmo%ele(iele)%nstg
       allocate(pf(nstg,NZ))
@@ -932,40 +925,49 @@
       ! For each height
       do iz=1,NZ
 
-        ! If out of boundaries, take it constant
+        ! If temperature below lower limit
         if (Atmo%T(iz).le.Atmo%pT(1)) then
 
+          ! Take constant in first data position
           interp = .False.
           ind = 1
 
+        ! If temperature above upper limit
         else if (Atmo%T(iz).ge.(Atmo%pT(Atmo%NT) - 1d-6)) then
 
+          ! Take constant in last data position
           interp = .False.
           ind = Atmo%NT
 
-        ! If within boundaries, look for the index of the
-        ! lower input boundary and store the denominator
-        ! of the interpolation
+        ! If within boundaries
         else
 
+          ! Run over all tabulated temperatures
           do ii=1,Atmo%NT-1
 
-            ! Exact
+            ! If found an exact value
             if (abs(Atmo%T(iz) - Atmo%pT(ii)).le.1d-6) then
+
+              ! Take constant in found position
               interp = .False.
               ind = ii
               exit
+
+            ! If temperature between two tabulated temperatures
             else if (Atmo%T(iz).gt.Atmo%pT(ii).and. &
                      Atmo%T(iz).lt.Atmo%pT(ii+1)) then
+
+              ! Linear interpolation between the two points
               interp = .True.
               ind = ii
               dx = 1d0/(Atmo%pT(ii+1) - Atmo%pT(ii))
               exit
-            end if
 
-          end do
+            end if ! Exact or found between
 
-        end if
+          end do ! Tabulated temperatures
+
+        end if ! Out/in boundaries
 
         ! For each stage
         do istg=1,nstg
@@ -973,20 +975,23 @@
           ! If interpolating
           if (interp) then
 
+            ! Get x and y axis data for the two involved points
             y1 = Atmo%ele(iele)%pf(ind + 1,istg)
             y0 = Atmo%ele(iele)%pf(ind,istg)
             x1 = Atmo%pT(ind + 1)
             x0 = Atmo%pT(ind)
 
+            ! Linear interpolation (dx was pre-calculated above)
             pf(istg,iz) = ((y1 - y0)*Atmo%T(iz) + &
                            y0*x1 - y1*x0)*dx
 
-          ! if not interpolating
+          ! If not interpolating
           else
 
+            ! Just take the value at the suitable location
             pf(istg,iz) = Atmo%ele(iele)%pf(ind,istg)
 
-          end if
+          end if ! Interpolating
 
           ! Ionization energy
           Ei(istg) = Atmo%ele(iele)%Ei(istg)
@@ -1002,22 +1007,23 @@
 !#####################################################################
 !#####################################################################
 
-      !> Returns ion fraction\n
-      !!           nstg(integer): Number of stages to consider\n
-      !!           pf(dfloat(:)): Partition function\n
-      !!           Ei(dfloat(:)): Ionization energy\n
-      !!               T(dfloat): Temperature\n
-      !!              ne(dfloat): Electron density\n
-      !!            ion(integer): Requested ion\n
-      !!          frc(dfloat(:)): Ion fraction
+      !> Get ionization fraction for the specified stages at a given
+      !! temperature and for a given electron density\n
+      !!   nstg(integer): Number of stages to consider\n
+      !!   pf(double(:)): Partition function\n
+      !!   Ei(double(:)): Ionization energy\n
+      !!       T(double): Temperature\n
+      !!      ne(double): Electron density\n
+      !!    ion(integer): Requested ion\n
+      !!  frc(double(:)): Ionization fraction
       subroutine getfrc(nstg,pf,Ei,T,ne,ion,frc)
 
       ! I/O
 
-      integer, intent(in):: nstg, ion
-      double precision, intent(in):: T, ne
-      double precision, dimension(:), intent(in):: Ei, pf
-      double precision, dimension(:), intent(out):: frc
+      integer, intent(in):: nstg,ion
+      double precision, intent(in):: T,ne
+      double precision, dimension(:), intent(in):: Ei,pf
+      double precision, dimension(:), intent(inout):: frc
 
       ! Local
 
@@ -1048,7 +1054,8 @@
         ! Argument of the exponential
         arg = U1 - U0 - Ei(istg-1)*ikT
 
-        ! Numerator of the population solution
+        ! Calculate exponential for the numerator of the population
+        ! solution
         if (arg.lt.0d0) then
           arg = -arg
           exu = diexp(arg)
@@ -1056,7 +1063,7 @@
           exu = ddexp(arg)
         end if
 
-        ! Numerator of the fraction for this stage
+        ! Numerator of the ionization fraction for this stage
         frcl(istg) = frcl(istg-1)*C1*exu
 
         ! Avoid very small fractions
@@ -1068,24 +1075,24 @@
         ! Shift the partition function
         U0 = U1
 
-      end do
+      end do ! Stages
 
       ! Compute the fractions
       frcl = frcl/S
 
-      ! If chemic is calling
+      ! If called from chemic subroutine
       if (ion.lt.0) then
 
         ! We only want the first two
         frc = frcl(1:2)
 
-      ! If redo_ne is calling
+      ! If calling from redo_ne subroutine
       else if (ion.eq.0) then
 
         ! We want them all
         frc = frcl
 
-      ! If Kurucz is calling
+      ! If calling from Kurucz subroutine
       else
 
         ! We only want one of them
@@ -1101,28 +1108,29 @@
 !#####################################################################
 !#####################################################################
 
-      !> Returns ion fraction and derivative\n
-      !!           nstg(integer): Number of stages to consider\n
-      !!           pf(dfloat(:)): Partition function\n
-      !!           Ei(dfloat(:)): Ionization energy\n
-      !!               T(dfloat): Temperature\n
-      !!              ne(dfloat): Electron density\n
-      !!          frc(dfloat(:)): Ion fraction\n
-      !!         dfrc(dfloat(:)): Ion fraction derivative
+      !> Get ionization fraction derivative at a given temperature and
+      !! for a given electron density\n
+      !!    nstg(integer): Number of stages to consider\n
+      !!    pf(double(:)): Partition function\n
+      !!    Ei(double(:)): Ionization energy\n
+      !!        T(double): Temperature\n
+      !!       ne(double): Electron density\n
+      !!   frc(double(:)): Ionization fraction\n
+      !!  dfrc(double(:)): Ionization fraction derivative
       subroutine getdfrc(nstg,pf,Ei,T,ne,frc,dfrc)
 
       ! I/O
 
       integer, intent(in):: nstg
-      double precision, intent(in):: T, ne
-      double precision, dimension(:), intent(in):: Ei, pf
-      double precision, dimension(:), intent(out):: frc, dfrc
+      double precision, intent(in):: T,ne
+      double precision, dimension(:), intent(in):: Ei,pf
+      double precision, dimension(:), intent(out):: frc,dfrc
 
       ! Local
 
       integer:: istg
 
-      double precision:: U0, U1, C0, C1, S, S2, ikT, arg, exu
+      double precision:: U0,U1,C0,C1,S,S2,ikT,arg,exu
 
 
       ! Constants
@@ -1148,7 +1156,7 @@
         ! Argument of the exponential
         arg = U1 - U0 - Ei(istg-1)*ikT
 
-        ! Numerator of the population solution
+        ! Exponential for the numerator of the population solution
         if (arg.lt.0d0) then
           arg = -arg
           exu = diexp(arg)
@@ -1172,7 +1180,7 @@
         ! Shift the partition function
         U0 = U1
 
-      end do
+      end do ! Stages
 
       ! For each stage
       do istg=1,nstg
@@ -1181,7 +1189,7 @@
         frc(istg) = frc(istg)/S
         dfrc(istg) = (dfrc(istg) - frc(istg)*S2)/S
 
-      end do
+      end do ! Stages
 
       return
 
@@ -1191,26 +1199,27 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes pressures/densities just for writing\n
-      !!     Atmo(Atmo_class): Structure with atmospheric data\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!    Atomb(Atom_class): Structure with the atomic data for
-      !!                       background opacities\n
-      !!     nlte(integer(:)): Array with indication about the type
-      !!                       of ionization balance\n
-      !!    depar(integer(:)): Array with indication about the type
-      !!                       of ionization balance\n
-      !!    atoms(catm_class): Array of structures with
-      !!                       ionization and partition function
-      !!                       data
+      !> Get pressure and mass density for known number densities
+      !! at every height\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atins\n
+      !!      nlte(integer(:)): Array with indication about the type
+      !!                        of ionization balance\n
+      !!     depar(integer(:)): Array with indication about the type
+      !!                        of ionization balance\n
+      !!     atoms(catm_class): Array of structures with
+      !!                        ionization and partition function
+      !!                        data
       subroutine eqstate_known(Atmo,Atom,Atomb,nlte,depar,atoms)
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom, Atomb
+      type(Atom_class), dimension(:), intent(in):: Atom,Atomb
       type(Atmo_class), intent(inout):: Atmo
       type(catm_class), dimension(:), intent(in):: atoms
-      integer, dimension(:), intent(in):: nlte, depar
+      integer, dimension(:), intent(in):: nlte,depar
 
       ! Local
 
@@ -1220,10 +1229,11 @@
       ! For each height
       do iz=1,nz
 
-        ! Compute gas and electron pressure
+        ! Compute gas and electron pressure for known number
+        ! densities
         call partial_press_known(Atmo,iz,Atom,Atomb,atoms,nlte,depar)
 
-      end do
+      end do ! Heights
 
       end subroutine eqstate_known
 
@@ -1231,18 +1241,19 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes pressures/densities from gas pressure\n
-      !!     Atmo(Atmo_class): Structure with atmospheric data\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!    Atomb(Atom_class): Structure with the atomic data for
-      !!                       background opacities\n
-      !!     nlte(integer(:)): Array with indication about the type
-      !!                       of ionization balance\n
-      !!    depar(integer(:)): Array with indication about the type
-      !!                       of ionization balance\n
-      !!    atoms(catm_class): Array of structures with
-      !!                       ionization and partition function
-      !!                       data
+      !> Get pressure and mass density for known gas pressure at every
+      !! height\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atins\n
+      !!      nlte(integer(:)): Array with indication about the type
+      !!                        of ionization balance\n
+      !!     depar(integer(:)): Array with indication about the type
+      !!                        of ionization balance\n
+      !!     atoms(catm_class): Array of structures with
+      !!                        ionization and partition function
+      !!                        data
       subroutine eqstate_gas(Atmo,Atom,Atomb,nlte,depar,atoms)
 
       ! I/O
@@ -1256,11 +1267,11 @@
 
       integer:: iz
 
-      ! First guess of electron pressure
+      ! First guess for electron pressure
       Atmo%Pe = 0.3d0*Atmo%Pg
       Atmo%ne = Atmo%Pe*1d-7/(Atmo%T*kb)
 
-      ! For each point
+      ! For each height
       do iz=1,nz
 
         ! Call partial pressure calculator
@@ -1278,26 +1289,27 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes pressures/densities from electron pressure\n
-      !!        Atmo(Atmo_class): Structure with atmospheric data\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!    Atomb(Atom_class): Structure with the atomic data for
-      !!                       background opacities\n
-      !!     nlte(integer(:)): Array with indication about the type
-      !!                       of ionization balance\n
-      !!    depar(integer(:)): Array with indication about the type
-      !!                       of ionization balance\n
-      !!    atoms(catm_class): Array of structures with
-      !!                       ionization and partition function
-      !!                       data
+      !> Get pressure and mass density for known electron pressure at
+      !! every height\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atins\n
+      !!      nlte(integer(:)): Array with indication about the type
+      !!                        of ionization balance\n
+      !!     depar(integer(:)): Array with indication about the type
+      !!                        of ionization balance\n
+      !!     atoms(catm_class): Array of structures with
+      !!                        ionization and partition function
+      !!                        data
       subroutine eqstate_ele(Atmo,Atom,Atomb,nlte,depar,atoms)
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom, Atomb
+      type(Atom_class), dimension(:), intent(in):: Atom,Atomb
       type(Atmo_class), intent(inout):: Atmo
       type(catm_class), dimension(:), intent(in):: atoms
-      integer, dimension(:), intent(in):: nlte, depar
+      integer, dimension(:), intent(in):: nlte,depar
 
       ! Local
 
@@ -1321,29 +1333,30 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes partial pressures with known ionization data\n
-      !!     Atmo(Atmo_class): Structure with atmospheric data\n
-      !!          iz(integer): Height index\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!    Atomb(Atom_class): Structure with the atomic data for
-      !!                          background opacities\n
-      !!    atoms(catm_class): Array of structures with
-      !!                       ionization and partition function
-      !!                       data\n
-      !!     nlte(integer(:)): Array with indication about the type
-      !!                       of ionization balance\n
-      !!    depar(integer(:)): Array with indication about the type
-      !!                       of ionization balance\n
+      !> Compute partial pressures of ions from known ionization
+      !! data\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data\n
+      !!           iz(integer): Height index\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atins\n
+      !!     atoms(catm_class): Array of structures with
+      !!                        ionization and partition function
+      !!                        data
+      !!      nlte(integer(:)): Array with indication about the type
+      !!                        of ionization balance\n
+      !!     depar(integer(:)): Array with indication about the type
+      !!                        of ionization balance\n
       subroutine partial_press_known(Atmo,iz,Atom,Atomb,atoms, &
                                      nlte,depar)
 
       ! I/O
 
       type(Atmo_class), intent(inout):: Atmo
-      type(Atom_class), dimension(:), intent(in):: Atom, Atomb
+      type(Atom_class), dimension(:), intent(in):: Atom,Atomb
       type(catm_class), dimension(:), intent(in):: atoms
       integer, intent(in):: iz
-      integer, dimension(:), intent(in):: nlte, depar
+      integer, dimension(:), intent(in):: nlte,depar
 
       ! Local
 
@@ -1354,13 +1367,11 @@
       double precision:: g1,g2,g3,g4,g5
       double precision:: c1,c2,c3,c6,c7
 
-      ! Variables that depend on parameters
+      ! Variables dependent on parameters
       double precision, dimension(nmol):: cmol
 
 
-      !
-      ! Input quantities
-      !
+      ! Temperature in eV and gas known electron pressure
       t = 5040d0/Atmo%T(iz)
       Pe = Atmo%Pe(iz)
 
@@ -1369,12 +1380,14 @@
         cmol(im) = moldata_ind(t,im)
       end do
 
-      ! H2+ and H2 dissociation coefficient inverses times
+      ! H2+ and H2 dissociation coefficient inverses, multiplied by
       ! electron pressure
       g4 = Pe*10d0**cmol(1)
       g5 = Pe*10d0**cmol(2)
 
+      !
       ! Hydrogen
+      !
 
       ! P(H+)/P(H)
       g2 = Atmo%nH(iz,6)/sum(Atmo%nH(iz,1:5))
@@ -1391,11 +1404,11 @@
         ! If full LTE
         if (nlte(iatom).eq.0.and.depar(iatom).eq.0) then
 
-          ! Fraction first ion to neutral
+          ! Ionization fraction first ion to neutral
           a = fsaha(t,atoms(iatom)%Eion(1),atoms(iatom)%pf(1,iz), &
                     atoms(iatom)%pf(2,iz),Pe)
 
-          ! Fraction second ion to first ion
+          ! Ionization fraction second ion to first ion
           b = fsaha(t,atoms(iatom)%Eion(2),atoms(iatom)%pf(2,iz), &
                     atoms(iatom)%pf(3,iz),Pe)
 
@@ -1443,15 +1456,21 @@
             end if ! Active/Passive
           end if ! Departure/populations
 
-          ! If invalid fractions, do LTE
+          ! If invalid fractions
           if (a.lt.0d0) then
-            ! Fraction first ion to neutral
+
+            !
+            ! Do LTE
+            !
+
+            ! Ionization fraction first ion to neutral
             a = fsaha(t,atoms(iatom)%Eion(1),atoms(iatom)%pf(1,iz), &
                       atoms(iatom)%pf(2,iz),Pe)
 
-            ! Fraction second ion to first ion
+            ! Ionization fraction second ion to first ion
             b = fsaha(t,atoms(iatom)%Eion(2),atoms(iatom)%pf(2,iz), &
                       atoms(iatom)%pf(3,iz),Pe)
+
           end if ! Invalid fraction
         end if ! LTE/NLTE
 
@@ -1463,7 +1482,6 @@
 
         ! Add to total atomic pressure
         g1 = g1 + Pa*a*(1d0 + 2d0*b)
-
 
       end do ! Atoms
 
@@ -1489,12 +1507,14 @@
       ! H pressure
       PHtot = Pe/fe
 
-      ! If too little H2
+      ! If whatever is f5 is too small
       if (f5.le.1d-4) then
 
+        ! Whatever this is
         c6 = g5*f1*f1/Pe
         c7 = g1 + f2 - f3
 
+        ! No idea what this is for
         do ii=1,5
           f5 = PHtot*c6
           f4 = e*f5
@@ -1502,9 +1522,9 @@
           PHtot = Pe/fe
         end do
 
-      end if ! H2 fraction
+      end if ! Dimension f5
 
-      ! Solve pressures
+      ! Solve for gas pressure
       Atmo%Pg(iz) = Pe*(1d0 + (f1 + f2 + f3 + f4 + f5 + 0.1014d0)/fe)
 
       end subroutine partial_press_known
@@ -1513,33 +1533,33 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes partial pressures with known ionization data and
-      !! gas pressure\n
-      !!     Atmo(Atmo_class): Structure with atmospheric data\n
-      !!          iz(integer): Height index\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!    Atomb(Atom_class): Structure with the atomic data for
-      !!                          background opacities\n
-      !!    atoms(catm_class): Array of structures with
-      !!                       ionization and partition function
-      !!                       data\n
-      !!     nlte(integer(:)): Array with indication about the type
-      !!                       of ionization balance\n
-      !!    depar(integer(:)): Array with indication about the type
-      !!                       of ionization balance
+      !> Compute partial pressures of ions from known gas pressure\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data\n
+      !!           iz(integer): Height index\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atins\n
+      !!     atoms(catm_class): Array of structures with
+      !!                        ionization and partition function
+      !!                        data
+      !!      nlte(integer(:)): Array with indication about the type
+      !!                        of ionization balance\n
+      !!     depar(integer(:)): Array with indication about the type
+      !!                        of ionization balance\n
       subroutine partial_press_Pg(Atmo,iz,Atom,Atomb,atoms,nlte,depar)
 
       ! I/O
 
       type(Atmo_class), intent(inout):: Atmo
-      type(Atom_class), dimension(:), intent(in):: Atom, Atomb
+      type(Atom_class), dimension(:), intent(in):: Atom,Atomb
       type(catm_class), dimension(:), intent(in):: atoms
       integer, intent(in):: iz
-      integer, dimension(:), intent(in):: nlte, depar
+      integer, dimension(:), intent(in):: nlte,depar
 
       ! Local
 
       integer:: im,iatom,ia,ii,iter
+
       double precision:: t,Pe,Pe0,Pa,PHtot,Pg
       double precision:: a,b,c,d,e
       double precision:: f1,f2,f3,f4,f5,fe
@@ -1548,15 +1568,14 @@
       double precision:: ikbcgsT,diff
       double precision, dimension(6):: NH
 
-      ! Variables that depend on parameters
+      ! Variables dependent on parameters
       double precision, dimension(nmol):: cmol
+
 
       ! Constants
       ikbcgsT = 1d-7/kb/Atmo%T(iz)
 
-      !
       ! Input quantities
-      !
       t = 5040d0/Atmo%T(iz)
       NH = Atmo%nH(iz,:)
       Pg = Atmo%Pg(iz)
@@ -1568,12 +1587,13 @@
         cmol(im) = moldata_ind(t,im)
       end do
 
-      ! Initialize electron pressure
+      ! Initialize electron pressure change
       diff = 1d0
 
       ! Iterate
       do iter=1,maxitereq
 
+        ! New pressure average of previous and current
         Pe0 = (Pe + Pe0)*0.5d0
         Pe = Pe0
 
@@ -1610,7 +1630,7 @@
 
           end if ! Active/Passive
 
-        ! NLTE
+        ! NLTE populations
         else
 
           ! P(H+)/P(H)
@@ -1627,14 +1647,14 @@
         ! For every atom taken into account
         do iatom=2,natom
 
-          ! If LTE
+          ! If full LTE
           if (nlte(iatom).eq.0.and.depar(iatom).eq.0) then
 
-            ! Fraction first ion to neutral
+            ! Ionization fraction first ion to neutral
             a = fsaha(t,atoms(iatom)%Eion(1),atoms(iatom)%pf(1,iz), &
                       atoms(iatom)%pf(2,iz),Pe)
 
-            ! Fraction second ion to neutral
+            ! Ionization fraction second ion to first ion
             b = fsaha(t,atoms(iatom)%Eion(2),atoms(iatom)%pf(2,iz), &
                       atoms(iatom)%pf(3,iz),Pe)
 
@@ -1682,8 +1702,13 @@
               end if ! Active/Passive
             end if ! Departure or populations
 
-            ! If invalid fractions, do LTE
+            ! If invalid fractions
             if (a.lt.0d0) then
+
+              !
+              ! Do LTE
+              !
+
               ! Fraction first ion to neutral
               a = fsaha(t,atoms(iatom)%Eion(1), &
                         atoms(iatom)%pf(1,iz), &
@@ -1693,8 +1718,8 @@
               b = fsaha(t,atoms(iatom)%Eion(2), &
                         atoms(iatom)%pf(2,iz), &
                         atoms(iatom)%pf(3,iz),Pe)
-            end if ! Invalid fraction
 
+            end if ! Invalid fraction
           end if ! LTE/NLTE
 
           ! Normalization
@@ -1730,11 +1755,14 @@
         ! H pressure
         PHtot = Pe/fe
 
-        ! Check dimension f5
+        ! If whatever is f5 is too small
         if (f5.le.1d-4) then
+
+          ! Whatever this is
           c6 = g5*f1*f1/Pe
           c7 = g1 + f2 - f3
 
+          ! No idea what this is for
           do ii=1,5
             f5 = PHtot*c6
             f4 = e*f5
@@ -1744,7 +1772,7 @@
 
         end if ! Dimension f5
 
-        ! Electron pressure
+        ! Solve for electron pressure
         Pe = Pg/(1d0 + (f1 + f2 + f3 + f4 + f5 + 0.1014d0)/fe)
 
         ! Compute difference
@@ -1754,14 +1782,23 @@
         PHtot = PHtot*ikbcgsT
         NH(6) = f2*PHtot
 
+        !
         ! Neutral hydrogen
+        !
+
         ! If LTE
         if (nlte(1).eq.0.and.depar(1).eq.0) then
+
+          ! Everything in ground level
           NH(1) = f1*PHtot
           NH(2:5) = 0d0
+
         ! If NLTE
         else
+
+          ! Adjust ionization without changing relative population
           NH(1:5) = NH(1:5)*f1*PHtot/sum(NH(1:5))
+
         end if
 
         ! Check convergence
@@ -1769,7 +1806,7 @@
 
       end do ! Iterations
 
-      ! Electrons
+      ! Electron pressure and density
       Atmo%Pe(iz) = Pe
       Atmo%ne(iz) = Atmo%Pe(iz)*ikbcgsT
 
@@ -1784,29 +1821,29 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes partial pressures with known ionization data and
-      !! electron pressure\n
-      !!     Atmo(Atmo_class): Structure with atmospheric data\n
-      !!          iz(integer): Height index\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!    Atomb(Atom_class): Structure with the atomic data for
-      !!                          background opacities\n
-      !!    atoms(catm_class): Array of structures with
-      !!                       ionization and partition function
-      !!                       data\n
-      !!     nlte(integer(:)): Array with indication about the type
-      !!                       of ionization balance\n
-      !!    depar(integer(:)): Array with indication about the type
-      !!                       of ionization balance\n
+      !> Compute partial pressures of ions from known electron
+      !! pressure\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data\n
+      !!           iz(integer): Height index\n
+      !!   Atom(Atom_class(:)): Structures with atomic data\n
+      !!  Atomb(Atom_class(:)): Structures with atomic data for
+      !!                        background atins\n
+      !!     atoms(catm_class): Array of structures with
+      !!                        ionization and partition function
+      !!                        data
+      !!      nlte(integer(:)): Array with indication about the type
+      !!                        of ionization balance\n
+      !!     depar(integer(:)): Array with indication about the type
+      !!                        of ionization balance\n
       subroutine partial_press_Pe(Atmo,iz,Atom,Atomb,atoms,nlte,depar)
 
       ! I/O
 
       type(Atmo_class), intent(inout):: Atmo
-      type(Atom_class), dimension(:), intent(in):: Atom, Atomb
+      type(Atom_class), dimension(:), intent(in):: Atom,Atomb
       type(catm_class), dimension(:), intent(in):: atoms
       integer, intent(in):: iz
-      integer, dimension(:), intent(in):: nlte, depar
+      integer, dimension(:), intent(in):: nlte,depar
 
       ! Local
 
@@ -1819,15 +1856,14 @@
       double precision:: ikbcgsT
       double precision, dimension(6):: NH
 
-      ! Variables that depend on parameters
+      ! Variables dependent on parameters
       double precision, dimension(nmol):: cmol
+
 
       ! Constants
       ikbcgsT = 1d-7/kb/Atmo%T(iz)
 
-      !
       ! Input quantities
-      !
       t = 5040d0/Atmo%T(iz)
       NH = Atmo%nH(iz,:)
       Pe = Atmo%Pe(iz)
@@ -1841,7 +1877,9 @@
       g4 = Pe*10d0**cmol(1)
       g5 = Pe*10d0**cmol(2)
 
+      !
       ! Hydrogen
+      !
 
       ! LTE
       if (nlte(1).eq.0.and.depar(1).eq.0) then
@@ -1942,17 +1980,22 @@
             end if ! Active/Passive
           end if ! population/departure
 
-          ! If invalid fractions, do LTE
+          ! If invalid fractions
           if (a.lt.0d0) then
-            ! Fraction first ion to neutral
+
+            !
+            ! Do LTE
+            !
+
+            ! Ionization fraction first ion to neutral
             a = fsaha(t,atoms(iatom)%Eion(1),atoms(iatom)%pf(1,iz), &
                       atoms(iatom)%pf(2,iz),Pe)
 
-            ! Fraction second ion to first ion
+            ! Ionization fraction second ion to first ion
             b = fsaha(t,atoms(iatom)%Eion(2),atoms(iatom)%pf(2,iz), &
                       atoms(iatom)%pf(3,iz),Pe)
-          end if ! Invalid fraction
 
+          end if ! Invalid fraction
         end if ! LTE/NLTE
 
         ! Normalization
@@ -1985,15 +2028,16 @@
       f2 = g2*f1
       fe = f2 - f3 + f4 + g1
 
-      ! Total pressure
+      ! H pressure
       PHtot = Pe/fe
 
-      ! Check dimension f5
+      ! If whatever is f5 is too small
       if (f5.le.1d-4) then
 
         c6 = g5*f1*f1/Pe
         c7 = g1 + f2 - f3
 
+        ! No idea what this is for
         do ii=1,5
           f5 = Phtot*c6
           f4 = e*f5
@@ -2003,7 +2047,7 @@
 
       end if ! Dimension f5
 
-      ! Electron pressure
+      ! Solve for gas pressure
       Pg = Pe*(1d0 + (f1 + f2 + f3 + f4 + f5 + 0.1014d0)/fe)
 
       ! Scale densities
@@ -2012,14 +2056,23 @@
       ! Protons
       NH(6) = f2*PHtot
 
+      !
       ! Neutral hydrogen
+      !
+
       ! If LTE
       if (nlte(1).eq.0) then
+
+        ! Everything in ground level
         NH(1) = f1*PHtot
         NH(2:5) = 0d0
+
       ! If NLTE
       else
+
+        ! Adjust ionization without changing relative population
         NH(1:5) = NH(1:5)*f1*PHtot/sum(NH(1:5))
+
       end if
 
       ! Gas pressure
@@ -2036,13 +2089,13 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes ion fraction from populations in an atomic model\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!     Atmo(Atmo_class): Structure with atmospheric data\n
-      !!          iz(integer): Height index\n
-      !! f1(double precision): Ion II to I\n
-      !! f2(double precision): Ion III to II\n
-      !!       depar(logical): Using departure coefficients
+      !> Compute ion fraction from populations in an atomic model\n
+      !!  Atom(Atom_class): Structure with atomic data\n
+      !!  Atmo(Atmo_class): Structure with atmospheric data\n
+      !!       iz(integer): Height index\n
+      !!        f1(double): Ion II to I\n
+      !!        f2(double): Ion III to II\n
+      !!    depar(logical): If using departure coefficients
       subroutine metal_fraction(Atom,Atmo,iz,f1,f2,depar)
 
       ! I/O
@@ -2054,17 +2107,21 @@
       double precision, intent(out):: f1,f2
 
       ! Local
-      integer:: iterm, iJ, ilevel, istg
+      integer:: iterm,iJ,ilevel,istg
       double precision:: f0
       double precision, dimension(:), allocatable:: ltepopu
 
-      ! Need at least neutral and first stage
+
+      ! If not neutral or first stage in the model
       if (minval(Atom%stage).ge.2.or. &
           maxval(Atom%stage).le.1) then
+
+        ! Return invalid values
         f1 = -1d0
         f2 = -1d0
         return
-      end if
+
+      end if ! No neutral or first stage
 
       ! Initialize quantities
       f0 = 0d0
@@ -2080,7 +2137,7 @@
         ! Compute LTE
         call LTEiz(Atom,Atmo,iz,ltepopu)
 
-        ! Apply departure
+        ! Apply departure coefficients
         ltepopu = ltepopu*Atom%depar(:,iz)
 
         ! Initialize level
@@ -2099,18 +2156,21 @@
             ! Neutral
             if (istg.eq.1) then
               f0 = f0 + ltepopu(ilevel)
+
             ! Ion 1
             else if (istg.eq.2) then
               f1 = f1 + ltepopu(ilevel)
+
             ! Ion 2
             else if (istg.eq.3) then
               f2 = f2 + ltepopu(ilevel)
+
             end if
 
           end do ! FS level
         end do ! Term
 
-        ! Deallocate ltepopu and debey
+        ! Deallocate ltepopu
         deallocate(ltepopu)
 
       ! If populations
@@ -2132,29 +2192,48 @@
             ! Neutral
             if (istg.eq.1) then
               f0 = f0 + Atom%popu(ilevel,iz)
+
             ! Ion 1
             else if (istg.eq.2) then
               f1 = f1 + Atom%popu(ilevel,iz)
+
             ! Ion 2
             else if (istg.eq.3) then
               f2 = f2 + Atom%popu(ilevel,iz)
-            end if
+
+            end if ! Stage
 
           end do ! FS level
         end do ! Term
+
       end if ! Populations or departure
 
-      ! Second ion to first
+      ! If valid first ion
       if (f1.gt.0d0) then
+
+        ! Second to first ion
         f2 = f2/f1
+
+      ! Nothing in first ion
       else
+
+        ! Cannot be anything in second ion either
         f2 = 0d0
+
       end if
-      ! First to neutral
+
+      ! If valid neutral
       if (f0.gt.0d0) then
+
+        ! First ion to neutral
         f1 = f1/f0
+
+      ! Nothing in neutral
       else
+
+        ! Cannot be anythin in first ion either
         f1 = 0d0
+
       end if
 
       end subroutine metal_fraction
@@ -2163,11 +2242,12 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes ionization fraction of stages in an atomic model\n
-      !!       Atom(Atom_class): Structure with the atomic data\n
-      !!              T(dfloat): Temperature\n
-      !! chianti(chianti_class): Structure with the CHIANTI data\n
-      !!            frc(dfloat): Ionization fraction
+      !> Compute ionization fraction of stages in an atomic model from
+      !! CHIANTI data for a given temperature\n
+      !!        Atom(Atom_class): Structure with atomic data\n
+      !!               T(double): Temperature\n
+      !!  chianti(chianti_class): Structure with the CHIANTI data\n
+      !!             frc(double): Ionization fraction
       subroutine chianti_fraction(Atom,T,chianti,frc)
 
       ! I/O
@@ -2185,18 +2265,22 @@
       ! Get atom index
       iatom = atom_char2index(Atom%Element)
 
-      ! If larger than chianti data, abort
+      ! If index outside of CHIANTI data, abort
       if (iatom.gt.chianti%nE) then
 
+        ! Report error
+        urou = 'chianti_fraction'
         umsg = 'The element '//Atom%Element//' is '// &
                'not included in the CHIANTI data. '// &
                'aborting the run'
         call verbose
         frc = 0d0
         laborted = .True.
+
+        ! return
         return
 
-      end if
+      end if ! Atom not in CHIANTI database
 
       ! Get minimum and maximum stages in the atom
       minstg = minval(Atom%stage)
@@ -2214,7 +2298,7 @@
       ! For each stage
       do istg=minstg,maxstg
 
-        ! Interpolate
+        ! Evaluate spline interpolation in CHIANTI tabulation
         lfrc = ispline(cT, &
                        dble(chianti%ioneq_T), &
                        dble(chianti%ioneq(iatom)%stage(istg)%p), &
@@ -2223,14 +2307,15 @@
                        chianti%ioneq(iatom)%d(:,istg), &
                        chianti%nT)
 
-        ! If negative fraction, do linear
+        ! If negative fraction
         if (lfrc.lt.0d0) then
 
+          ! Do linear interpolation instead
           call linear(dble(chianti%ioneq_T), &
                       dble(chianti%ioneq(iatom)%stage(istg)%p), &
                       cT,lfrc)
 
-        end if
+        end if ! Wrong spline interpolation
 
         ! Add to total fraction
         frc = frc + lfrc
@@ -2245,12 +2330,12 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes ion fraction from populations in a H atomic model\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!     Atmo(Atmo_class): Structure with atmospheric data\n
-      !!          iz(integer): Height index\n
-      !! f1(double precision): Ion II to I\n
-      !!       depar(logical): Using departure coefficients
+      !> Compute ion fraction from populations in Hydrogen model\n
+      !!  Atom(Atom_class): Structure with atomic data\n
+      !!  Atmo(Atmo_class): Structure with atmospheric data\n
+      !!       iz(integer): Height index\n
+      !!        f1(double): Ion II to I\n
+      !!    depar(logical): If using departure coefficients
       subroutine H_fraction(Atom,Atmo,iz,f1,depar)
 
       ! I/O
@@ -2262,16 +2347,22 @@
       double precision, intent(out):: f1
 
       ! Local
+
       integer:: iterm, iJ, ilevel, istg
+
       double precision:: f0
       double precision, dimension(:), allocatable:: ltepopu
 
-      ! Need at least neutral and first stage
+
+      ! If not neutral or first stage in the model
       if (minval(Atom%stage).ge.1.or. &
           maxval(Atom%stage).le.2) then
+
+        ! Return invalid values
         f1 = -1d0
         return
-      end if
+
+      end if ! No neutral or first stage
 
       ! Initialize quantities
       f0 = 0d0
@@ -2305,15 +2396,17 @@
             ! Neutral
             if (istg.eq.1) then
               f0 = f0 + ltepopu(ilevel)
+
             ! Ion 1
             else if (istg.eq.2) then
               f1 = f1 + ltepopu(ilevel)
+
             end if
 
           end do ! FS level
         end do ! Term
 
-        ! Deallocate ltepopu and debey
+        ! Deallocate ltepopu
         deallocate(ltepopu)
 
       ! If populations
@@ -2335,20 +2428,30 @@
             ! Neutral
             if (istg.eq.1) then
               f0 = f0 + Atom%popu(ilevel,iz)
+
             ! Ion 1
             else if (istg.eq.2) then
               f1 = f1 + Atom%popu(ilevel,iz)
+
             end if
 
           end do ! FS level
         end do ! Term
+
       end if ! Populations or departure
 
-      ! First to neutral
+      ! If valid neutral
       if (f0.gt.0d0) then
+
+        ! First ion to neutral
         f1 = f1/f0
+
+      ! Nothing in neutral
       else
+
+        ! Cannot be anythin in first ion either
         f1 = 0d0
+
       end if
 
       end subroutine H_fraction
@@ -2357,11 +2460,11 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes LTE populations\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!     Atmo(Atmo_class): Structure with atmospheric data\n
-      !!          iz(integer): Height index\n
-      !!      popu(double(:)): LTE populations
+      !> Compute LTE populations at a given height\n
+      !!  Atom(Atom_class): Structure with atomic data\n
+      !!  Atmo(Atmo_class): Structure with atmospheric data\n
+      !!       iz(integer): Height index\n
+      !!   popu(double(:)): LTE populations
       subroutine LTEiz(Atom,Atmo,iz,popu)
 
       ! I/O
@@ -2372,11 +2475,11 @@
       double precision, dimension(:), intent(out):: popu
 
       ! Local
-      integer:: iterm, iJ, ilevel, zm, iim, ii, dZ
-      double precision:: C0, C1, C2, Tin, dby, S, dE, arg, ne, T, gi0
+      integer:: iterm,iJ,ilevel,zm,iim,ii,dZ
+      double precision:: C0,C1,C2,Tin,dby,S,dE,arg,ne,T,gi0
       double precision, dimension(:), allocatable:: debey
 
-      ! Get from atmosphere
+      ! Get variables from atmosphere
       T = Atmo%T(iz)
       ne = Atmo%ne(iz)
 
@@ -2412,14 +2515,17 @@
           ! Add the contribution to the Debey correction
           do ii=1,iim
 
+            ! Contribution to debey value
             debey(ilevel) = debey(ilevel) + zm
             zm = zm + 1
 
-          end do
+          end do ! Stage difference
         end do ! J levels
       end do ! Term
 
+      !
       ! Compute LTE populations
+      !
 
       ! Inverse of temperature
       Tin = 1d0/T
@@ -2444,15 +2550,16 @@
           ilevel = ilevel + 1
           dE = (Atom%FSfreq(iJ,iterm) - Atom%FSfreq(1,1))*fktoJ
 
-          ! If it is the hardwired hydrogen, use the degeneration
-          ! variable
+          ! If hard-coded hydrogen model
           if (Atom%cust) then
 
+            ! Use the degeneration variable
             gi0 = Atom%deg(ilevel)/Atom%deg(1)
 
-          ! If it is a normal atom, use the J values
+          ! If it is a normal atom
           else
 
+            ! Calculate degenerations
             gi0 = (2d0*Atom%rJval(iJ,iterm) + 1d0)/ &
                   (2d0*Atom%rJval(1,1) + 1d0)
 
@@ -2503,10 +2610,10 @@
 !#####################################################################
 !#####################################################################
 
-      !> Sets the atmospheric quantities from the pressures\n
-      !!           Atmo(Atmo_class): Structure with atmospheric data\n
-      !!                iz(integer): Height index\n
-      !!  Pall(double precision(5)): Array of pressures\n
+      !> Set the atmospheric quantities from the pressures\n
+      !!  Atmo(Atmo_class): Structure with atmospheric data\n
+      !!       iz(integer): Height index\n
+      !!   Pall(double(:)): Array of pressures
       subroutine set_densities(Atmo,iz,Pall)
 
       ! I/O
@@ -2518,10 +2625,12 @@
       ! Local
 
       integer:: il
+
       double precision:: ikbcgsT,ikbT,PHtot,S,nH,gi0,dE
       double precision, dimension(5):: deg,EH
 
-      ! Constant
+
+      ! Constants
       ikbT = 1d0/kb/Atmo%T(iz)
       ikbcgsT = 1d-7*ikbT
 
@@ -2585,9 +2694,10 @@
 !#####################################################################
 !#####################################################################
 
-      !> Sets the H atmospheric densities\n
-      !!    Atmo(Atmo_class): Structure with atmospheric data\n
-      !!         iz(integer): Height index
+      !> Set the hydrogen density atmospheric quantities from the
+      !! computed partial pressures
+      !!   Atmo(Atmo_class): Structure with atmospheric data\n
+      !!        iz(integer): Height index
       subroutine set_Hdensities(Atmo,iz)
 
       ! I/O
@@ -2598,8 +2708,10 @@
       ! Local
 
       integer:: il
+
       double precision:: ikbT,S,nH,gi0,dE
       double precision, dimension(5):: deg,EH
+
 
       ! Constant
       ikbT = 1d0/kb/Atmo%T(iz)
@@ -2653,20 +2765,23 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes Saha factor for equation of state\n
+      !> Compute Saha factor for equation of state\n
       !! Saha-Eggert equation\n
-      !!   t(double precision): Temperature in eV\n
-      !!  Ei(double precision): Ionization energy\n
-      !!  U0(double precision): lower stage partition function\n
-      !!  U1(double precision): upper stage partition function\n
-      !!  Pe(double precision): electron pressure
+      !!   t(double): Temperature in eV\n
+      !!  Ei(double): Ionization energy\n
+      !!  U0(double): lower stage partition function\n
+      !!  U1(double): upper stage partition function\n
+      !!  Pe(double): electron pressure
       double precision function fsaha(t,Ei,U0,U1,Pe)
 
-      double precision, intent(in):: t, Ei, U0, U1, Pe
+      double precision, intent(in):: t,Ei,U0,U1,Pe
 
       double precision:: den
 
+      ! Denominator
       den = U0*Pe*(t**2.5d0)
+
+      ! Factor
       fsaha = U1*10d0**(9.0805126d0 - t*Ei)/den
 
       end function fsaha
@@ -2675,10 +2790,10 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes the molecular quantities for partial_press. Data
-      !! taken from SIR code\n
-      !!         t(double precision): Temperature in eV\n
-      !!                  i(integer): Molecule index
+      !> Get molecular quantities for equation of state. Data taken
+      !! from the SIR code\n
+      !!   t(double): Temperature in eV\n
+      !!  i(integer): Molecule index
       double precision function moldata_ind(t,i)
 
       ! I/O
@@ -2686,6 +2801,8 @@
       integer:: i
       double precision:: t
 
+
+      ! Choose case depending on index
       select case (i)
         case (1) ! H2+
           moldata_ind = -11.206998d0 + t*(2.7942767d0 + &
@@ -2958,6 +3075,7 @@
         case (90) ! LiOH
           moldata_ind = -24.304d0 + t*(9.5257d0 - 4.2841d-2*t)
         case default
+          urou = 'moldata_ind'
           moldata_ind = 0d0
           write(umsg,'(A,i2,A)') 'Index ',i, &
                                  ' not found in molecular data list'

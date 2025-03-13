@@ -5,23 +5,19 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !     Roberto Casini (HAO)
 !  Start:
-!     04/20/2017
+!     20/04/2017
 !  Last version:
-!     06/29/2022 V3.0.0
+!     20/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     06/29/2022:    V3.0.0 - Changed global version (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!
-!     04/20/2017:    V1.0.0 - First working version (TdPA)
+!     20/12/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -31,10 +27,16 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!     This subroutine calculates the (complex) spherical components of
-!   the geometric tensor, T_Q^K(i), for K=0,1,2, in the S-frame
+!  Stens
+!    Calculate the geometrical spherical irreducible tensors in the
+!  vertical reference frame for a given direction
 !
 !#####################################################################
 !#####################################################################
@@ -50,12 +52,15 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes geometrical tensor in the vectical reference frame\n
-      !!       theta(dfloat): Polar angle of direction\n
-      !!         phi(dfloat): Azimuthal angle of direction\n
-      !!         gam(dfloat): Polarization angle on the normal plane\n
-      !!  Flgsg(Fctsg_class): Structure with factorials and signs\n
-      !!   TS(dcmplx(:,:,:)): Geometrical tensor in the vertical
+      !> Calculate the geometrical spherical irreducible tensors in
+      !! the vertical reference frame for a given direction\n
+      !!       theta(double): Polar angle of direction\n
+      !!         phi(double): Azimuthal angle of direction\n
+      !!         gam(double): Polarization reference angle on plane
+      !!                      normal to the propagation\n
+      !!  Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                      J-symbols\n
+      !!  TS(dcomplx(:,:,:)): Geometrical tensor in the vertical
       !!                      reference frame
       subroutine Stens(theta,phi,gam,Flgsg,TS)
 
@@ -74,18 +79,23 @@
       complex(kind=8):: cTT,cexpPh,cexpPh2
 
 
+      ! Get sine and cosine
       sTh = sin(theta)
       cTh = cos(theta)
 
+      ! Get square
       sTh2 = sTh*sTh
       cTh2 = cTh*cTh
 
+      ! Get azimuth exponentials
       cexpPh = exp(cImag*phi)
       cexpPh2 = cexpPh*cexpPh
 
+      ! Get sine and cosine of twice the gamma angle
       s2Gm = sin(2d0*gam)
       c2Gm = cos(2d0*gam)
 
+      ! Get common factor for Q=2 components
       cTT = (.25d0*sqrt3)*cexpPh2
 
       ! Initialize TS(i,K,Q)
@@ -123,6 +133,7 @@
         do iQ=1,K
           do i=0,3
 
+            ! Conjugation properties
             TS(i,-iQ,K) = Flgsg%sg(iQ)*conjg(TS(i,iQ,K))
 
           end do

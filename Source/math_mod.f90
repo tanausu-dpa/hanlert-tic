@@ -5,25 +5,18 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     02/15/2019
+!     15/02/2019
 !  Last version:
-!     06/29/2022 V3.0.0
+!     13/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     06/29/2022:    V3.0.0 - Changed global version (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!
-!     03/18/2019:    V1.1.0 - Added ddexp (TdPA)
-!
-!     02/15/2019:    V1.0.0 - First version (TdPA)
+!     13/12/2024:    V4.0.0 - Revised header (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -33,15 +26,20 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!  ddexp:
+!  ddexp
 !    Exponential with argument control for double precision, positive
-!    argument
+!  argument
 !
 !  diexp:
 !    Exponential with argument control for double precision, negative
-!    argument
+!  argument
 !
 !#####################################################################
 !#####################################################################
@@ -57,8 +55,9 @@
 !#####################################################################
 !#####################################################################
 
-      !> Exponmential with argument control\n
-      !!    x(dfloat): Argument of exponential (positive)
+      !> Exponential with argument control for double precision,
+      !! positive argument\n
+      !!   x(double): Positive argument of exponential
       double precision function ddexp(x)
 
       ! I/O
@@ -68,19 +67,22 @@
       ! Control overflows
       if(x.gt.vbigexp)then
 
+        ! Constant big exponential value
         ddexp = vbigexpv
 
       ! Normal values
       elseif (x.gt.smallexp)then
 
+        ! Compute exponential
         ddexp = exp(x)
 
       ! Control underflow
       else
 
+        ! Second order Taylor
         ddexp = 1d0 + x + .5d0*x*x
 
-      endif
+      endif ! Control argument
 
       return
 
@@ -90,8 +92,9 @@
 !#####################################################################
 !#####################################################################
 
-      !> Exponmential with argument control, negative argument\n
-      !!    x(dfloat): Argument of exponential (in abs)
+      !> Exponential with argument control for double precision,
+      !! negative argument\n
+      !!  x(double): Argument of exponential (in abs)
       double precision function diexp(x)
 
       ! I/O
@@ -101,16 +104,19 @@
       ! Control overflows
       if(x.gt.bigexp)then
 
+        ! Tends to zero
         diexp = 0d0
 
       ! Normal values
       elseif (x.gt.smallexp)then
 
+        ! Calculate exponential
         diexp = exp(-x)
 
       ! Control underflow
       else
 
+        ! Taylor series
         diexp = 1d0 - x + .5d0*x*x
 
       endif
@@ -124,4 +130,3 @@
 !#####################################################################
 
       end module math_mod
-

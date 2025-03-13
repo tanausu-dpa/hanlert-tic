@@ -5,87 +5,19 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     02/23/2017
+!     23/02/2017
 !  Last version:
-!     10/26/2022 V3.0.1
+!     28/11/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     10/26/2022:    V3.0.1 - Changed the indexing of atomic levels
-!                             in Atom (TdPA)
-!
-!     06/29/2022:    V3.0.0 - Changed global version (TdPA)
-!
-!     04/05/2022:    V2.0.1 - Bugfix: In back_bf, when the spline
-!                             interpolation gives negative opacity,
-!                             linear interpolation is used instead.
-!                             However, the factor 1d4 to transform
-!                             units was missing for the linear
-!                             case (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!
-!     03/05/2020:    V1.2.5 - In rayleigh, instead of checking the
-!                             frequency value and the absent flag
-!                             for the frequency, that does not exists
-!                             since a long time ago, when hydrogen is
-!                             active, the CPU checks the global absent
-!                             with the frequency and the index (TdPA)
-!
-!     01/13/2020:    V1.2.4 - Added a check in back_bf for when there
-!                             is no population in the ionized state,
-!                             to avoid problems with very low
-!                             temperatures (TdPA)
-!
-!     11/19/2019:    V1.2.3 - Removed checks in allocate and
-!                             deallocate calls (TdPA)
-!
-!     08/08/2019:    V1.2.2 - Bugfix: The checking of Hminus_bf over
-!                             wavelengths had to be inclusive. Does
-!                             not change anything, but avoids extra
-!                             interpolation (TdPA)
-!                           - Bugfix: In HHp_ff, the comparison
-!                             .lt.x1(1) had to be .gt.x1(n1) (TdPA)
-!                           - In rayleigh, removed the aproximation
-!                             to get red limit and doing the proper
-!                             quotient (*(1-x) -> /(1+x)) (TdPA)
-!                           - Photoionization cross sections are
-!                             interpolated in wavelength and not in
-!                             frequencies (TdPA)
-!
-!     03/18/2019:    V1.2.1 - Avoids loop search of levels of a
-!                             photoionization in back_bf (TdPA)
-!
-!     02/20/2019:    V1.2.0 - Now the exponentials use the diexp
-!                             function (TdPA)
-!                           - Changed the verbosity (TdPA)
-!
-!     07/10/2018:    V1.1.0 - Bugfix: B-B transitions were treated
-!                             in a wrong way due to changes in ratom.
-!                             Now it distinguishes between MT and ML
-!                             and allows forbidden collisions for the
-!                             later (TdPA)
-!
-!     09/08/2017:    V1.0.3 - If splines in back_bf gives a negative
-!                             cross section, use linear instead (TdPA)
-!
-!     07/20/2017:    V1.0.2 - Moved some parameters to simple
-!                             variables (TdPA)
-!
-!     07/19/2017:    V1.0.1 - It is not necessary to take the real
-!                             part of prof, because is already
-!                             declared double precision (TdPA)
-!                           - Changed the way of selecting the
-!                             frequencies with Rayleigh scattering for
-!                             active atoms (TdPA)
-!
-!     02/23/2017:    V1.0.0 - Started coding (TdPA)
+!     28/11/2024:    V4.0.0 - Avoid loops when looking for levels
+!                             involved in transitions (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -95,62 +27,63 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    This program calculates the continuum quantities
+!    This module calculates the continuum quantities
 !
-!  Thomson:
-!    Calculates the contribution of Thomson scattering
+!  Thomson
+!    Computes Thomson scattering coefficient
 !
-!  Hminus_bf:
-!    Calculates the contribution of H- bound-free transitions
+!  Hminus_bf
+!    Computes H- bound-free absorptivity and emissivity
 !
-!  Hminus_ff:
-!    Calculates the contribution of H- due to free-free interaction
+!  Hminus_ff
+!    Computes H- free-free absorptivity
 !
-!  HI_bf:
-!    Calculates the contribution of HI due to bound-free transitions
+!  HI_bf
+!    Computes H bound-free absorptivity and emissivity
 !
-!  gHI_bf:
-!    Calculates the bound-free Gaunt factor
+!  gHI_bf
+!    Computes Hydrogen bound-free Gaunt factor
 !
-!  HI_ff:
-!    Calculates the contribution of HI due to free-free interactions
+!  HI_ff
+!    Computes H free-free absorptivity
 !
-!  gHI_ff:
-!    Calculates the free-free Gaunt factor
+!  gHI_ff
+!    Computes Hydrogen free-free Gaunt factor
 !
-!  back_bf:
-!    Calculates the contribution of a background atom due to bound-
-!  free transitions
+!  back_bf
+!    Computes atomic bound-free absorptivity and emissivity
 !
-!  back_bb:
-!    Calculates the contribution of a background atom due to bound-
-!  bound transitions
+!  back_bb
+!    Computes atomic bound-bound absorptivity and emissivity
 !
-!  backH_bb:
-!    Calculates the contribution of HI due to bound-bound transitions
-!  using the hardwired H model
+!  backH_bb
+!    Computes hydrogen bound-bound absorptivity and emissivity with
+!  the hard-coded model
 !
-!  rayleigh:
-!    Calculates the contribution of Rayleigh scattering with HI
+!  rayleigh
+!    Computes Rayleigh scattering coefficient for hydrogen
 !
-!  rayleigh_H2:
-!    Calculates the contribution of Rayleigh scattering with the H2
-!  molecule
+!  rayleigh_H
+!    Computes Rayleigh scattering coefficient for H2
 !
-!  OH_bf:
-!    Calculates the contribution of OH due to bound-free transitions
+!  OH_bf
+!    Computes OH bound-free absorptivity and emissivity
 !
-!  CH_bf:
-!    Calculates the contribution of CH due to bound-free transitions
+!  CH_bf
+!    Computes CH bound-free absorptivity and emissivity
 !
-!  H2m_ff:
-!    Calculates the contribution of H2 due to free-free interactions
+!  H2m_ff
+!    Computes H2- free-free absorptivity
 !
-!  HHp_ff:
-!    Calculates the contribution of H + p+ due to free-free
-!  interactions
+!  HHp_ff
+!    Computes H + p+ free-free absorptivity
 !
 !#####################################################################
 !#####################################################################
@@ -175,10 +108,10 @@
 !#####################################################################
 
       !> Computes Thomson scattering coefficient\n
-      !!    ne(dfloat(:)): Electron density\n
-      !!     iz0(integer): First height index for this CPU\n
-      !!     iz1(integer): Last height index for this CPU\n
-      !!      sig(dfloat): Thomson scattering coefficient
+      !!  ne(double(:)): Electron number density\n
+      !!   iz0(integer): First height index to consider\n
+      !!   iz1(integer): Last height index to consider\n
+      !! sig(double(:)): Thomson scattering coefficient
       subroutine Thomson(ne,iz0,iz1,sig)
 
       ! I/O
@@ -193,9 +126,11 @@
 
       double precision:: tsig
 
+
       ! Thomson scattering cross section in cm^2
       tsig = 6.6524587158d-25
 
+      ! For each height, multiply by electron density
       do iz=iz0,iz1
         sig(iz) = ne(iz)*tsig
       end do
@@ -207,13 +142,13 @@
 !#####################################################################
 
       !> Computes H- bound-free absorptivity and emissivity\n
-      !!     freq(dfloat): Frequency\n
-      !!   nhm(dfloat(:)): H- density\n
-      !!     T(dfloat(:)): Temperature\n
-      !!     iz0(integer): First height index for this CPU\n
-      !!     iz1(integer): Last height index for this CPU\n
-      !!   eta(dfloat(:)): Absorptivity\n
-      !!   eps(dfloat(:)): Emissivity
+      !!    freq(double): Frequency\n
+      !!  nhm(double(:)): H- number density\n
+      !!    T(double(:)): Temperature\n
+      !!    iz0(integer): First height index to consider\n
+      !!    iz1(integer): Last height index to consider\n
+      !!  eta(double(:)): Absorptivity\n
+      !!  eps(double(:)): Emissivity
       subroutine Hminus_bf(freq,nhm,T,iz0,iz1,eta,eps)
 
       ! I/O
@@ -224,18 +159,25 @@
       double precision, dimension(iz0:iz1), intent(out):: eta, eps
 
       ! Local
+
       integer, parameter:: nin = 34
       integer:: iz
+
       double precision:: lambda, alpha, exu, pE, arg
       double precision, dimension(nin):: ba,ca,da,x,y
 
+
+      !
       ! Geltman (1962) table 3
+      !
+
       ! Wavelength [nm]
       x = (/ 0d0, 5d1, 1d2, 1.5d2, 2d2, 2.5d2, 3d2, 3.5d2, 4d2, &
              4.5d2, 5d2, 5.5d2, 6d2, 6.5d2, 7d2, 7.5d2, 8d2, 8.5d2, &
              9d2, 9.5d2, 1d3, 1.050d3, 1.1d3, 1.15d3, 1.2d3, 1.25d3, &
              1.3d3, 1.35d3, 1.4d3, 1.45d3, 1.5d3, 1.55d3, 1.6d3, &
              1.6419d3 /)
+
       ! Cross section [1d19 m^2]
       y = (/ 0d0, 1.5d-1, 3.3d-1, 5.7d-1, 8.5d-1, 1.17d0, 1.52d0, &
              1.89d0, 2.23d0, 2.55d0, 2.84d0, 3.11d0, 3.35d0, &
@@ -246,9 +188,10 @@
       ! Get the corresponding wavelength in nm
       lambda = 1d2/freq
 
-      ! If out of limits, no contribution
+      ! If out of limits
       if (lambda.le.x(1).or.lambda.ge.x(nin)) then
 
+        ! No contribution
         eta = 0d0
         eps = 0d0
 
@@ -263,18 +206,20 @@
         call spline(x,y,ba,ca,da,nin)
         alpha = ispline(lambda,x,y,ba,ca,da,nin)*1d-17
 
-        ! Compute absorptivity and emissivity
+        ! For each height to consider
         do iz=iz0,iz1
 
+          ! Get inverse exponential
           exu = arg/T(iz)
           exu = diexp(exu)
 
+          ! Compute absorptivity and emissivity
           eta(iz) = nhm(iz)*(1d0 - exu)*alpha
           eps(iz) = nhm(iz)*pE*exu*alpha
 
-        end do
+        end do ! Heights
 
-      end if
+      end if ! Within wavelength limits
 
       end subroutine Hminus_bf
 
@@ -283,13 +228,13 @@
 !#####################################################################
 
       !> Computes H- free-free absorptivity\n
-      !!     freq(dfloat): Frequency\n
-      !!    nh(dfloat(:)): H density\n
-      !!    ne(dfloat(:)): Electron density\n
-      !!     T(dfloat(:)): Temperature\n
-      !!     iz0(integer): First height index for this CPU\n
-      !!     iz1(integer): Last height index for this CPU\n
-      !!   eta(dfloat(:)): Absorptivity
+      !!    freq(double): Frequency\n
+      !!   nh(double(:)): H number density\n
+      !!   ne(double(:)): Electron density\n
+      !!    T(double(:)): Temperature\n
+      !!    iz0(integer): First height index to consider\n
+      !!    iz1(integer): Last height index to consider\n
+      !!  eta(double(:)): Absorptivity
       subroutine Hminus_ff(freq,nh,ne,T,iz0,iz1,eta)
 
       ! I/O
@@ -303,6 +248,7 @@
 
       integer, parameter:: n1 = 16, n2 = 17, n3 = 6
       integer:: ii,iz
+
       double precision:: lambda, ilambda, tev, cc, C0
       double precision, dimension(n1):: x1
       double precision, dimension(n2):: x2
@@ -310,15 +256,20 @@
       double precision, dimension(n3) :: ya, yb, yc, yd, ye, yf, yg
 
 
+      !
       ! Stilley & Callaway (1970) table 1
+      !
+
       ! Theta [eV]
       x1 = (/ 5d-1, 6d-1, 7d-1, 8d-1, 9d-1, 1d0, 1.1d0, 1.2d0, &
               1.3d0, 1.4d0, 1.5d0, 1.6d0, 1.7d0, 1.8d0, 1.9d0, &
               2.0d0 /)
+
       ! wavelength [nm]
       x2 = (/ 0d0, 303.8d0, 455.6d0, 506.3d0, 569.5d0, 650.9d0, &
               759.4d0, 911.3d0, 1013d0, 1139d0, 1302d0, 1519d0, &
               1823d0, 2278d0, 3038d0, 4556d0, 9113d0 /)
+
       ! cross section [1d29 m^2]
       y(:,1) = 0d0
       y(:,2) = (/ 3.44d-2, 4.18d-2, 4.91d-2, 5.65d-2, 6.39d-2, &
@@ -377,7 +328,10 @@
                    5.62d1, 6.04d1, 6.45d1, 6.84d1, 7.23d1, 7.60d1, &
                    7.97d1, 8.32d1, 8.67d1, 9.01d1 /)
 
+      !
       ! John (1988) table 1
+      !
+
       ! Coefficient for long wavelength cross section calculation
       ya = (/ 0d0, 2.483346d3, -3.449889d3, 2.20004d3, -6.96271d2, &
               8.8283d1 /)
@@ -401,6 +355,7 @@
       ! If below limits, no contribution
       if (lambda.lt.x2(1)) then
 
+        ! Just return with the zero
         return
 
       ! If within limits, use table 1 from Stilley & Callaway (1970)
@@ -415,26 +370,29 @@
           ! Energy is between the table limits
           if (tev.ge.x1(1).and.tev.le.x1(n1)) then
 
+            ! Bilinear interpolation in tabulation
             call bilinear(x1,x2,y,tev,lambda,cc)
 
           ! Energy is above table limits
           else if (tev.lt.x1(1)) then
 
+            ! Linear interpolation along the border of the tabulation
             call linear(x2,y(1,:),lambda,cc)
 
           ! Energy is below table limits
           else if (tev.gt.x1(n1)) then
 
+            ! Linear interpolation along the border of the tabulation
             call linear(x2,y(n1,:),lambda,cc)
 
-          end if
+          end if ! Within the limits in the first dimension
 
           ! Calculate absorptivity
           ! 1d-19 = 1d-29 (m^2) * 1d12 (cm^-3**2 -> m^-3**2) *
           !         1d-2 (m^-1 -> cm^-1)
           eta(iz) = nh(iz)*1d-19*cc*ne(iz)*kb*T(iz)
 
-        end do
+        end do ! Heights to consider
 
       ! If above the wavelength limit, use table 1 from John (1988)
       else
@@ -444,8 +402,10 @@
         ! And store its inverse
         ilambda = 1d0/lambda
 
-        ! Compute the cross section Theta coefficients using the table
+        ! Initialize
         yg = 0d0
+
+        ! Compute the cross section Theta coefficients using the table
         do ii=1,n3
           yg(ii) = lambda*lambda*ya(ii) + yb(ii) + ilambda* &
                    (yc(ii) + ilambda*(yd(ii) + ilambda* &
@@ -456,21 +416,25 @@
         ! 1d-22 = 1d-34 cm^-1 * 1d12 cm^-3 -> m^-3
         C0 = kb*ktoev*1d-22
 
-        ! Compute the absorptivity for each height
+        ! At each height
         do iz=iz0,iz1
 
+          ! Get tempeature in eV
           tev = sqrt(ktoev/T(iz))
+
+          ! Add contributions to absorptivity
           cc = 1d0
           do ii=2,n3
             cc = cc*tev
             eta(iz) = eta(iz) + cc*yg(ii)
           end do
 
+          ! Complete with number densities and units constant
           eta(iz) = eta(iz)*nh(iz)*ne(iz)*C0
 
-        end do
+        end do ! Heights
 
-      end if
+      end if ! Invalid, short, or long wavelength
 
       end subroutine Hminus_ff
 
@@ -479,13 +443,13 @@
 !#####################################################################
 
       !> Computes H bound-free absorptivity and emissivity\n
-      !!     freq(dfloat): Frequency\n
-      !! Atom(Atom_class): Structure with the atomic data\n
-      !!     T(dfloat(:)): Temperature\n
-      !!     iz0(integer): First height index for this CPU\n
-      !!     iz1(integer): Last height index for this CPU\n
-      !!   eta(dfloat(:)): Absorptivity\n
-      !!   eps(dfloat(:)): Emissivity
+      !!      freq(double): Frequency\n
+      !!  Atom(Atom_class): Structure with atomic data\n
+      !!      T(double(:)): Temperature\n
+      !!      iz0(integer): First height index to consider\n
+      !!      iz1(integer): Last height index to consider\n
+      !!    eta(double(:)): Absorptivity\n
+      !!    eps(double(:)): Emissivity\n
       subroutine HI_bf(freq,Atom,T,iz0,iz1,eta,eps)
 
       ! I/O
@@ -497,9 +461,12 @@
       double precision, dimension(iz0:iz1), intent(out):: eta, eps
 
       ! Local
-      integer:: ii,iz,iterm,iphot,ilevel,iJ,nfr
+
+      integer:: iz,iterm,iphot,ilevel,iJ,nfr
+
       double precision:: neff,gbf,c0,sig,arg,gij,clambda,exu,pE
       double precision, dimension(iz0:iz1):: nps,np,nts,nt
+
 
       ! Frequency related constant quantities
       arg = c2*freq*1d4
@@ -530,23 +497,20 @@
         if (freq.lt.Atom%phot(iphot)%edge.or. &
             freq.gt.Atom%phot(iphot)%infreq(nfr)) cycle
 
-        ! Find the lower level of this photoionization
-        do ii=1,Atom%nlevel-1
-          if (Atom%iphot(ii,Atom%nlevel).eq.iphot) then
-            ilevel = ii
-            exit
-          end if
-        end do
+        ! Get lower level of this photoionization
+        ilevel = Atom%phot(iphot)%ilevell
 
         ! LTE population of the lower level
         nts = Atom%populte(ilevel,iz0:iz1)
-        ! Population of the lower level
+
+        ! Current population of the lower level
         nt = Atom%popu(ilevel,iz0:iz1)
 
-        ! Get the term and sublevel indexes of the lower level and
-        ! calculate its effective quantum number
+        ! Get the term and sublevel indexes of the lower level
         iterm = Atom%term(ilevel)
         iJ = Atom%sublevel(ilevel)
+
+        ! Calculate the effective principal quantum number
         neff = sqrt(ryd/ &
                     (Atom%FSfreq(Atom%nJ(Atom%nMulti),Atom%nMulti) - &
                      Atom%FSfreq(iJ,iterm)))
@@ -560,22 +524,23 @@
         ! Compute cross section
         sig = c0*neff*gbf*clambda*clambda*clambda
 
-        ! Population of HII
+        ! Curent Population of HII
         np = Atom%popu(Atom%nlevel,iz0:iz1)
 
-        ! For each height calculate the absorptivity and emissivity
+        ! For each height
         do iz=iz0,iz1
 
+          ! Get exponential
           exu = arg/T(iz)
           exu = diexp(exu)
 
+          ! Compute absortivity and emissivity
           gij = nts(iz)*exu/nps(iz)
           eta(iz) = sig*(1d0 - exu)*nt(iz) + eta(iz)
           eps(iz) = pE*gij*sig*np(iz) + eps(iz)
 
-        end do
-
-      end do
+        end do ! Heights
+      end do ! Photionizations
 
       end subroutine HI_bf
 
@@ -583,22 +548,27 @@
 !#####################################################################
 !#####################################################################
 
-      !> Hydrogen Gaunt factor bound-free\n
-      !!     freq(dfloat): Frequency\n
-      !!        n(dfloat): Principal quantum number\n
-      !!        Z(dfloat): Ion charge
+      !> Computes Hydrogen bound-free Gaunt factor\n
+      !!  freq(double): Frequency\n
+      !!     n(double): Principal quantum number\n
+      !!     Z(double): Ion charge
       double precision function gHI_bf(freq,n,Z)
 
       ! I/O
+
       double precision, intent(in):: freq,n,Z
 
       ! Local
+
       double precision:: x, y
 
+
+      ! Conver to Eq. units
       x = freq/ryd/Z/Z
       y = 1d0/x/n/n
       x = x**(1d0/3d0)
 
+      ! Calculate Gaunt factor
       gHI_bf = 1d0 + .1728d0*x*(1d0 - 2d0*y) - .0496d0*x*x* &
                (1d0 - (1d0 - y)*2d0*y/3d0)
 
@@ -609,13 +579,13 @@
 !#####################################################################
 
       !> Computes H free-free absorptivity\n
-      !!     freq(dfloat): Frequency\n
-      !! Atom(Atom_class): Structure with the atomic data\n
-      !!     T(dfloat(:)): Temperature\n
-      !!    ne(dfloat(:)): Electron density\n
-      !!     iz0(integer): First height index for this CPU\n
-      !!     iz1(integer): Last height index for this CPU\n
-      !!   eta(dfloat(:)): Absorptivity
+      !!      freq(dfloat): Frequency\n
+      !!  Atom(Atom_class): Structure with atomic data\n
+      !!      T(double(:)): Temperature\n
+      !!     ne(double(:)): Electron number density\n
+      !!      iz0(integer): First height index to consider\n
+      !!      iz1(integer): Last height index to consider\n
+      !!    eta(double(:)): Absorptivity
       subroutine HI_ff(freq,Atom,T,ne,iz0,iz1,eta)
 
       ! I/O
@@ -629,8 +599,10 @@
       ! Local
 
       integer:: iz
+
       double precision:: freq3,arg,C0,exu,Tin,gff
       double precision, dimension(iz0:iz1):: np
+
 
       ! Frequency related quantities
       arg = c2*freq*1d4
@@ -646,17 +618,21 @@
       ! Population of HII (for Hydrogen model it must be last level)
       np = Atom%popu(Atom%nlevel,iz0:iz1)
 
-      ! For each height calculate absorptivity
+      ! For each height to consider
       do iz=iz0,iz1
 
+        ! Calculate exponential
         Tin = 1d0/T(iz)
         exu = arg*Tin
         exu = diexp(exu)
 
+        ! Get Gaunt factor
         gff = gHI_ff(freq,1d0,T(iz))
+
+        ! Calculate absorptivity
         eta(iz) = c0*gff*(1d0 - exu)*freq3*ne(iz)*np(iz)*sqrt(Tin)
 
-      end do
+      end do ! Heights
 
       end subroutine HI_ff
 
@@ -664,25 +640,31 @@
 !#####################################################################
 !#####################################################################
 
-      !> Hydrogen Gaunt factor free-free\n
-      !!     freq(dfloat): Frequency\n
-      !!        Z(dfloat): Ion charge\n
-      !!        T(dfloat): Temperature
+      !> Computes Hydrogen free-free Gaunt factor\n
+      !!   freq(double): Frequency\n
+      !!      Z(double): Ion charge\n
+      !!      T(double): Temperature
       double precision function gHI_ff(freq,Z,T)
 
       ! I/O
+
       double precision, intent(in):: freq, Z, T
 
       ! Local
+
       double precision:: x, y
 
+
+      ! Conver to Eq. units
       x = freq/ryd/Z/Z
       x = x**(1d0/3d0)
       y = 2d0*kb*T*1d7/convF/freq
 
+      ! Calculate Gaunt factor
       gHI_ff = 1d0 + .1728d0*x*(1d0 + y) - .0496d0*x*x* &
                (1d0 + (1d0 + y)*y/3d0)
 
+      ! Cannot be smaller than one
       if (gHI_ff.lt.1d0) gHI_ff = 1d0
 
       end function gHI_ff
@@ -691,14 +673,14 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes an atomic bound-free absorptivity and emissivity\n
-      !!     freq(dfloat): Frequency\n
-      !! Atom(Atom_class): Structure with the atomic data\n
-      !!     T(dfloat(:)): Temperature\n
-      !!     iz0(integer): First height index for this CPU\n
-      !!     iz1(integer): Last height index for this CPU\n
-      !!   eta(dfloat(:)): Absorptivity\n
-      !!   eps(dfloat(:)): Emissivity
+      !> Computes atomic bound-free absorptivity and emissivity\n
+      !!      freq(double): Frequency\n
+      !!  Atom(Atom_class): Structure with atomic data\n
+      !!      T(double(:)): Temperature\n
+      !!      iz0(integer): First height index to consider\n
+      !!      iz1(integer): Last height index to consider\n
+      !!    eta(double(:)): Absorptivity\n
+      !!    eps(double(:)): Emissivity
       subroutine back_bf(freq,Atom,T,iz0,iz1,eta,eps)
 
       ! I/O
@@ -713,9 +695,10 @@
 
       integer:: iz,iterm,iterm1,iphot,ilevel,ilevel1
       integer:: iJ,iJ1,nfr
+
       double precision:: neff,gbf,gbfe,sig,arg,gij,clambda, pE, Z
-      double precision, dimension(:), allocatable:: sb,sc,sd,sx,sy
       double precision, dimension(iz0:iz1):: nps,np,nts,nt,exu
+      double precision, dimension(:), allocatable:: sb,sc,sd,sx,sy
 
       ! Frequency quantities
       arg = c2*freq*1d4
@@ -725,13 +708,13 @@
       eta = 0d0
       eps = 0d0
 
-      ! Calculate exponential
+      ! Calculate exponential for every considered height
       do iz=iz0,iz1
         Z = arg/T(iz)
         exu(iz) = diexp(Z)
       end do
 
-      ! For each lower level
+      ! For each photoionization
       do iphot=1,Atom%nphot
 
         ! Identify levels
@@ -781,6 +764,7 @@
             allocate(sd(nfr))
           end if
 
+          ! Store data in sx and sy variables
           sx(nfr:1:-1) = 1d2/Atom%phot(iphot)%infreq
           sy(nfr:1:-1) = Atom%phot(iphot)%inalpha
 
@@ -790,14 +774,15 @@
           sig = ispline(1d2/freq,sx(1:nfr),sy(1:nfr), &
                         sb(1:nfr),sc(1:nfr),sd(1:nfr),nfr)*1d4
 
-          ! If negative, use linear
+          ! If negative cross-section
           if (sig.lt.0) then
 
+            ! Use linear interpolation
             call linear(sx(1:nfr),sy(1:nfr), &
                         1d2/freq,sig)
             sig = sig*1d4
 
-          end if
+          end if ! Failed splines
 
         ! If the input was hidrogenic
         else
@@ -815,7 +800,7 @@
           neff = Z*sqrt(ryd/ &
                  (Atom%FSfreq(iJ1,iterm1) - Atom%FSfreq(iJ,iterm)))
 
-          ! Compute gaing factors at this frequency and at edge
+          ! Compute Gaunt factors at this frequency and at edge
           gbf  = gHI_bf(freq,neff,Z)
           gbfe = gHI_bf(Atom%phot(iphot)%edge,neff,Z)
 
@@ -826,20 +811,28 @@
           sig = Atom%phot(iphot)%inalpha(1)*1d4* &
                 clambda*clambda*clambda*gbf/gbfe
 
-        end if
+        end if ! Explicit or hydrogenic
 
-        ! Compute absorptivity and emissivity
+        ! For each height to consider
         do iz=iz0,iz1
 
+          ! Compute absorptivity
           eta(iz) = sig*(1d0 - exu(iz))*nt(iz) + eta(iz)
 
-          if (np(iz).gt.0d0) then
+          ! If there is population in the upper level
+          if (nps(iz).gt.0d0) then
+
+            ! Compute emissivity
             gij = nts(iz)*exu(iz)/nps(iz)
             eps(iz) = pE*gij*sig*np(iz) + eps(iz)
-          end if
 
-        end do
+          end if ! Population in upper level
+
+        end do ! Heights
       end do ! Photoionizations
+
+      ! Free
+      if (allocated(sx)) deallocate(sx,sy,sb,sc,sd)
 
       return
 
@@ -850,18 +843,21 @@
 !#####################################################################
 
       !> Computes atomic bound-bound absorptivity and emissivity\n
-      !!     freq(dfloat): Frequency\n
-      !! Atom(Atom_class): Structure with the atomic data\n
-      !!     T(dfloat(:)): Temperature\n
-      !!   vmi(dfloat(:)): Microturbulent velocity\n
-      !!      DwT(dfloat): Thermal Doppler width to stimate ranges\n
-      !!  vfac(dfloat(:)): Doppler shift factor\n
-      !!     iz0(integer): First height index for this CPU\n
-      !!     iz1(integer): Last height index for this CPU\n
-      !!   fline(logical): Bool that tells if a line was found in this
-      !!                   frequency\n
-      !!   eta(dfloat(:)): Absorptivity\n
-      !!   eps(dfloat(:)): Emissivity
+      !!        freq(double): Frequency\n
+      !!    Atom(Atom_class): Structure with atomic data\n
+      !!  Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                      J-symbols\n
+      !!        T(double(:)): Temperature\n
+      !!      vmi(double(:)): Microturbulent velocity\n
+      !!         DwT(double): Thermal Doppler width to estimate
+      !!                      ranges\n
+      !!     vfac(double(:)): Doppler shift factor\n
+      !!        iz0(integer): First height index to consider\n
+      !!        iz1(integer): Last height index to consider\n
+      !!      fline(logical): Bool that tells if a line was found in
+      !!                      this frequency\n
+      !!      eta(double(:)): Absorptivity\n
+      !!      eps(double(:)): Emissivity
       subroutine back_bb(freq,Atom,Flgsg,T,vmi,DwT,vfac,iz0,iz1, &
                          fline,eta,eps)
 
@@ -877,7 +873,8 @@
 
       ! Local
 
-      integer:: itran,iterml,itermu,iJl,iJu,ill,ilu,iz
+      integer:: itran,fitran,iterml,itermu,iJl,iJu,ill,ilu,iz
+
       double precision:: freq0,dfreq,Aul,gul
       double precision:: rJl,rJu,rLu,rLl,rS
       double precision:: c0,c1,pEl,sqrtpi,Dw,adamp,sig,prof
@@ -893,218 +890,26 @@
       eta = 0d0
       eps = 0d0
 
-      ! Run over all term pairs
-      do iterml=1,Atom%nMulti-1
-        do itermu=iterml+1,Atom%nMulti
+      ! For every transition
+      do itran=1,Atom%ntran
 
-          ! Find the transition
-          itran = Atom%irad(iterml,itermu)
+        ! Get terms
+        itermu = Atom%fst(itran)%itermu
+        iterml = Atom%fst(itran)%iterml
 
-          if (itran.lt.1) cycle
+        ! Get quantum numbers of the terms
+        rLu = Atom%rLval(itermu)
+        rLl = Atom%rLval(iterml)
+        rS = Atom%Sval(itermu)
 
-          ! Get quantum numbers of the terms
-          rLu = Atom%rLval(itermu)
-          rLl = Atom%rLval(iterml)
-          rS = Atom%Sval(itermu)
-
-          ! If ML atom
-          if (Atom%ML) then
-
-            ! Get frequency of the transition
-            freq0 = Atom%FSfreq(1,itermu) - &
-                    Atom%FSfreq(1,iterml)
-
-            ! Get the range this transition spawns
-            dfreq = freq0*Atom%Dwvl(itran)*DwT
-
-            ! If the frequency is out of range, skip
-            if (abs(freq - freq0).gt.dfreq) cycle
-
-            ! If not, we have found a line
-            fline = .True.
-
-            Aul = Atom%Ecoeff(itermu,iterml)
-
-            gul = (2d0*rLu + 1d0)/(2d0*rLl + 1d0)
-
-            pEl = convF*2d21*c*freq0*freq0*freq0
-
-            ! Constant part of the RT coefficients
-            ! 1d14 = 1d9 (m^3 -> cm^3) * 1d5 (10^5 cm^-1 -> cm^-1)
-            c1 = c0*freq0*1d14*Aul/sqrtpi
-
-            ! For each height
-            do iz=iz0,iz1
-
-              ! Doppler width
-              Dw = Atom%cDopp*sqrt(T(iz))
-              Dw = freq0*sqrt(Dw*Dw + vmi(iz)**2d0)
-
-              ! Damping parameter
-              adamp = (Atom%damp(itermu,iz) + &
-                       Atom%damp(iterml,iz) + &
-                       Atom%ldamp(itran,iz))/Dw
-
-              call voigtI((freq0 - freq*vfac(iz))/Dw,adamp,prof)
-
-              ! 'cross-section'
-              sig = c1*prof/Dw
-
-              ! Absorptivity
-              eta(iz) = eta(iz) + sig* &
-                        (Atom%popu(iterml,iz)*gul - &
-                         Atom%popu(itermu,iz))/pEl
-
-              ! Emissivity
-              eps(iz) = eps(iz) + sig*Atom%popu(itermu,iz)
-
-            end do !heights
-
-          ! If MT atom
-          else
-
-            ! Check it is allowed (spin conserved)
-            if (abs(rS - atom%Sval(iterml)).gt..1d0) cycle
-
-            ! For each pair of FS levels
-            do iJu=1,Atom%nJ(itermu)
-
-              rJu = Atom%rJval(iJu,itermu)
-              ilu = Atom%irho(itermu)%irho_ij(iJu)
-
-              do iJl=1,Atom%nJ(iterml)
-
-                rJl = Atom%rJval(iJl,iterml)
-
-                ! Check if allowed FS transition
-                if (abs(rJl - rJu).gt.1.1d0.or. &
-                    abs(rJl + rJu).lt..1d0) cycle
-
-                ill = Atom%irho(iterml)%irho_ij(iJl)
-
-                ! Get frequency of the transition
-                freq0 = Atom%FSfreq(iju,itermu) - &
-                        Atom%FSfreq(ijl,iterml)
-
-                ! Get the range this transition spawns
-                dfreq = freq0*Atom%Dwvl(itran)*DwT
-
-                ! If the frequency is out of range, skip
-                if (abs(freq - freq0).gt.dfreq) cycle
-
-                ! If not, we have found a line
-                fline = .True.
-
-                Aul = fun6j(rLu,rLl,1d0,rJl,rJu,rS,Flgsg)
-                Aul = (2d0*rLu+1d0)*(2d0*rJl+1d0)*Aul*Aul* &
-                      Atom%Ecoeff(itermu,iterml)
-               !Aul = Atom%fst(itran)%Aul(iJu,iJl)
-
-                gul = (2d0*rJu + 1d0)/(2d0*rJl + 1d0)
-
-                pEl = convF*2d21*c*freq0*freq0*freq0
-
-                ! Constant part of the RT coefficients
-                ! 1d14 = 1d9 (m^3 -> cm^3) * 1d5 (10^5 cm^-1 -> cm^-1)
-                c1 = c0*freq0*1d14*Aul/sqrtpi
-
-                ! For each height
-                do iz=iz0,iz1
-
-                  ! Doppler width
-                  Dw = Atom%cDopp*sqrt(T(iz))
-                  Dw = freq0*sqrt(Dw*Dw + vmi(iz)**2d0)
-
-                  ! Damping parameter
-                  adamp = (Atom%damp(itermu,iz) + &
-                           Atom%damp(iterml,iz) + &
-                           Atom%ldamp(itran,iz))/Dw
-
-                  call voigtI((freq0 - freq*vfac(iz))/Dw,adamp,prof)
-
-                  ! 'cross-section'
-                  sig = c1*prof/Dw
-
-                  ! Absorptivity
-                  eta(iz) = eta(iz) + sig* &
-                            (Atom%popu(ill,iz)*gul - &
-                             Atom%popu(ilu,iz))/pEl
-
-                  ! Emissivity
-                  eps(iz) = eps(iz) + sig*Atom%popu(ilu,iz)
-
-                end do !heights
-              end do ! Lower FS
-            end do ! Upper FS
-
-          end if ! ML or MT
-
-        end do ! Upper term
-      end do ! Lower term
-
-      return
-
-      end subroutine back_bb
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
-      !> Computes hydrogen bound-bound absorptivity and emissivity\n
-      !!     freq(dfloat): Frequency\n
-      !! Atom(Atom_class): Structure with the atomic data\n
-      !!     T(dfloat(:)): Temperature\n
-      !!   vmi(dfloat(:)): Microturbulent velocity\n
-      !!      DwT(dfloat): Thermal Doppler width to stimate ranges\n
-      !!  vfac(dfloat(:)): Doppler shift factor\n
-      !!     iz0(integer): First height index for this CPU\n
-      !!     iz1(integer): Last height index for this CPU\n
-      !!   fline(logical): Bool that tells if a line was found in this
-      !!                   frequency\n
-      !!   eta(dfloat(:)): Absorptivity\n
-      !!   eps(dfloat(:)): Emissivity
-      subroutine backH_bb(freq,Atom,T,vmi,DwT,vfac,iz0,iz1,fline, &
-                          eta,eps)
-
-      ! I/O
-
-      type(Atom_class), intent(in):: Atom
-      logical, intent(out):: fline
-      integer, intent(in):: iz0,iz1
-      double precision, intent(in):: freq, DwT
-      double precision, dimension(iz0:iz1), intent(in):: T, vmi, vfac
-      double precision, dimension(iz0:iz1), intent(out):: eta, eps
-
-      ! Local
-
-      integer:: itran,iterml,itermu,iz
-      double precision:: freq0,dfreq,Aul,gul
-      double precision:: c0,c1,pEl,sqrtpi,Dw,adamp,sig,prof
-
-      ! Initialize the line found variable
-      fline = .False.
-
-      ! hc/4pi and square root of pi
-      c0 = hplanck*c*1d12*.25d0/PI
-      sqrtpi = sqrt(PI)
-
-      ! Initialize RT coefficients
-      eta = 0d0
-      eps = 0d0
-
-      ! Run over all term combinations
-      do iterml=1,Atom%nMulti-1
-        do itermu=iterml+1,Atom%nMulti
-
-          ! Find the transition
-          itran = Atom%irad(iterml,itermu)
-
-          if (itran.lt.1) cycle
+        ! If ML atom
+        if (Atom%ML) then
 
           ! Get frequency of the transition
-          freq0 = Atom%Dfreq(itran)
+          freq0 = Atom%FSfreq(1,itermu) - &
+                  Atom%FSfreq(1,iterml)
 
-          ! Get the range this transition spawns
+          ! Get the range this transition fills
           dfreq = freq0*Atom%Dwvl(itran)*DwT
 
           ! If the frequency is out of range, skip
@@ -1113,11 +918,10 @@
           ! If not, we have found a line
           fline = .True.
 
+          ! Einstein coefficient, quotient of statistical
+          ! weights, and energy
           Aul = Atom%Ecoeff(itermu,iterml)
-
-          gul = (2d0*Atom%rJval(1,itermu) + 1d0)/ &
-                (2d0*Atom%rJval(1,iterml) + 1d0)
-
+          gul = (2d0*rLu + 1d0)/(2d0*rLl + 1d0)
           pEl = convF*2d21*c*freq0*freq0*freq0
 
           ! Constant part of the RT coefficients
@@ -1136,6 +940,7 @@
                      Atom%damp(iterml,iz) + &
                      Atom%ldamp(itran,iz))/Dw
 
+            ! Voigt profile
             call voigtI((freq0 - freq*vfac(iz))/Dw,adamp,prof)
 
             ! 'cross-section'
@@ -1151,8 +956,198 @@
 
           end do !heights
 
-        end do ! Upper term
-      end do ! Lower term
+        ! If MT atom
+        else
+
+          ! Check it is allowed (spin conserved)
+          if (abs(rS - atom%Sval(iterml)).gt..1d0) cycle
+
+          ! For each FS transition
+          do fitran=1,Atom%fst(itran)%nt
+
+            ! Get sublevel indexes
+            iJu = Atom%fst(itran)%ilevelu(fitran)
+            iJl = Atom%fst(itran)%ilevell(fitran)
+
+            ! Get level index
+            ilu = Atom%irho(itermu)%irho_ij(iJu)
+            ill = Atom%irho(iterml)%irho_ij(iJl)
+
+            ! Get total angular momentum
+            rJu = Atom%rJval(iJu,itermu)
+            rJl = Atom%rJval(iJl,iterml)
+
+            ! Get frequency of the transition
+            freq0 = Atom%FSfreq(iju,itermu) - &
+                    Atom%FSfreq(ijl,iterml)
+
+            ! Get the range this transition holds
+            dfreq = freq0*Atom%Dwvl(itran)*DwT
+
+            ! If the frequency is out of range, skip
+            if (abs(freq - freq0).gt.dfreq) cycle
+
+            ! If not, we have found a line
+            fline = .True.
+
+            ! Einstein coefficient
+            Aul = fun6j(rLu,rLl,1d0,rJl,rJu,rS,Flgsg)
+            Aul = (2d0*rLu+1d0)*(2d0*rJl+1d0)*Aul*Aul* &
+                  Atom%Ecoeff(itermu,iterml)
+           !Aul = Atom%fst(itran)%Aul(iJu,iJl)
+
+            ! Quotient statistical weights and energy
+            gul = (2d0*rJu + 1d0)/(2d0*rJl + 1d0)
+            pEl = convF*2d21*c*freq0*freq0*freq0
+
+            ! Constant part of the RT coefficients
+            ! 1d14 = 1d9 (m^3 -> cm^3) * 1d5 (10^5 cm^-1 -> cm^-1)
+            c1 = c0*freq0*1d14*Aul/sqrtpi
+
+            ! For each height
+            do iz=iz0,iz1
+
+              ! Doppler width
+              Dw = Atom%cDopp*sqrt(T(iz))
+              Dw = freq0*sqrt(Dw*Dw + vmi(iz)**2d0)
+
+              ! Damping parameter
+              adamp = (Atom%damp(itermu,iz) + &
+                       Atom%damp(iterml,iz) + &
+                       Atom%ldamp(itran,iz))/Dw
+
+              ! Voigt profile
+              call voigtI((freq0 - freq*vfac(iz))/Dw,adamp,prof)
+
+              ! 'cross-section'
+              sig = c1*prof/Dw
+
+              ! Absorptivity
+              eta(iz) = eta(iz) + sig* &
+                        (Atom%popu(ill,iz)*gul - &
+                         Atom%popu(ilu,iz))/pEl
+
+              ! Emissivity
+              eps(iz) = eps(iz) + sig*Atom%popu(ilu,iz)
+
+            end do !heights
+          end do ! FS transition
+
+        end if ! ML or MT
+
+      end do ! Transitions
+
+      return
+
+      end subroutine back_bb
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Computes hydrogen bound-bound absorptivity and emissivity
+      !! with the hard-coded model\n
+      !!      freq(double): Frequency\n
+      !!  Atom(Atom_class): Structure with atomic data\n
+      !!      T(double(:)): Temperature\n
+      !!    vmi(double(:)): Microturbulent velocity\n
+      !!       DwT(double): Thermal Doppler width to estimate ranges\n
+      !!   vfac(double(:)): Doppler shift factor\n
+      !!      iz0(integer): First height index to consider\n
+      !!      iz1(integer): Last height index to consider\n
+      !!    fline(logical): Bool that tells if a line was found in
+      !!                    this frequency\n
+      !!    eta(double(:)): Absorptivity\n
+      !!    eps(double(:)): Emissivity
+      subroutine backH_bb(freq,Atom,T,vmi,DwT,vfac,iz0,iz1,fline, &
+                          eta,eps)
+
+      ! I/O
+
+      type(Atom_class), intent(in):: Atom
+      logical, intent(out):: fline
+      integer, intent(in):: iz0,iz1
+      double precision, intent(in):: freq, DwT
+      double precision, dimension(iz0:iz1), intent(in):: T, vmi, vfac
+      double precision, dimension(iz0:iz1), intent(out):: eta, eps
+
+      ! Local
+
+      integer:: itran,iterml,itermu,iz
+
+      double precision:: freq0,dfreq,Aul,gul
+      double precision:: c0,c1,pEl,sqrtpi,Dw,adamp,sig,prof
+
+
+      ! Initialize the line found variable
+      fline = .False.
+
+      ! hc/4pi and square root of pi
+      c0 = hplanck*c*1d12*.25d0/PI
+      sqrtpi = sqrt(PI)
+
+      ! Initialize RT coefficients
+      eta = 0d0
+      eps = 0d0
+
+      ! Run over transitions
+      do itran=1,Atom%ntran
+
+        ! Get terms
+        itermu = Atom%fst(itran)%itermu
+        iterml = Atom%fst(itran)%iterml
+
+        ! Get frequency of the transition
+        freq0 = Atom%Dfreq(itran)
+
+        ! Get the range this transition fills
+        dfreq = freq0*Atom%Dwvl(itran)*DwT
+
+        ! If the frequency is out of range, skip
+        if (abs(freq - freq0).gt.dfreq) cycle
+
+        ! If not, we have found a line
+        fline = .True.
+
+        ! Einstein coefficient, quotient of statistical weights, and
+        ! energy
+        Aul = Atom%Ecoeff(itermu,iterml)
+        gul = (2d0*Atom%rJval(1,itermu) + 1d0)/ &
+              (2d0*Atom%rJval(1,iterml) + 1d0)
+        pEl = convF*2d21*c*freq0*freq0*freq0
+
+        ! Constant part of the RT coefficients
+        ! 1d14 = 1d9 (m^3 -> cm^3) * 1d5 (10^5 cm^-1 -> cm^-1)
+        c1 = c0*freq0*1d14*Aul/sqrtpi
+
+        ! For each height
+        do iz=iz0,iz1
+
+          ! Doppler width
+          Dw = Atom%cDopp*sqrt(T(iz))
+          Dw = freq0*sqrt(Dw*Dw + vmi(iz)**2d0)
+
+          ! Damping parameter
+          adamp = (Atom%damp(itermu,iz) + &
+                   Atom%damp(iterml,iz) + &
+                   Atom%ldamp(itran,iz))/Dw
+
+          ! Voigt profile
+          call voigtI((freq0 - freq*vfac(iz))/Dw,adamp,prof)
+
+          ! 'cross-section'
+          sig = c1*prof/Dw
+
+          ! Absorptivity
+          eta(iz) = eta(iz) + sig* &
+                    (Atom%popu(iterml,iz)*gul - &
+                     Atom%popu(itermu,iz))/pEl
+
+          ! Emissivity
+          eps(iz) = eps(iz) + sig*Atom%popu(itermu,iz)
+
+        end do ! Heights
+      end do ! Transitions
 
       return
 
@@ -1162,15 +1157,15 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes rayleigh scattering coefficient for hydrogen\n
-      !!     freq(dfloat): Frequency\n
-      !!   ifreq(integer): Frequency index\n
-      !! Atom(Atom_class): Structure with the atomic data\n
-      !!      DwT(dfloat): Thermal Doppler width to stimate ranges\n
-      !!     iz0(integer): First height index for this CPU\n
-      !!     iz1(integer): Last height index for this CPU\n
-      !!     act(logical): Bool that tells if hydrogen is active\n
-      !!   sig(dfloat(:)): Scattering coefficient
+      !> Computes Rayleigh scattering coefficient for hydrogen\n
+      !!      freq(double): Frequency\n
+      !!    ifreq(integer): Frequency index\n
+      !!  Atom(Atom_class): Structure with atomic data\n
+      !!       DwT(double): Thermal Doppler width to estimate ranges\n
+      !!      iz0(integer): First height index to consider\n
+      !!      iz1(integer): Last height index to consider\n
+      !!      act(logical): Bool that tells if hydrogen is active\n
+      !!    sig(double(:)): Scattering coefficient
       subroutine rayleigh(freq,ifreq,Atom,DwT,iz0,iz1,act,sig)
 
       ! I/O
@@ -1183,10 +1178,12 @@
       ! Local
 
       integer:: iterm1, iz, itran, ij
+
       double precision:: c0,CfA,f,fij,deg0,deg1
       double precision:: lambda0,freq0,flimit,icfreq
       double precision, dimension(iz0:iz1):: n0
       double precision, dimension(Atom%ntran):: freqR
+
 
       ! Initialize RT coefficient
       sig = 0d0
@@ -1198,30 +1195,34 @@
       flimit = 1d-4
 
       ! If the Hydrogen is not active, look for the red limits
-      ! of the lines of the Lyman series
+      ! of the lines of the Lyman series in the hard-coded atom
       if (act.eq.0) then
 
+        ! For every upper term
         do iterm1=2,Atom%nMulti
 
+          ! If not connected to ground term
           if (Atom%irad(1,iterm1).lt.1) cycle
 
+          ! Get transition index
           itran = Atom%irad(1,iterm1)
 
           ! Frequency of the transition
           freq0 = Atom%Dfreq(itran)
+
           ! Red side frequency
           freqR(itran) = freq0/(1d0 + DwT*Atom%Dwvl(itran))
 
           ! Update the limit
           flimit = max(flimit,freqR(itran))
 
-        end do
+        end do ! Upper terms
 
         ! If the frequency is larger than the larger red wing, no
         ! contribution
         if (freq.ge.flimit) return
 
-      end if
+      end if ! Hard-coded
 
       ! Initialize the population of the ground term
       n0 = 0d0
@@ -1248,32 +1249,34 @@
         ! Get transition
         itran = Atom%irad(1,iterm1)
 
+        ! If no transition, skip
         if (itran.lt.1) cycle
 
         ! Get Transition frequency
         freq0 = Atom%Dfreq(itran)
 
-        ! If not active, check that the frequency is lower than
-        ! the red wing of the line previously determined
+        ! If not active
         if (act.eq.0) then
 
+          ! Check that the frequency is lower than the red wing of
+          ! the line previously determined
           if (freq.ge.freqR(itran)) cycle
 
-        ! If it is active, check that the frequency is lower than
-        ! the transition frequency and that the line is absent in
-        ! this frequency
+        ! If it is active
         else
 
+          ! Check that the frequency is lower than the transition
+          ! frequency and that the line is absent in this frequency
           if (Atom%fflag(itran)%absent.and.freq.gt.freq0) cycle
           if (ifreq.ge.Atom%if0(itran)) cycle
 
-        end if
+        end if ! Active or passive atom
 
         ! Degeneration of upper term
         deg1 = (2d0*Atom%rLval(iterm1) + 1d0)* &
                (2d0*Atom%Sval(iterm1) + 1d0)
 
-        ! Frequency quantities that enters the calculation
+        ! Frequency quantities entering the calculation
         icfreq = freq0/freq
         icfreq = 1d0/(icfreq*icfreq - 1d0)
         lambda0 = 1d-7/freq0
@@ -1285,7 +1288,7 @@
         ! Add to Rayleigh coefficient
         fij = fij + f*icfreq*icfreq
 
-      end do
+      end do ! Upper terms
 
       ! Compute Rayleigh cross section
       ! 1d4 (m^2 -> cm^2)
@@ -1304,12 +1307,12 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes rayleigh scattering coefficient for H2\n
-      !!     freq(dfloat): Frequency\n
-      !!   nH2(dfloat(:)): H2 density\n
-      !!     iz0(integer): First height index for this CPU\n
-      !!     iz1(integer): Last height index for this CPU\n
-      !!   sig(dfloat(:)): Scattering coefficient
+      !> Computes Rayleigh scattering coefficient for H2\n
+      !!     freq(double): Frequency\n
+      !!   nH2(double(:)): H2 density\n
+      !!     iz0(integer): First height index to consider\n
+      !!     iz1(integer): Last height index to consider\n
+      !!   sig(double(:)): Scattering coefficient
       subroutine rayleigh_H2(freq,nH2,iz0,iz1,sig)
 
       ! I/O
@@ -1323,10 +1326,12 @@
 
       integer, parameter:: n=21
       integer:: iz
+
       double precision:: C1,C2,C3
       double precision:: lambda, CC
       double precision, dimension(n):: x
       double precision, dimension(n):: y
+
 
       ! Initialize coefficients
       C1 = 8.779d1
@@ -1368,7 +1373,7 @@
 
         CC = lambda*lambda*(C1 + lambda*(C2 + lambda*C3))
 
-      end if
+      end if ! Within or above the limit
 
       ! Convert cross section to cm^2
       CC = CC*1d-18
@@ -1387,13 +1392,13 @@
 !#####################################################################
 
       !> Computes OH bound-free absorptivity and emissivity\n
-      !!     freq(dfloat): Frequency\n
-      !!   nOH(dfloat(:)): OH density\n
-      !!     T(dfloat(:)): Temperature\n
-      !!     iz0(integer): First height index for this CPU\n
-      !!     iz1(integer): Last height index for this CPU\n
-      !!   eta(dfloat(:)): Absorptivity\n
-      !!   eps(dfloat(:)): Emissivity
+      !!    freq(double): Frequency\n
+      !!  nOH(double(:)): OH density\n
+      !!    T(double(:)): Temperature\n
+      !!    iz0(integer): First height index to consider\n
+      !!    iz1(integer): Last height index to consider\n
+      !!  eta(double(:)): Absorptivity\n
+      !!  eps(double(:)): Emissivity
       subroutine OH_bf(freq,nOH,T,iz0,iz1,eta,eps)
 
       ! I/O
@@ -1407,6 +1412,7 @@
 
       integer, parameter:: n2=15, n1=130
       integer:: iz
+
       double precision:: arg, pE, pEeV, cc, exu
       double precision, dimension(n1):: x1
       double precision, dimension(n2):: x2
@@ -1840,12 +1846,16 @@
       ! If out of limits, no contribution
       if (pEeV.lt.x1(1).or.pEeV.gt.x1(n1)) then
 
+        ! Return with zeros
         return
 
+      ! Within limits in axis 1
       else
 
+        ! For each height
         do iz=iz0,iz1
 
+          ! Within temperature limits
           if (T(iz).ge.x2(1).and.T(iz).le.x2(n2)) then
 
             ! Bilinear interpolation of cross-section
@@ -1854,6 +1864,7 @@
             ! It was logarithmic
             cc = 1d1**cc
 
+            ! Compute exponential
             exu = arg/T(iz)
             exu = diexp(exu)
 
@@ -1861,11 +1872,11 @@
             eta(iz) = nOH(iz)*(1d0 - exu)*cc
             eps(iz) = nOH(iz)*pE*exu*cc
 
-          end if
+          end if ! Within temperature limits
 
         end do ! Heights
 
-      end if
+      end if ! Within limits in axis 1
 
       end subroutine OH_bf
 
@@ -1874,13 +1885,13 @@
 !#####################################################################
 
       !> Computes CH bound-free absorptivity and emissivity\n
-      !!     freq(dfloat): Frequency\n
-      !!   nCH(dfloat(:)): CH density\n
-      !!     T(dfloat(:)): Temperature\n
-      !!     iz0(integer): First height index for this CPU\n
-      !!     iz1(integer): Last height index for this CPU\n
-      !!   eta(dfloat(:)): Absorptivity\n
-      !!   eps(dfloat(:)): Emissivity
+      !!    freq(double): Frequency\n
+      !!  nCH(double(:)): CH density\n
+      !!    T(double(:)): Temperature\n
+      !!    iz0(integer): First height index to consider\n
+      !!    iz1(integer): Last height index to consider\n
+      !!  eta(double(:)): Absorptivity\n
+      !!  eps(double(:)): Emissivity
       subroutine CH_bf(freq,nCH,T,iz0,iz1,eta,eps)
 
       ! I/O
@@ -1894,6 +1905,7 @@
 
       integer, parameter:: n2=15, n1=105
       integer:: iz
+
       double precision:: arg, pE, pEeV, cc, exu
       double precision, dimension(n1):: x1
       double precision, dimension(n2):: x2
@@ -2350,12 +2362,16 @@
       ! If out of frequency limits, no contribution
       if (pEeV.lt.x1(1).or.pEeV.gt.x1(n1)) then
 
+        ! Return with zeros
         return
 
+      ! Within limits in axis 1
       else
 
+        ! For every height
         do iz=iz0,iz1
 
+          ! If within temperature limits
           if (T(iz).ge.x2(1).and.T(iz).le.x2(n2)) then
 
             ! Bilinear interpolation of cross-section
@@ -2364,6 +2380,7 @@
             ! It was logarithmic
             cc = 1d1**cc
 
+            ! Compute exponential
             exu = arg/T(iz)
             exu = diexp(exu)
 
@@ -2371,11 +2388,11 @@
             eta(iz) = nCH(iz)*(1d0 - exu)*cc
             eps(iz) = nCH(iz)*pE*exu*cc
 
-          end if
+          end if ! Within temperature limits
 
-        end do
+        end do ! Heights
 
-      end if
+      end if ! Within limits in axis 1
 
       end subroutine CH_bf
 
@@ -2384,13 +2401,13 @@
 !#####################################################################
 
       !> Computes H2- free-free absorptivity\n
-      !!     freq(dfloat): Frequency\n
-      !!   nH2(dfloat(:)): H2 density\n
-      !!     T(dfloat(:)): Temperature\n
-      !!    ne(dfloat(:)): Electron density\n
-      !!     iz0(integer): First height index for this CPU\n
-      !!     iz1(integer): Last height index for this CPU\n
-      !!   eta(dfloat(:)): Absorptivity
+      !!    freq(double): Frequency\n
+      !!  nH2(double(:)): H2 density\n
+      !!    T(double(:)): Temperature\n
+      !!   ne(double(:)): Electron density\n
+      !!    iz0(integer): First height index to consider\n
+      !!    iz1(integer): Last height index to consider\n
+      !!  eta(double(:)): Absorptivity
       subroutine H2m_ff(freq,nH2,T,ne,iz0,iz1,eta)
 
       ! I/O
@@ -2404,20 +2421,24 @@
 
       integer, parameter:: n2=8, n1=19
       integer:: iz
+
       double precision:: lambda, pres, sig, tev
       double precision, dimension(n1):: x1
       double precision, dimension(n2):: x2
       double precision, dimension(n2,n1):: y
 
 
+      ! Wavelength [nm]
       x1 = (/ 0.0d0, 350.5d0, 414.2d0, 506.3d0, 569.6d0, 650.9d0, &
             759.4d0, 911.3d0, 1139.1d0, 1518.8d0, 1822.6d0, &
             2278.3d0, 3037.7d0, 3645.2d0, 4556.5d0, 6075.3d0, &
             9113.0d0, 11391.3d0, 15188.3d0 /)
 
+      ! Tempeature [eV]
       x2 = (/ 0.5d0, 0.8d0, 1.0d0, 1.2d0, 1.6d0, 2.0d0, &
               2.8d0, 3.6d0 /)
 
+      ! Cross-section
       y(:,1)  = (/ 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0 /)
       y(:,2)  = (/ 4.17d-2, 6.10d-2, 7.34d-2, 8.59d-2, 1.11d-1, &
                    1.37d-1, 1.87d-1, 2.40d-1 /)
@@ -2471,6 +2492,7 @@
         ! Check that there is some H2
         if (nH2(iz).lt.1d-30) cycle
 
+        ! Transform T to eV
         tev = ktoev/T(iz)
 
         ! Bilinear interpolation of cross section
@@ -2484,7 +2506,7 @@
         !         1d-2 (m^-1 -> cm^-1)
         eta(iz) = nH2(iz)*1d-19*pres*sig
 
-      end do
+      end do ! Heights
 
       return
 
@@ -2495,12 +2517,12 @@
 !#####################################################################
 
       !> Computes H + p+ free-free absorptivity\n
-      !!     freq(dfloat): Frequency\n
-      !! Atom(Atom_class): Structure with the atomic data\n
-      !!     T(dfloat(:)): Temperature\n
-      !!     iz0(integer): First height index for this CPU\n
-      !!     iz1(integer): Last height index for this CPU\n
-      !!   eta(dfloat(:)): Absorptivity
+      !!      freq(double): Frequency\n
+      !!  Atom(Atom_class): Structure with atomic data\n
+      !!      T(double(:)): Temperature\n
+      !!      iz0(integer): First height index to consider\n
+      !!      iz1(integer): Last height index to consider\n
+      !!    eta(double(:)): Absorptivity
       subroutine HHp_ff(freq,Atom,T,iz0,iz1,eta)
 
       ! I/O
@@ -2512,8 +2534,10 @@
       double precision, dimension(iz0:iz1), intent(out):: eta
 
       ! Local
+
       integer, parameter:: n2=10, n1=15
       integer:: iz, ij
+
       double precision:: lambda, sig
       double precision, dimension(n1):: x1
       double precision, dimension(n2):: x2
@@ -2521,13 +2545,16 @@
       double precision, dimension(iz0:iz1):: np, n0
 
 
+      ! Wavelength [nm]
       x1 = (/ 0d0, 384.6d0, 555.6d0, 833.3d0, 1111.1d0, &
               1428.6d0, 1666.7d0, 2d3, 2.5d3, 2857.1d0, &
               3333.3d0, 4d3, 5d3, 6666.7d0, 1d4 /)
 
+      ! Temperature [K]
       x2 = (/ 2.5d3, 3d3, 3.5d3, 4d3, 5d3, 6d3, 7d3, 8d3, &
               1d4, 1.2d4 /)
 
+      ! Cross-section
       y(:,1)  = (/ 0.00d0, 0.00d0, 0.00d0, 0.00d0, 0.00d0, &
                    0.00d0, 0.00d0, 0.00d0, 0.00d0, 0.00d0 /)
       y(:,2)  = (/ 0.46d0, 0.46d0, 0.42d0, 0.39d0, 0.36d0, &
@@ -2588,7 +2615,7 @@
         !      1d-2 (m^-1 -> cm^-1)
         eta(iz) = n0(iz)*np(iz)*sig*1d-39
 
-      end do
+      end do ! Heights
 
       return
 

@@ -5,92 +5,18 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     04/26/2017
+!     26/04/2017
 !  Last version:
-!     10/25/2022 V3.0.2
+!     13/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     10/25/2022:    V3.0.2 - Changed iexu and exu to pointers to
-!                             correctly manage the data regardless of
-!                             the size and allocation status, as well
-!                             as avoiding the copy of allocated data
-!                             internally (TdPA)
-!
-!     07/27/2022:    V3.0.1 - Renamed MPI to MPID (TdPA)
-!
-!     06/29/2022:    V3.0.0 - Changed global version (TdPA)
-!
-!     09/30/2021:    V2.0.1 - Added missing nowait (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!                           - Split the Fint routines in two
-!                             different routines to facilitate the
-!                             use of OpenMP (TdPA)
-!                           - Added OpenMP to the serial JcalcI,
-!                             JcalcJ, and Jgen subroutines (TdPA)
-!                           - Changed some parts of the source to
-!                             make easier using OpenMP (TdPA)
-!
-!     07/31/2019:    V1.3.2 - The variable exu is allocated and not
-!                             given a fixed size (TdPA)
-!
-!     12/10/2019:    V1.3.1 - The photoionization RAM storing has its
-!                             own flag now, PIRAM (TdPA)
-!
-!     05/31/2019:    V1.3.0 - Changed the dimensionality of the
-!                             profile and ratio variables. Now it
-!                             runs sequentially on atoms, transitions
-!                             and frequencies to save memory and
-!                             reduce the size of data shared through
-!                             MPI messages (TdPA)
-!
-!     05/08/2019:    V1.2.0 - Got rid of the (atomic,transition) pair
-!                             of indexes in every radiation tensor and
-!                             now they have been compressed in just
-!                             one dimension (TdPA)
-!
-!     04/08/2019:    V1.1.2 - Bugfix: There was an out-of-bounds when
-!                             storing profiles, but without explicit
-!                             photoionizations (TdPA)
-!
-!     03/18/2019:    V1.1.1 - Added option of precomputing the
-!                             exponentials (TdPA)
-!                           - Can skip ALI computations (TdPA)
-!
-!     02/20/2019:    V1.1.0 - Exponentials are done with diexp (TdPA)
-!
-!     08/31/2017:    V1.0.8 - Bugfix: The input does not change in
-!                             terms of shift in FJgIn (TdPA)
-!
-!     08/30/2017:    V1.0.7 - Some variables now need shifts because
-!                             of changes in the master calls (TdPA)
-!
-!     08/22/2017:    V1.0.6 - Changed inputs in Fint to comply with
-!                             changes in solver (TdPA)
-!
-!     06/22/2017:    V1.0.5 - Added Jgen and FJgInt (TdPA)
-!
-!     06/14/2017:    V1.0.4 - exu allocated in a range that is
-!                             actually used (TdPA)
-!
-!     06/13/2017:    V1.0.3 - Limit the exponentials to the region
-!                             with photoionizations (TdPA)
-!
-!     06/12/2017:    V1.0.2 - Take advantage of knowing the true
-!                             limits of transitions (TdPA)
-!
-!     06/09/2017:    V1.0.1 - Added JcalcJ and FintJ (TdPA)
-!                           - Removed debugging variable in FintI
-!                             (TdPA)
-!
-!     04/26/2017:    V1.0.0 - First version (TdPA)
+!     13/12/2024:    V4.0.0 - Removed OpenMP (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -100,25 +26,40 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
 !  JcalcI
-!    Calculate the contribution to J00, J00S, J00P, J00C, and Lambda
-!    operators (serial)
+!    Calculate the J00, J00S, J00P, J00C, and lambda operators in
+!  serial mode
+!
 !  FIntI_line
-!    Calculate partially the integral of J00, J00S and b-b Lambda
-!    operator (mpi)
+!    Add contribution to the integrals of the mean intensity in MPI
+!  for bound-bound transitions
+!
 !  FIntI_rest
-!    Calculate partially the integral of J00P, J00C, and b-f lambda
-!    operator (mpi)
+!    Add contribution to the integrals of the frequency dependent mean
+!  intensity and the mean intensity and lambda operator for bound-free
+!  transitions in MPI
+!
 !  JcalcJ
-!    Calculate the contribution to J00C (serial)
+!    Calculate the frequency dependent mean intensity in serial mode
+!
 !  FIntJ
-!    Calculate partially the integral of J00C (mpi)
+!    Calculate the contribution to the frequency dependent mean
+!  intensity in MPI
+!
 !  Jgen
-!    Calculate the contribution to J00 and J00, complex (serial)
+!    Calculate the K=Q=0 component of the integrated radiation field
+!  tensors in serial mode
+!
 !  FJgInt
-!    Calculate partially the integral of J00 and J00, complex (mpi)
+!    Calculate the contribution to K=Q=0 component of the integrated
+!  radiation field tensors in MPI
 !
 !#####################################################################
 !#####################################################################
@@ -127,7 +68,6 @@
       ! Use
       use commons_mod
       use math_mod
-      use omp_mod
       use parameters_mod , only : cZero, c2, convF, pi, cSaha, kb, &
                                   fktoJ
       use types_mod
@@ -138,37 +78,37 @@
 !#####################################################################
 !#####################################################################
 
-      !> Adds contribution to the integrals of the mean intensity
-      !! when only one CPU.\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!          omega(dfloat(:)): Frequency array\n
-      !!          Wfreq(dfloat(:)): Frequency trapezoidal weights\n
-      !!              pf0(integer): First frequency index of this
-      !!                            CPU for bound-free transitions\n
-      !!              pf1(integer): Last frequency index of this
-      !!                            CPU for bound-free transitions\n
-      !!                 T(dfloat): Temperature\n
-      !!                ne(dfloat): Electron density\n
-      !!              iph(integer): Output direction azimuth index\n
-      !!              ith(integer): Output direction polar index\n
-      !!          Stk(dfloat(:,:)): Stokes parameters\n
-      !!          rLine(dfloat(:)): Bound-bound transition strength\n
-      !!          rPhot(dfloat(:)): Bound-free transition strength\n
-      !!         Prof(dfloat(:,:)): Bound-bound normalized line
-      !!                            profiles\n
-      !!            J00(dfloat(:)): Mean intensity integrated
-      !!                            over absorption profile\n
-      !!           J00S(dfloat(:)): Mean intensity integrated
-      !!                            over emission profile\n
-      !!         J00P(dfloat(:,:)): Intensity integrals in the
-      !!                            photoionization rates\n
-      !!           J00C(dfloat(:)): Mean intensity with frequency
-      !!                            dependence\n
-      !!      LambdaL(dfloat(:,:)): Bound-bound Lambda operator\n
-      !!    LambdaP(dfloat(:,:,:)): Bound-free Lambda operator\n
-      !!              ALI(logical): Compute for ALI\n
-      !!           iexu(dfloat(:)): Pre-computed exponentials
+      !> Calculate the J00, J00S, J00P, J00C, and lambda operators in
+      !! serial mode\n
+      !!     Atom(Atom_class(:)): Structures with atomic data\n
+      !!    Geom(Geometry_class): Structure with geometric data\n
+      !!        omega(double(:)): Frequency array\n
+      !!        Wfreq(double(:)): Frequency trapezoidal weights\n
+      !!            pf0(integer): First frequency index for bound-free
+      !!                          transitions\n
+      !!            pf1(integer): Last frequency index for bound-free
+      !!                          transitions\n
+      !!               T(double): Temperature\n
+      !!              ne(double): Electron number density\n
+      !!            iph(integer): Direction azimuth index\n
+      !!            ith(integer): Direction polar index\n
+      !!          Stk(double(:)): Intensity\n
+      !!        rLine(double(:)): Bound-bound transition strength\n
+      !!        rPhot(double(:)): Bound-free transition strength\n
+      !!       Prof(double(:,:)): Bound-bound normalized line
+      !!                          profiles\n
+      !!          J00(double(:)): Mean intensity integrated over the
+      !!                          absorption profile\n
+      !!         J00S(double(:)): Mean intensity integrated over the
+      !!                          emission profile\n
+      !!       J00P(double(:,:)): Intensity integrals in the
+      !!                          photoionization rates\n
+      !!         J00C(double(:)): Mean intensity with frequency
+      !!                          dependence\n
+      !!    LambdaL(double(:,:)): Bound-bound Lambda operator\n
+      !!  LambdaP(double(:,:,:)): Bound-free Lambda operator\n
+      !!            ALI(logical): If computing Lambda operator\n
+      !!         iexu(double(:)): Pre-computed frequency exponential
       subroutine JcalcI(Atom,Geom,omega,Wfreq,pf0,pf1,T,ne,iph,ith, &
                         Stk,rLine,rPhot,Prof,J00,J00S,J00P,J00C, &
                         LambdaL,LambdaP,ALI,iexu)
@@ -183,7 +123,7 @@
       double precision, dimension(:), intent(in):: Wfreq, omega
       double precision, dimension(:), intent(in):: Stk
       double precision, dimension(:), intent(inout):: J00C
-      double precision, dimension(:), pointer, intent(in):: iexu
+      double precision, dimension(:), intent(in), pointer:: iexu
       double precision, dimension(:), intent(inout):: J00
       double precision, dimension(:), intent(inout):: J00S
       double precision, dimension(:), intent(in):: rLine
@@ -197,16 +137,22 @@
 
       logical:: nALI
 
-      integer:: ifreq,if0,if1,ia,itran,jtran,ftran,jftran
       integer:: iil,iip,jjl,jjp,nf
+      integer:: ifreq,if0,if1,ia,itran,jtran,ftran,jftran
 
       double precision:: c0,c1,c3,Saha,arg,WA,WF,WFS,W0,W1
+
+      ! Pointers
+
       double precision, dimension(:), pointer:: exu
 
 
       !
       ! Initializations
       !
+
+      ! Pointer
+      nullify(exu)
 
       ! Saha non-line-dependent part
       Saha = cSaha*ne/(T**(1.5d0))
@@ -218,21 +164,19 @@
       ! Not ALI
       nALI = .not.ALI
 
-      ! Allocate or point exu
+      ! If pre-computed exponentials
       if (PIRAM.and.pf1.ge.pf0) then
-        exu(pf0:pf1) => iexu
-      else if (pf1.ge.pf0) then
-        allocate(exu(pf0:pf1))
-      end if
 
-!$omp parallel default(none) &
-!$omp private(c0,ifreq,WF,WFS,ia,ftran,itran,jtran,jftran) &
-!$omp private(iil,iip,jjl,jjp,nf,if0,if1,c1,c3) &
-!$omp private(W0,W1) &
-!$omp shared(Saha,arg,WA,nALI,Stk,pf0,pf1,PIRAM,T,iexu,omega) &
-!$omp shared(Prof,rLine,rPhot,J00C,exu) &
-!$omp shared(Wfreq,Atom,nfreq,na,stm) &
-!$omp reduction(+ : J00,LambdaL,J00P,LambdaP)
+        ! Point
+        exu(pf0:pf1) => iexu
+
+      ! If non-allocated but needed
+      else if (pf1.ge.pf0) then
+
+        ! Allocate
+        allocate(exu(pf0:pf1))
+
+      end if ! Allocated exponential
 
 
       !
@@ -240,14 +184,12 @@
       !
 
       ! For each frequency
-!$omp do
       do ifreq=1,nfreq
 
         ! Calculate continuum mean intensity
         J00C(ifreq) = J00C(ifreq) + WA*Stk(ifreq)
 
-      end do
-!$omp end do nowait
+      end do ! Frequencies
 
       ! If no pre-computed
       if (.not.PIRAM.or.pf1.lt.pf0) then
@@ -256,15 +198,15 @@
         c0 = c2*1d4/T
 
         ! For each frequency with photoionization
-!$omp do
         do ifreq=pf0,pf1
 
           ! Argument frequency exponential
           WF = c0*omega(ifreq)
+
+          ! Inverse exponential
           exu(ifreq) = diexp(WF)
 
         end do ! frequencies
-!$omp end do
 
       end if ! pre-computed
 
@@ -286,16 +228,17 @@
         ! For each FS transition
         do ftran=1,Atom(ia)%nftran
 
+          ! Transition indexes
           itran = Atom(ia)%ifst(ftran)
           jftran = ftran + Atom(ia)%tfshift
 
-          ! Get limits data
+          ! Get limits data, limit weights, and size
           if0 = Atom(ia)%if0(itran)
           W0 = Atom(ia)%W0(itran)
           if1 = Atom(ia)%if1(itran)
           W1 = Atom(ia)%W1(itran)
           nf = if1 - if0
-!$omp do
+
           ! For each frequency
           do ifreq=if0,if1
 
@@ -307,6 +250,8 @@
 
               ! Weight
               WF = W0*Prof(iil,1)*WA
+
+             !! Stimulated emission
              !if (stm) WFS = W0*Prof(jjl,2)*WA
 
             ! If right boundary
@@ -317,6 +262,8 @@
 
               ! Weight
               WF = W1*Prof(jjl,1)*WA
+
+             !! Stimulated emission
              !if (stm) WFS = W1*Prof(jjl,2)*WA
 
             ! Normal
@@ -327,12 +274,16 @@
 
               ! Weight
               WF = Wfreq(ifreq)*Prof(jjl,1)*WA
+
+             !! Stimulated emission
              !if (stm) WFS = Wfreq(ifreq)*Prof(jjl,2)*WA
 
             end if
 
             ! Add the contribution to the integrals J00
             J00(jftran) = J00(jftran) + WF*Stk(ifreq)
+
+           !! Stimulated emission
            !if(stm) J00S(jftran) = J00S(jftran) + WFS*Stk(ifreq)
 
             ! No ALI in iteration
@@ -341,8 +292,7 @@
             ! Add contribution to Lambda operator
             LambdaL(1,jftran) = LambdaL(1,jftran) + WF*rLine(jjl)
 
-          end do
-!$omp end do nowait
+          end do ! Frequencies
 
           ! Advance iil
           iil = iil + nf + 1
@@ -352,19 +302,20 @@
         ! For each b-f transition
         do itran=1,Atom(ia)%nphot
 
+          ! Get continuous index
           jtran = itran + Atom(ia)%pshift
 
           ! Saha factor
           c3 = Saha*exp(Atom(ia)%phot(itran)%edge*arg)* &
                Atom(ia)%phot(itran)%glu
 
-          ! Limits in frequency index of this transition
+          ! Get limits data, limit weights, and size
           if0 = Atom(ia)%phot(itran)%if0
           W0 = Atom(ia)%phot(itran)%W0
           if1 = Atom(ia)%phot(itran)%if1
           W1 = Atom(ia)%phot(itran)%W1
           nf = if1 - if0
-!$omp do
+
           ! For each frequency
           do ifreq=if0,if1
 
@@ -418,8 +369,8 @@
             LambdaP(1,jtran,1) = LambdaP(1,jtran,1) + WFS
             LambdaP(1,jtran,2) = LambdaP(1,jtran,2) + &
                                  WFS*exu(ifreq)*c3
-          end do
-!$omp end do nowait
+
+          end do ! Frequencies
 
           ! Advance index
           iip = iip + nf + 1
@@ -427,15 +378,25 @@
         end do ! b-f transitions
       end do ! atoms
 
-!$omp end parallel
-
-      ! Free exu
+      ! If pre-computed exponential
       if (PIRAM.and.pf1.ge.pf0) then
+
+        ! Nullify local pointer
         nullify(exu)
+
+      ! If locally allocated
       else if (pf1.ge.pf0) then
+
+        ! Free exponential
         deallocate(exu)
         nullify(exu)
-      end if
+
+      end if ! Pre-computed exponential
+
+      return
+
+      ! Deceive the compiler
+      c0 = J00S(1)
 
       end subroutine JcalcI
 
@@ -443,22 +404,21 @@
 !#####################################################################
 !#####################################################################
 
-      !> Adds contribution to the integrals of the mean intensity
-      !! with several CPU for b-b transitions.\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!          Wfreq(dfloat(:)): Frequency trapezoidal weights\n
-      !!             proc(integer): CPU ID\n
-      !!          Stk(dfloat(:,:)): Stokes parameters\n
-      !!          rLine(dfloat(:)): Bound-bound transition strength\n
-      !!         Prof(dfloat(:,:)): Bound-bound non-normalized line
-      !!                            profiles\n
-      !!         Norm(dfloat(:,:)): Normalization factor for the
-      !!                            line profiles\n
-      !!         Bstk(dfloat(:,:)): Mean intensity partial integrals\n
-      !!         BLam(dfloat(:,:)): Bound-bound Lambda operator
-      !!                            partial integral\n
-      !!              ALI(logical): Compute for ALI
+      !> Add contribution to the integrals of the mean intensity in
+      !! MPI for bound-bound transitions\n
+      !!  Atom(Atom_class(:)): Structures with atomic data\n
+      !!      MPID(MPI_class): Structure with MPI data\n
+      !!     Wfreq(double(:)): Frequency trapezoidal weights\n
+      !!        proc(integer): CPU ID\n
+      !!       Stk(double(:)): Intensity\n
+      !!     rLine(double(:)): Bound-bound transition strength\n
+      !!    Prof(double(:,:)): Bound-bound normalized line profiles\n
+      !!    Norm(double(:,:)): Normalization factor for the line
+      !!                       profiles\n
+      !!    Bstk(double(:,:)): Mean intensity partial integrals\n
+      !!    BLam(double(:,:)): Bound-bound Lambda operator partial
+      !!                       integral\n
+      !!         ALI(logical): If computing Lambda operator
       subroutine FIntI_line(Atom,MPID,Wfreq,proc,Stk,rLine,Prof, &
                             Norm,Bstk,BLam,ALI)
 
@@ -483,8 +443,7 @@
       integer:: ifreq,ifreqs,ia,ftran,itran,jftran
       integer:: if0,if1,if0p,if0s,if1s,iil
 
-      double precision:: WF,W0,W1
-     !double precision:: WFS
+      double precision:: WF,W0,W1!,WFS
 
 
       !
@@ -494,7 +453,7 @@
       ! Lower limit for processor
       if0p = MPID%if0(proc) - 1
 
-      ! Not ALI
+      ! Not calculating ALI
       nALI = .not.ALI
 
 
@@ -511,11 +470,13 @@
         ! For each FS transition
         do ftran=1,Atom(ia)%nftran
 
+          ! Transition index
           itran = Atom(ia)%ifst(ftran)
 
           ! If this CPU does not have frequencies in this line, skip
           if (Atom(ia)%fflag(itran)%Mabsent(proc)) cycle
 
+          ! Continuous transition index
           jftran = ftran + Atom(ia)%tfshift
 
           ! Get limits data
@@ -535,6 +496,8 @@
           iil = iil + 1
           WF = W0*Prof(iil,1)
           Norm(1,jftran) = Norm(1,jftran) + WF
+
+         !! Stimulated emission
          !if (stm) then
          !  WFS = W0*Prof(iil,2)
          !  Norm(2,jftran) = Norm(2,jftran) + WFS
@@ -543,9 +506,12 @@
           ! Add the contribution to the integrals J00 in this
           ! direction
           BStk(1,jftran) = BStk(1,jftran) + WF*Stk(if0s)
+
+         !! Stimulated emission
          !if(stm) &
          !  BStk(2,jftran) = BStk(2,jftran) + WFS*Stk(if0s)
 
+          ! If calculating lambda operator
           if (ALI) &
             BLam(1,jftran) = BLam(1,jftran) + WF*rLine(iil)
 
@@ -554,6 +520,7 @@
           !
           do ifreq=if0+1,if1-1
 
+            ! Shifted frequency
             ifreqs = ifreq - if0p
 
             ! Add the profile of the line to the weights and
@@ -561,6 +528,8 @@
             iil = iil + 1
             WF = Wfreq(ifreq)*Prof(iil,1)
             Norm(1,jftran) = Norm(1,jftran) + WF
+
+           !! Stimulated emission
            !if (stm) then
            !  WFS = Wfreq(ifreq)*Prof(iil,2)
            !  Norm(2,jftran) = Norm(2,jftran) + WFS
@@ -569,13 +538,19 @@
             ! Add the contribution to the integrals J00 in this
             ! direction
             BStk(1,jftran) = BStk(1,jftran) + WF*Stk(ifreqs)
+
+           !! Stimulated emission
            !if(stm) BStk(2,jftran) = BStk(2,jftran) + WFS*Stk(ifreqs)
 
+            ! If not computing lambda operator, skip
             if (nALI) cycle
+
+            ! Add contribution to lambda operator
             BLam(1,jftran) = BLam(1,jftran) + WF*rLine(iil)
 
           end do ! frequencies
 
+          ! If no more than 1 frequency
           if (if1s.le.if0s) cycle
 
           ! Add the profile of the line to the weights and
@@ -583,6 +558,8 @@
           iil = iil + 1
           WF = W1*Prof(iil,1)
           Norm(1,jftran) = Norm(1,jftran) + WF
+
+         !! Stimulated emission
          !if (stm) then
          !  WFS = W1*Prof(iil,2)
          !  Norm(2,jftran) = Norm(2,jftran) + WFS
@@ -591,8 +568,11 @@
           ! Add the contribution to the integrals J00 in this
           ! direction
           BStk(1,jftran) = BStk(1,jftran) + WF*Stk(if1s)
+
+         !! Stimulated emission
          !if(stm) BStk(2,jftran) = BStk(2,jftran) + WFS*Stk(if1s)
 
+          ! If computing lambda operator
           if (ALI) &
             BLam(1,jftran) = BLam(1,jftran) + WF*rLine(iil)
 
@@ -605,28 +585,29 @@
 !#####################################################################
 !#####################################################################
 
-      !> Adds contribution to the integrals of the mean intensity
-      !! with several CPU for the photoionizations and continuum.\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!          omega(dfloat(:)): Frequency array\n
-      !!          Wfreq(dfloat(:)): Frequency trapezoidal weights\n
-      !!              pf0(integer): First frequency index of this
-      !!                            CPU for bound-free transitions\n
-      !!              pf1(integer): Last frequency index of this
-      !!                            CPU for bound-free transitions\n
-      !!                 T(dfloat): Temperature\n
-      !!             proc(integer): CPU ID\n
-      !!                WA(dfloat): Angular integral weight\n
-      !!          Stk(dfloat(:,:)): Stokes parameters\n
-      !!          rPhot(dfloat(:)): Bound-free transition strength\n
-      !!         J00P(dfloat(:,:)): Intensity integrals in the
+      !> Add contribution to the integrals of the frequency dependent
+      !! mean intensity and the mean intensity and lambda operator for
+      !! bound-free transitions in MPI\n
+      !!     Atom(Atom_class(:)): Structures with atomic data\n
+      !!         MPID(MPI_class): Structure with MPI data\n
+      !!        omega(double(:)): Frequency array\n
+      !!        Wfreq(double(:)): Frequency trapezoidal weights\n
+      !!            pf0(integer): First frequency index for bound-free
+      !!                          transitions\n
+      !!            pf1(integer): Last frequency index for bound-free
+      !!                          transitions\n
+      !!               T(double): Temperature\n
+      !!           proc(integer): CPU ID\n
+      !!              WA(double): Angular integral weight\n
+      !!          Stk(double(:)): Intensity\n
+      !!        rPhot(double(:)): Bound-free transition strength\n
+      !!       J00P(double(:,:)): Intensity integrals in the
       !!                            photoionization rates\n
-      !!           J00C(dfloat(:)): Mean intensity with frequency
+      !!         J00C(double(:)): Mean intensity with frequency
       !!                            dependence\n
-      !!    LambdaP(dfloat(:,:,:)): Bound-free Lambda operator\n
-      !!              ALI(logical): Compute for ALI\n
-      !!           iexu(dfloat(:)): Pre-computed exponentials
+      !!  LambdaP(double(:,:,:)): Bound-free Lambda operator\n
+      !!            ALI(logical): If computing Lambda operator\n
+      !!         iexu(double(:)): Pre-computed frequency exponential
       subroutine FIntI_rest(Atom,MPID,omega,Wfreq,pf0,pf1,T,proc,WA, &
                             Stk,rPhot,J00P,J00C,LambdaP,ALI,iexu)
 
@@ -651,8 +632,7 @@
 
       logical:: nALI
 
-      integer:: ifreq,ifreqs,ia,itran,jtran
-      integer:: if0,if1,if0p,if0s,if1s,iip
+      integer:: ifreq,ifreqs,ia,itran,jtran,if0,if1,if0p,if0s,if1s,iip
 
       double precision:: WF,WFS,c0,c1,W0,W1
       double precision, dimension(:), allocatable:: exu
@@ -676,19 +656,21 @@
       ! For each frequency
       do ifreq=MPID%if0(proc),MPID%if1(proc)
 
+        ! Get shifted frequency
         ifreqs = ifreq - if0p
 
         ! Calculate continuum mean intensity
         J00C(ifreq) = J00C(ifreq) + WA*Stk(ifreqs)
 
-      end do
+      end do ! Frequencies
 
-      ! Allocate exu
+      ! Allocate exu if frequencies
       if (pf1.ge.pf0) allocate(exu(pf0:pf1))
 
       ! If pre-computed
       if (PIRAM.and.pf1.ge.pf0) then
 
+        ! Copy from input
         exu = iexu
 
       ! If no pre-computed
@@ -702,6 +684,8 @@
 
           ! Argument frequency exponential
           WF = c0*omega(ifreq)
+
+          ! Get inverse exponential
           exu(ifreq) = diexp(WF)
 
         end do ! frequencies
@@ -729,6 +713,7 @@
           ! skip
           if (Atom(ia)%phot(itran)%Mabsent(proc)) cycle
 
+          ! Get running transition index
           jtran = itran + Atom(ia)%pshift
 
           ! Limits in frequency index of this transition
@@ -754,6 +739,7 @@
           J00P(jtran,1) = J00P(jtran,1) + WF
           J00P(jtran,2) = J00P(jtran,2) + WF*exu(if0)
 
+          ! If computing lambda operator
           if (ALI) then
 
             ! Weight for Lambda operator
@@ -771,6 +757,7 @@
           !
           do ifreq=if0+1,if1-1
 
+            ! Shift index
             ifreqs = ifreq - if0p
 
             ! Weight with cross section and constants
@@ -817,14 +804,17 @@
             iip = iip + 1
             WFS = c1*rPhot(iip)
 
+            ! Contribution to lambda operator
             LambdaP(1,jtran,1) = LambdaP(1,jtran,1) + WFS
             LambdaP(1,jtran,2) = LambdaP(1,jtran,2) + WFS*exu(if1)
 
-          end if
+          end if ! Lambda operator
 
         end do ! b-f transitions
-
       end do ! atoms
+
+      ! Free
+      if (allocated(exu)) deallocate(exu)
 
       end subroutine FIntI_rest
 
@@ -832,14 +822,13 @@
 !#####################################################################
 !#####################################################################
 
-      !> Adds contribution to the directional integral of the mean
-      !! intensity when only one CPU.\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!              iph(integer): Output direction azimuth index\n
-      !!              ith(integer): Output direction polar index\n
-      !!          Stk(dfloat(:,:)): Stokes parameters\n
-      !!           J00C(dfloat(:)): Mean intensity with frequency
-      !!                            dependence
+      !> Calculate the contribution to the frequency dependent mean
+      !! intensity in serial mode\n
+      !!  Geom(Geometry_class): Structure with geometric data\n
+      !!          iph(integer): Direction azimuth index\n
+      !!          ith(integer): Direction polar index\n
+      !!        Stk(double(:)): Intensity\n
+      !!       J00C(double(:)): Frequency dependent mean intensity
       subroutine JcalcJ(Geom,iph,ith,Stk,J00C)
 
       ! I/O
@@ -867,15 +856,12 @@
       !
 
       ! For each frequency
-!$omp parallel do default(none) &
-!$omp private(ifreq) shared(nfreq,J00C,WA,Stk)
       do ifreq=1,nfreq
 
         ! Calculate continuum mean intensity
         J00C(ifreq) = J00C(ifreq) + WA*Stk(ifreq)
 
       end do ! frequencies
-!$omp end parallel do
 
       end subroutine JcalcJ
 
@@ -883,13 +869,13 @@
 !#####################################################################
 !#####################################################################
 
-      !> Adds contribution to the directional integral of the mean
-      !! intensity with several CPU.\n
-      !!     MPID(MPI_class): Structure with MPI data\n
-      !!          WA(dfloat): Angular weight\n
-      !!       proc(integer): CPU ID\n
-      !!    Stk(dfloat(:,:)): Stokes parameters\n
-      !!     J00C(dfloat(:)): Mean intensity with frequency dependence
+      !> Calculate the contribution to the frequency dependent mean
+      !! intensity in MPI\n
+      !!  MPID(MPI_class): Structure with MPI data\n
+      !!       WA(double): Angular weight\n
+      !!    proc(integer): CPU ID\n
+      !!   Stk(double(:)): Intensity\n
+      !!  J00C(double(:)): Frequency dependent mean intensity
       subroutine FIntJ(MPID,WA,proc,Stk,J00C)
 
       ! I/O
@@ -903,6 +889,7 @@
       ! Local
 
       integer:: ifreq,ifreqs,if0p
+
 
       !
       ! Initializations
@@ -918,6 +905,7 @@
       ! For each frequency
       do ifreq=MPID%if0(proc),MPID%if1(proc)
 
+        ! Shift index
         ifreqs = ifreq - if0p
 
         ! Calculate continuum mean intensity
@@ -931,18 +919,18 @@
 !#####################################################################
 !#####################################################################
 
-      !> Adds intensity contribution to the integrals of the radiation
-      !! field tensors when only one CPU.\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!          Wfreq(dfloat(:)): Frequency trapezoidal weights\n
-      !!                WA(dfloat): Angular weight\n
-      !!           inpt(dfloat(:)): Quantity to integrate\n
-      !!         Prof(dfloat(:,:)): Bound-bound normalized line
-      !!                            profiles\n
-      !!      JKQ(dcomplex(:,:,:)): Radiation field tensors integrated
-      !!                            over absorption profile\n
-      !!     JKQS(dcomplex(:,:,:)): Radiation field tensors integrated
-      !!                            over emission profile\n
+      !> Calculate the K=Q=0 component of the integrated radiation
+      !! field tensors in serial mode\n
+      !!      Atom(Atom_class(:)): Structures with atomic data\n
+      !!         Wfreq(double(:)): Frequency trapezoidal weights\n
+      !!               WA(double): Angular weight\n
+      !!          inpt(double(:)): Quantity to integrate\n
+      !!        Prof(double(:,:)): Bound-bound normalized line
+      !!                           profiles\n
+      !!   JKQ(dcomplex(:,:,:,:)): Radiation field tensors integrated
+      !!                           over the absorption profile\n
+      !!  JKQS(dcomplex(:,:,:,:)): Radiation field tensors integrated
+      !!                           over the emission profile\n
       subroutine Jgen(Atom,Wfreq,WA,inpt,Prof,JKQ,JKQS)
 
       ! I/O
@@ -953,7 +941,8 @@
       double precision, dimension(nfreq), intent(in):: inpt
       double precision, dimension(:,:), intent(in):: Prof
       complex(kind=8), dimension(-2:2,0:2,nxtran), intent(inout):: JKQ
-      complex(kind=8), dimension(-2:2,0:2,nxtran), intent(inout)::JKQS
+      complex(kind=8), dimension(-2:2,0:2,nxtran), &
+                       intent(inout):: JKQS
 
       ! Local
 
@@ -966,11 +955,6 @@
       ! Calculate J00 for transitions (b-b)
       !
 
-!$omp parallel default(none) &
-!$omp private(iil,jjl,ia,itran,jtran,if0,if1,W0,W1,nf,ifreq,WF,WFS) &
-!$omp shared(nA,Atom,WA,Prof,inpt,Wfreq,stm) &
-!$omp reduction(+ : JKQ,JKQS)
-
       ! Initialize index for profiles
       iil = 1
 
@@ -980,6 +964,7 @@
         ! For each b-b transition
         do itran=1,Atom(ia)%ntran
 
+          ! Get continuous index
           jtran = itran + Atom(ia)%tshift
 
           ! Limits in frequency index of this transition
@@ -989,7 +974,6 @@
           W1 = Atom(ia)%W1(itran)
           nf = if1 - if0
 
-!$omp do
           ! For each frequency
           do ifreq=if0,if1
 
@@ -1001,6 +985,8 @@
 
               ! Weight
               WF = W0*Prof(iil,1)*WA
+
+              ! Stimulated
               if (stm) WFS = W0*Prof(iil,2)*WA
 
             ! If right boundary
@@ -1011,6 +997,8 @@
 
               ! Weight
               WF = W1*Prof(jjl,1)*WA
+
+              ! Stimulated
               if (stm) WFS = W1*Prof(jjl,2)*WA
 
             ! Normal
@@ -1021,26 +1009,28 @@
 
                 ! Weight
                 WF = Wfreq(ifreq)*Prof(jjl,1)*WA
+
+                ! Stimulated
                 if (stm) WFS = Wfreq(ifreq)*Prof(jjl,2)*WA
 
-            end if
+            end if ! Extreme of not
 
             ! Add the contribution to the JKQ integral
             JKQ(0,0,jtran) = JKQ(0,0,jtran) + &
                              WF*dcmplx(inpt(ifreq),0d0)
+
+            ! Stimulated
             if(stm) &
               JKQS(0,0,jtran) = JKQS(0,0,jtran) + &
                                 WFS*dcmplx(inpt(ifreq),0d0)
 
           end do ! frequencies
-!$omp end do nowait
 
           ! Advance index
           iil = iil + nf + 1
 
         end do ! b-b transitions
       end do ! atoms
-!$omp end parallel
 
       end subroutine Jgen
 
@@ -1048,19 +1038,19 @@
 !#####################################################################
 !#####################################################################
 
-      !> Adds intensity contribution to the integrals of the radiation
-      !! field tensors with several CPU.\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!          Wfreq(dfloat(:)): Frequency trapezoidal weights\n
-      !!             proc(integer): CPU ID\n
-      !!           inpt(dfloat(:)): Quantity to integrate\n
-      !!         Prof(dfloat(:,:)): Bound-bound non-normalized line
-      !!                            profiles\n
-      !!       Norm(dfloat(:,:,:)): Normalization factor for the
-      !!                            line profiles\n
-      !!     Bstk(dcomplex(:,:,:)): Radiation field tensors partial
-      !!                            integrals\n
+      !> Calculate the contribution to K=Q=0 component of the
+      !! integrated radiation field tensors in MPI\n
+      !!      Atom(Atom_class(:)): Structures with atomic data\n
+      !!          MPID(MPI_class): Structure with MPI data\n
+      !!         Wfreq(double(:)): Frequency trapezoidal weights\n
+      !!            proc(integer): CPU ID\n
+      !!          inpt(double(:)): Quantity to integrate\n
+      !!        Prof(double(:,:)): Bound-bound normalized line
+      !!                           profiles\n
+      !!      Norm(double(:,:,:)): Normalization factor for the
+      !!                           line profiles\n
+      !!    Bstk(dcomplex(:,:,:)): Radiation field tensors partial
+      !!                           integrals\n
       subroutine FJgInt(Atom,MPID,Wfreq,proc,inpt,Prof,Norm,Bstk)
 
       ! I/O
@@ -1118,6 +1108,8 @@
           iil = iil + 1
           WF = W0*Prof(iil,1)
           Norm(1,jtran) = Norm(1,jtran) + WF
+
+          ! Simulated
           if (stm) then
             WFS = W0*Prof(iil,2)
             Norm(2,jtran) = Norm(2,jtran) + WFS
@@ -1125,6 +1117,8 @@
 
           ! Add the contribution to the JKQ integral
           BStk(1,jtran) = BStk(1,jtran) + WF*inpt(if0)
+
+          ! Stimulated
           if(stm) &
             BStk(2,jtran) = BStk(2,jtran) + WFS*inpt(if0)
 
@@ -1138,6 +1132,8 @@
             iil = iil + 1
             WF = Wfreq(ifreq)*Prof(iil,1)
             Norm(1,jtran) = Norm(1,jtran) + WF
+
+            ! Stimulated
             if (stm) then
               WFS = Wfreq(ifreq)*Prof(iil,2)
               Norm(2,jtran) = Norm(2,jtran) + WFS
@@ -1145,10 +1141,13 @@
 
             ! Add the contribution to the JKQ integral
             BStk(1,jtran) = BStk(1,jtran) + WF*inpt(ifreq)
+
+            ! Stimulated
             if(stm) BStk(2,jtran) = BStk(2,jtran) + WFS*inpt(ifreq)
 
           end do ! frequencies
 
+          ! If less than two frequencies, skip
           if (if1.le.if0) cycle
 
           ! Add the profile of the line to the weights and
@@ -1156,6 +1155,8 @@
           iil = iil + 1
           WF = W1*Prof(iil,1)
           Norm(1,jtran) = Norm(1,jtran) + WF
+
+          ! Stimulated
           if (stm) then
             WFS = W1*Prof(iil,2)
             Norm(2,jtran) = Norm(2,jtran) + WFS
@@ -1163,6 +1164,8 @@
 
           ! Add the contribution to the JKQ integral
           BStk(1,jtran) = BStk(1,jtran) + WF*inpt(if1)
+
+          ! Stimulated
           if(stm) &
             BStk(2,jtran) = BStk(2,jtran) + WFS*inpt(if1)
 

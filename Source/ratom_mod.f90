@@ -5,231 +5,23 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !     Roberto Casini (HAO)
 !  Start:
-!     04/18/2017
+!     18/04/2017
 !  Last version:
-!     04/03/2024 V3.0.9
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     04/03/2024:    V3.0.9 - Set to zero the size of unused nblk when
-!                             initializing the sizes (TdPA)
-!
-!     10/04/2023:    V3.0.8 - Bugfix: The number of M levels in LTE
-!                             lines has to be defined in here, because
-!                             the normalization (where they used to
-!                             be) is not mandatory (TdPA)
-!
-!     09/29/2023:    V3.0.7 - Active atoms can now decide the rank
-!                             limits in term-wise way. If they do
-!                             this, the rank limit of the transitions
-!                             it automatically set from those (TdPA)
-!
-!     09/25/2023:    V3.0.6 - Added set_atom_label routine (TdPA)
-!
-!     08/07/2023:    V3.0.5 - Receive frequencies in cm^-1 and
-!                             Einstein coeff. in s^-1, and transform
-!                             after reading. Added warning for very
-!                             small energies that may mean that an
-!                             old model format is being used (TdPA)
-!                           - Added setup_LTE_transition and
-!                             remove_LTE_transition (TdPA)
-!
-!     07/03/2023:    V3.0.4 - Added the possibility for an atom to
-!                             not contribute to the frequency axis
-!                             nodes (TdPA)
-!
-!     10/26/2022:    V3.0.3 - Changed the indexing storage (TdPA)
-!                           - Chose a more reasonable size for the
-!                             Atom%ifst_ij array (TdPA)
-!
-!     10/25/2022:    V3.0.2 - Initialize the p_T pointer and clean
-!                             it at the end (TdPA)
-!                           - Moved the allocation of Atom%eval
-!                             and Atom%evec elsewhere (TdPA)
-!
-!     07/08/2022:    V3.0.1 - Bugfix: The MPI dependent quantities
-!                             cannot be initialized in ratom (TdPA)
-!                           - Added routine prepareatomMPI (TdPA)
-!                           - Added routine initMblock (TdPA)
-!
-!     06/29/2022:    V3.0.0 - To implement the 1.5D case the following
-!                             changes were needed:
-!                              o Variables with height dimension are
-!                                now allocated elsewhere.
-!                              o The term damping is initialized
-!                                elsewhere.
-!                              o Removed the option for explicit
-!                                elastic collisions.
-!                              o Changed aborted calls to gaborted.
-!                              o Added routine prepareatom.
-!                             (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!
-!     07/31/2020:    V1.5.4 - If there are no photoionizations, a
-!                             dummy Atom%phot is allocated (TdPA)
-!
-!     03/05/2020:    V1.5.3 - Now shiftatoms shift also the population
-!                             files (TdPA)
-!
-!     11/19/2019:    V1.5.2 - Removed checks in allocate and
-!                             deallocate calls (TdPA)
-!
-!     11/12/2019:    V1.5.1 - Allocates Atom%rif0 and Atom%rif1
-!                             variables (TdPA)
-!                           - Nullifies Atom%Normp, that now is a
-!                             pointer (TdPA)
-!                           - Bugfix: Flags the customized H atom as
-!                             multilevel (TdPA)
-!
-!     09/26/2019:    V1.5.0 - All quantities that needed atmospheric
-!                             data to be computed have been moved
-!                             elsewhere. That means that the
-!                             collisional data is stored in a temporal
-!                             container to be used later and a
-!                             considerable fraction of the source has
-!                             been moved (TdPA)
-!                           - Now we store the degeneration of the
-!                             terms in the atomic structure (TdPA)
-!
-!     09/24/2019:    V1.4.2 - Moved computation of total atom
-!                             population to the initpopu module (TdPA)
-!
-!     08/16/2019:    V1.4.1 - Bugfix: The level variable was being
-!                             used for stage, instead of the term, for
-!                             inelastic collisions between atomic
-!                             levels (TdPA)
-!
-!     08/14/2019:    V1.4.0 - Important revamp of how the inelastic
-!                             collisions are processed. Added more
-!                             options besides electrons (TdPA)
-!
-!     08/08/2019:    V1.3.8 - Wrong correction when photoionizations
-!                             are given in inverse order, was missing
-!                             an index (TdPA)
-!
-!     07/23/2019:    V1.3.7 - Now there are more possible flags for
-!                             how the collisions must be
-!                             interpolated (TdPA)
-!                           - The collisions are not scaled within
-!                             intercol anymore, but here (TdPA)
-!                           - Bugfix: The indexing of transitions is
-!                             the same than in the atomic file, so
-!                             every part of the code agrees in the
-!                             order (TdPA)
-!                           - In multilevel, the term-term collisions
-!                             are just copied (TdPA)
-!                           - Bugfix: For ML atoms, quantum numbers
-!                             are ignored to build the Ecoeff for FS
-!                             transitions (TdPA)
-!
-!     06/04/2019:    V1.3.6 - Added indexing of FS transitions to
-!                             avoid searchs in rtcoeffi (TdPA)
-!
-!     06/03/2019:    V1.3.5 - Bugfix: shiftatoms tried to shift non
-!                             exising atoms when no background atom
-!                             was specified (TdPA)
-!                           - Now splitf is read in the radiative
-!                             transition section (TdPA)
-!
-!     05/08/2019:    V1.3.4 - Implemented needed changes to allow the
-!                             new indexing of radiation field
-!                             tensors (TdPA)
-!
-!     03/18/2019:    V1.3.3 - Now saves the terms and levels of
-!                             each b-b anf b-f transition (TdPA)
-!                           - In multilevel atoms, do not check
-!                             if the line is permitted (TdPA)
-!
-!     03/13/2019:    V1.3.2 - Now gives a more detailed warning for
-!                             negative spline interpolation (TdPA)
-!
-!     03/12/2019:    V1.3.1 - Do not check J relations for transitions
-!                             when reading a ML model (TdPA)
-!
-!     02/20/2019:    V1.3.0 - New verbosity (TdPA)
-!                           - Checks for success of python routine
-!                             and unit is now 100 (TdPA)
-!                           - Added allocateatom and shiftatoms (TdPA)
-!
-!     09/26/2018:    V1.2.4 - Added automatic correction of order
-!                             when photoionizations have the
-!                             unexpected order (TdPA)
-!
-!     11/02/2017:    V1.2.3 - The multilevel version reads Landé
-!                             factors (TdPA)
-!
-!     11/01/2017:    V1.2.2 - Added output of the treatment of
-!                             collisions (TdPA)
-!
-!     10/31/2017:    V1.2.1 - Changed the rules to determine a
-!                             forbidden collisional rate, to avoid
-!                             transitions within the same term or that
-!                             violate parity to be considered allowed
-!                             (TdPA)
-!
-!     10/30/2017:    V1.2.0 - Now does not read landé factors, but
-!                             the multilevel case is treated in a
-!                             different way (TdPA)
-!                           - Stores .25d0 in a parameter (TdPA)
-!
-!     10/11/2017:    V1.1.1 - Now reads landé factors (TdPA)
-!
-!     09/22/2017:    V1.1.0 - Added option to limit K values (TdPA)
-!
-!     09/14/2017:    V1.0.7 - Added a path and ID to the file (TdPA)
-!
-!     09/08/2017:    V1.0.6 - The forbidden flag for collisional
-!                             ionizations is 2 now (TdPA)
-!                           - Removed Dfreq2 from colinter call (TdPA)
-!
-!     07/19/2017:    V1.0.5 - Added message for absence of inelastic
-!                             collisions (TdPA)
-!                           - Bugfix: Non-active atoms were trying
-!                             to deallocate some non-allocated
-!                             variables (TdPA)
-!                           - Bugfix: Initializing abundances of
-!                             passive elements (TdPA)
-!                           - Bugfix: Passive atoms should not
-!                             deallocate Atom%iphot and Atom%fst,
-!                             they are needed for background
-!                             calculations (TdPA)
-!                           - Changed the symbol of the H default
-!                             message from # to - (TdPA)
-!
-!     06/15/2017:    V1.0.4 - Bugfix: fcflag initialized (TdPA)
-!                           - Bugfix: The rule of the total angular
-!                             momentum for collisions to determine
-!                             fcflag was a singleline if that was
-!                             suppossed to contain two, changed to
-!                             a then/endif command (TdPA)
-!                           - Bugfix: Ionizing collisions must be
-!                             always flagged as forbidden,
-!                             independently of quantum numbers (TdPA)
-!
-!     06/12/2017:    V1.0.3 - Allocate if0, if1, W0 and W1 in atom
-!                             structure (TdPA)
-!
-!     05/05/2017:    V1.0.2 - Flagging forbidden collisions
-!                             automatically when they do not comply
-!                             with the dipole selection rules. Not
-!                             sure the previous way was compatible
-!                             with the new SEbuild anymore (TdPA)
-!
-!     04/27/2017:    V1.0.1 - Bugfix: The indexing of the FS
-!                             transitions cannot be generated before
-!                             finishing reading the transition
-!                             information, in rAtom (TdPA)
-!                           - Bugfix: Trying to initialize damp to 0,
-!                             before allocating it, in AtomH (TdPA)
-!
-!     04/18/2017:    V1.0.0 - First version (TdPA)
+!     12/03/2025:    V4.0.1 - Bugfix: the Ccoeff_special pointer was
+!                             not nullified for the hard-coded
+!                             hydrogen atom (TdPA)
+!                           - Removed an unnecessary nullification
+!                             of Ccoeff_special in rAtom (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -239,48 +31,55 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!  This subroutine reads the atomic data
+!  ratom
+!    Read a model atom from the specified file
 !
-!  ratom:
-!    This is the general atomic file reader
+!  AtomH
+!    Generate a 6 levels hydrogen atomic model without fine structure
 !
-!  AtomH:
-!    Generates an ad-hoc hydrogen atom
+!  abund
+!    Normalize the abundances of several atoms of the same species
 !
-!  abund:
-!    Renormalize abundance modificators if necessary
+!  setFScoeff
+!    Calculate the fine-structure Einstein coefficients for the given
+!  atom
 !
-!  setFScoeff:
-!    Calculates Aul and Blu for individual fine-structure transitions
+!  setup_LTE_transition
+!    Prepare the known quantities for a given LTE transition
 !
-!  setup_LTE_transition:
-!    Prepare static quantities for LTE lines
+!  remove_LTE_transition
+!    Check if an LTE transition is part of an atomic model and remove
+!  it from the model
 !
-!  remove_LTE_transition:
-!    Check if an LTE transition is within an atomic model, and remove
-!  it from the model (TdPA)
-!
-!  allocateatom:
-!    Allocates array of Atom_class
+!  allocateatom
+!    Allocate an array of atomic models
 !
 !  set_atom_label
-!    Ensures that each atom has an unique label for output files
+!    Provide each atomic model with a unique label
 !
-!  shiftatoms:
-!    Shift to the right the list of atoms
+!  shiftatoms
+!    Shift all atoms one position to the right in the array, as well
+!  as their associated filenames
 !
-!  prepareatom:
-!    Allocate some of the variables with height dimension
+!  prepareatom
+!    Allocate height dependent pupulation variables
 !
-!  prepareatomMPI:
-!    Allocate the variables with dependence on the number of RT
-!  processes
+!  prepareatomMPI
+!    Allocate Master MPI variables for each model atom
 !
-!  initMblock:
-!    Initialize the sizes of the M blocks assuming there is a magnetic
+!  initMblock
+!    Initialize the size of the M blocks assuming there is a magnetic
 !  field
+!
+!  set_atom_indexes
+!    Setup all necessary atomic indexings for transitions components
 !
 !#####################################################################
 !#####################################################################
@@ -300,19 +99,19 @@
 !#####################################################################
 !#####################################################################
 
-      !> Reads a file with atomic data.\n
-      !!   filename(character(:)): Name of the file to read\n
-      !!     source(character(:)): Path to the source code\n
-      !!         ID(character(:)): ID of this run\n
-      !!       skip_wave(logical): This atom does not contribute
-      !!                           with wavelengths\n
-      !! Kcut_input(integer(:,:)): Term wise K cut input data\n
-      !!         Atom(Atom_class): Structure with the atomic data\n
-      !!            indx(integer): Index in the list of atoms\n
-      !!           isPRD(logical): Bool to store if this atom has
-      !!                           lines in PRD\n
-      !!          active(logical): Bool to specify if this atom is
-      !!                           active or not
+      !> Read a model atom from the specified file\n
+      !!    filename(character(:)): Name of the file to read\n
+      !!      source(character(:)): Path to the source code folder\n
+      !!          ID(character(:)): ID of this run\n
+      !!        skip_wave(logical): If this atom does not contribute
+      !!                            to the wavelength axis\n
+      !!  Kcut_input(integer(:,:)): Term wise K cut input data\n
+      !!          Atom(Atom_class): Structure with atomic data\n
+      !!             indx(integer): Index of the currect atom in the
+      !!                            list of atoms\n
+      !!            isPRD(logical): If the current atom has at least
+      !!                            one PRD line\n
+      !!           active(logical): If the current atom is active
       subroutine rAtom(filename,source,ID,skip_wave,Kcut_input, &
                        Atom,indx,isPRD,active)
 
@@ -344,111 +143,146 @@
       double precision, dimension(:), allocatable:: vaux1,vaux2
 
       ! Pointer
+
       type(Tbox_class), pointer:: p_T
 
-      ! Initialize
-      nullify(p_T)
 
-      ! Read the atomic data
+      ! Initialize
+      nullify(p_T,Atom%Ccoeff_special,Atom%Tbox)
+
+      ! Master
       if(pid.eq.0) then
 
+        ! Verbose
         umsg = ' - Read atom '//trim(filename)
         call verbose
 
+        ! Translate the atomic model in python
         call system('python '//trim(source)//'ratom.py '// &
                     trim(filename)//' '//ID//' '//verbosef)
-      end if
 
+      end if ! Master
+
+      ! Wait for the master to finish
       call MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
+      ! Open translated file
       open(100,file='tmp_atom_'//ID,status='old',iostat=ios,err=1000)
 
       ! Success
       read (100,*,err=1100) ios
 
-      ! If no correct file, abort
+      ! If no correct file
       if (ios.lt.0) then
 
+        ! Issue error
         umsg = 'Problem translating the atomic file '//trim(filename)
         goto 1200
 
-      end if
+      end if ! Wrong file
 
-      ! Read atomic ID
+      ! Add to memory
+      MRAMc = MRAMc + 1d-6*sizeof(Atom)
+
+      ! Read element name
       read (100,*,err=1100) Atom%Element
+
+      ! Fix element name spaces
       if (Atom%Element(2:2).eq.' ') then
         Atom%Element(2:2) = Atom%Element(1:1)
         Atom%Element(1:1) = ' '
       end if
+
       ! Atomic mass
       read (100,*,err=1100) Atom%rmass
+
       ! Atomic abundance (12 + log(Atom/H))
       read (100,*,err=1100) Atom%abun
+
+      ! Transform to 12 + log10()
       Atom%abun = 1d1**(Atom%abun - 12d0)
+
       ! Multiplicative modifier to this abundance
       read (100,*,err=1100) Atom%abun_mod
-      ! Normalize abundance multiplier to 1 for same ID atoms
-      read (100,*,err=1100) ios
-      ! Only taken into account if active
-      if (active) then
-        if (ios.eq.1) then
-          Atom%anorm = .True.
-        else
-          Atom%anorm = .False.
-        end if
-      ! If passive initialize the population already
-      end if
 
-      ! Read type of model
+      ! If to normalize abundance multiplier to 1 for same ID atoms
+      read (100,*,err=1100) ios
+
+      ! If atom is active, transform last entry to bool
+      if (active) Atom%anorm = ios.eq.1
+
+      ! Read type of model (multi-term or multi-level)
       read (100,*,err=1100) l1
       Atom%ML = l1.eq.1
 
-      ! Read dimensions of the model
+      ! Read dimensions of the model: Number or terms, number of
+      ! transitions, number of photoionization transitions, number
+      ! of elastic collisional rates
       read (100,*,err=1100) Atom%nMulti,Atom%ntran,Atom%nphot,Atom%ngk
+
+      ! Read maximum number of levels per term
       read (100,*,err=1100) Atom%nJmax
+
+      ! Maximum vectorial dimension for levels
       Atom%NNN = Atom%nMulti*Atom%nJmax
 
-      ! Point pointer of extra collisions to null
-      nullify(Atom%Ccoeff_special)
 
-
+      !!!!!!!!!!!!!!!!!!!!!
       !
       ! Level information
       !
+      !!!!!!!!!!!!!!!!!!!!!
 
+      !
       ! Allocations
+      !
+
       ! Orbital angular momentum
       allocate(Atom%rLval(Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%rLval)
       ! Spin angular momentum
       allocate(Atom%Sval(Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%Sval)
       ! Number of FS levels
       allocate(Atom%nJ(Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%nJ)
       ! Ionization stage
       allocate(Atom%stage(Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%stage)
       ! Angular momentum
       allocate(Atom%rJval(Atom%nJmax,Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%rJval)
       Atom%rJval = -1d0
       ! Frequency of FS levels
       allocate(Atom%FSfreq(Atom%nJmax,Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%FSfreq)
       ! Frequency of term
       allocate(Atom%TRfreq(Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%TRfreq)
       ! Term degeneracy
       allocate(Atom%deg(Atom%nMulti))
-      ! Lande factor
-      if (Atom%ML) allocate(Atom%gL(Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%deg)
+      ! If multi-level atom
+      if (Atom%ML) then
+        ! Lande factor
+        allocate(Atom%gL(Atom%nMulti))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom%gL)
+      end if
 
-      ! Level index
+      ! Initialize level index
       l3 = 0
 
       ! For each term
       do iterm=1,Atom%nMulti
 
-        ! Read orbital and spin ang. moments and ionization stage
-        read (100,*,err=1100) rL, S, l1
+        ! Read orbital and spin ang. momenta and ionization stage
+        read (100,*,err=1100) rL,S,l1
 
+        ! Update maximum value of quantum numbers
         if (nint(2d0*S).gt.nxS) nxS = nint(2d0*S)
         if (nint(2d0*rL).gt.nxL) nxL = nint(2d0*rL)
 
+        ! Store in atomic structure
         Atom%rLval(iterm) = rL
         Atom%Sval(iterm) = S
         Atom%stage(iterm) = l1
@@ -456,36 +290,50 @@
         ! If multilevel
         if (Atom%ML) then
 
+          ! Only one level per term is possible
           Atom%nJ(iterm) = 1
 
-          ! Read angular momentum, energy, term index and level index
-          read (100,*,err=1100) rJ, freq, d1, l1, l2
+          ! Read angular momentum, energy, Landé factor, term index,
+          ! and level index
+          read (100,*,err=1100) rJ,freq,d1,l1,l2
 
+          ! Advance level index
           l3 = l3 + 1
 
-          ! Sanity checks
+          ! Sanity check read
           if (l1.ne.iterm.or.l2.ne.l3) then
 
+            ! If read term index is not current index
             if (l1.ne.iterm) then
+
+              ! Issue term error
               umsg = 'The term index does not '// &
                      'correspond to the term'
+
+            ! The error must be the level instead
             else
+
+              ! Issue level error
               umsg = 'The level index does not '// &
                      'correspond to the level'
-            end if
 
+            end if ! Wrong term or level index
+
+            ! Jump to abortion
             goto 1200
 
-          end if
+          end if ! Sanity check
 
           ! Energy units
           freq = freq*1d-5
 
+          ! Store in atomic structure
           Atom%rJval(1,iterm) = rJ
           Atom%deg(iterm) = 2d0*rJ + 1d0
           Atom%FSfreq(1,iterm) = freq
           Atom%TRfreq(iterm) = freq
 
+          ! Update maximum total angular momenta
           if (nint(2d0*rJ).gt.nxJ) nxJ = nint(2d0*rJ)
 
           ! If input Landé factor non-physical
@@ -494,11 +342,13 @@
             ! If J is 0
             if (rJ.lt.dLSJ) then
 
+              ! Landé factor must be zero as well
               Atom%gL(iterm) = 1d0
 
             ! If J is not 0
             else
 
+              ! Assume LS coupling
               Atom%gL(iterm) = 1d0 + .5d0*(rJ*(rJ+1d0) + S*(S+1d0) - &
                                            rL*(rL+1d0))/rJ/(rJ+1d0)
 
@@ -507,9 +357,10 @@
           ! Physical Landé factor
           else
 
+            ! Save in structure
             Atom%gl(iterm) = d1
 
-          end if
+          end if ! Input Landé factor
 
         ! If multiterm
         else
@@ -524,7 +375,7 @@
           ! Number of FS levels for this term
           Atom%nJ(iterm) = nint(rJmax - rJmin) + 1
 
-          ! Cumulative sum
+          ! Initialize sum
           ftmp = 0d0
 
           ! For each level within the term
@@ -532,37 +383,49 @@
 
             ! Read angular momentum, energy, term index and level
             ! index
-            read (100,*,err=1100) rJ, freq, l1, l2
+            read (100,*,err=1100) rJ,freq,l1,l2
 
+            ! Advance level index
             l3 = l3 + 1
 
-            ! Sanity checks
+            ! Sanity check read
             if (l1.ne.iterm.or.l2.ne.l3) then
 
+              ! If read term index is not current index
               if (l1.ne.iterm) then
+
+                ! Issue term error
                 umsg = 'The term index does not '// &
                        'correspond to the term'
+
+              ! The error must be the level instead
               else
+
+                ! Issue level error
                 umsg = 'The level index does not '// &
                        'correspond to the level'
-              end if
 
+              end if ! Wrong term or level index
+
+              ! Jump to abortion
               goto 1200
 
-            end if
+            end if ! Sanity check
 
             ! Energy units
             freq = freq*1d-5
 
+            ! Store in atomic structure
             Atom%rJval(iJ,iterm) = rJ
             Atom%FSfreq(iJ,iterm) = freq
 
+            ! Update maximum total angular momenta
             if (nint(2d0*rJ).gt.nxJ) nxJ = nint(2d0*rJ)
 
             ! Add weighted contribution to the term energy
-            ftmp = (2D0*rJ + 1D0)*freq + ftmp
+            ftmp = (2d0*rJ + 1d0)*freq + ftmp
 
-          end do
+          end do ! Levels within term
 
           ! Calculate the multiplet energy as a weighted average of
           ! the F-levels energies
@@ -570,121 +433,173 @@
 
         end if ! Multilevel or multiterm
 
-      end do
+      end do ! Term
 
-      ! Sanity check
+      ! Sanity check energies
       if (maxval(Atom%TRfreq).lt.1d-4) then
 
+        ! Issue warning
         write(umsg,'(A)') ' # Maximum energy in '// &
-             Atom%element//' model atom is smaller than 10 cm^-1, '// &
-             'you may be using an old atomic model format'
+                          Atom%element// &
+                          ' model atom is smaller than 10 cm^-1, '// &
+                          'you may be using an old atomic model'// &
+                          ' format'
         call verbose
 
-      end if
+      end if ! Suspicious energy values
 
       ! Determine the number of FS levels in this atom
       Atom%nlevel = sum(Atom%nJ)
 
       ! Calculate the maximum K multipole
       Atom%nKmax = nint(maxval(Atom%rJval)*2d0)
+
+      ! Update max K value if active atom
       if (Atom%nKmax.gt.nkx.and.active) nkx = Atom%nKmax
 
-      ! Calculate the maximum number of magnetic levels
+      ! Calculate the maximum number of magnetic sublevels for this
+      ! atom
       Atom%nMmax = nint(maxval(Atom%rJval)*2d0 + 1d0)
 
       ! Allocate atomic quantities to be used later
       allocate(Atom%nblk(Atom%nMmax,Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%nblk)
       allocate(Atom%iJval(Atom%nJmax,Atom%nMmax,Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%iJval)
 
-      ! Define "super-indexes" to handle large number of dimensions
       ! Term given the level
       allocate(Atom%term(Atom%nlevel))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%term)
       ! Sublevel in its term given the global level
       allocate(Atom%sublevel(Atom%nlevel))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%sublevel)
       ! Allocate indexing by term
       allocate(Atom%irho(Atom%nMulti))
 
-      ! Initialize
+      !
+      ! Index levels and sublevels
+      !
+
+      ! Initialize level counter
       ii = 0
 
       ! For each term
       do iterm=1,Atom%nMulti
 
+        ! Add memory in indexing
+        MRAMc = MRAMc + 1d-6*sizeof(Atom%irho(iterm))
+
         ! Allocate rho indexing
         allocate(Atom%irho(iterm)%irho_ij(Atom%nJ(iterm)))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom%irho(iterm)%irho_ij)
 
         ! For each level
         do iJ=1,Atom%nJ(iterm)
 
+          ! Advance index
           ii = ii + 1
+
+          ! Index term--sublevel--level
           Atom%irho(iterm)%irho_ij(iJ) = ii
           Atom%term(ii) = iterm
           Atom%sublevel(ii) = iJ
 
-        end do
-      end do
+        end do ! Levels
+      end do ! Terms
 
-      ! Update the maximum number of transitions (b-b and b-f)
+      ! If active atom
       if (active) then
+
+        ! Add contribution to the number of transitions (b-b and b-f)
         nxtran = nxtran + Atom%ntran
         nxphot = nxphot + Atom%nphot
-      end if
 
-      ! Initialize shifts
+      end if ! Active atom
+
+      ! Initialize continuous index shift
       Atom%tshift = 0
       Atom%tfshift = 0
       Atom%pshift = 0
 
 
+      !!!!!!!!!!!!!!!!!!!!!!!!!
       !
       ! Radiative transitions
       !
+      !!!!!!!!!!!!!!!!!!!!!!!!!
 
+      !
       ! Allocations
+      !
+
       ! Structure for FS information
       allocate(Atom%fst(Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst)
       ! Energy of the term-term transition
       allocate(Atom%Dfreq(Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%Dfreq)
       ! Type of elastic broadening
       allocate(Atom%broad_type(Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%broad_type)
       ! Arguments to calculate the broadening
       allocate(Atom%broad_args(4,Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%broad_args)
       ! Argument for Stark broadening
       allocate(Atom%broad_stark(Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%broad_stark)
       ! Number of frequencies to use in the line
       allocate(Atom%nfreqt(Atom%ntran))
-      ! How many of those frequencies fo to the core region
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%nfreqt)
+      ! How many of those frequencies for the core region
       allocate(Atom%nfreqtc(Atom%ntran))
-      ! Doppler widths that the line spawns
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%nfreqtc)
+      ! Doppler widths that the line holds
       allocate(Atom%dwvl(Atom%ntran))
-      ! Dopple widths that the core of the line spawns
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%dwvl)
+      ! Dopple widths that the core of the line holds
       allocate(Atom%dwvlc(Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%dwvlc)
       ! Flag of second order emissivity
       allocate(Atom%lemiss2(Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%lemiss2)
       ! Flag of Split components
       allocate(Atom%splitf(Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%splitf)
       ! Flag of line presence
       allocate(Atom%fflag(Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fflag)
       ! Lower frequency limits
       allocate(Atom%if0(Atom%ntran))
-      ! Lower absolute frequency limits
-      allocate(Atom%rif0(Atom%ntran))
-      ! Upper absolute frequency limits
-      allocate(Atom%rif1(Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%if0)
       ! Upper frequency limits
       allocate(Atom%if1(Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%if1)
+      ! Lower absolute frequency limits
+      allocate(Atom%tif0(Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%tif0)
+      ! Upper absolute frequency limits
+      allocate(Atom%tif1(Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%tif1)
+      ! Lower absolute frequency limits
+      allocate(Atom%rif0(Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%rif0)
+      ! Upper absolute frequency limits
+      allocate(Atom%rif1(Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%rif1)
       ! Lower frequency weight
       allocate(Atom%W0(Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%W0)
       ! Upper frequency weight
       allocate(Atom%W1(Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%W1)
       ! Indexing of radiative transitions
       allocate(Atom%irad(Atom%nMulti,Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%irad)
       Atom%irad = 0
       ! Einstein coefficients Aul and Blu
       allocate(Atom%Ecoeff(Atom%nMulti,Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%Ecoeff)
       Atom%Ecoeff = 0d0
-      ! Nullify Norm
-      nullify(Atom%Normp)
 
       ! Reset counters
       Atom%nfreq = 0
@@ -696,10 +611,10 @@
         ! Read the terms involved and Aul
         read (100,*,err=1100) iterm1,iterm,radAcoeff
 
-        ! Rate unit
+        ! Rate units
         radAcoeff = radAcoeff*1d-8
 
-        ! iterm1 > iterm
+        ! Ensure correct term ordering (iterm1 upper)
         if (iterm1.lt.iterm) then
           l1 = iterm1
           iterm1 = iterm
@@ -724,7 +639,6 @@
           Atom%broad_args(l1,itran) = d1
         end do
 
-
         ! Calculate Aul and Blu
         Atom%Ecoeff(iterm1,iterm) = radAcoeff
         Atom%Ecoeff(iterm,iterm1) = radAcoeff* &
@@ -737,51 +651,59 @@
 
         ! Read the Stark broadening parameter, the number of
         ! frequencies for this transition and its core, the
-        ! Doppler widths of this transition and its core and
-        ! the flag of second order emissivity, split between
-        ! components
+        ! Doppler widths of this transition and its core, the
+        ! flag of second order emissivity, split between components
         read (100,*,err=1100) d3,l1,l2,d1,d2,l3,l4
 
         ! Store Stark broadening information
         Atom%broad_stark(itran) = d3
 
-        ! Store node information
+        ! Ensure odd numbers
         if (mod(l1,2).eq.0) l1 = l1 + 1
         if (mod(l2,2).eq.0) l2 = l2 + 1
+
+        ! Store frequency data in atomic structure
         Atom%nfreqt(itran) = l1
         Atom%nfreqtc(itran) = l2
         Atom%Dwvl(itran) = d1
         Atom%Dwvlc(itran) = d2
 
-        ! Store the 2nd order emissivity flag
+        ! If PRD flag
         if (l3.ne.0) then
+
+          ! This transition is PRD
           Atom%lemiss2(itran) = .True.
           isPRD = .True.
+
+        ! No PRD flag
         else
+
+          ! This transition is CRD
           Atom%lemiss2(itran) = .False.
-        end if
+
+        end if ! PRD flag
 
         ! Store the split components flag
-        if (l4.ne.0) then
-          Atom%splitf(itran) = .True.
-        else
-          Atom%splitf(itran) = .False.
-        end if
+        Atom%splitf(itran) = l4.ne.0
 
         ! Allocate FS transition indexing
         allocate(Atom%fst(itran)%irad(Atom%nJ(iterm1), &
                                       Atom%nJ(iterm)))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%irad)
         Atom%fst(itran)%irad = 0
         ! Allocate Aul for FS transitions
         allocate(Atom%fst(itran)%Aul(Atom%nJ(iterm1),Atom%nJ(iterm)))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%Aul)
         Atom%fst(itran)%Aul = 0d0
         ! Allocate Blu for FS transitions
         allocate(Atom%fst(itran)%Blu(Atom%nJ(iterm),Atom%nJ(iterm1)))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%Blu)
         Atom%fst(itran)%Blu = 0d0
 
         ! If Multi-level
         if (Atom%ML) then
 
+          ! Trivial values in FS indexing
           Atom%fst(itran)%irad(1,1) = 1
           Atom%fst(itran)%nt = 1
           Atom%nftran = Atom%nftran + 1
@@ -789,70 +711,119 @@
           l3 = 1
           allocate(Atom%fst(itran)%ilevell(l3))
           allocate(Atom%fst(itran)%ilevelu(l3))
+          MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevell)
+          MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevelu)
           Atom%fst(itran)%ilevell = 1
           Atom%fst(itran)%ilevelu = 1
 
+        ! If multi-term
         else
 
           ! Initialize maximum FS trans
           maxfst = 0
 
+          !
           ! Count FS transitions
+          !
+
+          ! Initialize FS counter
           l3 = 0
+
+          ! For each upper level
           do iJu=1,Atom%nJ(iterm1)
+
+            ! For each lower level
             do iJl=1,Atom%nJ(iterm)
+
+              ! Check electric dipole selection rules
               if(abs(Atom%rJval(iJu,iterm1) - &
                      Atom%rJval(iJl,iterm)).gt.1 .or. &
                  Atom%rJval(iJu,iterm1) + &
                  Atom%rJval(iJl,iterm) .lt. .4d0)cycle
+
+              ! Advance index and store
               l3 = l3 + 1
               Atom%fst(itran)%irad(iJu,iJl) = l3
-            end do
-          end do
+
+            end do ! Lower levels
+          end do ! Upper levels
+
+          ! Store number of transitions
           Atom%fst(itran)%nt = l3
+
+          ! Update maximum number of FS transitions
           if (l3.gt.maxfst) maxfst = l3
+
+          ! Add to total number of FS transition in this atom
           Atom%nftran = Atom%nftran + l3
 
-          ! Allocate
+          ! Allocate and initialize sublevel indexing
           allocate(Atom%fst(itran)%ilevell(l3))
-          Atom%fst(itran)%ilevell = -1
           allocate(Atom%fst(itran)%ilevelu(l3))
+          MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevell)
+          MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevelu)
+          Atom%fst(itran)%ilevell = -1
           Atom%fst(itran)%ilevelu = -1
 
+          !
           ! Index
+          !
+
+          ! Initialize FS counter
           l3 = 0
+
+          ! For each upper level
           do iJu=1,Atom%nJ(iterm1)
+
+            ! For each lower level
             do iJl=1,Atom%nJ(iterm)
+
+              ! Check electric dipole selection rules
               if(abs(Atom%rJval(iJu,iterm1) - &
                      Atom%rJval(iJl,iterm)).gt.1 .or. &
                  Atom%rJval(iJu,iterm1) + &
                  Atom%rJval(iJl,iterm) .lt. .4d0)cycle
+
+              ! Advance index and store
               l3 = l3 + 1
               Atom%fst(itran)%ilevell(l3) = iJl
               Atom%fst(itran)%ilevelu(l3) = iJu
-            end do
-          end do
 
-        end if
+            end do ! Lower levels
+          end do ! Upper levels
 
-        ! Cycle if passive atom
+        end if ! Multi-level/Multi-term
+
+        ! Background atoms can stop here
         if (.not.active) cycle
+
         ! Add the frequency nodes to the total count of this atom
         Atom%nfreq = Atom%nfreq + l1*l3
 
-      end do
+      end do ! Transitions
 
+
+      ! If an active atom
       if (active) then
 
-        ! Update the maximum number of FS transitions
+        ! Update the total maximum number of FS transitions
         nxt = nxt + Atom%nftran
 
+        !
         ! Index the FS transitions given the term transition and the
         ! sub FS transition
+        !
+
+        ! Allocate indexes
         allocate(Atom%ifst_ij(maxfst,Atom%ntran))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom%ifst_ij)
         Atom%ifst_ij = 0
         allocate(Atom%ifst(Atom%nftran))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom%ifst)
         Atom%ifst = 0
+        allocate(Atom%ifstj(Atom%nftran))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom%ifstj)
+        Atom%ifstj = 0
 
         ! Reset counter
         ftran = 0
@@ -863,24 +834,32 @@
           ! For each FS transition
           do l3=1,Atom%fst(itran)%nt
 
+            ! Advance index
             ftran = ftran + 1
+
+            ! Store indexes
             Atom%ifst_ij(l3,itran) = ftran
             Atom%ifst(ftran) = itran
+            Atom%ifstj(ftran) = l3
 
           end do ! FS transitions
         end do ! Term transition
 
         ! Add the frequency nodes of this atom to the total count
+        ! if not neglecting its wavelengths
         if (.not.skip_wave) nfreq = nfreq + Atom%nfreq
 
         !
         ! Control K cuts
         !
 
-        ! Term-wise K cut and transition-wise Krad
+        ! Term-wise K cut
         allocate(Atom%Kcut(Atom%nMulti))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom%Kcut)
         Atom%Kcut = Kcut
+        ! Transition-wise Krad cut
         allocate(Atom%Krad(Atom%ntran))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom%Krad)
         Atom%Krad = Krad
 
         ! If there are inputs, we need to take them into account
@@ -892,7 +871,7 @@
           ! For each entry
           do ii=1,size(Kcut_input,2)
 
-            ! If atom is index
+            ! If atom is indexed
             if (indx.eq.Kcut_input(1,ii)) then
 
               ! Sanity check
@@ -905,7 +884,7 @@
                 urou = 'rAtom'
                 call gaborted
 
-              end if
+              end if ! Sanity check
 
               ! Flag changed
               changed = .True.
@@ -917,9 +896,9 @@
                 Atom%Kcut(jj) = min(Kcut_input(4,ii), &
                                    nint(2d0*maxval(Atom%rJval(:,jj))))
 
-              end do
+              end do ! Specified range
 
-            end if
+            end if ! Atom is indexed
 
           end do ! Input entries
 
@@ -933,7 +912,7 @@
               iterm = Atom%fst(itran)%iterml
               iterm1 = Atom%fst(itran)%itermu
 
-              ! Is there PRD?
+              ! If there is PRD
               if (isPRD) then
 
                 ! Check if PRD transition
@@ -1002,7 +981,7 @@
                 end if ! Upper level in PRD transition
               end if ! There is PRD at all
 
-              ! Max K
+              ! Set maximum Krad
               Atom%Krad(itran) = min(Atom%Kcut(iterm) + &
                                      Atom%Kcut(iterm1),2)
 
@@ -1022,9 +1001,10 @@
         ! For each term
         do iterm=1,Atom%nMulti
 
-          ! Allocate J index
+          ! Allocate J-J index
           allocate(Atom%irho(iterm)%Jrho(Atom%nJ(iterm), &
                                          Atom%nJ(iterm)))
+          MRAMc = MRAMc + 1d-6*sizeof(Atom%irho(iterm)%Jrho)
 
           ! For each level
           do iJ=1,Atom%nJ(iterm)
@@ -1043,60 +1023,76 @@
               minK = nint(abs(rJ-rJ1))
               maxK = min(nint(rJ+rJ1),Atom%Kcut(iterm))
 
-              ! Allocate KK tab
+              ! Allocate and initialize KQ tab
               allocate(Atom%irho(iterm)%Jrho(iJ1,iJ)% &
                             kq(-maxK:maxK,minK:maxK))
+              MRAMc = MRAMc + &
+                      1d-6*sizeof(Atom%irho(iterm)%Jrho(iJ1,iJ)%kq)
               Atom%irho(iterm)%Jrho(iJ1,iJ)%kq = 0
 
               ! For each K
               do K=minK,maxK
+
                 ! For each Q
                 do iQ=-K,K
 
+                  ! Advance index
                   i = i + 1
+
+                  ! Store index
                   Atom%irho(iterm)%Jrho(iJ1,iJ)%kq(iQ,K) = i
 
-                end do
-              end do
-
-            end do
-
-          end do
-        end do
+                end do ! Q
+              end do ! K
+            end do ! J'
+          end do ! J
+        end do ! Term
 
         ! Update maximum dimensionality of SEE
         Atom%ndim = i
 
+        ! Verbose SEE dimension
         if (pid.eq.0) then
           write(umsg,'(A,i6)') '   S.E. dimension =',Atom%ndim
           call verbose
         end if
 
-      end if
+      end if ! Active atom
 
-      ! Sanity check if there are transitions
+      ! If there are transitions
       if (Atom%ntran.gt.0) then
 
+        ! Initialize maximum
         ftmp = 0d0
+
+        ! For each term
         do iterm=1,Atom%nMulti-1
 
+          ! Get maximum Einstein coefficient for this term
           ftmp = max(ftmp, &
                      maxval(Atom%Ecoeff(iterm+1:Atom%nMulti,iterm)))
-        end do
 
-        if (ftmp.lt.1d-9) then
+        end do ! Terms
+
+        ! If too small Einstein coefficient
+        if (ftmp.lt.1d-9.and.ftmp.gt.0d0) then
+
+          ! Issue warning due to wrong format
           write(umsg,'(A)') ' # Maximum Einstein '// &
               'coefficient in '//Atom%element// &
               ' model atom is smaller than 0.1 s^-1, '// &
               'you may be using an old atomic model format'
           call verbose
-        end if
-      end if
+
+        end if ! Too small Esintein coefficient
+      end if ! There are transitions
 
 
+      !!!!!!!!!!!!!!!!!!!!!!
       !
       ! Elastic collisions
       !
+      !!!!!!!!!!!!!!!!!!!!!!
 
       ! If there are inputs
       if (Atom%ngk.ge.1) then
@@ -1107,7 +1103,10 @@
         ! For each entry
         do ii=1,Atom%ngk
 
-          ! Read to which level corresponds and find term and sublevel
+          ! Count memory
+          MRAMc = MRAMc + 1d-6*sizeof(Atom%elas(ii))
+
+          ! Read level and number of entries
           read (100,*,err=1100) ilevel,l1
 
           ! Store in elastic structure
@@ -1116,11 +1115,12 @@
 
           ! Allocate entries
           allocate(Atom%elas(ii)%datum(l1))
+          MRAMc = MRAMc + 1d-6*sizeof(Atom%elas(ii)%datum)
 
           ! For each line in this entry
           do jj=1,l1
 
-            ! Read the multipole, the type of input and the
+            ! Read the multipole, the type of input, and the
             ! dimensionality
             read (100,*,err=1100) K
             read (100,*,err=1100) cdump
@@ -1145,11 +1145,12 @@
             ! No type of input recognized
             else
 
+              ! Issue error
               umsg = 'Mode of elastic collisions '// &
                      'not recognized'
               goto 1200
 
-            end if
+            end if ! Type of elastic input
 
           end do ! Input sub entry
         end do ! Input entry
@@ -1160,17 +1161,9 @@
           ! For each entry
           do ii=1,Atom%ngk
 
-            ! For each subentry
-            do jj=1,Atom%elas(ii)%nentry
-
-              ! If explicit, deallocate array
-              if (Atom%elas(ii)%datum(jj)%typo.eq.1) then
-                deallocate(Atom%elas(ii)%datum(jj)%Coeff)
-              end if
-
-            end do ! Subentry
-
             ! Deallocate subentry
+            MRAMc = MRAMc - 1d-6*(sizeof(Atom%elas(ii)) + &
+                                  sizeof(Atom%elas(ii)%datum))
             deallocate(Atom%elas(ii)%datum)
 
           end do ! Entries
@@ -1183,21 +1176,30 @@
       ! There is no input
       else
 
+        ! If master and active atom
         if(pid.eq.0.and.active) then
+
+          ! Verbose
           write(umsg,'(A)') '   No elastic collisions'
           call verbose
-        end if
 
-      end if
+        end if ! Master and active atom
+      end if ! Elastic collisional rates input
 
 
+      !!!!!!!!!!!!!!!!!!!!
       !
       ! Photoionizations
       !
+      !!!!!!!!!!!!!!!!!!!!
 
+      !
       ! Allocations
+      !
+
       ! Indexing of b-f transitions
       allocate(Atom%iphot(Atom%nlevel,Atom%nlevel))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%iphot)
       Atom%iphot = 0
 
       ! If there are inputs
@@ -1209,10 +1211,13 @@
         ! For each input entry
         do ii=1,Atom%nphot
 
+          ! Memory count
+          MRAMc = MRAMc + 1d-6*sizeof(Atom%phot(ii))
+
           ! Read the levels involved
           read (100,*,err=1100) ilevel1,ilevel
 
-          ! ilevel1 > ilevel
+          ! Ensure ilevel1 > ilevel
           if (ilevel1.lt.ilevel) then
             l1 = ilevel1
             ilevel1 = ilevel
@@ -1227,10 +1232,13 @@
 
           ! Check that they have actually different ionization stages
           if (Atom%stage(iterm1).eq.Atom%stage(iterm)) then
+
+            ! Issue error
             umsg = 'Photoionization between terms in '// &
                    'the same stage.'
             goto 1200
-          end if
+
+          end if ! Same stage
 
           ! Index the b-f transition
           Atom%iphot(ilevel1,ilevel) = ii
@@ -1250,30 +1258,44 @@
           ! use for this b-f transition
           read (100,*,err=1100) cdump
           read (100,*,err=1100) l1
-          Atom%phot(ii)%nfreq = l1
 
+          ! Save in structure
+          Atom%phot(ii)%nfreq = l1
 
           ! If the input is explicit
           if (cdump.eq.'e') then
 
+            !
             ! Allocate explicit data
-            ! Frequencies in the inpu
+            !
+
+            ! Frequencies in the input
             allocate(Atom%phot(ii)%infreq(l1))
-            ! Cross sections in the input
+            MRAMc = MRAMc + 1d-6*sizeof(Atom%phot(ii)%infreq)
+            ! Cross-sections in the input
             allocate(Atom%phot(ii)%inalpha(l1))
+            MRAMc = MRAMc + 1d-6*sizeof(Atom%phot(ii)%inalpha)
+
+            ! Flag explicit
             Atom%phot(ii)%mode = 0
 
-            ! Read the input frequencies and cross sections
+            ! For each entry
             do jj=1,l1
 
-              read(100,*,err=1100) d1, d2
+              ! Read wavelength and cross-section
+              read(100,*,err=1100) d1,d2
 
+              ! Store frequency (kaiser) and cross-section
               Atom%phot(ii)%infreq(jj) = 1d2/d1
               Atom%phot(ii)%inalpha(jj) = d2
 
-            end do
+            end do ! Entries
 
+            !
             ! Check order
+            !
+
+            ! If more than one entry
             if (l1.gt.1) then
 
               ! If wrong order, revert it
@@ -1293,59 +1315,79 @@
                   end if
                 end if
 
+                ! Save auxiliar
                 vaux1 = Atom%phot(ii)%infreq
                 vaux2 = Atom%phot(ii)%inalpha
 
+                ! For each element
                 do jj=1,l1
+
+                  ! Reverse order
                   Atom%phot(ii)%infreq(jj) = vaux1(l1 - jj + 1)
                   Atom%phot(ii)%inalpha(jj) = vaux2(l1 - jj + 1)
-                end do
 
-              end if
-            end if
+                end do ! Elements
+
+              end if ! Wrong order
+            end if ! More than one element
 
           ! If the input is hydrogenic
           else if (cdump.eq.'h') then
 
+            !
             ! Allocate hydrogenic data
+            !
+
             ! Maximum frequency to reach
             allocate(Atom%phot(ii)%infreq(1))
-            ! Cross section at edge
+            MRAMc = MRAMc + 1d-6*sizeof(Atom%phot(ii)%infreq)
+            ! Cross-section at edge
             allocate(Atom%phot(ii)%inalpha(1))
+            MRAMc = MRAMc + 1d-6*sizeof(Atom%phot(ii)%inalpha)
+
+            ! Flag hydrogenic
             Atom%phot(ii)%mode = 1
 
-            ! Read the maximum frequency and cross section at edge
-            read(100,*,err=1100) d1, d2
+            ! Read the maximum frequency and cross-section at edge
+            read(100,*,err=1100) d1,d2
 
+            ! Save frequency (kaiser) and cross-section
             Atom%phot(ii)%infreq(1) = 1d2/d1
             Atom%phot(ii)%inalpha(1) = d2
 
-          end if
+          end if ! Type of input
 
-          ! Add the nodes to the total count
+          ! If active and not neglecting the wavelengths of this atom,
+          ! add the nodes to the total count
           if (active.and..not.skip_wave) &
             nfreq = nfreq + Atom%phot(ii)%nfreq + 1
 
-        end do
+        end do ! Photoionization inputs
 
       ! If there is no input
       else
 
+        ! If master and active
         if (pid.eq.0.and.active) then
+
+          ! Verbose
           write(umsg,'(A)') '   No photoionizations'
           call verbose
-        end if
+
+        end if ! Master and active
 
         ! Allocate dummy structure
         allocate(Atom%phot(1))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom%phot(1))
 
-      end if
+      end if ! There is photoionization inputs
 
 
-
+      !!!!!!!!!!!!!!!!!!!!!!!!
       !
       ! Inelastic collisions
       !
+      !!!!!!!!!!!!!!!!!!!!!!!!
 
       ! Read number of collisional entries
       read (100,*,err=1100) Atom%ncol
@@ -1355,9 +1397,13 @@
 
         ! Allocate database
         allocate(Atom%inelas(Atom%ncol))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas)
+
         ! Flag for forbidden collisions
         allocate(Atom%fcflag(Atom%nlevel,Atom%nlevel))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom%fcflag)
         Atom%fcflag = 0
+
         ! Nullify Tbox pointer
         nullify(Atom%Tbox)
 
@@ -1381,17 +1427,22 @@
           if (cind.lt.0) then
 
             ! Read the type of the collisions to come, the type of
-            ! interpolation and the number of temperatures in the
+            ! interpolation, and the number of temperatures in the
             ! input table
             read (100,*,err=1100) col_type
             read (100,*,err=1100) nion
             read (100,*,err=1100) nTmp
 
+            ! Memory count
+            MRAMc = MRAMc + 1d-6*dble(4*5 + 8*nTmp)
+
             ! Advance the temperature index
             Tindex = Tindex + 1
 
-            ! Change the box
+            ! If structure is initialized
             if (associated(Atom%Tbox)) then
+
+              ! Add new box
               p_T => Atom%Tbox
               do while (associated(p_T%next))
                 p_T => p_T%next
@@ -1399,11 +1450,16 @@
               allocate(p_T%next)
               p_T => p_T%next
               nullify(p_T%next)
+
+             ! Structure is empty
             else
+
+              ! Initialize structure
               allocate(Atom%Tbox)
               p_T => Atom%Tbox
               nullify(p_T%next)
-            end if
+
+            end if ! Structure initialized
 
             ! Put data in the box
             p_T%nTmp = nTmp
@@ -1415,12 +1471,8 @@
             ! Read temperatures
             read (100,*,err=1100) p_T%temp
 
-            ! Determine type of interpolation
-            if (nion.eq.2.or.nion.eq.3.or.nion.eq.-2) then
-              flin = .True.
-            else
-              flin = .False.
-            endif
+            ! Determine if interpolation
+            flin = nion.eq.2.or.nion.eq.3.or.nion.eq.-2
 
             ! Complete the box
             p_T%flin = flin
@@ -1434,13 +1486,16 @@
             ! Run up the index
             icol = icol + 1
 
+            ! Memory count
+            MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(icol))
+
             ! Read if forbidden
             read (100,*,err=1100) l3
 
             ! Read the terms involced in the collision
             read (100,*,err=1100) up,low
 
-            ! up > low
+            ! Ensure up > low
             if (low.gt.up) then
               l2 = up
               up = low
@@ -1456,57 +1511,68 @@
 
             ! Allocate space
             allocate(Atom%inelas(icol)%Cul(nTmp))
+            MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(icol)%Cul)
 
             ! Read the data in the table
             read (100,*,err=1100) Atom%inelas(icol)%Cul
 
-            ! If between terms, get stages
+            ! If between terms
             if (col_type.eq.0) then
 
               ! Stages
               stagl = Atom%stage(low)
               stagu = Atom%stage(up)
 
-            ! If between levels, get degeneracy and flags
+            ! If between levels
             else if (col_type.eq.1) then
 
               ! Stages
               stagl = Atom%stage(Atom%term(low))
               stagu = Atom%stage(Atom%term(up))
 
-            end if ! If between levels
+            end if ! If between terms or levels
+
 
             !
-            ! b-b symmetric
-            !
-
             ! If it is a symmetric b-b excitation
+            !
             if (cind.eq.0.or.cind.eq.2.or.cind.eq.3) then
 
+              ! If different stages
               if (stagu.ne.stagl) then
+
+                ! Issue error
                 umsg = 'Exciting collisions cannot '// &
                        'change ion'
                 goto 1200
-              end if
+
+              end if ! Different stages
 
 
             !
-            ! b-f
+            ! If it is a symmetric b-f excitation
             !
             else if (cind.eq.1.or.cind.eq.4) then
 
-              ! Ionizing collisions can only be level wise
+              ! If term-wise (can only be level-wise)
               if (col_type.eq.0) then
+
+                ! Issue error
                 umsg = 'Ionizing collisions only admit '// &
                        'level wise rates'
                 goto 1200
-              end if
 
+              end if ! Term-wise
+
+              ! If same stage
               if (stagu.eq.stagl) then
+
+                ! Issue error
                 umsg = 'Ionizing collisions must '// &
                        'change ion'
                 goto 1200
-              end if
+
+              end if ! Same stage
 
 
             !
@@ -1514,19 +1580,25 @@
             !
             else if (cind.eq.5.or.cind.eq.6) then
 
-              ! Ionizing collisions can only be level wise
+              ! If term-wise (can only be level wise)
               if (col_type.eq.0) then
+
+                ! Issue error
                 umsg = 'Charge transfer collisions only admit '// &
                        'level wise rates'
                 goto 1200
-              end if
 
+              end if ! Term-wise
+
+              ! If same stage
               if (stagu.eq.stagl) then
+
+                ! Issue error
                 umsg = 'Charge transfer collisions must '// &
                        'change ion'
                 goto 1200
-              end if
 
+              end if ! Same stage
             end if ! Type of collision
           end if ! Collisional rate input
 
@@ -1535,47 +1607,58 @@
       ! No collisions
       else
 
+        ! If Master and active atom
         if (active.and.pid.eq.0) then
+
+          ! Verbose
           write(umsg,'(A)') '   No collisions'
           call verbose
-        end if
 
-      end if
+        end if ! Master and active atom
+      end if ! There are collisional inputs
 
       ! Calculate the atomic part of the Doppler width
       Atom%cDopp = dopp/sqrt(Atom%rmass)
 
+      ! Close file
       close (100)
 
       ! Control that everything went fine
       call control
 
-      ! Remove temporal file
-      if (pid.eq.0) then
-        call system('rm tmp_atom_'//ID)
-      end if
+      ! Master, remove temporal file
+      if (pid.eq.0) call system('rm tmp_atom_'//ID)
 
       ! If multilevel, trick the quantum numbers
       if (Atom%ML) then
 
+        ! Make spin equal to zero
         Atom%Sval = 0d0
 
+        ! For each term
         do iterm=1,Atom%nMulti
+
+          ! L = J
           Atom%rLval(iterm) = Atom%rJval(1,iterm)
-        end do
 
-      end if
+        end do ! Terms
 
-      ! Deallocate unecessary data if not active atom
+      end if ! Multi-level atom
+
+      ! If background atom
       if (.not.active) then
+
+        ! Deallocate unecessary data if not active atom
         deallocate(Atom%nfreqt)
         deallocate(Atom%nfreqtc)
         deallocate(Atom%lemiss2)
         deallocate(Atom%fflag)
-      end if
+        MRAMc = MRAMc - 1d-6*(sizeof(Atom%nfreqt) + &
+                              sizeof(Atom%nfreqtc) + &
+                              sizeof(Atom%lemiss2) + &
+                              sizeof(Atom%fflag))
 
-      ! Control that everything went fine
-      call control
+      end if ! Background atom
 
       return
 
@@ -1593,7 +1676,8 @@
 !#####################################################################
 !#####################################################################
 
-      !> Generates a 6 levels hydrogen model\n
+      !> Generate a 6 levels hydrogen atomic model without fine
+      !! structure\n
       !!    Atom(Atom_class): Structure with the atomic data
       subroutine AtomH(Atom)
 
@@ -1604,21 +1688,30 @@
       ! Local
 
       integer:: iterm,iterm1,ii,itran,iJ,nTmp
+
       double precision:: radAcoeff
       double precision, dimension(:), allocatable:: deg
 
       ! Pointer
+
       type(Tbox_class), pointer:: p_T
 
-      ! Initialize
-      nullify(p_T)
 
-      ! Informative message
+      ! Initialize pointer
+      nullify(p_T,Atom%Ccoeff_special)
+
+      ! If master
       if (pid.eq.0) then
+
+        ! Informative message
         umsg = ' - Could not find hydrogen atom, loading '// &
                'default with 6-n levels for the background'
         call verbose
-      end if
+
+      end if ! Master
+
+      ! Memory count
+      MRAMc = MRAMc + 1d-6*sizeof(Atom)
 
       ! Atomic ID
       Atom%Element = ' H'
@@ -1644,24 +1737,34 @@
       ! Maximum of levels
       Atom%NNN = Atom%nMulti*Atom%nJmax
 
+      !
       ! Allocations
+      !
+
       ! Orbital angular momentum
       allocate(Atom%rLval(Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%rLval)
       ! Spin angular momentum
       allocate(Atom%Sval(Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%Sval)
       ! Degeneration (2L+1)*(2S+1)
       allocate(deg(Atom%nMulti))
-      ! Number of FS levels
+      ! Number of FS levels per term
       allocate(Atom%nJ(Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%nJ)
       ! Ionization stage
       allocate(Atom%stage(Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%stage)
       ! Angular momentum
       allocate(Atom%rJval(Atom%nJmax,Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%rJval)
       Atom%rJval = -1d0
       ! Frequency of FS levels
       allocate(Atom%FSfreq(Atom%nJmax,Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%FSfreq)
       ! Frequency of term
       allocate(Atom%TRfreq(Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%TRfreq)
 
       ! (g-1)/2, with g statistical weight of n level
       Atom%rLval = (/ .5d0, 3.5d0, 8.5d0, 15.5d0, 24.5d0, 0d0 /)
@@ -1689,16 +1792,20 @@
       ! Determine the number of FS levels in this atom
       Atom%nlevel = sum(Atom%nJ)
 
-      ! Define "super-indexes" to handle large number of dimensions
       ! Term given the level
       allocate(Atom%term(Atom%nlevel))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%term)
       ! Sublevel in its term given the global level
       allocate(Atom%sublevel(Atom%nlevel))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%sublevel)
       ! Degeneration of each term
       allocate(Atom%deg(Atom%nlevel))
-      Atom%deg = deg
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%deg)
       ! Allocate indexing by term
       allocate(Atom%irho(Atom%nMulti))
+
+      ! Save degeneracy
+      Atom%deg = deg
 
       ! Initialize
       ii = 0
@@ -1706,54 +1813,89 @@
       ! For each term
       do iterm=1,Atom%nMulti
 
+        ! Memory count
+        MRAMc = MRAMc + 1d-6*sizeof(Atom%irho(iterm))
+
         ! Allocate rho indexing
         allocate(Atom%irho(iterm)%irho_ij(Atom%nJ(iterm)))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom%irho(iterm)%irho_ij)
 
         ! For each level
         do iJ=1,Atom%nJ(iterm)
 
+          ! Advance indexing
           ii = ii + 1
+
+          ! Store indexing
           Atom%irho(iterm)%irho_ij(iJ) = ii
           Atom%term(ii) = iterm
           Atom%sublevel(ii) = iJ
 
-        end do
-      end do
+        end do ! Levels
+      end do ! Terms
 
 
-
+      !!!!!!!!!!!!!!!!!!!!!!!!!
       !
       ! Radiative transitions
       !
+      !!!!!!!!!!!!!!!!!!!!!!!!!
 
+      !
       ! Allocations
+      !
+
+      allocate(Atom%fst(Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst)
       ! Energy of the term-term transition
       allocate(Atom%Dfreq(Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%Dfreq)
       ! Type of elastic broadening
       allocate(Atom%broad_type(Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%broad_type)
       ! Arguments to calculate the broadening
       allocate(Atom%broad_args(4,Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%broad_args)
       ! Argument for Stark broadening
       allocate(Atom%broad_stark(Atom%ntran))
-      ! Doppler widths that the line spawns
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%broad_stark)
+      ! Doppler widths that the line holds
       allocate(Atom%dwvl(Atom%ntran))
-      ! Dopple widths that the core of the line spawns
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%dwvl)
+      ! Doppler widths that the core of the line holds
       allocate(Atom%dwvlc(Atom%ntran))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%dwvlc)
       ! Indexing of radiative transitions
       allocate(Atom%irad(Atom%nMulti,Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%irad)
       Atom%irad = 0
       ! Einstein coefficients Aul and Blu
       allocate(Atom%Ecoeff(Atom%nMulti,Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%Ecoeff)
       Atom%Ecoeff = 0d0
-      ! Nullify Norm
-      nullify(Atom%Normp)
 
-      ! Each transition hardwired
+      !
+      ! Hardcoded transitions
+      !
+
+      ! 1
       itran = 1
       iterm1 = 2
       iterm = 1
       Atom%irad(iterm1,iterm) = itran
       Atom%irad(iterm,iterm1) = itran
+      Atom%fst(itran)%iterml = iterm
+      Atom%fst(itran)%itermu = iterm1
+      allocate(Atom%fst(itran)%irad(1,1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%irad)
+      Atom%fst(itran)%irad(1,1) = 1
+      Atom%fst(itran)%nt = 1
+      allocate(Atom%fst(itran)%ilevell(1))
+      allocate(Atom%fst(itran)%ilevelu(1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevell)
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevelu)
+      Atom%fst(itran)%ilevell = 1
+      Atom%fst(itran)%ilevelu = 1
       Atom%Dfreq(itran) = abs(Atom%TRfreq(iterm1) - &
                               Atom%TRfreq(iterm))
       radAcoeff = 4.6986d0
@@ -1769,11 +1911,24 @@
       Atom%Dwvl(itran) = 600
       Atom%Dwvlc(itran) = 15
 
+      ! 2
       itran = 2
       iterm1 = 3
       iterm = 1
       Atom%irad(iterm1,iterm) = itran
       Atom%irad(iterm,iterm1) = itran
+      Atom%fst(itran)%iterml = iterm
+      Atom%fst(itran)%itermu = iterm1
+      allocate(Atom%fst(itran)%irad(1,1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%irad)
+      Atom%fst(itran)%irad(1,1) = 1
+      Atom%fst(itran)%nt = 1
+      allocate(Atom%fst(itran)%ilevell(1))
+      allocate(Atom%fst(itran)%ilevelu(1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevell)
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevelu)
+      Atom%fst(itran)%ilevell = 1
+      Atom%fst(itran)%ilevelu = 1
       Atom%Dfreq(itran) = abs(Atom%TRfreq(iterm1) - &
                               Atom%TRfreq(iterm))
       radAcoeff = .55751d0
@@ -1789,11 +1944,24 @@
       Atom%Dwvl(itran) = 250
       Atom%Dwvlc(itran) = 10
 
+      ! 3
       itran = 3
       iterm1 = 4
       iterm = 1
       Atom%irad(iterm1,iterm) = itran
       Atom%irad(iterm,iterm1) = itran
+      Atom%fst(itran)%iterml = iterm
+      Atom%fst(itran)%itermu = iterm1
+      allocate(Atom%fst(itran)%irad(1,1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%irad)
+      Atom%fst(itran)%irad(1,1) = 1
+      Atom%fst(itran)%nt = 1
+      allocate(Atom%fst(itran)%ilevell(1))
+      allocate(Atom%fst(itran)%ilevelu(1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevell)
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevelu)
+      Atom%fst(itran)%ilevell = 1
+      Atom%fst(itran)%ilevelu = 1
       Atom%Dfreq(itran) = abs(Atom%TRfreq(iterm1) - &
                               Atom%TRfreq(iterm))
       radAcoeff = .12785d0
@@ -1809,11 +1977,24 @@
       Atom%Dwvl(itran) = 100
       Atom%Dwvlc(itran) = 3
 
+      ! 4
       itran = 4
       iterm1 = 5
       iterm = 1
       Atom%irad(iterm1,iterm) = itran
       Atom%irad(iterm,iterm1) = itran
+      Atom%fst(itran)%iterml = iterm
+      Atom%fst(itran)%itermu = iterm1
+      allocate(Atom%fst(itran)%irad(1,1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%irad)
+      Atom%fst(itran)%irad(1,1) = 1
+      Atom%fst(itran)%nt = 1
+      allocate(Atom%fst(itran)%ilevell(1))
+      allocate(Atom%fst(itran)%ilevelu(1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevell)
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevelu)
+      Atom%fst(itran)%ilevell = 1
+      Atom%fst(itran)%ilevelu = 1
       Atom%Dfreq(itran) = abs(Atom%TRfreq(iterm1) - &
                               Atom%TRfreq(iterm))
       radAcoeff = .04125d0
@@ -1829,11 +2010,24 @@
       Atom%Dwvl(itran) = 100
       Atom%Dwvlc(itran) = 3
 
+      ! 5
       itran = 5
       iterm1 = 3
       iterm = 2
       Atom%irad(iterm1,iterm) = itran
       Atom%irad(iterm,iterm1) = itran
+      Atom%fst(itran)%iterml = iterm
+      Atom%fst(itran)%itermu = iterm1
+      allocate(Atom%fst(itran)%irad(1,1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%irad)
+      Atom%fst(itran)%irad(1,1) = 1
+      Atom%fst(itran)%nt = 1
+      allocate(Atom%fst(itran)%ilevell(1))
+      allocate(Atom%fst(itran)%ilevelu(1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevell)
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevelu)
+      Atom%fst(itran)%ilevell = 1
+      Atom%fst(itran)%ilevelu = 1
       Atom%Dfreq(itran) = abs(Atom%TRfreq(iterm1) - &
                               Atom%TRfreq(iterm))
       radAcoeff = .44101d0
@@ -1849,11 +2043,24 @@
       Atom%Dwvl(itran) = 250
       Atom%Dwvlc(itran) = 3
 
+      ! 6
       itran = 6
       iterm1 = 4
       iterm = 2
       Atom%irad(iterm1,iterm) = itran
       Atom%irad(iterm,iterm1) = itran
+      Atom%fst(itran)%iterml = iterm
+      Atom%fst(itran)%itermu = iterm1
+      allocate(Atom%fst(itran)%irad(1,1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%irad)
+      Atom%fst(itran)%irad(1,1) = 1
+      Atom%fst(itran)%nt = 1
+      allocate(Atom%fst(itran)%ilevell(1))
+      allocate(Atom%fst(itran)%ilevelu(1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevell)
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevelu)
+      Atom%fst(itran)%ilevell = 1
+      Atom%fst(itran)%ilevelu = 1
       Atom%Dfreq(itran) = abs(Atom%TRfreq(iterm1) - &
                               Atom%TRfreq(iterm))
       radAcoeff = .084193d0
@@ -1869,11 +2076,24 @@
       Atom%Dwvl(itran) = 250
       Atom%Dwvlc(itran) = 3
 
+      ! 7
       itran = 7
       iterm1 = 5
       iterm = 2
       Atom%irad(iterm1,iterm) = itran
       Atom%irad(iterm,iterm1) = itran
+      Atom%fst(itran)%iterml = iterm
+      Atom%fst(itran)%itermu = iterm1
+      allocate(Atom%fst(itran)%irad(1,1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%irad)
+      Atom%fst(itran)%irad(1,1) = 1
+      Atom%fst(itran)%nt = 1
+      allocate(Atom%fst(itran)%ilevell(1))
+      allocate(Atom%fst(itran)%ilevelu(1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevell)
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevelu)
+      Atom%fst(itran)%ilevell = 1
+      Atom%fst(itran)%ilevelu = 1
       Atom%Dfreq(itran) = abs(Atom%TRfreq(iterm1) - &
                               Atom%TRfreq(iterm))
       radAcoeff = .025304d0
@@ -1889,11 +2109,24 @@
       Atom%Dwvl(itran) = 250
       Atom%Dwvlc(itran) = 3
 
+      ! 8
       itran = 8
       iterm1 = 4
       iterm = 3
       Atom%irad(iterm1,iterm) = itran
       Atom%irad(iterm,iterm1) = itran
+      Atom%fst(itran)%iterml = iterm
+      Atom%fst(itran)%itermu = iterm1
+      allocate(Atom%fst(itran)%irad(1,1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%irad)
+      Atom%fst(itran)%irad(1,1) = 1
+      Atom%fst(itran)%nt = 1
+      allocate(Atom%fst(itran)%ilevell(1))
+      allocate(Atom%fst(itran)%ilevelu(1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevell)
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevelu)
+      Atom%fst(itran)%ilevell = 1
+      Atom%fst(itran)%ilevelu = 1
       Atom%Dfreq(itran) = abs(Atom%TRfreq(iterm1) - &
                               Atom%TRfreq(iterm))
       radAcoeff = .089860d0
@@ -1909,11 +2142,24 @@
       Atom%Dwvl(itran) = 30
       Atom%Dwvlc(itran) = 2
 
+      ! 9
       itran = 9
       iterm1 = 5
       iterm = 3
       Atom%irad(iterm1,iterm) = itran
       Atom%irad(iterm,iterm1) = itran
+      Atom%fst(itran)%iterml = iterm
+      Atom%fst(itran)%itermu = iterm1
+      allocate(Atom%fst(itran)%irad(1,1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%irad)
+      Atom%fst(itran)%irad(1,1) = 1
+      Atom%fst(itran)%nt = 1
+      allocate(Atom%fst(itran)%ilevell(1))
+      allocate(Atom%fst(itran)%ilevelu(1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevell)
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevelu)
+      Atom%fst(itran)%ilevell = 1
+      Atom%fst(itran)%ilevelu = 1
       Atom%Dfreq(itran) = abs(Atom%TRfreq(iterm1) - &
                               Atom%TRfreq(iterm))
       radAcoeff = .022008d0
@@ -1929,11 +2175,24 @@
       Atom%Dwvl(itran) = 30
       Atom%Dwvlc(itran) = 2
 
+      ! 10
       itran = 10
       iterm1 = 5
       iterm = 4
       Atom%irad(iterm1,iterm) = itran
       Atom%irad(iterm,iterm1) = itran
+      Atom%fst(itran)%iterml = iterm
+      Atom%fst(itran)%itermu = iterm1
+      allocate(Atom%fst(itran)%irad(1,1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%irad)
+      Atom%fst(itran)%irad(1,1) = 1
+      Atom%fst(itran)%nt = 1
+      allocate(Atom%fst(itran)%ilevell(1))
+      allocate(Atom%fst(itran)%ilevelu(1))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevell)
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%fst(itran)%ilevelu)
+      Atom%fst(itran)%ilevell = 1
+      Atom%fst(itran)%ilevelu = 1
       Atom%Dfreq(itran) = abs(Atom%TRfreq(iterm1) - &
                               Atom%TRfreq(iterm))
       radAcoeff = .026993d0
@@ -1950,20 +2209,30 @@
       Atom%Dwvlc(itran) = 1
 
 
-
+      !!!!!!!!!!!!!!!!!!!!
       !
       ! Photoionizations
       !
+      !!!!!!!!!!!!!!!!!!!!
 
+      !
       ! Allocations
+      !
+
       ! Indexing of b-f transitions
       allocate(Atom%iphot(Atom%nMulti,Atom%nMulti))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%iphot)
       Atom%iphot = 0
       ! Photoionization information
       allocate(Atom%phot(Atom%nphot))
 
-      ! Each transition hardwired
+      !
+      ! Hard-coded transitions
+      !
+
+      ! 1
       ii = 1
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%phot(ii))
       iterm1 = 6
       iterm = 1
       Atom%iphot(iterm1,iterm) = ii
@@ -1971,12 +2240,18 @@
       Atom%phot(ii)%edge = Atom%TRfreq(iterm1) - Atom%TRfreq(iterm)
       allocate(Atom%phot(ii)%infreq(1))
       allocate(Atom%phot(ii)%inalpha(1))
+      MRAMc = MRAMc + 1d-6*(sizeof(Atom%phot(ii)%infreq) + &
+                            sizeof(Atom%phot(ii)%inalpha))
+                            
       Atom%phot(ii)%mode = 1
       Atom%phot(ii)%nfreq = 1
       Atom%phot(ii)%infreq(1) = 1d2/22.794d0
       Atom%phot(ii)%inalpha(1) = 6.152d-22
+      Atom%phot(ii)%ilevell = iterm
 
+      ! 2
       ii = 2
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%phot(ii))
       iterm1 = 6
       iterm = 2
       Atom%iphot(iterm1,iterm) = ii
@@ -1984,12 +2259,17 @@
       Atom%phot(ii)%edge = Atom%TRfreq(iterm1) - Atom%TRfreq(iterm)
       allocate(Atom%phot(ii)%infreq(1))
       allocate(Atom%phot(ii)%inalpha(1))
+      MRAMc = MRAMc + 1d-6*(sizeof(Atom%phot(ii)%infreq) + &
+                            sizeof(Atom%phot(ii)%inalpha))
       Atom%phot(ii)%mode = 1
       Atom%phot(ii)%nfreq = 1
       Atom%phot(ii)%infreq(1) = 1d2/91.176d0
       Atom%phot(ii)%inalpha(1) = 1.379d-21
+      Atom%phot(ii)%ilevell = iterm
 
+      ! 3
       ii = 3
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%phot(ii))
       iterm1 = 6
       iterm = 3
       Atom%iphot(iterm1,iterm) = ii
@@ -1997,12 +2277,17 @@
       Atom%phot(ii)%edge = Atom%TRfreq(iterm1) - Atom%TRfreq(iterm)
       allocate(Atom%phot(ii)%infreq(1))
       allocate(Atom%phot(ii)%inalpha(1))
+      MRAMc = MRAMc + 1d-6*(sizeof(Atom%phot(ii)%infreq) + &
+                            sizeof(Atom%phot(ii)%inalpha))
       Atom%phot(ii)%mode = 1
       Atom%phot(ii)%nfreq = 1
       Atom%phot(ii)%infreq(1) = 1d2/205.147d0
       Atom%phot(ii)%inalpha(1) = 2.149d-21
+      Atom%phot(ii)%ilevell = iterm
 
+      ! 4
       ii = 4
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%phot(ii))
       iterm1 = 6
       iterm = 4
       Atom%iphot(iterm1,iterm) = ii
@@ -2010,12 +2295,17 @@
       Atom%phot(ii)%edge = Atom%TRfreq(iterm1) - Atom%TRfreq(iterm)
       allocate(Atom%phot(ii)%infreq(1))
       allocate(Atom%phot(ii)%inalpha(1))
+      MRAMc = MRAMc + 1d-6*(sizeof(Atom%phot(ii)%infreq) + &
+                            sizeof(Atom%phot(ii)%inalpha))
       Atom%phot(ii)%mode = 1
       Atom%phot(ii)%nfreq = 1
       Atom%phot(ii)%infreq(1) = 1d2/364.705d0
       Atom%phot(ii)%inalpha(1) = 2.923d-21
+      Atom%phot(ii)%ilevell = iterm
 
+      ! 5
       ii = 5
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%phot(ii))
       iterm1 = 6
       iterm = 5
       Atom%iphot(iterm1,iterm) = ii
@@ -2023,17 +2313,22 @@
       Atom%phot(ii)%edge = Atom%TRfreq(iterm1) - Atom%TRfreq(iterm)
       allocate(Atom%phot(ii)%infreq(1))
       allocate(Atom%phot(ii)%inalpha(1))
+      MRAMc = MRAMc + 1d-6*(sizeof(Atom%phot(ii)%infreq) + &
+                            sizeof(Atom%phot(ii)%inalpha))
       Atom%phot(ii)%mode = 1
       Atom%phot(ii)%nfreq = 1
       Atom%phot(ii)%infreq(1) = 1d2/569.852d0
       Atom%phot(ii)%inalpha(1) = 3.699d-21
+      Atom%phot(ii)%ilevell = iterm
 
 
+      !!!!!!!!!!!!!!!!!!!!!!!!
       !
       ! Inelastic collisions
       !
+      !!!!!!!!!!!!!!!!!!!!!!!!
 
-      ! Number of colisional transitions
+      ! Number of collisional transitions
       Atom%ncol = 10
 
       ! Allocate inelastic database
@@ -2054,106 +2349,137 @@
       p_T%nion = 0
       p_T%flin = .False.
 
-      ! Allocate temperature
+      ! Allocate and set temperature
       allocate(p_T%temp(nTmp))
       p_T%temp = (/ 3d3, 5d3, 7d3, 1d4, 2d4, 3d4 /)
+      MRAMc = MRAMc + 1d-6*dble(4*5 + 8*nTmp)
 
+      ! 1
       ii = 1
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(ii))
       Atom%inelas(ii)%ind = 1
       Atom%inelas(ii)%col_type = 0
       Atom%inelas(ii)%low = 1
       Atom%inelas(ii)%up = 2
       allocate(Atom%inelas(ii)%Cul(nTmp))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(ii)%Cul)
       Atom%inelas(ii)%Cul = &
             (/ 1.3351d-14,1.0780d-14,9.4856d-15,8.4125d-15, &
                7.0994d-15,6.7550d-15 /)
 
+      ! 2
       ii = 2
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(ii))
       Atom%inelas(ii)%ind = 1
       Atom%inelas(ii)%col_type = 0
       Atom%inelas(ii)%low = 1
       Atom%inelas(ii)%up = 3
       allocate(Atom%inelas(ii)%Cul(nTmp))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(ii)%Cul)
       Atom%inelas(ii)%Cul = &
             (/ 8.7453d-16,7.1253d-16,6.3196d-16,5.6633d-16, &
                4.8995d-16,4.7362d-16 /)
 
+      ! 3
       ii = 3
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(ii))
       Atom%inelas(ii)%ind = 1
       Atom%inelas(ii)%col_type = 0
       Atom%inelas(ii)%low = 1
       Atom%inelas(ii)%up = 4
       allocate(Atom%inelas(ii)%Cul(nTmp))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(ii)%Cul)
       Atom%inelas(ii)%Cul = &
             (/ 1.6240d-16,1.3263d-16,1.1792d-16,1.0600d-16, &
                9.2277d-17,8.9644d-17 /)
 
+      ! 4
       ii = 4
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(ii))
       Atom%inelas(ii)%ind = 1
       Atom%inelas(ii)%col_type = 0
       Atom%inelas(ii)%low = 1
       Atom%inelas(ii)%up = 5
       allocate(Atom%inelas(ii)%Cul(nTmp))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(ii)%Cul)
       Atom%inelas(ii)%Cul = &
             (/ 4.7192d-17,3.8580d-17,3.4337d-17,3.0892d-17, &
                2.6995d-17,2.6265d-17 /)
 
+      ! 5
       ii = 5
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(ii))
       Atom%inelas(ii)%ind = 1
       Atom%inelas(ii)%col_type = 0
       Atom%inelas(ii)%low = 2
       Atom%inelas(ii)%up = 3
       allocate(Atom%inelas(ii)%Cul(nTmp))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(ii)%Cul)
       Atom%inelas(ii)%Cul = &
             (/ 2.7435d-13,2.5384d-13,2.4973d-13,2.5293d-13, &
                2.7775d-13,2.9945d-13 /)
 
+      ! 6
       ii = 6
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(ii))
       Atom%inelas(ii)%ind = 1
       Atom%inelas(ii)%col_type = 0
       Atom%inelas(ii)%low = 2
       Atom%inelas(ii)%up = 4
       allocate(Atom%inelas(ii)%Cul(nTmp))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(ii)%Cul)
       Atom%inelas(ii)%Cul = &
             (/ 1.8623d-14,1.7872d-14,1.8024d-14,1.8705d-14, &
                2.1454d-14,2.3746d-14 /)
 
+      ! 7
       ii = 7
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(ii))
       Atom%inelas(ii)%ind = 1
       Atom%inelas(ii)%col_type = 0
       Atom%inelas(ii)%low = 2
       Atom%inelas(ii)%up = 5
       allocate(Atom%inelas(ii)%Cul(nTmp))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(ii)%Cul)
       Atom%inelas(ii)%Cul = &
             (/ 3.5405d-15,3.4405d-15,3.4966d-15,3.6592d-15, &
                4.2698d-15,4.7832d-15 /)
 
+      ! 8
       ii = 8
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(ii))
       Atom%inelas(ii)%ind = 1
       Atom%inelas(ii)%col_type = 0
       Atom%inelas(ii)%low = 3
       Atom%inelas(ii)%up = 4
       allocate(Atom%inelas(ii)%Cul(nTmp))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(ii)%Cul)
       Atom%inelas(ii)%Cul = &
             (/ 9.5940d-13,1.0457d-12,1.1455d-12,1.2881d-12, &
                1.6451d-12,1.8677d-12 /)
 
+      ! 9
       ii = 9
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(ii))
       Atom%inelas(ii)%ind = 1
       Atom%inelas(ii)%col_type = 0
       Atom%inelas(ii)%low = 3
       Atom%inelas(ii)%up = 5
       allocate(Atom%inelas(ii)%Cul(nTmp))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(ii)%Cul)
       Atom%inelas(ii)%Cul = &
             (/ 6.15d-14,6.8731d-14,7.6113d-14,8.64d-14, &
                1.1348d-13,1.3281d-13 /)
 
+      ! 10
       ii = 10
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(ii))
       Atom%inelas(ii)%ind = 1
       Atom%inelas(ii)%col_type = 0
       Atom%inelas(ii)%low = 4
       Atom%inelas(ii)%up = 5
       allocate(Atom%inelas(ii)%Cul(nTmp))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%inelas(ii)%Cul)
       Atom%inelas(ii)%Cul = &
             (/ 2.7090d-12,3.3113d-12,3.8548d-12,4.5498d-12, &
                6.1112d-12,6.9947d-12 /)
@@ -2175,8 +2501,9 @@
 !#####################################################################
 !#####################################################################
 
-      !> Normalizes abundances (of the species)\n
-      !!    Atom(Atom_class): Structure with the atomic data
+      !> Normalize the abundances of several atoms of the same
+      !! species\n
+      !!  Atom(Atom_class(:)): Structures with atomic data
       subroutine abund(Atom)
 
       ! I/O
@@ -2197,7 +2524,7 @@
       checked = .False.
       renorm = .False.
 
-      ! Collect the flags into a vector
+      ! Collect the flags into a vector for each atom
       do i1=1,NA
         renorm(i1) = Atom(i1)%anorm
       end do
@@ -2205,19 +2532,23 @@
       ! If any of them ask for normalization, normalize
       if (any(renorm)) then
 
+        ! For each atom
         do i1=1,NA
 
           ! If we already checked this atom, skip
           if (checked(i1)) cycle
 
+          ! Initialize auxiliar variables
           nat = 1
           natr = 0
           list = 0
           list(1) = i1
           abmod = Atom(i1)%abun_mod
 
+          ! If renormalizing this atom, add to count
           if (renorm(i1)) natr = natr + 1
 
+          ! For all other atoms
           do i2=1,NA
 
             ! If the atom is checked or if it is the one already
@@ -2237,10 +2568,11 @@
               ! Accumulate the modification factors
               abmod = abmod + Atom(i2)%abun_mod
 
-            end if
+            end if ! Same element
 
-          end do
+          end do ! All other atoms
 
+          ! Set all checket atoms to checked
           do i2=1,nat
             checked(list(i2)) = .True.
           end do
@@ -2248,24 +2580,29 @@
           ! If there was an atom asking for renorm
           if (natr.gt.0) then
 
+            ! Master
             if (pid.eq.0) then
+
+              ! Verbose
               umsg = ' - Atom '//trim(Atom(i1)%Element)// &
                      ' abundance modifier normalized'
               call verbose
-            end if
+
+            end if ! Master
 
             ! Normalize the atoms on the list
             do i2=1,nat
 
+              ! Recalculate abundance
               Atom(list(i2))%abun_mod = Atom(list(i2))%abun_mod/abmod
 
-            end do
+            end do ! Normalize atoms on the list
 
-          end if
+          end if ! There was an atom asking to renormalize
 
-        end do
+        end do ! Atoms
 
-      end if
+      end if ! At least one atom wants to renormalize
 
 
       end subroutine abund
@@ -2274,10 +2611,11 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes fine structure Einstein coefficients from the term
-      !! wise one.\n
-      !!    Atom(Atom_class): Structure with the atomic data\n
-      !!  Flgsg(Fctsg_class): Structure with factorials and signs
+      !> Calculate the fine-structure Einstein coefficients for the
+      !! given atom\n
+      !!    Atom(Atom_class): Structure with atomic data\n
+      !!  Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                      J-symbols
       subroutine setFScoeff(Atom,Flgsg)
 
       ! I/O
@@ -2291,66 +2629,84 @@
 
       double precision:: W6,S,rL,rL1,rJ,rJ1,Aul,AJul,BJlu,Dfreq
 
-      ! If the atom was ML, ignore quantum numbers
+
+      ! If the atom is multi-level, ignore quantum numbers
       if (Atom%ML) then
 
-        ! For each term pair
+        ! For each lower term/level
         do ilevel=1,Atom%nMulti-1
+
+          ! For each upper term/level
           do ilevel1=ilevel+1,Atom%nMulti
 
             ! Check for a transition
             itran = Atom%irad(ilevel,ilevel1)
 
+            ! If no transition, stkip
             if (itran.lt.1) cycle
 
+            ! Get quantum numbers
             rJ = Atom%rJval(1,ilevel)
             rJ1 = Atom%rJval(1,ilevel1)
 
+            ! Get transition frequency
             Dfreq = Atom%FSfreq(1,ilevel1) - &
                     Atom%FSfreq(1,ilevel)
 
-            ! Aul
+            ! Get Aul
             AJul = Atom%Ecoeff(ilevel1,ilevel)
 
-            ! Calculate the corresponding FS-Blu
+            ! Calculate the corresponding Blu
             BJlu = AJul*(2d0*rJ1+1d0)/(2d0*rJ+1d0)/ &
                    (ConvF*1d21*(2d0*c)*Dfreq**3d0)
 
+            ! Save in structure
             Atom%fst(itran)%Aul(1,1) = AJul
             Atom%fst(itran)%Blu(1,1) = BJlu
 
           end do ! Upper level
         end do ! Lower level
 
-      ! If multiterm, do the branching
+      ! If atom is multi-term, do the branching
       else
 
-        ! For each term pair
+        ! For each lower term
         do iterm=1,Atom%nMulti-1
+
+          ! For each upper term
           do iterm1=iterm+1,Atom%nMulti
 
             ! Check for a transition
             itran = Atom%irad(iterm,iterm1)
 
+            ! Skip if no transition
             if (itran.lt.1) cycle
 
+            ! Get quantum numbers
             rL = Atom%rLval(iterm)
             rL1 = Atom%rLval(iterm1)
             S = Atom%Sval(iterm)
+
+            ! Get Einstein coefficient
             Aul = Atom%Ecoeff(iterm1,iterm)
 
-            ! For each pair of FS levels
+            ! For each level in the lower term
             do iJ=1,Atom%nJ(iterm)
+
+              ! For each level in the upper term
               do iJ1=1,Atom%nJ(iterm1)
 
                 ! Check for a transition
                 ftran = Atom%fst(itran)%irad(iJ1,iJ)
 
+                ! Skip if no fine-structure transition
                 if (ftran.lt.1) cycle
 
+                ! Get total angular momenta
                 rJ = Atom%rJval(iJ,iterm)
                 rJ1 = Atom%rJval(iJ1,iterm1)
 
+                ! Get frequency
                 Dfreq = Atom%FSfreq(iJ1,iterm1) - &
                         Atom%FSfreq(iJ,iterm)
 
@@ -2362,15 +2718,16 @@
                 BJlu = AJul*(2d0*rJ1+1d0)/(2d0*rJ+1d0)/ &
                        (ConvF*1d21*(2d0*c)*Dfreq**3d0)
 
+                ! Store Einstein coefficients
                 Atom%fst(itran)%Aul(iJ1,iJ) = AJul
                 Atom%fst(itran)%Blu(iJ,iJ1) = BJlu
 
-              end do ! iJ1
-            end do ! iJ
-          end do ! iterm1
-        end do ! iterm
+              end do ! Upper levels
+            end do ! Lower levels
+          end do ! Upper terms
+        end do ! Lower terms
 
-      end if ! ML or MT
+      end if ! Multi-level or Multi-term
 
       return
 
@@ -2380,51 +2737,84 @@
 !#####################################################################
 !#####################################################################
 
-      !> Compute some derived quantities for the LTE line\n
-      !!    Atom(Atom_class): Structure with the atomic data for
-      !!                      passive atoms
-      !! line(LTEline_class): Structure with the LTE line data
+      !> Prepare the known quantities for a given LTE transition\n
+      !!  Atom(Atom_class(:)): Structures with atomic data\n
+      !!  line(LTEline_class): Structure with LTE line data
       subroutine setup_LTE_transition(Atom,line)
 
       ! I/O
+
       type(Atom_class), dimension(:), intent(inout):: Atom
       type(LTEline_class), intent(inout):: line
 
+      ! Local
 
-      ! If passive atom model
+      integer:: iMu,iMf
+
+      double precision:: rMu,rMf
+
+
+      ! If the line is from an atom with an atomic model
       if (line%is_passive) then
 
-        ! Get from model
+        ! Get data from model
         line%rmass = Atom(line%ia)%rmass
         line%abund = Atom(line%ia)%abun
         line%cDopp = Atom(line%ia)%cDopp
 
-      ! No model
+      ! If the line is from an atom without an atomic model
       else
 
-        ! Get tabulated
+        ! Get data from tabulation
         line%rmass = recallmass_ind(line%ele)
         line%abund = recallabund_ind(line%ele)
         line%cDopp = dopp/sqrt(line%rmass)
 
-      end if
+      end if ! The LTE is from an atom with an atomic model
 
-      ! Transition freq. and Einstein c.
+      ! Transition freq. and Blu Einstein coefficient
       line%Dfreq = line%Eu - line%El
       line%Blu = line%Aul*(2d0*line%Ju + 1d0)/ &
                           (2d0*line%Jl + 1d0)/ &
                  (ConvF*line%Dfreq*1d21*(2d0*c)* &
                   line%Dfreq**2d0)
 
-      ! Number of M levels indexes
+      ! Number of M levels indexes for each level
       line%nMu = nint(2d0*line%Ju+1d0)
       line%nMl = nint(2d0*line%Jl+1d0)
 
-      ! Check frequencies
+      ! Initialize number magnetic components
+      line%ncom = 0
+
+      ! Run over Mu
+      do iMu=1,line%nMu
+
+        ! Magnetic number
+        rMu = -line%Ju + dble(iMu-1)
+
+        ! Run over Ml
+        do iMf=1,line%nMl
+
+          ! Magnetic number
+          rMf = -line%Jl + dble(iMf-1)
+
+          ! Selection rules
+          if (nint(abs(rMu-rMf)).gt.1) cycle
+
+          ! Add to count
+          line%ncom = line%ncom + 1
+
+        end do ! Mf
+      end do ! Mu
+
+      ! If valid number of frequencies
       if (line%nfreq.gt.0) then
+
+        ! Ensure odd number
         if (mod(line%nfreq,2).eq.0) line%nfreq = line%nfreq + 1
         if (mod(line%nfreqc,2).eq.0) line%nfreqc = line%nfreqc + 1
-      end if
+
+      end if ! Valid number of frequencies
 
       ! Add frequencies to global count
       nfreq = nfreq + line%nfreq
@@ -2435,21 +2825,25 @@
 !#####################################################################
 !#####################################################################
 
-      !> Checks if a LTE transition is in the model and removes it\n
-      !!     Atom(Atom_class): Structure with the atomic data\n
-      !!  line(LTEline_class): Structure with the LTE line data
+      !> Check if an LTE transition is part of an atomic model and
+      !! remove it from the model\n
+      !!     Atom(Atom_class): Structure with atomic data\n
+      !!  line(LTEline_class): Structure with LTE line data
       subroutine remove_LTE_transition(Atom,line)
 
       ! I/O
+
       type(Atom_class), intent(inout):: Atom
       type(LTEline_class), intent(in):: line
 
       ! Local
+
       logical:: no_found_l, no_found_u
 
       integer:: iterm,iJ,Jl2,Ju2,iterml,iJl,iJu,itermu
 
       double precision:: El,Eu,factl,factu
+
 
       !
       ! Find levels
@@ -2458,12 +2852,14 @@
       ! Initialize
       no_found_l = .True.
       no_found_u = .True.
+
+      ! Get data from line
       Jl2 = nint(line%Jl*2d0)
       Ju2 = nint(line%Ju*2d0)
       El = line%El
       Eu = line%Eu
 
-      ! Relative factors
+      ! Relative energy factors
       if (abs(El).gt.0d0) then
         factl = 1d0/abs(El)
       else
@@ -2478,38 +2874,38 @@
       ! For each term
       do iterm=1,Atom%nMulti
 
-        ! If not even same stage
+        ! If not even same stage, skip
         if (Atom%stage(iterm).ne.line%stage) cycle
 
-        ! For each level
+        ! For each level within the term
         do iJ=1,Atom%nJ(iterm)
 
-          ! If not found lower
+          ! If not found lower yet
           if (no_found_l) then
 
             ! Check J
             if (nint(Atom%rJval(iJ,iterm)*2d0).eq.Jl2) then
 
-              ! Compare
+              ! Compare energies
               if (abs(El - Atom%FSfreq(iJ,iterm))*factl.le. &
                   TINYSP) then
 
-                  ! Found
-                  no_found_l = .False.
-                  iterml = iterm
-                  iJl = iJ
+                ! Found
+                no_found_l = .False.
+                iterml = iterm
+                iJl = iJ
 
               end if ! Same energy
             end if ! Same J
           end if ! Not found l
 
-          ! If not found upper
+          ! If not found upper yet
           if (no_found_u) then
 
             ! Check J
             if (nint(Atom%rJval(iJ,iterm)*2d0).eq.Ju2) then
 
-              ! Compare
+              ! Compare energies
               if (abs(Eu - Atom%FSfreq(iJ,iterm))*factu.le. &
                   TINYSP) then
 
@@ -2524,12 +2920,12 @@
 
         end do ! Levels
 
-        ! If found, stop
+        ! If found, stop search
         if (.not.no_found_l.and..not.no_found_u) exit
 
       end do ! Terms
 
-      ! If not found, the line is not here
+      ! If not found, the line is not here and we can leave
       if (no_found_l.or.no_found_u) return
 
       ! Multi-level
@@ -2542,13 +2938,15 @@
       ! Multi-term
       else
 
-        ! Remove if not forbidden
+        ! If transition is not forbidden by electric dipole rule
         if (abs(Jl2-Ju2).le.1.and.Jl2+Ju2.gt.0) then
+
+          ! Remove between terms
           Atom%irad(itermu,iterml) = 0
           Atom%irad(iterml,itermu) = 0
-        end if
 
-      end if
+        end if ! Not forbidden
+      end if ! Multi-level/Multi-term
 
       return
 
@@ -2558,19 +2956,18 @@
 !#####################################################################
 !#####################################################################
 
-      !> Allocates array of Atom_class.\n
-      !!  Atom(Atom_class): Structure to allocate\n
-      !!       nn(integer): Size to allocate
+      !> Allocate an array of atomic models\n
+      !!  Atom(Atom_class(:)): Structures with atomic data\n
+      !!          nn(integer): Size to allocate
       subroutine allocateatom(Atom,nn)
 
       ! I/O
-      type(Atom_class), dimension(:), allocatable:: Atom
+
+      type(Atom_class), dimension(:), allocatable, intent(out):: Atom
       integer, intent(in):: nn
 
+      ! Allocate array
       allocate(Atom(nn))
-
-      ! Control that everything went fine
-      call control
 
       return
 
@@ -2580,16 +2977,18 @@
 !#####################################################################
 !#####################################################################
 
-      !> Set-up labels for atomic files.\n
-      !!  Atom(Atom_class): Structure to allocate\n
-      !!       nn(integer): Size to allocate
+      !> Provide each atomic model with a unique label\n
+      !!  Atom(Atom_class(:)): Structures with atomic data\n
+      !   !       nn(integer): Size to allocate
       subroutine set_atom_label(Atom,nn)
 
       ! I/O
-      type(Atom_class), dimension(:), allocatable:: Atom
+
+      type(Atom_class), dimension(:), intent(inout):: Atom
       integer, intent(in):: nn
 
       ! Local
+
       character(len=10):: label
 
       logical:: repeated
@@ -2598,62 +2997,70 @@
       integer:: ia,ja,ka,irep
 
 
-      ! Each atom, create default label
+      ! For each atom, create default label
       do ia=1,nn
 
-        ! Generate label
+        ! Initialize label label
         Atom(ia)%file_label = '          '
+
+        ! Write atomic label
         if (Atom(ia)%Element(1:1).eq.' ') then
           Atom(ia)%file_label(1:1) = Atom(ia)%Element(2:2)
         else
           Atom(ia)%file_label = Atom(ia)%Element
         end if
-      end do
+
+      end do ! Atoms
 
       ! Initialize
       check = .False.
 
-      ! Now check repeated
+      ! For each model atom but the last
       do ia=1,nn-1
 
-        ! Checked?
+        ! If already checked, skip
         if (check(ia)) cycle
 
         ! Current label
         label = Atom(ia)%file_label
 
-        ! Initialized
+        ! Initialize
         repeated = .False.
         irep = 0
 
-        ! Check repeated
+        ! For the rest of atoms
         do ja=ia+1,nn
 
-          ! Repeated?
+          ! If label is the same
           if (trim(Atom(ja)%file_label).eq.trim(label)) then
+
+            ! Flag repeated
             repeated = .True.
             exit
-          end if
 
-        end do
+          end if ! Same label
+
+        end do ! Rest of atoms
 
         ! If repeated
         if (repeated) then
 
           ! Change current and initialize index
           Atom(ia)%file_label = trim(label)//'-1'
+
+          ! Initialize index
           ka = 1
 
-          ! Check repeated
+          ! For the rest of atoms
           do ja=ia+1,nn
 
-            ! Repeated?
+            ! Check if same label
             if (trim(Atom(ja)%file_label).eq.trim(label)) then
 
               ! Advance
               ka = ka + 1
 
-              ! Get complement
+              ! Get string with index number
               if (ka.lt.10) then
                 write(Atom(ja)%file_label,'("-",i1)') ka
               else if (ka.lt.100) then
@@ -2662,19 +3069,20 @@
                 write(Atom(ja)%file_label,'("-",i3)') ka
               end if
 
-              ! Get label
+              ! Get new label
               Atom(ja)%file_label = trim(label)// &
                                     trim(Atom(ja)%file_label)
-              ! Flag
+
+              ! Flag as checked
               check(ja) = .True.
 
-            end if
+            end if ! Same label
 
-          end do
+          end do ! Rest of atoms
 
         end if ! Repeated
 
-        ! Flag current
+        ! Flag current atom as checked
         check(ia) = .True.
 
       end do ! Atoms
@@ -2687,29 +3095,35 @@
 !#####################################################################
 !#####################################################################
 
-      !> Shift to the right the list of atoms and file names.\n
-      !!   Atom(Atom_class): Array to shift\n
-      !!  files(Atom_class): Array to shift
+      !> Shift all atoms one position to the right in the array, as
+      !! well as their associated filenames\n
+      !!     Atom(Atom_class(:)): Structures with atomic data\n
+      !!  files(strarr_class(:)): List of file names
       subroutine shiftatoms(Atom,files)
 
       ! I/O
-      type(Atom_class), dimension(:), allocatable:: Atom
-      type(strarr_class), dimension(:), allocatable:: files
+
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(strarr_class), dimension(:), &
+                          allocatable, intent(inout):: files
 
       ! Local
+
       type(Atom_class), dimension(:), allocatable:: Atomaux
       type(strarr_class), dimension(:), allocatable:: filesaux
 
 
-      ! If there are no background atoms, no need to shift
+      ! If there are no background atoms
       if (nAb.lt.1) then
 
+          ! No need to shift
           nAb = 1
           allocate(Atom(nAb))
           allocate(files(nAb))
           files(1)%str = 'N'
 
-      ! If we have to shift the loaded atoms
+      ! If there is data to shift
       else
 
         ! Copy data into auxiliar
@@ -2720,9 +3134,10 @@
         deallocate(Atom)
         deallocate(files)
 
+        ! Increase the number of background atoms
         nAb = nAb + 1
 
-        ! Create a larger one and copy back
+        ! Create a larger array and copy back
         allocate(Atom(nAb))
         allocate(files(nAb))
         Atom(2:nAb) = Atomaux
@@ -2746,25 +3161,29 @@
 !#####################################################################
 !#####################################################################
 
-      !> Allocates height dependent population\n
-      !!  Atom(Atom_class): Atom structures\n
-      !!       nn(integer): Size of the structure
+      !> Allocate height dependent pupulation variables\n
+      !!  Atom(Atom_class(:)): Structures with atomic data\n
+      !!          nn(integer): Size of the structure
       subroutine prepareatom(Atom,nn)
 
       ! I/O
+
       type(Atom_class), dimension(:), intent(inout):: Atom
       integer, intent(in):: nn
 
       ! Local
+
       integer:: ia
+
 
       ! For each atom
       do ia=1,nn
 
         ! Allocate total population
         allocate(Atom(ia)%n(nz))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%n)
 
-      end do
+      end do ! Atoms
 
       end subroutine prepareatom
 
@@ -2772,17 +3191,20 @@
 !#####################################################################
 !#####################################################################
 
-      !> Allocates variables that depend on the number of processes\n
-      !!  Atom(Atom_class): Atom structures
+      !> Allocate Master MPI variables for each model atom\n
+      !!  Atom(Atom_class(:)): Structures with atomic data
       subroutine prepareatomMPI(Atom)
 
       ! I/O
+
       type(Atom_class), dimension(:), intent(inout):: Atom
 
       ! Local
+
       integer:: ia,ii
 
-      ! If master of MPI
+
+      ! If Master and MPI
       if (pid.eq.0.and.nproc.gt.1) then
 
         ! For each atom
@@ -2790,23 +3212,31 @@
 
           ! Lower frequency limits for Master
           allocate(Atom(ia)%Mif0(Atom(ia)%ntran,0:nproc-1))
+          MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%Mif0)
           ! Upper frequency limits for Master
           allocate(Atom(ia)%Mif1(Atom(ia)%ntran,0:nproc-1))
+          MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%Mif1)
           ! Lower frequency weight for Master
           allocate(Atom(ia)%MW0(Atom(ia)%ntran,0:nproc-1))
+          MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%MW0)
           ! Upper frequency weight for Master
           allocate(Atom(ia)%MW1(Atom(ia)%ntran,0:nproc-1))
+          MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%MW1)
 
           ! For each b-f transition
           do ii=1,Atom(ia)%nphot
             ! Allocate limits for master
             allocate(Atom(ia)%phot(ii)%Mif0(0:nproc-1))
+            MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%phot(ii)%Mif0)
             allocate(Atom(ia)%phot(ii)%Mif1(0:nproc-1))
+            MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%phot(ii)%Mif1)
             ! Allocate weights for master
             allocate(Atom(ia)%phot(ii)%MW0(0:nproc-1))
+            MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%phot(ii)%MW0)
             allocate(Atom(ia)%phot(ii)%MW1(0:nproc-1))
-          end do
-        end do
+            MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%phot(ii)%MW1)
+          end do ! b-f transitions
+        end do ! Atoms
 
       end if ! Master of MPI
 
@@ -2816,15 +3246,19 @@
 !#####################################################################
 !#####################################################################
 
-      !> Initialize the size of the M blocks\n
-      !!    Atom(Atom_class): Atom structures
+      !> Initialize the size of the M blocks assuming there is a
+      !! magnetic field\n
+      !!  Atom(Atom_class(:)): Structures with atomic data
       subroutine initMblock(Atom)
 
       ! I/O
+
       type(Atom_class), dimension(:), intent(inout):: Atom
 
       ! Local
+
       integer:: ia,nM,iM,iJ,i,iterm
+
       double precision:: rL,S,rJ,rJmin,rJmax,pS,rM,rJm
 
 
@@ -2841,6 +3275,7 @@
           ! Multilevel
           if (Atom(ia)%ML) then
 
+            ! Get level quantities
             rJ = Atom(ia)%rJval(1,iterm)
             nM = nint(2d0*rJ + 1d0)
 
@@ -2850,7 +3285,7 @@
               ! Size of the block of this M (just one)
               Atom(ia)%nblk(iM,iterm) = 1
 
-            end do
+            end do ! Magnetic sublevels
 
             ! Rest of empty space
             do iM=nM+1,Atom(ia)%nMmax
@@ -2858,33 +3293,40 @@
               ! Size of the block of this M (just one)
               Atom(ia)%nblk(iM,iterm) = 0
 
-            end do
+            end do ! Magnetic sublevels
 
           ! Multiterm
           else
 
+            ! Minimum and maximum total angular momenta
             rJmin = abs(rL - S)
             rJmax = rL + S
 
+            ! Spin factor
             pS = S*(S+1d0)*(2d0*S + 1d0)
 
+            ! Number of magnetic sublevels
             nM = nint(2d0*rJmax + 1d0)
 
             ! Run over the magnetic block
             do iM=1,nM
 
+              ! Magnetic quantum number
               rM = -rJmax + dble(iM-1)
 
+              ! Minimun value of total angular momentum
               rJm = max(abs(rM),rJmin)
 
               ! initialize the column index
               i=0
 
               ! Column loop
-              do iJ = 1,Atom(ia)%nJ(iterm)
+              do iJ=1,Atom(ia)%nJ(iterm)
 
+                ! Total angular momentum
                 rJ = Atom(ia)%rJval(iJ,iterm)
 
+                ! If total angular momentum is above minimum
                 if (rJ.ge.rJm) then
 
                   ! Increase the column index
@@ -2905,7 +3347,7 @@
               ! Size of the block of this M (just one)
               Atom(ia)%nblk(iM,iterm) = 0
 
-            end do
+            end do ! Rest of empty space
 
           end if ! Multilevel or multiterm
 
@@ -2913,6 +3355,950 @@
       end do ! Atoms
 
       end subroutine initMblock
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Setup all necessary atomic indexings for transitions
+      !! components\n
+      !!  Atom(Atom_class(:)): Structures with atomic data\n
+      !!   Input(Input_class): Structure with configuration data\n
+      !!          li(logical): If doing intensity only calculations\n
+      !!          lp(logical): If doing polarization calculations\n
+      !!      nfield(logical): If expecting points without magnetic
+      !!                       field\n
+      !!      yfield(logical): If expecting points with magnetic
+      !!                       field
+      subroutine set_atom_indexes(Atom,Input,li,lp,nfield,yfield)
+
+      ! I/O
+
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Input_class), intent(in):: Input
+      logical, intent(in):: li,lp,nfield,yfield
+
+      ! Local
+
+      integer:: ia,iterm,iM,jtran,iti,itran,minto,maxto
+      integer:: fjtran,ffjtran,ffktran,fitran,ffitran
+      integer:: iMf,mF,iMu,iU,iMu1,iU1,iMl,iL,iMl1,iL1
+      integer:: iJu,iJu1,iJf,iJl,iJl1,itermu,itermf,iterml
+      integer:: nMm,nMu,nMf,nMl,nblk,ii,i1,i2,nti
+      integer:: iq,ip,iq1,ip1,iQQ,iPP
+      integer:: MiindU,MiindF,MiindU1,MiindL,MiindL1,nnchlt
+      integer:: MindU,MindF,MindU1,MindL,MindL1
+      integer:: indF,indL,indL1,indU,indU1
+
+      double precision:: rJumax,rJfmax,rJlmax,rMf,rMu,rMl,rMu1,rMl1
+      double precision:: rJf,rJu,rJl,rJu1,rJl1,q,p,q1,p1,QQ,PP
+
+
+      ! For each atom
+      do ia=1,nA
+
+        ! If we are doing intensity
+        if (li) then
+
+          ! If PRD
+          if (PRD) then
+
+            !
+            ! Count and index output transition
+            !
+
+            ! Initialize counters
+            minto = Atom(ia)%nftran + 1
+            maxto = 0
+            nti = 0
+
+            ! For each output transition (term)
+            do jtran=1,Atom(ia)%ntran
+
+              ! If not PRD, skip
+              if (.not.Atom(ia)%lemiss2(jtran)) cycle
+
+              ! For each output transition (FS)
+              do fjtran=1,Atom(ia)%fst(jtran)%nt
+
+                ! Get rolling index
+                ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
+
+                ! Update limits and count
+                if (ffjtran.lt.minto) minto = ffjtran
+                if (ffjtran.gt.maxto) maxto = ffjtran
+                nti = nti + 1
+
+              end do ! FS transitions
+            end do ! Output transition (term)
+
+            ! Store number of output transition
+            Atom(ia)%ntrano = nti
+
+            ! Allocate output transition structure
+            allocate(Atom(ia)%tranoI(nti))
+
+            ! Allocate and initialize output PRD transition indexing
+            allocate(Atom(ia)%itrano(minto:maxto))
+            MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%itrano)
+            Atom(ia)%itrano = -1
+
+            ! Initialize counter
+            nti = 0
+
+            ! For each output transition (term)
+            do jtran=1,Atom(ia)%ntran
+
+              ! If not PRD, skip
+              if (.not.Atom(ia)%lemiss2(jtran)) cycle
+
+              ! For each output transition (FS)
+              do fjtran=1,Atom(ia)%fst(jtran)%nt
+
+                ! Get rolling index
+                ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
+
+                ! Advance and store
+                nti = nti + 1
+                Atom(ia)%itrano(ffjtran) = nti
+
+              end do ! FS transitions
+            end do ! Output transition (term)
+
+            !
+            ! Count and index input transitions
+            !
+
+            ! For each output transition (term)
+            do jtran=1,Atom(ia)%ntran
+
+              ! Get terms
+              itermu = Atom(ia)%fst(jtran)%itermu
+              itermf = Atom(ia)%fst(jtran)%iterml
+
+              ! If not PRD, skip
+              if (.not.Atom(ia)%lemiss2(jtran)) cycle
+
+              ! For each output transition (FS)
+              do fjtran=1,Atom(ia)%fst(jtran)%nt
+
+                ! Get rolling index and level indexes
+                ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
+                iJu = Atom(ia)%fst(jtran)%ilevelu(fjtran)
+                iJf = Atom(ia)%fst(jtran)%ilevell(fjtran)
+
+                ! Get trano rolling index
+                ffktran = Atom(ia)%itrano(ffjtran)
+
+                ! Initialize counter
+                nti = 0
+
+                ! For each other lower term
+                do iterml=1,itermu-1
+
+                  ! Get transition
+                  itran = Atom(ia)%irad(itermu,iterml)
+
+                  ! Skip no transition
+                  if (itran.le.0) cycle
+
+                  ! Skip Raman if indicated
+                  if (.not.Input%Raman.and.itran.ne.jtran) cycle
+
+                  ! For every level
+                  do iJl=1,Atom(ia)%nJ(iterml)
+
+                    ! Get index
+                    fitran = Atom(ia)%fst(itran)%irad(iJu,iJl)
+
+                    ! Skip no transition
+                    if (fitran.le.0) cycle
+
+                    ! Advance index
+                    nti = nti + 1
+
+                  end do ! Lower level
+                end do ! Lower term
+
+                ! Memory count
+                MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%tranoI(ffktran))
+
+                ! Store number of transition
+                Atom(ia)%tranoI(ffktran)%nt = nti
+
+                ! Allocate and initialize indexing
+                allocate(Atom(ia)%tranoI(ffktran)%indT(nti))
+                MRAMc = MRAMc + &
+                        1d-6*sizeof(Atom(ia)%tranoI(ffktran)%indT)
+                Atom(ia)%tranoI(ffktran)%indT = -1
+
+                ! Initialize counter
+                nti = 0
+
+                ! For each other lower term
+                do iterml=1,itermu-1
+
+                  ! Get transition
+                  itran = Atom(ia)%irad(itermu,iterml)
+
+                  ! Skip no transition
+                  if (itran.le.0) cycle
+
+                  ! Skip Raman if indicated
+                  if (.not.Input%Raman.and.itran.ne.jtran) cycle
+
+                  ! For every level
+                  do iJl=1,Atom(ia)%nJ(iterml)
+
+                    ! Get indexes
+                    fitran = Atom(ia)%fst(itran)%irad(iJu,iJl)
+
+                    ! Skip no transition
+                    if (fitran.le.0) cycle
+
+                    ! Get rolling index
+                    ffitran = Atom(ia)%ifst_ij(fitran,itran)
+
+                    ! Advance index and store
+                    nti = nti + 1
+                    Atom(ia)%tranoI(ffktran)%indT(nti) = ffitran
+
+                  end do ! Lower level
+                end do ! Lower term
+              end do ! FS transitions
+            end do ! Output transition (term)
+
+          end if ! PRD
+        end if ! Doing intensity
+
+        !
+        ! If we are doing polarization
+        !
+        if (lp) then
+
+          !
+          ! Common transition indexing
+          !
+
+          ! Allocate output transition structure
+          allocate(Atom(ia)%trano(Atom(ia)%ntran))
+
+          ! If PRD
+          if (PRD) then
+
+            ! For each transition
+            do jtran=1,Atom(ia)%ntran
+
+              ! Get terms
+              itermf = Atom(ia)%fst(jtran)%iterml
+              itermu = Atom(ia)%fst(jtran)%itermu
+
+              ! Skip CRD
+              if (.not.Atom(ia)%lemiss2(jtran)) cycle
+
+              ! Count input transitions
+              nti = 0
+
+              ! For each other lower term
+              do iterml=1,itermu-1
+
+                ! Get transition index
+                itran = Atom(ia)%irad(itermu,iterml)
+
+                ! No transition, skip
+                if (itran.le.0) cycle
+
+                ! No Raman, skip
+                if (.not.Input%Raman.and.itran.ne.jtran) cycle
+
+                ! Add count
+                nti = nti + 1
+
+              end do ! Other lower term
+
+              ! Memory count
+              MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%trano(jtran))
+
+              ! Save size
+              Atom(ia)%trano(jtran)%nt = nti
+
+              ! Allocate PRD structure and input transition
+              ! indexing
+              allocate(Atom(ia)%trano(jtran)%trani(nti))
+              allocate(Atom(ia)%trano(jtran)%indT(nti))
+              MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%trano(jtran)%indT)
+
+              ! Initialize index
+              Atom(ia)%trano(jtran)%indT = -1
+
+              ! Index input transitions
+              ii = 0
+
+              ! For each other lower term
+              do iterml=1,itermu-1
+
+                ! Get transition index
+                itran = Atom(ia)%irad(itermu,iterml)
+
+                ! No transition, skip
+                if (itran.le.0) cycle
+
+                ! Skip Raman if indicated
+                if (.not.Input%Raman.and.itran.ne.jtran) cycle
+
+                ! Advance index
+                ii = ii + 1
+
+                ! Store index
+                Atom(ia)%trano(jtran)%indT(ii) = itran
+
+              end do ! Other lower term
+            end do ! For each transition
+
+          end if ! If PRD
+
+
+          !
+          ! If we expect points without magnetic fields
+          !
+          if (nfield) then
+
+            !
+            ! Transiton indexing
+            !
+
+            ! For each transition
+            do jtran=1,Atom(ia)%ntran
+
+              ! Get terms
+              itermf = Atom(ia)%fst(jtran)%iterml
+              itermu = Atom(ia)%fst(jtran)%itermu
+
+              !
+              ! First order indexing
+              !
+
+              ! Two rounds
+              do i1=1,2
+
+                ! First round
+                if (i1.eq.1) then
+
+                  ! Initialize
+                  MiindU = 1000000
+                  MiindF = 1000000
+                  MindU = 0
+                  MindF = 0
+
+                ! Second round
+                else
+
+                  ! Allocate and initialize
+                  allocate(Atom(ia)%trano(jtran)% &
+                                    indNB(MiindF:MindF, &
+                                          MiindU:MindU))
+                  MRAMc = MRAMc + &
+                          1d-6*sizeof(Atom(ia)%trano(jtran)%indNB)
+                  Atom(ia)%trano(jtran)%indNB = 0
+
+                end if
+
+                ! Reset indexing
+                ii = 0
+
+                ! For each Jf
+                do iJf=1,Atom(ia)%nJ(itermf)
+
+                  ! Get indexes
+                  indF = Atom(ia)%irho(itermf)%irho_ij(iJf)
+
+                  ! Get Jf
+                  rJf = Atom(ia)%rJval(iJf,itermf)
+
+                  ! For each Ju
+                  do iJu=1,Atom(ia)%nJ(itermu)
+
+                    ! Get indexes
+                    indU = Atom(ia)%irho(itermu)%irho_ij(iJu)
+
+                    ! Get Ju
+                    rJu = Atom(ia)%rJval(iJu,itermu)
+
+                    ! Electric dipole
+                    if (abs(rJu-rJf).gt.1d0.or. &
+                        rJu+rJf.lt..25) cycle
+
+                    ! First round
+                    if (i1.eq.1) then
+
+                      ! Update limits
+                      if (indU.lt.MiindU) MiindU = indU
+                      if (indF.lt.MiindF) MiindF = indF
+                      if (indU.gt.MindU) MindU = indU
+                      if (indF.gt.MindF) MindF = indF
+
+                    ! Second round
+                    else
+
+                      ! Advance index and store
+                      ii = ii + 1
+                      Atom(ia)%trano(jtran)%ncomNB = ii
+                      Atom(ia)%trano(jtran)%indNB(indF,indU) = ii
+
+                    end if ! Round
+
+                  end do ! Upper level in term Ju
+                end do ! Final level in term Jf
+              end do ! Round i1
+
+              ! If PRD and storing
+              if (PRD.and.PRAM.and.Atom(ia)%lemiss2(jtran)) then
+
+                ! For each other transition
+                do iti=1,Atom(ia)%trano(jtran)%nt
+
+                  ! Get transition and term indexes
+                  itran = Atom(ia)%trano(jtran)%indT(iti)
+                  iterml = Atom(ia)%fst(itran)%iterml
+
+                  !
+                  ! Normal indexing
+                  !
+
+                  ! Run twice
+                  do i1=1,2
+
+                    ! First round
+                    if (i1.eq.1) then
+
+                      ! Initialize
+                      MiindU = 1000000
+                      MiindU1 = 1000000
+                      MiindL = 1000000
+                      MiindL1 = 1000000
+                      MiindF = 1000000
+                      MindU = 0
+                      MindU1 = 0
+                      MindL = 0
+                      MindL1 = 0
+                      MindF = 0
+
+                    ! Second round
+                    else
+
+                      ! Memory count
+                      MRAMc = MRAMc + &
+                              1d-6*sizeof(Atom(ia)%trano(jtran)% &
+                                                   trani(iti))
+
+                      ! Allocate and initialize
+                      allocate(Atom(ia)%trano(jtran)%trani(iti)% &
+                               indNB(MiindL1:MindL1,MiindL:MindL, &
+                                     MiindF:MindF,MiindU1:MindU1, &
+                                     MiindU:MindU))
+                      MRAMc = MRAMc + &
+                              1d-6*sizeof(Atom(ia)%trano(jtran)% &
+                                                   trani(iti)%indNB)
+                      Atom(ia)%trano(jtran)%trani(iti)%indNB = 0
+
+                    end if ! Round
+
+                    ! Reset indexing
+                    ii = 0
+
+                    ! For each Jf
+                    do iJf=1,Atom(ia)%nJ(itermf)
+
+                      ! Get indexes
+                      indF = Atom(ia)%irho(itermf)%irho_ij(iJf)
+
+                      ! Get Jf
+                      rJf = Atom(ia)%rJval(iJf,itermf)
+
+                      ! For each Ju
+                      do iJu=1,Atom(ia)%nJ(itermu)
+
+                        ! Get indexes
+                        indU = Atom(ia)%irho(itermu)%irho_ij(iJu)
+
+                        ! Get Ju
+                        rJu = Atom(ia)%rJval(iJu,itermu)
+
+                        ! Electric dipole
+                        if (abs(rJu-rJf).gt.1d0.or. &
+                            rJu+rJf.lt..25) cycle
+
+                        ! For each Ju'
+                        do iJu1=1,Atom(ia)%nJ(itermu)
+
+                          ! Get indexes
+                          indU1 = Atom(ia)%irho(itermu)%irho_ij(iJu1)
+
+                          ! Get Ju'
+                          rJu1 = Atom(ia)%rJval(iJu1,itermu)
+
+                          ! Electric dipole
+                          if (abs(rJu1-rJf).gt.1d0.or. &
+                              rJu1+rJf.lt..25) cycle
+
+                          ! For each Jl
+                          do iJl=1,Atom(ia)%nJ(iterml)
+
+                            ! Get indexes
+                            indL = Atom(ia)%irho(iterml)%irho_ij(iJl)
+
+                            ! Get Jl
+                            rJl = Atom(ia)%rJval(iJl,iterml)
+
+                            ! Electric dipole
+                            if (abs(rJu-rJl).gt.1d0.or. &
+                                rJu+rJl.lt..25) cycle
+
+                            ! For each Jl'
+                            do iJl1=1,Atom(ia)%nJ(iterml)
+
+                              ! Get indexes
+                              indL1 = Atom(ia)%irho(iterml)% &
+                                               irho_ij(iJl1)
+
+                              ! Get Jl1
+                              rJl1 = Atom(ia)%rJval(iJl1,iterml)
+
+                              ! Electric dipole
+                              if (abs(rJu1-rJl1).gt.1d0.or. &
+                                  rJu1+rJl1.lt..25) cycle
+
+                              ! First round
+                              if (i1.eq.1) then
+
+                                ! Update limits
+                                if (indU.lt.MiindU) MiindU = indU
+                                if (indU1.lt.MiindU1) MiindU1 = indU1
+                                if (indL.lt.MiindL) MiindL = indL
+                                if (indL1.lt.MiindL1) MiindL1 = indL1
+                                if (indF.lt.MiindF) MiindF = indF
+                                if (indU.gt.MindU) MindU = indU
+                                if (indU1.gt.MindU1) MindU1 = indU1
+                                if (indL.gt.MindL) MindL = indL
+                                if (indL1.gt.MindL1) MindL1 = indL1
+                                if (indF.gt.MindF) MindF = indF
+
+                              ! Second round
+                              else
+
+                                ! Advance index and store
+                                ii = ii + 1
+                                Atom(ia)%trano(jtran)%trani(iti)% &
+                                  indNB(indL1,indL,indF,indU1,indU) = ii
+
+                              end if ! Round
+
+                            end do ! Jl'
+                          end do ! Jl
+                        end do ! Ju'
+                      end do ! Ju
+                    end do ! Jf
+                  end do ! Round of counting
+                end do ! Input transitions
+
+              end if ! PRD transition
+
+            end do ! Transitions
+
+          end if ! We expect points without magnetic field
+
+
+          !
+          ! If we expect magnetic fields
+          !
+          if (yfield) then
+
+            !
+            ! Term indexing
+            !
+
+            ! For each term
+            do iterm=1,Atom(ia)%nMulti
+
+              ! Number of M values and maximum block
+              nMm = nint(2d0*(Atom(ia)%rLval(iterm) + &
+                              Atom(ia)%Sval(iterm)) + 1d0)
+              nblk = 0
+
+              ! Find the maximum block size
+              do iM=1,nMm
+                if (Atom(ia)%nblk(iM,iterm).gt.nblk) &
+                  nblk = Atom(ia)%nblk(iM,iterm)
+              end do
+
+              ! Allocate index size
+              allocate(Atom(ia)%irho(iterm)%jM(nblk,nMm))
+              MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%irho(iterm)%jM)
+
+              !
+              ! Index the components
+              !
+
+              ! Initialize M
+              ii = 0
+
+              ! For each M
+              do i1=1,nMm
+
+                ! For each mu in the block
+                do i2=1,Atom(ia)%nblk(i1,iterm)
+
+                  ! Advance index and store
+                  ii = ii + 1
+                  Atom(ia)%irho(iterm)%jM(i2,i1) = ii
+
+                end do ! mu in block
+              end do ! M values
+            end do ! Terms
+
+            !
+            ! Transiton indexing
+            !
+
+            ! For each transition
+            do jtran=1,Atom(ia)%ntran
+
+              ! Get terms
+              itermf = Atom(ia)%fst(jtran)%iterml
+              itermu = Atom(ia)%fst(jtran)%itermu
+
+              ! Number of magnetic components for each term
+              rJumax = Atom(ia)%rLval(itermu) + &
+                       Atom(ia)%Sval(itermu)
+              nMu = nint(2d0*rJumax + 1d0)
+              rJfmax = Atom(ia)%rLval(itermf) + &
+                       Atom(ia)%Sval(itermf)
+              nMf = nint(2d0*rJfmax + 1d0)
+
+              !
+              ! First order indexing
+              !
+
+              ! Two rounds
+              do i1=1,2
+
+                ! First round
+                if (i1.eq.1) then
+
+                  ! Initialize
+                  MiindU = 1000000
+                  MiindF = 1000000
+                  MindU = 0
+                  MindF = 0
+
+                ! Second round
+                else
+
+                  ! Allocate and initialize
+                  allocate(Atom(ia)%trano(jtran)% &
+                                    indB(MiindF:MindF, &
+                                         MiindU:MindU))
+                  MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)% &
+                                              trano(jtran)%indB)
+                  Atom(ia)%trano(jtran)%indB = 0
+
+                end if ! Round
+
+                ! Reset indexing
+                ii = 0
+
+                ! For each Mf
+                do iMf=1,nMf
+
+                  ! Value of Mf
+                  rMf = -rJfmax + dble(iMf-1)
+
+                  ! For each mu_f
+                  do mF=1,Atom(ia)%nblk(iMf,itermf)
+
+                    ! Get jM index
+                    indF = Atom(ia)%irho(itermf)%jM(mF,iMf)
+
+                    ! For each Mu
+                    do iMu=1,nMu
+
+                      ! Value of Mu
+                      rMu = -rJumax + dble(iMu-1)
+
+                      ! Difference between M momentums, done integer
+                      q = rMu - rMf
+                      iq = nint(q)
+
+                      ! If not pi nor sigma, skip
+                      if(abs(iq).gt.1) cycle
+
+                      ! For each mu_u
+                      do iU=1,Atom(ia)%nblk(iMu,itermu)
+
+                        ! Get jM index
+                        indU = Atom(ia)%irho(itermu)%jM(iU,iMu)
+
+                        ! First round
+                        if (i1.eq.1) then
+
+                          ! Update maximum
+                          if (indU.lt.MiindU) MiindU = indU
+                          if (indF.lt.MiindF) MiindF = indF
+                          if (indU.gt.MindU) MindU = indU
+                          if (indF.gt.MindF) MindF = indF
+
+                        ! Second round
+                        else
+
+                          ! Advance and store index
+                          ii = ii + 1
+                          Atom(ia)%trano(jtran)%ncomB = ii
+                          Atom(ia)%trano(jtran)%indB(indF,indU) = ii
+
+                        end if ! Round
+
+                      end do ! iU
+                    end do ! iMu
+                  end do ! mF
+                end do ! iMf
+              end do ! Round i1
+
+              ! If PRD and storing
+              if (PRD.and.PRAM.and.Atom(ia)%lemiss2(jtran)) then
+
+                ! For each other transition
+                do iti=1,Atom(ia)%trano(jtran)%nt
+
+                  ! Get transition and term indexes
+                  itran = Atom(ia)%trano(jtran)%indT(iti)
+                  iterml = Atom(ia)%fst(itran)%iterml
+
+                  ! Get M size
+                  rJlmax = Atom(ia)%rLval(iterml) + &
+                           Atom(ia)%Sval(iterml)
+                  nMl = nint(2d0*rJlmax + 1d0)
+
+                  !
+                  ! Normal indexing
+                  !
+
+                  ! Run twice
+                  do i1=1,2
+
+                    ! First round
+                    if (i1.eq.1) then
+
+                      ! Initialize
+                      MiindU = 1000000
+                      MiindU1 = 1000000
+                      MiindL = 1000000
+                      MiindL1 = 1000000
+                      MiindF = 1000000
+                      MindU = 0
+                      MindU1 = 0
+                      MindL = 0
+                      MindL1 = 0
+                      MindF = 0
+
+                    ! Second round
+                    else
+
+                      ! Memory count
+                      MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)% &
+                                                  trano(jtran)% &
+                                                  trani(iti))
+
+                      ! Allocate and initialize
+                      allocate(Atom(ia)%trano(jtran)%trani(iti)% &
+                               indB(MiindL1:MindL1, &
+                                    MiindL:MindL, &
+                                    MiindF:MindF, &
+                                    MiindU1:MindU1, &
+                                    MiindU:MindU))
+                      MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)% &
+                                                  trano(jtran)% &
+                                                  trani(iti)%indB)
+                      Atom(ia)%trano(jtran)%trani(iti)%indB = 0
+                      nnchlt = 0
+
+                    end if ! Round
+
+                    ! Reset indexing
+                    ii = 0
+
+                    ! For each Mf
+                    do iMf=1,nMf
+
+                      ! Value of Mf
+                      rMf = -rJfmax + dble(iMf-1)
+
+                      ! For each mu_f
+                      do mF=1,Atom(ia)%nblk(iMf,itermf)
+
+                        ! Get jM index
+                        indF = Atom(ia)%irho(itermf)%jM(mF,iMf)
+
+                        ! For each Mu
+                        do iMu=1,nMu
+
+                          ! Value of Mu
+                          rMu = -rJumax + dble(iMu-1)
+
+                          ! Difference between M momentums, done
+                          ! integer
+                          q = rMu - rMf
+                          iq = nint(q)
+
+                          ! If not pi nor sigma, skip
+                          if(abs(iq).gt.1) cycle
+
+                          ! For each mu_u
+                          do iU=1,Atom(ia)%nblk(iMu,itermu)
+
+                            ! Get jM index
+                            indU = Atom(ia)%irho(itermu)%jM(iU,iMu)
+
+                            ! For each Mu'
+                            do iMu1=1,nMu
+
+                              ! Value of Mu'
+                              rMu1 = -rJumax + dble(iMu1-1)
+
+                              ! Difference between M momentums
+                              q1 = rMu1-rMf
+                              QQ = q1-q
+
+                              ! Convert to integers
+                              iq1 = nint(q1)
+                              iQQ = nint(QQ)
+
+                              ! If not pi or sigma, skip
+                              if(abs(iq1).gt.1) cycle
+
+                              ! For each mu_u'
+                              do iU1=1,Atom(ia)%nblk(iMu1,itermu)
+
+                                ! Get jM index
+                                indU1 = Atom(ia)%irho(itermu)% &
+                                                 jM(iU1,iMu1)
+
+      !
+      ! Reset indentation
+      !
+
+      ! For each Ml
+      do iMl=1,nMl
+
+        ! Value of Ml
+        rMl = -rJlmax + dble(iMl-1)
+
+        ! Difference between M momentums
+        p = rMu-rMl
+        ip = nint(p)
+
+        ! If not pi nor sigma, skip
+        if(abs(ip).gt.1) cycle
+
+        ! For each mu_l
+        do iL=1,Atom(ia)%nblk(iMl,iterml)
+
+          ! Get jM index
+          indL = Atom(ia)%irho(iterml)%jM(iL,iMl)
+
+          ! For each Ml'
+          do iMl1=1,nMl
+
+            ! Value of Ml'
+            rMl1 = -rJlmax + dble(iMl1-1)
+
+            ! Difference between M momentums
+            p1 = rMu1-rMl1
+            PP = p1-p
+
+            ! Convert to integer
+            ip1 = nint(p1)
+            iPP = nint(PP)
+
+            ! If not pi nor sigma, skip
+            if(abs(ip1).gt.1) cycle
+
+            ! For each mu_l'
+            do iL1=1,Atom(ia)%nblk(iMl1,iterml)
+
+              ! Get jM index
+              indL1 = Atom(ia)%irho(iterml)%jM(iL1,iMl1)
+
+              ! First round
+              if (i1.eq.1) then
+
+                ! Update limits
+                if (indU.lt.MiindU) MiindU = indU
+                if (indU1.lt.MiindU1) MiindU1 = indU1
+                if (indL.lt.MiindL) MiindL = indL
+                if (indL1.lt.MiindL1) MiindL1 = indL1
+                if (indF.lt.MiindF) MiindF = indF
+                if (indU.gt.MindU) MindU = indU
+                if (indU1.gt.MindU1) MindU1 = indU1
+                if (indL.gt.MindL) MindL = indL
+                if (indL1.gt.MindL1) MindL1 = indL1
+                if (indF.gt.MindF) MindF = indF
+
+              ! Second round
+              else
+
+                ! Advance counter and store
+                ii = ii + 1
+                Atom(ia)%trano(jtran)%trani(iti)% &
+                   indB(indL1,indL,indF,indU1,indU) = ii
+
+                ! Advance nchlt if proceeds
+                if (iL.ne.iL1) &
+                  nnchlt = nnchlt + 1
+
+              end if ! Round
+
+            end do ! iL1
+          end do ! iMl1
+        end do ! iL
+      end do ! iMl
+                                !
+                                ! Recover indentation
+                                !
+
+                              end do ! iU1
+                            end do ! iMu1
+                          end do ! iU
+                        end do ! iMu
+                      end do ! mF
+                    end do ! iMf
+                  end do ! Round i1
+
+                  ! If non-coherent lower term
+                  if (NCHLT) then
+
+                    ! Add count of coherent terms
+                    Atom(ia)%trano(jtran)%trani(iti)%nchlt = nnchlt
+
+                  ! All coherent
+                  else
+
+                    ! Set count to zero
+                    Atom(ia)%trano(jtran)%trani(iti)%nchlt = 0
+
+                  end if ! If non-coherent lower term
+
+                end do ! Input transitions
+
+              end if ! PRD transition and storing redistribution
+
+            end do ! Transitions
+
+          end if ! We expect points with magnetic field
+        end if ! Doing polarization
+
+      end do ! Atoms
+
+      end subroutine set_atom_indexes
 
 !#####################################################################
 !#####################################################################

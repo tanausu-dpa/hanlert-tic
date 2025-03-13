@@ -5,79 +5,20 @@
 !#####################################################################
 !
 !  Authors:
-!     Hao Li (IAC)
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Hao Li (IAC/NSSCC)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     02/17/2023
+!     17/02/2023
 !  Last version:
-!     05/20/2024 V3.0.12
+!     20/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     05/20/2024:   V3.0.12 - Added an additional way of controling
-!                             the weights in the inversion by
-!                             introducing enhancing factors over the
-!                             existing inputs (TdPA)
-!
-!     05/17/2024:   V3.0.11 - The number of degrees of freedom is
-!                             now counted when defining the weights,
-!                             although it is not used anymore (TdPA)
-!                           - New normalization for the weights when
-!                             creating them to keep the order of
-!                             the merit function in the expected
-!                             ranges regardless of the weights in the
-!                             user input (TdPA)
-!
-!     10/04/2023:   V3.0.10 - Verbosity update (TdPA)
-!
-!     09/18/2023:    V3.0.9 - Verbosity update (TdPA)
-!
-!     08/11/2023:    V3.0.8 - Bugfix: Verbosity directed to the
-!                             wrong files (TdPA)
-!
-!     08/11/2023:    V3.0.7 - Added inversion_weights to manage the
-!                             definition of the inversion weights
-!                             accounting for specified ranges or
-!                             for a weights file (TdPA)
-!
-!     07/03/2023:    V3.0.6 - Update errors to parallel (TdPA)
-!                           - In Profile_conversion the wavelengths
-!                             ranges are copied into the
-!                             Solution_class structure (TdPA)
-!                           - Added back the allocation of the
-!                             scales (TdPA)
-!                           - Updated verbosity of ranges (TdPA)
-!                           - Added management of diffuse light
-!                             profile (TdPA)
-!
-!     06/12/2023:    V3.0.5 - Removed the allocation of scales and
-!                             wavelength range (HL)
-!                           - Rename the Wavelength_Conversion since
-!                             we will not reverse the wavelength (HL)
-!
-!     05/16/2023:    V3.0.4 - Bugfix: Sigma must be always scaled if
-!                             it is flagged, and not only if the
-!                             input was wavelength dependent (TdPA)
-!
-!     04/26/2023:    V3.0.3 - Made the step to consider different
-!                             ranges a parameter in this module (TdPA)
-!                           - Bugfix: There was a typo in the
-!                             automatic definition of weights for
-!                             polarization (TdPA)
-!
-!     04/11/2023:    V3.0.2 - Update for multi-wavelength ranges (HL)
-!
-!     03/15/2023:    V3.0.1 - Removed unused Check_Profile (TdPA)
-!                           - Removed some commented lines (TdPA)
-!
-!     03/08/2023:    V3.0.0 - First working version (TdPA)
-!
-!     02/17/2023:    V0.0.0 - Started from 05/12/2020
-!                             TIC@w2freq_mod.f90 revision from
-!                             Hao (TdPA)
+!     20/12/2024:    V4.0.0 - Removed references to threads in the
+!                             calls to abortedS (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -87,17 +28,22 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    Range_Check:
-!      Check the wavelength ranges
+!  Range_Check
+!    Create the wavelength ranges from the data wavelength for the
+!  inversion
 !
-!    inversion_weights:
-!      Prepare the wavelength dependent weights for the inversion from
-!      the inputs
+!  inversion_weights
+!    Create the wavelength dependent weights for the L2 merit function
 !
-!    Profile_Conversion
-!      Convert the Stokes profiles from HanleRT units to SI
+!  Profile_Conversion
+!    Convert Stokes profiles from HanleRT units to SI
 !
 !#####################################################################
 !#####################################################################
@@ -116,22 +62,28 @@
 !#####################################################################
 !#####################################################################
 
-      !> Generate the wavelength ranges from the input\n
+      !> Create the wavelength ranges from the data wavelength for the
+      !! inversion\n
       !!         Lambda(double(:)): Wavelength axis\n
-      !!  Inf_Stokes(Stokes_class): Structure with the Stokes data
+      !!  Inf_Stokes(Stokes_class): Structure with inversion Stokes
+      !!                            parameters data
       subroutine Range_Check(Lambda,Inf_Stokes)
 
-      ! IO
+      ! I/O
+
       type(Stokes_class), intent(inout):: Inf_Stokes
-      double precision, dimension(:), allocatable, intent(inout):: &
-                                                                Lambda
+      double precision, dimension(:), &
+                        allocatable, intent(inout):: Lambda
 
       ! Local
-      integer:: i, j
+
+      integer:: i,j
       integer, dimension(20):: tmp
 
-      ! Initialize range
+
+      ! Initialize number of ranges
       Inf_Stokes%Num_Range = 1
+
 
       !
       ! Find wavelength ranges
@@ -154,8 +106,10 @@
       end do ! Wavelengths
 
       ! If ranges not allocated, do it
-      if (.not.allocated(Inf_Stokes%Range)) &
+      if (.not.allocated(Inf_Stokes%Range)) then
         allocate(Inf_Stokes%Range(Inf_Stokes%Num_Range,2))
+        MRAMc = MRAMc + 1d-6*sizeof(Inf_Stokes%Range)
+      end if
 
       ! If more than one range found
       if (Inf_Stokes%Num_Range.gt.1) then
@@ -195,28 +149,32 @@
 !#####################################################################
 !#####################################################################
 
-      !> Generate the wavelength ranges from the input\n
-      !!             Input(Input): Structure with settings data\n
-      !! Inf_Stokes(Stokes_class): Structure with the Stokes data\n
-      !!      omega_in(double(:)): Frequency axis from data\n
+      !> Create the wavelength dependent weights for the L2 merit
+      !! function\n
+      !!        Input(Input_class): Structure with configuration
+      !!                            data\n
+      !!  Inf_Stokes(Stokes_class): Structure with inversion Stokes
+      !!                            parameters data\n
+      !!       omega_in(double(:)): Frequency axis from data\n
       subroutine inversion_weights(Input,Inf_Stokes,omega_in)
 
-      ! IO
-      type(Input_class):: Input
+      ! I/O
+
+      type(Input_class), intent(inout):: Input
       type(Stokes_class), intent(inout):: Inf_Stokes
       double precision, dimension(:), intent(in):: omega_in
 
       ! Local
-      logical:: left, right
 
-      integer:: i, j, il, ir, nl, nstk, ios
-      integer:: ileft, iright
+      logical:: left,right
 
-      double precision:: wileft, wiright, wleft, wright
+      integer:: i,j,il,ir,nl,nstk,ios,ileft,iright
+
+      double precision:: wileft,wiright,wleft,wright
 
 
       !
-      ! Sanity
+      ! Skip if weights are set to automatic
       if (Inf_Stokes%auto_weight) return
 
       !
@@ -259,6 +217,7 @@
               ! Abort if superposition
               select case (nint(Input%Weight_Factor(1,i)))
 
+                ! I
                 case (0)
 
                   ! Abort
@@ -269,6 +228,7 @@
                          'range ',i,omega_in(il),omega_in(ir), &
                          ' and range ',j,omega_in(nl),omega_in(nstk)
 
+                ! Q
                 case (1)
 
                   ! Abort
@@ -279,6 +239,7 @@
                          'range ',i,omega_in(il),omega_in(ir), &
                          ' and range ',j,omega_in(nl),omega_in(nstk)
 
+                ! U
                 case (2)
 
                   ! Abort
@@ -289,6 +250,7 @@
                          'range ',i,omega_in(il),omega_in(ir), &
                          ' and range ',j,omega_in(nl),omega_in(nstk)
 
+                ! V
                 case (3)
 
                   ! Abort
@@ -299,6 +261,7 @@
                          'range ',i,omega_in(il),omega_in(ir), &
                          ' and range ',j,omega_in(nl),omega_in(nstk)
 
+                ! Unknown
                 case default
 
                   ! Abort
@@ -308,15 +271,16 @@
                          'ranges in WEIGHT_FACTOR: ', &
                          'range ',i,omega_in(il),omega_in(ir), &
                          ' and range ',j,omega_in(nl),omega_in(nstk)
-              end select
+
+              end select ! Stokes profiles
 
               ! Finish the error
               urou = 'inversion_weights'
-              call abortedS(umsg,urou,-1,.True.,.True.)
+              call abortedS(umsg,urou,.True.,.True.)
               call control
               return
 
-            end if
+            end if ! Error
 
           end do ! All other entries
         end do ! All entries
@@ -333,6 +297,7 @@
 
         ! Prepare variable
         allocate(Inf_Stokes%weight(0:3,Inf_Stokes%Num_wavelength))
+        MRAMc = MRAMc + 1d-6*sizeof(Inf_Stokes%weight)
 
         ! If thermal, initialize to 0
         if (Input%Type_Inversion.eq.0) &
@@ -358,7 +323,7 @@
             umsg = 'number of wavelength in weight file do not '// &
                    'match the data'
             urou = 'inversion_weights'
-            call abortedS(umsg,urou,-1,.True.,.True.)
+            call abortedS(umsg,urou,.True.,.True.)
             call control
             return
 
@@ -375,7 +340,7 @@
                    'the number of Stokes parameters in the '// &
                    'weight file must be 1 or 4, but it is ',nstk
             urou = 'inversion_weights'
-            call abortedS(umsg,urou,-1,.True.,.True.)
+            call abortedS(umsg,urou,.True.,.True.)
             call control
             return
 
@@ -388,7 +353,7 @@
             umsg = 'you are loading weights for only intensity '// &
                    'for an inversion with polarization'
             urou = 'inversion_weights'
-            call abortedS(umsg,urou,-1,.True.,.True.)
+            call abortedS(umsg,urou,.True.,.True.)
             call control
             return
 
@@ -402,7 +367,7 @@
           ! Close
           close(200)
 
-        end if
+        end if ! Master
 
         ! Control
         call control
@@ -420,6 +385,7 @@
 
         ! Allocate and  initialize
         allocate(Inf_Stokes%weight(0:3,Inf_Stokes%Num_wavelength))
+        MRAMc = MRAMc + 1d-6*sizeof(Inf_Stokes%weight)
         Inf_Stokes%weight = 0d0
 
         ! For each weight range
@@ -496,6 +462,7 @@
         end do ! Factor entries
 
         ! Free
+        MRAMc = MRAMc - 1d-6*sizeof(Input%Weight_Factor)
         deallocate(Input%Weight_Factor)
 
       end if ! There are input factors
@@ -547,17 +514,20 @@
       end do ! Wavelengths
 
       ! Free
-      if (allocated(Input%weight)) deallocate(Input%weight)
+      if (allocated(Input%weight)) then
+        MRAMc = MRAMc - 1d-6*sizeof(Input%weight)
+        deallocate(Input%weight)
+      end if
 
       return
 
 1000  write(umsg,'(A,1x,i2)') 'Error opening weight file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 1100  write(umsg,'(A,1x,i2)') 'Error reading weight file'
       close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
       return
 
@@ -567,22 +537,35 @@
 !#####################################################################
 !#####################################################################
 
-      !> Convert the Stokes profiles from HanleRT units to SI\n
-      !! Inf_Stokes(Stokes_class): Structure with the Stokes data\n
-      !!      Sol(Solution_class): Structure with the solution data
+      !> Convert Stokes profiles from HanleRT units to SI\n
+      !!  Inf_Stokes(Stokes_class): Structure with inversion Stokes
+      !!                            parameters data\n
+      !!       Sol(Solution_class): Structure with the frequency and
+      !!                            synthetic Stokes parameters in the
+      !!                            frequency range of the inverted
+      !!                            data\n
       subroutine Profile_Conversion(Inf_Stokes,Sol)
 
-      ! IO
+      ! I/O
+
       type(Stokes_class), intent(inout):: Inf_Stokes
       type(Solution_class), intent(inout):: Sol
 
       ! Local
-      integer:: i, j
+
+      integer:: i,j
+
+
+      ! Copy range number
+      Sol%Num_Range = Inf_Stokes%Num_Range
+
+      ! If no ranges allocated, do it
+      if (.not.allocated(Sol%Range)) then
+        allocate(Sol%Range(Inf_Stokes%Num_Range,2))
+        MRAMc = MRAMc + 1d-6*sizeof(Sol%Range)
+      end if
 
       ! Copy ranges
-      Sol%Num_Range = Inf_Stokes%Num_Range
-      if (.not.allocated(Sol%Range)) &
-        allocate(Sol%Range(Inf_Stokes%Num_Range,2))
       Sol%Range = Inf_Stokes%Range
 
       ! Unit convesion
@@ -595,15 +578,20 @@
       Inf_Stokes%Stokes_Ob(2,:) = -Inf_Stokes%Stokes_Ob(2,:)
 
       ! Allocate scales if not already there
-      if (.not.allocated(Inf_Stokes%Scales)) &
+      if (.not.allocated(Inf_Stokes%Scales)) then
         allocate(Inf_Stokes%Scales(Inf_Stokes%Num_Range,0:3))
-      if (.not.allocated(Sol%Scal_Stokes)) &
+        MRAMc = MRAMc + 1d-6*sizeof(Inf_Stokes%Scales)
+      end if
+      if (.not.allocated(Sol%Scal_Stokes)) then
         allocate(Sol%Scal_Stokes(Inf_Stokes%Num_Range))
+        MRAMc = MRAMc + 1d-6*sizeof(Sol%Scal_Stokes)
+      end if
 
       ! For each wavelength range
       do i=1,Inf_Stokes%Num_Range
+
         ! For each Stokes parameter
-        do j = 0, 3
+        do j=0,3
 
           ! Set scales
           Inf_Stokes%Scales(i,j) = &
@@ -611,8 +599,8 @@
                                            Sol%Range(i,2))))/ &
               dble(Sol%Range(i,2)-Sol%Range(i,1)+1)*1d-2
 
-        end do
-      end do
+        end do ! Stokes parameters
+      end do ! Wavelength ranges
 
       ! Store intensity scale
       Sol%Scal_Stokes = Inf_Stokes%Scales(:,0)
@@ -664,7 +652,8 @@
             ! Set weight
             Inf_Stokes%Weight(i,0) = Inf_Stokes%Scales(1,0)/ &
                                      Inf_Stokes%Scales(i,0)
-          end do
+
+          end do ! Wavelength ranges
 
         end if ! Multiple ranges
 
@@ -705,7 +694,7 @@
             call verbosev
           end if ! Master
 
-        end do
+        end do ! Wavelength ranges
 
       end if ! Automatic weights
 
@@ -723,27 +712,27 @@
                                     Inf_Stokes%Stokes_Ob(0,:)*1d2
 
         ! For each range
-        do i = 1,Sol%Num_Range
+        do i=1,Sol%Num_Range
 
           ! I/I_scale
           Inf_Stokes%Stokes_Ob(0,Sol%Range(i,1):Sol%Range(i,2)) = &
               Inf_Stokes%Stokes_Ob(0,Sol%Range(i,1):Sol%Range(i,2))/ &
               Sol%Scal_Stokes(i)
 
-        end do
+        end do ! Wavelength ranges
 
       ! If not fractional
       else
 
         ! For each range
-        do i = 1,Sol%Num_Range
+        do i=1,Sol%Num_Range
 
           ! Just scale
           Inf_Stokes%Stokes_Ob(0:3,Sol%Range(i,1):Sol%Range(i,2)) = &
             Inf_Stokes%Stokes_Ob(0:3,Sol%Range(i,1):Sol%Range(i,2))/ &
             Sol%Scal_Stokes(i)
 
-        end do
+        end do ! Wavelength ranges
 
       end if ! Fractional
 
@@ -761,12 +750,15 @@
               Inf_Stokes%Sigma_W(0,Sol%Range(i,1):Sol%Range(i,2))* &
               c*1d14/Sol%Scal_Stokes(i)
 
-          end do
+          end do ! Wavelength ranges
 
           ! Convert to consistent scale for Stokes
           do i=1,3
+
+            ! Multiply by 100
             Inf_Stokes%Sigma_W(i,:) = Inf_Stokes%Sigma_W(i,:)*1d2
-          end do
+
+          end do ! Fractional sigma
 
         ! No fractional
         else
@@ -779,11 +771,10 @@
              Inf_Stokes%Sigma_W(0:3,Sol%Range(i,1):Sol%Range(i,2))*&
              c*1d14/Sol%Scal_Stokes(i)
 
-          end do
+          end do ! Wavelength ranges
 
         end if ! Fractional
-
-      end if
+      end if ! Wavelength dependent sigmas
 
       ! If there is diffuse light
       if (Inf_Stokes%Diff_flag) then
@@ -791,7 +782,7 @@
         ! Change units
         Sol%Stokes_diff = Sol%Stokes_diff*c*1d14
 
-      end if
+      end if ! If there is diffuse light
 
       return
 

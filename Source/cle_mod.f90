@@ -5,24 +5,19 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     11/24/2022
+!     24/11/2022
 !  Last version:
-!     10/04/2022 V3.0.1
+!     28/11/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     10/04/2024:    V3.0.1 - Allocate a dummy tau array to avoid
-!                             Valgrind warnings (TdPA)
-!                           - Added background illumination to the
-!                             optically thin slab obtion (TdPA)
-!
-!     11/24/2022:    V3.0.0 - First version (TdPA)
+!     28/11/2024:    V4.0.0 - Adapted the routine to the changes in
+!                             the profile normalization storage (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -32,9 +27,15 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    Solve the RTE along the LOS
+!  CLE
+!    Solve the radiative transfer equation along the LOS
 !
 !#####################################################################
 !#####################################################################
@@ -42,11 +43,11 @@
 
       ! Use
       use getrtcle_mod
-      use free_mod
       use iosolution_mod
       use parameters_mod , only: TINYF , vacuum
       use ratmo_mod
       use rtstep_mod
+      use rtstepi_mod
       use types_mod
 
       contains
@@ -55,22 +56,26 @@
 !#####################################################################
 !#####################################################################
 
-      !> Secondary main with that controls the execution flow.\n
-      !!           Atom(Atom_class): Structure with the atomic data\n
-      !!          Atomb(Atom_class): Structure with the atomic data
-      !!                             for background opacities\n
-      !!             Mol(Mol_class): Structure with the molecule
-      !!                             data\n
+      !> Solve the radiative transfer equation along the LOS\n
+      !!        Atom(Atom_class(:)): Structures with atomic data\n
+      !!       Atomb(Atom_class(:)): Structures with atomic data for
+      !!                             background atoms\n
+      !!          Mol(Mol_class(:)): Structures with molecular data\n
       !!           Atmo(Atmo_class): Structure with atmospheric data\n
       !!            MPID(MPI_class): Structure with MPI data\n
-      !!         Input(Input_class): Structure with settings data\n
+      !!         Input(Input_class): Structure with configuration
+      !!                             data\n
       !!      Frec(Frequency_class): Structure with frequency data\n
-      !!       Geom(Geometry_class): Structure with quadrature data\n
-      !!         Flgsg(Fctsg_class): Structure with factorials and
-      !!                             signs\n
+      !!             Red(Red_class): Structure with redistribution
+      !!                             input frequency data,
+      !!                             redistribution function data, and
+      !!                             profile or normalization data\n
+      !!       Geom(Geometry_class): Structure with geometric data\n
+      !!         Flgsg(Fctsg_class): Structure with factorials,
+      !!                             signs, and J-symbols\n
       !!         fudge(fudge_class): Structure with fudge data\n
       !!       kurucz(kurucz_class): Structure with Kurucz line data\n
-      !!           batmo(double(:)): Atmosphere data\n
+      !!           batmo(double(:)): Atmospheric model data\n
       !!               x(double(:)): LOS axis if cartesian mode\n
       !!                  y(double): Y coordinate in PoS\n
       !!                  z(double): Y coordinate in PoS\n
@@ -85,37 +90,39 @@
       !!         spect(spect_class): Structure with the input spectra
       !!                             data\n
       !!     chianti(chianti_class): Structure with the CHIANTI data
-      subroutine CLE(Atom,Atomb,Mol,Atmo,MPID,Input,Frec,Geom,Flgsg, &
-                     fudge,kurucz,batmo,x,y,z,dims,bion, &
+      subroutine CLE(Atom,Atomb,Mol,Atmo,MPID,Input,Frec,Red,Geom, &
+                     Flgsg,fudge,kurucz,batmo,x,y,z,dims,bion, &
                      ion_column_ind,ion_value_ind,ion_value,spect, &
                      chianti)
 
       ! I/O
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Fctsg_class):: Flgsg
-      type(fudge_class):: fudge
-      type(Geometry_class):: Geom
-      type(kurucz_class):: kurucz
-      type(Frequency_class):: Frec
-      type(Input_class):: Input
-      type(MPI_class):: MPID
-      type(spect_class):: spect
-      type(chianti_class):: chianti
+
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Fctsg_class), intent(inout):: Flgsg
+      type(fudge_class), intent(in):: fudge
+      type(Geometry_class), intent(inout):: Geom
+      type(kurucz_class), intent(in):: kurucz
+      type(Frequency_class), intent(inout):: Frec
+      type(Red_class), intent(in):: Red
+      type(Input_class), intent(in):: Input
+      type(MPI_class), intent(in):: MPID
+      type(spect_class), intent(inout):: spect
+      type(chianti_class), intent(in):: chianti
       integer, dimension(:), intent(in):: ion_value_ind,ion_column_ind
       integer, dimension(:), intent(in):: dims
       double precision, intent(in):: y,z
-      double precision, dimension(:), intent(in):: ion_value, bion
-      double precision, dimension(:), intent(in):: batmo,x
+      double precision, dimension(:), intent(in):: ion_value,bion,x
+      double precision, dimension(:), intent(inout):: batmo
 
       ! Local
+
       type(Atmo_class):: Atmo
 
       logical:: skip,indisk
 
-      integer:: if0,if1,m,o,p
-      integer:: ix0,ix,nx,ios
+      integer:: if0,if1,m,o,p,ix0,ix,nx,ios
 
       double precision:: r,xl,dsm,dsp,maxab,zl
       double precision, dimension(:), allocatable, target:: tau
@@ -149,12 +156,12 @@
       call rAtmo_cle_init(batmo,Input,x,y,z,Atmo,dims)
 
 
-      ! write geometry
+      ! write geometry in output
       call write_CLEgeom(Input%folder,Atmo,Input%lim_stk, &
                          Input%out_tau1)
 
       !
-      ! We are going to cheat the code thinking that there is
+      ! We are going to cheat the code to think that there is
       ! only one ''height'' node, so the internal routines
       ! can be more easily dealt with. We store the real
       ! number of nodes in nx
@@ -164,28 +171,34 @@
       Rz0 = 1
       Rz1 = 1
 
-      ! Initialize frequency and redistribution pointer
-      nullify(Frec%dzao)
-
-      ! Limits in frequency
+      ! Limits in frequency for this CPU
       if0 = MPID%if0(pid)
       if1 = MPID%if1(pid)
 
       ! Allocate O pointer for RT coefficients
       allocate(data1O(0:3,if0:if1,0:5))
 
-      ! Allocate tau if in output
+      ! If tau in output
       if (Input%out_tau1) then
+
+        ! Allocate and initialize
         allocate(tau(MPID%nf(pid)))
         tau = 0d0
+
+      ! Not computing tau
       else
+
+        ! Allcoate dummy and initialize it
         allocate(tau(1))
         tau = 0d0
-      end if
+
+      end if ! Tau is needed
 
       !
       ! 3D modes
       !
+
+      ! Cartesian or non-cartesian grids
       if (Atmo%mode.eq.0.or.Atmo%mode.eq.2) then
 
         ! Allocate M pointer for RT coefficients
@@ -263,19 +276,20 @@
 
 
         !
-        ! If skipping, just put zero
+        ! If skipping, just put zero in Stokes and point to it
         !
         if (skip) then
 
           data1M(:,:,5) = 0d0
           p_StkO => data1M(:,:,5)
+          if (Input%out_tau1) tau = 0d0
 
         !
-        ! Not skipping, RT
+        ! Not skipping, do RT
         !
         else
 
-          ! If there are more than one points, or is disk
+          ! If there are more than one point, or is disk
           if (nx.gt.1.or.indisk) then
 
             !
@@ -286,17 +300,21 @@
             o = ix0
 
             ! Get RT coefficients for o
-            call getRTCLE(Atom,Atomb,Mol,Atmo,MPID,Input,Frec,Geom, &
-                          Flgsg,fudge,kurucz,o,if0,if1,batmo,bion, &
-                          ion_column_ind,ion_value_ind,ion_value, &
-                          spect,chianti,data1M,indisk,.True.)
+            call getRTCLE(Atom,Atomb,Mol,Atmo,MPID,Input,Frec,Red, &
+                          Geom,Flgsg,fudge,kurucz,o,if0,if1,batmo, &
+                          bion,ion_column_ind,ion_value_ind, &
+                          ion_value,spect,chianti,data1M, &
+                          indisk,.True.)
+            ! Error
             if (laborted) goto 1000
 
-            ! Compute optical path
+            ! If output tau1
             if (Input%out_tau1) then
-              tau1 = 0d0
+
+              ! Initialize and point to it
               tau1 = 0d0
               p_tauM => tau1(1,:)
+
             end if
 
             ! More than one point
@@ -306,11 +324,14 @@
               p = ix0 + 1
 
               ! Get RT coefficients for p
-              call getRTCLE(Atom,Atomb,Mol,Atmo,MPID,Input,Frec,Geom,&
-                            Flgsg,fudge,kurucz,p,if0,if1,batmo,bion, &
-                            ion_column_ind,ion_value_ind,ion_value, &
-                            spect,chianti,data1O,indisk,.False.)
+              call getRTCLE(Atom,Atomb,Mol,Atmo,MPID,Input,Frec,Red, &
+                            Geom,Flgsg,fudge,kurucz,p,if0,if1,batmo, &
+                            bion,ion_column_ind,ion_value_ind, &
+                            ion_value,spect,chianti,data1O, &
+                            indisk,.False.)
+              ! Error
               if (laborted) goto 1000
+
             end if ! More than one point
           end if ! More than one point or in disk
 
@@ -338,11 +359,13 @@
             dsp = dsp*Input%R_star
 
             ! Get RT coefficients for p
-            call getRTCLE(Atom,Atomb,Mol,Atmo,MPID,Input,Frec,Geom, &
-                          Flgsg,fudge,kurucz,p,if0,if1,batmo,bion, &
-                          ion_column_ind,ion_value_ind,ion_value, &
-                          spect,chianti,data1P,indisk,.False.)
-            if (laborted) goto 1000
+            call getRTCLE(Atom,Atomb,Mol,Atmo,MPID,Input,Frec,Red, &
+                          Geom,Flgsg,fudge,kurucz,p,if0,if1,batmo, &
+                          bion,ion_column_ind,ion_value_ind, &
+                          ion_value,spect,chianti,data1P, &
+                          indisk,.False.)
+            ! Error
+            if (laborted) goto 1001
 
             ! Point to the data
             p_K0M  => data1M(:,:,0)
@@ -373,9 +396,9 @@
               p_etaIO => data1O(0,:,0)
 
               ! Compute tau
-              call RTtau(MPID%nf(pid),dsm,Atmo%z(m), &
-                         Atmo%z(o),p_etaIM,p_etaIO, &
-                         p_tauM,tau,tau1)
+              call RTtauI(dsm,MPID%nf(pid),Atmo%z(m), &
+                          Atmo%z(o),p_etaIM,p_etaIO, &
+                          p_tauM,tau,tau1)
 
               ! Shift tau data
               p_tauM => tau
@@ -383,12 +406,18 @@
             end if
 
             ! Shift data (O->M, P->O)
-            deallocate(data1M)
+1001        deallocate(data1M)
             data1M => data1O
             data1O => data1P
             nullify(data1P)
 
+            ! If error, leave now
+            if (laborted) exit
+
           end do ! Intermediate heights
+
+          ! Error
+          if (laborted) goto 1000
 
           !
           ! Last height
@@ -437,12 +466,13 @@
               p_etaIO => data1O(0,:,0)
 
               ! Compute tau
-              call RTtau(MPID%nf(pid),dsm,Atmo%z(m), &
-                         Atmo%z(o),p_etaIM,p_etaIO, &
-                         p_tauM,tau,tau1)
+              call RTtauI(dsm,MPID%nf(pid),Atmo%z(m), &
+                          Atmo%z(o),p_etaIM,p_etaIO, &
+                          p_tauM,tau,tau1)
 
               ! Shift tau data
               p_tauM => tau
+
             end if ! Tau
           end if ! Point to do something
         end if ! Skip LOS or not
@@ -450,7 +480,7 @@
         !
         ! Clean local pointers
         !
-        nullify(p_K0M,p_K1M,p_K2M,p_SM,p_StkM)
+1000    nullify(p_K0M,p_K1M,p_K2M,p_SM,p_StkM)
         nullify(p_K0O,p_K1O,p_K2O,p_SO)
         nullify(p_K0P,p_SP)
         nullify(data1P)
@@ -494,10 +524,11 @@
 
 
         !
-        ! If skipping, just put zero
+        ! If skipping
         !
         if (skip) then
 
+          ! Just make it zero and point to it
           data1O(:,:,5) = 0d0
           p_StkO => data1M(:,:,5)
           if (Input%out_tau1) tau = 0d0
@@ -508,11 +539,13 @@
         else
 
           ! Get RT coefficients
-          call getRTCLE(Atom,Atomb,Mol,Atmo,MPID,Input,Frec,Geom, &
-                        Flgsg,fudge,kurucz,1,if0,if1,batmo,bion, &
-                        ion_column_ind,ion_value_ind,ion_value, &
-                        spect,chianti,data1O,indisk,.True.)
-          if (laborted) goto 1000
+          call getRTCLE(Atom,Atomb,Mol,Atmo,MPID,Input,Frec,Red, &
+                        Geom,Flgsg,fudge,kurucz,1,if0,if1,batmo, &
+                        bion,ion_column_ind,ion_value_ind, &
+                        ion_value,spect,chianti,data1O, &
+                        indisk,.True.)
+          ! Error
+          if (laborted) goto 2000
 
           ! Tau (input)
           dsp = Atmo%zpos
@@ -568,9 +601,12 @@
         !
         ! Clean local pointers
         !
-        nullify(p_K0O,p_K1O,p_K2O,p_SO)
+2000    nullify(p_K0O,p_K1O,p_K2O,p_SO)
 
       end if ! Type of atmospheric model
+
+      ! Error
+      if (laborted) goto 3000
 
       !
       ! Write in output
@@ -582,7 +618,7 @@
       !
       ! Clean local pointers
       !
-1000  nullify(p_StkO)
+3000  nullify(p_StkO)
       deallocate(data1O)
       nullify(data1O)
       deallocate(tau)

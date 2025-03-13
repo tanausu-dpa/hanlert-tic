@@ -3,475 +3,14 @@ import sys, math, os, shutil
 #####################
 # rInput()
 #
-# Tanaus\'u del Pino Alem\'an
-# Hao Li
+# Tanaus\'u del Pino Alem\'an (IAC)
+# Hao Li (IAC/NSSCC)
 #
-# 10/04/2024: V3.0.44 - Added USE_ALLEN and FLAT_CLE_IN (TdPA)
-#
-# 09/23/2024: V3.0.43 - Added NEGLECT_CONTINUUM (TdPA)
-#
-# 08/08/2024: V3.0.42 - Added STOREINV_STEP (TdPA)
-#                     - Bugfix: LIM_QEL had to be additive (TdPA)
-#
-# 07/18/2024: V3.0.41 - Added KEEP_QEL and LIM_QEL (TdPA)
-#
-# 05/28/2024: V3.0.40 - Bugfix: NODES_[var]_METHOD was ignoring
-#                       inputs with multiple words (TdPA)
-#
-# 05/20/2024: V3.0.39 - Added REGUL_FACTOR (TdPA)
-#
-# 05/20/2024: V3.0.38 - Added WEIGHT_FACTOR (TdPA)
-#
-# 05/17/2024: V3.0.37 - Fixed missing space when informing about
-#                       creating the Solution folder in 1.5D (TdPA)
-#
-# 05/13/2024: V3.0.36 - Added LM_LAM_BIG_TEST, LM_LAM_SMALL_TEST,
-#                       LM_LAM_BIG_PROVE, and
-#                       LM_LAM_SMALL_PROVE (TdPA)
-#
-# 05/07/2024: V3.0.35 - Added LM_BACKTRACKING_MODE and
-#                       LM_LAMBDA_TRACK (TdPA)
-#
-# 02/23/2024: V3.0.34 - Added FORCE_MICRO, INIT_J_BB, ITER_MRC_J,
-#                       and ALLOW_NPHYS_POP (TdPA)
-#                     - Activate STATIC and STATIC_INT for 1D (TdPA)
-#                     - The STATIC_INT default is whatever
-#                       STATIC is (TdPA)
-#
-# 02/19/2024: V3.0.33 - Added MAX_T (TdPA)
-#                     - The default for MIN_T and MAX_V is now
-#                       -1 (TdPA)
-#
-# 02/16/2024: V3.0.32 - Added RESTRICT_TAUC_STRICT and
-#                       RESTRICT_HEIGHT_STRICT (TdPA)
-#
-# 02/14/2024: V3.0.31 - Added EXCLUDE_PIXEL (TdPA)
-#                     - Removed debugging raise statements (TdPA)
-#
-# 01/29/2024: V3.0.30 - Deprecated "rhoe" as option in
-#                       ATMO_CHAR (TdPA)
-#
-# 01/10/2024: V3.0.29 - STORE_STEP and STORE_STEPI can be specified
-#                       in the 1.5D case (TdPA)
-#
-# 12/12/2023: V3.0.28 - Added REDI_COHW (TdPA)
-#                     - Ensure that "magnetic" is not considered
-#                       as "thermal" (TdPA)
-#
-# 11/27/2023: V3.0.27 - Classify INV_MASK as path (TdPA)
-#
-# 11/24/2023: V3.0.26 - Added INV_MASK (TdPA)
-#
-# 11/16/2023: V3.0.25 - Missing argument in os.path.isdir() (TdPA)
-#
-# 10/16/2023: V3.0.24 - Formatting (TdPA)
-#                     - Added ITER_NB (TdPA)
-#
-# 10/04/2023: V3.0.23 - Bugfix: Writing 'sequential' in the
-#                       inversion mode would result in a thermal
-#                       inversion because the word contains the
-#                       letter 't' (TdPA)
-#                     - Added 'sequential magnetic' to allowed
-#                       TYPE_INVERSION (TdPA)
-#
-# 09/29/2023: V3.0.22 - Added K_CUT_TERM (TdPA)
-#                     - Removed verbosity when setting default
-#                       values (TdPA)
-#                     - Variables LIM_COLS_TT, LIM_COLS_LL, LIM_DAMP,
-#                       and LIM_POP now accept the atomic label as
-#                       identifier (TdPA)
-#                     - Bugfix: Wrong default for DOP_WIDTH (TdPA)
-#                     - Changed default for RAM_REPORT (TdPA)
-#                     - Added KEEP_COL_LOG, KEEP_MPI_LOG, and
-#                       KEEP_MPI_DETAIL_LOG (TdPA)
-#                     - Create whole tree for Output directory (TdPA)
-#                     - Do not inform about the lack of radiation
-#                       tensors nodes (TdPA)
-#
-# 09/08/2023: V3.0.21 - ASYMM_INPUT activated for inversion (TdPA)
-#                     - Default RED_IRAM set to Yes (TdPA)
-#                     - Default DOP_WIDTH set to 2500 m s^-1 (TdPA)
-#                     - Added level 3 to allowed verbosity
-#                       levels (TdPA)
-#                     - Added VERBOSE_INV_SHUTUP (TdPA)
-#                     - Allow for zero nodes in ATMO_NODES (TdPA)
-#                     - Changed ATMO_NODES default to 0 (TdPA)
-#                     - Change BOUNDS_F upper limit default to 0.95
-#                       from 0.999999 (TdPA)
-#                     - Bugfix: Lower limite in LM_LAMBDA_RANG
-#                       default was negative, it should not (TdPA)
-#
-# 08/24/2023: V3.0.20 - Bugfix: The path in PSF_FWHM could be
-#                       altered in terms of capitalization, making
-#                       it unvalid (TdPA)
-#                     - Bugfix: When parsing the PSF_FWHM info, the
-#                       non-trivial case was not writing entries in
-#                       different lines, and now that is a necessary
-#                       condition (TdPA)
-#
-# 08/24/2023: V3.0.19 - Added the option of input file to
-#                       PSF_FWHM (TdPA)
-#                     - FORCE_OBS_FREQ (TdPA)
-#
-# 08/17/2023: V3.0.18 - Improved the reading of Kurucz format for
-#                       LTE lines, slightly more flexible (TdPA)
-#
-# 08/11/2023: V3.0.17 - Removed debugging prints (TdPA)
-#
-# 08/11/2023: V3.0.16 - Removed debugging prints (TdPA)
-#                     - Added WEIGHT_FILE (TdPA)
-#                     - Gave the WEIGHT key the same treatment than
-#                       the PSF_FWHM (TdPA)
-#                     - Bugfix: Did not take into account that Kurucz
-#                       lines do not have a consistent ordering of
-#                       the lower and upper levels (TdPA)
-#
-# 08/07/2023: V3.0.15 - Added process_LTEline_entry_kur() to
-#                       process LTE lines in Kurucz format (TdPA)
-#                     - Added process_LTEline_entry() to
-#                       process LTE lines in HanleRT format (TdPA)
-#                     - Added process_LTEline() to process the
-#                       LTE_LINE input (TdPA)
-#                     - Moved up the check of the running mode
-#                       and the decision to create a Solution
-#                       folder (TdPA)
-#                     - Read ATMO_SCALE in inversion mode (TdPA)
-#                     - Read ATMO_CHAR in inversion mode (TdPA)
-#                     - Added LTE_LINE (TdPA)
-#                     - Do not always create the solution
-#                       folder (TdPA)
-#                     - Added LTE_VOI_IRAM and LTE_VOI_PRAM (TdPA)
-#                     - Bugfix: LIM_BACK checked if tau was being
-#                       stored, not back itself (TdPA)
-#
-# 07/03/2023: V3.0.14 - Added F, VX, and VY, and changed V to
-#                       VZ in the available variables for the
-#                       inversion keywords (TdPA)
-#                     - Added ATOM_NO_WAVE (TdPA)
-#                     - Added ATOM_FIX_POP_LTERM (TdPA)
-#                     - Excluded inversion from SOLUTION_KEEPI (TdPA)
-#                     - Added inversion to RT_GROUP_N (TdPA)
-#                     - Added inversion to SOLUTION_BOX, thus
-#                       removed REGION which did the same (TdPA)
-#                     - Renamed RESTORE_FILE to INV_INIT (TdPA)
-#                     - Added VTYPE (TdPA)
-#                     - Allow no hydrostatic equilibrium (TdPA)
-#                     - Added DIFFUSE_LIGHT (TdPA)
-#                     - PSF_FWHM now allows more than one input,
-#                       in which case it requires wavelength
-#                       ranges (TdPA)
-#                     - Added MIN_REL_PERTURB_X (TdPA)
-#                     - Added INI_VPOS and INI_VAZI (TdPA)
-#                     - Removed INIT_INV_PIXEL and RESTART_INV_PIXEL,
-#                       the inversion now works with a cache (TdPA)
-#
-# 06/12/2023: V3.0.13 - Removed NUM_FILE, INV_B_PROJECTION and
-#                       INIT_INV_PIXEL (HL)
-#                     - Added REGION (HL)
-#                     - Update RESTART_INV_PIXEL[2] for 2D (HL)
-#
-# 05/16/2023: V3.0.12 - Bugfix: RESTART_INV_PIXEL was checking the
-#                       wrong entry in the input file (TdPA)
-#                     - Added additional options to INV_ERROR (TdPA)
-#
-# 04/25/2023: V3.0.11 - Bugfix: Wrong error message when the path
-#                       to an atomic model is not found (TdPA)
-#                     - Added "M" as a valid flag to activate a
-#                       magnetic inversion (TdPA)
-#                     - Bugfix: Wrong default for the scale and
-#                       perturbation of the gas pressure (TdPA)
-#                     - Added KEEP_RF (TdPA)
-#
-# 04/11/2023: V3.0.10 - Removed SCATT_INV, CRD_RF (HL)
-#                     - Added WEIGHT for multi wavelength range (HL)
-#
-# 03/15/2023:  V3.0.9 - Removed LM_TRADITIONAL, DELAY_P_ITER, PG_INV,
-#                       INTER_FREQ, STARTUP_RF, MOD_WEIGHT (TdPA)
-#                     - Added EBOUNDS_X, SCALE_X, PERTURB_X,
-#                       ATMO_STRAT, MIN_INIBPOS, MIN_INIBAZI,
-#                       LM_LAMBDA_RANG, LM_LAMBDA_ACCEPT, and
-#                       LM_LAMBDA_REJECT (TdPA)
-#                     - Removed INIT2 and NONE options in the
-#                       RESTORE_FILE keyword (TdPA)
-#                     - Added unique_ranges() to support ATMO_STRAT
-#                       input (TdPA)
-#                     - Added HCC and HCP as special inputs in
-#                       ATMO_INPUT (TdPA)
-#                     - Bugfix: Missing terminations for some errors
-#                       when reading some inputs (TdPA)
-#
-# 03/08/2023:  V3.0.8 - Added order_float() to convert strings into
-#                       ordered list of floats (TdPA)
-#                     - Added interpret() to convert strings with
-#                       double precision nomenclature into python
-#                       interpretable strings (TdPA)
-#                     - Added ATMO_INPUT default for inversion mode
-#                       and removed INVR_INPUT keyword (TdPA)
-#                     - Added defaults for the inversion in POLAR_LOS
-#                       and AXIAL_LOS (TdPA)
-#                     - Added DATA_FILE, VERBOSE_INV_LV,
-#                       TYPE_INVERSION, AUTO_WEIGHT, WEIGHT, NUM_FILE,
-#                       RESTORE_FILE, LM_TRADITIONAL,
-#                       CENTERED_DERIVATIVE, DELAY_P_ITER,
-#                       INTER_MAX_INV, NODES_X_METHOD, INTERPOLATION,
-#                       NODES_X_LOCATION, NODES_X_NUM, BTYPE, FIX_X,
-#                       POSITION_CORRECTION, REGUL_X, REGUL_LIMITS,
-#                       THRH_CHI2, INV_MRC, SVD_TYPE, THRH_SVD,
-#                       PG_TYPE, PG_INV, PG_BOUND, ATMO_NODES,
-#                       MAX_SVD_STEP, INV_ERROR, PSF_FWHM, INTER_FREQ,
-#                       BOUNDS_X, SCATT_INV, STARTUP_RF, CRD_RF,
-#                       MOD_WEIGHT, INV_FRACTION, INV_TAU_RANG,
-#                       BROYDEN_LM, LM_METHOD, INV_B_PROJECTION,
-#                       RF_INITSOL, INIT_INV_PIXEL, RESTART_INV_PIXEL,
-#                       and INV_NEGL_SIGMA (TdPA)
-#
-# 02/14/2023:  V3.0.7 - SOLUTION_KEEPI, CONTRIBUTION, and TAU1 also
-#                       processed for the inversion (TdPA)
-#                     - Added POLARI_NODES, AXIALI_NODES,
-#                       REDI_NODE, REDI_RANG, REDI_RESO,
-#                       REDI_NEGL, REDI_VLAR, REDI_FSTP,
-#                       REDI_MSTP, REDI_CORE, REDI_RANG_CORE,
-#                       REDI_VLAR_CORE, REDI_FSTP_CORE,
-#                       REDI_MSTP_CORE, RED_AAINT, and
-#                       STATIC_INT (TdPA)
-#                     - Created interpret() to process floats (TdPA)
-#                     - Fixed typo in INVR_INPUT (TdPA)
-#
-# 11/24/2022:  V3.0.6 - Created Worder function. This is used to
-#                       order and merge wavelength limits (TdPA)
-#                     - Ensure that CHIANTI_PATH end in "/" (TdPA)
-#                     - CLE always ignores b-b background lines (TdPA)
-#                     - Allow to input polar and axial nodes for CLE.
-#                       These decide the quadrature for the incoming
-#                       radiation (TdPA)
-#                     - Exclude CLE from PIRAM, VOI_IRAM, VOI_IFIL,
-#                       VOI_PRAM, VOI_PFIL, RED_IRAM, RED_IFIL,
-#                       RED_PRAM, RED_PFIL, INT_IRAM, and
-#                       INT_PRAM (TdPA)
-#                     - Allow LIM_STK for CLE (TdPA)
-#                     - Do not create solution folder for CLE (TdPA)
-#
-# 11/10/2022:  V3.0.5 - Added ATOM_POPU, ATOM_FIX_POP, ATOM_ZERO_ION,
-#                       and FORCE_ASYMM (TdPA)
-#                     - Bugfix: There was a message indicating that
-#                       angle-averaged was the default redistribution
-#                       function, but this was not the case (TdPA)
-#                     - Changed the way that atomic files, population
-#                       files, and conditions on the atom (fix
-#                       populations or zero ion) must be indicated in
-#                       the input file (TdPA)
-#
-# 10/25/2022:  V3.0.4 - Added CLE option in RUN_MODE (TdPA)
-#                     - ATMO_INPUT now if for positive rmode (TdPA)
-#                     - Bugfix: Wrong index referenced when writing
-#                       the wavelength in ATMO_SCALE (TdPA)
-#                     - ATMO_CHAR also input for rmode==2 (TdPA)
-#                     - Added ATOM_ION, SPECT_INPUT, CHIANTI_PATH,
-#                       T_RAD, R_STAR, RESTRICT_TAUC, RESTRICT_HEIGHT,
-#                       SKIP_DISK, and SOLUTION_BOX (TdPA)
-#                     - Added possible input of ad-hoc radiation field
-#                       tensors for rmode==1 (TdPA)
-#                     - Default stimulated emission is now Y (TdPA)
-#                     - Limited POLAR_NODES, AXIAL_NODES, ITER_MIN,
-#                       ITERI_MIN, ITER_MAX, ITERI_MAX, ITERM_MRC_I,
-#                       ITERI_MRC_I, ITER_MRC_P, ITER_J, ITER_PRD,
-#                       ITER_MRC_R, NG_ACC, NG_ORD, NG_DELAY, NGI_ACC,
-#                       NGI_ORD, NGI_DELAY, PRD_DELAY, and ALI_DELAY
-#                       to rmode in [-1,1] (TdPA)
-#                     - "Limited" ITER_2ORD to rmode in [-1,2] (TdPA)
-#                     - Limited POLAR_LOS, AXIAL_LOS, CONTRIBUTION,
-#                       KEEP_MRC, and SOLUTION_KEEPI to rmode in
-#                       [0,1] (TdPA)
-#                     - SOLUTION_INPUT is also for rmode==2, although
-#                       this may be deprecated in the future (TdPA)
-#                     - Added GAUSS option in VOI_TYPE (TdPA)
-#                     - Extended MIN_T and MAX_V to rmode in
-#                       {-1,1,2} (TdPA)
-#                     - Extended RT_GROUP_N, UNMAGNETIZE, and STATIC
-#                       to rmode in [1,2] (TdPA)
-#
-# 07/18/2022:  V3.0.3 - Added MPIDETAIL, OPERFORM, and MPISKIP (TdPA)
-#                     - ATMO_CHAR can now specify usage of both Ne
-#                       and NH without resorting to the default (TdPA)
-#                     - SKIP_SFILE now is a fully common keywords
-#                       instead of 'no 1D' (TdPA)
-#                     - KEEP_POP, KEEP_DEP, KEEP_RHOKQ, KEEP_JKQ, and
-#                       KEEP_STOKES_QUAD now are fully synthesis
-#                       keywords instead of '1.5D' (TdPA)
-#                     - Bugfix: Properly changed the default of
-#                       MEMOJ to Yes (TdPA)
-#                     - Bugfix: Properly changed the default of
-#                       ITER_MRC_I to 10^-5 (TdPA)
-#                     - UPDATE_ATMOS is not a only 1D keyword
-#                       instead of common (TdPA)
-#
-# 07/13/2022:  V3.0.2 - Added PARFUN, ABUND, BARK_SP, BARK_PD, and
-#                       BARK_DF (TdPA)
-#
-# 07/08/2022:  V3.0.1 - Bugfix: Missed the argument in a call to
-#                       os.path.isdir() (TdPA)
-#                     - Bugfix: Forgot LIM_POP in the list of aditive
-#                       keywords (TdPA)
-#                     - Bugfix: Added the logic for aditive variables
-#                       which are not paths (TdPA)
-#                     - Bugfix: Write default atmospheric scale and
-#                       reference frequency when not specified (TdPA)
-#                     - Bugfix: Specify the solution folder when in
-#                       1.5D but without specific input (TdPA)
-#                     - Bugfix: Fixed the translation from string to
-#                       numbers in the variables that limit the 1.5D
-#                       output because I had forgotten how they were
-#                       being processed (TdPA)
-#                     - Changed the name of the solution folder in
-#                       1.5D cases (TdPA)
-#
-# 06/29/2022:  V3.0.0 - Changed global version (TdPA)
-#                     - Added RUN_MODE, INVR_INPUT, ATMO_SCALE,
-#                       ATMO_CHAR, SKIP_SFILE, MIN_T, MAX_V,
-#                       RT_GROUP_N, UNMAGNETIZED, STATIC, KEEP_POP,
-#                       KEEP_DEP, KEEP_RHOKQ, KEEP_JKQ,
-#                       KEEP_STOKES_QUAD, KEEP_JKQNU, KEEP_MRC,
-#                       LIM_STK, LIM_CTR, LIM_TAU, LIM_COLS_TT,
-#                       LIM_COLS_LL, LIM_DAMP, LIM_BACK, and
-#                       LIM_POP (TdPA)
-#                     - Some variables depend on RUN_MODE and can
-#                       be hardcoded to different values for different
-#                       modes (TdPA)
-#
-# 06/21/2022:  V2.0.2 - Added RED_COHW (TdPA)
-#
-# 04/07/2021:  V2.0.1 - Added KEEP_JKQNU (TdPA)
-#
-# 03/17/2021:  V2.0.0 - Changed global version (TdPA)
-#                     - Removed MPI_ND (TdPA)
-#                     - Bugfix: The code was not admitting STORE_STEP
-#                       because there was a comparison between string
-#                       and integer (TdPA)
-#
-# 02/17/2021: V1.0.32 - Added FCOL_TRANSFER (TdPA)
-#
-# 02/12/2021: V1.0.31 - Added WRITE_PERFORMANCE and
-#                       WRITE_MPI_PERFORMANCE (TdPA)
-#
-# 02/06/2021: V1.0.30 - Allow for none input in ASYMM_INPUT (TdPA)
-#
-# 02/04/2021: V1.0.29 - Added MIT_OFF and MIT_NODE (TdPA)
-#
-# 01/13/2021: V1.0.28 - Added proper abortion in abort() (TdPA)
-#                     - Added ASYMM_INPUT (TdPA)
-#                     - Added SOLUTION_KEEPS (TdPA)
-#
-# 11/12/2020: V1.0.27 - Added PRD_DELAY and CHEM_PROTECT_ALL (TdPA)
-#
-# 09/11/2020: V1.0.26 - Added RAM_REPORT, INT_IRAM,
-#                       and INT_PRAM (TdPA)
-#
-# 07/21/2020: V1.0.25 - Added NGI_ACC, NGI_ORD, and NGI_DELAY (TdPA)
-#
-# 06/26/2020: V1.1.24 - Added K_CUTAB (TdPA)
-#
-# 06/01/2020: V1.1.23 - Added NO_COH_L_TERM (TdPA)
-#
-# 05/11/2020: V1.1.22 - Changed default of MEMOJ to Yes (TdPA)
-#
-# 03/05/2020: V1.1.21 - Fixed a typo in REDO_NE (TdPA)
-#                      - Changed the meaning of REDO_NE=Yes (TdPA)
-#
-# 03/05/2020: V1.1.20 - Added PROTECT_H (TdPA)
-#
-# 02/14/2020: V1.1.19 - Bugfix: missing str in VLAR_CORE (TdPA)
-#                     - Bugfix: VLAR default was not consistent with
-#                               the message (TdPA)
-#
-# 02/10/2020: V1.1.18 - Added REDO_NE and UPDATE_ATMOS (TdPA)
-#
-# 01/23/2020: V1.1.17 - Bugfix: The code did not admit any name for
-#                        the wavelength file (TdPA)
-#
-# 12/17/2019: V1.1.16 - Added ZEEMAN_MODE (TdPA)
-#
-# 12/10/2019: V1.1.15 - Now deals with no LOS angles (TdPA)
-#                      - Added VOI_TYPE and MEMOJ (TdPA)
-#
-# 11/19/2019: V1.1.14 - Added RED_IFIL, and RED_PFIL (TdPA)
-#
-# 11/13/2019: V1.1.13 - Added PIRAM, VOI_IFIL, and VOI_PFIL (TdPA)
-#
-# 10/18/2019: V1.1.12 - Added fix parameter to ATOM_INPUT (TdPA)
-#
-# 09/26/2019: V1.1.11 - Added KEEP_ATMO (TdPA)
-#
-# 09/13/2019: V1.1.10 - Added WAVELENGTHS (TdPA)
-#
-# 08/09/2019 : V1.1.9 - Added IGNORE_BB (TdPA)
-#
-# 06/11/2019 : V1.1.8 - Fixed numerical magnetic field input (TdPA)
-#
-# 05/08/2019 : V1.1.7 - Added ALLOW_NPHYS_STK and
-#                       ALLOW_NPHYS_RHO (TdPA)
-#
-# 04/15/2019 : V1.1.6 - Added BCAST_MODE (TdPA)
-#
-# 04/09/2019 : V1.1.5 - Removed POLAR_LOS_N and AXIAL_LOS_N (TdPA)
-#
-# 03/22/2019 : V1.1.4 - Added KURUCZ (TdPA)
-#
-# 03/18/2019 : V1.1.3 - Added ALI_DELAY and KEEP_APARAM (TdPA)
-#
-# 03/12/2019 : V1.1.2 - Bugfix: typo in filename variable (TdPA)
-#
-# 03/12/2019 : V1.1.1 - Added KEEP_APARAM (TdPA)
-#
-# 02/14/2019 : V1.1.0 - Improved verbosity (TdPA)
-#
-# 01/23/2019: V1.0.14 - Aborts if there is no Solution file for
-#                       Read and Both modes (TdPA)
-#
-# 11/06/2018: V1.0.13 - Added KEEP_BACK, KEEP_DAMP, and
-#                       KEEP_COLS (TdPA)
-#                     - There were some \n written after blocks.
-#                       Removed them (TdPA)
-#
-# 09/20/2018: V1.0.12 - Added NG_ACC, NG_ORD, and NG_DELAY (TdPA)
-#
-# 09/06/2018: V1.0.11 - Added SOLUTION_KEEPI (TdPA)
-#
-# 08/04/2018: V1.0.10 - Added VOI_IRAM, VOI_PRAM, and RAM_LIM
-#                       keywords (TdPA)
-#
-# 08/03/2018:  V1.0.9 - Added K_RAD keyword (TdPA)
-#
-# 11/27/2017:  V1.0.8 - Added RAMAN keyword (TdPA)
-#
-# 11/27/2017:  V1.0.8 - Added P_CORR keyword (TdPA)
-#
-# 09/22/2017:  V1.0.7 - Added K_CUT keyword (TdPA)
-#
-# 09/14/2017:  V1.0.6 - Added an ID to the files (TdPA)
-#
-# 09/01/2017:  V1.0.5 - Changed some defaults (TdPA)
-#                     - Bugfix: made OUT_FOLDER optional again (TdPA)
-#
-# 08/24/2017:  V1.0.4 - Added RED_CORE, RED_RANG_CORE,
-#                       RED_VLAR_CORE, RED_FSTP_CORE, and
-#                       RED_MSTP_CORE (TdPA)
-#
-# 06/16/2017:  V1.0.3 - Added RED_PRAM and changed RED_URAM by
-#                       RED_IRAM (TdPA)
-#
-# 06/12/2017:  V1.0.2 - Added RED_URAM (TdPA)
-#                     - Bugfix: ITER_MRC_R -> ITERI_MRC_R (TdPA)
-#
-# 06/08/2017:  V1.0.1 - Added RED_NODE and deleted the continuum
-#                       input that was commented (TdPA)
-#                     - Added ITER_PRD and ITERI_MRC_R for PRD
-#                       internal iterations, and ITER_J for
-#                       the initial J determination (TdPA)
-#
-# 04/17/2017:  V1.0.0 - First verion (TdPA)
+# 20/02/2025:  V4.0.2 - Added ANISOTROPY_FOCUS (TdPA)
 #
 #####################
 
+# Transform fortran double "d" to python float "e"
 def interpret(val):
     ''' Interpret double precision nomenclature
     '''
@@ -480,6 +19,7 @@ def interpret(val):
       lst[lst.index('d')] = 'e'
     return ''.join(lst)
 
+# Convert list of float string into ordered list of floats
 def order_float(vec):
     ''' Convert a list of strings into an ordered list of floats.
         Values must be unique
@@ -496,6 +36,7 @@ def order_float(vec):
     except:
       return []
 
+# Order 2D ranges by its first dimension avoiding duplicates
 def process_pixels(pixels):
     ''' Order pixels by first dimension and avoid duplicates
     '''
@@ -515,6 +56,7 @@ def process_pixels(pixels):
             output.append([ix,iy])
     return output
 
+# Process a list of ranges ensuring no overlapping
 def unique_ranges(NL,ilow,iup,iff,tran):
     ''' Check that a list of ranges does not have intersections
     '''
@@ -563,6 +105,7 @@ def unique_ranges(NL,ilow,iup,iff,tran):
     # Return ordered ranges
     return True, len(keys), low, up, ff
 
+# Order a list of wavelength ranges and combine if they overlap
 def Worder(NL,doublets):
     ''' Order and combine wavelength ranges
     '''
@@ -625,31 +168,40 @@ def Worder(NL,doublets):
 
 def rInput():
   ''' Reads the input file specified as argument. It follows the
-      format 'Keyword = Value', with the valid keywords hardwired
+      format 'Keyword = Value', with the valid keywords hardcoded
       in this routine
   '''
 
+  # Aborting method
   def abort(f,name):
+    # Close file
     f.close()
+    # Reset file and just write -1 to flag failure
     f = open(name,'w')
     f.write('-1')
     f.close()
+    # Leave
     sys.exit()
 
+  # Verbose routine
   def verbose(msg, folder, verb):
-
     # If being verbose
     if (verb):
+      # Just print
       print((msg+' in rinput.py'))
     else:
+      # Check file exists
       exist = os.path.isfile(folder+'/verbose')
+      # Open to write or append
       if (exist):
         fv = open(folder+'/verbose','a')
       else:
         fv = open(folder+'/verbose','w')
+      # Write in file and close
       fv.write(msg+' in rinput.py\n')
       fv.close()
 
+  # Routine to process an LTE line input in Kurucz format
   def process_LTEline_entry_kur(entry):
     ''' Process an entry for LTE lines in Kurucz format
     '''
@@ -715,11 +267,11 @@ def rInput():
       code = entry[11:18] # loggf
       Aul = 10e0**float(code)
       Aul = Aul/(2e0*lout[-2]+1e0)
-      # Constantes
-      e0 = 1.60217646e-19      #C(A*s) Carga fundamental SI
+      # Constants
+      e0 = 1.60217646e-19      #C(A*s) Fundamental charge in SI
       ep0 = 8.854187817e-12    #F*m**-1
-      me = 9.10938188e-31      #Kg Masa del electron
-      cl = 299792458e0         #m/s   velocidad de la luz
+      me = 9.10938188e-31      #Kg electron mass
+      cl = 299792458e0         #m/s speed of light
       lamb = 1e2/(lout[-3] - lout[-6])
       Aul = 2e0*math.pi*e0*e0*Aul*1e10/(lamb*lamb*cl*ep0*me)
       lout.append(Aul)
@@ -761,6 +313,7 @@ def rInput():
     except:
       return False, []
 
+  # Routine to process an LTE line input in HanleRT format
   def process_LTEline_entry(entry,ofolder,verbosity):
     ''' Process an entry for LTE lines
     '''
@@ -1135,6 +688,7 @@ def rInput():
     return True, [iatom_type] + cols
 
 
+  # Routine to process an LTE line input
   def process_LTEline(entries,ofolder,verbosity):
     ''' Process the entries for LTE lines
     '''
@@ -1200,18 +754,25 @@ def rInput():
     return NL, out
 
 
+  #
   # Argument control
+  #
+
+  # Requires one argument
   if len(sys.argv) < 1:
     sys.exit(' # At least one argument needed')
-  try:
-    f=open(sys.argv[1],'r')
-  except:
-    sys.exit(' # No input file found')
+
+  # Try getting ID
   try:
     dni = sys.argv[2]
   except:
     dni = '000000000'
 
+  # Try to open file
+  try:
+    f=open(sys.argv[1],'r')
+  except:
+    sys.exit(' # No input file found')
 
   # Read file
   lines=list(f)
@@ -1230,7 +791,7 @@ def rInput():
       lines_n.append(line)
   lines = lines_n
 
-  # Output file
+  # Start output file
   filename = 'tmp_input_'+dni
   f = open(filename,'w')
   f.write('1\n')
@@ -1245,6 +806,8 @@ def rInput():
          'ATOM_ZERO_ION','DATA_FILE','INV_INIT','ATOM_NO_WAVE', \
          'ATOM_FIX_POP_LTERM','LTE_LINE','WEIGHT_FILE','PSF_FWHM', \
          'INV_MASK']
+
+  # Dictionary of fields that are additive
   APP = ['ATOM_INPUT','ATOM_BACK','MOLECULE_INPUT','KURUCZ', \
          'ASYMM_INPUT','ATOM_FIX_POP','ATOM_ZERO_ION', \
          'ATOM_POPU', 'ATOM_ION','ATOM_FIX_POP_LTERM', \
@@ -1257,14 +820,20 @@ def rInput():
   # Inversion variables
   varis = ['B','BT','BP','F','T','VX','VY','VZ','VT','PG', \
            'J21R','J21I','J22R','J22I']
+
+  # Hidden inversion variables
   varis_hidden = ['J21R','J21I','J22R','J22I']
 
-  # Add to APP the especial boundary ones
+  # Add to APP the especial boundary keywords
   for var in varis:
-      # Except diffuse light factor
+
+      # Except for the diffuse light factor
       if var == 'F': continue
+
+      # Append for inversion variables
       APP.append('EBOUNDS_'+var)
-  # Keyword set
+
+  # Initialize reading dictionary
   Dictionary = {}
 
   # For each line
@@ -1273,14 +842,14 @@ def rInput():
     # Get label and value
     Key, Target = line.split('=', 1)
 
-    # Check if URL
+    # Check if URL (case sensitive)
     url_bool = False
     for url in URL:
       if Key.strip().upper() == url:
         url_bool = True
         break
 
-    # Check if APP
+    # Check if APP (additive)
     app_bool = False
     for app in APP:
       if Key.strip().upper() == app:
@@ -1293,9 +862,10 @@ def rInput():
       # If APP
       if app_bool:
 
-        # Append if already in
+        # Append if already exists
         if Key.strip().upper() in Dictionary:
           Dictionary[Key.strip().upper()].append(Target.strip())
+        # Initialize otherwise
         else:
           Dictionary[Key.strip().upper()] = [Target.strip()]
 
@@ -1311,39 +881,70 @@ def rInput():
       # If APP
       if app_bool:
 
-        # Append if already in
+        # Append if already exists
         if Key.strip().upper() in Dictionary:
           Dictionary[Key.strip().upper()].append( \
                                    (Target.strip().upper()).split())
+        # Initialize otherwise
         else:
           Dictionary[Key.strip().upper()] = \
                                   [(Target.strip().upper()).split()]
 
       # If not APP
       else:
+
+        # Just write
         Dictionary[Key.strip().upper()] = \
                                    (Target.strip().upper()).split()
 
-  # Make upper the non URL
+  #
+  # Make uppercase the non URL
+  #
+
+  # For each key
   for key in list(Dictionary.keys()):
+
+    # Initialize flags
     url_bool = False
     app_bool = False
+
+    # For each case-sensitive key
     for url in URL:
+
+      # If same key
       if key == url:
+
+        # Found case-sensitive
         url_bool = True
         break
+
+    # For each additive key
     for app in APP:
+
+      # If same key
       if key == app:
-        url_bool = True
+
+        # Found additive
+        app_bool = True
         break
+
+    # If no case-sensitive
     if not url_bool:
+
+      # If additive
       if app_bool:
+
+        # For each value in dictionary
         for vals in Dictionary[key]:
-          for val in vals:
-            val = val.upper()
+
+          # For each value, make uppercase
+          for val in vals: val = val.upper()
+
+      # Not additive
       else:
-        for val in Dictionary[key]:
-          val = val.upper()
+
+        # For each value in dictionary, make uppercase
+        for val in Dictionary[key]: val = val.upper()
 
   ###################################################################
   # HANLERT
@@ -1392,6 +993,7 @@ def rInput():
   else:
     rmode = 0
 
+  # SKIP_FILE
   # To know if we need solution folder
   if 'SKIP_SFILE' in Dictionary:
     val = Dictionary['SKIP_SFILE'][0]
@@ -1480,7 +1082,6 @@ def rInput():
         verbose(' # ATMO_INPUT file not found '+val, \
                 ofolder, verbosity)
         abort(f, filename)
-   #elif rmode == 0 or rmode == 1 or rmode == 2:
     else:
       verbose(' # ATMO_INPUT necessary keyword', ofolder, verbosity)
       abort(f, filename)
@@ -1579,7 +1180,6 @@ def rInput():
   atom_lab_pas = []
   atom_map = {}
 
-
   # ATOM_INPUT
   if 'ATOM_INPUT' in Dictionary:
 
@@ -1602,7 +1202,7 @@ def rInput():
       # If only one column, label is number
       if len(cols) < 2:
         label = '{0}'.format(iname)
-      # If two columns, label is second
+      # If two columns, label is second column
       else:
         label = '{0}'.format(cols[1].strip())
 
@@ -1723,7 +1323,7 @@ def rInput():
         f2=open(cols[0])
         f2.close()
       except:
-        verbose(' # ATOM_INPUT file not found '+atom, \
+        verbose(' # ATOM_POPU file not found '+atom, \
                 ofolder, verbosity)
         abort(f, filename)
 
@@ -1868,7 +1468,7 @@ def rInput():
         # If label does not exists, problem
         if label not in atom_lab_act and \
            label not in atom_lab_pas:
-          verbose(' # ATOM_POPU Label not found among atoms '+label, \
+          verbose(' # ATOM_ION Label not found among atoms '+label, \
                   ofolder, verbosity)
           abort(f, filename)
 
@@ -2606,6 +2206,8 @@ def rInput():
         val[1] = interpret(val[1])
         t0 = float(val[0])
         t1 = float(val[1])
+        t0 = 10e0**t0
+        t1 = 10e0**t1
         if t1 < t0:
           ia = t1
           t1 = t0
@@ -2877,6 +2479,20 @@ def rInput():
   else:
     f.write('N\n')
 
+  # ANISOTROPY_FOCUS
+  if rmode < 2:
+    if 'ANISOTROPY_FOCUS' in Dictionary:
+      val = Dictionary['ANISOTROPY_FOCUS'][0]
+      if val == 'Y' or val == 'YE' or val == 'YES' or \
+         val == 'S' or val =='SI':
+        f.write('Y\n')
+      else:
+        f.write('N\n')
+    else:
+      f.write('N\n')
+  else:
+    f.write('N\n')
+
   # K_CUT
   check = 0
   if 'K_CUT' in Dictionary:
@@ -3022,26 +2638,6 @@ def rInput():
   else:
     f.write('N\n')
 
-  # VOI_IFIL
-  if rmode >= -1 and rmode <= 1:
-    if rmode == 0:
-      check = 0
-      if 'VOI_IFIL' in Dictionary:
-        val = Dictionary['VOI_IFIL'][0]
-        if val == 'Y' or val == 'YE' or val == 'YES' or \
-           val == 'S' or val =='SI':
-          f.write('Y\n')
-          check = 1
-        if val == 'N' or val == 'NO' or val == 'NON':
-          f.write('N\n')
-          check = 1
-      if check == 0:
-        f.write('N\n')
-    else:
-      f.write('N\n')
-  else:
-    f.write('N\n')
-
   # LTE_VOI_IRAM
   if rmode >= -1 and rmode <= 1:
     check = 0
@@ -3072,26 +2668,6 @@ def rInput():
         f.write('N\n')
         check = 1
     if check == 0:
-      f.write('N\n')
-  else:
-    f.write('N\n')
-
-  # VOI_PFIL
-  if rmode >= -1 and rmode <= 1:
-    if rmode == 0:
-      check = 0
-      if 'VOI_PFIL' in Dictionary:
-        val = Dictionary['VOI_PFIL'][0]
-        if val == 'Y' or val == 'YE' or val == 'YES' or \
-           val == 'S' or val =='SI':
-          f.write('Y\n')
-          check = 1
-        if val == 'N' or val == 'NO' or val == 'NON':
-          f.write('N\n')
-          check = 1
-      if check == 0:
-        f.write('N\n')
-    else:
       f.write('N\n')
   else:
     f.write('N\n')
@@ -3178,6 +2754,44 @@ def rInput():
   if check == 0:
     f.write('N\n')
 
+  # RED_RESTRICT_HEIGHT
+  if rmode == -1 or rmode == 0 or rmode == 1:
+    check = 0
+    if 'RED_RESTRICT_HEIGHT' in Dictionary:
+      val = Dictionary['RED_RESTRICT_HEIGHT'][0]
+      try:
+        val = interpret(val)
+        rang = float(val)
+        f.write('Y\n')
+        f.write('{0:22.16e}\n'.format(float(val)))
+        check = 1
+      except:
+        verbose(' # RED_RESTRICT_HEIGHT wrong format', \
+                ofolder, verbosity)
+    if check == 0:
+      f.write('N\n')
+  else:
+    f.write('N\n')
+
+  # RED_RESTRICT_TAUC
+  if rmode == -1 or rmode == 0 or rmode == 1:
+    check = 0
+    if 'RED_RESTRICT_TAUC' in Dictionary:
+      val = Dictionary['RED_RESTRICT_TAUC'][0]
+      try:
+        val = interpret(val)
+        rang = 10e0**float(val)
+        f.write('Y\n')
+        f.write('{0:22.16e}\n'.format(float(val)))
+        check = 1
+      except:
+        verbose(' # RED_RESTRICT_TAUC wrong format', \
+                ofolder, verbosity)
+    if check == 0:
+      f.write('N\n')
+  else:
+    f.write('N\n')
+
   # RED_COHW
   check = 0
   if 'RED_COHW' in Dictionary:
@@ -3216,6 +2830,19 @@ def rInput():
         pass
   if check == 0:
     f.write(dcoh+'\n')
+
+  # RED_INT_MODE
+  check = 0
+  if 'RED_INT_MOD' in Dictionary:
+    val = Dictionary['RED_INT_MODE'][0]
+    if 'LIN' in val:
+      f.write('0\n')
+      check = 1
+    elif 'SPL' in val:
+      f.write('1\n')
+      check = 1
+  if check == 0:
+    f.write('1\n')
 
   # RED_MOD
   check = 0
@@ -3261,23 +2888,6 @@ def rInput():
   else:
     f.write('N\n')
 
-  # RED_IFIL
-  if rmode >= -1 and rmode <= 1:
-    check = 0
-    if 'RED_IFIL' in Dictionary:
-      val = Dictionary['RED_IFIL'][0]
-      if val == 'Y' or val == 'YE' or val == 'YES' or \
-         val == 'S' or val =='SI':
-        f.write('Y\n')
-        check = 1
-      if val == 'N' or val == 'NO' or val == 'NON':
-        f.write('N\n')
-        check = 1
-    if check == 0:
-      f.write('N\n')
-  else:
-    f.write('N\n')
-
   # RED_PRAM
   if rmode >= -1 and rmode <= 1:
     check = 0
@@ -3292,57 +2902,6 @@ def rInput():
         check = 1
     if check == 0:
       f.write('N\n')
-  else:
-    f.write('N\n')
-
-  # RED_PFIL
-  if rmode >= -1 and rmode <= 1:
-    check = 0
-    if 'RED_PFIL' in Dictionary:
-      val = Dictionary['RED_PFIL'][0]
-      if val == 'Y' or val == 'YE' or val == 'YES' or \
-         val == 'S' or val =='SI':
-        f.write('Y\n')
-        check = 1
-      if val == 'N' or val == 'NO' or val == 'NON':
-        f.write('N\n')
-        check = 1
-    if check == 0:
-      f.write('N\n')
-  else:
-    f.write('N\n')
-
-  # INT_IRAM
-  if rmode >= -1 and rmode <= 1:
-    check = 0
-    if 'INT_IRAM' in Dictionary:
-      val = Dictionary['INT_IRAM'][0]
-      if val == 'Y' or val == 'YE' or val == 'YES' or \
-         val == 'S' or val =='SI':
-        f.write('Y\n')
-        check = 1
-      if val == 'N' or val == 'NO' or val == 'NON':
-        f.write('N\n')
-        check = 1
-    if check == 0:
-      f.write('Y\n')
-  else:
-    f.write('N\n')
-
-  # INT_PRAM
-  if rmode >= -1 and rmode <= 1:
-    check = 0
-    if 'INT_PRAM' in Dictionary:
-      val = Dictionary['INT_PRAM'][0]
-      if val == 'Y' or val == 'YE' or val == 'YES' or \
-         val == 'S' or val =='SI':
-        f.write('Y\n')
-        check = 1
-      if val == 'N' or val == 'NO' or val == 'NON':
-        f.write('N\n')
-        check = 1
-    if check == 0:
-      f.write('Y\n')
   else:
     f.write('N\n')
 
@@ -4052,11 +3611,11 @@ def rInput():
   else:
     f.write('0\n')
 
-  # ITER_PRD
+  # ITERI_PRD
   if rmode >= -1 and rmode <= 1:
     check = 0
-    if 'ITER_PRD' in Dictionary:
-      val = Dictionary['ITER_PRD'][0]
+    if 'ITERI_PRD' in Dictionary:
+      val = Dictionary['ITERI_PRD'][0]
       if val.isdigit():
         f.write('{0:7d}\n'.format(int(val)))
         check = 1
@@ -4066,7 +3625,7 @@ def rInput():
   else:
     f.write('0\n')
 
-  # ITER_MRC_R
+  # ITERI_MRC_R
   if rmode >= -1 and rmode <= 1:
     check = 0
     if 'ITERI_MRC_R' in Dictionary:
@@ -4080,6 +3639,54 @@ def rInput():
         pass
     if check == 0:
       f.write('{0:22.16e}\n'.format(1e-3))
+  else:
+    f.write('0\n')
+
+  # ITER_PRD
+  if rmode >= -1 and rmode <= 1:
+    check = 0
+    if 'ITER_PRD' in Dictionary:
+      val = Dictionary['ITER_PRD'][0]
+      if val.isdigit():
+        f.write('{0:7d}\n'.format(int(val)))
+        check = 1
+        itmax = int(val)
+    if check == 0:
+      f.write('{0:7d}\n'.format(1))
+  else:
+    f.write('0\n')
+
+  # ITER_MRC_R
+  if rmode >= -1 and rmode <= 1:
+    check = 0
+    if 'ITER_MRC_R' in Dictionary:
+      val = Dictionary['ITER_MRC_R'][0]
+      try:
+        val = interpret(val)
+        f.write('{0:22.16e}\n'.format(float(val)))
+        mrci = float(val)
+        check = 1
+      except:
+        pass
+    if check == 0:
+      f.write('{0:22.16e}\n'.format(1e-2))
+  else:
+    f.write('0\n')
+
+  # ITER_MRC_P_R
+  if rmode >= -1 and rmode <= 1:
+    check = 0
+    if 'ITER_MRC_P_R' in Dictionary:
+      val = Dictionary['ITER_MRC_P_R'][0]
+      try:
+        val = interpret(val)
+        f.write('{0:22.16e}\n'.format(float(val)))
+        mrci = float(val)
+        check = 1
+      except:
+        pass
+    if check == 0:
+      f.write('{0:22.16e}\n'.format(1e-1))
   else:
     f.write('0\n')
 
@@ -4268,19 +3875,6 @@ def rInput():
       f.write('N\n')
   else:
     f.write('N\n')
-
-  # BCAST_MODE
-  check = 0
-  if 'BCAST_MODE' in Dictionary:
-    val = Dictionary['BCAST_MODE'][0]
-    if val in 'BCAST' or val in 'BROADCAST':
-      f.write('0\n')
-      check = 1
-    if val in 'SEND' or val in 'ALT':
-      f.write('1\n')
-      check = 1
-  if check == 0:
-    f.write('0\n')
 
   # ALLOW_NPHYS_STK
   check = 0
@@ -5163,46 +4757,6 @@ def rInput():
       if val == 'N' or val == 'NO' or val == 'NON':
         f.write('N\n')
         check = 1
-    if check == 0:
-      f.write('N\n')
-  else:
-    f.write('N\n')
-
-  # MPIDETAIL
-  if 'MPIDETAIL' in Dictionary:
-    val = Dictionary['MPIDETAIL'][0]
-    try:
-      f2=open(val)
-      f2.close()
-      f.write(val+'\n')
-    except:
-      f.write('N\n')
-  else:
-    f.write('N\n')
-
-  # OPERFORM
-  if 'OPERFORM' in Dictionary:
-    val = Dictionary['OPERFORM'][0]
-    try:
-      f2=open(val)
-      f2.close()
-      f.write(val+'\n')
-    except:
-      f.write('N\n')
-  else:
-    f.write('N\n')
-
-  # MPISKIP
-  check = 0
-  if 'MPISKIP' in Dictionary:
-    val = Dictionary['MPISKIP'][0]
-    if val == 'Y' or val == 'YE' or val == 'YES' or \
-       val == 'S' or val =='SI':
-      f.write('Y\n')
-      check = 1
-    if val == 'N' or val == 'NO' or val == 'NON':
-      f.write('N\n')
-      check = 1
     if check == 0:
       f.write('N\n')
   else:

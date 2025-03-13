@@ -5,23 +5,19 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !     Roberto Casini (HAO)
 !  Start:
-!     04/20/2017
+!     20/04/2017
 !  Last version:
-!     06/29/2022 V3.0.0
+!     28/11/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     06/29/2022:    V3.0.0 - Changed global version (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!
-!     04/20/2017:    V1.0.0 - First working version (TdPA)
+!     28/11/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -31,10 +27,16 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!     This subroutine rotates the TKQ in the vertical reference frame
-!   (TS) into the magnetic field reference frame (TB)
+!  Btens
+!    Rotate geometrical TKQ tensors from the vertical to the magnetic
+!  reference frames
 !
 !#####################################################################
 !#####################################################################
@@ -51,16 +53,18 @@
 !#####################################################################
 !#####################################################################
 
-      !> Rotates geometrical tensors from the vertical to the
-      !! magnetic field reference frame\n
-      !!    TS(dcmplx(:,:,:)): Geometrical tensors in the vertical
-      !!                       reference frame\n
-      !!    TB(dcmplx(:,:,:)): Geometrical tensors in the magnetic
-      !!                       field reference frame\n
-      !!   Flgsg(Fctsg_class): Structure with factorials and
-      !!                       signs\n
-      !!       thetaB(dfloat): Polar angle to rotate\n
-      !!         phiB(dfloat): Azimuth to rotate
+      !> Rotate geometrical TKQ tensors from the vertical to the
+      !! magnetic reference frames\n
+      !   TS(dcomplx(:,:,:)): Geometrical tensors in the vertical
+      !!                      reference frame\n
+      !!  TB(dcomplx(:,:,:)): Geometrical tensors in the magnetic
+      !!                      field reference frame\n
+      !!  Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                      J-symbols\n
+      !!      thetaB(double): Polar angle of the magnetic field in the
+      !!                      vertical reference frame\n
+      !!        phiB(double): Azimuthal angle of the magnetic field in
+      !!                      the vertical reference frame
       subroutine Btens(TS,TB,Flgsg,thetaB,phiB)
 
       ! I/O
@@ -87,9 +91,11 @@
       ! Initialize exponentials in the rotation matrix
       cexpPh(0) = cOne
 
+      ! chiB
       cexpPh(1) = exp(cImag*phiB)
       cexpPh(-1) = conjg(cexpPh(1))
 
+      ! 2chiB
       cexpPh(2) = cexpPh(1)*cexpPh(1)
       cexpPh(-2) = conjg(cexpPh(2))
 
@@ -99,21 +105,26 @@
       ! Initialize rotation matrix D(Q,Q1,K) for K=1,2
       do K=1,2
 
+        ! Double precision K
         rK = dble(K)
 
-        do iQ=-K,K
+        ! For each Q (only non-negative values are used below)
+        do iQ=0,K
 
+          ! Double precision Q
           Q = dble(iQ)
 
+          ! For each Q'
           do iQ1=-K,K
 
+            ! Double precision Q'
             Q1 = dble(iQ1)
+
+            ! Rotation matrix
             D(iQ1,iQ,K) = cexpPh(-iQ1)*rdmat(rK,Q1,Q,Flgsg,thetaB)
 
           end do ! Qp
-
         end do ! Q
-
       end do ! K
 
 
@@ -121,25 +132,38 @@
       ! Rotate
       !
 
-      ! K=0
+      ! K=0 does not rotate
       TB(0,0,0) = TS(0,0,0)
 
       ! K=1,2
       do K=1,2
 
+        !
+        ! Q=0 component
+        !
+
+        ! Stokes parameters
         do i=0,3
-            TB(i,0,K) = sum(D(-K:K,0,K)*TS(i,-K:K,K))
+
+          ! Rotate
+          TB(i,0,K) = sum(D(-K:K,0,K)*TS(i,-K:K,K))
+
         end do ! Stokes components
 
+        ! Rest of Q
         do iQ=1,K
+
+          ! Stokes parameters
           do i=0,3
 
+            ! Rotate Q>0
             TB(i,iQ,K) = sum(D(-K:K,iQ,K)*TS(i,-K:K,K))
+
+            ! Use dependence relations for Q<0
             TB(i,-iQ,K) = Flgsg%sg(iQ)*conjg(TB(i,iQ,K))
 
-          end do ! Stokes components
-        end do ! Q
-
+          end do ! Stokes parameters
+        end do ! Q > 0
       end do ! K
 
       end subroutine Btens

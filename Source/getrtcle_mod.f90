@@ -5,47 +5,18 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     10/xx/2022
+!     01/10/2022
 !  Last version:
-!     10/04/2024 V3.0.6
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     10/04/2024:    V3.0.6 - Bugfix: when aborting before reaching
-!                             the geometry part, do not direct to the
-!                             deallocation of the geometrical
-!                             tensor pointer (TdPA)
-!                           - Bugfix: One of the abortion points
-!                             had a return instead of a jump
-!                             forward (TdPA)
-!                           - Bugfix: Missing the call to strength_ev
-!                             when using RDIPEV (TdPA)
-!                           - Allocate a dummy continuum when not
-!                             using it to avoid Valgrind errors (TdPA)
-!                           - Added new arguments to getSEEJ (TdPA)
-!                           - Added the call to the new option for
-!                             background radiation (TdPA)
-!
-!     09/23/2024:    V3.0.5 - Added option to skip the continuum
-!                             calculation (TdPA)
-!
-!     10/16/2023:    V3.0.4 - Added argument to setphotoTEI (TdPA)
-!
-!     09/29/2023:    V3.0.3 - Added arguments to Initcols (TdPA)
-!
-!     08/07/2023:    V3.0.2 - Added dummy variable for compatibility
-!                             with modules (TdPA)
-!
-!     07/03/2023:    V3.0.1 - Adjusted for changes elsewhere in the
-!                             code, it is untested (TdPA)
-!
-!     11/24/2022:    V3.0.0 - First version (TdPA)
+!     12/03/2025:    V4.0.1 - Gave access to commonds_mod (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -55,10 +26,16 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    Return RT coefficients (and Stokes parameters for a boundary)
-!  for a given CLE point
+!  getRTCLE
+!    Calculate the RT coefficients for a given node in a CLE model. If
+!  the node is in a boundary, compute the boundary condition as well
 !
 !#####################################################################
 !#####################################################################
@@ -71,6 +48,7 @@
       use broad_mod
       use btens_mod
       use chemic_mod
+      use commons_mod
       use diagon_mod
       use free_mod
       use geometry_mod
@@ -78,6 +56,7 @@
       use initphotoion_mod
       use initpopu_mod
       use jcalccle_mod
+      use normalizer_mod
       use parameters_mod , only: B2L , TINYB
       use ratmo_mod
       use ratom_mod
@@ -96,22 +75,26 @@
 
       !> Return the RT coefficients for a given point along the LOS
       !! for a CLE calculation
-      !!           Atom(Atom_class): Structure with the atomic data\n
-      !!          Atomb(Atom_class): Structure with the atomic data
-      !!                             for background opacities\n
-      !!             Mol(Mol_class): Structure with the molecule
-      !!                             data\n
-      !!           Atmo(Atmo_class): Structure with atmospheric
-      !!                             data\n
+      !!        Atom(Atom_class(:)): Structures with atomic data\n
+      !!       Atomb(Atom_class(:)): Structures with atomic data for
+      !!                             background atoms\n
+      !!          Mol(Mol_class(:)): Structures with molecular data\n
+      !!           Atmo(Atmo_class): Structure with atmospheric data\n
       !!            MPID(MPI_class): Structure with MPI data\n
-      !!         Input(Input_class): Structure with settings data\n
+      !!         Input(Input_class): Structure with configuration
+      !!                             data\n
       !!      Frec(Frequency_class): Structure with frequency data\n
-      !!       Geom(Geometry_class): Structure with quadrature data\n
-      !!         Flgsg(Fctsg_class): Structure with factorials and
-      !!                             signs\n
+      !!             Red(Red_class): Structure with redistribution
+      !!                             input frequency data,
+      !!                             redistribution function data, and
+      !!                             profile or normalization data\n
+      !!       Geom(Geometry_class): Structure with geometric data\n
+      !!         Flgsg(Fctsg_class): Structure with factorials, signs,
+      !!                             and J-symbols\n
       !!         fudge(fudge_class): Structure with fudge data\n
       !!       kurucz(kurucz_class): Structure with Kurucz line data\n
-      !!                ix(integer): Index location along the LOS\n
+      !!                ix(integer): Index of the location along the
+      !!                             LOS\n
       !!               if0(integer): Lower limit index for frequencies
       !!                             in this CPU\n
       !!               if1(integer): Upper limit index for frequencies
@@ -127,10 +110,10 @@
       !!         spect(spect_class): Structure with the input spectra
       !!                             data\n
       !!     chianti(chianti_class): Structure with the CHIANTI data\n
-      !!         data1(dfloat(:,:)): Radiation transfer coefficients\n
-      !!            indisk(logical): If the ray crossed the disk\n
+      !!         data1(double(:,:)): Radiation transfer coefficients\n
+      !!            indisk(logical): If the ray crosses the disk\n
       !!          isbottom(logical): If this is the bottom boundary
-      subroutine getRTCLE(Atom,Atomb,Mol,Atmo,MPID,Input,Frec, &
+      subroutine getRTCLE(Atom,Atomb,Mol,Atmo,MPID,Input,Frec,Red, &
                           Geom,Flgsg,fudge,kurucz,ix,if0,if1,batmo, &
                           bion,ion_column_ind,ion_value_ind, &
                           ion_value,spect,chianti,data1,indisk, &
@@ -138,27 +121,30 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Atmo_class):: Atmo
-      type(Fctsg_class):: Flgsg
-      type(fudge_class):: fudge
-      type(kurucz_class):: kurucz
-      type(Frequency_class):: Frec
-      type(Input_class):: Input
-      type(MPI_class):: MPID
-      type(spect_class):: spect
-      type(Geometry_class):: Geom
-      type(chianti_class):: chianti
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Atmo_class), intent(inout):: Atmo
+      type(Fctsg_class), intent(inout):: Flgsg
+      type(fudge_class), intent(in):: fudge
+      type(kurucz_class), intent(in):: kurucz
+      type(Frequency_class), intent(inout):: Frec
+      type(Red_class), intent(in):: Red
+      type(Input_class), intent(in):: Input
+      type(MPI_class), intent(in):: MPID
+      type(spect_class), intent(inout):: spect
+      type(Geometry_class), intent(inout):: Geom
+      type(chianti_class), intent(in):: chianti
       logical, intent(in):: indisk,isbottom
       integer, intent(in):: ix,if0,if1
       integer, dimension(:), intent(in):: ion_value_ind,ion_column_ind
-      double precision, dimension(0:3,if0:if1,0:5):: data1
+      double precision, dimension(0:3,if0:if1,0:5), &
+                        intent(out):: data1
       double precision, dimension(:), intent(in):: ion_value,bion
-      double precision, dimension(:), intent(in):: batmo
+      double precision, dimension(:), intent(inout):: batmo
 
       ! Local
+
       type(Continuum_class):: Cont
       type(Coronapoint_class):: GeomP
       type(Bfield_class):: Bfield
@@ -168,7 +154,7 @@
       integer:: ia,it0,it1,ip0,ip1
       integer, dimension(:), allocatable:: nlte,depar
 
-      double precision:: larmor
+      double precision:: larmor,vfac,ct,st,cc,sc
       double precision, dimension(nxphot,2):: Jphot
 
       complex(kind=8), dimension(-2:2,0:2,nxtran):: JKQ
@@ -179,12 +165,11 @@
 
       !
       ! Initialize
-      !
       data1 = 0d0
+
 
       !
       ! Get atmosphere
-      !
       call rAtmo_cle(batmo,Input,Atmo,ix)
 
 
@@ -195,7 +180,8 @@
 
       ! Prepare active atoms
       call prepareatom(Atom,nA)
-      ! Prepare passive atoms
+
+      ! Prepare background atoms
       if (nAb.gt.0) call prepareatom(Atomb,nAb)
 
       ! Prepare molecules
@@ -220,21 +206,21 @@
       if (Bfield%Bstrength(1).gt.TINYB) then
 
         ! Allocate
+        ! Not counting RAM because this is anecdotal
         allocate(TB(0:3,-2:2,0:2))
         call Btens(TS,TB,Flgsg,Bfield%Btheta(1),Bfield%Bphi(1))
 
-        ! For each atom, diagonalize Hamiltonian
+        ! For each atom, diagonalize Hamiltonian and get transition
+        ! strengths
         do ia=1,nA
           call diagon(Atom(ia),Bfield,Input%zeeman_mode,Flgsg)
+          call strength_ev(Atom(ia),Bfield)
         end do
-#ifdef RDIPEV
-        do ia=1,nA
-          call strength_ev(Atom(ia),Flgsg,Bfield)
-        end do
-#endif
+
       ! No field
       else
 
+        ! Just point to vertical reference frame tensors
         TB => TS
 
       end if
@@ -287,10 +273,17 @@
       !
       ! Photoionization quantites, thermal part
       !
+
+      ! For each atom
       do ia=1,nA
+
+        ! Skip if no photoionizations
         if (Atom(ia)%nphot.lt.1) cycle
-        call setphotoTEI(Atom(ia),Frec,Atmo%T,Atmo%ne,MPID,.False.)
-      end do
+
+        ! Set up thermal rate in SEE
+        call setphotoTEI(Atom(ia),Frec,Atmo%T,Atmo%ne,.False.)
+
+      end do ! Atoms
 
 
       !
@@ -299,35 +292,50 @@
 
       ! Active atoms
       do ia=1,nA
+
+        ! Initialize populations
         call Initpopu_CLE(Atom(ia),Atmo,bion,ion_column_ind(ia), &
                           ion_value,ion_value_ind(ia),chianti, &
                           ix,.True.)
+
+        ! Initialize collisions
         call Initcols(Atom(ia),Atmo,Input%folder,Flgsg, &
                       Input%keep_coll,.True.)
-      end do
+
+      end do ! Active atoms
 
       ! Passive atoms
       do ia=1,nAb
+
+        ! Initialize populations
         call Initpopu_CLE(Atomb(ia),Atmo,bion,ion_column_ind(ia), &
                           ion_value,ion_value_ind(ia),chianti, &
                           ix,.False.)
+
+        ! Initialize collisions
         call Initcols(Atomb(ia),Atmo,Input%folder,Flgsg, &
                       Input%keep_coll,.False.)
-      end do
+
+      end do ! Passive atoms
 
       !
       ! Protect atoms from chemical equilibrium
       !
+
+      ! If protecting all atoms
       if (Input%chem_protect_all) then
-        ! Active
+
+        ! Protect active atoms
         do ia=1,nA
           Atom(ia)%mol_protect = .True.
         end do
-        ! Passive
+
+        ! Protect background atoms
         do ia=1,nAb
           Atomb(ia)%mol_protect = .True.
         end do
-      end if
+
+      end if ! Protecting all atoms
 
       !
       ! Calculate chemical equilibrium
@@ -344,7 +352,10 @@
 
       ! For active atoms
       do ia=1,nA
+
+        ! Get line damping parameter
         call broad(Atom(ia),Atmo,Input%folder,Input%keep_aparam)
+
       end do
 
       ! Control
@@ -361,13 +372,13 @@
       if (laborted) goto 1000
 
       !
-      ! Update LOS in Geom
+      ! Update LOS in Geom structure
       !
       Geom%L_mu(1) = cos(GeomP%geom(1))
       Geom%L_phi(1) = GeomP%geom(2)
 
       !
-      ! Prepare Geometry for background
+      ! Prepare Geometry for background quantities calculation
       !
       GeomS%nth = 1
       GeomS%nph = 1
@@ -377,15 +388,24 @@
       !
       ! Calculate background continuum quantities
       !
+
+      ! If considering continuum sources
       if (Input%add_cont_cle) then
+
+        ! Get background continuum
         call background(Atom,Atomb,Mol,Atmo,fudge,kurucz, &
                         Input,Frec%omega,Cont,GeomS, &
                         MPID,Flgsg)
-      ! Dummy
+
+      ! Neglecting continuum
       else
+
+        ! Allocate a dummy array
         allocate(Cont%c(1,1,1,1))
+        BRAMc = BRAMc + 1d-6*sizeof(Cont%c)
         Cont%c = 0d0
-      end if
+
+      end if ! Consider continuum sources
 
       ! Control
       if (laborted) goto 1000
@@ -393,12 +413,22 @@
       !
       ! You can remove pressures now, if not using them later
       !
+
+      ! If gas pressure is allocated
       if (allocated(Atmo%Pg)) then
+
+        ! Clean unused atmospheric variables
+        MRAMc = MRAMc - 1d-6*sizeof(Atmo%Pg)
+        MRAMc = MRAMc - 1d-6*sizeof(Atmo%Pe)
+        MRAMc = MRAMc - 1d-6*sizeof(Atmo%rho)
         deallocate(Atmo%Pg)
         deallocate(Atmo%Pe)
         deallocate(Atmo%rho)
+
+        ! Clean auxiliar nlte and depar variables
         deallocate(nlte)
         deallocate(depar)
+
       end if
 
       !
@@ -421,20 +451,40 @@
         ip0 = Atom(ia)%pshift + 1
         ip1 = ip0 + Atom(ia)%nphot - 1
 
-        ! Set magnetic data
+        ! Set magnetic field constant
         larmor = B2L*Bfield%Bstrength(1)
 
         ! Solve the SEE
         call SEE(Atom(ia),JKQ(:,:,it0:it1),JKQ(:,:,it0:it1), &
-                 Jphot(ip0:ip1,:),larmor,Flgsg,1,-1)
-      end do
+                 Jphot(ip0:ip1,:),larmor,Flgsg,1)
+
+      end do ! Active atoms
+
+      ! Compute Doppler shift
+      vfac = 1d0
+
+      ! If dynamic
+      if (dyn) then
+
+        ! Trigonometry
+        ct = cos(GeomP%geom(1))
+        st = sqrt(1d0 - ct*ct)
+        cc = cos(GeomP%geom(2))
+        sc = sin(GeomP%geom(2))
+
+        ! Doppler shift factor
+        vfac = 1d0 - Atmo%vx(1)*st*cc - atmo%vy(1)*st*sc - &
+                     Atmo%vz(1)*ct
+
+      end if
 
       !
-      ! RT coefficients
+      ! Calculate RT coefficients
       !
-      call RTcoeff_CLE(Frec,Atom,Atmo,MPID,Flgsg,Geom,GeomP,Bfield, &
-                       TS,TB,if0,if1,JKQ,JKQC(:,:,if0:if1),spect, &
-                       Cont%c(:,:,1,1),Input%add_cont_cle, &
+      call RTcoeff_CLE(Frec,Red,Atom,Atmo,Flgsg,Geom,GeomP, &
+                       vfac,Bfield,TS,TB,if0,if1, &
+                       JKQ,JKQC(:,:,if0:if1), &
+                       spect,Cont%c(:,:,1,1),Input%add_cont_cle, &
                        data1(:,:,0:4))
 
       !
@@ -467,10 +517,9 @@
           else
 
             ! Initialize Stokes to Disk radiation
-            call bottom(Frec%omega_ou,Input%T_rad, &
-                        Atmo%vx(1),Atmo%vy(1), &
-                        Atmo%vz(1),cos(GeomP%geom(1)), &
-                        1d0,1d0,MPID,data1(:,:,5))
+            ! Static disk for the observer
+            call bottom(Frec%omega_ou,Input%T_rad,1d0, &
+                        if0,if1,data1(:,:,5))
 
           end if ! If input spectra
         end if ! In disk

@@ -5,55 +5,19 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     04/19/2017
+!     19/04/2017
 !  Last version:
-!     07/18/2024 V3.0.6
+!     28/11/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     07/18/2024:    V3.0.6 - Added storage of qel variable (TdPA)
-!
-!     09/25/2023:    V3.0.5 - Changed name of param files (TdPA)
-!
-!     08/07/2023:    V3.0.4 - Added broad_line routine (TdPA)
-!
-!     10/25/2022:    V3.0.3 - Added option for gaussian profiles
-!                             which basically skips computing the
-!                             damping parameter (TdPA)
-!                           - Added a slash after output folder
-!                             when saving file (TdPA)
-!
-!     07/13/2022:    V3.0.2 - The resource input parameter is no
-!                             longer needed (TdPA)
-!
-!     07/08/2022:    V3.0.1 - Bugfix: Atom%broad_args and
-!                             Atom%broad_stark can only be
-!                             deallocated if we are doing a single 1D
-!                             synthesis (TdPA)
-!
-!     06/29/2022:    V3.0.0 - Changed global version (TdPA)
-!
-!     03/23/2021:    V2.0.1 - Changed call to abortedS (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!
-!     11/19/2019:    V1.2.1 - Removed checks in allocate and
-!                             deallocate calls (TdPA)
-!
-!     03/12/2019:    V1.2.0 - Can create a file with the broading
-!                             parameters (TdPA)
-!
-!     02/20/2019:    V1.1.0 - New verbosity (TdPA)
-!
-!     09/15/2017:    V1.0.1 - Receiving Input%resource (TdPA)
-!
-!     04/19/2017:    V1.0.0 - First version (TdPA)
+!     28/11/2024:    V4.0.0 - Updated calls to abortedS to not include
+!                             thread information (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -63,15 +27,18 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
+!  broad
+!    Compute line broadening for every line for a given atom
 !
-!  broad:
-!    Calculates the damping parameters due to for the collisional
-!  broadening of spectral lines
-!
-!  broad_line:
-!    Calculate the damping parameter for LTE lines
+!  broad_line
+!    Compute line broadening for every line for a given LTE line
 !
 !#####################################################################
 !#####################################################################
@@ -90,12 +57,12 @@
 !#####################################################################
 !#####################################################################
 
-      !> Calculates broadening contributions due to Van der Waals and
-      !! Stark effects\n
-      !!        Atom(Atom_class): Structure with the atomic data\n
-      !!        Atmo(Atmo_class): Structure with atmospheric data\n
-      !!    folder(character(:)): Path to the output folder\n
-      !!         aparam(logical): Store VdW parametric quantities
+      !> Compute line broadening for every line for a given atom\n
+      !!      Atom(Atom_class): Structure with atomic data\n
+      !!      Atmo(Atmo_class): Structure with atmospheric data\n
+      !!  folder(character(:)): Path to the output folder\n
+      !!       aparam(logical): If the equivalant parametric
+      !!                        parameters need to be stored
       subroutine broad(Atom,Atmo,folder,aparam)
 
       ! I/O
@@ -109,38 +76,57 @@
 
       logical:: laparam
 
-      integer:: ios,iterm,iterm1,itran
+      integer:: ios,iterml,itermu,itran
 
       double precision, dimension(NZ):: damp
 
 
-      ! Allocate the variable to store this damping parameter
+      ! Allocate and count memory to store the damping
+      ! parameter and the elastic rates
       allocate(Atom%ldamp(Atom%ntran,NZ))
-      Atom%ldamp = 0d0
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%ldamp)
       allocate(Atom%qel(Atom%ntran,NZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%qel)
+
+      ! Initialize to zero
+      Atom%ldamp = 0d0
       Atom%qel = 0d0
 
-      ! Gaussian?
+      ! If Gaussian profiles
       if (VOITY.eq.3) then
-        ! Deallocate used inputs if we can free
+
+        ! If 1D synthesis
         if (run_mode.eq.0) then
+
+          ! Remove memory count for inputs
+          MRAMc = MRAMc - 1d-6*sizeof(Atom%broad_args)
+          MRAMc = MRAMc - 1d-6*sizeof(Atom%broad_args)
+
+          ! We can drop the inputs
           deallocate(Atom%broad_args)
           deallocate(Atom%broad_stark)
-        end if
-        ! And get out
-        return
-      end if
 
-      ! If the we are storing the parameters (only active can call
-      ! with .True.), and only the master
+        end if ! 1D synthesis
+
+        ! Get out
+        return
+
+      end if ! Gaussian profiles
+
+      ! If the we are storing the parameters (only active atoms can
+      ! have aparam = .True.) and the master
       if (aparam.and.pid.eq.0) then
 
+        ! Flag for calls below
         laparam = .True.
+
+        ! Open files
         open(600, file=trim(folder)//'/'//trim(Atom%file_label)// &
              '.avdwparam', iostat=ios, err=1000)
         open(700, file=trim(folder)//'/'//trim(Atom%file_label)// &
              '.astkparam', iostat=ios, err=1001)
 
+        ! Prepare headers
         write(600,'(A)',err=1100) &
               'This file contains the parameters that you have '// &
               'to put in the model atom with the parameter '// &
@@ -151,7 +137,6 @@
               'Transition                             approxim.'// &
               '             A_H             B_H            '// &
               'A_He            B_He'
-
         write(700,'(A)',err=1101) &
               'This file contains the parameters that you have '// &
               'to put in the model atom with the parameter '// &
@@ -163,52 +148,58 @@
       ! If not storing or it is a slave
       else
 
+        ! Flag for calls below
         laparam = .False.
 
       end if ! Storing damping parameters and is master
 
 
-      ! For each pair of terms
-      do iterm=1,Atom%nMulti-1
-       do iterm1=iterm+1,Atom%nMulti
+      ! For each transition
+      do itran=1,Atom%ntran
 
-          ! Check if there is a transition
-          itran = Atom%irad(iterm1,iterm)
+        ! Get term indexes
+        itermu = Atom%fst(itran)%itermu
+        iterml = Atom%fst(itran)%iterml
 
-          if (itran.le.0) cycle
+        ! Initialize the local variable
+        damp = 0d0
 
-          ! Initialize the local variable
-          damp = 0d0
+        ! Van der Waals
+        call broad_vdw(Atom,Atmo,iterml,itermu,itran,damp,laparam)
 
-          ! Van der Waals contribution
-          call broad_vdw(Atom,Atmo,iterm,iterm1,itran,damp, &
-                         laparam)
+        ! Quadratic Stark
+        call broad_stk(Atom,Atmo,iterml,itermu,itran,damp,laparam)
 
-          ! Stark contribution
-          call broad_stk(Atom,Atmo,iterm,iterm1,itran,damp,laparam)
+        ! Linear Stark
+        call broad_lstk(Atom,Atmo,iterml,itermu,damp)
 
-          ! Linear Stark contribution
-          call broad_lstk(Atom,Atmo,iterm,iterm1,damp)
+        ! Add to the line broadening
+        Atom%ldamp(itran,:) = Atom%ldamp(itran,:) + &
+                              1d-16*damp/c/(4d0*PI)
 
-          ! Add to the line broadening
-          Atom%ldamp(itran,:) = Atom%ldamp(itran,:) + &
-                                1d-16*damp/c/(4d0*PI)
+        ! Elastic collisions
+        Atom%qel(itran,:) = Atom%qel(itran,:) + damp
 
-          ! Elastic collisions
-          Atom%qel(itran,:) = Atom%qel(itran,:) + damp
+      end do ! Transitions
 
-        end do
-      end do
-
-
-      ! Deallocate used inputs if we can free
+      ! If 1D synthesis mode
       if (run_mode.eq.0) then
+
+        ! Remove memory count for inputs
+        MRAMc = MRAMc - 1d-6*sizeof(Atom%broad_args)
+        MRAMc = MRAMc - 1d-6*sizeof(Atom%broad_stark)
+
+        ! Deallocate used inputs
         deallocate(Atom%broad_args)
         deallocate(Atom%broad_stark)
-      end if
 
-      ! Close aparam file
-      if (laparam) close(600)
+      end if ! 1D synthesis mode
+
+      ! Close aparam files if they were opened
+      if (laparam) then
+        close(600)
+        close(700) 
+      end if
 
       ! Control
       call control
@@ -217,24 +208,28 @@
 
 1000  umsg = 'Error opening avdwparam file'
       urou = 'broad'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
+      return
 1100  umsg = 'Error writing avdwparam file'
       close(600)
       close(700)
       urou = 'broad'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
+      return
 1001  umsg = 'Error opening astkparam file'
       urou = 'broad'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
+      return
 1101  umsg = 'Error writing astkparam file'
       close(600)
       close(700)
       urou = 'broad'
-      call abortedS(umsg,urou,-1,.True.,.True.)
+      call abortedS(umsg,urou,.True.,.True.)
       call control
+      return
 
       end subroutine broad
 
@@ -242,24 +237,28 @@
 !#####################################################################
 !#####################################################################
 
-      !> Calculates the total collisional broadening for a LTE line\n
-      !!     line(LTEline_class): Structure with the LTE line data\n
-      !!        Atmo(Atmo_class): Structure with atmospheric data
+      !> Compute line broadening for every line for a given LTE line\n
+      !!  line(LTEline_class): Structure with the LTE line data\n
+      !!     Atmo(Atmo_class): Structure with atmospheric data
       subroutine broad_line(line,Atmo)
 
       ! I/O
 
-      type(LTEline_class):: line
+      type(LTEline_class), intent(inout):: line
       type(Atmo_class), intent(in):: Atmo
 
       ! Local
+
       double precision, dimension(:), allocatable:: damp
 
-      ! Allocate the variable to store this damping parameter
+
+      ! Allocate, count memory, and initialize the variable to store
+      ! the damping parameter
       allocate(line%damp(NZ))
+      MRAMc = MRAMc + 1d-6*sizeof(line%damp)
       line%damp = 0d0
 
-      ! Collisional (inelastic)
+      ! Collisional (inelastic) contribution
       if (line%f_c.gt.0d0) then
 
         ! Oscillator strength formulation
@@ -279,7 +278,7 @@
 
       end if
 
-      ! If not gaussian
+      ! If not Gaussian
       if (VOITY.ne.3) then
 
         ! Initialize the local variable
@@ -298,7 +297,10 @@
         ! Add to the line broadening
         line%damp = line%damp + 1d-16*damp/c/(4d0*PI)
 
-      end if
+        ! Free
+        deallocate(damp)
+
+      end if ! Non-Gaussian profiles
 
       return
 

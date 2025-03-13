@@ -5,34 +5,19 @@
 !#####################################################################
 !
 !  Authors:
-!     Hao Li (IAC)
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Hao Li (IAC/NSSCC)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     02/24/2023
+!     24/02/2023
 !  Last version:
-!     09/08/2023 V3.0.3
+!     17/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     09/08/2023:    V3.0.3 - Verbosity update (TdPA)
-!
-!     07/03/2023:    V3.0.2 - Fixed a formatting problem in an error
-!                             message (TdPA)
-!
-!     03/15/2023:    V3.0.1 - Bugfix: Reported and solved by Hao,
-!                             it is necessary to shift the indexes
-!                             when filling the regularization matrix
-!                             and vectors (TdPA)
-!                           - Removed a non-used scaling in the
-!                             regularization functions (TdPA)
-!
-!     03/08/2023:    V3.0.0 - First working version (TdPA)
-!
-!     02/24/2023:    V0.0.0 - Started from 12/05/2020
-!                             TIC@regul_mod.f90 revision (TdPA)
+!     17/12/2024:    V4.0.0 - Updated headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -42,34 +27,39 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    Init_Regul:
-!      Initialize the dimension of the regularization for each
-!      parameter
+!  Init_Regul
+!    Initialize the dimensionality of the regularization for each
+!  parameter
 !
-!    Get_Regl_all:
-!      Compute the regularization matrix
+!  Get_Regl_all
+!    Calculate the regularization matrix
 !
-!    Compute_Regl:
-!      Compute the regularization matrix for one parameter and add
-!      to total
+!  Compute_Regl
+!    Calculate the regularization matrix for one inversion parameter
+!  and add to the total
 !
-!    Firderv_Regul:
-!      Evaluate regularization to the first derivative
+!  Firderv_Regul
+!    Evaluate regularization to the first derivative
 !
-!    Secderv_Regul:
-!      Evaluate regularization to the second derivative
+!  Secderv_Regul
+!    Evaluate regularization to the second derivative
 !
-!    Mean_Regul:
-!      Evaluate regularization to the mean
+!  Mean_Regul
+!    Evaluate regularization to the mean
 !
-!    Const_Regul:
-!      Evaluate regularization to a constant
+!  Const_Regul
+!    Evaluate regularization to a constant
 !
-!    Constl1_Regul:
-!      Evaluate regularization to a constant, decreasing penalty if
-!      beyond one unit
+!  Constl1_Regul
+!    Evaluate regularization to a constant, decreasing penalty if
+!  beyond one unit
 !
 !#####################################################################
 !#####################################################################
@@ -84,15 +74,17 @@
 !#####################################################################
 !#####################################################################
 
-      !> Initialize the dimension of the regularization for each
+      !> Initialize the dimensionality of the regularization for each
       !! parameter\n
-      !!   Inf_Nodes(Nodes_class): Structure with the node data
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data
       subroutine Init_Regul(Inf_Nodes)
 
-      ! IO
+      ! I/O
+
       type(Nodes_class), intent(inout):: Inf_Nodes
 
       ! Local
+
       integer:: i
 
 
@@ -139,7 +131,7 @@
             ! Nothing
             case default
 
-              ! No regularization
+              ! No regularization, zero size
               Inf_Nodes%Num_regul(i) = 0
               cycle
 
@@ -170,6 +162,7 @@
         ! No regularization
         else
 
+          ! Size zero
           Inf_Nodes%Num_regul(i) = 0
 
         end if ! If regularizing
@@ -184,19 +177,21 @@
 !#####################################################################
 !#####################################################################
 
-      !> Compute the regularization matrix\n
-      !!   Inf_Nodes(Nodes_class): Structure with the node data\n
-      !!     Matrix_Flag(logical): If the matrix is to be also
-      !!                           saved or just the penalty\n
-      !!         Rgl(Regul_class): Class with regularization data
+      !> Calculate the regularization matrix\n
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
+      !!    Matrix_Flag(logical): If the matrix is to be saved or just
+      !!                          the total penalty\n
+      !!        Rgl(Regul_class): Structure with regularization data
       subroutine Get_Regl_all(Inf_Nodes,Matrix_Flag,Rgl)
 
-      ! IO
+      ! I/O
+
       type(Nodes_class), intent(in):: Inf_Nodes
       type(Regul_class), intent(inout):: Rgl
       logical, intent(in):: Matrix_Flag
 
       ! Local
+
       integer:: i, indx
 
       double precision:: Tmp_Penalty
@@ -204,18 +199,21 @@
       double precision, dimension(:,:), allocatable:: LL
 
 
-      ! If outputting matrix, initialize
+      ! If outputting matrix
       if (Matrix_Flag) then
+
+        ! Initialize matrix to zero
         Rgl%Regul_F = 0d0
         Rgl%Regul_H = 0d0
-      end if
+
+      end if ! If producing output matrix
 
       ! Initialize
       indx = 0
       Rgl%Penalty = 0
       Tmp_Penalty = 0
 
-      ! Run over variables to regularize
+      ! Run over variables being inverted
       do i=Inf_Nodes%Indx_b,Inf_Nodes%Indx_e
 
         ! If inverting the variable
@@ -263,7 +261,7 @@
               ! Not a valid option
               case default
 
-                ! Move index
+                ! Move index and skip
                 indx = indx+Inf_Nodes%Num_Nodes(i)
                 cycle
 
@@ -286,7 +284,7 @@
                 'Penalty = ', Rgl%Penalty-Tmp_Penalty
               call verboseI(3)
 
-            end if
+            end if ! Master
 
             ! Get a copy of the penalty right now
             Tmp_Penalty = Rgl%Penalty
@@ -313,37 +311,42 @@
 !#####################################################################
 !#####################################################################
 
-      !> Compute the regularization matrix for a given parameter and
-      !! add to total\n
-      !!   Inf_Nodes(Nodes_class): Structure with the node data\n
-      !!     Matrix_Flag(logical): If the matrix is to be also
-      !!                           saved or just the penalty\n
-      !!        Indx_Pos(integer): Position in the regularization
-      !!                           matrix\n
-      !!       Indx_Para(integer): Index of the parameter\n
-      !!          LL(double(:,:)): Derivative of regularization
-      !!                           function\n
-      !!             Resi(double): The evaluation of the
-      !!                           regularization function\n
-      !!     Regul_H(double(:,:)): Regularization matrix\n
-      !!       Regul_F(double(:)): Regularizaiton vector\n
-      !!          Penalty(double): Final penalty
+      !> Calculate the regularization matrix for one inversion
+      !! parameter and add to the total\n
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
+      !!    Matrix_Flag(logical): If the matrix is to be saved or just
+      !!                          the total penalty\n
+      !!       Indx_Pos(integer): Position in the regularization
+      !!                          matrix\n
+      !!      Indx_Para(integer): Index of the parameter\n
+      !!         LL(double(:,:)): Derivative of regularization
+      !!                          function\n
+      !!            Resi(double): Evaluation of the regularization
+      !!                          function\n
+      !!    Regul_H(double(:,:)): Regularization matrix\n
+      !!      Regul_F(double(:)): Regularizaiton vector\n
+      !!         Penalty(double): Final penalty
       subroutine Compute_Regl(Inf_Nodes,Matrix_Flag,Indx_Pos, &
                               Indx_Para,LL,Resi,Regul_H,Regul_F, &
                               Penalty)
 
-      ! IO
+      ! I/O
+
       type(Nodes_class), intent(in):: Inf_Nodes
       logical, intent(in):: Matrix_Flag
       integer, intent(in):: Indx_Pos, Indx_Para
       double precision, intent(inout) :: Penalty
       double precision, dimension(:), intent(inout):: Regul_F
-      double precision, dimension(:), allocatable, intent(inout)::Resi
+      double precision, dimension(:), &
+                        allocatable, intent(inout):: Resi
       double precision, dimension(:,:), intent(inout):: Regul_H
-      double precision, dimension(:,:), allocatable, intent(inout)::LL
+      double precision, dimension(:,:), &
+                        allocatable, intent(inout):: LL
 
       ! Local
-      integer:: k, l, m, n, NN, shift
+
+      integer:: k,l,m,n,NN,shift
+
 
       ! Get shift for regularization positions
       shift = 1 - Inf_Nodes%Node_Vary(1,Indx_Para)
@@ -407,14 +410,16 @@
       !!     Resi(double(:)): Regularization function
       subroutine Firderv_Regul(Var,Tau,Num_Nodes,LL,Resi)
 
-      ! IO
+      ! I/O
+
       integer, intent(in):: Num_Nodes
       double precision, dimension(:), intent(in):: Var
       double precision, dimension(:), intent(in):: Tau
       double precision, dimension(:), allocatable, intent(out):: Resi
-      double precision, dimension(:,:), allocatable, intent(out)::LL
+      double precision, dimension(:,:), allocatable, intent(out):: LL
 
       ! Local
+
       integer:: i
 
       double precision:: dtau
@@ -456,9 +461,10 @@
       !!  Num_Nodes(integer): Number of nodes
       !!     LL(double(:,:)): Derivative of regularization function\n
       !!     Resi(double(:)): Regularization function
-      subroutine Secderv_Regul(Var, Tau, Num_Nodes, LL, Resi)
+      subroutine Secderv_Regul(Var,Tau,Num_Nodes,LL,Resi)
 
-      ! IO
+      ! I/O
+
       integer, intent(in):: Num_Nodes
       double precision, dimension(:), intent(in):: Var
       double precision, dimension(:), intent(in):: Tau
@@ -466,9 +472,11 @@
       double precision, dimension(:,:), allocatable, intent(out):: LL
 
       ! Local
+
       integer:: i
 
-      double precision:: dtau0, dtau1, A, B, C, tmp
+      double precision:: dtau0,dtau1,A,B,C,tmp
+
 
       ! Allocate outputs
       allocate(Resi(Num_Nodes-2),LL(Num_Nodes-2,Num_Nodes))
@@ -518,7 +526,8 @@
       !!     Resi(double(:)): Regularization function
       subroutine Mean_Regul(Var,Tau,Num_Nodes,LL,Resi)
 
-      ! IO
+      ! I/O
+
       integer, intent(in):: Num_Nodes
       double precision, dimension(:), intent(in):: Var
       double precision, dimension(:), intent(in):: Tau
@@ -526,9 +535,10 @@
       double precision, dimension(:,:), allocatable, intent(out):: LL
 
       ! Local
-      integer:: i, j
 
-      double precision:: dtau, avg, numi
+      integer:: i,j
+
+      double precision:: dtau,avg,numi
 
 
       ! Allocate outputs
@@ -637,7 +647,8 @@
       !!  Value_Const(double): Constant value to regularize to
       subroutine Const_Regul(Var,Tau,Num_Nodes,LL,Resi,Value_Const)
 
-      ! IO
+      ! I/O
+
       integer, intent(in):: Num_Nodes
       double precision, intent(in):: Value_Const
       double precision, dimension(:), intent(in):: Var
@@ -646,6 +657,7 @@
       double precision, dimension(:,:), allocatable, intent(out):: LL
 
       ! Local
+
       integer:: i
 
       double precision:: dtau
@@ -732,7 +744,8 @@
       !!  Value_Const(double): Constant value to regularize to
       subroutine Constl1_Regul(Var,Tau,Num_Nodes,LL,Resi,Value_Const)
 
-      ! IO
+      ! I/O
+
       integer, intent(in):: Num_Nodes
       double precision, intent(in):: Value_Const
       double precision, dimension(:), intent(in):: Var
@@ -741,9 +754,10 @@
       double precision, dimension(:,:), allocatable, intent(out):: LL
 
       ! Local
+
       integer:: i
 
-      double precision:: dtau, tmp, dif
+      double precision:: dtau,tmp,dif
 
 
       ! Allocate outputs
@@ -779,7 +793,7 @@
           Resi(1) = Var(1) - Value_Const
           LL(1,1) = 1d0
 
-        end if
+        end if ! Difference larger than unit
 
       ! Many nodes
       else

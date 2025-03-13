@@ -5,77 +5,21 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     09/25/2019
+!     25/09/2019
 !  Last version:
-!     09/29/2023 V3.0.5
+!     12/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     09/29/2023:    V3.0.5 - The COL log file is only created by
-!                             request (TdPA)
-!
-!     09/25/2023:    V3.0.4 - Changed name for COL file (TdPA)
-!
-!     10/26/2022:    V3.0.3 - Changed the indexing of atomic levels
-!                             in Atom (TdPA)
-!
-!     10/25/2022:    V3.0.2 - Initializing every pointer when
-!                             initcols starts (TdPA)
-!                           - Nullifying p_col after each use (TdPA)
-!                           - Bugfix: Correctly freeing memory in
-!                             the Tbox data structure (TdPA)
-!                           - Bugfix: Correctly freeing memory in
-!                             the Ccoeff_special data structure (TdPA)
-!                           - Bugfix: Atom%Ccoeff must be freed in
-!                             every case, and not only in 1Ds (TdPA)
-!
-!     07/08/2022:    V3.0.1 - Bugfix: The input data was being
-!                             directly modified, but this is not
-!                             suitable for non-1D runs (TdPA)
-!                           - Bugfix: Can only free Ccoeff_special
-!                             if in the pure 1D case (TdPA)
-!
-!     06/29/2022:    V3.0.0 - To implement the 1.5D case the following
-!
-!     06/29/2022:    V3.0.0 - To implement the 1.5D case the following
-!                             changes were needed:
-!                              o The deallocation of the input data
-!                                and the writing of a file is
-!                                conditioned by the type of run with
-!                                the free and aout variables.
-!                              o The damping of the terms is now
-!                                allocated and initialized here.
-!                              o The option to input explicit elastic
-!                                collisions has been removed.
-!                             (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!                           - Removed domain decomposition (TdPA)
-!
-!     09/28/2020:    V1.0.5 - Charge transfer collisions were using
-!                             electron density instead of hydrogen
-!                             number density (TdPA)
-!
-!     09/11/2020:    V1.0.4 - Correctly deallocate collisional data
-!                             before nullifying the pointer (TdPA)
-!
-!     03/05/2020:    V1.0.3 - When writing the file with collisional
-!                             information, now the space in elements
-!                             with singular letters is avoided (TdPA)
-!
-!     11/19/2019:    V1.0.2 - Removed checks in allocate and
-!                             deallocate calls (TdPA)
-!
-!     10/02/2019:    V1.0.1 - Bugfix: Missed one col_type in Atom
-!                             that should reference Atom%inelas (TdPA)
-!
-!     09/25/2019:    V1.0.0 - First version (TdPA)
+!     12/03/2025:    V4.0.1 - Ensure that collisional arrays are
+!                             allocated before trying to deallocate
+!                             them (TdPA)
+!                           - Ensure that p_col_p is nullified (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -85,16 +29,15 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    This subroutine initializes the populations
-!
-!    Initcols:
+!    Initcols
 !      Computes collisional rates
-!
-!    setNSCcoeff:
-!      Adds the collisional rates of the special collisions (charge
-!      transfer)
 !
 !#####################################################################
 !#####################################################################
@@ -114,17 +57,16 @@
 !#####################################################################
 !#####################################################################
 
-      !> Initializes the atomic populations\n
-      !!         Atom(Atom_class): Structure with the atomic data\n
-      !!        Atom0(Atom_class): A copy of Atom\n
-      !!   filename(character(:)): Name of the file to read, if any\n
-      !!         Atmo(Atmo_class): Structure with atmospheric data\n
-      !!       Flgsg(Fctsg_class): Structure with factorials and
-      !!                           signs\n
-      !!         keeplog(logical): Bool to specify if keeping the
-      !!                           collisional log file\n
-      !!          active(logical): Bool to specify if this atom is
-      !!                           active or not
+      !> Calculate the collisional rates for in a given model
+      !! atmosphere and a given atomic model\n
+      !!        Atom(Atom_class): Structure with atomic data\n
+      !!        Atmo(Atmo_class): Structure with atmospheric data\n
+      !!  folder(character(500)): Path to the output folder\n
+      !!      Flgsg(Fctsg_class): Structure with factorials, signs,
+      !!                          and J-symbols\n
+      !!        keeplog(logical): If keeping an ASCII log file for the
+      !!                          collisional rates\n
+      !!         active(logical): If the current atom is active
       subroutine Initcols(Atom,Atmo,folder,Flgsg,keeplog,active)
 
       ! I/O
@@ -138,33 +80,37 @@
       ! Local
 
       character(len=2):: c2dump
+
       logical:: lin,free,aout
+
       integer:: ios,iz,it,itt,i,ii,iJ,iJJ,icol,iJ1,ilevel,iterm,jj
-      integer:: ilevel1,iterm1,up,low,stagl,stagu
-      integer:: K,minK,maxK
+      integer:: ilevel1,iterm1,up,low,stagl,stagu,K,minK,maxK
+
       double precision:: rJ,rJ1,rL,rL1,S,S1,El,Eu,gl,gu,Dfreq2,W6
       double precision:: d1,d2,d3
       double precision, dimension(nz):: nu, nl
       double precision, dimension(:), allocatable:: p_pop, CulI, Culin
 
-      ! Pointer
+      ! Pointers
+
       type(tmp_col_box_class), pointer:: p_col, p_col_p
       type(Tbox_class), pointer:: p_T, p_T_p
 
       ! Initialize pointers
       nullify(p_col,p_col_p,p_T,p_T_p)
 
-      !
-      ! Condition to free input data and output ascii collisions
-      !
+      ! If the collisional data can be fred when finished
       free = run_mode.eq.0
+
+      ! If we can output ASCII file with log of collisions
       aout = run_mode.eq.0.and.keeplog
 
 
       !
-      ! Initialize atomic level damping
+      ! Initialize atomic level inverse lifetime
       !
       allocate(Atom%damp(Atom%nMulti,nz))
+      MRAMc = MRAMc + 1d-6*sizeof(Atom%damp)
       Atom%damp = 0d0
 
       ! For each upper term
@@ -173,7 +119,7 @@
         ! For each lower term
         do it=1,itt-1
 
-          ! If transition exists
+          ! If a registered transition exists
           if (Atom%irad(itt,it).gt.0) then
 
             ! Here the damping parameter is set to the theoretical
@@ -198,6 +144,7 @@
         ! g^(K) in the SEE
         allocate(Atom%gk(Atom%nMulti,Atom%nJmax,Atom%nJmax, &
                          0:Atom%nKmax,nZ))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom%gk)
         Atom%gk = 0d0
 
       end if
@@ -208,7 +155,7 @@
         ! For each entry
         do ii=1,Atom%ngk
 
-          ! Read to which level corresponds and find term and sublevel
+          ! Get level, term, and sublevel indexes
           ilevel = Atom%elas(ii)%ilevel
           iterm = Atom%term(ilevel)
           iJ = Atom%sublevel(ilevel)
@@ -228,88 +175,117 @@
               d2 = Atom%elas(ii)%datum(jj)%b
               d3 = Atom%elas(ii)%datum(jj)%c
 
-              ! Reproduce the fit
+              ! For each height
               do iz=1,nZ
 
+                ! Calculate the rate following the fit
                 Atom%gk(iterm,iJ,iJ,K,iz) =  &
                                            d1*1d-9* &
                                            ((Atmo%T(iz)*2d-4)**d2)* &
                                            (d3**(Atmo%T(iz)*2d-4))* &
                                            sum(Atmo%nh(iz,1:5))*1d-8 &
                                           + Atom%gk(iterm,iJ,iJ,K,iz)
-              end do
+              end do ! Heights
 
-            end if
+            end if ! Fit input
 
-            ! If the multipole was 0, add this to the damping, making
-            ! a weighted average
+            ! If the multipole was 0
             if (K.eq.0) then
 
+              ! For each height
               do iz=1,nZ
 
+                ! Add this to the damping, taking a weighted average
                 Atom%damp(iterm,iz) = 1d-8* &
                                   Atom%gk(iterm,iJ,iJ,0,iz)* &
                                   (2d0*Atom%rJval(iJ,iterm) + 1d0)/ &
                                   Atom%deg(iterm)/c/(4d0*PI) + &
                                   Atom%damp(iterm,iz)
-              end do
+              end do ! Heights
 
-            end if
+            end if ! Multipole is 0
 
           end do ! Input sub entry
 
-          ! Deallocate
-          if (free) deallocate(Atom%elas(ii)%datum)
+          ! If can free memory
+          if (free) then
+
+            ! Deallocate
+            MRAMc = MRAMc - 1d-6*sizeof(Atom%elas(ii)%datum)
+            deallocate(Atom%elas(ii)%datum)
+            MRAMc = MRAMc - 1d-6*sizeof(Atom%elas(ii))
+
+          end if ! Can free memory
 
         end do ! Input entry
 
-        ! Deallocate
+        ! If can free memory, deallocate
         if (free) deallocate(Atom%elas)
 
         ! Only if active atoms
         if (active) then
 
+          !
           ! Heuristic definition of non-diagonal terms
+          !
+
+          ! For each term
           do iterm=1,Atom%nMulti
+
+            ! For each sublevel
             do iJ=1,Atom%nJ(iterm)
+
+              ! For each other sublevel
               do iJ1=1,Atom%nJ(iterm)
 
+                ! Skip diagonals
                 if(iJ.eq.iJ1)cycle
 
+                ! Calculate limits for multipoles
                 minK = nint(abs(Atom%rJval(iJ,iterm) - &
                                 Atom%rJval(iJ1,iterm)))
                 maxK = nint(Atom%rJval(iJ,iterm) + &
                             Atom%rJval(iJ1,iterm))
 
+                ! For every height
                 do iz=1,nZ
+
+                  ! For each available multipole
                   do K=minK,maxK
 
-                    ! If both levels have 0 rate, the cross rate is 0
+                    ! If both levels have 0 rate
                     if(Atom%gk(iterm,iJ,iJ,K,iz).lt.1d-100.and. &
                        Atom%gk(iterm,iJ1,iJ1,K,iz).lt.1d-100)then
 
+                      ! Cross-rate is zero as well
                       Atom%gk(iterm,iJ,iJ1,K,iz) = 0d0
 
-                    ! If one of the levels have 0 rate, the cross rate
-                    ! is the non-zero one
-                    else if(Atom%gk(iterm,iJ,iJ,K,iz).lt.1d-100.or. &
-                            Atom%gk(iterm,iJ1,iJ1,K,iz).lt.1d-100)then
+                    ! If one of the levels have 0 rate
+                    else if (Atom%gk(iterm,iJ,iJ,K,iz).lt. &
+                             1d-100.or. &
+                             Atom%gk(iterm,iJ1,iJ1,K,iz).lt. &
+                             1d-100) then
 
+                      ! If the iJ has zero rate
                       if(Atom%gk(iterm,iJ,iJ,K,iz).lt.1d-100)then
 
+                        ! The rate is the one for the iJ1
                         Atom%gk(iterm,iJ,iJ1,K,iz) = &
                                            Atom%gk(iterm,iJ1,iJ1,K,iz)
 
+                      ! If the iJ1 has zero rate
                       else
 
+                        ! The rate is the one for the iJ
                         Atom%gk(iterm,iJ,iJ1,K,iz) = &
                                            Atom%gk(iterm,iJ,iJ,K,iz)
 
-                      end if
+                      end if ! Which rate is zero
 
-                    ! If both levels have non-zero rate, average them
+                    ! If both levels have non-zero rate
                     else
 
+                      ! Take the average
                       Atom%gk(iterm,iJ,iJ1,K,iz) = &
                               (Atom%gk(iterm,iJ,iJ,K,iz)* &
                                (2d0*Atom%rJval(iJ,iterm) + 1d0) + &
@@ -318,18 +294,19 @@
                               (2d0*Atom%rJval(iJ,iterm) + 1d0 + &
                                2d0*Atom%rJval(iJ1,iterm) + 1d0)
 
-                    end if
+                    end if ! Which rates are zero
 
                   end do ! K
                 end do ! heights
-
               end do ! iJ1
             end do ! iJ
           end do ! Term
 
-        ! If passive atom, deallocate
+        ! If passive atom
         else
 
+          ! Deallocate depolarizing rates
+          MRAMc = MRAMc - 1d-6*sizeof(Atom%gk)
           deallocate(Atom%gk)
 
         end if ! Active atom
@@ -342,19 +319,31 @@
       !
 
 
-      ! If active atom or there are collisions, allocate
+      ! If active atom or there are collisions
       if (active.or.Atom%ncol.ge.1) then
+
         ! Allocations
+
         ! Indexing of collisions between terms
         allocate(Atom%icol(Atom%nMulti,Atom%nMulti))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom%icol)
         Atom%icol = 0
+
         ! Collisional rates for collisions between terms
         allocate(Atom%Ccoeff(Atom%nMulti,Atom%nMulti,nZ))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom%Ccoeff)
         Atom%Ccoeff = 0d0
+
         ! Collisional rates for collisions between levels
         allocate(Atom%CcoeffJ(Atom%nlevel,Atom%nlevel,nZ))
+        MRAMc = MRAMc + 1d-6*sizeof(Atom%CcoeffJ)
         Atom%CcoeffJ = 0d0
-      end if
+
+      end if ! Active atom or there are collisions
+
+      !
+      ! Inelastic collisions
+      !
 
       ! If there are inelastic collisions
       if (Atom%ncol.ge.1) then
@@ -385,13 +374,13 @@
               p_T => p_T%next
             end do
 
-          end if
+          end if ! Incorrect temperature box
 
-          ! Translate
+          ! Get level or term indexes
           up = Atom%inelas(icol)%up
           low = Atom%inelas(icol)%low
 
-          ! If between terms, get degeneracy
+          ! If between terms
           if (p_T%col_type.eq.0) then
 
             ! Degeneracy
@@ -406,7 +395,7 @@
             stagl = Atom%stage(low)
             stagu = Atom%stage(up)
 
-          ! If between levels, get degeneracy and flags
+          ! If between levels
           else if (p_T%col_type.eq.1) then
 
             ! Get the S, L, and J of levels
@@ -416,6 +405,8 @@
             rL1 = Atom%rLval(Atom%term(up))
             rJ = Atom%rJval(Atom%sublevel(low),Atom%term(low))
             rJ1 = Atom%rJval(Atom%sublevel(up),Atom%term(up))
+
+            ! Get energy
             El = Atom%FSfreq(Atom%sublevel(low),Atom%term(low))
             Eu = Atom%FSfreq(Atom%sublevel(up),Atom%term(up))
 
@@ -436,6 +427,7 @@
             ! ionizing
             if (stagu.ne.stagl) then
 
+              ! Ionizing is 2
               Atom%fcflag(up,low) = 2
               Atom%fcflag(low,up) = 2
 
@@ -446,45 +438,54 @@
               ! Check if same term
               if (Atom%term(low).eq.Atom%term(up)) then
 
+                ! Dipole forbidden is 1
                 Atom%fcflag(up,low) = 1
                 Atom%fcflag(low,up) = 1
 
+              ! Different terms
               else
 
+                ! Check if intercombination
                 if (nint(abs(S1-S)).gt.0) then
 
+                  ! Dipole forbidden (for pol.) is 1
                   Atom%fcflag(up,low) = 1
                   Atom%fcflag(low,up) = 1
 
-                ! If spin allowed, check orbital angular momentum
+                ! If spin allowed
                 else
 
+                  ! Check orbital selection rule
                   if (nint(abs(rL - rL1)).gt.1.or. &
                       nint(rL + rL1).eq.0) then
+
+                    ! Dipole forbidden is 1
                     Atom%fcflag(up,low) = 1
                     Atom%fcflag(low,up) = 1
 
-                  ! If allowed by orbital angular momentum, check
-                  ! angular momentum
+                  ! If allowed by orbital angular momentum
                   else
 
+                    ! Check total angular momentum selection rule
                     if (nint(abs(rJ1 - rJ)).gt.1.or. &
                         nint(rJ1 + rJ).eq.0) then
 
+                      ! Dipole forbidden is 1
                       Atom%fcflag(up,low) = 1
                       Atom%fcflag(low,up) = 1
 
+                    ! If allowed by total angular momentum
                     else
 
-                      ! Not connected radiatively, assume same
-                      ! parity
+                      ! If not radiatively connected
                       if (Atom%irad(Atom%term(up), &
                                     Atom%term(low)).lt.1) then
 
+                        ! Assume same parity, forbidden
                         Atom%fcflag(up,low) = 1
                         Atom%fcflag(low,up) = 1
 
-                      end if ! Allowed transition
+                      end if ! Radiatively connected
                     end if ! Angular momentum rules
                   end if ! Orbital selection rules
                 end if ! Spin selection rules
@@ -502,160 +503,224 @@
               Atom%inelas(icol)%col_type.eq.2.or. &
               Atom%inelas(icol)%col_type.eq.3) then
 
+            ! Collision with electrons
             if (Atom%inelas(icol)%col_type.eq.0) then
               c2dump = 'BE'
               p_pop = Atmo%ne
+            ! Collision with neutral hydrogen
             else if (Atom%inelas(icol)%col_type.eq.2) then
               c2dump = 'BP'
               p_pop = Atmo%nh(:,6)
+            ! Collision with protons
             else if (Atom%inelas(icol)%col_type.eq.3) then
               c2dump = 'BH'
               p_pop = Atmo%nh(:,1)
             end if
 
-            ! If neutral or ion flag, factorize weights
+            ! If neutral or ion flag
             if (p_T%nion.ge.0.and.p_T%nion.le.3) then
 
+              ! Get input and multiply by upper level/term degeneracy
               Culin = Atom%inelas(icol)%Cul*gu
 
-              ! If neutral
+              ! If neutral scale mode
               if (p_T%nion.eq.0.or.p_T%nion.eq.2) then
+
+                ! Divide by degeneracy lower level/term and
+                ! temperature factor
                 Culin = Culin/gl
                 Culin = Culin/sqrt(p_T%temp)
-              ! If ion
-              else
-                Culin = Culin*sqrt(p_T%temp)
-              end if
-            ! No flag
-            else
-              Culin = Atom%inelas(icol)%Cul
-            end if
 
-            ! Interpolate the table
+              ! If ion scale mode
+              else
+
+                ! Multiply by temperature factor
+                Culin = Culin*sqrt(p_T%temp)
+
+              end if ! Neutral or ion scale mode
+
+            ! No scale mode
+            else
+
+              ! Keep just the rate
+              Culin = Atom%inelas(icol)%Cul
+
+            end if ! Type of scaling
+
+            ! Interpolate in the tabulation
             call colinter(p_T%temp,Culin,p_T%nTmp, &
                           Atmo%T,CulI,nZ,p_T%flin,lin)
+
+            ! If the interpolation ended up being linear and it is
+            ! master
             if (lin.and.pid.eq.0) then
+
+              ! If term to term transition
               if (p_T%col_type.eq.0) then
+
+                ! Write message
                 write(umsg,'(A,1x,i4,1x,"-->",i4,1x,A,1x,A,1x,A)') &
                        ' # Inelastic collisional rate '// &
                        c2dump//' ',up,low,'between terms in atom', &
                        Atom%Element,'was negative with Spline '// &
                        'interpolation, did linear.'
+
+              ! If level to level transition
               else
+
+                ! Write message
                 write(umsg,'(A,1x,i4,1x,"-->",i4,1x,A,1x,A,1x,A)') &
                       ' # Inelastic collisional rate '// &
                       c2dump//' ',up,low,'between levels in atom', &
                       Atom%Element,'was negative with Spline '// &
                       'interpolation, did linear.'
-              end if
-              call verbose
-            end if
 
-            ! If neutral or ion flag, factorize weights
+              end if ! Term-term or level-level
+
+              ! Verbose warning
+              call verbose
+
+            end if ! If had to do linear and is master
+
+            ! If neutral or ion scale mode
             if (p_T%nion.ge.0.and.p_T%nion.le.3) then
 
+              ! Divide by upper level degeneracy
               CulI = CulI/gu
 
-              ! If neutral
+              ! If neutral scale mode
               if (p_T%nion.eq.0.or.p_T%nion.eq.2) then
+
+                ! Revert products
                 CulI = CulI*gl
                 CulI = CulI*sqrt(Atmo%T)
-              ! If ion
+
+              ! If ion scale mode
               else
+
+                ! Revert products
                 CulI = CulI/sqrt(Atmo%T)
-              end if
-            end if
+
+              end if ! Scale mode
+            end if ! If any scale mode
 
             ! Convertion to 10^8 s-1
             CulI = CulI*1d-8
 
-            ! Terms
+            ! If collision between terms
             if (p_T%col_type.eq.0) then
 
-              ! Compute actual rate and add to the damping
+              ! For each height
               do iz=1,nZ
 
+                ! Compute actual rate
                 Atom%Ccoeff(up,low,iz) = Atom%Ccoeff(up,low,iz) + &
                                          CulI(iz)*p_pop(iz)
 
+                ! Add to the damping
                 Atom%damp(up,iz) = Atom%damp(up,iz) + &
                                    1d-8*CulI(iz)*p_pop(iz)/c/4d0/PI
-              end do
 
-            ! Levels
+              end do ! Heights
+
+            ! If collision between levels
             else if (p_T%col_type.eq.1) then
 
-              ! Compute actual
+              ! For each height
               do iz=1,nZ
 
+                ! Compute actual rate
                 Atom%CcoeffJ(up,low,iz) = CulI(iz)*p_pop(iz) + &
                                           Atom%CcoeffJ(up,low,iz)
-              end do
 
-            end if
+              end do ! Heights
+
+            end if ! Term-term or level-level
 
 
           !
-          ! b-f
+          ! b-f symmetric
           !
           else if (Atom%inelas(icol)%col_type.eq.1.or. &
                    Atom%inelas(icol)%col_type.eq.4) then
 
+            ! Collision with electrons
             if (Atom%inelas(icol)%col_type.eq.1) then
               c2dump = 'FE'
               p_pop = Atmo%ne
+            ! Collision with neutral hydrogen
             else if (Atom%inelas(icol)%col_type.eq.4) then
               c2dump = 'FH'
               p_pop = Atmo%nh(:,1)
             end if
 
-            ! If any flag for this table
+            ! If any scale mode
             if (p_T%nion.ge.0) then
 
               ! Calculate difference of energies
               Dfreq2 = abs(Eu-El)*c2*1d4
+
+              ! And scale rate
               Culin = Atom%inelas(icol)%Cul* &
                       exp(Dfreq2/p_T%temp)/ &
                       sqrt(p_T%temp)
-            else
-              Culin = Atom%inelas(icol)%Cul
-            end if
 
-            ! Interpolate the table
+            ! No scale
+            else
+
+              ! Keep just the rate
+              Culin = Atom%inelas(icol)%Cul
+
+            end if ! Scale mode
+
+            ! Interpolate in the tabulation
             call colinter(p_T%temp,Culin,p_T%nTmp, &
                           Atmo%T,CulI,nZ,p_T%flin,lin)
+
+            ! If the interpolation ended up being linear and it is
+            ! master
             if (lin.and.pid.eq.0) then
+
+              ! Write message
               write(umsg,'(A,1x,i4,1x,"-->",i4,1x,A,1x,A,1x,A)') &
                   ' # Inelastic collisional rate '//c2dump//' ', &
                   low,up,'between levels in atom', &
                   Atom%Element,'was negative with Spline '// &
                   'interpolation, did linear.'
               call verbose
-            end if
 
-            ! If any flag for this table
+            end if ! If had to do linear and is master
+
+            ! If any scale mode
             if (p_T%nion.ge.0) then
+
+              ! Revert products
               CulI = CulI*sqrt(Atmo%T)/exp(Dfreq2/Atmo%T)
-            end if
+
+            end if ! Any scale mode
 
             ! Convertion to 10^8 s-1
             CulI = CulI*1d-8
 
-            ! Compute actual rate
+            ! For every height
             do iz=1,nZ
 
+              ! Compute actual rate
               Atom%CcoeffJ(low,up,iz) = CulI(iz)*p_pop(iz) + &
                                         Atom%CcoeffJ(low,up,iz)
-            end do
+
+            end do ! Heights
 
           !
-          ! Charge transfer
+          ! Charge transfer rate
           !
           else if (Atom%inelas(icol)%col_type.eq.5.or. &
                    Atom%inelas(icol)%col_type.eq.6) then
 
-            ! Create the next box and point p_col to it
+            ! If not the first non-symmetric collision
             if (associated(Atom%Ccoeff_special)) then
+
+              ! Create the next box and point p_col to it
               p_col => Atom%Ccoeff_special
               do while (associated(p_col%next))
                 p_col => p_col%next
@@ -663,77 +728,118 @@
               allocate(p_col%next)
               p_col => p_col%next
               nullify(p_col%next)
+
+            ! First non-symmetric collision
             else
+
+              ! Allocate Ccoeff_special and point p_col to it
               allocate(Atom%Ccoeff_special)
               p_col => Atom%Ccoeff_special
               nullify(p_col%next)
-            end if
 
-            ! Direction
+            end if ! First non-symmetric collision
+
+            ! If up-low collision
             if (Atom%inelas(icol)%col_type.eq.5) then
+
+              ! Configure
               p_col%ifrom = up
               p_col%ito = low
               c2dump = 'c0'
               p_pop = Atmo%nh(:,1)
+
+            ! If low-up collision
             else
+
+              ! Configure
               p_col%ifrom = low
               p_col%ito = up
               c2dump = 'c+'
               p_pop = Atmo%nh(:,6)
-            end if
 
-            ! Coefficient
+            end if ! up->low or low->up
+
+            ! Allocate coefficient
             allocate(p_col%C(nZ))
+            MRAMc = MRAMc + 1d-6*(12 + sizeof(p_col%C))
 
-            ! If neutral or ion flag, factorize weights
+            ! If neutral or ion scale mode
             if (p_T%nion.ge.0.and.p_T%nion.le.3) then
 
+              ! Get input and multiply by upper level/term degeneracy
               Culin = Atom%inelas(icol)%Cul*gu
 
-              ! If neutral
+              ! If neutral scale mode
               if (p_T%nion.eq.0.or.p_T%nion.eq.2) then
+
+                ! Divide by degeneracy lower level/term and
+                ! temperature factor
                 Culin = Culin/gl
                 Culin = Culin/sqrt(p_T%temp)
-              ! If ion
-              else
-                Culin = Culin*sqrt(p_T%temp)
-              end if
-            else
-              Culin = Atom%inelas(icol)%Cul
-            end if
 
-            ! Interpolate the table
+              ! If ion scale mode
+              else
+
+                ! Multiply by temperature factor
+                Culin = Culin*sqrt(p_T%temp)
+
+              end if ! Neutral or ion scale mode
+
+            ! No scale mode
+            else
+
+                ! Multiply by temperature factor
+              Culin = Atom%inelas(icol)%Cul
+
+            end if ! Type of scaling
+
+            ! Interpolate in the tabulation
             call colinter(p_T%temp,Culin,p_T%nTmp, &
                           Atmo%T,p_Col%C,nZ,p_T%flin,lin)
+
+            ! If the interpolation ended up being linear and it is
+            ! master
             if (lin.and.pid.eq.0) then
+
+              ! Write message
               write(umsg,'(A,1x,i4,1x,"-->",i4,1x,A,1x,A,1x,A)') &
                   ' # Inelastic collisional rate '// &
                   c2dump//' ',up,low,'between levels in atom', &
                   Atom%Element,'was negative with Spline '// &
                   'interpolation, did linear.'
               call verbose
-            end if
 
-            ! If neutral or ion flag, factorize weights
+            end if ! If had to do linear and is master
+
+            ! If neutral or ion scale mode
             if (p_T%nion.ge.0.and.p_T%nion.le.3) then
 
+              ! Divide by upper level degeneracy
               p_Col%C = p_Col%C/gu
 
-              ! If neutral
+              ! If neutral scale mode
               if (p_T%nion.eq.0.or.p_T%nion.eq.2) then
+
+                ! Revert products
                 p_Col%C = p_Col%C*gl
                 p_Col%C = p_Col%C*sqrt(Atmo%T)
-              ! If ion
+
+              ! If ion scale mode
               else
+
+                ! Revert products
                 p_Col%C = p_Col%C/sqrt(Atmo%T)
-              end if
-            end if
+
+              end if ! Scale mode
+            end if ! If any scale mode
 
             ! Convertion to 10^8 s-1
             p_Col%C = p_Col%C*1d-8
 
             ! Get rate
             p_Col%C = p_Col%C*p_pop
+
+            ! Flag 2 (stage change)
             p_Col%flag = 2
 
             ! Nullify pointer
@@ -741,15 +847,22 @@
 
           end if ! Type of collision
 
-          ! Deallocate table data
-          if (free) deallocate(Atom%inelas(icol)%Cul)
+          ! If memory can be fred
+          if (free) then
+
+            ! Deallocate table data
+            MRAMc = MRAMc - 1d-6*sizeof(Atom%inelas(icol)%Cul)
+            deallocate(Atom%inelas(icol)%Cul)
+            MRAMc = MRAMc - 1d-6*sizeof(Atom%inelas(icol))
+
+          end if ! Can free memory
 
         end do ! Collisional rates
 
-        ! Deallocate inelastic database
+        ! If can free memory, deallocate inelastic database
         if (free) deallocate(Atom%inelas)
 
-        ! Deallocate Tbox
+        ! Deallocate Tbox if possible
         if (free) then
 
           ! For every collision
@@ -765,6 +878,7 @@
             end do ! Forward navigation
 
             ! Deallocate temp
+            MRAMc = MRAMc - 1d-6*sizeof(p_T%temp)
             deallocate(p_T%temp)
 
             ! Remove the last one
@@ -773,17 +887,22 @@
               deallocate(p_T_p%next)
               nullify(p_T_p%next)
               nullify(p_T_p)
+            ! We are in the last one
             else
               nullify(p_T)
               deallocate(Atom%Tbox)
               nullify(Atom%Tbox)
             end if
 
+            ! Memory count
+            MRAMc = MRAMc - 20d-6
+
           end do ! Every collision
 
-        ! Not freeing data, just nullify pointer
+        ! Not freeing data
         else
 
+          ! Just nullify pointer
           nullify(p_T)
 
         end if ! Have to free data
@@ -799,11 +918,16 @@
         ! wise ones
         !
 
-        ! If multilevel, just copy
+        ! If multilevel atom, we just need to copy
         if (Atom%ML) then
 
+          ! Get current maximum collision index
           icol = maxval(Atom%icol)
+
+          ! For each lower level
           do ilevel=1,Atom%nMulti-1
+
+            ! For each upper level
             do ilevel1=ilevel+1,Atom%nMulti
 
               ! If ionizing, skip
@@ -815,6 +939,7 @@
               ! If this collision is forbidden, don't include it
               if (Atom%fcflag(ilevel1,ilevel).gt.0) cycle
 
+              ! Save the rate in the term-term array
               Atom%Ccoeff(ilevel1,ilevel,:) = &
                                         Atom%CcoeffJ(ilevel1,ilevel,:)
 
@@ -823,26 +948,34 @@
                                  Atom%Ccoeff(ilevel1,ilevel,1:nZ)/c/ &
                                  (4d0*PI) + Atom%damp(ilevel1,1:nZ)
 
+              ! Background atoms are done
               if (.not.active) cycle
 
-              ! And index the new transition if it exists
+              ! If the transition exists
               if (maxval(Atom%Ccoeff(ilevel1,ilevel,:)).gt.0d0) then
 
+                ! Advance index
                 icol = icol + 1
 
+                ! And index this collisional transition
                 Atom%icol(ilevel1,ilevel) = icol
                 Atom%icol(ilevel,ilevel1) = icol
 
-              end if
+              end if ! There is a transition
 
-            end do
-          end do
+            end do ! Upper level
+          end do ! Lower level
 
-        ! If multi-term, do it proper
+        ! If multi-term, we need to do the averages
         else
 
+          ! Get current maximum transition index
           icol = maxval(Atom%icol)
+
+          ! Lower term
           do iterm=1,Atom%nMulti-1
+
+            ! Upper term
             do iterm1=iterm+1,Atom%nMulti
 
               ! If ionizing, skip
@@ -851,9 +984,13 @@
               ! If there is already a term-term collision, skip
               if (Atom%icol(iterm,iterm1).gt.0) cycle
 
+              ! Upper level
               do iJ1=1,Atom%nJ(iterm1)
+
+                ! Lower level
                 do iJ=1,Atom%nJ(iterm)
 
+                  ! Get continuous level index
                   ilevel = Atom%irho(iterm)%irho_ij(iJ)
                   ilevel1 = Atom%irho(iterm1)%irho_ij(iJ1)
 
@@ -861,52 +998,70 @@
                   ! on in the average
                   if (Atom%fcflag(ilevel1,ilevel).gt.0) cycle
 
+                  ! Add contribution to the average
                   Atom%Ccoeff(iterm1,iterm,:) = &
                                     Atom%Ccoeff(iterm1,iterm,:) + &
                                   (2d0*Atom%rJval(iJ1,iterm1)+1d0)* &
                                   Atom%CcoeffJ(ilevel1,ilevel,:)/ &
                                   Atom%deg(iterm1)
 
-                end do
-              end do
+                end do ! Lower level
+              end do ! Upper level
 
               ! Add to the damping parameter
               Atom%damp(iterm1,1:nZ) = 1d-8* &
                                  Atom%Ccoeff(iterm1,iterm,1:nZ)/c/ &
                                 (4d0*PI) + Atom%damp(iterm1,1:nZ)
 
+              ! Background atoms are done here
               if (.not.active) cycle
 
-              ! And index the new transition if it exists
+              ! If there is a transition
               if (maxval(Atom%Ccoeff(iterm1,iterm,:)).gt.0d0) then
 
+                ! Advance index
                 icol = icol + 1
 
+                ! Save transition index
                 Atom%icol(iterm1,iterm) = icol
                 Atom%icol(iterm,iterm1) = icol
 
-              end if
+              end if ! There is a transition
 
-            end do
-          end do
+            end do ! Upper term
+          end do ! Lower term
 
-        end if ! MT or ML
+        end if ! Multi-level or multi-term
 
-
-        ! If passive, remove all collisional data
+        ! If background atom
         if (.not.active) then
 
-          deallocate(Atom%Ccoeff)
-          deallocate(Atom%CcoeffJ)
-          if (allocated(Atom%fcflag).and. &
-              free) deallocate(Atom%fcflag)
-          deallocate(Atom%icol)
+          ! Remove collisional data
+          if (allocated(Atom%Ccoeff)) then
+            MRAMc = MRAMc - 1d-6*sizeof(Atom%Ccoeff)
+            deallocate(Atom%Ccoeff)
+          end if
+          if (allocated(Atom%CcoeffJ)) then
+            MRAMc = MRAMc - 1d-6*sizeof(Atom%CcoeffJ)
+            deallocate(Atom%CcoeffJ)
+          end if
+          if (allocated(Atom%icol)) then
+            MRAMc = MRAMc - 1d-6*sizeof(Atom%icol)
+            deallocate(Atom%icol)
+          end if
 
-          ! Do while there is data
+          ! If we can free memory, do it
+          if (allocated(Atom%fcflag).and.free) then
+            MRAMc = MRAMc - 1d-6*sizeof(Atom%fcflag)
+            deallocate(Atom%fcflag)
+          end if
+
+          ! While there is data in non-symmetric rates
           do while (associated(Atom%Ccoeff_special))
 
             ! Initialize
             p_col => Atom%Ccoeff_special
+            nullify(p_col_p)
 
             ! Go to the last one
             do while (associated(p_col%next))
@@ -915,24 +1070,29 @@
             end do ! Forward navigation
 
             ! Deallocate content
+            MRAMc = MRAMc - 1d-6*sizeof(p_col%C)
             deallocate(p_col%C)
 
             ! Remove the last one
             if (associated(p_col_p)) then
               nullify(p_col_p%next)
               nullify(p_col_p)
+            ! We are in the last one
             else
               deallocate(Atom%Ccoeff_special)
               nullify(Atom%Ccoeff_special)
               nullify(p_col)
             end if
 
+            ! Memory count
+            MRAMc = MRAMc - 12d-6
+
           end do ! There is data
 
-        ! If active
+        ! If active atom
         else
 
-          ! Output file if active and master
+          ! Output file if active, requested, and master
           if (pid.eq.0.and.aout) then
 
             ! Open file
@@ -947,48 +1107,78 @@
             do iterm=1,Atom%nMulti
               do iterm1=1,Atom%nMulti
 
+                ! Only report up->down
                 if (iterm.ge.iterm1) cycle
+
+                ! Do not consider different stages here
                 if (Atom%stage(iterm).ne.Atom%stage(iterm1)) cycle
 
-                ! Check if there is term collisional rate
+                ! Check if there is not term-term collisional rate
                 if (Atom%icol(iterm1,iterm).lt.1) then
+
+                  ! Report
                   write(200,'(A)') ' '
                   write(200,'("No rate from term",1x,i4,'// &
                             '1x,"to term",1x,i4)') iterm1,iterm
+
+                ! There is a term-term rate
                 else
+
+                  ! Report
                   write(200,'(A)') ' '
                   write(200,'("Yes rate from term",1x,i4,'// &
                             '1x,"to term",1x,i4)') iterm1,iterm
-                end if
 
+                end if ! If there is a rate
+
+                ! For each pair of sublevels
                 do iJ1=1,Atom%nJ(iterm1)
                   do iJ=1,Atom%nJ(iterm)
 
+                    ! Get level indexes
                     ilevel = Atom%irho(iterm)%irho_ij(iJ)
                     ilevel1 = Atom%irho(iterm1)%irho_ij(iJ1)
 
+                    ! Only report up->down
                     if (ilevel.ge.ilevel1) cycle
 
+                    ! If there is a rate
                     if (maxval(Atom%CcoeffJ(ilevel1,ilevel,:)) &
                         .gt.0d0) then
+
+                      ! If allowed
                       if (Atom%fcflag(ilevel1,ilevel).eq.0) then
+
+                        ! Report
                         write(200,'("Allowed rate from level",1x,'// &
                                   'i4,1x,"to level",1x,i4)') &
                                   ilevel1,ilevel
+
+                      ! If forbidden
                       else if (Atom%fcflag(ilevel1,ilevel).eq.1) then
+
+                        ! Report
                         write(200,'("Forbidden rate from level",'// &
                                   '1x,i4,1x,"to level",1x,i4)') &
                                   ilevel1,ilevel
-                      end if
+
+                      end if ! Allower/forbidden
+
+                    ! There is no rate
                     else
+
+                      ! Report
                       write(200,'("No rate from level",1x,i4,1x,'// &
                                 '"to level",1x,i4)') ilevel1,ilevel
-                    end if
-                  end do
-                end do
-              end do
-            end do
 
+                    end if ! If there is a rate
+
+                  end do ! Lower level
+                end do ! Upper level
+              end do ! Lower term
+            end do ! Upper term
+
+            ! Close report file
             close(200)
 
           end if ! Master
@@ -1006,42 +1196,50 @@
             do ilevel1=2,Atom%nMulti
               do ilevel=1,ilevel1-1
 
+                ! Skip if there is already a rate
                 if (maxval(Atom%CcoeffJ(ilevel1,ilevel,:)).gt.0d0) &
                   cycle
 
+                ! Get transition index
                 icol = Atom%icol(ilevel1,ilevel)
 
-                ! Check there is a collision
+                ! Check there is not a collision, skip
                 if (icol.lt.1) cycle
 
+                ! Copy rate
                 Atom%CcoeffJ(ilevel1,ilevel,:) = &
                                          Atom%Ccoeff(ilevel1,ilevel,:)
 
+                ! Check orbital momentum selection rule
                 if (nint(abs(Atom%rLval(ilevel) - &
                              Atom%rLval(ilevel1))).gt.1.or. &
                     nint(Atom%rLval(ilevel) + &
                          Atom%rLval(ilevel1)).eq.0) then
+
+                  ! Flag forbidden
                   Atom%fcflag(ilevel1,ilevel) = 1
                   Atom%fcflag(ilevel,ilevel1) = 1
 
-                ! If allowed by orbital angular momentum, check
-                ! angular momentum
+                ! If allowed by orbital angular momentum
                 else
 
+                  ! Check total angular momentum selection rule
                   if(nint(abs(Atom%rJval(1,ilevel1)- &
                      Atom%rJval(1,ilevel))).gt.1.or. &
                      nint(Atom%rJval(1,ilevel1)+ &
                      Atom%rJval(1,ilevel)).eq.0) then
 
+                    ! Flag forbidden
                     Atom%fcflag(ilevel1,ilevel) = 1
                     Atom%fcflag(ilevel,ilevel1) = 1
 
+                  ! Passed selection rules
                   else
 
-                    ! Not connected radiatively, assume same
-                    ! parity
+                    ! Not connected radiatively
                     if (Atom%irad(ilevel,ilevel1).lt.1) then
 
+                      ! Assume same parity, forbidden
                       Atom%fcflag(ilevel1,ilevel) = 1
                       Atom%fcflag(ilevel,ilevel1) = 1
 
@@ -1059,42 +1257,54 @@
             do iterm1=2,Atom%nMulti
               do iterm=1,iterm1-1
 
+                ! Get transition index
                 icol = Atom%icol(iterm1,iterm)
 
-                ! Check there is a collision
+                ! Skip if there is no rate
                 if (icol.lt.1) cycle
 
+                ! Get quantum numbers
                 rL1 = Atom%rLval(iterm1)
                 rL = Atom%rLval(iterm1)
                 S = Atom%Sval(iterm1)
 
-                ! For every pair of levels
+                ! For every upper level (within term)
                 do iJ1=1,Atom%nJ(iterm1)
+
+                  ! Get level index and angular momentum
                   ilevel1 = Atom%irho(iterm1)%irho_ij(iJ1)
                   rJ1 = Atom%rJval(iJ1,iterm1)
 
+                  ! For every lower level (within term)
                   do iJ=1,Atom%nJ(iterm)
+
+                    ! Get level index and angular momentum
                     ilevel = Atom%irho(iterm)%irho_ij(iJ)
                     rJ = Atom%rJval(iJ,iterm)
 
+                    ! If there is a rate already, skip
                     if (maxval(Atom%CcoeffJ(ilevel1,ilevel,:)).gt. &
                         0d0) cycle
 
+                    ! Compute 6J symbol
                     W6 = fun6j(rL1,rL,1d0,rJ,rJ1,S,Flgsg)
 
+                    ! If the symbol is zero, skip
                     if (abs(W6).le.0d0) cycle
 
+                    ! Scale factors
                     W6 = (2d0*rL1+1d0)*(2d0*rJ+1d0)*W6*W6
 
+                    ! Compute level to level rate
                     Atom%CcoeffJ(ilevel1,ilevel,:) = &
                                         Atom%Ccoeff(iterm1,iterm,:)*W6
 
-                  end do
-                end do ! Every pair of J levels
-              end do
-            end do ! Every pair of terms
+                  end do ! Lower level
+                end do ! Upper level
+              end do ! Lower term
+            end do ! Upper term
 
-          end if ! ML or MT
+          end if ! Multi-level or multi-term
 
 
           !
@@ -1102,28 +1312,33 @@
           ! low-up exciting collisions
           !
 
-          ! For each pair of terms
+          ! For each lower term
           do it=1,Atom%nMulti-1
+
+            ! For each upper term
             do itt=it,Atom%nMulti
 
               ! If they are in different ions
               if (Atom%stage(it).ne.Atom%stage(itt)) then
 
-                ! For each pair of FS levels
+                ! For each level in lower term
                 do iJ=1,Atom%nJ(it)
+
+                  ! For each level in upper term
                   do iJJ=1,Atom%nJ(itt)
 
                     ! Determine the level indexes
                     i = Atom%irho(it)%irho_ij(iJ)
                     ii = Atom%irho(itt)%irho_ij(iJJ)
 
-                    ! If there is a collisional rate associated
-                    ! with the collisional ionization
+                    ! If there is not a collisional rate associated
+                    ! with the collisional ionization, skip
                     if (maxval(Atom%CcoeffJ(i,ii,:)).le.0d0) cycle
 
-                    ! Compute for each height the collisional
-                    ! recombination rate
+                    ! For each height
                     do iz=1,nz
+
+                      ! Compute the recombination rate
                       Atom%CcoeffJ(ii,i,iz) = Atom%CcoeffJ(i,ii,iz)* &
                                               Atom%populte(i,iz)/ &
                                               (Atom%populte(ii,iz) + &
@@ -1135,8 +1350,10 @@
               ! If they are in the same ion
               else
 
-                ! For each pair of FS levels
+                ! For each level in lower term
                 do iJ=1,Atom%nJ(it)
+
+                  ! For each level in upper term
                   do iJJ=1,Atom%nJ(itt)
 
                     ! If it is the same level, skip
@@ -1146,13 +1363,14 @@
                     i = Atom%irho(it)%irho_ij(iJ)
                     ii = Atom%irho(itt)%irho_ij(iJJ)
 
-                    ! If there is a collisional rate associated
-                    ! to the de-excitation
+                    ! If there is not a collisional rate associated
+                    ! to the de-excitation, skip
                     if (maxval(Atom%CcoeffJ(ii,i,:)).le.0d0) cycle
 
-                    ! Compute for each height the collisional
-                    ! excitation rate
+                    ! For each height
                     do iz=1,nz
+
+                      ! Compute the collisional excitation rate
                       Atom%CcoeffJ(i,ii,iz) = Atom%CcoeffJ(ii,i,iz)* &
                                               Atom%populte(ii,iz)/ &
                                               (Atom%populte(i,iz) + &
@@ -1161,40 +1379,49 @@
                   end do ! J for upper level
                 end do ! J for lower level
 
-                ! Check if there is a term collisional transition
+                ! Check if there is a term-term collisional transition
                 ! indexed
                 icol = Atom%icol(it,itt)
+
+                ! If there is not, skip
                 if (icol.lt.1) cycle
 
                 ! Reset population vectors
                 nu = 0d0
                 nl = 0d0
 
-                ! Get the LTE population of the upper term
+                ! For each level in upper term
                 do iJJ=1,Atom%nJ(itt)
 
+                  ! Get level index
                   i = Atom%irho(itt)%irho_ij(iJJ)
+
+                  ! Accumulate the LTE population of the upper term
                   nu = nu + Atom%populte(i,:)
 
-                end do
+                end do ! Levels in upper term
 
-                ! Get the LTE population of the upper term
+                ! For each level in lower term
                 do iJ=1,Atom%nJ(it)
 
+                  ! Get level index
                   i = Atom%irho(it)%irho_ij(iJ)
+
+                  ! Accumulate the LTE population of the lower term
                   nl = nl + Atom%populte(i,:)
 
-                end do
+                end do ! Levels in lower term
 
-                ! Compute the quotient
+                ! Compute the LTE population ratio
                 nu = nu/nl
 
-                ! For each height determine the excitation rate
+                ! For each height
                 do iz=1,nz
 
+                  ! Determine the excitation rate
                   Atom%Ccoeff(it,itt,iz) = Atom%Ccoeff(itt,it,iz)* &
                                            nu(iz)
-                end do
+                end do ! Heights
 
               end if ! Ionization stage comparison
 
@@ -1209,6 +1436,7 @@
 
               ! Initialize
               p_col => Atom%Ccoeff_special
+              nullify(p_col_p)
 
               ! Go to the last one
               do while (associated(p_col%next))
@@ -1225,16 +1453,21 @@
               Atom%fcflag(p_col%ito,p_col%ifrom) = 2
 
               ! Deallocate data
+              MRAMc = MRAMc - 1d-6*sizeof(p_col%C)
               deallocate(p_col%C)
 
               ! Remove the last one
               if (associated(p_col_p)) then
                 nullify(p_col_p%next)
                 nullify(p_col_p)
+              ! We are in the last one
               else
                 nullify(Atom%Ccoeff_special)
                 nullify(p_col)
               end if
+
+              ! Memory count
+              MRAMc = MRAMc - 12d-6
 
             end do ! There is data
 

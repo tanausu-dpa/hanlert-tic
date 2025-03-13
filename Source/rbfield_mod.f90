@@ -5,58 +5,18 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     04/17/2017
+!     17/04/2017
 !  Last version:
-!     09/21/2023 V3.0.3
+!     17/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     09/21/2023:    V3.0.3 - Bugfix: Need to distinguish the run mode
-!                             to choose the correct verbose routine
-!                             to call (TdPA)
-!                           - For safety reasons, rbfield must be
-!                             called by all processes in
-!                             MPI_COMM_WORLD (TdPA)
-!
-!     08/11/2023:    V3.0.2 - Bugfix: verbosity for reading directed
-!                             to the wrong file and not limited to the
-!                             global master (TdPA)
-!
-!     03/15/2023:    V3.0.1 - Added the atmosphere size as argument
-!                             for the inversion branch (TdPA)
-!
-!     06/29/2022:    V3.0.0 - Changed global version (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!
-!     01/13/2021:    V1.1.3 - Removed capitalization (TdPA)
-!
-!     11/19/2019:    V1.1.2 - Removed checks in allocate and
-!                             deallocate calls (TdPA)
-!
-!     06/12/2019:    V1.1.1 - Fixed constant magnetic field numeric
-!                             input (TdPA)
-!
-!     02/20/2019:    V1.1.0 - New verbosity (TdPA)
-!                           - Checks for success of python routine
-!                             and unit is now 100 (TdPA)
-!                           - Now it can interpret numerical values
-!                             in the input for homogeneous fields
-!                             (TdPA)
-!
-!     08/08/2018:    V1.0.2 - Abort if the nodes in the magnetic field
-!                             file do not fit with the atmospheric
-!                             model (TdPA)
-!
-!     09/14/2017:    V1.0.1 - Added a path and ID to the file (TdPA)
-!
-!     04/17/2016:    V1.0.0 - First version (TdPA)
+!     17/12/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -66,9 +26,16 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    This subroutine reads the magnetic field data
+!  rBField
+!    Read the magnetic field stratification from the specified file or
+!  input
 !
 !#####################################################################
 !#####################################################################
@@ -86,13 +53,14 @@
 !#####################################################################
 !#####################################################################
 
-      !> Reads a file with magnetic field data.\n
+      !> Read the magnetic field stratification from the specified
+      !! file or input\n
       !!  filename(character(:)): Name of the file to read\n
-      !!    source(character(:)): Path to the source code\n
+      !!    source(character(:)): Path to the source code folder\n
       !!        ID(character(:)): ID of this run\n
       !!    Bfield(Bfield_class): Structure with magnetic field data\n
       !!            lnz(integer): Expected height nodes for the file\n
-      !!      Input(Input_class): Structure with input data
+      !!      Input(Input_class): Structure with configuration data
       subroutine rBField(filename,source,ID,Bfield,lnz,Input)
 
       ! I/O
@@ -105,49 +73,56 @@
 
       ! Local
 
-      character(len=65):: formt
       character(len=3):: cdump
       character(len=6):: formtBs
       character(len=4):: formtBt,formtBp
+      character(len=65):: formt
 
-      integer:: iz, nZ_bfield, ios
+      integer:: iz,nZ_bfield,ios
 
-      double precision:: B_l(lnZ), T_l(lnZ), F_l(lnZ)
+      double precision:: B_l(lnZ),T_l(lnZ),F_l(lnZ)
 
 
       ! If numeric values
       if (Input%bfieldn) then
 
-        ! Store in the structure
+        ! Allocate arrays
         allocate(Bfield%Bstrength(lnZ))
+        MRAMc = MRAMc + 1d-6*sizeof(Bfield%Bstrength)
         allocate(Bfield%Btheta(lnZ))
+        MRAMc = MRAMc + 1d-6*sizeof(Bfield%Btheta)
         allocate(Bfield%Bphi(lnZ))
+        MRAMc = MRAMc + 1d-6*sizeof(Bfield%Bphi)
 
         ! If no field
         if (Input%bfieldv(1).lt.0d0) then
 
+          ! Set to zero
           Bfield%Bstrength = 0d0
           Bfield%Btheta = 0d0
           Bfield%Bphi = 0d0
 
           ! If master
           if (gpid.eq.0) then
+
+            ! Verbose zero field
             umsg = ' - No magnetic field'
             if (run_mode.eq.-1) then
               call verbosev
             else
               call verbose
-            end if
-          end if
+            end if ! Run mode
+          end if ! Master
 
         ! If yes field
         else
 
+          ! Save in array (homogeneous)
           Bfield%Bstrength = Input%bfieldv(1)
           Bfield%Btheta = Input%bfieldv(2)
           Bfield%Bphi = Input%bfieldv(3)
 
-          ! Adjust angles
+          ! Adjust angles (they are still in degrees)
           do while (Bfield%Btheta(1).lt.0d0)
             Bfield%Btheta = Bfield%Btheta + 360d0
           end do
@@ -163,6 +138,8 @@
 
           ! If master (global)
           if (gpid.eq.0) then
+
+            ! Determine correct format for |B|
             if (Bfield%Bstrength(1).gt.9999.9d0.or. &
                 Bfield%Bstrength(1).lt.0.1d0) then
               formtBs = 'es7.1'
@@ -177,6 +154,8 @@
                 formtBs = 'f6.1'
               end if
             end if
+
+            ! Determine correct format for \Theta_B
             if (Bfield%Btheta(1).lt.10d0) then
               formtBt = 'f3.1'
             else if (Bfield%Btheta(1).lt.100d0) then
@@ -184,6 +163,8 @@
             else
               formtBt = 'f5.1'
             end if
+
+            ! Determine correct format for \Phi_B
             if (Bfield%Bphi(1).lt.10d0) then
               formtBp = 'f3.1'
             else if (Bfield%Bphi(1).lt.100d0) then
@@ -191,6 +172,8 @@
             else
               formtBp = 'f5.1'
             end if
+
+            ! Verbose magnetic field constant value
             formt = "(' - Constant magnetic field: ',"// &
                     trim(formtBs)//",'G ',"// &
                     formtBt//",'º ',"//formtBp//",'º')"
@@ -201,20 +184,22 @@
               call verbosev
             else
               call verbose
-            end if
-          end if
+            end if ! Type of run
+          end if ! Global master
 
+          ! Transform angles to radians
           Bfield%Btheta = Bfield%Btheta/RAD
           Bfield%Bphi = Bfield%Bphi/RAD
 
-        end if
+        end if ! If actual magnetic field value
 
+        ! And leave
         return
 
-      end if ! Numeric field
+      end if ! Numeric constant input for magnetic field
 
 
-      ! If no file, no magnetic field
+      ! If no file
       if(trim(filename).eq.'NONE')then
 
         ! No Magnetic field
@@ -224,130 +209,162 @@
           F_l(iz) = 0d0
         end do
 
-        ! If Master
+        ! If global Master
         if (gpid.eq.0) then
+
+          ! Verbose
           umsg = ' - No magnetic field'
           if (run_mode.eq.-1) then
             call verbosev
           else
             call verbose
-          end if
-        end if
+          end if ! Type of run
+        end if ! Global Master
 
       ! If there is a file, read the magnetic field
       else
 
-        ! Yes magnetic field
+        ! Translate the magnetic field file in python
         if(gpid.eq.0) call system('python '//trim(source)// &
                                  'rbfield.py '//trim(filename)// &
                                  ' '//ID//' '//verbosef)
+
         ! Wait for the master to finish
         call MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
+        ! Open translated file
         open(100, file='tmp_bfield_'//ID, status='old', &
              iostat=ios,err=1000)
 
         ! Success
         read (100,*,err=1100) ios
 
-        ! If no correct file, abort
+        ! If no correct file
         if (ios.lt.0) then
 
+          ! Issue error
           umsg = 'Problem translating the magnetic file'
           goto 1200
 
-        end if
+        end if ! Wrong file
 
+        ! Read dimension in input model
         read(100,*,err=1100) nZ_bfield
 
-        ! If height dependent
+        ! If height dependent and equal to model atmosphere
         if(nZ_bfield.eq.lnZ)then
 
-          ! Correct dimensions
+          ! Read angular units
           read(100,*,err=1100) cdump
 
+          ! For each height
           do iz=1,lnZ
 
+            ! Read magnetic field in polar coordinates
             read(100,*,err=1100) B_l(iz), T_l(iz), F_l(iz)
 
-            if(trim(cdump).eq.'DEG')then
+          end do ! Heights
 
-              T_l(iz) = T_l(iz)/RAD
-              F_l(iz) = F_l(iz)/RAD
+          ! If input is in degrees
+          if(trim(cdump).eq.'DEG')then
 
-            end if
+            ! Transform into radians
+            T_l = T_l/RAD
+            F_l = F_l/RAD
 
-          end do
+          end if ! Input in degrees
 
         ! If homogeneous
         else if(nZ_bfield.eq.1)then
 
-          ! Simplified input
+          ! Read angular units
           read(100,*,err=1100) cdump
+
+          ! Read magnetic field in polar coordinates
           read(100,*,err=1100) B_l(1), T_l(1), F_l(1)
 
+          ! If input is in degrees
           if(trim(cdump).eq.'DEG')then
 
+            ! Transform into radians
             T_l(1) = T_l(1)/RAD
             F_l(1) = F_l(1)/RAD
 
-          end if
+          end if ! Input in degrees
 
+          ! For the rest of heights
           do iz=2,lnZ
 
+            ! Copy value
             B_l(iz) = B_l(1)
             T_l(iz) = T_l(1)
             F_l(iz) = F_l(1)
 
-          end do
+          end do ! Heights
 
         ! If none of the others
         else
 
-          ! Wrong input
+          ! Wrong input, issue error
           umsg = 'The field provided does not have the'// &
                  ' same length than the atmosphere'
           goto 1200
 
-        end if
+        end if ! Height dimension of input
 
+        ! Close file
         close(100)
 
         ! Control that everything went fine
         call control
 
-        ! Delete temporal input file
+        ! Global Master
         if (gpid.eq.0) then
+
+          ! Delete temporal input file
           call system('rm tmp_bfield_'//ID)
+
+          ! Verbose
           umsg = ' - Magnetic field '//trim(filename)//' read'
           if (run_mode.eq.-1) then
             call verbosev
           else
             call verbose
-          end if
-        end if
+          end if ! Type of run
+        end if ! Global Master
+      end if ! Specified file or not
 
-      end if
-
-      ! Store in the structure
+      ! Allocate structure arrays
       allocate(Bfield%Bstrength(lnZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Bfield%Bstrength)
       allocate(Bfield%Btheta(lnZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Bfield%Btheta)
       allocate(Bfield%Bphi(lnZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Bfield%Bphi)
 
+      ! For each height
       do iz=1,lnZ
 
+        ! Copy |B|
         Bfield%Bstrength(iz) = B_l(iz)
 
-        ! Make sure that is no field no rotation if there is no B
+        ! If |B| is too small
         if(Bfield%Bstrength(iz).le.TINYB)then
+
+          ! No angles
           Bfield%Btheta(iz) = 0d0
           Bfield%Bphi(iz) = 0d0
+
+        ! Significant |B|
         else
+
+          ! Store angles
           Bfield%Btheta(iz) = T_l(iz)
           Bfield%Bphi(iz) = F_l(iz)
-        end if
 
-      enddo
+        end if ! |B| value
+
+      enddo ! Heights
 
       ! Control that everything went fine
       call control

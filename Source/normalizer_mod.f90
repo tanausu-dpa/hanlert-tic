@@ -5,265 +5,24 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
-!     Roberto Casini (HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     04/20/2017
+!     20/04/2017
 !  Last version:
-!     09/23/2024 V3.0.12
+!     12/03/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     09/23/2024:   V3.0.12 - Changed the format in the writing of
-!                             atmospheric models in ASCII to the
-!                             recommended ratio between digits and
-!                             decimals (TdPA)
-!
-!     05/14/2024:   V3.0.11 - Added a new argument to the
-!                             normalization subroutine. If this
-!                             argument is true, the routine returns
-!                             after setting up the geometry indexing
-!                             of the relevant structure (TdPA)
-!
-!     03/15/2024:   V3.0.10 - Save Voigt profile files in the output
-!                             folder (TdPA)
-!                           - Use array-stored indexes to run over
-!                             the Normp pointer in the Atom class
-!                             when freeing normalization (TdPA)
-!                           - Use array-stored indexes to run over
-!                             the prof pointer in the LTEline class
-!                             when freeing profiles (TdPA)
-!
-!     10/16/2023:    V3.0.9 - Made LTElines allocatable to satisfy
-!                             memory warnings (TdPA)
-!                           - The bad normalization files are now
-!                             written in the output directory (TdPA)
-!                           - Use the lower and upper limits of
-!                             Atom%Normp to run the loops (TdPA)
-!                           - Check that %Norm is allocated before
-!                             trying to deallocate (TdPA)
-!
-!     10/04/2023:    V3.0.8 - Bugfix: LTE lines were not working when
-!                             not storing their Voigt profiles. Added
-!                             a dummy prof structure of size 1 to
-!                             point to in RT coeff whenever that is
-!                             the case (TdPA)
-!                           - The count of M components for LTE lines
-!                             is now done elsewhere (TdPA)
-!
-!     09/26/2023:    V3.0.7 - Improved message for badnorm (TdPA)
-!                           - Changed named of badnorm files to
-!                             global ID, not local (TdPA)
-!
-!     09/25/2023:    V3.0.6 - Changed name of Voigt p. files (TdPA)
-!
-!     08/28/2023:    V3.0.5 - Changed check in allocation of
-!                             normalization in atom class (TdPA)
-!
-!     08/07/2023:    V3.0.4 - Added normalization(), which contain the
-!                             logic that used to be in the hanle
-!                             routine, with the LTE lines added (TdPA)
-!                           - Moved the geometry part of normalize and
-!                             normalizeI to normalization(), avoiding
-!                             repeating the same twice. This entails
-!                             new arguments in both routines (TdPA)
-!                           - Added getprof_LTE and getprofI_LTE
-!                             routines (TdPA)
-!
-!     11/24/2022:    V3.0.3 - Set VRAM to False always in CLE (TdPA)
-!
-!     10/25/2022:    V3.0.2 - Implemented the restriction of the
-!                             height axis (TdPA)
-!                           - Added normalize_cle to just put
-!                             everything to 1 in the CLE case (TdPA)
-!
-!     07/27/2022:    V3.0.1 - Renamed MPI to MPID (TdPA)
-!                           - Removed MPI%ierr variable (TdPA)
-!                           - funit is now global (TdPA)
-!                           - MPID is no longer necessary in
-!                             validatevoigtI (TdPA)
-!
-!     06/29/2022:    V3.0.0 - To implement the 1.5D case the following
-!                             changes were needed:
-!                              o Atmo%v has changed to Atmo%vx,%vy,
-!                                and %vz.
-!                              o Added returns for when we need to
-!                                abort the run.
-!                              o Changed the MPI communicator from
-!                                MPI_COMM_WORLD to MPI_COMM_RT.
-!                             (TdPA)
-!                           - Fixed a typo in a warning message (TdPA)
-!
-!     03/23/2021:    V2.0.1 - Changed call to abortedS (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!                           - Removed domain decomposition (TdPA)
-!
-!     02/09/2021:    V1.7.4 - Bugfix: Missing recall of quantum
-!                             numbers when counting the expected
-!                             memory to be allocated for profiles
-!                             in Normalize in non-magnetic height
-!                             nodes (TdPA)
-!
-!     02/04/2021:    V1.7.3 - Added the possibility of ignoring MIT
-!                             for multi-term atoms with magnetic
-!                             field. It completely ignores them if
-!                             the magnetic resonance is off of the
-!                             permitted resonances by at least
-!                             MIT_Dw Doppler widths (TdPA)
-!                           - Bugfix: There were some VIRAM in
-!                             Normalize instead of VPRAM (TdPA)
-!
-!     09/15/2020:    V1.7.2 - Bugfix: In static magnetic cases there
-!                             could be a problem with the dimensions
-!                             of checkram (TdPA)
-!
-!     09/11/2020:    V1.7.1 - Added an extra variable to communicate
-!                             if the RAM limit was reached inside the
-!                             routine (TdPA)
-!                           - Moved the indexing of directions to the
-!                             beginning of the routine, because it
-!                             was not called in certain situations
-!                             for the LOS directions (TdPA)
-!                           - Bugfix: There was a VIRAM instead of a
-!                             VPRAM in normalize (TdPA)
-!                           - Now the storage of the normalization
-!                             values also counts for the RAM limit
-!                             in the Voigt profiles (TdPA)
-!                           - Bugfix: At some point in normalize,
-!                             there were some loops in the magnetic
-!                             sections where the upper boundaries
-!                             were not correctly initialized (TdPA)
-!                           - When deallocating profiles because they
-!                             could not be allocated in another CPU,
-!                             now the memory counter is updated (TdPA)
-!
-!     07/31/2020:    V1.7.0 - Bugfix: If we are storing Voigt profiles
-!                             in RAM, but the CPUs run out of memory,
-!                             this needs to be notified, because for
-!                             a given height, direction and
-!                             transition, it cannot happen that part
-!                             of the profile is kept and others are
-!                             not (TdPA)
-!
-!     06/05/2020:    V1.6.7 - size1 needs initialization after the
-!                             change cutting the directional
-!                             dimension (TdPA)
-!
-!     06/02/2020:    V1.6.6 - Avoid calling normalizations twice when
-!                             is not needed (TdPA)
-!                           - Limited the directional size of the
-!                             normalization array when possible (TdPA)
-!
-!     03/18/2020:    V1.6.5 - Bugfix: With domain decomposition, the
-!                             profile at the shared height node was
-!                             only being computed in one of the CPU.
-!                             Corrected it while avoiding double
-!                             communication to the master (TdPA)
-!
-!     01/23/2020:    V1.6.4 - Added output to file when the
-!                             normalization of profiles is not
-!                             accurate. There is a logical variable
-!                             that can switch it off upon compilation
-!                             if it produces files too big (TdPA)
-!                           - Bugfix: When validating a Voigt file
-!                             for intensity, the frequency jumps were
-!                             wrong (TdPA)
-!
-!     01/14/2020:    V1.6.3 - Bugfix: When adding file support I
-!                             changed the meaning of id(3) and id(4)
-!                             in normalize, but did not change the
-!                             index used to check the magnetic field
-!                             array element (TdPA)
-!
-!     12/10/2019:    V1.6.2 - Added digits in format of bad
-!                             normalization warning (TdPA)
-!
-!     11/19/2019:    V1.6.1 - Removed checks in allocate and
-!                             deallocate calls (TdPA)
-!                           - Changed the memory initialization (TdPA)
-!
-!     11/12/2019:    V1.6.0 - Added the possibility to store the Voigt
-!                             profiles in binary files (TdPA)
-!                           - Added routines to check existing Voigt
-!                             profile files (TdPA)
-!                           - Prepared the normalization routines to
-!                             work either for quadrature directions
-!                             or LOS directions, depending on an input
-!                             argument (TdPA)
-!                           - Changed the dimension order of the
-!                             Atom%Normp array (TdPA)
-!                           - Bugfix: When computing the RAM taken by
-!                             profiles, there were considered double
-!                             instead of double complex (TdPA)
-!
-!     10/02/2019:    V1.5.3 - Bugfix: Fixed wrong formatting for
-!                             warnings in normalizer (TdPA)
-!
-!     07/19/2019:    V1.5.2 - Added a check for bad normalizations.
-!                             The threshold is a parameter called
-!                             BADNORM (TdPA)
-!
-!     04/16/2019:    V1.5.1 - Implemented back the normal broadcasting
-!                             from mpi libraries (TdPA)
-!
-!     02/20/2019:    V1.5.0 - New verbosity (TdPA)
-!                           - Using specific TINY variables (TdPA)
-!                           - Changed cpulimit for old way of
-!                             communication (TdPA)
-!                           - Checks success of communications when
-!                             possible (TdPA)
-!
-!     09/05/2018:    V1.4.1 - Using the old way of communication for
-!                             smaller amounts of CPU, and updated
-!                             also the intensity subroutine (TdPA)
-!
-!     09/04/2018:    V1.4.0 - Had to change the communication
-!                             algorithm because it started to fail
-!                             in supercomputers due to excess of
-!                             messages (TdPA)
-!
-!     08/09/2018:    V1.3.2 - Bugfix: Forgot to apply the full change
-!                             in V1.3.1 to the normalizeI (TdPA)
-!
-!     08/08/2018:    V1.3.1 - Bugfix: Master does not need to manage
-!                             normalizations or normalize profiles
-!                             when they are stored. Removed that for
-!                             the Master (TdPA)
-!
-!     08/04/2018:    V1.3.0 - Stores Voigt profiles if requested
-!                             in the input (TdPA)
-!
-!     10/03/2017:    V1.2.0 - Implemented non-magnetic case (TdPA)
-!                           - Forgot to identify the terms in one non
-!                             magnetic part of normalize (TdPA)
-!
-!     09/28/2017:    V1.1.0 - Implemented send_tree algorithm to
-!                             avoid the terrible scaling of the native
-!                             mpi_bcast (TdPA)
-!
-!     07/19/2017:    V1.0.4 - Now using the proper weights in the
-!                             boundaries (TdPA)
-!
-!     06/16/2017:    V1.0.3 - Using the transition limits instead
-!                             of logical flags to check presence
-!                             of a transition (TdPA)
-!
-!     05/04/2017:    V1.0.2 - Eliminated status calls (TdPA)
-!                           - Changed domain decomposition isend by
-!                             send (TdPA)
-!                           - Avoiding to allocate Geom%i_geom
-!                             multiple times (TdPA)
-!
-!     05/03/2017:    V1.0.1 - Made sure that the isend with domain
-!                             decomposition waits properly every
-!                             time to not mix buffers and overlap
-!                             orders (TdPA)
-!
-!     04/20/2017:    V1.0.0 - First version (TdPA)
+!     12/03/2025:    V4.0.2 - Bugfix: There was an issue when
+!                             deallocating the %Norm array in mass
+!                             because the indexes of the LTE lines
+!                             were mixed with the active atoms (TdPA)
+!                           - Bugfix: in normalize, the sending buffer
+!                             with normalization data could have the
+!                             wrong size (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -273,39 +32,37 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!  normalization:
-!    manages the normalization and profile storage
+!  normalization
+!    Manage the normalization and precalculation of absorption
+!  profiles for the quadrature of the self-consistent problem
 !
-!  normalize:
-!    normalize profiles for term-term transitions taking into account
-!  the magnetic component
+!  normalize
+!    Normalize the absorption profiles for the polarization problem
 !
-!  getprof_LTE:
-!    pre-calculate profiles for LTE lines accounting for potential
-!  magnetic splitting
-!
-!  validatevoigt
-!    validates an existing file with Voigt profiles
+!  normalize_PRD
+!    Normalize the absorption profiles for the first order profiles
+!  in the PRD emissivity for the polarization problem
 !
 !  normalizeI:
-!    normalize profiles for FS transitions not taking into account
-!  the magnetic component
+!    Normalize the absorption profiles for the intensity problem
 !
-!  getprofI_LTE:
-!    pre-calculate profiles for LTE lines
-!
-!  validatevoigtI
-!    validates an existing file with Voigt (intensity) profiles
+!  normalizeI_PRD
+!    Normalize the absorption profiles for the first order profiles
+!  in the PRD emissivity for the intensity problem
 !
 !  writebadbound
-!    outputs into a file data about bad normalization of Voigt
-!  profiles
+!    Write warning about bad normalization of Voigt profiles in a file
 !
 !  normalize_cle
-!    Initialize normalization structures and set them to 1 for the
-!  CLE case
+!    Dummy initialization of the normalization structure for the CLE
+!  synthesis mode
 !
 !#####################################################################
 !#####################################################################
@@ -314,9 +71,12 @@
       ! Use
       use aborted_mod
       use commons_mod
+      use cram_mod
+      use free_mod
       use funnj_mod
       use parameters_mod , only : cZero, TINYB, TINYJS, TINYN, &
-                                  sqrt3, PI, c, BADNORM , TINYO, B2LK
+                                  sqrt3, PI, c, BADNORM , TINYO, &
+                                  B2LK, TINYVEL
       use profile_mod
       use setmpi_mod
       use types_mod
@@ -327,465 +87,126 @@
       ! CPU threshold to ask the master for permission
       integer:: cpulimit = 16
 
-      ! Maximum minimum Doppler distance for MIT not to be sampled
-      double precision:: MIT_Dw = 10d0
-
       contains
 
 !#####################################################################
 !#####################################################################
 !#####################################################################
 
-      !> Manages the normalization of profiles\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!      lines(LTEline_class): Structure with the LTE line data\n
-      !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !!      Bstrength(dfloat(:)): Magnetic field strength\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!        Input(Input_class): Structure with settings data\n
-      !!     Frec(Frequency_class): Structure with frequency data
-      !!            rlimw(logical): Write RAM limit message\n
-      !!              lit(logical): If the code had to iterate\n
-      !!     polarization(logical): Normalizing profiles for
-      !!                            polarization problem\n
-      !!              los(logical): Normalizing for LOS formal
-      !!                            solutions\n
-      !!        only_geom(logical): If only entering to set-up
-      !!                            the geometry
-      subroutine normalization(Atom,lines,Atmo,Bstrength,Geom,Frec, &
-                               Input,Flgsg,MPID,rlimw,lit, &
-                               polarization,los,only_geom)
+      !> Manage the normalization and precalculation of absorption
+      !! profiles for the quadrature of the self-consistent problem\n
+      !!         Atom(Atom_class(:)): Structures with atomic data\n
+      !!  LTElines(LTEline_class(:)): Structures with LTE line data\n
+      !!            Atmo(Atmo_class): Structure with atmospheric
+      !!                              data\n
+      !!        Bstrength(double(:)): Magnetic field strength\n
+      !!        Geom(Geometry_class): Structure with geometric data\n
+      !!       Frec(Frequency_class): Structure with frequency data\n
+      !!              Red(Red_class): Structure with redistribution
+      !!                              input frequency data,
+      !!                              redistribution function data,
+      !!                              and profile or normalization
+      !!                              data\n
+      !!          Input(Input_class): Structure with configuration
+      !!                              data\n
+      !!          Flgsg(Fctsg_class): Structure with factorials,
+      !!                              signs, and J-symbols\n
+      !!             MPID(MPI_class): Structure with MPI data\n
+      !!              rlimw(logical): If can write RAM limit message\n
+      !!       polarization(logical): Normalizing profiles for
+      !!                              polarization problem
+      subroutine normalization(Atom,LTElines,Atmo,Bstrength,Geom, &
+                               Frec,Red,Input,Flgsg,MPID,rlimw, &
+                               polarization)
 
-      ! IO
-      type(Atom_class), dimension(:):: Atom
-      type(LTEline_class), dimension(:), allocatable:: lines
+      ! I/O
+
+      type(Atom_class), dimension(:), intent(in):: Atom
+      type(LTEline_class), dimension(:), &
+                           allocatable, intent(in):: LTElines
       type(Atmo_class), intent(in):: Atmo
-      type(Geometry_class), intent(inout):: Geom
+      type(Geometry_class), intent(in):: Geom
       type(Frequency_class), intent(in):: Frec
-      type(Input_class):: Input
-      type(Fctsg_class):: Flgsg
-      type(MPI_class):: MPID
-      logical, intent(in):: polarization, los, lit, only_geom
+      type(Red_class), intent(inout):: Red
+      type(Input_class), intent(in):: Input
+      type(Fctsg_class), intent(inout):: Flgsg
+      type(MPI_class), intent(inout):: MPID
+      logical, intent(in):: polarization
       logical, intent(inout):: rlimw
       double precision, dimension(:), intent(in):: Bstrength
 
       ! Local
-      logical:: norm, exists, ofram
 
-      integer:: ia, ios, jdir, ith, iph, njdir
-      integer, dimension(:), allocatable:: ithv,iphv
+      logical:: ofram
 
+
+      ! Global master, verbose
+      if (gpid.eq.0) then
+        umsg = ' - Normalizing profiles'
+        call verbose
+      end if
 
       ! Polarization
       if (polarization) then
 
-        !
-        ! Initialize geometry
-        !
+        ! Normalize profiles
+        call normalize(Atom,LTElines,Atmo,Bstrength,Geom,MPID, &
+                       Frec,Red,Flgsg,Input%folder,ofram,0,0,.False.)
+        if (laborted) return
 
-        ! LOS
-        if (los) then
-
-          ! Directions
-          njdir = Geom%nPhLOS*Geom%nThLOS
-
-          ! Allocate indexing
-          if (allocated(Geom%i_geom)) deallocate(Geom%i_geom)
-          allocate(Geom%i_geom(Geom%nPhLOS,Geom%nThLOS))
-          Geom%i_geom = 0
-
-          ! Index of polar direction
-          allocate(ithv(njdir))
-          ! Index of azimuthal direction
-          allocate(iphv(njdir))
-
-          ! De-index the directions
-          jdir = 0
-          do ith=1,Geom%nThLOS
-            do iph=1,Geom%nPhLOS
-              jdir = jdir + 1
-              Geom%i_geom(iph,ith) = jdir
-              ithv(jdir) = ith
-              iphv(jdir) = iph
-            end do
-          end do
-
-        ! Quadrature
-        else
-
-          ! Directions
-          njdir = Geom%nPh*Geom%nTh
-
-          ! Allocate indexing
-          if (allocated(Geom%i_geom)) deallocate(Geom%i_geom)
-          allocate(Geom%i_geom(Geom%nPh,Geom%nTh))
-          Geom%i_geom = 0
-
-          ! Index of polar direction
-          allocate(ithv(njdir))
-          ! Index of azimuthal direction
-          allocate(iphv(njdir))
-
-          ! De-index the directions
-          jdir = 0
-          do ith=1,Geom%nTh
-            do iph=1,Geom%nPh
-              jdir = jdir + 1
-              Geom%i_geom(iph,ith) = jdir
-              ithv(jdir) = ith
-              iphv(jdir) = iph
-            end do
-          end do
-
-          ! If Voigt profiles in file, initialize variable
-          if (vpfil) ios = 0
-
-          ! Reset RAM usage
-          MPID%VRAM = 0d0
-
+        ! Global master verbose
+        if (gpid.eq.0) then
+          umsg = ' - Profiles normalized '
+          call verbose
         end if
-
-        ! Only geometry?
-        if (only_geom) return
-
-        ! For each atom
-        do ia=1,nA
-
-          ! Initialie to true
-          norm = .True.
-
-          ! If using a file with Voigt profiles, check there is
-          ! an existing one
-          if (vpfil) then
-
-            ! If LOS
-            if (los) then
-
-              ! Set filename
-              Atom(ia)%vfile = trim(Input%Folder)//'voigt-P-L-'// &
-                               trim(Atom(ia)%file_label)
-
-            ! If quadrature
-            else
-
-              ! Set filename
-              Atom(ia)%vfile = trim(Input%folder)//'voigt-P-G-'// &
-                               trim(Atom(ia)%file_label)
-            end if
-
-            inquire(file=trim(Atom(ia)%vfile), exist=exists)
-
-            ! If there is a file with such name, check it is valid
-            if (exists) then
-
-              call validatevoigt(Atom(ia),Bstrength,MPID,Frec, &
-                                 njdir,Flgsg,norm)
-            end if
-          end if
-
-          ! If we have to normalize
-          if (norm) then
-
-            if (gpid.eq.0) then
-              if (los) then
-                umsg = ' - Normalizing LOS profiles for '// &
-                       Atom(ia)%Element
-              else
-                umsg = ' - Normalizing quadrature profiles for '// &
-                       Atom(ia)%Element
-              end if
-              call verbose
-            end if
-
-            call normalize(Atom(ia),Atmo,Bstrength,Geom,MPID,Frec, &
-                           Flgsg,Input%folder,njdir,ithv,iphv, &
-                           Input%MIT_input,lit,ofram,los)
-
-            if (laborted) return
-
-            if (gpid.eq.0) then
-              umsg = ' - Profiles normalized '
-              call verbose
-            end if
-
-            ! If storing Voigt profiles
-            if (VPRAM) then
-
-             ! If CPU went above ram
-              if (ofram.and.rlimw) then
-
-                write(umsg,'(A,1x,i4,1x,A)') ' # Processor',pid, &
-                    ' reached the limit of profile allocations.'
-                call verbose
-
-                rlimw = .False.
-
-              end if
-
-              call MPI_BARRIER(MPI_COMM_RT, ierr)
-
-            end if ! Storing Voigt profiles
-          end if ! Reading file with profiles
-
-          ! If from file, update variable
-          if (.not.los.and.vpfil) ios = max(ios,Atom(ia)%Mncom)
-
-        end do ! Atoms
-
-        ! If from file, store maximum components in first atom
-        if (.not.los) Atom(1)%Mncom = ios
-
-        ! If no LTE lines, leave
-        if (Input%nLTE.lt.1) return
-
-        ! If not storing
-        if (.not.LVPRAM) then
-
-          ! Allocate dummy and leave
-          allocate(lines(1)%prof(1,1))
-          lines(1)%prof(1,1)%VRAM = .False.
-          return
-
-        end if
-
-        !
-        ! Normalize LTE lines
-        !
-        do ia=1,Input%nLTE
-
-          ! Get profiles
-          call getprof_LTE(lines(ia),Atmo,Bstrength,Geom,MPID,Frec, &
-                           njdir,ithv,iphv,lit,ofram,los)
-
-          if (laborted) return
-
-        end do ! LTE lines
 
         ! If storing Voigt profiles
-        if (LVPRAM) then
+        if (VPRAM) then
 
-          ! If CPU went above ram
+          ! If CPU went above RAM
           if (ofram.and.rlimw) then
 
+            ! Issue warning
             write(umsg,'(A,1x,i4,1x,A)') ' # Processor',pid, &
                 ' reached the limit of profile allocations.'
             call verbose
 
+            ! No more messages about this
             rlimw = .False.
 
-          end if
-
-          call MPI_BARRIER(MPI_COMM_RT, ierr)
-
+          end if ! RAM limit reached
         end if ! Storing Voigt profiles
 
       ! Intensity
       else
 
-        !
-        ! Initialize geometry
-        !
+        ! Call normalization
+        call normalizeI(Atom,LTElines,Atmo,Geom,MPID,Frec,Red, &
+                        Input%folder,ofram,0,0,.False.)
+        if (laborted) return
 
-        ! LOS
-        if (los) then
-
-          ! Total number of directions
-          njdir = Geom%nPhLOS*Geom%nThLOS
-
-          ! Allocate indexing
-          if (allocated(Geom%i_geom)) deallocate(Geom%i_geom)
-          allocate(Geom%i_geom(Geom%nPhLOS,Geom%nThLOS))
-          Geom%i_geom = 0
-
-          ! Index of polar direction
-          allocate(ithv(njdir))
-          ! Index of azimuthal direction
-          allocate(iphv(njdir))
-
-          ! De-index the directions
-          jdir = 0
-          do ith=1,Geom%nThLOS
-            do iph=1,Geom%nPhLOS
-              jdir = jdir + 1
-              Geom%i_geom(iph,ith) = jdir
-              ithv(jdir) = ith
-              iphv(jdir) = iph
-            end do
-          end do
-
-        ! Quadrature
-        else
-
-          ! Total number of directions
-          njdir = Geom%nPh*Geom%nTh
-
-          ! Allocate indexing
-          if (allocated(Geom%i_geom)) deallocate(Geom%i_geom)
-          allocate(Geom%i_geom(Geom%nPh,Geom%nTh))
-          Geom%i_geom = 0
-
-          ! Index of polar direction
-          allocate(ithv(njdir))
-          ! Index of azimuthal direction
-          allocate(iphv(njdir))
-
-          ! De-index the directions
-          jdir = 0
-          do ith=1,Geom%nTh
-            do iph=1,Geom%nPh
-              jdir = jdir + 1
-              Geom%i_geom(iph,ith) = jdir
-              ithv(jdir) = ith
-              iphv(jdir) = iph
-            end do
-          end do
-
-          ! Reset RAM usage
-          MPID%VRAM = 0d0
-
+        ! Global master verbose
+        if (gpid.eq.0) then
+          umsg = ' - Profiles normalized '
+          call verbose
         end if
 
-        ! Only geometry?
-        if (only_geom) return
+        ! If storing Voigt profiles
+        if (VIRAM) then
 
-        !
-        ! Normalize FS profiles
-        !
+          ! If CPU went above RAM
+          if (ofram.and.rlimw) then
 
-        ! For each Atom
-        do ia=1,nA
-
-          ! Initialie to true
-          norm = .True.
-
-          ! If using a file with Voigt profiles, check there is
-          ! an existing one
-          if (vifil) then
-
-            ! If LOS normalization
-            if (los) then
-
-              ! Set filename
-              Atom(ia)%vfile = trim(Input%folder)//'voigt-I-L-'// &
-                               trim(Atom(ia)%file_label)
-            ! Iterations
-            else
-
-              ! Set filename
-              Atom(ia)%vfile = trim(Input%folder)//'voigt-I-G-'// &
-                               trim(Atom(ia)%file_label)
-
-            end if ! Type of solution
-
-            ! Check if file exist
-            inquire(file=trim(Atom(ia)%vfile), exist=exists)
-
-            ! If there is a file with such name, check it is valid
-            if (exists) then
-
-              call validatevoigtI(Atom(ia),Frec,njdir,norm)
-
-            end if
-          end if
-
-          ! If we have to normalize
-          if (norm) then
-
-            if (gpid.eq.0) then
-              if (los) then
-                umsg = ' - Normalizing LOS profiles for '// &
-                       Atom(ia)%Element
-              else
-                umsg = ' - Normalizing quadrature profiles for '// &
-                       Atom(ia)%Element
-              end if
-              call verbose
-            end if
-
-            ! Call normalization
-            call normalizeI(Atom(ia),Atmo,Geom,MPID,Frec, &
-                            Input%folder,njdir,ithv,iphv,lit, &
-                            ofram,los)
-
-            ! Control
-            if (laborted) return
-
-            if (gpid.eq.0) then
-              umsg = ' - Profiles normalized '
-              call verbose
-            end if
-
-            ! If storing Voigt profiles
-            if (VIRAM) then
-
-              ! If CPU went above ram
-              if (ofram.and.rlimw) then
-
-                write(umsg,'(A,1x,i4,1x,A)') ' # Processor',pid, &
-                    ' reached the limit of profile allocations.'
-                call verbose
-
-                rlimw = .False.
-
-              end if
-
-              call MPI_BARRIER(MPI_COMM_RT, ierr)
-
-            end if ! Storing Voigt profiles
-          end if ! Reading file with profiles
-
-        end do ! Atoms
-
-        ! If no LTE lines, leave
-        if (Input%nLTE.lt.1) return
-
-        ! If not storing
-        if (.not.LVIRAM) then
-
-          ! Allocate dummy and leave
-          allocate(lines(1)%prof(1,1))
-          lines(1)%prof(1,1)%VRAM = .False.
-          return
-
-        end if
-
-        !
-        ! Normalize LTE lines
-        !
-
-        ! For each line
-        do ia=1,Input%nLTE
-
-          ! Skip if absent
-          if (lines(ia)%absent) cycle
-
-          ! Get profiles
-          call getprofI_LTE(lines(ia),Atmo,Geom,MPID,Frec,njdir, &
-                            ithv,iphv,lit,ofram,los)
-
-          ! Control
-          if (laborted) return
-
-          ! If storing Voigt profiles
-          if (LVIRAM) then
-
-            ! If CPU went above ram
-            if (ofram.and.rlimw) then
-
-              write(umsg,'(A,1x,i4,1x,A)') ' # Processor',pid, &
+            ! Issue warning
+            write(umsg,'(A,1x,i4,1x,A)') ' # Processor',pid, &
                   ' reached the limit of profile allocations.'
-              call verbose
+            call verbose
 
-              rlimw = .False.
+            ! No more messages about this
+            rlimw = .False.
 
-            end if
-
-            call MPI_BARRIER(MPI_COMM_RT, ierr)
-
-          end if ! Storing Voigt profiles
-
-        end do ! Atoms
-
+          end if ! RAM limit reached
+        end if ! Storing Voigt profiles
       end if ! Intensity
 
       end subroutine normalization
@@ -794,1138 +215,510 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes normalization factors for all the Voigt profiles\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !!      Bstrength(dfloat(:)): Magnetic field strength\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!     Frec(Frequency_class): Structure with frequency data
-      !!        Flgsg(Fctsg_class): Structure with factorials and
-      !!                            signs\n
-      !!    folder(character(500)): Output folder path\n
-      !!            njdir(integer): Number of directions\n
-      !!          ithv(integer(:)): Indexing of polar directions\n
-      !!          ithv(integer(:)): Indexing of azimuth directions\n
-      !!                            signs\n
-      !!              MIT(integer): Input about MIT\n
-      !!               lp(logical): If doing formal solution in this
-      !!                            run\n
-      !!            ofram(logical): Indicates if out of RAM\n
-      !!              LOS(logical): Indicates if we are normalizing
-      !!                            LOS directions
-      subroutine normalize(Atom,Atmo,Bstrength,Geom,MPID,Frec, &
-                           Flgsg,folder,njdir,ithv,iphv,MIT,lp, &
-                           ofram,LOS)
+      !> Normalize the absorption profiles for the polarization
+      !! problem\n
+      !!         Atom(Atom_class(:)): Structures with atomic data\n
+      !!  LTElines(LTEline_class(:)): Structures with LTE line data\n
+      !!            Atmo(Atmo_class): Structure with atmospheric
+      !!                              data\n
+      !!        Bstrength(double(:)): Magnetic field strength\n
+      !!        Geom(Geometry_class): Structure with geometric data\n
+      !!             MPID(MPI_class): Structure with MPI data\n
+      !!       Frec(Frequency_class): Structure with frequency data\n
+      !!              Red(Red_class): Structure with redistribution
+      !!                              input frequency data,
+      !!                              redistribution function data,
+      !!                              and profile or normalization
+      !!                              data\n
+      !!          Flgsg(Fctsg_class): Structure with factorials,
+      !!                              signs, and J-symbols\n
+      !!        folder(character(:)): Output folder path\n
+      !!              ofram(logical): If reached the RAM limit\n
+      !!                ith(integer): Polar index if LOS\n
+      !!                iph(integer): Azimuth index if LOS\n
+      !!                LOS(logical): If normalizing for a LOS
+      !!                              direction
+      subroutine normalize(Atom,LTElines,Atmo,Bstrength,Geom,MPID, &
+                           Frec,Red,Flgsg,folder,ofram,ith,iph,LOS)
 
       ! I/O
 
-      type(Atom_class), intent(inout):: Atom
+      type(Atom_class), dimension(:), intent(in):: Atom
+      type(LTEline_class), dimension(:), allocatable:: LTElines
       type(Atmo_class), intent(in):: Atmo
-      type(Geometry_class), intent(inout):: Geom
+      type(Geometry_class), intent(in):: Geom
       type(Frequency_class), intent(in):: Frec
-      type(Fctsg_class):: Flgsg
-      type(MPI_class):: MPID
+      type(Red_class), intent(inout):: Red
+      type(Fctsg_class), intent(inout):: Flgsg
+      type(MPI_class), intent(inout):: MPID
       character(len=500), intent(in):: folder
-      logical, intent(in):: lp, LOS
-      logical, intent(out):: ofram
-      integer, intent(in):: MIT, njdir
-      integer, dimension(:), intent(in):: ithv,iphv
+      logical, intent(in):: LOS
+      integer, intent(in):: ith,iph
       double precision, dimension(:), intent(in):: Bstrength
+      logical, intent(out):: ofram
 
       ! Local
 
-      character(len=4):: record
-
-      logical:: extracomm,field,checkMIT,found
-      integer, dimension(:), allocatable:: outofbound
-
-      integer:: i,i1,jtran,itermf,itermu
-      integer:: idir,jdir,iz,ii,jj,nodir,nrdir
-      integer:: ith,iph,ifreq,if0,if1,rif0,rif1,nfreqt
-      integer:: ncom,ncomNB
-      integer:: nMu,nMf,icom
-      integer:: iMl,iMu,iMf
-      integer:: iL,iU,mF,nt
-      integer:: nL,nU,znjdir
-      integer:: ios,istep,lcheckram
-      integer, dimension(:,:,:), allocatable:: checkram
-
-      double precision:: d1,W0,W1
-      double precision:: rLu,rLf,S
-      double precision:: rJumax,rJfmax,rJu,rJf
-      double precision:: rMu,rMf,f62
-      double precision:: el,eu
-      double precision:: au,af,auf,Dfreqw
-      double precision:: DwT,Dw,vfac,vfacw
-      double precision:: ct,st,cc,sc
-      double precision:: d2,d3,d1T,d2T,loffset,loffsetin
-      double precision, dimension(:), allocatable:: nut
-
-      complex(kind=8):: prof
-
-      ! Buffers, counter, and sizes for MPI
+      logical:: extracomm,field,lVPRAM,lvel
       logical, dimension(:,:,:), allocatable:: tosend
-      integer:: finished
+
+      integer:: ia,jtran,ktran,itermf,itermu,iJf,iJu
+      integer:: jdir,iz,jj,njdir,indx
+      integer:: ith1,iph1,ifreq,if0,if1
+      integer:: indU,indF,indK
+      integer:: nMu,nMf,iMu,iMf,iU,mF
+      integer:: ios,lcheckram,finished
       integer, dimension(5):: id, id1_b
       integer, dimension(0:nproc-1):: nbf1
+      integer, dimension(:), allocatable:: outofbound
       integer, dimension(:,:,:), allocatable:: size1
+      integer, dimension(:,:,:), allocatable:: checkram
+
+      double precision:: num,RAM,lRAM,d1,W0,W1,rLu,rLf,S
+      double precision:: rJumax,rJfmax,rJu,rJf,rMu,rMf,f62
+      double precision:: el,eu,dnubw,au,af,auf,atuf,Dfreqw
+      double precision:: DwT,Dw,iDw,vfac,vfacw,ct,st,cc,sc,vel
       double precision, dimension(:),allocatable:: buff1
 
-      ! MPI offset type
-      integer(kind=MPI_OFFSET_KIND):: offset
+      complex(kind=8):: prof
 
 
       ! Routine name
       urou = 'normalize'
 
-      ! Check if there is magnetic field
-      field = .False.
-
       ! Initialize
       ofram = .False.
 
-      ! Check magnetic field strength
-      do iz=1,nz
-        if (Bstrength(iz).ge.TINYB) then
-          field = .True.
-          exit
-        end if
-      end do
-
-      ! If there is magnetic field, the atom is multi-term
-      ! and the MIT are switched off
-      if (field.and..not.Atom%ML.and.MIT.lt.0) then
-
-        ! We need to check later for MIT
-        checkMIT = .True.
-
-        !
-        ! Get maximum number of components
-        nt = 0
-
-        ! For each transition
-        do jtran=1,Atom%ntran
-
-          ! Identify the terms
-          itermf = Atom%fst(jtran)%iterml
-          itermu = Atom%fst(jtran)%itermu
-
-          ! Update nt
-          if (Atom%nJ(itermf)*Atom%nJ(itermu).gt.nt) &
-            nt = Atom%nJ(itermf)*Atom%nJ(itermu)
-
-        end do ! Transitions
-
-        ! Allocate vector for frequencies
-        allocate(nut(nt))
-
-      ! No need to check for MIT
-      else
-
-        ! No need to check
-        checkMIT = .False.
-
-      end if
-
-      ! If LOS and not dynamic, if already iterated, maybe no need to
-      ! repeat the normalization
-      if (LOS.and..not.dyn.and.lp) then
-
-        ! If no magnetic, copy the file if using it and get out
-        if (.not.field) then
-
-          ! If using files, just copy to new name
-          if (vpfil.and.pid.eq.0) then
-
-            ! Orginal
-            open(200,file='voigt-P-G-'//trim(Atom%file_label), &
-                 access='stream',status='old',action='read', &
-                 iostat=ios)
-
-            ! New
-            open(300,file=trim(Atom%vfile),access='stream', &
-                 status='unknown',action='write',iostat=ios)
-
-            ! Copy records until finished
-            do while (.True.)
-
-              ! Read characters
-              read(200, end=3000) record
-              ! Write the same integer
-              write(300) record
-
-              cycle
-3000          exit
-
-            end do
-
-            close(200)
-            close(300)
-
-          end if ! Copy vfile
-
-          ! Everyone control and return
-          call control
-          return
-
-        end if ! Non-magnetic
-      end if ! LOS, not dynamic, previously normalized
-
-
-      !
-      ! Initialize comm flag
-      !
+      ! Initialize extra communication flag
       if (nproc.gt.cpulimit) then
         extracomm = .True.
       else
         extracomm = .False.
+        call reset_mpirequest(MPID)
       end if
 
-      ! Get real size of direction dimension
+      ! Get real size of the direction dimension
       if (dyn) then
-        nodir = njdir
-        nrdir = njdir
+        njdir = Geom%njdir
       else
-        nodir = 1
-        if (field) then
-          nrdir = njdir
-        else
-          nrdir = 1
-        end if
+        njdir = 1
       end if
 
+      ! Estimate memory in just normalization constants
+      call cram_estimate_norm(Atom,LTElines,Atmo,Bstrength, &
+                              njdir,.True.,lRAM)
 
-      !
-      ! Allocate vector for norm (part I)
-      !
+      ! Get current size
+      RAM = cram_add(1)
 
-      ! Check Normp is not allocated
-      if (associated(Atom%Normp)) then
-        do jdir=lbound(Atom%Normp,3),ubound(Atom%Normp,3)
-          do iz=lbound(Atom%Normp,2),ubound(Atom%Normp,2)
-            do jtran=lbound(Atom%Normp,1),ubound(Atom%Normp,1)
-              if (allocated(Atom%Normp(jtran,iz,jdir)%prof)) &
-                deallocate(Atom%Normp(jtran,iz,jdir)%prof)
-              if (allocated(Atom%Normp(jtran,iz,jdir)%Norm)) &
-                deallocate(Atom%Normp(jtran,iz,jdir)%Norm)
-            end do
-          end do
-        end do
-        deallocate(Atom%Normp)
-        nullify(Atom%Normp)
-      end if
+      ! Check if going over limits already
+      if ((RAM+lRAM).gt.RLIM) then
 
-      ! Structure with the norm for each component
-      allocate(Atom%Normp(Atom%ntran,Rz0:Rz1,nrdir))
-      ! Allocate sizes for subcomponents for each transition
-      if (.not.allocated(Atom%nL)) allocate(Atom%nL(Atom%ntran))
-      if (.not.allocated(Atom%nU)) allocate(Atom%nU(Atom%ntran))
-      if (.not.allocated(Atom%nMl)) allocate(Atom%nMl(Atom%ntran))
-      if (.not.allocated(Atom%nMu)) allocate(Atom%nMu(Atom%ntran))
-      ! Allocate size for MPI
-      allocate(size1(Atom%ntran,Rz0:Rz1,nrdir))
-      size1 = 0
-      ! Allocate bool for MPI
-      allocate(tosend(Atom%ntran,Rz0:Rz1,nrdir))
-      ! Initialize tosend
-      tosend = .False.
+        ! We cannot store profiles at all
+        lVPRAM = .False.
 
-      ! Allocate the check for the master
-      if (pid.eq.0.and.MPID%mpi) then
-        if (field) then
-          allocate(checkram(Atom%ntran,Rz0:Rz1,nrdir))
-        else
-          allocate(checkram(Atom%ntran,Rz0:Rz1,nodir))
-        end if
-        if (VPRAM) checkram = 1
-      end if
-
-
-      !
-      ! Count indexes
-      !
-
-      ! Reset index
-      nbf1 = 0
-
-      ! For each transition
-      do jtran=1,Atom%ntran
-
-        ! Identify the terms
-        itermf = Atom%fst(jtran)%iterml
-        itermu = Atom%fst(jtran)%itermu
-
-        ! Get atomic quantities
-        S = Atom%Sval(itermu)
-
-        rLu = Atom%rLval(itermu)
-        rJumax = rLu+S
-        nMu = nint(2d0*rJumax+1d0)
-
-        rLf = Atom%rLval(itermf)
-        rJfmax = rLf + S
-        nMf = nint(2d0*rJfmax+1d0)
-
-        ! Fill two of the sizes arrays
-        Atom%nMu(jtran) = nMu
-        Atom%nMl(jtran) = nMf
-
-        ! Initialize counters
-        nL = 0
-        nU = 0
-
-        ! For each Mu
-        do iMu=1,nMu
-
-          rMu = -rJumax + dble(iMu-1)
-
-          ! For each mu_u
-          do iU=1,Atom%nblk(iMu,itermu)
-
-            ! Update counter
-            if (iU.gt.nU) nu = iMu
-
-            ! For each Mf
-            do iMf=1,nMf
-
-              rMf = -rJfmax + dble(iMf-1)
-
-              ! If not allowed, skip
-              if (nint(abs(rMu-rMf)).gt.1) cycle
-
-              ! Sum over mu_f
-              do mF=1,Atom%nblk(iMf,itermf)
-
-                ! Update counter
-                if (mF.gt.nL) nL = mf
-
-              end do ! iL
-            end do ! Ml
-          end do ! iU
-        end do ! Mu
-
-        ! Update variables
-        Atom%nU(jtran) = nU
-        Atom%nL(jtran) = nL
-
-      end do ! Transitions
-
-
-      !
-      ! If using a file, prepare for it
-      !
-      if (vpfil) then
-
-        ! Deallocate sizes
-        if (allocated(Atom%zsize)) deallocate(Atom%zsize)
-        if (allocated(Atom%dsize)) deallocate(Atom%dsize)
-        if (allocated(Atom%tsize)) deallocate(Atom%tsize)
-        if (allocated(Atom%tBsize)) deallocate(Atom%tBsize)
-        if (allocated(Atom%f0size)) deallocate(Atom%f0size)
-        if (allocated(Atom%f1size)) deallocate(Atom%f1size)
-        if (allocated(Atom%i_Vind)) deallocate(Atom%i_Vind)
-
-        ! Allocate sizes and indexes
-        allocate(Atom%zsize(nz))
-        allocate(Atom%dsize(nrdir))
-        allocate(Atom%tsize(Atom%ntran))
-        allocate(Atom%tBsize(Atom%ntran))
-        allocate(Atom%f0size(Atom%ntran))
-        allocate(Atom%f1size(Atom%ntran))
-        allocate(Atom%i_Vind(Atom%ntran))
-
-        ! Initialize total blocks of sizes and transition index
-        d1T = 0d0
-        d2T = 0d0
-        Atom%zsize(1) = 0d0
-        Atom%dsize(1) = 0d0
-        Atom%tsize(1) = 0d0
-        Atom%tBsize(1) = 0d0
-        Atom%Mncom = 0
-        ncom = 0
-        ncomNB = 0
-
-        ! For each transition
-        do jtran=1,Atom%ntran
-
-          ! Get real limits
-          if0 = Atom%rif0(jtran)
-          if1 = Atom%rif1(jtran)
-
-          ! Get terms
-          itermf = Atom%fst(jtran)%iterml
-          itermu = Atom%fst(jtran)%itermu
-
-          ! Get atomic quantities
-          S = Atom%Sval(itermu)
-
-          rLu = Atom%rLval(itermu)
-          rJumax = rLu+S
-          nMu = nint(2d0*rJumax+1d0)
-
-          rLf = Atom%rLval(itermf)
-          rJfmax = rLf + S
-          nMf = nint(2d0*rJfmax+1d0)
-
-          ! Allocate magnetic indexing
-          allocate(Atom%i_Vind(jtran)% &
-                        ind(maxval(Atom%nblk(1:nMf,itermf)),nMf, &
-                            maxval(Atom%nblk(1:nMu,itermu)),nMu))
-
-          ! Allocate non-magnetic indexing
-          allocate(Atom%i_Vind(jtran)% &
-                        indNB(Atom%nJ(itermf),Atom%nJ(itermu)))
-
-          ! No magnetic field
-          d1 = 0d0
-
-          ! Reset index
-          i = 0
-
-          ! sum over Ju
-          do iU=1,Atom%nJ(itermu)
-
-            ! Get Ju
-            rJu = Atom%rJval(iU,itermu)
-
-            ! sum over Jl
-            do mF=1,Atom%nJ(itermf)
-
-              ! Get Jl
-              rJf = Atom%rJval(mF,itermf)
-
-              ! 6-j
-              f62 = fun6j(rLu,rLf,1d0,rJf,rJu,S,Flgsg)
-
-              if (abs(f62).lt.TINYJS) cycle
-
-              d1 = d1 + dble(if1 - if0 + 1)
-
-              ! Store and advance index
-              i = i + 1
-              Atom%i_Vind(jtran)%indNB(mF,iU) = i
-
-            end do ! Final levels
-          end do ! Upper levels
-
-          ! Store number of components
-          Atom%i_Vind(jtran)%ncomNB = i
-          if (i.gt.ncomNB) ncomNB = i
-
-          ! Yes magnetic field
-          d2 = 0d0
-
-          ! Reset index
-          i = 0
-
-          ! sum over Mu
-          do iMu=1,nMu
-
-            rMu = -rJumax + dble(iMu-1)
-
-            ! sum over mu_u
-            do iU=1,Atom%nblk(iMu,itermu)
-
-              ! sum over Ml
-              do iMf=1,nMf
-
-                rMf = -rJfmax + dble(iMf-1)
-
-                if (nint(abs(rMu-rMf)).gt.1) cycle
-
-                ! sum over mu_l
-                do mF=1,Atom%nblk(iMf,itermf)
-
-                  d2 = d2 + dble(if1 - if0 + 1)
-
-                  ! Store and advance index
-                  i = i + 1
-                  Atom%i_Vind(jtran)%ind(mF,iMf,iU,iMu) = i
-
-                end do ! mu_l
-              end do ! Ml
-            end do ! mu_u
-          end do ! Mu
-
-          ! Store number of components
-          Atom%i_Vind(jtran)%ncom = i
-          if (i.gt.ncomNB) ncom = i
-
-          ! Add to the total size
-          d1T = d1T + d1
-          d2T = d2T + d2
-
-          ! If not the last, add size to next
-          if (jtran.lt.Atom%ntran) then
-            Atom%tsize(jtran+1) = Atom%tsize(jtran) + d1
-            Atom%tBsize(jtran+1) = Atom%tBsize(jtran) + d2
-          end if
-
-          ! deallocate indexes of magnetic components
-          if (maxval(Bstrength).lt.TINYB) &
-            deallocate(Atom%i_Vind(jtran)%ind)
-
-          ! deallocate indexes of non magnetic components
-          if (minval(Bstrength).ge.TINYB) &
-            deallocate(Atom%i_Vind(jtran)%indNB)
-
-        end do ! Transitions
-
-        ! If no magnetic field
-        if (maxval(Bstrength).lt.TINYB) ncom = 0
-        ! If only magnetic field
-        if (minval(Bstrength).ge.TINYB) ncomNB = 0
-        ! Get maximum
-        Atom%Mncom = max(ncom,ncomNB)
-
-        ! Initialize
-        d3 = 0d0
-
-        ! For each height
-        do iz=1,nz
-
-          ! If not magnetic
-          if (Bstrength(iz).lt.TINYB) then
-            if (iz.lt.nz) Atom%zsize(iz+1) = Atom%zsize(iz) + d1T
-            d3 = d3 + d1T
-          ! If magnetic
-          else
-            if (iz.lt.nz) Atom%zsize(iz+1) = Atom%zsize(iz) + d2T
-            d3 = d3 + d2T
-          end if
-
-        end do ! Heights
-
-        ! For each direction
-        do idir=1,nrdir-1
-          Atom%dsize(idir+1) = Atom%dsize(idir) + d3
-        end do
-
-        Atom%dsize = Atom%dsize*16d0
-        Atom%zsize = Atom%zsize*16d0
-        Atom%tsize = Atom%tsize*16d0
-        Atom%tBsize = Atom%tBsize*16d0
-
-        ! Size of header
-        Atom%hvifil = 4*4 + & ! Dimension integers
-                      8*nrdir + & ! Directions sizes
-                      8*nz + & ! Height sizes
-                      4*2*Atom%ntran + & ! Line limits
-                      8*2*Atom%ntran + & ! Line sizes
-                      8*nfreq ! Frequencies
-
-        !
-        ! Only Master writes
-        !
-        if (pid.eq.0) then
-
-          ! Open files
-          open(200, file=trim(Atom%vfile), status='unknown', &
-               iostat=ios, err=1000, access='stream', &
-               action='write', form='unformatted')
-
-          ! Write dimensions
-          write(200, err=1100) nrdir
-          write(200, err=1100) nz
-          write(200, err=1100) nfreq
-          write(200, err=1100) Atom%ntran
-          write(200, err=1100) Atom%dsize
-          write(200, err=1100) Atom%zsize
-
-          ! For each transition
-          do jtran=1,Atom%ntran
-
-            write(200, err=1100) Atom%rif0(jtran)
-            write(200, err=1100) Atom%rif1(jtran)
-            write(200, err=1100) Atom%tsize(jtran)
-            write(200, err=1100) Atom%tBsize(jtran)
-
-          end do ! Transitions
-
-          ! Write frequency
-          write(200, err=1100) Frec%omega
-
-          ! And close this
-          close(200, err=1100)
-
-        end if ! Master
-
-        ! The master does not need the indexes
-        if (pid.eq.0.and.MPID%mpi) deallocate(Atom%i_Vind)
-
-        ! Control
-        call control
-
-      end if ! Voigt file
-
-
-      !
-      ! Allocate the norm array
-      !
-
-      ! For each height
-      do iz=Rz0,Rz1
-
-        ! No magnetic field
-        if (Bstrength(iz).lt.TINYB) then
-
-          ! For each direction
-          do jdir=1,nodir
-
-            ! For each transition
-            do jtran=1,Atom%ntran
-
-              ! Identify the terms
-              itermf = Atom%fst(jtran)%iterml
-              itermu = Atom%fst(jtran)%itermu
-
-              ! Get atomic quantities
-              S = Atom%Sval(itermu)
-              rLu = Atom%rLval(itermu)
-              rLf = Atom%rLval(itermf)
-
-              ! Allocate
-              allocate(Atom%Normp(jtran,iz,jdir)%Norm( &
-                       Atom%nJ(itermf), Atom%nJ(itermu), 1, 1))
-              Atom%Normp(jtran,iz,jdir)%Norm = 0d0
-
-              ! Determine size of this array
-              size1(jtran,iz,jdir) = Atom%nJ(itermf)*Atom%nJ(itermu)
-
-              ! Skip unless slave
-              if (MPID%mpi.and.pid.eq.0) cycle
-
-              ! Count components
-
-              jj = 0
-
-              ! sum over Ju
-              do iU=1,Atom%nJ(itermu)
-
-                ! Get Ju
-                rJu = Atom%rJval(iU,itermu)
-
-                ! sum over Jl
-                do mF=1,Atom%nJ(itermf)
-
-                  ! Get Jl
-                  rJf = Atom%rJval(mF,itermf)
-
-                  ! 6-j
-                  f62 = fun6j(rLu,rLf,1d0,rJf,rJu,S,Flgsg)
-
-                  if (abs(f62).lt.TINYJS) cycle
-
-                  jj = jj + 1
-
-                end do ! Final levels
-              end do ! Upper levels
-
-              ! Allocate profile itself if storing and it is present
-              if (VPRAM.and..not.Atom%fflag(jtran)%absent) then
-
-                ! Prediction
-                d1 = 16d-6*dble((Atom%if1(jtran) - &
-                                 Atom%if0(jtran) + 1)*jj)
-
-                ! If no more space
-                if (floor(MPID%RAM+d1).gt.RLIM) then
-
-                  ! No stored
-                  Atom%Normp(jtran,iz,jdir)%VRAM = .False.
-                  ofram = .True.
-
-                  ! Add normalization to RAM
-                  d1 = 8d-6*dble(jj)
-                  MPID%RAM = MPID%RAM + d1
-                  MPID%VRAM = MPID%VRAM + d1
-
-                ! If there is space
-                else
-
-                  ! Storing
-                  Atom%Normp(jtran,iz,jdir)%VRAM = .True.
-
-                  ! Allocate
-                  allocate(Atom%Normp(jtran,iz,jdir)%prof( &
-                             Atom%nJ(itermf),Atom%nJ(itermu),1,1))
-
-                  ! sum over Ju
-                  do iU=1,Atom%nJ(itermu)
-
-                    ! Get Ju
-                    rJu = Atom%rJval(iU,itermu)
-
-                    ! sum over Jl
-                    do mF=1,Atom%nJ(itermf)
-
-                      ! Get Jl
-                      rJf = Atom%rJval(mF,itermf)
-
-                      ! 6-j
-                      f62 = fun6j(rLu,rLf,1d0,rJf,rJu,S,Flgsg)
-
-                      if (abs(f62).lt.TINYJS) cycle
-
-                      ! Allocate
-                      allocate(Atom%Normp(jtran,iz,jdir)%prof( &
-                                  mF,iU,1,1)%cp( &
-                               Atom%if0(jtran):Atom%if1(jtran)))
-
-                    end do ! Final levels
-                  end do ! Upper levels
-
-                  ! Update RAM
-                  MPID%RAM = MPID%RAM + d1
-                  MPID%VRAM = MPID%VRAM + d1
-
-                end if ! Space to store
-
-              ! Not storing Voigt
-              else
-
-                ! No stored
-                Atom%Normp(jtran,iz,jdir)%VRAM = .False.
-
-                ! Add normalization to RAM
-                d1 = 8d-6*dble(jj)
-                MPID%RAM = MPID%RAM + d1
-                MPID%VRAM = MPID%VRAM + d1
-
-              end if ! Storing
-
-            end do ! transitions
-          end do ! directions
-
-        ! Yes magnetic field
-        else
-
-          ! For each direction
-          do jdir=1,nrdir
-
-            ! For each transition
-            do jtran=1,Atom%ntran
-
-              ! Allocate
-              allocate(Atom%Normp(jtran,iz,jdir)%Norm( &
-                       Atom%nL(jtran), Atom%nU(jtran), &
-                       Atom%nMl(jtran), Atom%nMu(jtran)))
-              Atom%Normp(jtran,iz,jdir)%Norm = 0d0
-
-              ! Determine size of this array
-              size1(jtran,iz,jdir) = Atom%nL(jtran)*Atom%nU(jtran)* &
-                                     Atom%nMl(jtran)*Atom%nMu(jtran)
-
-              ! Skip if not slave
-              if (MPID%mpi.and.pid.eq.0) cycle
-
-              ! Identify the terms
-              itermf = Atom%fst(jtran)%iterml
-              itermu = Atom%fst(jtran)%itermu
-
-              ! Get atomic quantities
-              S = Atom%Sval(itermu)
-
-              rLu = Atom%rLval(itermu)
-              rJumax = rLu+S
-              nMu = nint(2d0*rJumax+1d0)
-
-              rLf = Atom%rLval(itermf)
-              rJfmax = rLf + S
-              nMf = nint(2d0*rJfmax+1d0)
-
-              ! Get indexes
-              if0 = Atom%if0(jtran)
-              if1 = Atom%if1(jtran)
-
-              ! Count components
-
-              ! Initialize
-              jj = 0
-
-              ! sum over Mu
-              do iMu=1,nMu
-
-                rMu = -rJumax + dble(iMu-1)
-
-                ! sum over mu_u
-                do iU=1,Atom%nblk(iMu,itermu)
-
-                  ! sum over Ml
-                  do iMf=1,nMf
-
-                    rMf = -rJfmax + dble(iMf-1)
-
-                    if (nint(abs(rMu-rMf)).gt.1) cycle
-
-                    ! sum over mu_l
-                    do mF=1,Atom%nblk(iMf,itermf)
-
-                      jj = jj + 1
-
-                    end do ! mu_l
-                  end do ! Ml
-                end do ! mu_u
-              end do ! Mu
-
-              ! Allocate profile itself if storing and it is present
-              if (VPRAM.and..not.Atom%fflag(jtran)%absent) then
-
-                ! Prediction
-                d1 = 16d-6*dble((Atom%if1(jtran) - &
-                                 Atom%if0(jtran) + 1)*jj)
-
-                ! If no more space
-                if (floor(MPID%RAM+d1).gt.RLIM) then
-
-                  ! No stored
-                  Atom%Normp(jtran,iz,jdir)%VRAM = .False.
-                  ofram = .True.
-                  ! Add normalization to RAM
-                  d1 = 8d-6*dble(jj)
-                  MPID%RAM = MPID%RAM + d1
-                  MPID%VRAM = MPID%VRAM + d1
-
-                ! If there is space
-                else
-
-                  ! Storing
-                  Atom%Normp(jtran,iz,jdir)%VRAM = .True.
-
-                  ! Allocate
-                  allocate(Atom%Normp(jtran,iz,jdir)%prof( &
-                           Atom%nL(jtran), Atom%nU(jtran), &
-                           Atom%nMl(jtran), Atom%nMu(jtran)))
-
-                  ! sum over Mu
-                  do iMu=1,nMu
-
-                    rMu = -rJumax + dble(iMu-1)
-
-                    ! sum over mu_u
-                    do iU=1,Atom%nblk(iMu,itermu)
-
-                      ! sum over Ml
-                      do iMf=1,nMf
-
-                        rMf = -rJfmax + dble(iMf-1)
-
-                        if (nint(abs(rMu-rMf)).gt.1) cycle
-
-                        ! sum over mu_l
-                        do mF=1,Atom%nblk(iMf,itermf)
-
-                          ! Allocate
-                          allocate(Atom%Normp(jtran,iz,jdir)% &
-                                   prof(mF,iU,iMf,iMu)%cp(if0:if1))
-
-                        end do ! mu_l
-                      end do ! Ml
-                    end do ! mu_u
-                  end do ! Mu
-
-                  ! Update RAM
-                  MPID%RAM = MPID%RAM + d1
-                  MPID%VRAM = MPID%VRAM + d1
-
-                end if ! Space to store
-
-              ! Not storing Voigt
-              else
-
-                ! No stored
-                Atom%Normp(jtran,iz,jdir)%VRAM = .False.
-
-                ! Add normalization to RAM
-                d1 = 8d-6*dble(jj)
-                MPID%RAM = MPID%RAM + d1
-                MPID%VRAM = MPID%VRAM + d1
-
-              end if ! Storing
-
-            end do ! transitions
-          end do ! directions
-
-        end if ! No magnetic field
-
-      end do ! heights
-
-
-      ! Check the maximum size to transfer
-      ios = maxval(size1)
-
-      ! Control
-      call control
-      if (laborted) return
-
-      ! Gather the maximum size that each processor is holding
-      do while (.True.)
-        call MPI_ALLGATHER(ios,1,MPI_INTEGER,nbf1(0),1, &
-                           MPI_INTEGER,MPI_COMM_RT,ierr)
-        if (ierr.eq.0) exit
-      end do
-
-      ! Allocate buffers
-      allocate(buff1(nbf1(pid)))
-
-      ! Control
-      call control
-      if (laborted) return
-
-
-      !
-      ! MASTER
-      !
-
-      if (MPID%mpi.and.pid.eq.0) then
-
-        !
-        ! Initialize finished
-        !
-        finished = 1
-
-        !
-        ! Calculate normalization
-        !
-
-        do while (finished.lt.nproc)
-
-          ! Receive the informative package with indexes
-          if (extracomm) then
-            do while (.True.)
-              call MPI_recv(id(1),5,MPI_INTEGER, &
-                            MPI_ANY_SOURCE, 0, MPI_COMM_RT, &
-                            MPI_STATUS_IGNORE, ierr)
-              if (ierr.eq.0) exit
-            end do
-          else
-            call MPI_recv(id(1),5,MPI_INTEGER, &
-                          MPI_ANY_SOURCE, 0, MPI_COMM_RT, &
-                          MPI_STATUS_IGNORE, ierr)
-          end if
-
-          ! If ending signal
-          if (id(1).lt.0) then
-            finished = finished + 1
-            cycle
-          end if
-
-          if (extracomm) then
-            do while (.True.)
-              call MPI_SEND(id(1),1,MPI_INTEGER,id(1),id(1), &
-                            MPI_COMM_RT,ierr)
-              if (ierr.eq.0) exit
-            end do
-          end if
-
-          ! Receive the buffer with the integral
-          if (extracomm) then
-            do while (.True.)
-              call MPI_recv(buff1(1), nbf1(id(1)), &
-                            MPI_DOUBLE_PRECISION, id(1), &
-                            id(1), MPI_COMM_RT, &
-                            MPI_STATUS_IGNORE, ierr)
-              if (ierr.eq.0) exit
-            end do
-          else
-            call MPI_recv(buff1(1), nbf1(id(1)), &
-                          MPI_DOUBLE_PRECISION, id(1), &
-                          id(1), MPI_COMM_RT, &
-                          MPI_STATUS_IGNORE, ierr)
-          end if
-
-          ! Store checkram
-          if (VPRAM.and.id(5).lt.0) &
-            checkram(id(2),id(3),id(4)) = -1
-
-          ! Reset index
-          jj = 0
-
-          ! No magnetic field
-          if (Bstrength(id(3)).lt.TINYB) then
-
-            ! Identify the terms
-            do i=1,Atom%nMulti-1
-              do i1=i+1,Atom%nMulti
-                if (Atom%irad(i,i1).eq.id(2)) then
-                  itermf = i
-                  itermu = i1
-                end if
-              end do
-            end do
-
-            ! Run over the components
-            do iU=1,Atom%nJ(itermu)
-              do iL=1,Atom%nJ(itermf)
-
-                ! Advance indexes
-                jj = jj + 1
-
-                ! Accumulate the sub-integrals
-                Atom%Normp(id(2),id(3),id(4))% &
-                     Norm(iL,iU,1,1) = &
-                      Atom%Normp(id(2),id(3),id(4))% &
-                         Norm(iL,iU,1,1) + buff1(jj)
-
-              end do ! iJl
-            end do ! iJu
-
-          ! Yes magnetic field
-          else
-
-            ! Run over the components
-            do iMu=1,Atom%nMu(id(2))
-              do iMl=1,Atom%nMl(id(2))
-                do iU=1,Atom%nU(id(2))
-                  do iL=1,Atom%nL(id(2))
-
-                    ! Advance indexes
-                    jj = jj + 1
-
-                    ! Accumulate the sub-integrals
-                    Atom%Normp(id(2),id(3),id(4))% &
-                         Norm(iL,iU,iMl,iMu) = &
-                      Atom%Normp(id(2),id(3),id(4))% &
-                         Norm(iL,iU,iMl,iMu) + buff1(jj)
-
-                  end do ! iL
-                end do ! iU
-              end do ! iMl
-            end do ! iMu
-
-          end if ! Magnetic field
-
-        end do ! Communication to do
-
-
-      !
-      ! SLAVE OR SINGLE PROCESSOR
-      !
-
+      ! If there is space
       else
 
+        ! Store if allowed by user
+        lVPRAM = VPRAM
+
+      end if
+
+      ! Initialize velocity flag
+      lvel = .False.
+
+      !
+      ! Normalize active atoms
+      !
+
+      ! For each atom
+      do ia=1,nA
+
+        ! Allocate and initialize size for MPI
+        allocate(size1(Atom(ia)%ntran,Rz0:Rz1,njdir))
+        size1 = 0
+
+        ! Allocate and initialize bool for MPI
+        allocate(tosend(Atom(ia)%ntran,Rz0:Rz1,njdir))
+        ! Initialize tosend
+        tosend = .False.
+
+        ! If Master doing MPI
+        if (pid.eq.0.and.MPID%mpi) then
+
+          ! Allocate the check for the master
+          allocate(checkram(Atom(ia)%ntran,Rz0:Rz1,njdir))
+
+          ! Initialize if storing profiles
+          if (lVPRAM) then
+            checkram = 1
+          else
+            checkram = -1
+          end if
+
+        end if
+
+
         !
-        ! Calculate normalization
+        ! Allocate the norm array
         !
 
         ! For each height
         do iz=Rz0,Rz1
 
-          ! Thermal part of the Doppler width
-          DwT = Atom%cDopp*sqrt(Atmo%T(iz))
+          ! If dynamic
+          if (dyn) then
 
-          ! Select number of directions
-          if (Bstrength(iz).ge.TINYB) then
-            znjdir = nrdir
-          else
-            znjdir = nodir
-          end if
+            ! Check local velocity
+            vel = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                       Atmo%vy(iz)*Atmo%vy(iz) + &
+                       Atmo%vz(iz)*Atmo%vz(iz))
+            lvel = vel.gt.TINYVEL
+
+          end if ! Dynamic
+
+          ! Magnetic field?
+          field = Bstrength(iz).gt.TINYB
 
           ! For each direction
-          do jdir=1,znjdir
+          do jdir=1,njdir
 
-            ! Recover the indexes
-            ith = ithv(jdir)
-            iph = iphv(jdir)
+            ! Skip static multiple directions
+            if (.not.lvel.and.jdir.gt.1) cycle
 
-            ! If emergent
-            if (LOS) then
+            ! For each transition
+            do jtran=1,Atom(ia)%ntran
 
-              ct = Geom%L_mu(ith)
-              st = sqrt(1d0 - ct*ct)
-              cc = cos(Geom%L_phi(iph))
-              sc = sin(Geom%L_phi(iph))
+              ! Get size depending on the local magnetic field
+              if (field) then
+                size1(jtran,iz,jdir) = Atom(ia)%trano(jtran)%ncomB
+              else
+                size1(jtran,iz,jdir) = Atom(ia)%trano(jtran)%ncomNB
+              end if
 
+              ! If absent transition, skip
+              if (Atom(ia)%fflag(jtran)%absent) cycle
+
+              ! Identify the terms
+              itermf = Atom(ia)%fst(jtran)%iterml
+              itermu = Atom(ia)%fst(jtran)%itermu
+
+              ! Rolling index
+              ktran = jtran + Atom(ia)%tshift
+
+              ! Get index
+              indx = Red%idzao(ktran,iz,jdir)
+
+              ! Save in shorter variable
+              jj = size1(jtran,iz,jdir)
+
+              ! Allocate and initialize norm
+              allocate(Red%dzao(indx)%Norm(jj))
+              Red%dzao(indx)%Norm = 0d0
+
+              ! Master doing MPI skips
+              if (MPID%mpi.and.pid.eq.0) cycle
+
+              ! If allowed to allocate
+              if (lVPRAM) then
+
+                ! Prediction
+                ! The subtraction is because the normalization has
+                ! already been considered in the count
+                d1 = 16d-6*dble((Atom(ia)%if1(jtran) - &
+                                 Atom(ia)%if0(jtran) + 1)*jj) - &
+                     8d-6*dble(jj)
+
+                ! If no more space
+                if (floor(RAM+d1).gt.RLIM) then
+
+                  ! No stored and flag that we are full in RAM
+                  Red%dzao(indx)%VRAM = .False.
+                  ofram = .True.
+
+                ! If there is space
+                else
+
+                  ! Storing
+                  Red%dzao(indx)%VRAM = .True.
+
+                  ! Allocate
+                  allocate(Red%dzao(indx)%cp(Atom(ia)%if0(jtran): &
+                                             Atom(ia)%if1(jtran),jj))
+                  ! Update RAM
+                  RAM = RAM + d1
+
+                end if ! Space to store
+
+              ! Not storing Voigt
+              else
+
+                ! No stored
+                Red%dzao(indx)%VRAM = .False.
+
+              end if ! Storing
+
+            end do ! transitions
+          end do ! directions
+        end do ! heights
+
+        ! Check the maximum size to transfer
+        ios = maxval(size1)
+
+        ! Gather the maximum size that each processor is holding
+        do while (.True.)
+          call MPI_ALLGATHER(ios,1,MPI_INTEGER,nbf1(0),1, &
+                             MPI_INTEGER,MPI_COMM_RT,ierr)
+          if (ierr.eq.0) exit
+        end do
+
+        ! Allocate buffers
+        allocate(buff1(nbf1(pid)))
+
+        !
+        ! MASTER doing MPI
+        !
+        if (MPID%mpi.and.pid.eq.0) then
+
+          ! Initialize finished
+          finished = 1
+
+          !
+          ! Calculate normalization
+          !
+
+          ! Until done with all processes
+          do while (finished.lt.nproc)
+
+            ! Receive metadata
+            if (extracomm) then
+              do while (.True.)
+                call MPI_recv(id(1),5,MPI_INTEGER, &
+                              MPI_ANY_SOURCE, 0, MPI_COMM_RT, &
+                              MPI_STATUS_IGNORE, ierr)
+                if (ierr.eq.0) exit
+              end do
             else
+              call MPI_recv(id(1),5,MPI_INTEGER, &
+                            MPI_ANY_SOURCE, 0, MPI_COMM_RT, &
+                            MPI_STATUS_IGNORE, ierr)
+            end if
 
-              ct = Geom%V_mu(ith)
-              st = sqrt(1d0 - ct*ct)
-              cc = Geom%v_mux(iph)
-              sc = Geom%v_muy(iph)*sqrt(1d0 - cc*cc)
+            ! If ending signal
+            if (id(1).lt.0) then
+
+              ! Add to finished and restart
+              finished = finished + 1
+              cycle
+
+            end if ! Finished CPU
+
+            ! Only in extra mode receive another ping
+            if (extracomm) then
+              do while (.True.)
+                call MPI_SEND(id(1),1,MPI_INTEGER,id(1),id(1), &
+                              MPI_COMM_RT,ierr)
+                if (ierr.eq.0) exit
+              end do
+            end if
+
+            ! Receive the buffer with the integrals
+            if (extracomm) then
+              do while (.True.)
+                call MPI_recv(buff1(1), nbf1(id(1)), &
+                              MPI_DOUBLE_PRECISION, id(1), &
+                              id(1), MPI_COMM_RT, &
+                              MPI_STATUS_IGNORE, ierr)
+                if (ierr.eq.0) exit
+              end do
+            else
+              call MPI_recv(buff1(1), nbf1(id(1)), &
+                            MPI_DOUBLE_PRECISION, id(1), &
+                            id(1), MPI_COMM_RT, &
+                            MPI_STATUS_IGNORE, ierr)
+            end if
+
+            ! Store checkram if the CPU could not keep this profile
+            if (lVPRAM.and.id(5).lt.0) &
+              checkram(id(2),id(3),id(4)) = -1
+
+            ! Line index
+            ktran = id(2) + Atom(ia)%tshift
+
+            ! Get norm index
+            indx = Red%idzao(ktran,id(3),id(4))
+
+            ! Reset index
+            jj = 0
+
+            ! Run over components
+            do jj=1,size1(id(2),id(3),id(4))
+
+              ! Accumulate the sub-integrals
+              Red%dzao(indx)%Norm(jj) = Red%dzao(indx)%Norm(jj) + &
+                                        buff1(jj)
+            end do ! Components
+          end do ! Communication to do
+
+        !
+        ! SLAVE OR SINGLE PROCESSOR
+        !
+        else
+
+          ! Initialize buff
+          buff1 = 0d0
+
+          !
+          ! Calculate normalization
+          !
+
+          ! For each height
+          do iz=Rz0,Rz1
+
+            ! Thermal part of the Doppler width
+            DwT = Atom(ia)%cDopp*sqrt(Atmo%T(iz))
+
+            ! Magnetic field?
+            field = Bstrength(iz).gt.TINYB
+
+            ! If dynamic
+            if (dyn) then
+
+              ! Check local velocity
+              vel = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                         Atmo%vy(iz)*Atmo%vy(iz) + &
+                         Atmo%vz(iz)*Atmo%vz(iz))
+              lvel = vel.gt.TINYVEL
 
             end if
 
-            ! Calculate Doppler shift factor
+            ! For each direction
+            do jdir=1,njdir
 
-            vfac = 1d0
+              ! Skip static multiple directions
+              if (.not.lvel.and.jdir.gt.1) cycle
 
-            if (dyn) &
-              vfac = 1d0 - atmo%vx(iz)*st*cc - atmo%vy(iz)*st*sc - &
-                           atmo%vz(iz)*ct
+              ! Dopple shift init
+              vfac = 1d0
 
-            ! For each transition
-            do jtran=1,Atom%ntran
+              ! If velocity
+              if (lvel) then
 
-              ! If this process have frequencies for this line
-              if (.not.Atom%fflag(jtran)%absent) then
+                ! If emergent
+                if (LOS) then
+
+                  ! Trigonometry
+                  ct = Geom%L_mu(ith)
+                  st = sqrt(1d0 - ct*ct)
+                  cc = cos(Geom%L_phi(iph))
+                  sc = sin(Geom%L_phi(iph))
+
+                ! If quadrature
+                else
+
+                  ! Recover the indexes
+                  ith1 = Geom%ithv(jdir)
+                  iph1 = Geom%iphv(jdir)
+
+                  ! Trigonometry
+                  ct = Geom%V_mu(ith1)
+                  st = sqrt(1d0 - ct*ct)
+                  cc = Geom%v_mux(iph1)
+                  sc = Geom%v_muy(iph1)*sqrt(1d0 - cc*cc)
+
+                end if ! LOS or quadrature
+
+                ! Get Doppler shift
+                vfac = 1d0 - Atmo%vx(iz)*st*cc - &
+                             Atmo%vy(iz)*st*sc - &
+                             Atmo%vz(iz)*ct
+
+              end if ! Velocity
+
+              ! For each transition
+              do jtran=1,Atom(ia)%ntran
+
+                ! Skip absent
+                if (Atom(ia)%fflag(jtran)%absent) cycle
+
+                ! Rolling index
+                ktran = jtran + Atom(ia)%tshift
+
+                ! Get index
+                indx = Red%idzao(ktran,iz,jdir)
 
                 ! Flag to send
                 tosend(jtran,iz,jdir) = .True.
 
-                ! Output Doppler width
-                Dw = Atom%Dfreq(jtran)*sqrt(DwT*DwT + &
-                                            Atmo%vmi(iz)**2d0)
+                ! Actual Doppler width
+                Dw = Atom(ia)%Dfreq(jtran)*sqrt(DwT*DwT + &
+                                                Atmo%vmi(iz)**2d0)
+                iDw = 1d0/Dw
 
-                ! Find the term indexes for this transition
-                do i=1,Atom%nMulti-1
-                  do i1=i+1,Atom%nMulti
-                    if (Atom%irad(i,i1).eq.jtran) then
-                      itermf = i
-                      itermu = i1
-                    end if
-                  end do
-                end do
+                ! Get terms
+                itermu = Atom(ia)%fst(jtran)%itermu
+                itermf = Atom(ia)%fst(jtran)%iterml
 
                 ! Get contributions to damping parameter
-                au = Atom%damp(itermu,iz)/Dw
-                af = Atom%damp(itermf,iz)/Dw
-                auf = Atom%ldamp(jtran,iz)/Dw
+                au = Atom(ia)%damp(itermu,iz)
+                af = Atom(ia)%damp(itermf,iz)
+                auf = Atom(ia)%ldamp(jtran,iz)
+                atuf = (au + af + auf)*iDw
 
                 ! Get atomic quantities
-                S = Atom%Sval(itermu)
+                S = Atom(ia)%Sval(itermu)
 
-                rLu = Atom%rLval(itermu)
+                ! Upper term
+                rLu = Atom(ia)%rLval(itermu)
                 rJumax = rLu+S
                 nMu = nint(2d0*rJumax+1d0)
 
-                rLf = Atom%rLval(itermf)
+                ! Lower term
+                rLf = Atom(ia)%rLval(itermf)
                 rJfmax = rLf + S
                 nMf = nint(2d0*rJfmax+1d0)
 
                 ! Get indexes
-                if0 = Atom%if0(jtran)
-                if1 = Atom%if1(jtran)
+                if0 = Atom(ia)%if0(jtran)
+                if1 = Atom(ia)%if1(jtran)
+
                 ! Get weights
-                W0 = Atom%W0(jtran)
-                W1 = Atom%W1(jtran)
+                W0 = Atom(ia)%W0(jtran)
+                W1 = Atom(ia)%W1(jtran)
+
+                ! Scaled Doppler width and normalization
+                vfacw = vfac*iDw
+                d1 = 1d-5*iDw/sqrt(PI)
 
                 !
                 ! Proper normalization
                 !
 
                 ! No magnetic field
-                if (Bstrength(iz).lt.TINYB) then
+                if (.not.field) then
 
-                  ! sum over Ju
-                  do iU=1,Atom%nJ(itermu)
+                  ! Run over Ju
+                  do iJu=1,Atom(ia)%nJ(itermu)
 
-                    eu = Atom%FSfreq(iU,itermu)/Dw
+                    ! Get energy, Ju, and index
+                    eu = Atom(ia)%FSfreq(iJu,itermu)
+                    rJu = Atom(ia)%rJval(iJu,itermu)
+                    indU = Atom(ia)%irho(itermu)%irho_ij(iJu)
 
-                    ! Get Ju
-                    rJu = Atom%rJval(iU,itermu)
+                    ! Run over Jl
+                    do iJf=1,Atom(ia)%nJ(itermf)
 
-                    ! sum over Jl
-                    do mF=1,Atom%nJ(itermf)
-
-                      ! Get Jl
-                      rJf = Atom%rJval(mF,itermf)
-
-                      el = Atom%FSfreq(mF,itermf)/Dw
+                      ! Get energy, Jl, and indexes
+                      el = Atom(ia)%FSfreq(iJf,itermf)
+                      rJf = Atom(ia)%rJval(iJf,itermf)
+                      indF = Atom(ia)%irho(itermf)%irho_ij(iJf)
+                      indK = Atom(ia)%trano(jtran)%indNB(indF,indU)
 
                       ! 6-j
                       f62 = fun6j(rLu,rLf,1d0,rJf,rJu,S,Flgsg)
 
+                      ! Check zero
                       if (abs(f62).lt.TINYJS) cycle
 
                       !
@@ -1933,54 +726,54 @@
                       !
 
                       ! Common quantities
-                      Dfreqw = eu - el
-                      vfacw = vfac/Dw
-                      d1 = 1d-5/(sqrt(PI)*Dw)
+                      Dfreqw = (eu - el)*iDw
 
-                      ! Boundaries
+                      ! Lower boundary
 
-                      ! Lower
+                      ! Voigt
                       call voigt(Dfreqw - Frec%omega(if0)*vfacw, &
-                                 au+af+auf,prof)
+                                 atuf,prof)
 
-                      Atom%Normp(jtran,iz,jdir)% &
-                           Norm(mF,iU,1,1) = dble(prof)*(W0*d1)
+                      ! Add to norm
+                      Red%dzao(indx)%Norm(indK) = dble(prof)*W0*d1
 
-                      if (Atom%Normp(jtran,iz,jdir)%VRAM) &
-                        Atom%Normp(jtran,iz,jdir)%prof(mF,iU,1,1)% &
-                        cp(if0) = prof
+                      ! Store profile
+                      if (Red%dzao(indx)%VRAM) &
+                        Red%dzao(indx)%cp(if0,indK) = prof
 
                       ! For each frequency
                       do ifreq=if0+1,if1-1
 
+                        ! Voigt
                         call voigt(Dfreqw - Frec%omega(ifreq)*vfacw, &
-                                   au+af+auf,prof)
+                                   atuf,prof)
 
                         ! Add to the integral
-                        Atom%Normp(jtran,iz,jdir)% &
-                             Norm(mF,iU,1,1) = &
-                             Atom%Normp(jtran,iz,jdir)% &
-                                  Norm(mF,iU,1,1) + &
-                                  dble(prof)*(Frec%W_freq(ifreq)*d1)
+                        Red%dzao(indx)%Norm(indK) = &
+                                      Red%dzao(indx)%Norm(indK) + &
+                                      dble(prof)*Frec%W_freq(ifreq)*d1
 
-                        if (Atom%Normp(jtran,iz,jdir)%VRAM) &
-                          Atom%Normp(jtran,iz,jdir)%prof(mF,iU,1,1)% &
-                          cp(ifreq) = prof
+                        ! Store profile
+                        if (Red%dzao(indx)%VRAM) &
+                          Red%dzao(indx)%cp(ifreq,indK) = prof
 
                       end do ! frequencies
 
-                      ! Upper
+                      !
+                      ! Upper Boundary
+
+                      ! Voigt
                       call voigt(Dfreqw - Frec%omega(if1)*vfacw, &
-                                 au+af+auf,prof)
+                                 atuf,prof)
 
-                      Atom%Normp(jtran,iz,jdir)% &
-                           Norm(mF,iU,1,1) = &
-                           Atom%Normp(jtran,iz,jdir)% &
-                                Norm(mF,iU,1,1) + dble(prof)*(W1*d1)
+                      ! Add to the integral
+                      Red%dzao(indx)%Norm(indK) = &
+                                     Red%dzao(indx)%Norm(indK) + &
+                                     dble(prof)*W1*d1
 
-                      if (Atom%Normp(jtran,iz,jdir)%VRAM) &
-                        Atom%Normp(jtran,iz,jdir)%prof(mF,iU,1,1)% &
-                        cp(if1) = prof
+                      ! Store profile
+                      if (Red%dzao(indx)%VRAM) &
+                        Red%dzao(indx)%cp(if1,indK) = prof
 
                     end do ! Jf
                   end do ! Ju
@@ -1988,148 +781,92 @@
                 ! Yes magnetic field
                 else
 
-                  ! If we need to check for MIT, store
-                  ! resonances
-                  if (checkMIT) then
-
-                    ! Initialize size and index
-                    nt = 0
-                    ii = 0
-
-                    ! For every J combination
-                    do i=1,Atom%nJ(itermf)
-                      do i1=1,Atom%nJ(itermu)
-
-                        ! Skip if forbidden
-                        if (Atom%fst(jtran)%irad(i1,i).lt.1) cycle
-
-                        ! Add resonance
-                        ii = ii + 1
-                        nut(ii) = (Atom%FSfreq(i1,itermu) - &
-                                   Atom%FSfreq(i,itermf))/Dw
-
-                      end do ! Upper J level
-                    end do ! Lower J level
-
-                    ! Store size
-                    nt = ii
-
-                  end if ! If checking for MIT
-
-                  ! sum over Mu
+                  ! Run over Mu
                   do iMu=1,nMu
 
+                    ! Get Mu
                     rMu = -rJumax + dble(iMu-1)
 
-                    ! sum over mu_u
-                    do iU=1,Atom%nblk(iMu,itermu)
+                    ! Run over mu_u
+                    do iU=1,Atom(ia)%nblk(iMu,itermu)
 
-                      eu = Atom%eval(iU,iMu,itermu,iz)/Dw
+                      ! Get energy and index
+                      eu = Atom(ia)%eval(iU,iMu,itermu,iz)
+                      indU = Atom(ia)%irho(itermu)%jM(iU,iMu)
 
-                      ! sum over Ml
+                      ! Run over Mf
                       do iMf=1,nMf
 
+                        ! Get Mf
                         rMf = -rJfmax + dble(iMf-1)
 
+                        ! Selection rules
                         if (nint(abs(rMu-rMf)).gt.1) cycle
 
-                        ! sum over mu_l
-                        do mF=1,Atom%nblk(iMf,itermf)
+                        ! Run over mu_l
+                        do mF=1,Atom(ia)%nblk(iMf,itermf)
 
-                          el = Atom%eval(mF,iMf,itermf,iz)/Dw
-
+                          ! Get energy and index
+                          el = Atom(ia)%eval(mF,iMf,itermf,iz)
+                          indF = Atom(ia)%irho(itermf)%jM(mF,iMf)
+                          indK = Atom(ia)%trano(jtran)%indB(indF,indU)
 
                           !
                           ! Calculate profile
                           !
 
                           ! Common quantities
-                          Dfreqw = eu - el + Atom%Dfreq(jtran)/Dw
-                          vfacw = vfac/Dw
-                          d1 = 1d-5/(sqrt(PI)*Dw)
+                          Dfreqw = (eu - el + &
+                                    Atom(ia)%Dfreq(jtran))*iDw
 
                           !
-                          ! If checking for MIT
-                          if (checkMIT) then
+                          ! Lower Boundary
 
-                            ! Initialize found flag
-                            found = .False.
-
-                            ! Compare with all resonances
-                            do ii=1,nt
-
-                              ! Check if close
-                              if (abs(Dfreqw - nut(ii)).lt.MIT_Dw) then
-                                found = .True.
-                                exit
-                              end if
-
-                            end do
-
-                            ! If not found, we set to zero and skip
-                            if (.not.found) then
-
-                              Atom%Normp(jtran,iz,jdir)% &
-                                         Norm(mF,iU,iMf,iMu) = 0d0
-                              if (Atom%Normp(jtran,iz,jdir)%VRAM) &
-                                Atom%Normp(jtran,iz,jdir)% &
-                                     prof(mF,iU,iMf,iMu)% &
-                                     cp(if0:if1) = cZero
-
-                              cycle
-
-                            end if
-
-                          end if ! Checking for MIT
-
-                          ! Boundaries
-
-                          ! Lower
+                          ! Voigt
                           call voigt(Dfreqw - Frec%omega(if0)*vfacw, &
-                                     au+af+auf,prof)
-                          Atom%Normp(jtran,iz,jdir)% &
-                                               Norm(mF,iU,iMf,iMu) = &
-                                                    dble(prof)*(W0*d1)
+                                     atuf,prof)
 
-                          if (Atom%Normp(jtran,iz,jdir)%VRAM) &
-                            Atom%Normp(jtran,iz,jdir)% &
-                                 prof(mF,iU,iMf,iMu)% &
-                                 cp(if0) = prof
+                          ! Add to norm
+                          Red%dzao(indx)%Norm(indK) = dble(prof)*W0*d1
+
+                          ! Store profile
+                          if (Red%dzao(indx)%VRAM) &
+                            Red%dzao(indx)%cp(if0,indK) = prof
 
                           ! For each frequency
                           do ifreq=if0+1,if1-1
 
+                            ! Voigt
                             call voigt(Dfreqw - &
                                        Frec%omega(ifreq)*vfacw, &
-                                       au+af+auf,prof)
+                                       atuf,prof)
 
                             ! Add to the integral
-                            Atom%Normp(jtran,iz,jdir)% &
-                                               Norm(mF,iU,iMf,iMu) = &
-                               Atom%Normp(jtran,iz,jdir)% &
-                                               Norm(mF,iU,iMf,iMu) + &
-                               dble(prof)*(Frec%W_freq(ifreq)*d1)
+                            Red%dzao(indx)%Norm(indK) = &
+                                      Red%dzao(indx)%Norm(indK) + &
+                                      dble(prof)*Frec%W_freq(ifreq)*d1
 
-                            if (Atom%Normp(jtran,iz,jdir)%VRAM) &
-                              Atom%Normp(jtran,iz,jdir)% &
-                                   prof(mF,iU,iMf,iMu)% &
-                                   cp(ifreq) = prof
+                            ! Store
+                            if (Red%dzao(indx)%VRAM) &
+                              Red%dzao(indx)%cp(ifreq,indK) = prof
 
                           end do ! frequencies
 
-                          ! Upper
-                          call voigt(Dfreqw - Frec%omega(if1)*vfacw, &
-                                     au+af+auf,prof)
-                          Atom%Normp(jtran,iz,jdir)% &
-                                               Norm(mF,iU,iMf,iMu) = &
-                               Atom%Normp(jtran,iz,jdir)% &
-                                               Norm(mF,iU,iMf,iMu) + &
-                                                    dble(prof)*(W1*d1)
+                          !
+                          ! Upper boundary
 
-                          if (Atom%Normp(jtran,iz,jdir)%VRAM) &
-                            Atom%Normp(jtran,iz,jdir)% &
-                                 prof(mF,iU,iMf,iMu)% &
-                                 cp(if1) = prof
+                          ! Voigt
+                          call voigt(Dfreqw - Frec%omega(if1)*vfacw, &
+                                     atuf,prof)
+
+                          ! Add to norm
+                          Red%dzao(indx)%Norm(indK) = &
+                                         Red%dzao(indx)%Norm(indK) + &
+                                         dble(prof)*W1*d1
+
+                          ! Store
+                          if (Red%dzao(indx)%VRAM) &
+                            Red%dzao(indx)%cp(if1,indK) = prof
 
                         end do ! iL
                       end do ! Ml
@@ -2138,942 +875,696 @@
 
                 end if ! Magnetic field presence
 
-              end if ! Line presence in processor test
+                ! If doing MPI and there is information to send
+                if (MPID%mpi.and.tosend(jtran,iz,jdir)) then
 
-              if (MPID%mpi.and.tosend(jtran,iz,jdir)) then
+                  !
+                  ! Share data with master
+                  !
 
-                !
-                ! Share data with master
-                !
+                  ! Check last send was received
+                  if (.not.extracomm) then
+                    call MPI_WAIT(MPID%request1,MPI_STATUS_IGNORE, &
+                                  ierr)
+                    call MPI_WAIT(MPID%request2,MPI_STATUS_IGNORE, &
+                                  ierr)
+                  end if
 
-                ! Check last send was received
-                if (.not.extracomm) then
-                  call MPI_WAIT(MPID%request1,MPI_STATUS_IGNORE, &
-                                ierr)
-                  call MPI_WAIT(MPID%request2,MPI_STATUS_IGNORE, &
-                                ierr)
-                end if
+                  ! Prepare metadata
+                  if (Red%dzao(indx)%VRAM) then
+                    id1_b = (/ pid, jtran, iz, jdir,  1 /)
+                  else
+                    id1_b = (/ pid, jtran, iz, jdir, -1 /)
+                  end if
 
-                ! Send the indexing data
-                if (Atom%Normp(jtran,iz,jdir)%VRAM) then
-                  id1_b = (/ pid, jtran, iz, jdir, 1 /)
-                else
-                  id1_b = (/ pid, jtran, iz, jdir,-1 /)
-                end if
-                if (extracomm) then
-                  do while (.True.)
-                    call MPI_SEND(id1_b(1),5,MPI_INTEGER,0,0, &
-                                  MPI_COMM_RT,ierr)
-                    if (ierr.eq.0) exit
-                  end do
-                else
-                  call MPI_ISEND(id1_b(1),5,MPI_INTEGER,0,0, &
-                                 MPI_COMM_RT,MPID%request1,ierr)
-                end if
+                  ! Send metadata
+                  if (extracomm) then
+                    do while (.True.)
+                      call MPI_SEND(id1_b(1),5,MPI_INTEGER,0,0, &
+                                    MPI_COMM_RT,ierr)
+                      if (ierr.eq.0) exit
+                    end do
+                  else
+                    call MPI_ISEND(id1_b(1),5,MPI_INTEGER,0,0, &
+                                   MPI_COMM_RT,MPID%request1,ierr)
+                  end if
 
-                ! Reorder the normalization into the buffer
-                buff1(1:size1(jtran,iz,jdir)) = &
-                           reshape(Atom%Normp(jtran,iz,jdir)%Norm, &
-                                  (/ size1(jtran,iz,jdir) /))
+                  ! If extra communication, send another ping
+                  if (extracomm) then
+                    do while (.True.)
+                      call MPI_recv(id1_b(1),1,MPI_INTEGER, &
+                                    0, pid, MPI_COMM_RT, &
+                                    MPI_STATUS_IGNORE, ierr)
+                      if (ierr.eq.0) exit
+                    end do
+                  end if
 
-                if (extracomm) then
-                  do while (.True.)
-                    call MPI_recv(id1_b(1),1,MPI_INTEGER, &
-                                  0, pid, MPI_COMM_RT, &
-                                  MPI_STATUS_IGNORE, ierr)
-                    if (ierr.eq.0) exit
-                  end do
-                end if
+                  ! Fill buffer
+                  buff1(1:size1(jtran,iz,jdir)) = Red%dzao(indx)%Norm
 
-                ! Send the actual normalization values
-                if (extracomm) then
-                  do while (.True.)
-                    call MPI_SEND(buff1(1),nbf1(pid), &
-                                  MPI_DOUBLE_PRECISION, 0, pid, &
-                                  MPI_COMM_RT, ierr)
-                    if (ierr.eq.0) exit
-                  end do
-                else
-                  call MPI_ISEND(buff1(1),nbf1(pid), &
-                                 MPI_DOUBLE_PRECISION, 0, pid, &
-                                 MPI_COMM_RT, &
-                                 MPID%request2, ierr)
-                end if
+                  ! Send the actual normalization values
+                  if (extracomm) then
+                    do while (.True.)
+                      call MPI_SEND(buff1, &
+                                    nbf1(pid), MPI_DOUBLE_PRECISION, &
+                                    0, pid, MPI_COMM_RT, ierr)
+                      if (ierr.eq.0) exit
+                    end do
+                  else
+                    call MPI_ISEND(buff1(1), &
+                                   nbf1(pid), MPI_DOUBLE_PRECISION, &
+                                   0, pid, MPI_COMM_RT, &
+                                   MPID%request2, ierr)
+                  end if
 
-              end if ! MPI
+                end if ! MPI
 
-            end do ! output transition
-          end do ! output direction
-        end do ! height
+              end do ! output transition
+            end do ! output direction
+          end do ! height
 
-        ! If MPI send finished signal
+          ! If MPI send finished signal
+          if (MPID%mpi) then
+
+            ! Check last send was received
+            if (.not.extracomm) &
+              call MPI_WAIT(MPID%request1,MPI_STATUS_IGNORE,ierr)
+
+            ! Prepare finished metadata
+            id = (/ -1, -1, -1, -1, -1 /)
+
+            ! Send metadata
+            if (extracomm) then
+              do while (.True.)
+                call MPI_SEND(id(1),5,MPI_INTEGER,0,0, &
+                               MPI_COMM_RT,ierr)
+                if (ierr.eq.0) exit
+              end do
+            else
+              call MPI_ISEND(id(1),5,MPI_INTEGER,0,0, &
+                              MPI_COMM_RT,MPID%request1,ierr)
+            end if ! Type of comm
+          end if ! MPI
+        end if ! Master/slave
+
+        ! If MPI
         if (MPID%mpi) then
 
-          ! Check last send was received
-          if (.not.extracomm) &
-            call MPI_WAIT(MPID%request1,MPI_STATUS_IGNORE,ierr)
+          !
+          ! Broadcast the results
+          !
 
-          ! Send the indexing data
-          id = (/ -1, -1, -1, -1, -1 /)
-          if (extracomm) then
-            do while (.True.)
-              call MPI_SEND(id(1),5,MPI_INTEGER,0,0, &
-                             MPI_COMM_RT,ierr)
-              if (ierr.eq.0) exit
-            end do
-          else
-            call MPI_ISEND(id(1),5,MPI_INTEGER,0,0, &
-                            MPI_COMM_RT,MPID%request1,ierr)
+          ! Slaves allocating profiles
+          if (pid.gt.0.and.lVPRAM) then
+
+            ! Allocate checkram
+            allocate(checkram(Atom(ia)%ntran,Rz0:Rz1,njdir))
+
           end if
 
-        end if
+          ! For each height
+          do iz=Rz0,Rz1
 
-      end if ! MPI
+            ! For each direction
+            do jdir=1,njdir
 
-      ! If MPI
-      if (MPID%mpi) then
+              ! For each transition
+              do jtran=1,Atom(ia)%ntran
 
-        !
-        ! Broadcast the results
-        !
+                ! If no size, skip
+                if (size1(jtran,iz,jdir).le.0) cycle
 
-        ! Slaves allocate checkram
-        if (pid.gt.0.and.VPRAM) then
-          ! Allocate checkram
-          allocate(checkram(Atom%ntran,Rz0:Rz1,nodir))
-        end if
+                ! Slave without line
+                if (pid.gt.0.and.Atom(ia)%fflag(jtran)%absent) then
 
-        ! For each height
-        do iz=Rz0,Rz1
-
-          ! Select number of directions
-          if (Bstrength(iz).ge.TINYB) then
-            znjdir = nrdir
-          else
-            znjdir = nodir
-          end if
-
-          ! For each direction
-          do jdir=1,znjdir
-
-            ! For each transition
-            do jtran=1,Atom%ntran
-
-              ! Alternative bcast
-              if (MPID%altbcast) then
-
-                ! If not master, receive first
-                if (pid.ne.0) then
-
-                  ! Receive Norm
-                  call MPI_RECV(Atom%Normp(jtran,iz,jdir)% &
-                                Norm(1,1,1,1), &
-                                size1(jtran,iz,jdir), &
-                                MPI_DOUBLE_PRECISION,  &
-                                MPID%recv, pid, &
-                                MPI_COMM_RT, MPI_STATUS_IGNORE, &
-                                ierr)
-
-                end if ! No master
-
-                ! For each send
-                do istep=1,MPID%nsend
-
-                  ! Send Norm
-                  call MPI_ISEND(Atom%Normp(jtran,iz,jdir)% &
-                                 Norm(1,1,1,1), &
+                  ! Get dummy
+                  call MPI_BCAST(buff1(1), &
                                  size1(jtran,iz,jdir), &
-                                 MPI_DOUBLE_PRECISION, &
-                                 MPID%lsend(istep), &
-                                 MPID%lsend(istep), &
-                                 MPI_COMM_RT, &
-                                 MPID%requestA(istep,1), ierr)
+                                 MPI_DOUBLE_PRECISION, 0, &
+                                 MPI_COMM_RT, ierr)
 
-                end do ! Sends
+                ! Master or slave with line
+                else
 
-                ! For each slave
-                do istep=1,MPID%nsend
+                  ! Rolling index
+                  ktran = jtran + Atom(ia)%tshift
 
-                  ! Wait for everyone to receive the radiation data
-                  ! continuing
-                  call MPI_WAIT(MPID%requestA(istep,1), &
-                                MPI_STATUS_IGNORE,ierr)
+                  ! Get index
+                  indx = Red%idzao(ktran,iz,jdir)
 
-                end do ! Sends
+                  ! Share Norm
+                  call MPI_BCAST(Red%dzao(indx)%Norm(1), &
+                                 size1(jtran,iz,jdir), &
+                                 MPI_DOUBLE_PRECISION, 0, &
+                                 MPI_COMM_RT, ierr)
 
-              ! Normal bcast
-              else
+                end if ! Absent line
 
-                ! Share Norm
-                call MPI_BCAST(Atom%Normp(jtran,iz,jdir)% &
-                                    Norm(1,1,1,1), &
-                               size1(jtran,iz,jdir), &
-                               MPI_DOUBLE_PRECISION, 0, &
-                               MPI_COMM_RT, ierr)
+              end do ! transitions
+            end do ! directions
+          end do ! heights
 
-              end if ! Type of bcast
+          ! If storing in RAM
+          if (lVPRAM) then
 
-            end do ! transitions
-          end do ! directions
-        end do ! heights
-
-        ! If storing in RAM
-        if (VPRAM) then
-
-          ! Send checkram
-          lcheckram = Atom%ntran*Rnz*nodir
-
-          ! Alternative bcast
-          if (MPID%altbcast) then
-
-            ! If not master, receive first
-            if (pid.ne.0) then
-
-              ! Receive Norm
-              call MPI_RECV(checkram(1,Rz0,1),lcheckram, &
-                            MPI_INTEGER,MPID%recv, pid, &
-                            MPI_COMM_RT, MPI_STATUS_IGNORE, &
-                            ierr)
-
-            end if ! No master
-
-            ! For each send
-            do istep=1,MPID%nsend
-
-              ! Send Norm
-              call MPI_ISEND(checkram(1,Rz0,1),lcheckram, &
-                             MPI_INTEGER,MPID%lsend(istep), &
-                             MPID%lsend(istep), &
-                             MPI_COMM_RT, &
-                             MPID%requestA(istep,1), ierr)
-
-            end do ! Sends
-
-            ! For each slave
-            do istep=1,MPID%nsend
-
-              ! Wait for everyone to receive the radiation data
-              ! continuing
-              call MPI_WAIT(MPID%requestA(istep,1), &
-                            MPI_STATUS_IGNORE,ierr)
-
-            end do ! Sends
-
-          ! Normal bcast
-          else
+            ! Send checkram
+            lcheckram = Atom(ia)%ntran*Rnz*njdir
 
             ! Share Norm
             call MPI_BCAST(checkram(1,Rz0,1),lcheckram, &
                            MPI_INTEGER, 0, &
                            MPI_COMM_RT, ierr)
 
-          end if ! Type of bcast
+            ! Slaves deal with it
+            if (pid.gt.0) then
 
-          ! Slaves deal with it
-          if (pid.gt.0) then
+              ! For each direction
+              do jdir=1,njdir
 
-            ! For each direction
-            do jdir=1,nodir
+                ! For each height
+                do iz=Rz0,Rz1
 
-              ! For each height
-              do iz=Rz0,Rz1
+                  ! For each transition
+                  do jtran=1,Atom(ia)%ntran
 
-                ! For each transition
-                do jtran=1,Atom%ntran
+                    ! Skip absent
+                    if (Atom(ia)%fflag(jtran)%absent) cycle
 
-                  ! If was saving but cannot
-                  if (Atom%Normp(jtran,iz,jdir)%VRAM.and. &
-                      checkram(jtran,iz,jdir).lt.0) then
+                    ! Check size
+                    if (size1(jtran,iz,jdir).le.0) cycle
 
-                    ! Not storing now
-                    Atom%Normp(jtran,iz,jdir)%VRAM = .False.
+                    ! Rolling index
+                    ktran = jtran + Atom(ia)%tshift
 
-                    ! Identify the terms
-                    itermf = Atom%fst(jtran)%iterml
-                    itermu = Atom%fst(jtran)%itermu
+                    ! Get index
+                    indx = Red%idzao(ktran,iz,jdir)
 
-                    ! No magnetic field
-                    if (Bstrength(iz).lt.TINYB) then
+                    ! If was saving but cannot
+                    if (Red%dzao(indx)%VRAM.and. &
+                        checkram(jtran,iz,jdir).lt.0) then
 
-                      ! sum over Ju
-                      do iU=1,Atom%nJ(itermu)
-                        ! sum over Jl
-                        do mF=1,Atom%nJ(itermf)
+                      ! Not storing now
+                      Red%dzao(indx)%VRAM = .False.
 
-                          ! If stored already, remove
-                          if (allocated(Atom%Normp(jtran,iz,jdir)% &
-                                        prof(mF,iU,1,1)%cp)) then
-                            deallocate(Atom%Normp(jtran,iz,jdir)% &
-                                        prof(mF,iU,1,1)%cp)
-                            ! Update RAM
-                            d1 = 16d-6*dble(Atom%if1(jtran) - &
-                                            Atom%if0(jtran) + 1)
-                            MPID%RAM = MPID%RAM - d1
-                            MPID%VRAM = MPID%VRAM - d1
-                            d1 = 8d-6
-                            MPID%RAM = MPID%RAM + d1
-                            MPID%VRAM = MPID%VRAM + d1
+                      ! Identify the terms
+                      itermf = Atom(ia)%fst(jtran)%iterml
+                      itermu = Atom(ia)%fst(jtran)%itermu
 
-                          end if ! Allocated
+                      ! Deallocate profile
+                      RAM = RAM - 1d-6*dble( &
+                                   sizeof(Red%dzao(indx)%cp) + &
+                                   sizeof(Red%dzao(indx)%Norm))
+                      deallocate(Red%dzao(indx)%cp)
 
-                        end do ! Jf
-                      end do ! Ju
+                    end if ! Was storing and not now
 
-                    ! Yes magnetic field
-                    else
+                  end do ! transition
+                end do ! height
+              end do ! direction
 
-                      rLu = Atom%rLval(itermu)
-                      rJumax = rLu+S
-                      nMu = nint(2d0*rJumax+1d0)
+            end if ! Slaves
+          end if ! If saving in RAM
+        end if ! MPI
 
-                      rLf = Atom%rLval(itermf)
-                      rJfmax = rLf + S
-                      nMf = nint(2d0*rJfmax+1d0)
+        !
+        ! Calculate multiplicative factor (instead of division factor)
+        !
 
-                      ! sum over Mu
-                      do iMu=1,nMu
-                        ! sum over mu_u
-                        do iU=1,Atom%nblk(iMu,itermu)
-                          ! sum over Ml
-                          do iMf=1,nMf
-                            if (nint(abs(rMu-rMf)).gt.1) cycle
-                            ! sum over mu_l
-                            do mF=1,Atom%nblk(iMf,itermf)
-
-                              ! If stored already, remove
-                              if (allocated(Atom% &
-                                            Normp(jtran,iz,jdir)% &
-                                            prof(mF,iU,iMf,iMu)% &
-                                            cp)) then
-                                deallocate(Atom% &
-                                           Normp(jtran,iz,jdir)% &
-                                           prof(mF,iU,iMf,iMu)%cp)
-                                ! Update RAM
-                                d1 = 16d-6*dble(Atom%if1(jtran) - &
-                                                Atom%if0(jtran) + 1)
-                                MPID%RAM = MPID%RAM - d1
-                                MPID%VRAM = MPID%VRAM - d1
-                                d1 = 8d-6
-                                MPID%RAM = MPID%RAM + d1
-                                MPID%VRAM = MPID%VRAM + d1
-
-                              end if ! Allocated
-
-                            end do ! iL
-                          end do ! Ml
-                        end do ! iU
-                      end do ! Mu
-
-                    end if ! Magnetic field presence
-
-                    ! And deallocate prof
-                    deallocate(Atom%Normp(jtran,iz,jdir)%prof)
-
-                  end if ! Was storing and not now
-
-                end do ! transition
-              end do ! height
-            end do ! direction
-
-          end if ! Slaves
-        end if ! If saving in RAM
-      end if ! MPI
-
-      !
-      ! Calculate multiplicative factor (instead of division factor)
-      !
-
-      ! If MPI, master does not need this
-      if (MPID%mpi.and.pid.eq.0) then
-
-        do jdir=1,size(Atom%Normp,3)
-          do iz=Rz0,Rz1
-            do jtran=1,Atom%ntran
-              if (allocated(Atom%Normp(jtran,iz,jdir)%Norm)) &
-                deallocate(Atom%Normp(jtran,iz,jdir)%Norm)
-            end do
-          end do
-        end do
-        deallocate(Atom%Normp)
-        nullify(Atom%Normp)
-
-      else
-
-        ! Allocate and initialize out of bound counter
-        allocate(outofbound(Atom%ntran))
+        ! Allocate and initialize out of bounds counter
+        allocate(outofbound(Atom(ia)%ntran))
         outofbound = 0
 
-        ! For each height
-        do iz=Rz0,Rz1
+        ! If MPI, master does not need this
+        if (MPID%mpi.and.pid.eq.0) then
 
-          ! Select number of directions
-          if (Bstrength(iz).ge.TINYB) then
-            znjdir = nrdir
+          ! Run over indexes
+          do indx=1,Red%ndzaoA
+
+            ! Deallocate
+            deallocate(Red%dzao(indx)%Norm)
+
+          end do
+
+        ! Serial or slave
+        else
+
+          ! For each height
+          do iz=Rz0,Rz1
+
+            ! If dynamic
+            if (dyn) then
+
+              ! Check local velocity
+              vel = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                         Atmo%vy(iz)*Atmo%vy(iz) + &
+                         Atmo%vz(iz)*Atmo%vz(iz))
+              lvel = vel.gt.TINYVEL
+
+            end if ! Dynamic
+
+            ! For each direction
+            do jdir=1,njdir
+
+              ! Skip static multiple directions
+              if (.not.lvel.and.jdir.gt.1) cycle
+
+              ! For each transition
+              do jtran=1,Atom(ia)%ntran
+
+                ! Skip absent
+                if (Atom(ia)%fflag(jtran)%absent) cycle
+
+                ! Rolling index
+                ktran = jtran + Atom(ia)%tshift
+
+                ! Get index
+                indx = Red%idzao(ktran,iz,jdir)
+
+                ! Skip
+                if (indx.le.0) cycle
+
+                ! If storing
+                if (Red%dzao(indx)%VRAM) then
+
+                  ! Run over components
+                  do jj=1,size(Red%dzao(indx)%Norm)
+
+                    ! Easier to write variable
+                    d1 = Red%dzao(indx)%Norm(jj)
+
+                    ! If the norm is not zero
+                    if (d1.gt.TINYN) then
+
+                      ! Check close to 1
+                      if (d1.lt.BADNORM.or.d1.gt.2d0-BADNORM) then
+
+                        ! Add to count
+                        outofbound(jtran) = outofbound(jtran) + 1
+
+                        ! If outputting bad norm info, write it
+                        if (obadnorm) &
+                          call writebadbound(folder, &
+                                             Atom(ia)%Element, &
+                                             iz,jdir,.True.,jtran, &
+                                             jj,d1)
+                      end if
+
+                      ! Normalize profile
+                      Red%dzao(indx)%cp(:,jj) = &
+                        dcmplx(dble(Red%dzao(indx)%cp(:,jj))/d1, &
+                               dimag(Red%dzao(indx)%cp(:,jj)))
+
+                    end if ! Small norm
+
+                  end do ! Components
+
+                  ! Deallocate the norm because it is not needed
+                  deallocate(Red%dzao(indx)%Norm)
+
+                ! Not storing
+                else
+
+                  ! Run over components
+                  do jj=1,size(Red%dzao(indx)%Norm)
+
+                    ! Easier to write variable
+                    d1 = Red%dzao(indx)%Norm(jj)
+
+                    ! If the norm is not zero
+                    if (d1.gt.TINYN) then
+
+                      ! Check close to 1
+                      if (d1.lt.BADNORM.or.d1.gt.2d0-BADNORM) then
+
+                        ! Add to count
+                        outofbound(jtran) = outofbound(jtran) + 1
+
+                        ! If outputting bad norm info, write it
+                        if (obadnorm) &
+                          call writebadbound(folder, &
+                                             Atom(ia)%Element, &
+                                             iz,jdir,.True.,jtran, &
+                                             jj,d1)
+                      end if
+
+                      ! Get inverse
+                      Red%dzao(indx)%Norm(jj) = 1d0/d1
+
+                    end if ! Small norm
+
+                  end do ! Components
+
+                end if ! Storing
+
+              end do ! transitions
+            end do ! directions
+          end do ! heights
+
+        end if ! Master and MPI
+
+        ! If MPI
+        if (MPID%mpi) then
+
+          ! Add together all bad normalization data
+
+          ! Master
+          if (pid.eq.0) then
+
+            ! Master in place
+            call MPI_REDUCE(MPI_IN_PLACE,outofbound, &
+                            Atom(ia)%ntran,MPI_INTEGER, &
+                            MPI_SUM,0,MPI_COMM_RT,ierr)
+          ! Slave
           else
-            znjdir = nodir
-          end if
 
-          ! For each direction
-          do jdir=1,znjdir
+            ! Slave just send
+            call MPI_REDUCE(outofbound,outofbound, &
+                            Atom(ia)%ntran,MPI_INTEGER, &
+                            MPI_SUM,0,MPI_COMM_RT,ierr)
 
-            ! For each transition
-            do jtran=1,Atom%ntran
+          end if ! Master/slave
+        end if ! MPI
 
-              ! No magnetic field
-              if (Bstrength(iz).lt.TINYB) then
 
-                ! If storing
-                if (Atom%Normp(jtran,iz,jdir)%VRAM) then
+        ! Master
+        if (pid.eq.0) then
 
-                  ! Identify the terms
-                  itermf = Atom%fst(jtran)%iterml
-                  itermu = Atom%fst(jtran)%itermu
-
-                  ! Run over the J
-                  do iU=1,Atom%nJ(itermu)
-                    do iL=1,Atom%nJ(itermf)
-
-                      ! Easier to write variable
-                      d1 = Atom%Normp(jtran,iz,jdir)%Norm(iL,iU,1,1)
-
-                      ! If the norm is not zero
-                      if (d1.gt.TINYN) then
-
-                        ! Check close to 1
-                        if (d1.lt.BADNORM.or.d1.gt.2d0-BADNORM) then
-                          outofbound(jtran) = outofbound(jtran) + 1
-                          if (obadnorm) &
-                            call writebadbound(folder, &
-                                               Atom%Element,iz,jdir, &
-                                               .True.,.False.,jtran, &
-                                               iU,iL,1,1,d1)
-                        end if
-
-                        Atom%Normp(jtran,iz,jdir)%prof(iL,iU,1,1)%cp &
-                           =  dcmplx(dble(Atom%Normp(jtran,iz,jdir)% &
-                                      prof(iL,iU,1,1)%cp)/d1, &
-                                 dimag(Atom%Normp(jtran,iz,jdir)% &
-                                      prof(iL,iU,1,1)%cp))
-                      end if
-
-                    end do ! iL
-                  end do ! iU
-
-                  ! And deallocate the norm because it is not needed
-                  deallocate(Atom%Normp(jtran,iz,jdir)%Norm)
-
-                ! Not storing
-                else
-
-                  ! Identify the terms
-                  itermf = Atom%fst(jtran)%iterml
-                  itermu = Atom%fst(jtran)%itermu
-
-                  ! Run over the J
-                  do iU=1,Atom%nJ(itermu)
-                    do iL=1,Atom%nJ(itermf)
-
-                      ! Easier to write variable
-                      d1 = Atom%Normp(jtran,iz,jdir)%Norm(iL,iU,1,1)
-
-                      ! If the norm is not zero
-                      if (d1.gt.TINYN) then
-
-                        ! Check close to 1
-                        if (d1.lt.BADNORM.or.d1.gt.2d0-BADNORM) then
-                          outofbound(jtran) = outofbound(jtran) + 1
-                          if (obadnorm) &
-                            call writebadbound(folder, &
-                                               Atom%Element,iz,jdir, &
-                                              .True.,.False.,jtran, &
-                                              iU,iL,1,1,d1)
-                        end if
-
-                        Atom%Normp(jtran,iz,jdir)%Norm(iL,iU,1,1) = &
-                                                               1d0/d1
-                      end if
-
-                    end do ! iL
-                  end do ! iU
-
-                end if ! Storing
-
-              ! Yes magnetic field
-              else
-
-                ! If storing
-                if (Atom%Normp(jtran,iz,jdir)%VRAM) then
-
-                  ! Run over the magnetic components
-                  do iMu=1,Atom%nMu(jtran)
-                    do iMl=1,Atom%nMl(jtran)
-                      do iU=1,Atom%nU(jtran)
-                        do iL=1,Atom%nL(jtran)
-
-                          ! Easier to write variable
-                          d1 = Atom%Normp(jtran,iz,jdir)% &
-                                    Norm(iL,iU,iMl,iMu)
-
-                          ! If the norm is not zero
-                          if (d1.gt.TINYN) then
-
-                            ! Check close to 1
-                            if (d1.lt.BADNORM.or. &
-                                d1.gt.2d0-BADNORM) then
-                              outofbound(jtran) = outofbound(jtran)+1
-                              if (obadnorm) &
-                                call writebadbound(folder, &
-                                                   Atom%Element, &
-                                                   iz,jdir, &
-                                                   .True.,.True., &
-                                                   jtran, &
-                                                   iMu,iMl,iU,iL,d1)
-                            end if
-
-                            Atom%Normp(jtran,iz,jdir)% &
-                                 prof(iL,iU,iMl,iMu)%cp = &
-                              dcmplx(dble(Atom%Normp(jtran,iz,jdir)% &
-                                         prof(iL,iU,iMl,iMu)%cp)/d1, &
-                                    dimag(Atom%Normp(jtran,iz,jdir)% &
-                                              prof(iL,iU,iMl,iMu)%cp))
-                          end if
-
-                        end do ! iL
-                      end do ! iU
-                    end do ! iMl
-                  end do ! iMu
-
-                  ! And deallocate the norm because it is not needed
-                  deallocate(Atom%Normp(jtran,iz,jdir)%Norm)
-
-                ! Not storing
-                else
-
-                  ! Run over the magnetic components
-                  do iMu=1,Atom%nMu(jtran)
-                    do iMl=1,Atom%nMl(jtran)
-                      do iU=1,Atom%nU(jtran)
-                        do iL=1,Atom%nL(jtran)
-
-                          ! Easier to write variable
-                          d1 = Atom%Normp(jtran,iz,jdir)% &
-                                    Norm(iL,iU,iMl,iMu)
-
-                          ! If the norm is not zero
-                          if (d1.gt.TINYN) then
-
-                            ! Check close to 1
-                            if (d1.lt.BADNORM.or. &
-                                d1.gt.2d0-BADNORM) then
-                              outofbound(jtran) = outofbound(jtran)+1
-                              if (obadnorm) &
-                                call writebadbound(folder, &
-                                                   Atom%Element,iz, &
-                                                   jdir,.True., &
-                                                  .True.,jtran, &
-                                                  iMu,iMl,iU,iL,d1)
-                            end if
-
-                            Atom%Normp(jtran,iz,jdir)% &
-                                Norm(iL,iU,iMl,iMu) = 1d0/d1
-
-                          end if
-
-                        end do ! iL
-                      end do ! iU
-                    end do ! iMl
-                  end do ! iMu
-
-                end if ! Storing
-
-              end if
-
-            end do ! transitions
-          end do ! directions
-        end do ! heights
-
-        ! Check bad limits
-        if (maxval(outofbound).gt.0) then
-
-          ! Check if must speak
-          if ((MPID%mpi.and.pid.eq.1).or.(.not.MPID%MPI)) then
+          ! Check bad limits
+          if (maxval(outofbound).gt.0) then
 
             ! For each transition
-            do jtran=1,Atom%ntran
+            do jtran=1,Atom(ia)%ntran
 
-                ! Check line is affected
-                if (outofbound(jtran).gt.0) then
-                  write(umsg,'(A,i4,4A,i6,A)') &
-                    ' - Warning: transition ',jtran,' in ', &
-                    Atom%Element,' has bad normalization', &
-                    ' for the chosen width in ',outofbound(jtran), &
-                    ' heights, directions, and components.'
-                  call verbose
-                end if
+              ! Check line is affected
+              if (outofbound(jtran).gt.0) then
+
+                ! Write number of  bad normalizations
+                write(umsg,'(A,i4,4A,i6,A)') &
+                  ' - Warning: transition ',jtran,' in ', &
+                  Atom(ia)%Element,' has bad normalization', &
+                  ' for the chosen width in ',outofbound(jtran), &
+                  ' heights, directions, and components.'
+                call verbose
+
+              end if ! If bad normalization
 
             end do ! Transition
 
-          end if ! Must output
-        end if ! Any transition had bad normalization
+          end if ! Any transition had bad normalization
+        end if ! Master
 
-        ! Deallocate
+        ! Free
+        deallocate(buff1)
+        deallocate(size1)
+        deallocate(tosend)
         deallocate(outofbound)
+        if (allocated(checkram)) deallocate(checkram)
 
-      end if ! Master and MPI
-
-      ! Leave the buffer free
-      deallocate(buff1)
-
+      end do ! Atoms
 
       !
-      ! Fill file of Voigt profiles
+      ! LTE lines
       !
-      if (vpfil) then
 
-        ! Only slaves or Master if no MPI
-        if (pid.ne.0.or..not.MPID%mpi) then
+      ! If LTE lines present
+      if (allocated(LTElines)) then
 
-          ! Allocate buffer
-          istep = nfreq*2
-          allocate(buff1(istep))
+        ! For each LTE line
+        do ia=1,size(LTElines)
 
-          ! Compute f0size and f1size
+          ! Skip if absent
+          if (LTElines(ia)%absent) cycle
 
-          ! For each transition
-          do jtran=1,Atom%ntran
+          !
+          ! Allocate the norm array
+          !
 
-            ! If this process have frequencies for this line
-            if (Atom%fflag(jtran)%absent) cycle
+          ! For each height
+          do iz=LTElines(ia)%Rz0,Rz1
 
-            Atom%f0size(jtran) = 16d0*(Atom%if0(jtran) - &
-                                       Atom%rif0(jtran))
-            Atom%f1size(jtran) = 16d0*(Atom%rif1(jtran) - &
-                                       Atom%if1(jtran))
-          end do ! Transitions
+            ! If dynamic
+            if (dyn) then
 
-          ! For each direction
-          do jdir=1,nrdir
+              ! Check local velocity
+              vel = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                         Atmo%vy(iz)*Atmo%vy(iz) + &
+                         Atmo%vz(iz)*Atmo%vz(iz))
+              lvel = vel.gt.TINYVEL
 
-            ! Recover the indexes
-            ith = ithv(jdir)
-            iph = iphv(jdir)
+            end if ! Dynamic
 
-            ! If emergent
-            if (LOS) then
+            ! Magnetic field?
+            field = Bstrength(iz).gt.TINYB
 
-              ct = Geom%L_mu(ith)
-              st = sqrt(1d0 - ct*ct)
-              cc = cos(Geom%L_phi(iph))
-              sc = sin(Geom%L_phi(iph))
-
+            ! Get size depending on the local magnetic field
+            if (field) then
+              jj = LTElines(ia)%ncom
             else
-
-              ct = Geom%V_mu(ith)
-              st = sqrt(1d0 - ct*ct)
-              cc = Geom%v_mux(iph)
-              sc = Geom%v_muy(iph)*sqrt(1d0 - cc*cc)
-
+              jj = 1
             end if
 
-            ! Calculate Doppler shift factor
+            ! For each direction
+            do jdir=1,njdir
 
-            vfac = 1d0
+              ! Skip static multiple directions
+              if (.not.lvel.and.jdir.gt.1) cycle
 
+              ! Skip slave
+              if (MPID%mpi.and.pid.eq.0) cycle
+
+              ! Get index
+              indx = Red%idzao(nxtran+ia,iz,jdir)
+
+              ! Allocate profile itself if storing and it is present
+              if (lVPRAM) then
+
+                ! Prediction
+                ! No subtraction because the norm itself is not
+                ! stored in LTE lines
+                d1 = 16d-6*dble(LTElines(ia)%if1 - &
+                                LTElines(ia)%if0 + 1)*jj 
+
+                ! If no more space
+                if (floor(RAM+d1).gt.RLIM) then
+
+                  ! No stored
+                  Red%dzao(indx)%VRAM = .False.
+                  ofram = .True.
+
+                ! If there is space
+                else
+
+                  ! Storing
+                  Red%dzao(indx)%VRAM = .True.
+
+                  ! Allocate depending on the local magnetic field
+                  if (field) then
+                    allocate(Red%dzao(indx)%cp(LTElines(ia)%if0: &
+                                               LTElines(ia)%if1,jj))
+                  else
+                    allocate(Red%dzao(indx)%p(LTElines(ia)%if0: &
+                                              LTElines(ia)%if1))
+                  end if
+
+                  ! Update RAM
+                  RAM = RAM + d1
+
+                end if ! Space to store
+
+              ! Not storing Voigt
+              else
+
+                ! No stored
+                Red%dzao(indx)%VRAM = .False.
+
+              end if ! Storing
+
+            end do ! directions
+          end do ! heights
+
+          !
+          ! SLAVE OR SINGLE PROCESSOR
+          !
+          if (.not.MPID%mpi.or.pid.gt.0) then
+
+            !
+            ! Calculate profile
+            !
 
             ! For each height
-            do iz=1,nz
+            do iz=LTElines(ia)%Rz0,Rz1
 
               ! Thermal part of the Doppler width
-              DwT = Atom%cDopp*sqrt(Atmo%T(iz))
+              DwT = sqrt(LTElines(ia)%cDopp*LTElines(ia)%cDopp* &
+                         Atmo%T(iz) + &
+                         Atmo%vmi(iz)*Atmo%vmi(iz))
 
-              ! Check if relevant
-              if (Bstrength(iz).lt.TINYB) then
-                ! Skip is not going to be used
-                if (jdir.gt.nodir) cycle
+              ! If dynamic
+              if (dyn) then
+
+                ! Check local velocity
+                vel = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                           Atmo%vy(iz)*Atmo%vy(iz) + &
+                           Atmo%vz(iz)*Atmo%vz(iz))
+                lvel = vel.gt.TINYVEL
+
+              end if ! Dynamic
+
+              ! Magnetic field?
+              field = Bstrength(iz).gt.TINYB
+
+              ! Get size depending on the local magnetic field
+              if (field) then
+                jj = LTElines(ia)%ncom
+              else
+                jj = 1
               end if
 
-              if (dyn) &
-                vfac = 1d0 - atmo%vx(iz)*st*cc - &
-                             atmo%vy(iz)*st*sc - &
-                             atmo%vz(iz)*ct
+              ! For each direction
+              do jdir=1,njdir
 
-              ! For each transition
-              do jtran=1,Atom%ntran
+                ! Skip static multiple directions
+                if (.not.lvel.and.jdir.gt.1) cycle
 
-                ! If this process have frequencies for this line
-                if (Atom%fflag(jtran)%absent) cycle
+                ! Dopple shift init
+                vfac = 1d0
+
+                ! If velocity
+                if (lvel) then
+
+                  ! If emergent
+                  if (LOS) then
+
+                    ct = Geom%L_mu(ith)
+                    st = sqrt(1d0 - ct*ct)
+                    cc = cos(Geom%L_phi(iph))
+                    sc = sin(Geom%L_phi(iph))
+
+                  else
+
+                    ! Recover the indexes
+                    ith1 = Geom%ithv(jdir)
+                    iph1 = Geom%iphv(jdir)
+                    ct = Geom%V_mu(ith1)
+                    st = sqrt(1d0 - ct*ct)
+                    cc = Geom%v_mux(iph1)
+                    sc = Geom%v_muy(iph1)*sqrt(1d0 - cc*cc)
+
+                  end if ! LOS or quadrature
+
+                  ! Get Doppler shift
+                  vfac = 1d0 - Atmo%vx(iz)*st*cc - &
+                               Atmo%vy(iz)*st*sc - &
+                               Atmo%vz(iz)*ct
+
+                end if ! Velocity
+
+                ! Get index
+                indx = Red%idzao(nxtran+ia,iz,jdir)
+
+                ! If not storing, why bother
+                if (.not.Red%dzao(indx)%VRAM) cycle
 
                 ! Output Doppler width
-                Dw = Atom%Dfreq(jtran)*sqrt(DwT*DwT + &
-                                            Atmo%vmi(iz)**2d0)
-
-                ! Find the term indexes for this transition
-                itermf = Atom%fst(jtran)%iterml
-                itermu = Atom%fst(jtran)%itermu
-
-                ! Get contributions to damping parameter
-                au = Atom%damp(itermu,iz)/Dw
-                af = Atom%damp(itermf,iz)/Dw
-                auf = Atom%ldamp(jtran,iz)/Dw
-
-                ! Get atomic quantities
-                S = Atom%Sval(itermu)
-
-                rLu = Atom%rLval(itermu)
-                rJumax = rLu+S
-                nMu = nint(2d0*rJumax+1d0)
-
-                rLf = Atom%rLval(itermf)
-                rJfmax = rLf+S
-                nMf = nint(2d0*rJfmax+1d0)
+                Dw = LTElines(ia)%Dfreq*DwT
+                iDw = 1d0/Dw
 
                 ! Get indexes
-                if0 = Atom%if0(jtran)
-                if1 = Atom%if1(jtran)
+                if0 = LTElines(ia)%if0
+                if1 = LTElines(ia)%if1
 
-                ! Get real indexes
-                rif0 = Atom%rif0(jtran)
-                rif1 = Atom%rif1(jtran)
-                nfreqt = rif1 - rif0 + 1
+                ! Common quantities
+                Dfreqw = (LTElines(ia)%eu - LTElines(ia)%el)*iDw
+                vfacw = vfac*iDw
+                auf = LTElines(ia)%damp(iz)*iDw
 
-                ! Prepare jump variable
-                loffset = dble(Atom%hvifil) + &
-                          Atom%dsize(jdir) + &
-                          Atom%zsize(iz)
-
+                !
                 ! No magnetic field
-                if (Bstrength(iz).lt.TINYB) then
+                if (.not.field) then
 
-                  ! Prepare jump variable
-                  loffset = loffset + Atom%tsize(jtran)
+                  !
+                  ! Calculate profile
+                  !
 
-                  ! Initialize component variable
-                  icom = 0
+                  ! For each frequency
+                  do ifreq=if0,if1
 
-                  ! sum over Ju
-                  do iU=1,Atom%nJ(itermu)
+                    ! Voigt
+                    call voigt(Dfreqw - Frec%omega(ifreq)*vfacw, &
+                               auf,prof)
 
-                    eu = Atom%FSfreq(iU,itermu)/Dw
+                    ! Save profile
+                    Red%dzao(indx)%p(ifreq) = dble(prof)
 
-                    ! Get Ju
-                    rJu = Atom%rJval(iU,itermu)
+                  end do ! frequencies
 
-                    ! sum over Jl
-                    do mF=1,Atom%nJ(itermf)
+                ! Yes magnetic field
+                else
 
-                      ! Get Jl
-                      rJf = Atom%rJval(mF,itermf)
+                  ! Initialize
+                  jj = 0
 
-                      el = Atom%FSfreq(mF,itermf)/Dw
+                  ! Run over Mu
+                  do iMu=1,LTElines(ia)%nMu
 
-                      ! 6-j
-                      f62 = fun6j(rLu,rLf,1d0,rJf,rJu,S,Flgsg)
+                    ! Magnetic number
+                    rMu = -LTElines(ia)%Ju + dble(iMu-1)
 
-                      if (abs(f62).lt.TINYJS) cycle
+                    ! Run over Ml
+                    do iMf=1,LTElines(ia)%nMl
 
-                      ! Advance component index
-                      icom = icom + 1
+                      ! Magnetic number
+                      rMf = -LTElines(ia)%Jl + dble(iMf-1)
+
+                      ! Selection rules
+                      if (nint(abs(rMu-rMf)).gt.1) cycle
+
+                      ! Advance index
+                      jj = jj + 1
+
+                      ! Get magnetic shift
+                      dnubw = B2LK*Bstrength(iz)* &
+                              (LTElines(ia)%gu*rMu - &
+                               LTElines(ia)%gl*rMf)*iDw
 
                       !
                       ! Calculate profile
                       !
 
-                      ! Common quantities
-                      Dfreqw = eu - el
-                      vfacw = vfac/Dw
-
-                      ! Buffer index
-                      i1 = 0
-
-                      ! Inverse normalization
-                      d1 = Atom%Normp(jtran,iz,jdir)% &
-                                Norm(mF,iU,1,1)
-
                       ! For each frequency
                       do ifreq=if0,if1
 
-                        ! Compute profile
-                        call voigt(Dfreqw - Frec%omega(ifreq)*vfacw, &
-                                   au+af+auf,prof)
+                        ! Voigt
+                        call voigt(Dfreqw + dnubw - &
+                                   Frec%omega(ifreq)*vfacw, &
+                                   auf,prof)
 
-                        ! Store into buffer
-                        buff1(i1+1) = dble(prof)*d1
-                        buff1(i1+2) = dimag(prof)
-
-                        ! Advance buffer index
-                        i1 = i1 + 2
+                        ! Save profile
+                        Red%dzao(indx)%cp(ifreq,jj) = prof
 
                       end do ! frequencies
-
-                      ! Open file
-                      call MPI_FILE_OPEN(MPI_COMM_SELF, &
-                                         trim(Atom%vfile), &
-                                         MPI_MODE_WRONLY, &
-                                         MPI_INFO_NULL, &
-                                         funit, ierr)
-                      if (ierr.ne.0) goto 1100
-
-                      ! Jump
-                      loffsetin = loffset + Atom%f0size(jtran) + &
-                                  dble(icom - 1)*16d0*nfreqt
-                      do while(loffsetin.gt.offlimit)
-                        offset = int(offlimit)
-                        call MPI_FILE_SEEK(funit, offset, &
-                                           MPI_SEEK_CUR, ierr)
-                        loffsetin = loffsetin - offlimit
-                      end do
-                      offset = int(loffsetin)
-                      call MPI_FILE_SEEK(funit, offset, &
-                                         MPI_SEEK_CUR, ierr)
-
-                      ! Write
-                      call MPI_FILE_WRITE(funit, &
-                              buff1(1), i1, &
-                              MPI_DOUBLE_PRECISION, &
-                              MPI_STATUS_IGNORE, ierr)
-                      if (ierr.ne.0) goto 1100
-
-                      ! Close file
-                      call MPI_FILE_CLOSE(funit, ierr)
-
-                    end do ! Jf
-                  end do ! Ju
-
-                ! Yes magnetic field
-                else
-
-                  ! Prepare jump variable
-                  loffset = loffset + Atom%tBsize(jtran)
-
-                  ! Initialize component variable
-                  icom = 0
-
-                  ! sum over Mu
-                  do iMu=1,nMu
-
-                    rMu = -rJumax + dble(iMu-1)
-
-                    ! sum over mu_u
-                    do iU=1,Atom%nblk(iMu,itermu)
-
-                      eu = Atom%eval(iU,iMu,itermu,iz)/Dw
-
-                      ! sum over Ml
-                      do iMf=1,nMf
-
-                        rMf = -rJfmax + dble(iMf-1)
-
-                        if (nint(abs(rMu-rMf)).gt.1) cycle
-
-                        ! sum over mu_l
-                        do mF=1,Atom%nblk(iMf,itermf)
-
-                          el = Atom%eval(mF,iMf,itermf,iz)/Dw
-
-                          ! Advance component index
-                          icom = icom + 1
-
-                          !
-                          ! Calculate profile
-                          !
-
-                          ! Common quantities
-                          Dfreqw = eu - el + Atom%Dfreq(jtran)/Dw
-                          vfacw = vfac/Dw
-
-                          ! Buffer index
-                          i1 = 0
-
-                          ! Inverse normalization
-                          d1 = Atom%Normp(jtran,iz,jdir)% &
-                                    Norm(mF,iU,iMf,iMu)
-
-                          ! For each frequency
-                          do ifreq=if0,if1
-
-                            ! Calculate profile
-                            call voigt(Dfreqw - &
-                                       Frec%omega(ifreq)*vfacw, &
-                                       au+af+auf,prof)
-
-                            ! Store into buffer
-                            buff1(i1+1) = dble(prof)*d1
-                            buff1(i1+2) = dimag(prof)
-
-                            ! Advance buffer index
-                            i1 = i1 + 2
-
-                          end do ! frequencies
-
-                          ! Open file
-                          call MPI_FILE_OPEN(MPI_COMM_SELF, &
-                                             trim(Atom%vfile), &
-                                             MPI_MODE_WRONLY, &
-                                             MPI_INFO_NULL, &
-                                             funit, ierr)
-                          if (ierr.ne.0) goto 1100
-
-                          ! Jump
-                          loffsetin = loffset + Atom%f0size(jtran) + &
-                                      dble(icom - 1)*16d0*nfreqt
-
-                          do while(loffsetin.gt.offlimit)
-                            offset = int(offlimit)
-                            call MPI_FILE_SEEK(funit, offset, &
-                                               MPI_SEEK_CUR, ierr)
-                            loffsetin = loffsetin - offlimit
-                          end do
-                          offset = int(loffsetin)
-                          call MPI_FILE_SEEK(funit, offset, &
-                                             MPI_SEEK_CUR, ierr)
-
-                          ! Write
-                          call MPI_FILE_WRITE(funit, &
-                                  buff1(1), i1, &
-                                  MPI_DOUBLE_PRECISION, &
-                                  MPI_STATUS_IGNORE, ierr)
-                          if (ierr.ne.0) goto 1100
-
-                          ! Close file
-                          call MPI_FILE_CLOSE(funit, ierr)
-
-                        end do ! iL
-                      end do ! Ml
-                    end do ! iU
+                    end do ! Ml
                   end do ! Mu
 
                 end if ! Magnetic field presence
 
-                ! Deallocate
-                deallocate(Atom%Normp(jtran,iz,jdir)%Norm)
+              end do ! output direction
+            end do ! height
 
-              end do ! Transitions
-            end do ! Directions
-          end do ! Heights
+          end if ! MPI
 
-          ! Deallocate
-          deallocate(Atom%Normp)
-          nullify(Atom%Normp)
+        end do ! LTE lines
 
-          ! Allocate a token
-          allocate(Atom%Normp(1,1,1))
+      end if ! LTE lines present
 
-        end if ! Slave or single CPU
-      end if ! Writing Voigt profiles
+      ! And now update the memory in Normp
+      call cram_red_norm(Red,num)
+      VRAMc = VRAMc + num
+      DRAMc = 0d0
 
       ! Control
       call control
 
-      return
-
-1000  umsg = 'Error opening '//trim(Atom%vfile)//' file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
-      call control
-      return
-1100  umsg = 'Error writing '//trim(Atom%vfile)//' file'
-      close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
-      call control
       return
 
       end subroutine normalize
@@ -3082,1040 +1573,640 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes normalization factors for all the Voigt profiles\n
-      !!      line(LTElines_class): Structure with the LTE line data\n
-      !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !!      Bstrength(dfloat(:)): Magnetic field strength\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!     Frec(Frequency_class): Structure with frequency data
-      !!            njdir(integer): Number of directions\n
-      !!          ithv(integer(:)): Indexing of polar directions\n
-      !!          ithv(integer(:)): Indexing of azimuth directions\n
-      !!                            signs\n
-      !!               lp(logical): If doing formal solution in this
-      !!                            run\n
-      !!            ofram(logical): Indicates if out of RAM\n
-      !!              LOS(logical): Indicates if we are normalizing
-      !!                            LOS directions
-      subroutine getprof_LTE(line,Atmo,Bstrength,Geom,MPID,Frec, &
-                             njdir,ithv,iphv,lp,ofram,LOS)
+      !> Normalize the absorption profiles for the first order
+      !! profiles in the PRD emissivity for the polarization problem\n
+      !!    Atom(Atom_class(:)): Structures with atomic data\n
+      !!       Atmo(Atmo_class): Structure with atmospheric data\n
+      !!   Bstrength(double(:)): Magnetic field strength\n
+      !!  Frec(Frequency_class): Structure with frequency data\n
+      !!         Red(Red_class): Structure with redistribution input
+      !!                         frequency data, redistribution
+      !!                         function data, and profile or
+      !!                         normalization data\n
+      !!         ofram(logical): If reached the RAM limit
+      subroutine normalize_PRD(Atom,Atmo,Bstrength,Frec,Red,ofram)
 
       ! I/O
 
-      type(LTEline_class), intent(inout):: line
+      type(Atom_class), dimension(:), intent(inout):: Atom
       type(Atmo_class), intent(in):: Atmo
-      type(Geometry_class), intent(inout):: Geom
       type(Frequency_class), intent(in):: Frec
-      type(MPI_class):: MPID
-      logical, intent(in):: lp, LOS
+      type(Red_class), intent(inout):: Red
       logical, intent(out):: ofram
-      integer, intent(in):: njdir
-      integer, dimension(:), intent(in):: ithv,iphv
       double precision, dimension(:), intent(in):: Bstrength
 
       ! Local
 
-      logical:: field
+      logical:: LVRAM,nfield
 
-      integer:: jdir,iz,jj,nodir,nrdir,znjdir
-      integer:: ith,iph,ifreq,if0,if1,iMu,iMf
+      integer:: ia,jtran,itermf,itermu,nMu,nMf,iMu,iMf,iU,mF
+      integer:: iz,indx,ifreq,if0,if1,nf,indU,indF,indK
 
-      double precision:: d1,rMu,rMf,dnubw,auf,Dfreqw
-      double precision:: DwT,Dw,vfac,vfacw,ct,st,cc,sc
+      double precision:: RAM,d1,rMu,rMf,el,eu
+      double precision:: rLu,rLf,S,rJumax,rJfmax,rJu,rJf
+      double precision:: au,af,auf,atuf,Dfreq,DwT,Dw,iDw
+      double precision, dimension(:), allocatable:: W0,W1
 
       complex(kind=8):: prof
 
 
       ! Routine name
-      urou = 'getprof_LTE'
-
-      ! Check if there is magnetic field
-      field = .False.
+      urou = 'normalize_PRD'
 
       ! Initialize
       ofram = .False.
 
-      ! Check magnetic field strength
-      do iz=1,nz
-        if (Bstrength(iz).ge.TINYB) then
-          field = .True.
-          exit
+      ! Allocate space for data
+      allocate(Red%pzao(Red%nzao))
+
+      ! Initialize RAM numbers
+      RAM = cram_add(1)
+
+      ! For each atom
+      do ia=1,nA
+
+        ! Allocate extremal weights
+        allocate(W0(Atom(ia)%ntran),W1(Atom(ia)%ntran))
+
+        ! Master get stored weights
+        if (pid.eq.0) then
+          W0 = Atom(ia)%W0
+          W1 = Atom(ia)%W1
         end if
-      end do
 
-      ! If LOS and not dynamic, if already iterated, maybe no need to
-      ! repeat the normalization
-      if (LOS.and..not.dyn.and.lp) then
+        ! Share limit weights with slaves
+        call MPI_BCAST(W0,Atom(ia)%ntran,MPI_DOUBLE_PRECISION, &
+                       0,MPI_COMM_RT,ierr)
+        call MPI_BCAST(W1,Atom(ia)%ntran,MPI_DOUBLE_PRECISION, &
+                       0,MPI_COMM_RT,ierr)
 
-        ! If no magnetic, copy the file if using it and get out
-        if (.not.field) then
-
-          ! Everyone control and return
-          call control
-          return
-
-        end if ! Non-magnetic
-      end if ! LOS, not dynamic, previously normalized
-
-      ! Get real size of direction dimension
-      if (dyn) then
-        nodir = njdir
-        nrdir = njdir
-      else
-        nodir = 1
-        if (field) then
-          nrdir = njdir
-        else
-          nrdir = 1
-        end if
-      end if
-
-
-      !
-      ! Allocate vector for norm (part I)
-      !
-
-      ! Check prof is allocated
-      if (associated(line%prof)) then
-        do jdir=1,size(line%prof,2)
-          do iz=lbound(line%prof,1),ubound(line%prof,1)
-            if (allocated(line%prof(iz,jdir)%p)) &
-              deallocate(line%prof(iz,jdir)%p)
-            if (allocated(line%prof(iz,jdir)%comp)) &
-              deallocate(line%prof(iz,jdir)%comp)
-          end do
-        end do
-        deallocate(line%prof)
-        nullify(line%prof)
-      end if
-
-      ! Structure with the norm for each component
-      allocate(line%prof(line%Rz0:Rz1,nrdir))
-
-
-      !
-      ! Allocate the norm array
-      !
-
-      ! For each height
-      do iz=line%Rz0,Rz1
-
-        ! No magnetic field
-        if (Bstrength(iz).lt.TINYB) then
-
-          ! For each direction
-          do jdir=1,nodir
-
-            ! Skip unless slave
-            if (MPID%mpi.and.pid.eq.0) cycle
-
-            ! Allocate profile itself if storing and it is present
-            if (VPRAM.and..not.line%absent) then
-
-              ! Prediction
-              d1 = 16d-6*dble(line%if1 - line%if0 + 1)
-
-              ! If no more space
-              if (floor(MPID%RAM+d1).gt.RLIM) then
-
-                ! No stored
-                line%prof(iz,jdir)%VRAM = .False.
-                ofram = .True.
-
-              ! If there is space
-              else
-
-                ! Storing
-                line%prof(iz,jdir)%VRAM = .True.
-
-                ! Allocate
-                allocate(line%prof(iz,jdir)%p(line%if0:line%if1))
-
-                ! Update RAM
-                MPID%RAM = MPID%RAM + d1
-                MPID%VRAM = MPID%VRAM + d1
-
-              end if ! Space to store
-
-            ! Not storing Voigt
-            else
-
-              ! No stored
-              line%prof(iz,jdir)%VRAM = .False.
-
-            end if ! Storing
-
-          end do ! directions
-
-        ! Yes magnetic field
-        else
-
-          ! For each direction
-          do jdir=1,nrdir
-
-            ! Skip if not slave
-            if (MPID%mpi.and.pid.eq.0) cycle
-
-            ! Get indexes
-            if0 = line%if0
-            if1 = line%if1
-
-            !
-            ! Count components
-
-            ! Initialize
-            jj = 0
-
-            ! sum over Mu
-            do iMu=1,line%nMu
-
-              rMu = -line%Ju + dble(iMu-1)
-
-              ! sum over Ml
-              do iMf=1,line%nMl
-
-                rMf = -line%Jl + dble(iMf-1)
-
-                if (nint(abs(rMu-rMf)).gt.1) cycle
-
-                jj = jj + 1
-
-              end do ! Ml
-            end do ! Mu
-
-            ! Allocate profile itself if storing and it is present
-            if (VPRAM.and..not.line%absent) then
-
-              ! Prediction
-              d1 = 16d-6*dble(line%if1 - line%if0 + 1)
-
-              ! If no more space
-              if (floor(MPID%RAM+d1).gt.RLIM) then
-
-                ! No stored
-                line%prof(iz,jdir)%VRAM = .False.
-                ofram = .True.
-
-              ! If there is space
-              else
-
-                ! Storing
-                line%prof(iz,jdir)%VRAM = .True.
-
-                ! Allocate
-                allocate(line%prof(iz,jdir)%comp(line%nMl,line%nMu))
-
-                ! sum over Mu
-                do iMu=1,line%nMu
-
-                  rMu = -line%Ju + dble(iMu-1)
-
-                  ! sum over Ml
-                  do iMf=1,line%nMl
-
-                    rMf = -line%Jl + dble(iMf-1)
-
-                    if (nint(abs(rMu-rMf)).gt.1) cycle
-
-                    ! Allocate
-                    allocate(line%prof(iz,jdir)% &
-                                  comp(iMf,iMu)%cp(if0:if1))
-
-                  end do ! Ml
-                end do ! Mu
-
-                ! Update RAM
-                MPID%RAM = MPID%RAM + d1
-                MPID%VRAM = MPID%VRAM + d1
-
-              end if ! Space to store
-
-            ! Not storing Voigt
-            else
-
-              ! No stored
-              line%prof(iz,jdir)%VRAM = .False.
-
-            end if ! Storing
-
-          end do ! directions
-
-        end if ! No magnetic field
-
-      end do ! heights
-
-
-      !
-      ! SLAVE OR SINGLE PROCESSOR
-      !
-      if (.not.MPID%mpi.or.pid.gt.0) then
 
         !
-        ! Calculate normalization
+        ! Allocate the norm array
         !
 
         ! For each height
-        do iz=line%Rz0,Rz1
+        do iz=Rz0,Rz1_PRD
 
           ! Thermal part of the Doppler width
-          DwT = sqrt(line%cDopp*line%cDopp*Atmo%T(iz) + &
-                     Atmo%vmi(iz)*Atmo%vmi(iz))
+          DwT = Atom(ia)%cDopp*sqrt(Atmo%T(iz))
 
-          ! Select number of directions
-          if (Bstrength(iz).ge.TINYB) then
-            znjdir = nrdir
-          else
-            znjdir = nodir
-          end if
+          ! Check if no field
+          nfield = Bstrength(iz).le.TINYB
 
-          ! For each direction
-          do jdir=1,znjdir
+          ! For each transition
+          do jtran=1,Atom(ia)%ntran
 
-            ! If not storing, why bother
-            if (.not.line%prof(iz,jdir)%VRAM) cycle
+            ! Skip if no PRD
+            if (.not.Atom(ia)%lemiss2(jtran)) cycle
 
-            ! Recover the indexes
-            ith = ithv(jdir)
-            iph = iphv(jdir)
+            ! Index
+            indx = Red%izao(jtran,ia,iz)
 
-            ! If emergent
-            if (LOS) then
+            ! Limits
+            if0 = Red%zao(indx)%Igf0
+            if1 = Red%zao(indx)%Igf1
+            nf = if1 - if0 + 1
 
-              ct = Geom%L_mu(ith)
-              st = sqrt(1d0 - ct*ct)
-              cc = cos(Geom%L_phi(iph))
-              sc = sin(Geom%L_phi(iph))
+            ! Correct weights if not extreme wavelength
+            if (if0.ne.Atom(ia)%tif0(jtran)) &
+              W0(jtran) = Frec%W_freq(if0)
+            if (if1.ne.Atom(ia)%tif1(jtran)) &
+              W1(jtran) = Frec%W_freq(if1)
+            if (if1.le.if0) W1(jtran) = 0d0
 
-            else
+            ! Identify the terms
+            itermf = Atom(ia)%fst(jtran)%iterml
+            itermu = Atom(ia)%fst(jtran)%itermu
 
-              ct = Geom%V_mu(ith)
-              st = sqrt(1d0 - ct*ct)
-              cc = Geom%v_mux(iph)
-              sc = Geom%v_muy(iph)*sqrt(1d0 - cc*cc)
+            ! Get atomic quantities
+            S = Atom(ia)%Sval(itermu)
+            rLu = Atom(ia)%rLval(itermu)
+            rLf = Atom(ia)%rLval(itermf)
+            rJumax = rLu+S
+            nMu = nint(2d0*rJumax+1d0)
+            rJfmax = rLf + S
+            nMf = nint(2d0*rJfmax+1d0)
 
-            end if
+            ! Doppler width
+            Dw = Atom(ia)%Dfreq(jtran)*sqrt(DwT*DwT + &
+                                            Atmo%vmi(iz)**2d0)
+            iDw = 1d0/Dw
 
-            ! Calculate Doppler shift factor
+            ! Get contributions to damping parameter
+            au = Atom(ia)%damp(itermu,iz)
+            af = Atom(ia)%damp(itermf,iz)
+            auf = Atom(ia)%ldamp(jtran,iz)
 
-            vfac = 1d0
-
-            if (dyn) &
-              vfac = 1d0 - atmo%vx(iz)*st*cc - atmo%vy(iz)*st*sc - &
-                           atmo%vz(iz)*ct
-
-            ! Output Doppler width
-            Dw = line%Dfreq*DwT
-
-            ! Get indexes
-            if0 = line%if0
-            if1 = line%if1
-
-            ! Common quantities
-            Dfreqw = (line%eu - line%el)/Dw
-            vfacw = vfac/Dw
-            auf = line%damp(iz)/Dw
-
-            !
             ! No magnetic field
-            if (Bstrength(iz).lt.TINYB) then
+            if (nfield) then
 
-              !
-              ! Calculate profile
-              !
+              ! Allocate and initialize
+              allocate(Red%pzao(indx)% &
+                           Norm(Atom(ia)%trano(jtran)%ncomNB))
+              Red%pzao(indx)%Norm = 0d0
 
-              ! For each frequency
-              do ifreq=if0,if1
+              ! Allocate profile itself if storing and it is present
+              if (VPRAM.and.Red%zao(indx)%nran.gt.0) then
 
-                call voigt(Dfreqw - Frec%omega(ifreq)*vfacw, &
-                           auf,prof)
+                ! Prediction
+                ! Subtract norm already accounted for
+                d1 = 16d-6*dble(Atom(ia)%trano(jtran)%ncomNB*nf) - &
+                     8d-6*dble(Atom(ia)%trano(jtran)%ncomNB)
 
-                line%prof(iz,jdir)%p(ifreq) = dble(prof)
+                ! If no more space
+                if (floor(RAM+d1).gt.RLIM) then
 
-              end do ! frequencies
+                  ! No stored
+                  Red%pzao(indx)%VRAM = .False.
+                  ofram = .True.
+
+                ! If there is space
+                else
+
+                  ! Storing
+                  Red%pzao(indx)%VRAM = .True.
+
+                  ! Allocate
+                  allocate(Red%pzao(indx)% &
+                               cp(if0:if1,Atom(ia)%trano(jtran)% &
+                                                   ncomNB))
+                  ! Update RAM
+                  RAM = RAM + d1
+
+                end if ! Space to store
+
+              ! Not storing Voigt
+              else
+
+                ! No stored
+                Red%pzao(indx)%VRAM = .False.
+
+              end if ! Storing
+
+              ! If there are frequencies
+              if (nf.gt.0) then
+
+                !
+                ! Proper normalization
+                !
+
+                ! Common quantities
+                d1 = 1d-5*iDw/sqrt(PI)
+                atuf = (au+af+auf)*iDw
+
+                ! sum over Ju
+                do iU=1,Atom(ia)%nJ(itermu)
+
+                  ! Get energy
+                  eu = Atom(ia)%FSfreq(iU,itermu)
+
+                  ! Get indexes
+                  indU = Atom(ia)%irho(itermu)%irho_ij(iU)
+
+                  ! Get Ju
+                  rJu = Atom(ia)%rJval(iU,itermu)
+
+                  ! sum over Jf
+                  do mF=1,Atom(ia)%nJ(itermf)
+
+                    ! Get Jl
+                    rJf = Atom(ia)%rJval(mF,itermf)
+
+                    ! Get energy
+                    el = Atom(ia)%FSfreq(mF,itermf)
+
+                    ! Get indexes
+                    indF = Atom(ia)%irho(itermf)%irho_ij(mF)
+                    indK = Atom(ia)%trano(jtran)%indNB(indF,indU)
+
+                    ! Skip 0
+                    if (indK.lt.1) cycle
+
+                    ! Common quantities
+                    Dfreq = eu - el
+
+                    ! Boundaries
+
+                    ! Lower
+
+                    ! Voigt
+                    call voigt((Dfreq - Frec%omega(if0))*iDw, &
+                               atuf,prof)
+
+                    ! Add to the integral
+                    Red%pzao(indx)%Norm(indK) = dble(prof)* &
+                                                W0(jtran)*d1
+
+                    ! Save profile
+                    if (Red%pzao(indx)%VRAM) &
+                      Red%pzao(indx)%cp(if0,indK) = prof
+
+                    ! For each frequency
+                    do ifreq=if0+1,if1-1
+
+                      ! Voigt
+                      call voigt((Dfreq - Frec%omega(ifreq))*iDw, &
+                                 atuf,prof)
+
+                      ! Add to the integral
+                      Red%pzao(indx)%Norm(indK) = &
+                                     Red%pzao(indx)%Norm(indK) + &
+                                     dble(prof)* &
+                                     (Frec%W_freq(ifreq)*d1)
+
+                      ! Save profile
+                      if (Red%pzao(indx)%VRAM) &
+                        Red%pzao(indx)%cp(ifreq,indK) = prof
+
+                    end do ! frequencies
+
+                    ! Upper
+
+                    ! Voigt
+                    call voigt((Dfreq - Frec%omega(if1))*iDw, &
+                               atuf,prof)
+
+                    ! Add to the integral
+                    Red%pzao(indx)%Norm(indK) = &
+                                         Red%pzao(indx)%Norm(indK) + &
+                                         dble(prof)*W1(jtran)*d1
+                                           
+                    ! Save profile
+                    if (Red%pzao(indx)%VRAM) &
+                      Red%pzao(indx)%cp(if1,indK) = prof
+
+                  end do ! Jf
+                end do ! Ju
+
+              end if ! There are frequencies
+
+              ! If MPI
+              if (nproc.gt.1) then
+
+                ! Compute the norm
+                call MPI_ALLREDUCE(MPI_IN_PLACE,Red%pzao(indx)%Norm, &
+                                   Atom(ia)%trano(jtran)%ncomNB, &
+                                   MPI_DOUBLE_PRECISION,MPI_SUM, &
+                                   MPI_COMM_RT,ierr)
+
+                !
+                ! Check everyone is saving
+                !
+
+                ! Valid range
+                if (nf.gt.0) then
+
+                  ! Actual variable
+                  LVRAM = Red%pzao(indx)%VRAM
+
+                ! No frequencies
+                else
+
+                  ! Send a true
+                  LVRAM = .True.
+
+                end if ! Valid range
+
+                ! Check
+                call MPI_ALLREDUCE(MPI_IN_PLACE,LVRAM, &
+                                   1,MPI_LOGICAL,MPI_LAND, &
+                                   MPI_COMM_RT,ierr)
+
+                ! Valid range
+                if (nf.gt.0) then
+
+                  ! If was storing, but need to free
+                  if (Red%pzao(indx)%VRAM.and..not.LVRAM) then
+
+                    ! Free
+                    RAM = RAM - 1d-6*sizeof(Red%pzao(indx)%cp) + &
+                          8d-6*dble(Atom(ia)%trano(jtran)%ncomNB)
+                    deallocate(Red%pzao(indx)%cp)
+
+                  end if ! Was storing but cannot anymore
+                end if ! Valid range
+
+              end if ! MPI
+
+              ! Larger than zero norm
+              do indK=1,Atom(ia)%trano(jtran)%ncomNB
+
+                ! If non-zero norm
+                if (Red%pzao(indx)%Norm(indK).gt.0d0) &
+                  Red%pzao(indx)%Norm(indK) = &
+                                      1d0/Red%pzao(indx)%Norm(indK)
+
+                ! If valid and storing
+                if (nf.gt.0.and.Red%pzao(indx)%VRAM) then
+
+                  ! Larger than 0 norm, normalize profile
+                  if (Red%pzao(indx)%Norm(indK).gt.0d0) &
+                    Red%pzao(indx)%cp(:,indK) = &
+                             dcmplx(dble(Red%pzao(indx)%cp(:,indK)* &
+                                         Red%pzao(indx)%Norm(indK)), &
+                                    dimag(Red%pzao(indx)%cp(:,indK)))
+
+                end if
+
+              end do ! Components
 
             ! Yes magnetic field
             else
 
-              ! sum over Mu
-              do iMu=1,line%nMu
+              ! Allocate and initialize
+              allocate(Red%pzao(indx)%Norm(Atom(ia)%trano(jtran)% &
+                                                    ncomB))
+              Red%pzao(indx)%Norm = 0d0
 
-                rMu = -line%Ju + dble(iMu-1)
+              ! Allocate profile itself if storing and it is present
+              if (VPRAM.and.Red%zao(indx)%nran.gt.0) then
 
-                ! sum over Ml
-                do iMf=1,line%nMl
+                ! Prediction
+                ! Subtract norm already accounted for
+                d1 = 16d-6*dble(Atom(ia)%trano(jtran)%ncomB*nf) - &
+                     8d-6*dble(Atom(ia)%trano(jtran)%ncomB)
 
-                  rMf = -line%Jl + dble(iMf-1)
+                ! If no more space
+                if (floor(RAM+d1).gt.RLIM) then
 
-                  if (nint(abs(rMu-rMf)).gt.1) cycle
+                  ! No stored
+                  Red%pzao(indx)%VRAM = .False.
+                  ofram = .True.
 
-                  dnubw = B2LK*Bstrength(iz)* &
-                          (line%gu*rMu - line%gl*rMf)/Dw
+                ! If there is space
+                else
 
-                  !
-                  ! Calculate profile
-                  !
+                  ! Storing
+                  Red%pzao(indx)%VRAM = .True.
 
-                  ! For each frequency
-                  do ifreq=if0,if1
+                  ! Allocate
+                  allocate(Red%pzao(indx)% &
+                               cp(if0:if1,Atom(ia)%trano(jtran)% &
+                                                   ncomB))
+                  ! Update RAM
+                  RAM = RAM + d1
 
-                    call voigt(Dfreqw + dnubw - &
-                               Frec%omega(ifreq)*vfacw, &
-                               auf,prof)
+                end if ! Space to store
 
-                    line%prof(iz,jdir)% &
-                         comp(iMf,iMu)%cp(ifreq) = prof
+              ! Not storing Voigt
+              else
 
-                  end do ! frequencies
+                ! No stored
+                Red%pzao(indx)%VRAM = .False.
 
-                end do ! Ml
-              end do ! Mu
+              end if ! Storing
 
-            end if ! Magnetic field presence
+              ! There are frequencies
+              if (nf.gt.0) then
 
-          end do ! output direction
-        end do ! height
+                ! Common quantities
+                d1 = 1d-5*iDw/sqrt(PI)
+                atuf = (au+af+auf)*iDw
 
-      end if ! MPI
+                ! Run over Mu
+                do iMu=1,nMu
+
+                  ! Get M
+                  rMu = -rJumax + dble(iMu-1)
+
+                  ! Run over mu_u
+                  do iU=1,Atom(ia)%nblk(iMu,itermu)
+
+                    ! Get energy
+                    eu = Atom(ia)%eval(iU,iMu,itermu,iz)
+
+                    ! Get index
+                    indU = Atom(ia)%irho(itermu)%jM(iU,iMu)
+
+                    ! Run over Mf
+                    do iMf=1,nMf
+
+                      ! Get M
+                      rMf = -rJfmax + dble(iMf-1)
+
+                      ! Selection rules
+                      if (nint(abs(rMu-rMf)).gt.1) cycle
+
+                      ! Run over mu_f
+                      do mF=1,Atom(ia)%nblk(iMf,itermf)
+
+                        ! Get energy
+                        el = Atom(ia)%eval(mF,iMf,itermf,iz)
+
+                        ! Get indexes
+                        indF = Atom(ia)%irho(itermf)%jM(mF,iMf)
+                        indK = Atom(ia)%trano(jtran)%indB(indF,indU)
+
+                        ! Skip 0
+                        if (indK.lt.1) cycle
+
+                        ! Common quantities
+                        Dfreq = eu - el + Atom(ia)%Dfreq(jtran)
+
+                        ! Boundaries
+
+                        ! Lower
+
+                        ! Voigt
+                        call voigt((Dfreq - Frec%omega(if0))*iDw, &
+                                   atuf,prof)
+
+                        ! Add to the integral
+                        Red%pzao(indx)%Norm(indK) = &
+                                              dble(prof)*W0(jtran)*d1
+
+                        ! Save profile
+                        if (Red%pzao(indx)%VRAM) &
+                          Red%pzao(indx)%cp(if0,indK) = prof
+
+                        ! For each frequency
+                        do ifreq=if0+1,if1-1
+
+                          ! Voigt
+                          call voigt((Dfreq - Frec%omega(ifreq))*iDw,&
+                                     atuf,prof)
+
+                          ! Add to the integral
+                          Red%pzao(indx)%Norm(indK) = &
+                                      Red%pzao(indx)%Norm(indK) + &
+                                      dble(prof)*Frec%W_freq(ifreq)*d1
+
+                          ! Save profile
+                          if (Red%pzao(indx)%VRAM) &
+                            Red%pzao(indx)%cp(ifreq,indK) = prof
+
+                        end do ! frequencies
+
+                        ! Upper
+
+                        ! Voigt
+                        call voigt((Dfreq - Frec%omega(if1))*iDw, &
+                                   atuf,prof)
+
+                        ! Add to the integral
+                        Red%pzao(indx)%Norm(indK) = &
+                                     Red%pzao(indx)%Norm(indK) + &
+                                     dble(prof)*W1(jtran)*d1 
+
+                        ! Save profile
+                        if (Red%pzao(indx)%VRAM) &
+                          Red%pzao(indx)%cp(if1,indK) = prof
+
+                      end do ! if
+                    end do ! Mf
+                  end do ! iU
+                end do ! Mu
+
+              end if ! Valid frequencies
+
+              ! If MPI
+              if (nproc.gt.1) then
+
+                ! Compute the norm
+                call MPI_ALLREDUCE(MPI_IN_PLACE,Red%pzao(indx)%Norm, &
+                                   Atom(ia)%trano(jtran)%ncomB, &
+                                   MPI_DOUBLE_PRECISION,MPI_SUM, &
+                                   MPI_COMM_RT,ierr)
+
+                !
+                ! Check everyone is saving
+                !
+
+                ! Valid range
+                if (nf.gt.0) then
+
+                  ! Actual variable
+                  LVRAM = Red%pzao(indx)%VRAM
+
+                ! No frequencies
+                else
+
+                  ! Send a true
+                  LVRAM = .True.
+
+                end if ! Valid range
+
+                ! Check
+                call MPI_ALLREDUCE(MPI_IN_PLACE,LVRAM, &
+                                   1,MPI_LOGICAL,MPI_LAND, &
+                                   MPI_COMM_RT,ierr)
+                ! Valid range
+                if (nf.gt.0) then
+
+                  ! If was storing, but need to free
+                  if (Red%pzao(indx)%VRAM.and..not.LVRAM) then
+
+                    ! Free
+                    RAM = RAM - 1d-6*sizeof(Red%pzao(indx)%cp) + &
+                          8d-6*dble(Atom(ia)%trano(jtran)%ncomB)
+                    deallocate(Red%pzao(indx)%cp)
+
+                  end if ! Was storing but cannot anymore
+                end if ! Valid range
+
+              end if ! MPI
+
+              ! For each component
+              do indK=1,Atom(ia)%trano(jtran)%ncomB
+
+                ! If non-zero norm, get inverse
+                if (Red%pzao(indx)%Norm(indK).gt.0d0) &
+                  Red%pzao(indx)%Norm(indK) = &
+                                      1d0/Red%pzao(indx)%Norm(indK)
+
+                ! If valid and storing
+                if (nf.gt.0.and.Red%pzao(indx)%VRAM) then
+
+                  ! Larger than 0 norm, apply norm
+                  if (Red%pzao(indx)%Norm(indK).gt.0d0) &
+                    Red%pzao(indx)%cp(:,indK) = &
+                             dcmplx(dble(Red%pzao(indx)%cp(:,indK)* &
+                                         Red%pzao(indx)%Norm(indK)), &
+                                    dimag(Red%pzao(indx)%cp(:,indK)))
+                end if
+
+              end do ! Components
+
+            end if ! No magnetic field
+
+          end do ! transitions
+        end do ! heights
+
+        ! Free
+        deallocate(W0,W1)
+
+      end do ! Atoms
+
+      ! Count RAM
+      call cram_red_1stord(Red,RAM)
+      ORAMc = RAM
+      DRAM2c = 0d0
 
       ! Control
       call control
 
       return
 
-      end subroutine getprof_LTE
+      end subroutine normalize_PRD
 
 !#####################################################################
 !#####################################################################
 !#####################################################################
 
-      !> Validates an existing file with Voigt profiles\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!      Bstrength(dfloat(:)): Magnetic field strength\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!     Frec(Frequency_class): Structure with frequency data
-      !!            njdir(integer): Number of directions\n
-      !!        Flgsg(Fctsg_class): Structure with factorials and
-      !!                            signs\n
-      !!            lnorm(logical): Flag for file correctness
-      subroutine validatevoigt(Atom,Bstrength,MPID,Frec, &
-                               njdir,Flgsg,lnorm)
+      !> Normalize the absorption profiles for the intensity problem\n
+      !!         Atom(Atom_class(:)): Structures with atomic data\n
+      !!  LTElines(LTEline_class(:)): Structures with LTE line data\n
+      !!            Atmo(Atmo_class): Structure with atmospheric
+      !!                              data\n
+      !!        Geom(Geometry_class): Structure with geometric data\n
+      !!             MPID(MPI_class): Structure with MPI data\n
+      !!       Frec(Frequency_class): Structure with frequency data\n
+      !!              Red(Red_class): Structure with redistribution
+      !!                              input frequency data,
+      !!                              redistribution function data,
+      !!                              and profile or normalization
+      !!                              data\n
+      !!        folder(character(:)): Output folder path\n
+      !!              ofram(logical): If reached the RAM limit\n
+      !!                ith(integer): Polar index if LOS\n
+      !!                iph(integer): Azimuth index if LOS\n
+      !!                LOS(logical): If normalizing for a LOS
+      !!                              direction
+      subroutine normalizeI(Atom,LTElines,Atmo,Geom,MPID,Frec,Red, &
+                            folder,ofram,ith,iph,LOS)
 
       ! I/O
 
-      type(Atom_class), intent(inout):: Atom
-      type(MPI_class), intent(inout):: MPID
-      type(Frequency_class), intent(in):: Frec
-      type(Fctsg_class):: Flgsg
-      double precision, dimension(:), intent(in):: Bstrength
-      logical, intent(out):: lnorm
-      integer, intent(in):: njdir
-
-      ! Local
-
-      logical:: nonvalid, field
-
-      integer:: i,jtran,itermf,itermu
-      integer:: idir,jdir,iz,nodir,nrdir
-      integer:: ifreq,if0,if1
-      integer:: ncom,ncomNB
-      integer:: nMu,nMf
-      integer:: iMu,iMf
-      integer:: iU,mF
-      integer:: nL,nU
-      integer:: ios,iaux
-
-      double precision:: d1
-      double precision:: rLu,rLf,S
-      double precision:: rJumax,rJfmax,rJu,rJf
-      double precision:: rMu,rMf,f62
-      double precision:: d2,d3,d1T,d2T
-
-      ! Buffers, counter, and sizes for MPI
-      integer, dimension(0:nproc-1):: nbf1
-
-
-      ! Routine name
-      urou = 'validatevoigt'
-
-      ! Check if there is magnetic field
-      field = .False.
-
-      ! Check magnetic field strength
-      do iz=1,nz
-        if (Bstrength(iz).ge.TINYB) then
-          field = .True.
-          exit
-        end if
-      end do
-
-      ! Get real size of direction dimension
-      if (dyn) then
-        nodir = njdir
-        nrdir = njdir
-      else
-        nodir = 1
-        if (field) then
-          nrdir = njdir
-        else
-          nrdir = 1
-        end if
-      end if
-
-      ! Check Normp is not allocated
-      if (associated(Atom%Normp)) then
-        do jdir=1,size(Atom%Normp,3)
-          do iz=lbound(Atom%Normp,2),ubound(Atom%Normp,2)
-            do jtran=lbound(Atom%Normp,1),ubound(Atom%Normp,1)
-              if (allocated(Atom%Normp(jtran,iz,jdir)%prof)) &
-                deallocate(Atom%Normp(jtran,iz,jdir)%prof)
-              if (allocated(Atom%Normp(jtran,iz,jdir)%Norm)) &
-                deallocate(Atom%Normp(jtran,iz,jdir)%Norm)
-            end do
-          end do
-        end do
-        deallocate(Atom%Normp)
-        nullify(Atom%Normp)
-      end if
-
-      ! Allocate a token
-      allocate(Atom%Normp(1,1,1))
-
-      ! Allocate sizes for subcomponents for each transition
-      if (.not.allocated(Atom%nL)) allocate(Atom%nL(Atom%ntran))
-      if (.not.allocated(Atom%nU)) allocate(Atom%nU(Atom%ntran))
-      if (.not.allocated(Atom%nMl)) allocate(Atom%nMl(Atom%ntran))
-      if (.not.allocated(Atom%nMu)) allocate(Atom%nMu(Atom%ntran))
-
-
-      !
-      ! Initialize output
-      !
-      lnorm = .True.
-      nonvalid = .False.
-
-
-      !
-      ! Count indexes
-      !
-
-      ! Reset index
-      nbf1 = 0
-
-      ! For each transition
-      do jtran=1,Atom%ntran
-
-        ! Identify the terms
-        itermf = Atom%fst(jtran)%iterml
-        itermu = Atom%fst(jtran)%itermu
-
-        ! Get atomic quantities
-        S = Atom%Sval(itermu)
-
-        rLu = Atom%rLval(itermu)
-        rJumax = rLu+S
-        nMu = nint(2d0*rJumax+1d0)
-
-        rLf = Atom%rLval(itermf)
-        rJfmax = rLf + S
-        nMf = nint(2d0*rJfmax+1d0)
-
-        ! Fill two of the sizes arrays
-        Atom%nMu(jtran) = nMu
-        Atom%nMl(jtran) = nMf
-
-        ! Initialize counters
-        nL = 0
-        nU = 0
-
-        ! For each Mu
-        do iMu=1,nMu
-
-          rMu = -rJumax + dble(iMu-1)
-
-          ! For each mu_u
-          do iU=1,Atom%nblk(iMu,itermu)
-
-            ! Update counter
-            if (iU.gt.nU) nu = iMu
-
-            ! For each Mf
-            do iMf=1,nMf
-
-              rMf = -rJfmax + dble(iMf-1)
-
-              ! If not allowed, skip
-              if (nint(abs(rMu-rMf)).gt.1) cycle
-
-              ! Sum over mu_f
-              do mF=1,Atom%nblk(iMf,itermf)
-
-                ! Update counter
-                if (mF.gt.nL) nL = mf
-
-              end do ! iL
-            end do ! Ml
-          end do ! iU
-        end do ! Mu
-
-        ! Update variables
-        Atom%nU(jtran) = nU
-        Atom%nL(jtran) = nL
-
-      end do ! Transitions
-
-
-      ! Deallocate sizes
-      if (allocated(Atom%zsize)) deallocate(Atom%zsize)
-      if (allocated(Atom%dsize)) deallocate(Atom%dsize)
-      if (allocated(Atom%tsize)) deallocate(Atom%tsize)
-      if (allocated(Atom%tBsize)) deallocate(Atom%tBsize)
-      if (allocated(Atom%f0size)) deallocate(Atom%f0size)
-      if (allocated(Atom%f1size)) deallocate(Atom%f1size)
-      if (allocated(Atom%i_Vind)) deallocate(Atom%i_Vind)
-
-      ! Allocate sizes
-      allocate(Atom%zsize(nz))
-      allocate(Atom%dsize(nrdir))
-      allocate(Atom%tsize(Atom%ntran))
-      allocate(Atom%tBsize(Atom%ntran))
-      allocate(Atom%f0size(Atom%ntran))
-      allocate(Atom%f1size(Atom%ntran))
-
-      ! Initialize total blocks of sizes and transition index
-      d1T = 0d0
-      d2T = 0d0
-      Atom%zsize(1) = 0d0
-      Atom%dsize(1) = 0d0
-      Atom%tsize(1) = 0d0
-      Atom%tBsize(1) = 0d0
-      Atom%Mncom = 0
-      ncom = 0
-      ncomNB = 0
-
-
-      ! Allocate indexing of the order
-      allocate(Atom%i_Vind(Atom%ntran))
-
-      ! For each transition
-      do jtran=1,Atom%ntran
-
-        ! Get real limits
-        if0 = Atom%rif0(jtran)
-        if1 = Atom%rif1(jtran)
-
-        ! Get frequency size
-        if (Atom%fflag(jtran)%absent) then
-          Atom%f0size(jtran) = 0d0
-          Atom%f1size(jtran) = 0d0
-        else
-          Atom%f0size(jtran) = 16d0*(Atom%if0(jtran) - if0)
-          Atom%f1size(jtran) = 16d0*(if1 - Atom%if1(jtran))
-        end if
-
-        ! Get terms
-        itermf = Atom%fst(jtran)%iterml
-        itermu = Atom%fst(jtran)%itermu
-
-        ! Get atomic quantities
-        S = Atom%Sval(itermu)
-
-        rLu = Atom%rLval(itermu)
-        rJumax = rLu+S
-        nMu = nint(2d0*rJumax+1d0)
-
-        rLf = Atom%rLval(itermf)
-        rJfmax = rLf + S
-        nMf = nint(2d0*rJfmax+1d0)
-
-        ! Allocate magnetic indexing
-        allocate(Atom%i_Vind(jtran)% &
-                      ind(maxval(Atom%nblk(1:nMf,itermf)),nMf, &
-                          maxval(Atom%nblk(1:nMu,itermu)),nMu))
-
-        ! Allocate non-magnetic indexing
-        allocate(Atom%i_Vind(jtran)% &
-                      indNB(Atom%nJ(itermf),Atom%nJ(itermu)))
-
-        ! No magnetic field
-        d1 = 0d0
-
-        ! Reset index
-        i = 0
-
-        ! sum over Ju
-        do iU=1,Atom%nJ(itermu)
-
-          ! Get Ju
-          rJu = Atom%rJval(iU,itermu)
-
-          ! sum over Jl
-          do mF=1,Atom%nJ(itermf)
-
-            ! Get Jl
-            rJf = Atom%rJval(mF,itermf)
-
-            ! 6-j
-            f62 = fun6j(rLu,rLf,1d0,rJf,rJu,S,Flgsg)
-
-            if (abs(f62).lt.TINYJS) cycle
-
-            d1 = d1 + dble(if1 - if0 + 1)
-
-            ! Store and advance index
-            i = i + 1
-            Atom%i_Vind(jtran)%indNB(mF,iU) = i
-
-          end do ! Final levels
-        end do ! Upper levels
-
-        ! Store number of components
-        Atom%i_Vind(jtran)%ncomNB = i
-        if (i.gt.ncomNB) ncomNB = i
-
-        ! Yes magnetic field
-        d2 = 0d0
-
-        ! Reset index
-        i = 0
-
-        ! sum over Mu
-        do iMu=1,nMu
-
-          rMu = -rJumax + dble(iMu-1)
-
-          ! sum over mu_u
-          do iU=1,Atom%nblk(iMu,itermu)
-
-            ! sum over Ml
-            do iMf=1,nMf
-
-              rMf = -rJfmax + dble(iMf-1)
-
-              if (nint(abs(rMu-rMf)).gt.1) cycle
-
-              ! sum over mu_l
-              do mF=1,Atom%nblk(iMf,itermf)
-
-                d2 = d2 + dble(if1 - if0 + 1)
-
-                ! Store and advance index
-                i = i + 1
-                Atom%i_Vind(jtran)%ind(mF,iMf,iU,iMu) = i
-
-              end do ! mu_l
-            end do ! Ml
-          end do ! mu_u
-        end do ! Mu
-
-        ! Store number of components
-        Atom%i_Vind(jtran)%ncom = i
-        if (i.gt.ncomNB) ncom = i
-
-        ! If not the last, add size to next
-        if (jtran.lt.Atom%ntran) then
-          Atom%tsize(jtran+1) = Atom%tsize(jtran) + d1
-          Atom%tBsize(jtran+1) = Atom%tBsize(jtran) + d2
-        end if
-
-        ! Add to the total size
-        d1T = d1T + d1
-        d2T = d2T + d2
-
-        ! deallocate indexes of magnetic components
-        if (maxval(Bstrength).lt.TINYB) &
-          deallocate(Atom%i_Vind(jtran)%ind)
-
-        ! deallocate indexes of non magnetic components
-        if (minval(Bstrength).ge.TINYB) &
-          deallocate(Atom%i_Vind(jtran)%indNB)
-
-      end do ! Transitions
-
-      ! If no magnetic field
-      if (maxval(Bstrength).lt.TINYB) ncom = 0
-      ! If only magnetic field
-      if (minval(Bstrength).ge.TINYB) ncomNB = 0
-      ! Get maximum
-      Atom%Mncom = max(ncom,ncomNB)
-
-      ! Inititlize
-      d3 = 0d0
-
-      ! For each height
-      do iz=1,nz
-
-        ! If previous height was not magnetic
-        if (Bstrength(iz).lt.TINYB) then
-          if (iz.lt.nz) Atom%zsize(iz+1) = Atom%zsize(iz) + d1T
-          d3 = d3 + d1T
-        ! If previous was magnetic
-        else
-          if (iz.lt.nz) Atom%zsize(iz+1) = Atom%zsize(iz) + d2T
-          d3 = d3 + d2T
-        end if
-
-      end do ! Heights
-
-      ! For each direction
-      do idir=2,nrdir
-        Atom%dsize(idir) = Atom%dsize(idir-1) + d3
-      end do
-
-      Atom%dsize = Atom%dsize*16d0
-      Atom%zsize = Atom%zsize*16d0
-      Atom%tsize = Atom%tsize*16d0
-      Atom%tBsize = Atom%tBsize*16d0
-
-      ! Size of header
-      Atom%hvifil = 4*4 + & ! Dimension integers
-                    8*nrdir + & ! Directions sizes
-                    8*nz + & ! Height sizes
-                    4*2*Atom%ntran + & ! Line limits
-                    8*2*Atom%ntran + & ! Line sizes
-                    8*nfreq ! Frequencies
-
-      ! If not the master, wait for diagnostic
-      if (pid.gt.0) then
-
-        call control
-        call MPI_BCAST(lnorm, 1, MPI_LOGICAL, 0, &
-                       MPI_COMM_RT, ierr)
-        return
-
-      end if
-
-
-      ! Only the master gets down here
-      do while(.True.)
-
-        ! Open files
-        open(200, file=trim(Atom%vfile), status='unknown', &
-             iostat=ios, err=1000, access='stream', &
-             action='read', form='unformatted')
-
-        ! Read dimensions
-
-        ! Angles
-        read(200, err=1100) iaux
-        if (iaux.ne.nrdir) then
-          write(umsg,'(A,1x,i3,1x,i3)') &
-            ' # Numbers of angles do not coincide:',iaux,nrdir
-          call verbose
-          exit
-        end if
-
-        ! Heights
-        read(200, err=1100) iaux
-        if (iaux.ne.nz) then
-          write(umsg,'(A,1x,i3,1x,i3)') &
-            ' # Numbers of heights do not coincide:',iaux,nz
-          call verbose
-          exit
-        end if
-
-        ! Frequencies
-        read(200, err=1100) iaux
-        if (iaux.ne.nfreq) then
-          write(umsg,'(A,1x,i3,1x,i3)') &
-            ' # Numbers of frequencies do not coincide:',iaux,nfreq
-          call verbose
-          exit
-        end if
-
-        ! Transitions
-        read(200, err=1100) iaux
-        if (iaux.ne.Atom%ntran) then
-          write(umsg,'(A,1x,i3,1x,i3)') &
-            ' # Number of transitions do not coincide:', &
-            iaux,Atom%ntran
-          call verbose
-          exit
-        end if
-
-        ! Directional size
-        do jdir=1,nrdir
-          read(200, err=1100) d1
-          if (abs(d1-Atom%dsize(jdir)).gt.TINYO) then
-            write(umsg,'(A,1x,es22.15,1x,es22.15)') &
-              ' # Directional sizes do not coincide:', &
-              d1,Atom%dsize(jdir)
-            call verbose
-            nonvalid = .True.
-            exit
-          end if
-        end do
-        if (nonvalid) exit
-
-        ! Height size
-        do iz=1,nz
-          read(200, err=1100) d1
-          if (abs(d1-Atom%zsize(iz)).gt.TINYO) then
-            write(umsg,'(A,1x,es22.15,1x,es22.15)') &
-              ' # Height sizes do not coincide:',d1,Atom%zsize(iz)
-            nonvalid = .True.
-            call verbose
-            exit
-          end if
-        end do
-        if (nonvalid) exit
-
-        ! For each transition
-        do jtran=1,Atom%ntran
-
-          read(200, err=1100) iaux
-          if (iaux.ne.Atom%rif0(jtran)) then
-            write(umsg,'(A,1x,i3,1x,i3)') &
-              ' # Initial indexes of transition do not coincide:', &
-              iaux,Atom%rif0(jtran)
-            call verbose
-            nonvalid = .True.
-            exit
-          end if
-
-          read(200, err=1100) iaux
-          if (iaux.ne.Atom%rif1(jtran)) then
-            write(umsg,'(A,1x,i3,1x,i3)') &
-                ' # Final indexes of transition do not coincide:', &
-                iaux,Atom%rif1(jtran)
-            call verbose
-            nonvalid = .True.
-            exit
-          end if
-
-          read(200, err=1100) d1
-          if (abs(d1-Atom%tsize(jtran)).gt.TINYO) then
-            write(umsg,'(A,1x,es22.15,1x,es22.15)') &
-               ' # Transition sizes without field do not coincide:', &
-               d1,Atom%tsize(jtran)
-            call verbose
-            nonvalid = .True.
-            exit
-          end if
-
-          read(200, err=1100) d1
-          if (abs(d1-Atom%tBsize(jtran)).gt.TINYO) then
-            write(umsg,'(A,1x,es22.15,1x,es22.15)') &
-                ' # Transition sizes with field do not coincide:', &
-                d1,Atom%tBsize(jtran)
-            call verbose
-            nonvalid = .True.
-            exit
-          end if
-
-        end do ! Transitions
-        if (nonvalid) exit
-
-        ! Write frequency
-        do ifreq=1,nfreq
-          read(200, err=1100) d1
-          if (abs(d1-Frec%omega(ifreq)).gt.TINYO) then
-            write(umsg,'(A,1x,es22.15,1x,es22.15)') &
-                ' # Frequencies do not coincide:',d1,Frec%omega(ifreq)
-            call verbose
-            nonvalid = .True.
-            exit
-          end if
-        end do
-        if (nonvalid) exit
-
-        ! The master does not need the indexes
-        if (pid.eq.0.and.MPID%mpi) deallocate(Atom%i_Vind)
-
-        ! If we are here, file is fine
-        lnorm = .False.
-        exit
-
-      end do ! Infinite loop
-
-      ! Close file
-      close(200, err=1100)
-
-      ! Control
-      call control
-
-      ! Share diagnostic
-      call MPI_BCAST(lnorm, 1, MPI_LOGICAL, 0, &
-                     MPI_COMM_RT, ierr)
-
-      return
-
-1000  umsg = 'Error opening '//trim(Atom%vfile)//' file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
-      call control
-1100  umsg = 'Error reading '//trim(Atom%vfile)//' file'
-      close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
-      call control
-
-      end subroutine validatevoigt
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
-      !> Computes normalization factors for the multilevel Voigt
-      !! profiles\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!     Frec(Frequency_class): Structure with frequency data\n
-      !!    folder(character(500)): Output folder path\n
-      !!            njdir(integer): Number of directions\n
-      !!          ithv(integer(:)): Indexing of polar directions\n
-      !!          ithv(integer(:)): Indexing of azimuth directions\n
-      !!              lio(logical): If doing formal solution in this
-      !!                            run\n
-      !!            ofram(logical): Indicates if out of RAM\n
-      !!              LOS(logical): Indicates if we are normalizing
-      !!                            LOS directions
-      subroutine normalizeI(Atom,Atmo,Geom,MPID,Frec,folder, &
-                            njdir,ithv,iphv,lio,ofram,LOS)
-
-      ! I/O
-
-      type(Atom_class), intent(inout):: Atom
+      type(Atom_class), dimension(:), intent(in):: Atom
+      type(LTEline_class), dimension(:), &
+                           allocatable, intent(in):: LTElines
       type(Atmo_class), intent(in):: Atmo
-      type(Geometry_class), intent(inout):: Geom
+      type(Geometry_class), intent(in):: Geom
       type(MPI_class), intent(inout):: MPID
       type(Frequency_class), intent(in):: Frec
+      type(Red_class), intent(inout):: Red
       character(len=500), intent(in):: folder
-      logical, intent(in):: lio, LOS
+      logical, intent(in):: LOS
+      integer, intent(in):: ith,iph
       logical, intent(out):: ofram
-      integer, intent(in):: njdir
-      integer, dimension(:), intent(in):: ithv,iphv
 
       ! Local
 
-      character(len=4):: record
+      logical:: extracomm,lVIRAM,lvel
 
-      logical:: extracomm
-
-      integer:: i,i1,jtran,ktran,jftran,itermf,itermu,iJf,iJu
-      integer:: idir,jdir,iz,jj,istep,nodir
-      integer:: ith,iph,ifreq,if0,if1
-      integer:: ios,lcheckram
+      integer:: ia,jtran,fjtran,ffjtran,ffktran,indx
+      integer:: itermf,itermu,iJf,iJu,jdir,iz,njdir
+      integer:: ith1,iph1,ifreq,if0,if1,lcheckram,finished
+      integer, dimension(5):: id, id1_b
       integer, dimension(:), allocatable:: outofbound
       integer, dimension(:,:,:), allocatable:: checkram
 
-      double precision:: prof,d1,d2,W0,W1
-      double precision:: el,eu
-      double precision:: au,af,auf,atuf,Dfreqw
-      double precision:: DwT,Dw,vfac,vfacw
-      double precision:: ct,st,cc,sc
-      double precision:: loffset
+      double precision:: num,RAM,lRAM,prof,d1,W0,W1,el,eu
+      double precision:: au,af,auf,atuf,Dfreqw,buff1
+      double precision:: DwT,Dw,iDw,vfac,vfacw,ct,st,cc,sc,vel
+      double precision, dimension(1):: ad1
 
-      ! Buffers and sizes for MPI
-      logical, dimension(:,:,:), allocatable:: tosend
-      integer:: finished
-      integer, dimension(5):: id, id1_b
-      integer, dimension(0:nproc-1):: nbf1
-      integer, dimension(:,:,:), allocatable:: size1
-      double precision, dimension(:), allocatable:: buff1
-
-      ! MPI offset type
-      integer(kind=MPI_OFFSET_KIND):: offset
 
       ! Routine name
       urou = 'normalizeI'
@@ -4123,527 +2214,363 @@
       ! Initialize
       ofram = .False.
 
-
-      ! If LOS and not dynamic, if already iterated, no need to
-      ! repeat the normalization
-      if (LOS.and..not.dyn.and.lio) then
-
-        ! If using files, just copy to new name
-        if (vifil.and.pid.eq.0) then
-
-          ! Orginal
-          open(200,file='voigt-I-G-'//trim(Atom%file_label), &
-               access='stream',status='old',action='read', &
-               iostat=ios)
-
-          ! New
-          open(300,file=trim(Atom%vfile),access='stream', &
-               status='unknown',action='write',iostat=ios)
-
-          ! Copy records until finished
-          do while (.True.)
-
-            ! Read characters
-            read(200, end=3000) record
-
-            ! Write the same integer
-            write(300) record
-
-            cycle
-3000        exit
-
-          end do
-
-          close(200)
-          close(300)
-
-        end if ! Copy vfile
-
-        ! Everyone control and return
-        call control
-        return
-
-      end if ! LOS, not dynamic, previously normalized
-
-
-      !
       ! Initialize comm flag
-      !
       if (nproc.gt.cpulimit) then
         extracomm = .True.
       else
         extracomm = .False.
+        call reset_mpirequest(MPID)
       end if
 
       ! Get real size of the direction dimension
       if (dyn) then
-        nodir = njdir
+        njdir = Geom%njdir
       else
-        nodir = 1
+        njdir = 1
       end if
 
+      ! Estimate memory in just normalization constants
+      call cram_estimate_norm(Atom,LTElines,Atmo,ad1, &
+                              njdir,.False.,lRAM)
+
+      ! Get current size
+      RAM = cram_add(1)
+
+      ! Check if going over limits already
+      if ((RAM+lRAM).gt.RLIM) then
+
+        ! We cannot store profiles at all
+        lVIRAM = .False.
+
+      ! If there is space
+      else
+
+        ! Store if allowed by user
+        lVIRAM = VIRAM
+
+      end if
+
+      ! Initialize velocity flag
+      lvel = .False.
 
       !
-      ! If using a file, prepare for it
+      ! Normalize active atoms
       !
-      if (vifil) then
 
-        ! Deallocate sizes
-        if (allocated(Atom%zsize)) deallocate(Atom%zsize)
-        if (allocated(Atom%dsize)) deallocate(Atom%dsize)
-        if (allocated(Atom%tsize)) deallocate(Atom%tsize)
-        if (allocated(Atom%f0size)) deallocate(Atom%f0size)
+      ! For each atom
+      do ia=1,nA
 
-        ! Allocate sizes
-        allocate(Atom%zsize(nz))
-        allocate(Atom%dsize(nodir))
-        allocate(Atom%tsize(Atom%nftran))
-        allocate(Atom%f0size(Atom%nftran))
+        ! If Master doing MPI
+        if (pid.eq.0.and.MPID%mpi) then
 
-        ! Initialize total blocks of sizes and transition index
-        d1 = 0d0
-        ktran = 0
-        Atom%zsize(1) = 0d0
-        Atom%dsize(1) = 0d0
-        Atom%tsize(1) = 0d0
+          ! Allocate the check for the master
+          allocate(checkram(Atom(ia)%ntran,Rz0:Rz1,njdir))
 
-        ! For each transition
-        do jtran=1,Atom%ntran
+          ! Initialize if storing profiles
+          if (VIRAM) then
+            checkram = 1
+          else
+            checkram = -1
+          end if
 
-          ! For each FS transition
-          do jftran=1,Atom%fst(jtran)%nt
-
-            ! Advance index
-            ktran = ktran + 1
-
-            ! Skip first
-            if (ktran.eq.1) then
-              ! Add last
-              d2 = dble(Atom%rif1(Atom%ntran) - &
-                        Atom%rif0(Atom%ntran) + 1)
-              d1 = d1 + d2
-              cycle
-            end if
-
-            ! If first of the FS transitions
-            if (jftran.eq.1) then
-
-              ! Get indexes
-              if0 = Atom%rif0(jtran-1)
-              if1 = Atom%rif1(jtran-1)
-
-            ! Not the first FS
-            else
-
-              ! Get indexes
-              if0 = Atom%rif0(jtran)
-              if1 = Atom%rif1(jtran)
-
-            end if ! First FS transition
-
-            ! Size of previous
-            d2 = dble(if1 - if0 + 1)
-            Atom%tsize(ktran) = Atom%tsize(ktran-1) + d2
-            d1 = d1 + d2
-
-          end do ! FS transitions
-        end do ! Transitions
-
-        ! Add first height to total
-        d2 = d1
-
-        ! For each height
-        do iz=2,nz
-
-          Atom%zsize(iz) = Atom%zsize(iz-1) + d1
-          d2 = d2 + d1
-
-        end do ! Heights
-
-        ! For each direction
-        do idir=2,nodir
-          Atom%dsize(idir) = Atom%dsize(idir-1) + d2
-        end do
-
-        Atom%dsize = Atom%dsize*8d0
-        Atom%zsize = Atom%zsize*8d0
-        Atom%tsize = Atom%tsize*8d0
-
-        ! Size of header
-        Atom%hvifil = 4*4 + & ! Dimension integers
-                      8*nodir + & ! Directions sizes
-                      8*nz + & ! Height sizes
-                      4*2*Atom%nftran + & ! Line limits
-                      8*Atom%nftran + & ! Line sizes
-                      8*nfreq ! Frequencies
+        end if ! Master doing MPI
 
         !
-        ! Only Master writes
+        ! Allocate the norm array
         !
-        if (pid.eq.0) then
-
-          ! Open files
-          open(200, file=trim(Atom%vfile), status='unknown', &
-               iostat=ios, err=1000, access='stream', &
-               action='write', form='unformatted')
-
-          ! Write dimensions
-          write(200, err=1100) nodir
-          write(200, err=1100) nz
-          write(200, err=1100) nfreq
-          write(200, err=1100) Atom%nftran
-          write(200, err=1100) Atom%dsize
-          write(200, err=1100) Atom%zsize
-
-          ! Initialize index
-          ktran = 0
-
-          ! For each transition
-          do jtran=1,Atom%ntran
-
-            ! For each FS transition
-            do jftran=1,Atom%fst(jtran)%nt
-
-              ! Advance index
-              ktran = ktran + 1
-
-              write(200, err=1100) Atom%rif0(jtran)
-              write(200, err=1100) Atom%rif1(jtran)
-              write(200, err=1100) Atom%tsize(ktran)
-
-            end do ! FS transitions
-          end do ! Transitions
-
-          ! Write frequency
-          write(200, err=1100) Frec%omega
-
-          ! And close this
-          close(200, err=1100)
-
-        end if ! Master
-
-        ! Control
-        call control
-
-      end if ! Voigt file
-
-
-      !
-      ! Allocate vector for norm (part I)
-      !
-
-      ! Check Normp is not allocated
-      if (associated(Atom%Normp)) then
-        do jdir=1,size(Atom%Normp,3)
-          do iz=lbound(Atom%Normp,2),ubound(Atom%Normp,2)
-            do jtran=lbound(Atom%Normp,1),ubound(Atom%Normp,1)
-              if (allocated(Atom%Normp(jtran,iz,jdir)%prof)) then
-                deallocate(Atom%Normp(jtran,iz,jdir)%prof)
-              else if (allocated(Atom%Normp(jtran,iz,jdir)%Norm)) then
-                deallocate(Atom%Normp(jtran,iz,jdir)%Norm)
-              end if
-            end do
-          end do
-        end do
-        deallocate(Atom%Normp)
-        nullify(Atom%Normp)
-      end if
-
-      ! Structure with the norm for each component
-      allocate(Atom%Normp(Atom%ntran,Rz0:Rz1,nodir))
-      ! Allocate size for MPI
-      allocate(size1(Atom%ntran,Rz0:Rz1,nodir))
-      ! Allocate bool for MPI
-      allocate(tosend(Atom%ntran,Rz0:Rz1,nodir))
-      ! Initialize tosend
-      tosend = .False.
-
-      ! Allocate the check for the master
-      if (pid.eq.0.and.MPID%mpi) then
-        allocate(checkram(Atom%ntran,Rz0:Rz1,nodir))
-        if (VIRAM) checkram = 1
-      end if
-
-
-
-      !
-      ! Allocate the norm array
-      !
-
-      ! For each direction
-      do jdir=1,nodir
 
         ! For each height
         do iz=Rz0,Rz1
 
-          ! For each transition
-          do jtran=1,Atom%ntran
+          ! Check velocity if dynamic
+          if (dyn) then
+            vel = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                       Atmo%vy(iz)*Atmo%vy(iz) + &
+                       Atmo%vz(iz)*Atmo%vz(iz))
+            lvel = vel.gt.TINYVEL
+          end if
 
-            ! Allocate
-            allocate(Atom%Normp(jtran,iz,jdir)%Norm( &
-                       Atom%fst(jtran)%nt,1,1,1))
-            Atom%Normp(jtran,iz,jdir)%Norm = 0d0
+          ! For each direction
+          do jdir=1,njdir
 
-            ! Determine size of this array
-            size1(jtran,iz,jdir) = Atom%fst(jtran)%nt
+            ! Skip static multiple directions
+            if (.not.lvel.and.jdir.gt.1) cycle
 
-            ! Skip unless worker
-            if (MPID%mpi.and.pid.eq.0) cycle
+            ! For each transition (term)
+            do jtran=1,Atom(ia)%ntran
 
-            ! Allocate profile itself if storing and it is present
-            if (VIRAM.and..not.Atom%fflag(jtran)%absent) then
+              ! If absent, skip
+              if (Atom(ia)%fflag(jtran)%absent) cycle
 
-              ! Predict
-              d1 = 8d-6*dble((Atom%if1(jtran) - &
-                              Atom%if0(jtran) + 1)* &
-                              Atom%fst(jtran)%nt)
+              ! For each transition (FS)
+              do fjtran=1,Atom(ia)%fst(jtran)%nt
 
-              ! If no more space
-              if (floor(MPID%RAM+d1).gt.RLIM) then
+                ! Rolling index
+                ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
+                ffktran = ffjtran + Atom(ia)%tfshift
 
-                ! No stored
-                Atom%Normp(jtran,iz,jdir)%VRAM = .False.
-                ofram = .True.
+                ! Get index
+                indx = Red%idzao(ffktran,iz,jdir)
 
-              ! If there is space
-              else
+                ! Allocate and initialize
+                allocate(Red%dzao(indx)%Norm(1))
+                Red%dzao(indx)%Norm = 0d0
 
-                ! Storing
-                Atom%Normp(jtran,iz,jdir)%VRAM = .True.
+                ! Master in MPI skips
+                if (MPID%mpi.and.pid.eq.0) cycle
 
-                ! Allocate
-                allocate(Atom%Normp(jtran,iz,jdir)%prof( &
-                         Atom%fst(jtran)%nt,1,1,1))
+                ! Allocate profile itself if storing
+                ! and it is present
+                if (lVIRAM) then
 
-                ! For each fs transition, allocate profile
-                do jj=1,Atom%fst(jtran)%nt
+                  ! Predict
+                  ! Subtract already accounter for norm
+                  d1 = 8d-6*dble(Atom(ia)%if1(jtran) - &
+                                 Atom(ia)%if0(jtran) + 1) - 8d-6
 
-                  ! Allocate
-                  allocate(Atom%Normp(jtran,iz,jdir)%prof( &
-                              jj,1,1,1)%p( &
-                              Atom%if0(jtran):Atom%if1(jtran)))
+                  ! If no more space
+                  if (floor(RAM+d1).gt.RLIM) then
 
-                end do ! fs transitions
+                    ! No stored
+                    Red%dzao(indx)%VRAM = .False.
+                    ofram = .True.
 
-                MPID%RAM = MPID%RAM + d1
-                MPID%VRAM = MPID%VRAM + d1
+                  ! If there is space
+                  else
 
-              end if ! Space to store
+                    ! Storing
+                    Red%dzao(indx)%VRAM = .True.
 
-            ! Not storing Voigt
+                    ! Allocate
+                    allocate(Red%dzao(indx)%p(Atom(ia)%if0(jtran): &
+                                              Atom(ia)%if1(jtran)))
+
+                    ! Add normalization to RAM
+                    RAM = RAM + d1
+
+                  end if ! Space to store
+
+                ! Not storing Voigt
+                else
+
+                  ! No stored
+                  Red%dzao(indx)%VRAM = .False.
+
+                end if
+
+              end do ! For each transition (FS)
+            end do ! For each transition
+          end do ! For each direction
+        end do ! For each height
+
+        !
+        ! MASTER with MPI
+        !
+        if (MPID%mpi.and.pid.eq.0) then
+
+          ! Initialize finished
+          finished = 1
+
+          !
+          ! Calculate normalization
+          !
+
+          ! While there is work to do
+          do while (finished.lt.nproc)
+
+            ! Receive indexes metadata
+            if (extracomm) then
+              do while (.True.)
+                call MPI_recv(id(1),5,MPI_INTEGER, &
+                              MPI_ANY_SOURCE, 0, MPI_COMM_RT, &
+                              MPI_STATUS_IGNORE, ierr)
+                if (ierr.eq.0) exit
+              end do
             else
-
-              ! No stored
-              Atom%Normp(jtran,iz,jdir)%VRAM = .False.
-
-              ! Add normalization
-              d1 = 8d-6*dble(Atom%fst(jtran)%nt)
-              MPID%RAM = MPID%RAM + d1
-              MPID%VRAM = MPID%VRAM + d1
-
-            end if
-
-          end do ! For each transition
-        end do ! For each direction
-      end do ! For each height
-
-      ! Check the maximum size to transfer
-      ios = maxval(size1)
-
-      ! Gather the maximum size that each processor is holding
-      do while (.True.)
-        call MPI_ALLGATHER(ios,1,MPI_INTEGER,nbf1(0),1, &
-                           MPI_INTEGER,MPI_COMM_RT,ierr)
-        if (ierr.eq.0) exit
-      end do
-
-      ! Allocate buffers
-      allocate(buff1(nbf1(pid)))
-
-
-      !
-      ! MASTER
-      !
-
-      if (MPID%mpi.and.pid.eq.0) then
-
-        !
-        ! Initialize finished
-        !
-        finished = 1
-
-
-        !
-        ! Calculate normalization
-        !
-
-        do while (finished.lt.nproc)
-
-          ! Receive the informative package with indexes
-          if (extracomm) then
-            do while (.True.)
               call MPI_recv(id(1),5,MPI_INTEGER, &
                             MPI_ANY_SOURCE, 0, MPI_COMM_RT, &
                             MPI_STATUS_IGNORE, ierr)
-              if (ierr.eq.0) exit
-            end do
-          else
-            call MPI_recv(id(1),5,MPI_INTEGER, &
-                          MPI_ANY_SOURCE, 0, MPI_COMM_RT, &
-                          MPI_STATUS_IGNORE, ierr)
-          end if
+            end if
 
-          ! If ending signal
-          if (id(1).lt.0) then
-            finished = finished + 1
-            cycle
-          end if
+            ! If ending signal
+            if (id(1).lt.0) then
 
-          if (extracomm) then
-            do while (.True.)
-              call MPI_SEND(id(1),1,MPI_INTEGER,id(1),id(1), &
-                            MPI_COMM_RT,ierr)
-              if (ierr.eq.0) exit
-            end do
-          end if
+              ! Add to finished CPUs and restart
+              finished = finished + 1
+              cycle
 
-          ! Receive the buffer with the integral
-          if (extracomm) then
-            do while (.True.)
-              call MPI_recv(buff1(1), nbf1(id(1)), &
+            end if
+
+            ! Only in extra moode receive another ping
+            if (extracomm) then
+              do while (.True.)
+                call MPI_SEND(id(1),1,MPI_INTEGER,id(1),id(1), &
+                              MPI_COMM_RT,ierr)
+                if (ierr.eq.0) exit
+              end do
+            end if
+
+            ! Receive the buffer with the integral
+            if (extracomm) then
+              do while (.True.)
+                call MPI_recv(buff1, 1, &
+                              MPI_DOUBLE_PRECISION, id(1), &
+                              id(1), MPI_COMM_RT, &
+                              MPI_STATUS_IGNORE, ierr)
+                if (ierr.eq.0) exit
+              end do
+            else
+              call MPI_recv(buff1, 1, &
                             MPI_DOUBLE_PRECISION, id(1), &
                             id(1), MPI_COMM_RT, &
                             MPI_STATUS_IGNORE, ierr)
-              if (ierr.eq.0) exit
-            end do
-          else
-            call MPI_recv(buff1(1), nbf1(id(1)), &
-                          MPI_DOUBLE_PRECISION, id(1), &
-                          id(1), MPI_COMM_RT, &
-                          MPI_STATUS_IGNORE, ierr)
-          end if
+            end if
 
-          ! Store checkram
-          if (VIRAM.and.id(5).lt.0) &
-            checkram(id(2),id(3),id(4)) = -1
+            ! If storing but this CPU could not keep this profile
+            if (lVIRAM.and.id(5).lt.0) then
 
-          ! For each FS transition
-          do jj=1,Atom%fst(id(2))%nt
+              ! Get index and flag checkram
+              jtran = Atom(ia)%ifst(id(2))
+              checkram(jtran,id(3),id(4)) = -1
+
+            end if
+
+            ! Rolling index
+            ffktran = id(2) + Atom(ia)%tfshift
+
+            ! Get norm index
+            indx = Red%idzao(ffktran,id(3),id(4))
 
             ! Accumulate the sub-integrals
-            Atom%Normp(id(2),id(3),id(4))% &
-                 Norm(jj,1,1,1) = &
-                    Atom%Normp(id(2),id(3),id(4))% &
-                       Norm(jj,1,1,1) + buff1(jj)
+            Red%dzao(indx)%Norm = Red%dzao(indx)%Norm + buff1
 
-          end do ! FS transition
-        end do ! Communications to do
-
-
-      !
-      ! SLAVE OR SINGLE PROCESSOR
-      !
-
-      else
+          end do ! Communications to do
 
         !
-        ! Calculate normalization
+        ! SLAVE OR SINGLE PROCESSOR
         !
 
-        ! For each direction
-        do jdir=1,nodir
+        else
 
-          ! Recover the indexes
-          ith = ithv(jdir)
-          iph = iphv(jdir)
-
-          ! If emergent
-          if (LOS) then
-
-            ct = Geom%L_mu(ith)
-            st = sqrt(1d0 - ct*ct)
-            cc = cos(Geom%L_phi(iph))
-            sc = sin(Geom%L_phi(iph))
-
-          else
-
-            ct = Geom%V_mu(ith)
-            st = sqrt(1d0 - ct*ct)
-            cc = Geom%v_mux(iph)
-            sc = Geom%v_muy(iph)*sqrt(1d0 - cc*cc)
-
-          end if
+          !
+          ! Calculate normalization
+          !
 
           ! For each height
           do iz=Rz0,Rz1
 
             ! Thermal part of the Doppler width
-            DwT = Atom%cDopp*sqrt(Atmo%T(iz))
+            DwT = Atom(ia)%cDopp*sqrt(Atmo%T(iz))
 
-            ! Calculate Doppler shift factor
+            ! If dynamic
+            if (dyn) then
 
-            vfac = 1d0
+              ! Check local velocity
+              vel = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                         Atmo%vy(iz)*Atmo%vy(iz) + &
+                         Atmo%vz(iz)*Atmo%vz(iz))
+              lvel = vel.gt.TINYVEL
 
-            if (dyn) &
-              vfac = 1d0 - atmo%vx(iz)*st*cc - atmo%vy(iz)*st*sc - &
-                           atmo%vz(iz)*ct
+            end if
 
-            ! For each transition
-            do jtran=1,Atom%ntran
+            ! For each direction
+            do jdir=1,njdir
 
-              ! If the line is in this process, skip
-              if (.not.Atom%fflag(jtran)%absent) then
+              ! Skip static multiple directions
+              if (.not.lvel.and.jdir.gt.1) cycle
 
-                ! Flag to send
-                tosend(jtran,iz,jdir) = .True.
+              ! Dopple shift init
+              vfac = 1d0
 
-                ! Find the term indexes for this transition
-                do i=1,Atom%nMulti-1
-                  do i1=i+1,Atom%nMulti
-                    if (Atom%irad(i,i1).eq.jtran) then
-                      itermf = i
-                      itermu = i1
-                    end if
-                  end do
-                end do
+              ! If velocity
+              if (lvel) then
 
-                ! Get contributions to damping parameter
-                au = Atom%damp(itermu,iz)
-                af = Atom%damp(itermf,iz)
-                auf = Atom%ldamp(jtran,iz)
+                ! If emergent
+                if (LOS) then
 
-                ! Get indexes
-                if0 = Atom%if0(jtran)
-                if1 = Atom%if1(jtran)
-                ! Get Weights
-                W0 = Atom%W0(jtran)
-                W1 = Atom%W1(jtran)
+                  ! Trigonometry
+                  ct = Geom%L_mu(ith)
+                  st = sqrt(1d0 - ct*ct)
+                  cc = cos(Geom%L_phi(iph))
+                  sc = sin(Geom%L_phi(iph))
 
+                ! If quadrature
+                else
 
-                !
-                ! Proper normalization
-                !
+                  ! Recover the indexes
+                  ith1 = Geom%ithv(jdir)
+                  iph1 = Geom%iphv(jdir)
 
-                ! For each FS transition
-                do jj=1,Atom%fst(jtran)%nt
+                  ! Trigonometry
+                  ct = Geom%V_mu(ith1)
+                  st = sqrt(1d0 - ct*ct)
+                  cc = Geom%v_mux(iph1)
+                  sc = Geom%v_muy(iph1)*sqrt(1d0 - cc*cc)
 
-                  ! Find the level indexes for this transition
-                  do i=1,Atom%nJ(itermf)
-                    do i1=1,Atom%nJ(itermu)
-                      if (Atom%fst(jtran)%irad(i1,i).eq.jj) then
-                        iJf = i
-                        iJu = i1
-                      end if
-                    end do
-                  end do
+                end if ! Los or quadrature
+
+                ! Get Doppler shift
+                vfac = 1d0 - Atmo%vx(iz)*st*cc - &
+                             Atmo%vy(iz)*st*sc - &
+                             Atmo%vz(iz)*ct
+
+              end if ! Velocity
+
+              ! For each transition
+              do jtran=1,Atom(ia)%ntran
+
+                ! If the line is in this process, skip
+                if (Atom(ia)%fflag(jtran)%absent) cycle
+
+                ! Get term indexes
+                itermu = Atom(ia)%fst(jtran)%itermu
+                itermf = Atom(ia)%fst(jtran)%iterml
+
+                ! For each transition (FS)
+                do fjtran=1,Atom(ia)%fst(jtran)%nt
+
+                  ! Rolling index
+                  ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
+                  ffktran = ffjtran + Atom(ia)%tfshift
+
+                  ! Get index
+                  indx = Red%idzao(ffktran,iz,jdir)
+
+                  ! Get iJ indexes
+                  iJu = Atom(ia)%fst(jtran)%ilevelu(fjtran)
+                  iJf = Atom(ia)%fst(jtran)%ilevell(fjtran)
+
+                  ! Get contributions to damping parameter
+                  au = Atom(ia)%damp(itermu,iz)
+                  af = Atom(ia)%damp(itermf,iz)
+                  auf = Atom(ia)%ldamp(jtran,iz)
+
+                  ! Get indexes
+                  if0 = Atom(ia)%if0(jtran)
+                  if1 = Atom(ia)%if1(jtran)
+
+                  ! Get Weights
+                  W0 = Atom(ia)%W0(jtran)
+                  W1 = Atom(ia)%W1(jtran)
+
+                  !
+                  ! Proper normalization
+                  !
 
                   ! Get the FS energies
-                  eu = Atom%FSfreq(iJu,itermu)
-                  el = Atom%FSfreq(iJf,itermf)
+                  eu = Atom(ia)%FSfreq(iJu,itermu)
+                  el = Atom(ia)%FSfreq(iJf,itermf)
 
                   ! Output Doppler width
                   Dw = (eu - el)*sqrt(DwT*DwT + Atmo%vmi(iz)**2d0)
+                  iDw = 1d0/Dw
 
+                  ! Scaled Doppler width and normalization
+                  vfacw = vfac*iDw
+                  d1 = 1d-5*iDw/sqrt(PI)
+
+                  ! Total damping
+                  atuf = (au + af + auf)*iDw
 
                   !
                   ! Calculate profile
@@ -4651,702 +2578,663 @@
 
                   ! Common quantities
                   Dfreqw = (eu - el)/Dw
-                  vfacw = vfac/Dw
-                  d1 = 1d-5/(sqrt(PI)*Dw)
-                  atuf = (au+af+auf)/Dw
 
-                  ! Boundaries
+                  ! Lower boundary
 
-                  ! Lower
+                  ! Voigt
                   call voigtI(Dfreqw - Frec%omega(if0)*vfacw, &
                              atuf,prof)
-                  Atom%Normp(jtran,iz,jdir)%Norm(jj,1,1,1) = &
-                                                    prof*(W0*d1)
 
-                  ! Store
-                  if (Atom%Normp(jtran,iz,jdir)%VRAM) &
-                    Atom%Normp(jtran,iz,jdir)%prof(jj,1,1,1)% &
-                                                    p(if0) = prof
+                  ! Add to norm
+                  Red%dzao(indx)%Norm = prof*W0*d1
+
+                  ! Store profile
+                  if (Red%dzao(indx)%VRAM) &
+                    Red%dzao(indx)%p(if0) = prof
 
                   ! For each frequency
                   do ifreq=if0+1,if1-1
 
+                    ! Voigt
                     call voigtI(Dfreqw - Frec%omega(ifreq)*vfacw, &
                                atuf,prof)
 
                     ! Add to the integral
-                    Atom%Normp(jtran,iz,jdir)%Norm(jj,1,1,1) = &
-                    Atom%Normp(jtran,iz,jdir)%Norm(jj,1,1,1) + &
-                                      prof*(Frec%W_freq(ifreq)*d1)
+                    Red%dzao(indx)%Norm = Red%dzao(indx)%Norm + &
+                                          prof*Frec%W_freq(ifreq)*d1
 
-                    ! Store
-                    if (Atom%Normp(jtran,iz,jdir)%VRAM) &
-                      Atom%Normp(jtran,iz,jdir)%prof(jj,1,1,1)% &
-                                                    p(ifreq) = prof
+                    ! Store profile
+                    if (Red%dzao(indx)%VRAM) &
+                      Red%dzao(indx)%p(ifreq) = prof
 
                   end do ! Frequencies
 
-                  ! Upper
-                  call voigtI(Dfreqw - Frec%omega(if1)*vfacw, &
-                             atuf,prof)
-                  Atom%Normp(jtran,iz,jdir)%Norm(jj,1,1,1) = &
-                  Atom%Normp(jtran,iz,jdir)%Norm(jj,1,1,1) + &
-                                                    prof*(W1*d1)
+                  ! Upper boundary
 
-                  ! Store
-                  if (Atom%Normp(jtran,iz,jdir)%VRAM) &
-                    Atom%Normp(jtran,iz,jdir)%prof(jj,1,1,1)% &
-                                                    p(if1) = prof
+                  ! Voigt
+                  call voigtI(Dfreqw - Frec%omega(if1)*vfacw, &
+                              atuf,prof)
+
+                  ! Add to the integral
+                  Red%dzao(indx)%Norm = Red%dzao(indx)%Norm + &
+                                        prof*W1*d1
+
+                  ! Store profile
+                  if (Red%dzao(indx)%VRAM) &
+                    Red%dzao(indx)%p(if1) = prof
+
+                  ! If MPI
+                  if (MPID%mpi) then
+
+                    ! Check last send was received
+                    if (.not.extracomm) then
+                      call MPI_WAIT(MPID%request1,MPI_STATUS_IGNORE, &
+                                    ierr)
+                      call MPI_WAIT(MPID%request2,MPI_STATUS_IGNORE, &
+                                    ierr)
+                    end if
+
+                    ! Prepare metadata
+                    if (Red%dzao(indx)%VRAM) then
+                      id1_b = (/ pid, ffjtran, iz, jdir, 1 /)
+                    else
+                      id1_b = (/ pid, ffjtran, iz, jdir,-1 /)
+                    end if
+
+                    ! Send metadata
+                    if (extracomm) then
+                      do while (.True.)
+                        call MPI_SEND(id1_b(1),5,MPI_INTEGER,0,0, &
+                                      MPI_COMM_RT,ierr)
+                        if (ierr.eq.0) exit
+                      end do
+                    else
+                      call MPI_ISEND(id1_b(1),5,MPI_INTEGER,0,0, &
+                                     MPI_COMM_RT,MPID%request1,ierr)
+                    end if
+
+                    ! Reorder the normalization into the buffer
+                    buff1 = Red%dzao(indx)%Norm(1)
+
+                    ! If extra communication, send ping
+                    if (extracomm) then
+                      do while (.True.)
+                        call MPI_recv(id1_b(1),1,MPI_INTEGER, &
+                                      0, pid, MPI_COMM_RT, &
+                                      MPI_STATUS_IGNORE, ierr)
+                        if (ierr.eq.0) exit
+                      end do
+                    end if
+
+                    ! Send the actual normalization values
+                    if (extracomm) then
+                      do while (.True.)
+                        call MPI_SEND(buff1,1, &
+                                      MPI_DOUBLE_PRECISION, 0, pid, &
+                                      MPI_COMM_RT, ierr)
+                        if (ierr.eq.0) exit
+                      end do
+                    else
+                      call MPI_ISEND(buff1,1, &
+                                     MPI_DOUBLE_PRECISION, 0, pid, &
+                                     MPI_COMM_RT, &
+                                     MPID%request2, ierr)
+                    end if
+                  end if ! MPI
 
                 end do ! Fine transition
+              end do ! output transition
+            end do ! output direction
+          end do ! height
 
-              end if ! Presence test
+          ! If MPI send finished signal
+          if (MPID%mpi) then
 
-              if (MPID%mpi.and.tosend(jtran,iz,jdir)) then
+            ! Check last send was received
+            if (.not.extracomm) &
+              call MPI_WAIT(MPID%request1,MPI_STATUS_IGNORE,ierr)
 
-                !
-                ! Share data with master
-                !
+            ! Prepare finished metadata
+            id = (/ -1, -1, -1, -1, -1 /)
 
-                ! Check last send was received
-                if (.not.extracomm) then
-                  call MPI_WAIT(MPID%request1,MPI_STATUS_IGNORE, &
-                                ierr)
-                  call MPI_WAIT(MPID%request2,MPI_STATUS_IGNORE, &
-                                ierr)
-                end if
+            ! Send metadata
+            if (extracomm) then
+              do while (.True.)
+                call MPI_SEND(id(1),5,MPI_INTEGER,0,0, &
+                               MPI_COMM_RT,ierr)
+                if (ierr.eq.0) exit
+              end do
+            else
+              call MPI_ISEND(id(1),5,MPI_INTEGER,0,0, &
+                              MPI_COMM_RT,MPID%request1,ierr)
+            end if ! Extracommunication
+          end if ! MPI
+        end if ! Master or slave (or not mpi)
 
-                ! Send the indexing data
-                if (Atom%Normp(jtran,iz,jdir)%VRAM) then
-                  id1_b = (/ pid, jtran, iz, jdir, 1 /)
-                else
-                  id1_b = (/ pid, jtran, iz, jdir,-1 /)
-                end if
-                if (extracomm) then
-                  do while (.True.)
-                    call MPI_SEND(id1_b(1),5,MPI_INTEGER,0,0, &
-                                  MPI_COMM_RT,ierr)
-                    if (ierr.eq.0) exit
-                  end do
-                else
-                  call MPI_ISEND(id1_b(1),5,MPI_INTEGER,0,0, &
-                                 MPI_COMM_RT,MPID%request1,ierr)
-                end if
-
-                ! Reorder the normalization into the buffer
-                buff1(1:size1(jtran,iz,jdir)) = &
-                             Atom%Normp(jtran,iz,jdir)%Norm(:,1,1,1)
-
-                if (extracomm) then
-                  do while (.True.)
-                    call MPI_recv(id1_b(1),1,MPI_INTEGER, &
-                                  0, pid, MPI_COMM_RT, &
-                                  MPI_STATUS_IGNORE, ierr)
-                    if (ierr.eq.0) exit
-                  end do
-                end if
-
-                ! Send the actual normalization values
-                if (extracomm) then
-                  do while (.True.)
-                    call MPI_SEND(buff1(1),nbf1(pid), &
-                                  MPI_DOUBLE_PRECISION, 0, pid, &
-                                  MPI_COMM_RT, ierr)
-                    if (ierr.eq.0) exit
-                  end do
-                else
-                  call MPI_ISEND(buff1(1),nbf1(pid), &
-                                 MPI_DOUBLE_PRECISION, 0, pid, &
-                                 MPI_COMM_RT, &
-                                 MPID%request2, ierr)
-                end if
-              end if ! MPI
-
-            end do ! output transition
-          end do ! output direction
-        end do ! height
-
-        ! If MPI send finished signal
+        ! If MPI
         if (MPID%mpi) then
 
-          ! Check last send was received
-          if (.not.extracomm) &
-            call MPI_WAIT(MPID%request1,MPI_STATUS_IGNORE,ierr)
+          !
+          ! Broadcast the results
+          !
 
-          ! Send the indexing data
-          id = (/ -1, -1, -1, -1, -1 /)
-          if (extracomm) then
-            do while (.True.)
-              call MPI_SEND(id(1),5,MPI_INTEGER,0,0, &
-                             MPI_COMM_RT,ierr)
-              if (ierr.eq.0) exit
-            end do
-          else
-            call MPI_ISEND(id(1),5,MPI_INTEGER,0,0, &
-                            MPI_COMM_RT,MPID%request1,ierr)
-          end if ! Extracommunication
-        end if ! MPI
-      end if ! Master or slave (or not mpi)
+          ! Slaves allocating profiles
+          if (pid.gt.0.and.VIRAM) then
 
-      ! If MPI
-      if (MPID%mpi) then
+            ! Allocate checkram
+            allocate(checkram(Atom(ia)%ntran,Rz0:Rz1,njdir))
 
-        !
-        ! Broadcast the results
-        !
-
-        ! Slaves allocate checkram
-        if (pid.gt.0.and.VIRAM) then
-          ! Allocate checkram
-          allocate(checkram(Atom%ntran,Rz0:Rz1,nodir))
-        end if
-
-        ! Send norm
-
-        ! For each direction
-        do jdir=1,nodir
+          end if
 
           ! For each height
           do iz=Rz0,Rz1
 
-            ! For each transition
-            do jtran=1,Atom%ntran
+            ! If dynamic
+            if (dyn) then
 
-              ! Alternative bcast
-              if (MPID%altbcast) then
+              ! Check local velocity
+              vel = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                         Atmo%vy(iz)*Atmo%vy(iz) + &
+                         Atmo%vz(iz)*Atmo%vz(iz))
+              lvel = vel.gt.TINYVEL
 
-                ! If not master, receive first
-                if (pid.ne.0) then
+            end if
 
-                  ! Receive Norm
-                  call MPI_RECV(Atom%Normp(jtran,iz,jdir)% &
-                                Norm(1,1,1,1), &
-                                size1(jtran,iz,jdir), &
-                                MPI_DOUBLE_PRECISION,  &
-                                MPID%recv, pid, &
-                                MPI_COMM_RT, MPI_STATUS_IGNORE, &
-                                ierr)
+            ! For each direction
+            do jdir=1,njdir
 
-                end if ! No master
+              ! Skip static multiple directions
+              if (.not.lvel.and.jdir.gt.1) cycle
 
-                ! For each send
-                do istep=1,MPID%nsend
+              ! For each transition
+              do jtran=1,Atom(ia)%ntran
 
-                  ! Send Norm
-                  call MPI_ISEND(Atom%Normp(jtran,iz,jdir)% &
-                                 Norm(1,1,1,1), &
-                                 size1(jtran,iz,jdir), &
-                                 MPI_DOUBLE_PRECISION, &
-                                 MPID%lsend(istep), &
-                                 MPID%lsend(istep), &
-                                 MPI_COMM_RT, &
-                                 MPID%requestA(istep,1), ierr)
+                ! For each transition (FS)
+                do fjtran=1,Atom(ia)%fst(jtran)%nt
 
-                end do ! Sends
+                  ! Rolling index
+                  ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
 
-                ! For each slave
-                do istep=1,MPID%nsend
+                  ! Slave without line
+                  if (pid.gt.0.and.Atom(ia)%fflag(jtran)%absent) then
 
-                  ! Wait for everyone to receive the radiation data
-                  ! continuing
-                  call MPI_WAIT(MPID%requestA(istep,1), &
-                                MPI_STATUS_IGNORE,ierr)
+                    ! Get dummy
+                    call MPI_BCAST(buff1, 1, &
+                                   MPI_DOUBLE_PRECISION, 0, &
+                                   MPI_COMM_RT, ierr)
 
-                end do ! Sends
+                  ! Master or slave with line
+                  else
 
-              ! Normal bcast
-              else
+                    ! Rolling index
+                    ffktran = ffjtran + Atom(ia)%tfshift
 
-                ! Share Norm
-                call MPI_BCAST(Atom%Normp(jtran,iz,jdir)% &
-                                    Norm(1,1,1,1), &
-                               size1(jtran,iz,jdir), &
-                               MPI_DOUBLE_PRECISION, 0, &
-                               MPI_COMM_RT, ierr)
+                    ! Get index
+                    indx = Red%idzao(ffktran,iz,jdir)
 
-              end if ! Type of bcast
+                    ! Share Norm
+                    call MPI_BCAST(Red%dzao(indx)%Norm, 1, &
+                                   MPI_DOUBLE_PRECISION, 0, &
+                                   MPI_COMM_RT, ierr)
 
-            end do ! transitions
-          end do ! directions
-        end do ! heights
+                  end if
 
-        ! If storing in RAM
-        if (VIRAM) then
+                end do ! transitions (FS)
+              end do ! transitions
+            end do ! directions
+          end do ! heights
 
-          ! Send checkram
-          lcheckram = Atom%ntran*Rnz*nodir
+          ! If storing in RAM
+          if (lVIRAM) then
 
-          ! Alternative bcast
-          if (MPID%altbcast) then
-
-            ! If not master, receive first
-            if (pid.ne.0) then
-
-              ! Receive Norm
-              call MPI_RECV(checkram(1,Rz0,1),lcheckram, &
-                            MPI_INTEGER,MPID%recv, pid, &
-                            MPI_COMM_RT, MPI_STATUS_IGNORE, &
-                            ierr)
-
-            end if ! No master
-
-            ! For each send
-            do istep=1,MPID%nsend
-
-              ! Send Norm
-              call MPI_ISEND(checkram(1,Rz0,1),lcheckram, &
-                             MPI_INTEGER,MPID%lsend(istep), &
-                             MPID%lsend(istep), &
-                             MPI_COMM_RT, &
-                             MPID%requestA(istep,1), ierr)
-
-            end do ! Sends
-
-            ! For each slave
-            do istep=1,MPID%nsend
-
-              ! Wait for everyone to receive the radiation data
-              ! continuing
-              call MPI_WAIT(MPID%requestA(istep,1), &
-                            MPI_STATUS_IGNORE,ierr)
-
-            end do ! Sends
-
-          ! Normal bcast
-          else
+            ! Send checkram
+            lcheckram = Atom(ia)%ntran*Rnz*njdir
 
             ! Share Norm
             call MPI_BCAST(checkram(1,Rz0,1),lcheckram, &
                            MPI_INTEGER, 0, &
                            MPI_COMM_RT, ierr)
 
-          end if ! Type of bcast
-
-          ! Slaves deal with it
-          if (pid.gt.0) then
-
-            ! For each direction
-            do jdir=1,nodir
+            ! Slaves deal with it
+            if (pid.gt.0) then
 
               ! For each height
               do iz=Rz0,Rz1
 
-                ! For each transition
-                do jtran=1,Atom%ntran
+                ! If dynamic
+                if (dyn) then
 
-                  ! If was saving but cannot
-                  if (Atom%Normp(jtran,iz,jdir)%VRAM.and. &
-                      checkram(jtran,iz,jdir).lt.0) then
+                  ! Check local velocity
+                  vel = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                             Atmo%vy(iz)*Atmo%vy(iz) + &
+                             Atmo%vz(iz)*Atmo%vz(iz))
+                  lvel = vel.gt.TINYVEL
 
-                    ! Not storing now
-                    Atom%Normp(jtran,iz,jdir)%VRAM = .False.
+                end if
 
-                    ! For each fs transition, allocate profile
-                    do jj=1,Atom%fst(jtran)%nt
+                ! For each direction
+                do jdir=1,njdir
 
-                      ! Deallocate
-                      deallocate(Atom%Normp(jtran,iz,jdir)%prof( &
-                                            jj,1,1,1)%p)
+                  ! Skip static multiple directions
+                  if (.not.lvel.and.jdir.gt.1) cycle
 
-                    end do ! fs transitions
+                  ! For each transition
+                  do jtran=1,Atom(ia)%ntran
 
-                    ! And deallocate prof
-                    deallocate(Atom%Normp(jtran,iz,jdir)%prof)
+                    ! If absent, skip
+                    if (Atom(ia)%fflag(jtran)%absent) cycle
 
-                    ! Remove profile
-                    d1 = 8d-6*dble((Atom%if1(jtran) - &
-                                    Atom%if0(jtran) + 1)* &
-                                    Atom%fst(jtran)%nt)
-                    MPID%RAM = MPID%RAM - d1
-                    MPID%VRAM = MPID%VRAM - d1
+                    ! For each transition (FS)
+                    do fjtran=1,Atom(ia)%fst(jtran)%nt
 
-                    ! Add norm
-                    d1 = 8d-6*dble(Atom%fst(jtran)%nt)
-                    MPID%RAM = MPID%RAM + d1
-                    MPID%VRAM = MPID%VRAM + d1
+                      ! Rolling index
+                      ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
+                      ffktran = ffjtran + Atom(ia)%tfshift
 
-                  end if ! Was string and not now
+                      ! Get index
+                      indx = Red%idzao(ffktran,iz,jdir)
 
-                end do ! transition
-              end do ! height
-            end do ! direction
+                      ! If was saving but cannot
+                      if (Red%dzao(indx)%VRAM.and. &
+                          checkram(jtran,iz,jdir).lt.0) then
 
-          end if ! Slaves
-        end if ! If saving in RAM
-      end if ! MPI
+                        ! Not storing now
+                        Red%dzao(indx)%VRAM = .False.
 
+                        ! Deallocate
+                        RAM = RAM - 1d-6*sizeof(Red%dzao(indx)%p) + &
+                              8d-6
+                        deallocate(Red%dzao(indx)%p)
 
-      !
-      ! Calculate multiplicative factor (instead of division factor)
-      !
+                      end if ! Was storing and not now
 
-      ! If MPI, master does not need this
-      if (MPID%mpi.and.pid.eq.0) then
+                    end do ! transition (FS)
+                  end do ! transition
+                end do ! height
+              end do ! direction
 
-        do jdir=1,size(Atom%Normp,3)
-          do iz=Rz0,Rz1
-            do jtran=1,Atom%ntran
-              if (allocated(Atom%Normp(jtran,iz,jdir)%Norm)) &
-                deallocate(Atom%Normp(jtran,iz,jdir)%Norm)
-            end do
-          end do
-        end do
-        deallocate(Atom%Normp)
-        nullify(Atom%Normp)
+            end if ! Slaves
+          end if ! If saving in RAM
+        end if ! MPI
 
-      else
+        !
+        ! Calculate multiplicative factor (instead of division factor)
+        !
 
         ! Allocate and initialize out of bound counter
-        allocate(outofbound(Atom%nftran))
+        allocate(outofbound(Atom(ia)%nftran))
         outofbound = 0
 
-        ! For each direction
-        do jdir=1,nodir
+        ! If MPI, master does not need this
+        if (MPID%mpi.and.pid.eq.0) then
+
+          ! Run over indexes
+          do indx=1,Red%ndzaoA
+
+            ! Deallocate
+            deallocate(Red%dzao(indx)%Norm)
+
+          end do
+
+          ! Free
+          deallocate(checkram)
+
+        ! Serial or slave
+        else
 
           ! For each height
           do iz=Rz0,Rz1
 
-            ! Initialize transition index
-            i1 = 0
+            ! If dynamic
+            if (dyn) then
 
-            ! For each transition
-            do jtran=1,Atom%ntran
+              ! Check local velocity
+              vel = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                         Atmo%vy(iz)*Atmo%vy(iz) + &
+                         Atmo%vz(iz)*Atmo%vz(iz))
+              lvel = vel.gt.TINYVEL
 
-              ! If storing
-              if (Atom%Normp(jtran,iz,jdir)%VRAM) then
+            end if
 
-                ! For each FS transition
-                do jj=1,Atom%fst(jtran)%nt
+            ! For each direction
+            do jdir=1,njdir
 
-                  ! Advance index
-                  i1 = i1 + 1
+              ! Skip static multiple directions
+              if (.not.lvel.and.jdir.gt.1) cycle
+
+              ! For each transition
+              do jtran=1,Atom(ia)%ntran
+
+                ! Skip absent
+                if (Atom(ia)%fflag(jtran)%absent) cycle
+
+                ! For each transition (FS)
+                do fjtran=1,Atom(ia)%fst(jtran)%nt
+
+                  ! Rolling index
+                  ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
+                  ffktran = ffjtran + Atom(ia)%tfshift
+
+                  ! Get index
+                  indx = Red%idzao(ffktran,iz,jdir)
 
                   ! Easier to write variable
-                  d1 = Atom%Normp(jtran,iz,jdir)%Norm(jj,1,1,1)
+                  d1 = Red%dzao(indx)%Norm(1)
 
                   ! If the norm is not zero
                   if (d1.gt.TINYN) then
 
                     ! Check close to 1
                     if (d1.lt.BADNORM.or.d1.gt.2d0-BADNORM) then
-                      outofbound(i1) = outofbound(i1) + 1
+
+                      ! Add count of bad norm
+                      outofbound(ffjtran) = outofbound(ffjtran) + 1
+
+                      ! If can write, do it
                       if (obadnorm) &
                         call writebadbound(folder, &
-                                           Atom%Element,iz,jdir, &
-                                           .False.,.False.,jtran, &
-                                           jj,1,1,1,d1)
-                    end if
+                                           Atom(ia)%Element,iz,jdir, &
+                                           .False.,jtran,fjtran,d1)
+                    end if ! Bad norm
+                  end if ! Norm not zero
 
-                    Atom%Normp(jtran,iz,jdir)%prof(jj,1,1,1)%p = &
-                         Atom%Normp(jtran,iz,jdir)%prof(jj,1,1,1)%p/d1
+                  ! If storing
+                  if (Red%dzao(indx)%VRAM) then
 
-                  end if
+                    ! If the norm is not zero
+                    if (d1.gt.TINYN) then
 
-                end do ! FS transitions
+                      ! Apply norm
+                      Red%dzao(indx)%p = Red%dzao(indx)%p/d1
 
-                ! And deallocate the norm because it is not needed
-                deallocate(Atom%Normp(jtran,iz,jdir)%Norm)
+                      ! And deallocate the norm
+                      deallocate(Red%dzao(indx)%Norm)
 
-              ! Not storing
-              else
+                    end if ! Norm not zero
 
-                ! For each FS transition
-                do jj=1,Atom%fst(jtran)%nt
+                  ! Not storing
+                  else
 
-                  ! Advance index
-                  i1 = i1 + 1
+                    ! If the norm is not zero, store inverse
+                    if (d1.gt.TINYN) Red%dzao(indx)%Norm = 1d0/d1
 
-                  ! Easier to write variable
-                  d1 = Atom%Normp(jtran,iz,jdir)%Norm(jj,1,1,1)
-
-                  ! If the norm is not zero
-                  if (d1.gt.TINYN) then
-
-                    ! Check close to 1
-                    if (d1.lt.BADNORM.or.d1.gt.2d0-BADNORM) then
-                      outofbound(i1) = outofbound(i1) + 1
-                      if (obadnorm) &
-                        call writebadbound(folder, &
-                                           Atom%Element,iz,jdir, &
-                                           .False.,.False.,jtran, &
-                                           jj,1,1,1,d1)
-                    end if
-
-                    Atom%Normp(jtran,iz,jdir)%Norm(jj,1,1,1) = 1d0/d1
-
-                  end if
+                  end if ! Storing
 
                 end do ! FS transitions
+              end do ! transitions
+            end do ! Directions
+          end do ! heights
 
-              end if ! Storing
+        end if ! Master and MPI
 
-            end do ! transitions
-          end do ! Directions
-        end do ! heights
+        ! If MPI
+        if (MPID%mpi) then
 
-        ! Check bad limits
-        if (maxval(outofbound).gt.0) then
+          ! Add together all bad normalization data
 
-          ! Check if must speak
-          if ((MPID%mpi.and.pid.eq.1).or.(.not.MPID%mpi)) then
+          ! Master
+          if (pid.eq.0) then
 
-            ! Initialize index
-            i1 = 0
+            ! Master in place
+            call MPI_REDUCE(MPI_IN_PLACE,outofbound, &
+                            Atom(ia)%nftran,MPI_INTEGER, &
+                            MPI_SUM,0,MPI_COMM_RT,ierr)
+          ! Slave
+          else
+
+            ! Slave just send
+            call MPI_REDUCE(outofbound,outofbound, &
+                            Atom(ia)%nftran,MPI_INTEGER, &
+                            MPI_SUM,0,MPI_COMM_RT,ierr)
+
+          end if ! Master/slave
+        end if ! MPI
+
+        ! Master
+        if (pid.eq.0) then
+
+          ! Check bad limits
+          if (maxval(outofbound).gt.0) then
 
             ! For each transition
-            do jtran=1,Atom%ntran
+            do jtran=1,Atom(ia)%ntran
 
               ! For each FS transition
-              do jj=1,Atom%fst(jtran)%nt
+              do fjtran=1,Atom(ia)%fst(jtran)%nt
 
-                ! Advance index
-                i1 = i1 + 1
+                ! Rolling index
+                ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
 
                 ! Check line is affected
-                if (outofbound(i1).gt.0) then
+                if (outofbound(ffjtran).gt.0) then
+
+                  ! Write warning
                   write(umsg,'(A,i4,",",i4,4A,i4,A)') &
-                    ' # Warning: transition ',jtran,jj,' in ', &
-                    Atom%Element,' has bad normalization', &
-                    ' for the chosen width in ',outofbound(i1), &
-                    ' heights X directions.'
+                    ' # Warning: transition ',jtran,fjtran,' in ', &
+                    Atom(ia)%Element,' has bad normalization', &
+                    ' for the chosen width in ', &
+                    outofbound(ffjtran),' heights X directions.'
                   call verbose
+
                 end if
 
               end do ! FS transition
             end do ! Transition
 
-          end if ! Must output
-        end if ! Any transition had bad normalization
+          end if ! Any transition had bad normalization
+        end if ! Master
 
         ! Deallocate
         deallocate(outofbound)
 
-      end if ! Master and MPI
-
-      ! Leave the buffer free
-      deallocate(buff1)
-
+      end do ! Atoms
 
       !
-      ! Fill file of Voigt profiles
+      ! LTE lines
       !
-      if (vifil) then
 
-        ! Only slaves or Master if no MPI
-        if (pid.ne.0.or..not.MPID%mpi) then
+      ! LTE lines present
+      if (allocated(LTElines)) then
 
-          ! Allocate buffer
-          allocate(buff1(nfreq))
+        ! For each LTE line
+        do ia=1,size(LTElines)
+
+          ! Skip absent
+          if (LTElines(ia)%absent) cycle
 
           !
-          ! Compute frequency size
+          ! Allocate the norm array
+          !
 
-          ! Initialize index
-          ktran = 0
+          ! For each height
+          do iz=LTElines(ia)%Rz0,Rz1
 
-          ! For each transition
-          do jtran=1,Atom%ntran
+            ! If dynamic
+            if (dyn) then
 
-            ! Check if present
-            if (Atom%fflag(jtran)%absent) then
-              ktran = ktran + Atom%fst(jtran)%nt
-              cycle
-            end if
-
-            ! Get indexes
-            if0 = Atom%if0(jtran)
-            if1 = Atom%if1(jtran)
-
-            ! For each FS transition
-            do jftran=1,Atom%fst(jtran)%nt
-
-              ! Advance index
-              ktran = ktran + 1
-
-              ! Define
-              Atom%f0size(ktran) = 8d0*dble(if0 - Atom%rif0(jtran))
-
-            end do
-
-          end do
-
-          ! For each direction
-          do jdir=1,nodir
-
-            ! Recover the indexes
-            ith = ithv(jdir)
-            iph = iphv(jdir)
-
-            ! If emergent
-            if (LOS) then
-
-              ct = Geom%L_mu(ith)
-              st = sqrt(1d0 - ct*ct)
-              cc = cos(Geom%L_phi(iph))
-              sc = sin(Geom%L_phi(iph))
-
-            else
-
-              ct = Geom%V_mu(ith)
-              st = sqrt(1d0 - ct*ct)
-              cc = Geom%v_mux(iph)
-              sc = Geom%v_muy(iph)*sqrt(1d0 - cc*cc)
+              ! Check local velocity
+              vel = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                         Atmo%vy(iz)*Atmo%vy(iz) + &
+                         Atmo%vz(iz)*Atmo%vz(iz))
+              lvel = vel.gt.TINYVEL
 
             end if
+
+            ! For each direction
+            do jdir=1,njdir
+
+              ! Skip static multiple directions
+              if (.not.lvel.and.jdir.gt.1) cycle
+
+              ! Skip slave
+              if (MPID%mpi.and.pid.eq.0) cycle
+
+              ! Get index
+              indx = Red%idzao(nxt+ia,iz,jdir)
+
+              ! Allocate profile itself if storing and it is present
+              if (lVIRAM) then
+
+                ! Prediction
+                ! Do not subtract because LTE lines never store
+                ! the normalization constant
+                d1 = 16d-6*dble(LTElines(ia)%if1 - &
+                                LTElines(ia)%if0 + 1)
+
+                ! If no more space
+                if (floor(RAM+d1).gt.RLIM) then
+
+                  ! No stored
+                  Red%dzao(indx)%VRAM = .False.
+                  ofram = .True.
+
+                ! If there is space
+                else
+
+                  ! Storing
+                  Red%dzao(indx)%VRAM = .True.
+
+                  ! Allocate
+                  allocate(Red%dzao(indx)%p(LTElines(ia)%if0: &
+                                            LTElines(ia)%if1))
+
+                  ! Update RAM
+                  RAM = RAM + d1
+
+                end if ! Space to store
+
+              ! Not storing Voigt
+              else
+
+                ! No stored
+                Red%dzao(indx)%VRAM = .False.
+
+              end if ! Storing
+
+            end do ! directions
+          end do ! heights
+
+          !
+          ! SLAVE OR SINGLE PROCESSOR
+          !
+          if (.not.MPID%mpi.or.pid.gt.0) then
+
+            !
+            ! Calculate normalization
+            !
 
             ! For each height
-            do iz=1,nz
+            do iz=LTElines(ia)%Rz0,Rz1
 
               ! Thermal part of the Doppler width
-              DwT = Atom%cDopp*sqrt(Atmo%T(iz))
+              DwT = sqrt(LTElines(ia)%cDopp*LTElines(ia)%cDopp* &
+                         Atmo%T(iz) + &
+                         Atmo%vmi(iz)*Atmo%vmi(iz))
 
-              ! Calculate Doppler shift factor
+              ! If dynamic
+              if (dyn) then
 
-              vfac = 1d0
+                ! Check local velocity
+                vel = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                           Atmo%vy(iz)*Atmo%vy(iz) + &
+                           Atmo%vz(iz)*Atmo%vz(iz))
+                lvel = vel.gt.TINYVEL
 
-              if (dyn) &
-                vfac = 1d0 - atmo%vx(iz)*st*cc - &
-                             atmo%vy(iz)*st*sc - &
-                             atmo%vz(iz)*ct
+              end if
 
-              ! Initialize index
-              ktran = 0
+              ! For each direction
+              do jdir=1,njdir
 
-              ! For each transition
-              do jtran=1,Atom%ntran
+                ! Skip static multiple directions
+                if (.not.lvel.and.jdir.gt.1) cycle
 
-                ! Check if present
-                if (Atom%fflag(jtran)%absent) then
-                  ktran = ktran + Atom%fst(jtran)%nt
-                  cycle
-                end if
+                ! Get index
+                indx = Red%idzao(nxt+ia,iz,jdir)
 
-                ! Find the term indexes for this transition
-                itermf = Atom%fst(jtran)%iterml
-                itermu = Atom%fst(jtran)%itermu
+                ! If not storing, why bother
+                if (.not.Red%dzao(indx)%VRAM) cycle
 
-                ! Get contributions to damping parameter
-                au = Atom%damp(itermu,iz)
-                af = Atom%damp(itermf,iz)
-                auf = Atom%ldamp(jtran,iz)
+                ! Dopple shift init
+                vfac = 1d0
+
+                ! If velocity
+                if (lvel) then
+
+                  ! If emergent
+                  if (LOS) then
+
+                    ! Trigonometry
+                    ct = Geom%L_mu(ith)
+                    st = sqrt(1d0 - ct*ct)
+                    cc = cos(Geom%L_phi(iph))
+                    sc = sin(Geom%L_phi(iph))
+
+                  ! If quadrature
+                  else
+
+                    ! Recover the indexes
+                    ith1 = Geom%ithv(jdir)
+                    iph1 = Geom%iphv(jdir)
+
+                    ! Trigonometry
+                    ct = Geom%V_mu(ith1)
+                    st = sqrt(1d0 - ct*ct)
+                    cc = Geom%v_mux(iph1)
+                    sc = Geom%v_muy(iph1)*sqrt(1d0 - cc*cc)
+
+                  end if ! LOS or quadrature
+
+                  ! Get Doppler shift
+                  vfac = 1d0 - Atmo%vx(iz)*st*cc - &
+                               Atmo%vy(iz)*st*sc - &
+                               Atmo%vz(iz)*ct
+
+                end if ! Velocity
+
+                ! Output Doppler width
+                Dw = LTElines(ia)%Dfreq*DwT
+                iDw = 1d0/Dw
 
                 ! Get indexes
-                if0 = Atom%if0(jtran)
-                if1 = Atom%if1(jtran)
+                if0 = LTElines(ia)%if0
+                if1 = LTElines(ia)%if1
 
-                ! For each FS transition
-                do jftran=1,Atom%fst(jtran)%nt
+                ! Common quantities
+                Dfreqw = (LTElines(ia)%eu - LTElines(ia)%el)*iDw
+                vfacw = vfac*iDw
+                auf = LTElines(ia)%damp(iz)*iDw
 
-                  ! Advance index
-                  ktran = ktran + 1
+                !
+                ! Calculate profile
+                !
 
-                  ! Find the level indexes for this transition
-                  do i=1,Atom%nJ(itermf)
-                    do i1=1,Atom%nJ(itermu)
-                      if (Atom%fst(jtran)%irad(i1,i).eq.jftran) then
-                        iJf = i
-                        iJu = i1
-                      end if
-                    end do
-                  end do
+                ! For each frequency
+                do ifreq=if0,if1
 
-                  ! Get the FS energies
-                  eu = Atom%FSfreq(iJu,itermu)
-                  el = Atom%FSfreq(iJf,itermf)
+                  ! Voigt
+                  call voigtI(Dfreqw - Frec%omega(ifreq)*vfacw, &
+                              auf,prof)
 
-                  ! Output Doppler width
-                  Dw = (eu - el)*sqrt(DwT*DwT + Atmo%vmi(iz)**2d0)
+                  Red%dzao(indx)%p(ifreq) = prof
 
-                  ! Open file
-                  call MPI_FILE_OPEN(MPI_COMM_SELF, &
-                                     trim(Atom%vfile), &
-                                     MPI_MODE_WRONLY, &
-                                     MPI_INFO_NULL, &
-                                     funit, ierr)
-                  if (ierr.ne.0) goto 1100
+                end do ! frequencies
+              end do ! output direction
+            end do ! height
 
+          end if ! MPI
 
-                  ! Jump
-                  loffset = dble(Atom%hvifil) + &
-                            Atom%dsize(jdir) + &
-                            Atom%zsize(iz) + &
-                            Atom%tsize(ktran) + &
-                            Atom%f0size(ktran)
-                  do while(loffset.gt.offlimit)
-                    offset = int(offlimit)
-                    call MPI_FILE_SEEK(funit, offset, &
-                                       MPI_SEEK_CUR, ierr)
-                    loffset = loffset - offlimit
-                  end do
-                  offset = int(loffset)
-                  call MPI_FILE_SEEK(funit, offset, &
-                                     MPI_SEEK_CUR, ierr)
+        end do ! LTE lines
 
+      end if ! LTE lines present
 
-                  !
-                  ! Compute profiles and write
-                  !
-
-                  ! Common quantities
-                  Dfreqw = (eu - el)/Dw
-                  vfacw = vfac/Dw
-                  atuf = (au+af+auf)/Dw
-
-                  ! For each frequency
-                  do ifreq=if0,if1
-
-                    call voigtI(Dfreqw - Frec%omega(ifreq)*vfacw, &
-                                atuf,buff1(ifreq))
-
-                  end do ! Frequencies
-
-                  ! Normalize
-                  buff1(if0:if1) = buff1(if0:if1)* &
-                          Atom%Normp(jtran,iz,jdir)%Norm(jftran,1,1,1)
-
-                  ! Write
-                  istep = if1 - if0 + 1
-                  call MPI_FILE_WRITE(funit, buff1(if0), &
-                                      istep, MPI_DOUBLE_PRECISION, &
-                                      MPI_STATUS_IGNORE, ierr)
-                  if (ierr.ne.0) goto 1100
-
-                  ! Close file
-                  call MPI_FILE_CLOSE(funit, ierr)
-
-                end do ! Fine transition
-
-                ! Deallocate
-                if (iz.lt.Rz0.or.iz.gt.Rz1) cycle
-                deallocate(Atom%Normp(jtran,iz,jdir)%Norm)
-
-              end do ! Transitions
-            end do ! Heights
-          end do ! Directions
-
-          ! Deallocate
-          deallocate(Atom%Normp)
-          nullify(Atom%Normp)
-
-          ! Allocate a token
-          allocate(Atom%Normp(1,1,1))
-
-        end if ! Slave or single CPU
-      end if ! Writing Voigt profiles
+      ! And now update the memory in Normp
+      call cram_red_norm(Red,num)
+      VRAMc = VRAMc + num
+      DRAMc = 0d0
 
       ! Control
       call control
 
-      return
-
-1000  umsg = 'Error opening '//trim(Atom%vfile)//' file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
-      call control
-      return
-1100  umsg = 'Error writing '//trim(Atom%vfile)//' file'
-      close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
-      call control
       return
 
       end subroutine normalizeI
@@ -5355,611 +3243,345 @@
 !#####################################################################
 !#####################################################################
 
-      !> Computes profiles for intensity LTE lines\n
-      !!      line(LTElines_class): Structure with the LTE line data\n
-      !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !!      Geom(Geometry_class): Structure with geometry data\n
-      !!           MPID(MPI_class): Structure with MPI data\n
-      !!     Frec(Frequency_class): Structure with frequency data\n
-      !!            njdir(integer): Number of directions\n
-      !!          ithv(integer(:)): Indexing of polar directions\n
-      !!          ithv(integer(:)): Indexing of azimuth directions\n
-      !!              lio(logical): If doing formal solution in this
-      !!                            run\n
-      !!            ofram(logical): Indicates if out of RAM\n
-      !!              LOS(logical): Indicates if we are normalizing
-      !!                            LOS directions
-      subroutine getprofI_LTE(line,Atmo,Geom,MPID,Frec,njdir,ithv, &
-                              iphv,lio,ofram,LOS)
+      !> Normalize the absorption profiles for the first order
+      !! profiles in the PRD emissivity for the intensity problem\n
+      !!    Atom(Atom_class(:)): Structures with atomic data\n
+      !!       Atmo(Atmo_class): Structure with atmospheric data\n
+      !!  Frec(Frequency_class): Structure with frequency data\n
+      !!         Red(Red_class): Structure with redistribution input
+      !!                         frequency data, redistribution
+      !!                         function data, and profile or
+      !!                         normalization data\n
+      !!         ofram(logical): If reached the RAM limit
+      subroutine normalizeI_PRD(Atom,Atmo,Frec,Red,ofram)
 
       ! I/O
 
-      type(LTEline_class), intent(inout):: line
+      type(Atom_class), dimension(:), intent(inout):: Atom
       type(Atmo_class), intent(in):: Atmo
-      type(Geometry_class), intent(inout):: Geom
-      type(MPI_class), intent(inout):: MPID
       type(Frequency_class), intent(in):: Frec
-      logical, intent(in):: lio, LOS
+      type(Red_class), intent(inout):: Red
       logical, intent(out):: ofram
-      integer, intent(in):: njdir
-      integer, dimension(:), intent(in):: ithv,iphv
 
       ! Local
 
-      integer:: jdir,iz,nodir,ith,iph,ifreq,if0,if1
+      logical:: LVRAM
 
-      double precision:: prof,d1,el,eu,atuf,Dfreqw
-      double precision:: DwT,Dw,vfac,vfacw,ct,st,cc,sc
+      integer:: ia,jtran,fjtran,ffjtran,itermf,itermu,iJf,iJu
+      integer:: iz,indx,ifreq,if0,if1,nf
+
+      double precision:: RAM,prof,d1,W0,W1
+      double precision:: el,eu,au,af,auf,atuf,Dfreq,DwT,Dw,iDw
+      double precision, dimension(:), allocatable:: W0_0,W1_0
 
 
       ! Routine name
-      urou = 'getprofI_LTE'
+      urou = 'normalizeI_PRD'
 
       ! Initialize
       ofram = .False.
 
+      ! Allocate space for data
+      allocate(Red%pzao(Red%nzao))
 
-      ! If LOS and not dynamic, if already iterated, no need to
-      ! repeat the normalization
-      if (LOS.and..not.dyn.and.lio) then
+      ! Initialize RAM numbers
+      RAM = cram_add(1)
 
-        ! Everyone control and return
-        call control
-        return
+      ! For each atom
+      do ia=1,nA
 
-      end if ! LOS, not dynamic, previously normalized
+        !
+        ! Share limit weights from master
+        !
 
-      ! Get real size of the direction dimension
-      if (dyn) then
-        nodir = njdir
-      else
-        nodir = 1
-      end if
+        ! Allocate extremal weights
+        allocate(W0_0(Atom(ia)%ntran),W1_0(Atom(ia)%ntran))
 
-      !
-      ! Allocate vector for norm (part I)
-      !
+        ! Master gets them from atom structure
+        if (pid.eq.0) then
+          W0_0 = Atom(ia)%W0
+          W1_0 = Atom(ia)%W1
+        end if
 
-      ! Check prof is allocated
-      if (associated(line%prof)) then
-        do jdir=1,size(line%prof,2)
-          do iz=lbound(line%prof,1),ubound(line%prof,1)
-            if (allocated(line%prof(iz,jdir)%p)) &
-              deallocate(line%prof(iz,jdir)%p)
-            if (allocated(line%prof(iz,jdir)%comp)) &
-              deallocate(line%prof(iz,jdir)%comp)
-          end do
-        end do
-        deallocate(line%prof)
-        nullify(line%prof)
-      end if
+        ! Share with the rest
+        call MPI_BCAST(W0_0,Atom(ia)%ntran,MPI_DOUBLE_PRECISION, &
+                       0,MPI_COMM_RT,ierr)
+        call MPI_BCAST(W1_0,Atom(ia)%ntran,MPI_DOUBLE_PRECISION, &
+                       0,MPI_COMM_RT,ierr)
 
-      ! Structure with the norm for each component
-      allocate(line%prof(line%Rz0:Rz1,nodir))
-
-      !
-      ! Allocate the norm array
-      !
-
-      ! For each direction
-      do jdir=1,nodir
+        !
+        ! Allocate the norm array
+        !
 
         ! For each height
-        do iz=line%Rz0,Rz1
+        do iz=Rz0,Rz1_PRD
 
-          ! Skip unless worker
-          if (MPID%mpi.and.pid.eq.0) cycle
+          ! Thermal part of the Doppler width
+          DwT = Atom(ia)%cDopp*sqrt(Atmo%T(iz))
 
-          ! Allocate profile itself if storing and it is present
-          if (LVIRAM.and..not.line%absent) then
+          ! For each transition
+          do jtran=1,Atom(ia)%ntran
 
-            ! Predict
-            d1 = 8d-6*dble(line%if1 - line%if0 + 1)
+            ! Skip if no PRD
+            if (.not.Atom(ia)%lemiss2(jtran)) cycle
 
-            ! If no more space
-            if (floor(MPID%RAM+d1).gt.RLIM) then
+            ! Find the term indexes for this transition
+            itermf = Atom(ia)%fst(jtran)%iterml
+            itermu = Atom(ia)%fst(jtran)%itermu
 
-              ! No stored
-              line%prof(iz,jdir)%VRAM = .False.
-              ofram = .True.
+            ! Get contributions to damping parameter
+            au = Atom(ia)%damp(itermu,iz)
+            af = Atom(ia)%damp(itermf,iz)
+            auf = Atom(ia)%ldamp(jtran,iz)
 
-            ! If there is space
-            else
+            ! For each FS transition
+            do fjtran=1,Atom(ia)%fst(jtran)%nt
 
-              ! Storing
-              line%prof(iz,jdir)%VRAM = .True.
+              ! Reset limits
+              W0 = W0_0(jtran)
+              W1 = W1_0(jtran)
 
-              ! Allocate
-              allocate(line%prof(iz,jdir)%p(line%if0:line%if1))
+              ! Global index
+              ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
 
-              MPID%RAM = MPID%RAM + d1
-              MPID%VRAM = MPID%VRAM + d1
+              ! Index
+              indx = Red%izao(ffjtran,ia,iz)
 
-            end if ! Space to store
+              ! Limits
+              if0 = Red%zao(indx)%Igf0
+              if1 = Red%zao(indx)%Igf1
+              nf = if1 - if0 + 1
 
-          ! Not storing Voigt
-          else
+              ! Initialize norm
+              allocate(Red%pzao(indx)%Norm(1))
+              Red%pzao(indx)%Norm = 0d0
 
-            ! No stored
-            line%prof(iz,jdir)%VRAM = .False.
+              ! Correct weights
+              if (if0.ne.Atom(ia)%tif0(jtran)) &
+                W0 = Frec%W_freq(if0)
+              if (if1.ne.Atom(ia)%tif1(jtran)) &
+                W1 = Frec%W_freq(if1)
+              if (if1.le.if0) W1 = 0d0
 
-          end if
+              ! Allocate profile itself if storing and it is present
+              if (VIRAM.and.nf.gt.0) then
 
-        end do ! For each direction
-      end do ! For each height
+                ! Predict
+                ! Subtract already counter for norm
+                d1 = 8d-6*dble(nf) - 8d-6
 
+                ! If no more space
+                if (floor(RAM+d1).gt.RLIM) then
 
-      !
-      ! SLAVE OR SINGLE PROCESSOR
-      !
+                  ! No stored
+                  Red%pzao(indx)%VRAM = .False.
+                  ofram = .True.
 
-      if (pid.gt.0.or..not.MPID%mpi) then
+                ! If there is space
+                else
 
-        !
-        ! Calculate profiles
-        !
+                  ! Storing
+                  Red%pzao(indx)%VRAM = .True.
 
-        ! For each direction
-        do jdir=1,nodir
+                  ! Allocate
+                  allocate(Red%pzao(indx)%p(if0:if1))
+                  RAM = RAM + d1
 
-          ! Recover the indexes
-          ith = ithv(jdir)
-          iph = iphv(jdir)
+                end if ! Space to store
 
-          ! If emergent
-          if (LOS) then
+              ! Not storing Voigt
+              else
 
-            ct = Geom%L_mu(ith)
-            st = sqrt(1d0 - ct*ct)
-            cc = cos(Geom%L_phi(iph))
-            sc = sin(Geom%L_phi(iph))
+                ! No stored
+                Red%pzao(indx)%VRAM = .False.
 
-          else
-
-            ct = Geom%V_mu(ith)
-            st = sqrt(1d0 - ct*ct)
-            cc = Geom%v_mux(iph)
-            sc = Geom%v_muy(iph)*sqrt(1d0 - cc*cc)
-
-          end if
-
-          ! For each height
-          do iz=line%Rz0,Rz1
-
-            ! If not storing, why bother
-            if (.not.line%prof(iz,jdir)%VRAM) cycle
-
-            ! Thermal part of the Doppler width
-            DwT = sqrt(line%cDopp*line%cDopp*Atmo%T(iz) + &
-                       Atmo%vmi(iz)*Atmo%vmi(iz))
-
-            ! Calculate Doppler shift factor
-            vfac = 1d0
-
-            if (dyn) &
-              vfac = 1d0 - atmo%vx(iz)*st*cc - atmo%vy(iz)*st*sc - &
-                           atmo%vz(iz)*ct
-
-            ! Get indexes
-            if0 = line%if0
-            if1 = line%if1
-
-            ! Get the FS energies
-            eu = line%Eu
-            el = line%El
-
-            ! Output Doppler width
-            Dw = (eu - el)*DwT
-
-            !
-            ! Calculate profile
-            !
-
-            ! Common quantities
-            Dfreqw = (eu - el)/Dw
-            vfacw = vfac/Dw
-            atuf = line%damp(iz)/Dw
-
-            ! For each frequency
-            do ifreq=if0,if1
-
-              call voigtI(Dfreqw - Frec%omega(ifreq)*vfacw, &
-                          atuf,prof)
-
-              ! Store
-              line%prof(iz,jdir)%p(ifreq) = prof
-
-            end do ! Frequencies
-
-          end do ! output direction
-        end do ! height
-
-      end if ! Worker
-
-      ! Control
-      call control
-
-      return
-
-      end subroutine getprofI_LTE
-
-!#####################################################################
-!#####################################################################
-!#####################################################################
-
-      !> Validates an existing file with Voigt profiles\n
-      !!          Atom(Atom_class): Structure with the atomic data\n
-      !!     Frec(Frequency_class): Structure with frequency data\n
-      !!            njdir(integer): Number of directions\n
-      !!            lnorm(logical): Flag for file correctness
-      subroutine validatevoigtI(Atom,Frec,njdir,lnorm)
-
-      ! I/O
-
-      type(Atom_class), intent(inout):: Atom
-      type(Frequency_class), intent(in):: Frec
-      logical, intent(out):: lnorm
-      integer, intent(in):: njdir
-
-      ! Local
-
-      logical:: nonvalid
-      integer:: jdir,jtran,jftran,ktran,nodir
-      integer:: if0,if1,iz,iaux,ifreq,ios
-      double precision:: d1,d2
-
-      ! Routine name
-      urou = 'validatevoigtI'
-
-      ! Get real direction dimension
-      if (dyn) then
-        nodir = njdir
-      else
-        nodir = 1
-      end if
-
-      ! Check Normp is not allocated
-      if (associated(Atom%Normp)) then
-        do jdir=1,size(Atom%Normp,3)
-          do iz=lbound(Atom%Normp,2),ubound(Atom%Normp,2)
-            do jtran=lbound(Atom%Normp,1),ubound(Atom%Normp,1)
-              if (allocated(Atom%Normp(jtran,iz,jdir)%prof)) then
-                deallocate(Atom%Normp(jtran,iz,jdir)%prof)
-              else if (allocated(Atom%Normp(jtran,iz,jdir)%Norm)) then
-                deallocate(Atom%Normp(jtran,iz,jdir)%Norm)
               end if
-            end do
-          end do
-        end do
-        deallocate(Atom%Normp)
-        nullify(Atom%Normp)
-      end if
 
-      ! Allocate a token
-      allocate(Atom%Normp(1,1,1))
+              ! Find the level indexes for this transition
+              iJf = Atom(ia)%fst(jtran)%ilevell(fjtran)
+              iJu = Atom(ia)%fst(jtran)%ilevelu(fjtran)
 
+              ! Get the FS energies
+              eu = Atom(ia)%FSfreq(iJu,itermu)
+              el = Atom(ia)%FSfreq(iJf,itermf)
 
-      !
-      ! Initialize output
-      !
-      lnorm = .True.
-      nonvalid = .False.
+              ! Output Doppler width
+              Dw = (eu - el)*sqrt(DwT*DwT + Atmo%vmi(iz)**2d0)
+              iDw = 1d0/Dw
 
+              ! Common quantities
+              Dfreq = eu - el
+              d1 = 1d-5*iDw/sqrt(PI)
+              atuf = (au+af+auf)*iDw
 
-      ! Deallocate sizes
-      if (allocated(Atom%zsize)) deallocate(Atom%zsize)
-      if (allocated(Atom%dsize)) deallocate(Atom%dsize)
-      if (allocated(Atom%tsize)) deallocate(Atom%tsize)
-      if (allocated(Atom%f0size)) deallocate(Atom%f0size)
+              ! If valid
+              if (nf.gt.0) then
 
-      ! Allocate sizes
-      allocate(Atom%zsize(nz))
-      allocate(Atom%dsize(nodir))
-      allocate(Atom%tsize(Atom%nftran))
-      allocate(Atom%f0size(Atom%nftran))
+                ! Lower boundary
+                call voigtI((Dfreq - Frec%omega(if0))*iDw,atuf,prof)
+                Red%pzao(indx)%Norm = Red%pzao(indx)%Norm + &
+                                      prof*W0*d1
 
-      ! Initialize total blocks of sizes and transition index
-      d1 = 0d0
-      ktran = 0
-      Atom%zsize(1) = 0d0
-      Atom%dsize(1) = 0d0
-      Atom%tsize(1) = 0d0
+                ! Store
+                if (Red%pzao(indx)%VRAM) &
+                  Red%pzao(indx)%p(if0) = prof
 
-      ! For each transition
-      do jtran=1,Atom%ntran
+                ! For each frequency
+                do ifreq=if0+1,if1-1
 
-        ! For each FS transition
-        do jftran=1,Atom%fst(jtran)%nt
+                  ! Add to the integral
+                  call voigtI((Dfreq - Frec%omega(ifreq))*iDw, &
+                              atuf,prof)
+                  Red%pzao(indx)%Norm = Red%pzao(indx)%Norm + &
+                                        prof*Frec%W_freq(ifreq)*d1
 
-          ! Advance index
-          ktran = ktran + 1
+                  ! Store
+                  if (Red%pzao(indx)%VRAM) &
+                    Red%pzao(indx)%p(ifreq) = prof
 
-          ! Skip first
-          if (ktran.eq.1) then
-            ! Add last
-            d2 = dble(Atom%rif1(Atom%ntran) - &
-                      Atom%rif0(Atom%ntran) + 1)
-            d1 = d1 + d2
+                end do
 
-            if (Atom%fflag(jtran)%absent) then
-              Atom%f0size(ktran) = 0d0
-            else
-              Atom%f0size(ktran) = 8d0*dble(Atom%if0(jtran) - &
-                                            Atom%rif0(jtran))
-            end if
+                ! Upper boundary
+                call voigtI((Dfreq - Frec%omega(if1))*iDw,atuf,prof)
+                Red%pzao(indx)%Norm = Red%pzao(indx)%Norm + &
+                                      prof*W1*d1
 
-            cycle
+                ! Store
+                if (Red%pzao(indx)%VRAM) &
+                  Red%pzao(indx)%p(if1) = prof
 
-          end if
+              end if ! Valid frequencies
 
-          ! If first of the FS transitions
-          if (jftran.eq.1) then
+              ! If MPI
+              if (nproc.gt.1) then
 
-            ! Get indexes
-            if0 = Atom%rif0(jtran-1)
-            if1 = Atom%rif1(jtran-1)
+                ! Compute the norm
+                call MPI_ALLREDUCE(MPI_IN_PLACE,Red%pzao(indx)%Norm, &
+                                   1,MPI_DOUBLE_PRECISION,MPI_SUM, &
+                                   MPI_COMM_RT,ierr)
 
-          ! Not the first FS
-          else
+                !
+                ! Check everyone is saving
+                !
 
-            ! Get indexes
-            if0 = Atom%rif0(jtran)
-            if1 = Atom%rif1(jtran)
+                ! Valid range
+                if (nf.gt.0) then
 
-          end if ! First FS transition
+                  ! Actual variable
+                  LVRAM = Red%pzao(indx)%VRAM
 
-          ! Size of previous
-          d2 = dble(if1 - if0 + 1)
-          Atom%tsize(ktran) = Atom%tsize(ktran-1) + d2
-          d1 = d1 + d2
+                ! No frequencies
+                else
 
-          ! Frequency size
-          if (Atom%fflag(jtran)%absent) then
-            Atom%f0size(ktran) = 0d0
-          else
-            Atom%f0size(ktran) = 8d0*dble(Atom%if0(jtran) - &
-                                          Atom%rif0(jtran))
-          end if
+                  ! Send a true
+                  LVRAM = .True.
 
-        end do ! FS transitions
-      end do ! Transitions
+                end if ! Valid range
 
-      ! Add first height to total
-      d2 = d1
+                ! Check
+                call MPI_ALLREDUCE(MPI_IN_PLACE,LVRAM, &
+                                   1,MPI_LOGICAL,MPI_LAND, &
+                                   MPI_COMM_RT,ierr)
+                ! Valid range
+                if (nf.gt.0) then
 
-      ! For each height
-      do iz=2,nz
+                  ! If was storing, but need to free
+                  if (Red%pzao(indx)%VRAM.and..not.LVRAM) then
 
-        Atom%zsize(iz) = Atom%zsize(iz-1) + d1
-        d2 = d2 + d1
+                    ! Free
+                    ! Put back Norm memory
+                    RAM = RAM - 1d-6*sizeof(Red%pzao(indx)%p) + 8d-6
+                    deallocate(Red%pzao(indx)%p)
 
-      end do ! Heights
+                  end if ! Was storing but cannot anymore
+                end if ! Valid range
+              end if ! MPI
 
-      ! For each direction
-      do jdir=2,nodir
-        Atom%dsize(jdir) = Atom%dsize(jdir-1) + d2
-      end do
+              ! Larger than zero norm
+              if (Red%pzao(indx)%Norm(1).gt.0d0) &
+                Red%pzao(indx)%Norm(1) = 1d0/Red%pzao(indx)%Norm(1)
 
-      Atom%dsize = Atom%dsize*8d0
-      Atom%zsize = Atom%zsize*8d0
-      Atom%tsize = Atom%tsize*8d0
+              ! If valid and storing
+              if (nf.gt.0.and.Red%pzao(indx)%VRAM) then
 
-      ! Size of header
-      Atom%hvifil = 4*4 + & ! Dimension integers
-                    8*nodir + & ! Directions sizes
-                    8*nz + & ! Height sizes
-                    4*2*Atom%nftran + & ! Line limits
-                    8*Atom%nftran + & ! Line sizes
-                    8*nfreq ! Frequencies
+                ! Larger than 0 norm
+                if (Red%pzao(indx)%Norm(1).gt.0d0) &
+                  Red%pzao(indx)%p = Red%pzao(indx)%p* &
+                                     Red%pzao(indx)%Norm(1)
+              end if
 
-      ! If not the master, wait for diagnostic
-      if (pid.gt.0) then
+            end do ! For each FS transition
+          end do ! For each transition
+        end do ! For each height
 
-        call control
-        call MPI_BCAST(lnorm, 1, MPI_LOGICAL, 0, &
-                       MPI_COMM_RT, ierr)
-        return
+        ! Free
+        deallocate(W0_0,W1_0)
 
-      end if
+      end do ! Atoms
 
-
-      ! Only the master gets down here
-
-      !
-      ! Check with the file
-      !
-
-      do while(.True.)
-
-        ! Open files
-        open(200, file=trim(Atom%vfile), status='unknown', &
-             iostat=ios, err=1000, access='stream', &
-             action='read', form='unformatted')
-
-        ! Read dimensions
-
-        ! Angles
-        read(200, err=1100) iaux
-        if (iaux.ne.nodir) then
-          write(umsg,'(A,1x,i3,1x,i3)') &
-            ' # Numbers of angles do not coincide:',iaux,nodir
-          call verbose
-          exit
-        end if
-
-        ! Heights
-        read(200, err=1100) iaux
-        if (iaux.ne.nz) then
-          write(umsg,'(A,1x,i3,1x,i3)') &
-            ' # Numbers of heights do not coincide:',iaux,nz
-          call verbose
-          exit
-        end if
-
-        ! Frequencies
-        read(200, err=1100) iaux
-        if (iaux.ne.nfreq) then
-          write(umsg,'(A,1x,i3,1x,i3)') &
-            ' # Numbers of frequencies do not coincide:',iaux,nfreq
-          call verbose
-          exit
-        end if
-
-        ! Transitions
-        read(200, err=1100) iaux
-        if (iaux.ne.Atom%nftran) then
-          write(umsg,'(A,1x,i3,1x,i3)') &
-            ' # Number of transitions do not coincide:',iaux, &
-            Atom%nftran
-          call verbose
-          exit
-        end if
-
-        ! Directional size
-        do jdir=1,nodir
-          read(200, err=1100) d1
-          if (abs(d1-Atom%dsize(jdir)).gt.TINYO) then
-            write(umsg,'(A,1x,es22.15,1x,es22.15)') &
-              ' # Directional sizes do not coincide:', &
-              d1,Atom%dsize(jdir)
-            call verbose
-            nonvalid = .True.
-            exit
-          end if
-        end do
-        if (nonvalid) exit
-
-        ! Height size
-        do iz=1,nz
-          read(200, err=1100) d1
-          if (abs(d1-Atom%zsize(iz)).gt.TINYO) then
-            write(umsg,'(A,1x,es22.15,1x,es22.15)') &
-              ' # Height sizes do not coincide:',d1,Atom%zsize(iz)
-            nonvalid = .True.
-            call verbose
-            exit
-          end if
-        end do
-        if (nonvalid) exit
-
-        ! Initialize index
-        ktran = 0
-
-        ! For each transition
-        do jtran=1,Atom%ntran
-
-          ! For each FS transition
-          do jftran=1,Atom%fst(jtran)%nt
-
-            ! Advance index
-            ktran = ktran + 1
-
-            read(200, err=1100) iaux
-            if (iaux.ne.Atom%rif0(jtran)) then
-              write(umsg,'(A,1x,i3,1x,i3)') &
-                ' # Initial indexes of transition do not coincide:', &
-                iaux,Atom%rif0(jtran)
-              call verbose
-              nonvalid = .True.
-              exit
-            end if
-
-            read(200, err=1100) iaux
-            if (iaux.ne.Atom%rif1(jtran)) then
-              write(umsg,'(A,1x,i3,1x,i3)') &
-                  ' # Final indexes of transition do not coincide:', &
-                  iaux,Atom%rif1(jtran)
-              call verbose
-              nonvalid = .True.
-              exit
-            end if
-
-            read(200, err=1100) d1
-            if (abs(d1-Atom%tsize(ktran)).gt.TINYO) then
-              write(umsg,'(A,1x,es22.15,1x,es22.15)') &
-                  ' # Transition sizes do not coincide:', &
-                  d1,Atom%tsize(ktran)
-              call verbose
-              nonvalid = .True.
-              exit
-            end if
-
-          end do ! FS transitions
-          if (nonvalid) exit
-        end do ! Transitions
-        if (nonvalid) exit
-
-        ! Write frequency
-        do ifreq=1,nfreq
-          read(200, err=1100) d1
-          if (abs(d1-Frec%omega(ifreq)).gt.TINYO) then
-            write(umsg,'(A,1x,es22.15,1x,es22.15)') &
-                ' # Frequencies do not coincide:',d1,Frec%omega(ifreq)
-            call verbose
-            nonvalid = .True.
-            exit
-          end if
-        end do
-        if (nonvalid) exit
-
-        ! If we are here, file is fine
-        lnorm = .False.
-        exit
-
-      end do ! Infinite loop
-
-      ! Close file
-      close(200, err=1100)
+      ! Count RAM
+      call cram_red_1stord(Red,RAM)
+      ORAMc = RAM
+      DRAM2c = 0d0
 
       ! Control
       call control
 
-      ! Share diagnostic
-      call MPI_BCAST(lnorm, 1, MPI_LOGICAL, 0, &
-                     MPI_COMM_RT, ierr)
-
       return
 
-1000  umsg = 'Error opening '//trim(Atom%vfile)//' file'
-      call abortedS(umsg,urou,-1,.True.,.True.)
-      call control
-1100  umsg = 'Error reading '//trim(Atom%vfile)//' file'
-      close(200)
-      call abortedS(umsg,urou,-1,.True.,.True.)
-      call control
-
-      end subroutine validatevoigtI
+      end subroutine normalizeI_PRD
 
 !#####################################################################
 !#####################################################################
 !#####################################################################
 
-      !> Outputs bad normalization data
-      subroutine writebadbound(folder,element,iz,jdir,pol,field, &
-                               jtran,a1,a2,a3,a4,d1)
+      !> Write warning about bad normalization of Voigt profiles in a
+      !! file\n
+      !!   folder(character(:)): Output folder path\n
+      !!  element(character(:)): Name of the atomic element\n
+      !!            iz(integer): Height index\n
+      !!          jdir(integer): Direction index\n
+      !!           pol(logical): If polarization profiles\n
+      !!         field(logical): If there is magnetic field\m
+      !!         jtran(integer): Transition index\n
+      !!            jj(integer): Line component\n
+      !!                         index within the term\n
+      !!             d1(double): Normalization value
+      subroutine writebadbound(folder,element,iz,jdir,pol,jtran,jj,d1)
 
       ! I/O
       character(len=2), intent(in):: element
       character(len=500), intent(in):: folder
-      logical, intent(in):: pol,field
-      integer, intent(in):: iz,jdir,jtran,a1,a2,a3,a4
+      logical, intent(in):: pol
+      integer, intent(in):: iz,jdir,jtran,jj
       double precision, intent(in):: d1
 
       ! Local
+
       logical:: exists
+
       character(LEN=5):: CPUC
 
       ! Get ID in character
       write(CPUC,'(I0.5)') gpid
 
       !
-      ! ERROR
+      ! Check if file exists
       inquire(file=trim(folder)//'/badnorm'//CPUC, exist=exists)
+
+      ! If does not exist
       if(.not.exists)then
+
+        ! Create new
         open(800,file=trim(folder)//'/badnorm'//CPUC)
+
+      ! If it exists
       else
+
+        ! Append to file
         open(800,file=trim(folder)//'/badnorm'//CPUC, &
              position='append')
+
       endif
 
       ! 1D case
@@ -5968,34 +3590,22 @@
         ! If polarized case
         if (pol) then
 
-          ! If there is field
-          if (field) then
-
-            write(800,'("Atom",1x,A2,1x,'// &
-                      '"Height",1x,i3,1x,"Direction",1x,i3,1x,'// &
-                      '"Transition",1x,i4,1x,"Components",'// &
-                      '4(1x,i3),1x,"Norm",1x,f18.16)') &
-              element,iz,jdir,jtran,a1,a2,a3,a4,d1
-
-          ! If no field
-          else
-
-            write(800,'("Atom",1x,A2,1x,'// &
-                      '"Height",1x,i3,1x,"Direction",1x,i3,1x,'// &
-                      '"Transition",1x,i4,1x,"Components",'// &
-                      '2(1x,i3),1x,"Norm",1x,f18.16)') &
-              element,iz,jdir,jtran,a1,a2,d1
-
-          end if ! Field presence
+          ! Write
+          write(800,'("Atom",1x,A2,1x,'// &
+                    '"Height",1x,i3,1x,"Direction",1x,i3,1x,'// &
+                    '"Transition",1x,i4,1x,"Component",'// &
+                    '1x,i3,1x,"Pol Norm",1x,f18.16)') &
+              element,iz,jdir,jtran,jj,d1
 
         ! Intensity case
         else
 
-            write(800,'("Atom",1x,A2,1x,'// &
-                      '"Height",1x,i3,1x,"Direction",1x,i3,1x,'// &
-                      '"Transition",1x,i4,1x,"Component",'// &
-                      '1x,i3,1x,"Norm",1x,f18.16)') &
-              element,iz,jdir,jtran,a1,d1
+          ! Write
+          write(800,'("Atom",1x,A2,1x,'// &
+                    '"Height",1x,i3,1x,"Direction",1x,i3,1x,'// &
+                    '"Transition",1x,i4,1x,"Component",'// &
+                    '1x,i3,1x,"Int Norm",1x,f18.16)') &
+              element,iz,jdir,jtran,jj,d1
 
         end if ! Polarization or intensity
 
@@ -6005,37 +3615,24 @@
         ! If polarized case
         if (pol) then
 
-          ! If there is field
-          if (field) then
-
-            write(800,'("Atom",1x,A2,1x,'// &
+          ! Write
+          write(800,'("Atom",1x,A2,1x,'// &
                       '"LOS",1x,"(",i4,",",i4,")",1x,'// &
                       '"Height",1x,i3,1x,"Direction",1x,i3,1x,'// &
                       '"Transition",1x,i4,1x,"Components",'// &
-                      '4(1x,i3),1x,"Norm",1x,f18.16)') &
-              element,icoords(1:2),iz,jdir,jtran,a1,a2,a3,a4,d1
-
-          ! If no field
-          else
-
-            write(800,'("Atom",1x,A2,1x,'// &
-                      '"LOS",1x,"(",i4,",",i4,")",1x,'// &
-                      '"Height",1x,i3,1x,"Direction",1x,i3,1x,'// &
-                      '"Transition",1x,i4,1x,"Components",'// &
-                      '2(1x,i3),1x,"Norm",1x,f18.16)') &
-              element,icoords(1:2),iz,jdir,jtran,a1,a2,d1
-
-          end if ! Field presence
+                      '1x,i3,1x,"Pol Norm",1x,f18.16)') &
+              element,icoords(1:2),iz,jdir,jtran,jj,d1
 
         ! Intensity case
         else
 
-            write(800,'("Atom",1x,A2,1x,'// &
-                      '"LOS",1x,"(",i4,",",i4,")",1x,'// &
-                      '"Height",1x,i3,1x,"Direction",1x,i3,1x,'// &
-                      '"Transition",1x,i4,1x,"Component",'// &
-                      '1x,i3,1x,"Norm",1x,f18.16)') &
-              element,icoords(1:2),iz,jdir,jtran,a1,d1
+          ! Write
+          write(800,'("Atom",1x,A2,1x,'// &
+                    '"LOS",1x,"(",i4,",",i4,")",1x,'// &
+                    '"Height",1x,i3,1x,"Direction",1x,i3,1x,'// &
+                    '"Transition",1x,i4,1x,"Component",'// &
+                    '1x,i3,1x,"Int Norm",1x,f18.16)') &
+              element,icoords(1:2),iz,jdir,jtran,jj,d1
 
         end if ! Polarization or intensity
       end if ! Pure 1D or 1.5D (rest)
@@ -6053,115 +3650,55 @@
 !#####################################################################
 !#####################################################################
 
-      !> Just make normalization factors unity\n
-      !!  Atom(Atom_class(:)): Structure with the atomic data
-      subroutine normalize_cle(Atom)
+      !> Dummy initialization of the normalization structure for the
+      !! CLE synthesis mode\n
+      !!  Atom(Atom_class(:)): Structures with atomic data\n
+      !!       Red(Red_class): Structure with redistribution input
+      !!                       frequency data, redistribution function
+      !!                       data, and profile or normalization data
+      subroutine normalize_cle(Atom,Red)
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Red_class), intent(inout):: Red
 
       ! Local
 
-      integer:: ia,jtran,iMu,iU,iMf,mf,itermu,itermf
-      integer:: nMu,nMf,nL,nU,d1,d2
-
-      double precision:: S,rLu,rLf,rJumax,rJfmax,rMu,rMf
+      integer:: ia,jtran,ncom
 
 
       ! Routine name
       urou = 'normalize_cle'
 
+      ! Initialize largest number of components
+      ncom = 1
+
       ! For each atom
       do ia=1,nA
-
-        ! Allocate vector for norm (part I)
-        allocate(Atom(ia)%Normp(Atom(ia)%ntran,1,1))
-        ! Allocate sizes for subcomponents for each transition
-        if (.not.allocated(Atom(ia)%nL)) &
-          allocate(Atom(ia)%nL(Atom(ia)%ntran))
-        if (.not.allocated(Atom(ia)%nU)) &
-          allocate(Atom(ia)%nU(Atom(ia)%ntran))
-        if (.not.allocated(Atom(ia)%nMl)) &
-          allocate(Atom(ia)%nMl(Atom(ia)%ntran))
-        if (.not.allocated(Atom(ia)%nMu)) &
-          allocate(Atom(ia)%nMu(Atom(ia)%ntran))
 
         ! For each transition
         do jtran=1,Atom(ia)%ntran
 
-          ! Identify the terms
-          itermf = Atom(ia)%fst(jtran)%iterml
-          itermu = Atom(ia)%fst(jtran)%itermu
+          ! Check larger
+          if (Atom(ia)%trano(jtran)%ncomB.gt.ncom) &
+            ncom = Atom(ia)%trano(jtran)%ncomB
 
-          ! Get atomic quantities
-          S = Atom(ia)%Sval(itermu)
-
-          rLu = Atom(ia)%rLval(itermu)
-          rJumax = rLu+S
-          nMu = nint(2d0*rJumax+1d0)
-
-          rLf = Atom(ia)%rLval(itermf)
-          rJfmax = rLf + S
-          nMf = nint(2d0*rJfmax+1d0)
-
-          ! Fill two of the sizes arrays
-          Atom(ia)%nMu(jtran) = nMu
-          Atom(ia)%nMl(jtran) = nMf
-
-          ! Initialize counters
-          nL = 0
-          nU = 0
-
-          ! For each Mu
-          do iMu=1,nMu
-
-            rMu = -rJumax + dble(iMu-1)
-
-            ! For each mu_u
-            do iU=1,Atom(ia)%nblk(iMu,itermu)
-
-              ! Update counter
-              if (iU.gt.nU) nu = iMu
-
-              ! For each Mf
-              do iMf=1,nMf
-
-                rMf = -rJfmax + dble(iMf-1)
-
-                ! If not allowed, skip
-                if (nint(abs(rMu-rMf)).gt.1) cycle
-
-                ! Sum over mu_f
-                do mF=1,Atom(ia)%nblk(iMf,itermf)
-
-                  ! Update counter
-                  if (mF.gt.nL) nL = mf
-
-                end do ! iL
-              end do ! Ml
-            end do ! iU
-          end do ! Mu
-
-          ! Update variables
-          Atom(ia)%nU(jtran) = nU
-          Atom(ia)%nL(jtran) = nL
-
-          !
-          ! Allocate the norm array
-          !
-
-          d1 = max(Atom(ia)%nJ(itermf),Atom(ia)%nL(jtran))
-          d2 = max(Atom(ia)%nJ(itermu),Atom(ia)%nU(jtran))
-
-          ! Allocate
-          allocate(Atom(ia)%Normp(jtran,1,1)%Norm(d1,d2, &
-                   Atom(ia)%nMl(jtran),Atom(ia)%nMu(jtran)))
-          Atom(ia)%Normp(jtran,1,1)%VRAM = .False.
-          Atom(ia)%Normp(jtran,1,1)%Norm = 1d0
-
-        end do ! transitions
+        end do ! Transitions
       end do ! Atoms
+
+      ! Only one point
+      Red%ndzao = 1
+
+      !
+      ! Allocate norms
+      allocate(Red%dzao(Red%ndzao))
+      allocate(Red%dzao(1)%Norm(ncom))
+
+      ! Dummy initialization
+      Red%dzao(1)%VRAM = .False.
+      Red%dzao(1)%Norm = 1d0
+      VRAMc = 12d-6
 
       return
 

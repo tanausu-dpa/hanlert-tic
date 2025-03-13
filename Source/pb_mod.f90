@@ -5,36 +5,19 @@
 !#####################################################################
 !
 !  Authors:
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !     Roberto Casini (HAO)
 !  Start:
-!     04/18/2017
+!     18/04/2017
 !  Last version:
-!     08/08/2024 V3.0.2
+!     13/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     08/08/2024:    V3.0.2 - Removed unused variables (TdPA)
-!
-!     12/12/2023:    V3.0.1 - Added PB0 subroutine (TdPA)
-!
-!     06/29/2022:    V3.0.0 - Changed global version (TdPA)
-!
-!     03/17/2021:    V2.0.0 - Changed global version (TdPA)
-!
-!     12/17/2019:    V1.2.0 - Added options to deal in different ways
-!                             with the Zeeman effect (TdPA)
-!
-!     10/30/2017:    V1.1.1 - Using multilevel flag instead of the S
-!                             value (TdPA)
-!
-!     10/11/2017:    V1.1.0 - Takes into account multi-level if the
-!                             spin is 0 (TdPA)
-!
-!     04/18/2017:    V1.0.0 - First version (TdPA)
+!     13/12/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -44,16 +27,19 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!  PB:
-!    This subroutine calculates the energy eigenvalues and
-!    eigenvectors for a multiplet, in the magnetic-field regime of the
-!    incomplete Paschen-Back effect. Diagonality with respect to M is
-!    exploited for block-diagonalization
+!  PB
+!    Diagonalize the atomic Hamiltonian
 !
-!  PB0:
-!    Initialize some quantities for zero field.
+!  PB0
+!    Initialize quantities related to diagonalization when there is no
+!  magnetic field
 !
 !#####################################################################
 !#####################################################################
@@ -69,14 +55,15 @@
 !#####################################################################
 !#####################################################################
 
-      !> Diagonalizes the atomic Hamiltonian.\n
-      !!        iz(integer): Height index\n
-      !!     iterm(integer): Term index\n
-      !!     larmor(dfloat): Magnetic field in larmor frequency
-      !!                     units\n
-      !!      mode(integer): Type of Zeeman effect\n
-      !! Flgsg(Fctsg_class): Structure with factorials and signs\n
-      !!   Atom(Atom_class): Structure with the atomic data
+      !> Diagonalize the atomic Hamiltonian\n
+      !!         iz(integer): Current height index\n
+      !!      iterm(integer): Current term index\n
+      !!      larmor(dfloat): Magnetic field in larmor frequency
+      !!                      units\n
+      !!       mode(integer): Type of Zeeman effect\n
+      !!  Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                      J-symbols\n
+      !!    Atom(Atom_class): Structure with atomic data
       subroutine PB(iz,iterm,larmor,mode,Flgsg,Atom)
 
       ! I/O
@@ -96,6 +83,7 @@
       double precision, dimension(Atom%nJmax):: diag, odiag
       double precision, dimension(2*(Atom%nJmax-1)):: WORK
 
+
       ! Initialize variables
       diag = 0d0
       odiag = 0d0
@@ -108,12 +96,14 @@
       ! Multilevel
       if (Atom%ML) then
 
+        ! Get angular momentum and number of magnetic sublevels
         rJ = Atom%rJval(1,iterm)
         nM = nint(2d0*rJ + 1d0)
 
         ! For each M
         do iM=1,nM
 
+          ! Get M value
           rM = -rJ + dble(iM-1)
 
           ! Idenfity the J index for that M (only one)
@@ -122,72 +112,86 @@
           ! Size of the block of this M (just one)
           Atom%nblk(iM,iterm) = 1
 
-          ! Magnetic shift
+          ! Magnetic shift from Linear Zeeman
           Atom%eval(1,iM,iterm,iz) = larmor*rM*Atom%gL(iterm)
 
           ! Diagonal eigenvector
           Atom%evec(1,1,iM,iterm,iz) = 1d0
 
-        end do
+        end do ! Magnetic sublevels
 
         ! If no splitting (2) or no zeeman (1)
         if (mode.eq.1.or.mode.eq.2) then
 
           ! For each M
           do iM=1,nM
+
+            ! Make displacement equal to zero
             Atom%eval(1,iM,iterm,iz) = 0d0
-          end do
+
+          end do ! Magnetic sublevels
 
         end if ! no splitting or no zeeman
 
       ! Multiterm
       else
 
+        ! Get angular momentum limits
         rJmin = abs(rL - S)
         rJmax = rL + S
 
+        ! Get Spin factor
         pS = S*(S+1d0)*(2d0*S + 1d0)
 
+        ! Number of unique magnetic quantum numbers
         nM = nint(2d0*rJmax + 1d0)
 
-        ! Run over the magnetic block
+        ! Run over the magnetic number blocks
         do iM=1,nM
 
+          ! Get value of magnetic quantum number
           rM = -rJmax + dble(iM-1)
 
+          ! Get minimum possible value of angular momentum
           rJm = max(abs(rM),rJmin)
 
           ! initialize the column index
-          i=0
+          i = 0
 
           ! If no Zeeman
           if (mode.eq.1) then
 
-            ! Initialize
+            ! Initialize eigenvectors to zero
             Atom%evec(:,:,iM,iterm,iz) = 0d0
 
-            ! Column loop
-            do iJ = 1,Atom%nJ(iterm)
+            ! For each J level in the term
+            do iJ=1,Atom%nJ(iterm)
 
+              ! Get angular momentum
               rJ = Atom%rJval(iJ,iterm)
 
+              ! If valid for the magnetic quantum number
               if (rJ.ge.rJm) then
 
+                ! Get angular momentum factor
                 pJ = 2d0*rJ + 1d0
 
                 ! Increase the column index
                 i = i + 1
 
+                ! Save index for the position in magnetic block
                 Atom%iJval(i,iM,iterm) = iJ
 
+                ! No magnetic shift
                 Atom%eval(i,iM,iterm,iz) = Atom%FSfreq(iJ,iterm) - &
                                            Atom%TRfreq(iterm)
 
+                ! Make diagonal
                 Atom%evec(i,i,iM,iterm,iz) = 1d0
 
               end if ! Test J compatibility with M
 
-            end do ! iJ
+            end do ! J levels
 
             ! Block dimension
             Atom%nblk(iM,iterm) = i
@@ -195,97 +199,130 @@
           ! If any part of Zeeman
           else
 
+            !
             ! Build the Hamiltonian matrix (diagonal and subdiagonal
             ! see DSTEV)
-            ! Column loop
-            do iJ = 1,Atom%nJ(iterm)
+            !
 
+            ! For each level in the term
+            ! Column loop
+            do iJ=1,Atom%nJ(iterm)
+
+              ! Get angular momentum
               rJ = Atom%rJval(iJ,iterm)
 
+              ! If valid for this magnetic quantum number
               if (rJ.ge.rJm) then
 
+                ! Get angular momentum factor
                 pJ = 2d0*rJ + 1d0
 
                 ! Initialize the row index
                 i1 = i
+
                 ! Increase the column index
                 i = i + 1
 
+                ! Save index for the position in magnetic block
                 Atom%iJval(i,iM,iterm) = iJ
 
+                ! For each level in the term
                 ! Row loop
                 do iJ1=iJ,Atom%nJ(iterm)
 
+                  ! Get angular momentum
                   rJ1 = Atom%rJval(iJ1,iterm)
 
+                  ! If valid for this magnetic quantum number
                   if (rJ1.ge.rJm) then
 
+                    ! J difference
                     idJ = nint(rJ1-rJ)
 
+                    ! If difference would allow electric dipole
                     if ((idJ.eq.0).or.(iabs(idJ).eq.1)) then
 
+                      ! Get angular momentum factor
                       pJ1 = 2d0*rJ1 + 1d0
 
+                      ! Get Hamiltonian element
                       comm = Flgsg%sg(nint(rJmax+rJ+rJ1+rM))* &
                              sqrt(pJ*pJ1*pS)* &
                              fun3j(rJ1,rJ,1d0,-rM,rM,0d0,Flgsg)* &
                              fun6j(rJ1,rJ,1d0,S,S,rL,Flgsg)
 
-                      ! Linear Zeeman effect
-                      if (mode.eq.3) then
-                        if (idJ.ne.0) comm=.0D0
-                      end if
+                      ! If linear zeeman effect and interference,
+                      ! neglect it
+                      if (mode.eq.3.and.iDj.ne.0) comm=.0D0
 
                       ! Increase row index
-                      i1 = i1+1
+                      i1 = i1 + 1
 
+                      ! If diagonal
                       if (i1.eq.i) then
+
+                        ! Store in diagonal
                         diag(i) = (Atom%FSfreq(iJ,iterm) - &
                                    Atom%TRfreq(iterm)) + &
                                    larmor*(rM + comm)
+
+                        ! Initialize
                         matr(i,i) = 1d0
 
-                        ! If no splitting (2) or no zeeman (1)
+                        ! If no splitting (2) or no zeeman (1), get
+                        ! eigenvalue with no magnetic shift
                         if (mode.eq.2) Atom%eval(i,iM,iterm,iz) = &
                                              Atom%FSfreq(iJ,iterm) - &
                                              Atom%TRfreq(iterm)
-                      else
-                        odiag(i1-1) = larmor*comm
-                      end if
 
+                      ! Not diagonal
+                      else
+
+                        ! Store off-diagonal
+                        odiag(i1-1) = larmor*comm
+
+                      end if ! Diagonal element
                     end if ! \DeltaJ <= 1
                   end if ! rJ > rJm
 
-                end do ! iJ1
+                end do ! Levels in term (iJ1)
 
               end if ! Test J compatibility with M
 
-            end do ! iJ
+            end do ! Levels in term (iJ)
 
             ! Block dimension
             Atom%nblk(iM,iterm) = i
 
             ! Diagonalize
-            if (i.gt.1) call DSTEV('V',i,diag,odiag,matr,Atom%nJmax, &
-                                   WORK,INFO)
+            if (i.gt.1) &
+              call DSTEV('V',i,diag,odiag,matr,Atom%nJmax,WORK,INFO)
 
+            !
             ! Store eigenvalues and eigenvectors
+            !
+
+            ! For each element in the block
             do j=1,i
 
-              ! Only if no no splitting (2)
+              ! Only if no no-splitting (2), get eigenvalue
               if (mode.ne.2) &
                 Atom%eval(j,iM,iterm,iz) = diag(j)
 
+              ! For each element in the block
               do j1=1,i
 
+                ! Get eigenvector
                 Atom%evec(j1,j,iM,iterm,iz) = matr(j1,j)
 
+                ! And reset value
                 matr(j1,j) = 0d0
 
-              end do ! j1
-            end do ! j
+              end do ! Element in the block (j1)
+            end do ! Element in the block (j)
 
           end if ! If zeeman effect
+
         end do ! iM
 
       end if ! Multilevel or multiterm
@@ -296,9 +333,10 @@
 !#####################################################################
 !#####################################################################
 
-      !> Initialize sizes in atomic Hamiltonian for B=0\n
-      !!     iterm(integer): Term index\n
-      !!   Atom(Atom_class): Structure with the atomic data
+      !> Initialize quantities related to diagonalization when there
+      !! is no magnetic field\n
+      !!    iterm(integer): Current term index\n
+      !!  Atom(Atom_class): Structure with atomic data
       subroutine PB0(iterm,Atom)
 
       ! I/O
@@ -312,6 +350,7 @@
 
       double precision:: rL,S,rM,rJ,rJm,rJmin,rJmax
 
+
       ! Get term quantities
       rL = Atom%rLval(iterm)
       S = Atom%Sval(iterm)
@@ -319,7 +358,10 @@
       ! Multilevel
       if (Atom%ML) then
 
+        ! Get angular momentum
         rJ = Atom%rJval(1,iterm)
+
+        ! Get number of magnetic sublevels
         nM = nint(2d0*rJ + 1d0)
 
         ! For each M
@@ -331,46 +373,54 @@
           ! Size of the block of this M (just one)
           Atom%nblk(iM,iterm) = 1
 
-        end do
+        end do ! Magnetic sublevels
 
       ! Multiterm
       else
 
+        ! Get limits of angular momentum
         rJmin = abs(rL - S)
         rJmax = rL + S
 
+        ! Get number of magnetic components
         nM = nint(2d0*rJmax + 1d0)
 
-        ! Run over the magnetic block
+        ! Run over the magnetic blocks
         do iM=1,nM
 
+          ! Get magnetic quantum number
           rM = -rJmax + dble(iM-1)
 
+          ! Get minimum valid angular momentum
           rJm = max(abs(rM),rJmin)
 
           ! initialize the column index
-          i=0
+          i = 0
 
+          ! For every level in the term
           ! Column loop
-          do iJ = 1,Atom%nJ(iterm)
+          do iJ=1,Atom%nJ(iterm)
 
+            ! Get angular momentum
             rJ = Atom%rJval(iJ,iterm)
 
+            ! If valid for this magnetic quantum number
             if (rJ.ge.rJm) then
 
               ! Increase the column index
               i = i + 1
 
+              ! Save index
               Atom%iJval(i,iM,iterm) = iJ
 
             end if ! Test J compatibility with M
 
-          end do ! iJ
+          end do ! Levels (iJ)
 
           ! Block dimension
           Atom%nblk(iM,iterm) = i
 
-        end do ! iM
+        end do ! Magnetic blocks (iM)
 
       end if ! Multilevel or multiterm
 

@@ -5,46 +5,19 @@
 !#####################################################################
 !
 !  Authors:
-!     Hao Li (IAC)
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Hao Li (IAC/NSSCC)
+!     Tanaus\'u del Pino Alem\'an (IAC)
 !  Start:
-!     02/24/2023
+!     24/02/2023
 !  Last version:
-!     05/17/2024 V3.0.8
+!     13/12/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     05/17/2024:    V3.0.8 - The weights are normalized when defined
-!                             before starting with inversions (TdPA)
-!
-!     09/08/2023:    V3.0.7 - Verbosity update (TdPA)
-!
-!     08/11/2023:    V3.0.6 - The inversion weights are now fully
-!                             wavelength dependent (TdPA)
-!
-!     07/31/2023:    V3.0.5 - Change the verbosity level in the
-!                             inversion (HL)
-!
-!     07/03/2023:    V3.0.4 - Made changes to run over the relevant
-!                             variable indexes, as the addition of
-!                             diffuse light made it non trivial (TdPA)
-!
-!     06/12/2023:    V3.0.3 - Rename the variable Inf_File (HL)
-!
-!     04/11/2023:    V3.0.2 - Update the weiths for multi-wavelength
-!                             ranges (HL)
-!
-!     03/15/2023:    V3.0.1 - Removed some commented lines (TdPA)
-!                           - The Blos variables are in the same
-!                             structure than the polar ones (TdPA)
-!
-!     03/08/2023:    V3.0.0 - First working version (TdPA)
-!
-!     02/24/2023:    V0.0.0 - Started from 12/05/2020
-!                             TIC@jacobian_mod.f90 revision (TdPA)
+!     13/12/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -54,19 +27,24 @@
 !#####################################################################
 !#####################################################################
 !
+!  To do:
+!
+!#####################################################################
+!#####################################################################
+!
 !  Data:
 !
-!    Merit_function:
-!      Compute the merit function from the Stokes profiles
+!  Merit_function
+!    Compute the L2 merit function of Stokes profiles
 !
-!    Jacobian_Compute:
-!      Compute the Jacobian of with respect to the parameters
+!  Jacobian_Compute
+!    Compute the Jacobian for every inversion parameter
 !
-!    Hessian_Compute:
-!      Compute the Hessian from the Jacobian
+!  Hessian_Compute
+!    Compute the Hessian from the Jacobian
 !
-!    Broyden_Rank1:
-!      Rank 1 update of the Jacobian following Broyden's method
+!  Broyden_Rank1
+!    Rank 1 update of the Jacobian following Broyden's method
 !
 !#####################################################################
 !#####################################################################
@@ -82,22 +60,24 @@
 !#####################################################################
 !#####################################################################
 
-      !> Compute the merit function from the Stokes profiles
-      !!  Inf_Stokes(Stokes_class): Structure with Stokes parameters
+      !> Compute the L2 merit function of Stokes profiles\n
+      !!  Inf_Stokes(Stokes_class): Structure with inversion Stokes
+      !!                            parameters data\n
+      !!   Stokes_out(double(:,:)): Stokes parameters\n
+      !!    Inf_Nodes(Nodes_class): Structure with inversion node
       !!                            data\n
-      !!       Stokes(double(:,:)): Emerging\n
-      !!    Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!      LM_Stru(LMFIT_class): Structure with Jacobian and
-      !!                            other LM quantities
+      !!      LM_Stru(LMFIT_class): Structure with data for the
+      !!                            Levenberg–Marquardt
       subroutine Merit_function(Inf_Stokes,Stokes_out,Nodes_Type, &
                                 LM_Stru)
 
-      ! IO
+      ! I/O
+
       type(Stokes_class), intent(in):: Inf_Stokes
       type(LMFIT_class), intent(inout):: LM_Stru
       integer, intent(in):: Nodes_Type
-      double precision, dimension(:,:), allocatable, intent(in):: &
-                                                            Stokes_out
+      double precision, dimension(:,:), &
+                        allocatable, intent(in):: Stokes_out
 
 
       ! Initialize chi
@@ -110,7 +90,7 @@
         LM_Stru%ResidualI = Stokes_out(0,:) - &
                             Inf_Stokes%Stokes_Ob(0,:)
 
-        ! If weight not flagged in LM
+        ! If weight not flagged in LM structure
         if (.not.LM_Stru%Flag_weight) then
 
           ! If wavelength dependent sigma
@@ -147,7 +127,7 @@
         LM_Stru%Residual = Stokes_out - &
                            Inf_Stokes%Stokes_Ob
 
-        ! If weight not flagged in LM
+        ! If weight not flagged in LM structure
         if (.not.LM_Stru%Flag_weight) then
 
           ! Weight contribution
@@ -174,7 +154,7 @@
 
       end if ! Type of inversion
 
-      ! Update chi2
+      ! Update chi2 in LM structure
       LM_Stru%Chisq = LM_Stru%Chisq_og
 
       return
@@ -185,49 +165,53 @@
 !#####################################################################
 !#####################################################################
 
-      !> Compute the Jacobian of with respect to the parameters\n
-      !!         Input(Input_class): Structure with settings data\n
-      !!           Atom(Atom_class): Structure with the atomic data\n
-      !!          Atomb(Atom_class): Structure with the atomic data
-      !!                             for background opacities\n
-      !!             Mol(Mol_class): Structure with the molecule
-      !!                             data\n
-      !!       Geom(Geometry_class): Structure with the geometry
-      !!                             data\n
-      !!      GeomI(Geometry_class): Structure with the geometry data
-      !!                             for the intensity problem\n
-      !!         Flgsg(Fctsg_class): Structure with factorials and
-      !!                             signs\n
-      !!    Frec(Frequency_class): Structure with frequency data\n
-      !!         fudge(fudge_class): Structure with fudge data\n
-      !!       kurucz(kurucz_class): Structure with Kurucz line data\n
-      !!            MPID(MPI_class): Structure with MPI data
-      !!           Atmo(Atmo_class): Structure with atmospheric data\n
-      !!       Bfield(Bfield_class): Structure with the vertical
-      !!                             magnetic field data\n
-      !!     Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!        Sol(Solution_class): Class with the data of the RT
-      !!                             solution\n
-      !!     SolF(Solution_F_class): Class with the full RT
-      !!                             solution\n
-      !!       LM_Stru(LMFIT_class): Structure with Jacobian and
-      !!                             other LM quantities
-      subroutine Jacobian_Compute(Input,Atom,Atomb,Mol,Geom, &
-                                  GeomI,Flgsg,Frec,fudge,kurucz, &
-                                  MPID,Atmo,Bfield,Inf_Nodes,Sol, &
-                                  SolF,LM_Stru)
+      !> Compute the Jacobian for every inversion parameter\n
+      !!      Input(Input_class): Structure with configuration data\n
+      !!     Atom(Atom_class(:)): Structures with atomic data\n
+      !!    Atomb(Atom_class(:)): Structures with atomic data for
+      !!                          background atoms\n
+      !!       Mol(Mol_class(:)): Structures with molecular data\n
+      !!    Geom(Geometry_class): Structure with geometric data\n
+      !!   GeomI(Geometry_class): Structure with geometric data for
+      !!                          the intensity problem\n
+      !!      Flgsg(Fctsg_class): Structure with factorials, signs,
+      !!                          and J-symbols\n
+      !!   Frec(Frequency_class): Structure with frequency data\n
+      !!      fudge(fudge_class): Structure with fudge data\n
+      !!    kurucz(kurucz_class): Structure with Kurucz line data\n
+      !!         MPID(MPI_class): Structure with MPI data\n
+      !!        Atmo(Atmo_class): Structure with atmospheric data\n
+      !!    Bfield(Bfield_class): Structure with magnetic field data\n
+      !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
+      !!     Sol(Solution_class): Structure with the frequency and
+      !!                          synthetic Stokes parameters in the
+      !!                          frequency range of the inverted
+      !!                          data\n
+      !!  SolF(Solution_F_class): Structure with the solution of the
+      !!                          self-consistent problem and the
+      !!                          corresponding emergent profiles,
+      !!                          contribution function, and height
+      !!                          for optical depth equal to one\n
+      !!    LM_Stru(LMFIT_class): Structure with data for the
+      !!                          Levenberg–Marquardt
+      subroutine Jacobian_Compute(Input,Atom,Atomb,Mol,Geom,GeomI, &
+                                  Flgsg,Frec,fudge,kurucz,MPID,Atmo, &
+                                  Bfield,Inf_Nodes,Sol,SolF,LM_Stru)
 
       ! I/O
+
       type(Input_class), intent(inout):: Input
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:), allocatable:: Atomb
-      type(Mol_class), dimension(:), allocatable:: Mol
-      type(Fctsg_class):: Flgsg
-      type(Geometry_class):: GeomI, Geom
-      type(Frequency_class):: Frec
-      type(fudge_class):: fudge
-      type(kurucz_class):: kurucz
-      type(MPI_class):: MPID
+      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
+      type(Fctsg_class), intent(inout):: Flgsg
+      type(Geometry_class), intent(inout):: GeomI, Geom
+      type(Frequency_class), intent(inout):: Frec
+      type(fudge_class), intent(in):: fudge
+      type(kurucz_class), intent(in):: kurucz
+      type(MPI_class), intent(inout):: MPID
       type(Atmo_class), intent(inout):: Atmo
       type(Bfield_class), intent(inout):: Bfield
       type(Nodes_class), intent(inout)::Inf_Nodes
@@ -236,7 +220,8 @@
       type(LMFIT_class), intent(inout):: LM_Stru
 
       ! Local
-      integer:: i, j, Indx_Para
+
+      integer:: i,j,Indx_Para
 
 
       ! Master
@@ -328,16 +313,18 @@
 !#####################################################################
 
       !> Compute the Hessian from the Jacobian\n
-      !!  Nodes_Type(integer): Type of inversion\n
-      !! LM_Stru(LMFIT_class): Structure with Jacobian and
-      !!                       other LM quantities
+      !!   Nodes_Type(integer): Type of inversion\n
+      !!  LM_Stru(LMFIT_class): Structure with data for the
+      !!                        Levenberg–Marquardt
       subroutine Hessian_Compute(Nodes_Type,LM_Stru)
 
-      ! IO
+      ! I/O
+
       type(LMFIT_class), intent(inout):: LM_Stru
       integer, intent(in):: Nodes_Type
 
       ! Local
+
       integer:: i, j
 
 
@@ -420,27 +407,30 @@
 !#####################################################################
 
       !> Rank 1 update of the Jacobian following Broyden's method\n
-      !! Stokes_Old(double(:,:)): Stokes parameters for best fit\n
-      !! Stokes_New(double(:,:)): Stokes parameters proposed by
-      !!                          the backtracking\n
-      !!       Num_Wave(integer): Number of wavelengths\n
-      !!     Solution(double(:)): Last solution of the Hessian\n
-      !!  Inf_Nodes(Nodes_class): Structure with nodes data\n
-      !!      LM_Stru(LMFIT_class): Structure with Jacobian and
-      !!                            other LM quantities
+      !!  Stokes_Old(double(:,:)): Best fit Stokes parameters\n
+      !!  Stokes_New(double(:,:)): Backtracking proposed Stokes
+      !!                           parameters\n
+      !!        Num_Wave(integer): Number of wavelengths\n
+      !!      Solution(double(:)): Last solution from the Hessian\n
+      !!   Inf_Nodes(Nodes_class): Structure with inversion node
+      !!                           data\n
+      !!     LM_Stru(LMFIT_class): Structure with data for the
+      !!                           Levenberg–Marquardt
       subroutine Broyden_Rank1(Stokes_Old,Stokes_New,Num_wave, &
                                Solution,Inf_Nodes,LM_Stru)
 
-      ! IO
+      ! I/O
+
       type(Nodes_class), intent(in):: Inf_Nodes
       type(LMFIT_class), intent(inout):: LM_Stru
-      integer:: Num_wave
+      integer, intent(in):: Num_wave
       double precision, dimension(:), intent(in):: Solution
       double precision, dimension(:,:), intent(in):: Stokes_Old
       double precision, dimension(:,:), intent(in):: Stokes_New
 
       ! Local
-      integer:: i, j, k
+
+      integer:: i,j,k
 
       double precision:: Suma
       double precision, dimension(:), allocatable:: StokesI

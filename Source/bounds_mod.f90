@@ -5,32 +5,19 @@
 !#####################################################################
 !
 !  Authors:
-!     Hao Li (IAC)
-!     Tanaus\'u del Pino Alem\'an (IAC/HAO)
+!     Tanaus\'u del Pino Alem\'an (IAC)
+!     Hao Li (IAC/NSSCC)
 !  Start:
-!     02/23/2023
+!     23/02/2023
 !  Last version:
-!     03/15/2023 V3.0.1
+!     28/11/2024 V4.0.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     03/15/2023:    V3.0.1 - Added the possibility of adding specific
-!                             bounds at particular optical depth
-!                             ranges (TdPA)
-!                           - Removed CheckBoundsturb and CheckBounds3
-!                             because their functionality can be now
-!                             accounted for in the input (TdPA)
-!                           - Changed the algorithm for FoldBounds
-!                             for something that just allows the
-!                             azimuth to roll over boundaries (TdPA)
-!
-!     03/08/2023:    V3.0.0 - First working version (TdPA)
-!
-!     02/23/2023:    V0.0.0 - Started from 05/12/2020
-!                             TIC@bounds_mod.f90 revision (TdPA)
+!     28/11/2024:    V4.0.0 - Revised headers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -43,7 +30,7 @@
 !  Data:
 !
 !    CheckBounds:
-!      Force parameters within bounds
+!      Force parameters value to be within the specified bounds
 !
 !    FoldBounds:
 !      Check azimuths cyclical behavior
@@ -61,36 +48,41 @@
 !#####################################################################
 !#####################################################################
 
-      !> Force parameter within bounds\n
+      !> Force parameters value to be within the specified bounds\n
       !!  Node(Node_class): Structure with nodes data\n
       !!      num(integer): Number of nodes
       subroutine CheckBounds(Node,Num)
 
-      ! IO
-      type(Node_class):: Node
+      ! I/O
+
+      type(Node_class), intent(inout):: Node
       integer, intent(in):: Num
 
       ! Local
+
       integer:: i, j
+
 
       ! For each node
       do i=1,Num
 
-        ! For each special limit
+        ! For each especial limit
         do j=1,Node%nebound
 
-          ! If node within the special limits
+          ! If node location within the especial limits
           if (Node%H(i).ge.Node%ebound(1,j).and. &
               Node%H(i).le.Node%ebound(2,j)) then
 
-            ! Force lower limit
+            ! If below lower limit
             if (Node%Var(i).lt.Node%ebound(3,j)) then
 
+              ! Force limit
               Node%Var(i) = Node%ebound(3,j)
 
-            ! Force upper limit
+            ! If above upper limit
             else if (Node%Var(i).gt.Node%ebound(4,j)) then
 
+              ! Force limit
               Node%Var(i) = Node%ebound(4,j)
 
             end if ! Beyond limits
@@ -98,18 +90,20 @@
             ! Continue with next node
             cycle
 
-          end if ! Node within special limits
+          end if ! Node within especial limits
 
-        end do ! Number of special limits
+        end do ! Number of especial limits
 
-        ! Force lower limit
+        ! If below lower limit
         if(Node%Var(i).lt.Node%Bounds(1)) then
 
+          ! Force limit
           Node%Var(i) = Node%Bounds(1)
 
-        ! Force upper limit
+        ! If above upper limit
         else if (Node%Var(i).gt.Node%Bounds(2)) then
 
+          ! Force limit
           Node%Var(i) = Node%Bounds(2)
 
         end if ! Beyond limits
@@ -124,16 +118,18 @@
 !#####################################################################
 !#####################################################################
 
-      !> Put azimuths between bounds with angle equivalences\n
+      !> Fold azimuth value accounting for additional space beyond the
+      !! 2pi range\n
       !!   Node(Node_class): Azimuth nodes\n
       !!       Num(integer): Number of azimuthal nodes
       subroutine FoldBounds(Node,Num)
 
-      ! IO
+      ! I/O
       type(Node_class), intent(inout):: Node
       integer, intent(in):: Num
 
       ! Local
+
       logical:: skipnormal
 
       integer:: i, jj
@@ -141,7 +137,8 @@
       double precision:: Delta, MDelta, pi2, pih
       double precision, dimension(:), allocatable:: ldelta
 
-      ! Nodes?
+
+      ! If there are no azimuth nodes, just return
       if (Num.le.0) return
 
       ! Dynamic range default region
@@ -151,13 +148,13 @@
       ! Special ranges
       do jj=1,Node%nebound
 
-        ! Allocate
+        ! Allocate ldelta if not already
         if (.not.allocated(ldelta)) allocate(ldelta(Node%nebound))
 
         ! Get local delta
         ldelta(jj) = Node%ebound(4,jj) - Node%ebound(3,jj)
 
-        ! Update max
+        ! Update max range
         MDelta = max(MDelta,ldelta(jj))
 
       end do
@@ -166,23 +163,24 @@
       pi2 = 2d0*PI - TINYA
       pih = PI*0.5d0
 
-      ! If dynamic range lower than 2pi, then return
+      ! If dynamic range lower than 2pi, then there is no folding
+      ! to do
       if (MDelta.lt.pi2) return
 
       ! For each node
       do i=1,Num
 
-        ! Flag
+        ! Flag as no skip normal limit
         skipnormal = .False.
 
         ! Special ranges
         do jj=1,Node%nebound
 
-          ! If node within this range
+          ! If node located within this range
           if (Node%H(i).ge.Node%ebound(1,jj).and. &
               Node%H(i).le.Node%ebound(2,jj)) then
 
-            ! Skip normal because there was a special limit
+            ! Skip normal because there was a especial limit
             skipnormal = .True.
 
             ! If full range
@@ -212,7 +210,7 @@
 
         end do ! Special ranges
 
-        ! If skipping normal, continue
+        ! If skipping normal, continue with next node
         if (skipnormal) cycle
 
         ! If full range
@@ -236,6 +234,9 @@
         end if ! Full range
 
       end do ! Nodes
+
+      ! Free
+      if (allocated(ldelta)) deallocate(ldelta)
 
       return
 
