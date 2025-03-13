@@ -9,15 +9,17 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     28/11/2024 V4.0.0
+!     13/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     28/11/2024:    V4.0.0 - Updated calls to abortedS to not include
-!                             thread information (TdPA)
+!     13/03/2025:    V4.0.1 - Added the possibility of specifying the
+!                             cross section and alpha parameter for
+!                             Van der Waals broadening directly in the
+!                             atomic file (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -320,6 +322,59 @@
         end if
 
       end if ! Parametric broadening
+
+      !
+      ! If the type of broadening is a direct Barklem data
+      if (Atom%broad_type(itran).eq.3) then
+
+        ! Sigma and alpha calculated in rBarklem
+        sigma = Atom%broad_args(1,itran)
+        alpha = Atom%broad_args(2,itran)
+
+        ! Broadening constant part. 1d6 for cgs populations.
+        sigc = 2d0*rb*rb*(4d0/pi)**(0.5d0*alpha)* &
+               GAMMA(0.5d0*(4d0 - alpha))*1d4*sigma* &
+               (v02c/1d8)**(.5d0*(1d0 - alpha))*1d6
+
+        ! If storing parametric equivalence
+        if (aparam) then
+          b1 = 0.5*(1d0 - alpha)
+          a1 = 1d8*sigc/((1d0 + mhm/Atom%rmass)**b1)
+          b2 = .3d0
+          a2 = 1d9*C6*(v02che**.3)/((1d0 + mhem/Atom%rmass)**b2)
+          write(600,'(i10,1x,i10,"-->",2x,i10,1x,A,4(1x,es15.8))', &
+                err=1100) itran,itermu,iterml, &
+                          '    barklem',a1,b1,a2,b2
+        end if
+
+        ! For each height
+        do iz=1,NZ
+
+          ! Barklem for H
+          damp(iz) = sigc*(Atmo%T(iz)**(.5d0*(1d0 - alpha)))* &
+                     Atmo%nh(iz,1) + damp(iz)
+
+          ! Helium population from the atmosphere
+          if (Atmo%nhe(1,1).ge.0d0) then
+
+            ! Get population
+            nhe = Atmo%nhe(iz,1)
+
+          ! Helium population from the abundance
+          else
+
+            ! Get population
+            nhe = Atmo%nh(iz,1)*Ahe
+
+          end if
+
+          ! Unsold for Helium
+          damp(iz) = C6*(v02che**.3d0)*nhe*(Atmo%T(iz)**.3d0) + &
+                     damp(iz)
+
+        end do ! Heights
+
+      end if ! Barklem inputs
 
       return
 

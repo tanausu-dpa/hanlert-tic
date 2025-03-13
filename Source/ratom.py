@@ -5,7 +5,8 @@ import sys, math, os
 #
 # Tanaus\'u del Pino Alem\'an (IAC)
 #
-# 17/12/2024:  V4.0.0 - Changed global version (TdPA)
+# 13/03/2025:  V4.0.1 - Added 'cross' mode to the allowed types
+#                       of broadening (TdPA)
 #
 #####################
 
@@ -303,8 +304,8 @@ def rAtom():
   # Auxiliars for transitions
   bark = ['s','p','d','f']
   bardic = {'s':'0','p':'1','d':'2','f':'3'}
-  broads = ['barklem','unsold','param']
-  broads_dic = {'barklem':'0','unsold':'1','param':'2'}
+  broads = ['barklem','unsold','param','cross']
+  broads_dic = {'barklem':'0','unsold':'1','param':'2','cross':'3'}
   classe = ['e1','m1','e2','m2','un']
   classe_dic = {'e1':1,'m1':2,'e2':3,'m2':4,'un':5}
 
