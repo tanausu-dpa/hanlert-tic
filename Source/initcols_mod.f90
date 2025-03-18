@@ -9,17 +9,17 @@
 !  Start:
 !     25/09/2019
 !  Last version:
-!     12/03/2025 V4.0.1
+!     18/03/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.1 - Ensure that collisional arrays are
-!                             allocated before trying to deallocate
-!                             them (TdPA)
-!                           - Ensure that p_col_p is nullified (TdPA)
+!     18/03/2025:    V4.0.2 - Bugfix: The Clu collisions between the
+!                             levels in the last term of a multi-term
+!                             atom were not being computed due to
+!                             a wrong loop limit (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1313,7 +1313,7 @@
           !
 
           ! For each lower term
-          do it=1,Atom%nMulti-1
+          do it=1,Atom%nMulti
 
             ! For each upper term
             do itt=it,Atom%nMulti
@@ -1375,6 +1375,7 @@
                                               Atom%populte(ii,iz)/ &
                                               (Atom%populte(i,iz) + &
                                                VTINY)
+
                     end do ! Heights
                   end do ! J for upper level
                 end do ! J for lower level
