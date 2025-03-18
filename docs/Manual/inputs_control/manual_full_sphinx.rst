@@ -1823,6 +1823,19 @@ PRD_DELAY
 
   * Description: Iteration index from which to start accounting for partial frequency redistribution in the only intensity problem.
 
+ALI_PHOTO
+---------
+
+  * OPTIONAL, ADVANCED
+
+  * Modes: 1D, 15D, INV
+
+  * Formats:
+    
+    - string: Yes, No; default: Yes
+
+  * Description: Compute and use the lambda operator for photoionization transitions.
+
 ALI_DELAY
 ---------
 
@@ -1848,6 +1861,19 @@ ALI_FORCE
     - string: Yes, No; default: No
 
   * Description: Force more iterations with ALI if converged with delayed ALI iterations.
+
+ALI_ALLOW_OFF
+-------------
+
+  * OPTIONAL, ADVANCED
+
+  * Modes: 1D, 15D, INV
+
+  * Formats:
+    
+    - string: Yes, No; default: Yes
+
+  * Description: Can switch off ALI if the SEE return negative populations.
 
 APPEND_MRC
 ----------
@@ -2499,6 +2525,19 @@ WEIGHT_FACTOR
     - string + float*3
 
   * Description: Each entry of this keyword specifies a multiplicative factor for the weights of a given Stokes parameter between two wavelengths. The string must be I, Q, U, or V, the first two floats specify the wavelength range of the weights to enhance in nanometers, and the last one is a non-negative multiplicative factor. If there are several ranges sharing at least one wavelength for the same Stokes parameter, the inversion will be aborted before starting. Ignored if AUTO_WEIGHT=Yes.
+
+SIGMA_FACTOR
+------------
+
+  * OPTIONAL, ADDITIVE
+
+  * Modes: INV
+
+  * Formats:
+    
+    - string + float*3
+
+  * Description: Each entry of this keyword specifies a multiplicative factor for the sigma of a given Stokes parameter between two wavelengths. The string must be I, Q, U, or V, the first two floats specify the wavelength range of the weights to enhance in nanometers, and the last one is a non-negative multiplicative factor. If there are several ranges sharing at least one wavelength for the same Stokes parameter, the inversion will be aborted before starting. Ignored if there is no sigma information in the data.
 
 INV_INIT
 --------

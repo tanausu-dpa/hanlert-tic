@@ -1356,6 +1356,17 @@ PRD_DELAY
 
   * Description: Iteration index from which to start accounting for partial frequency redistribution in the only intensity problem.
 
+ALI_PHOTO
+---------
+
+  * OPTIONAL, ADVANCED
+
+  * Formats:
+    
+    - string: Yes, No; default: Yes
+
+  * Description: Compute and use the lambda operator for photoionization transitions.
+
 ALI_DELAY
 ---------
 
@@ -1377,6 +1388,17 @@ ALI_FORCE
     - string: Yes, No; default: No
 
   * Description: Force more iterations with ALI if converged with delayed ALI iterations.
+
+ALI_ALLOW_OFF
+-------------
+
+  * OPTIONAL, ADVANCED
+
+  * Formats:
+    
+    - string: Yes, No; default: Yes
+
+  * Description: Can switch off ALI if the SEE return negative populations.
 
 APPEND_MRC
 ----------

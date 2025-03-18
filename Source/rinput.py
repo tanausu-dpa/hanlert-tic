@@ -6,7 +6,8 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an (IAC)
 # Hao Li (IAC/NSSCC)
 #
-# 20/02/2025:  V4.0.2 - Added ANISOTROPY_FOCUS (TdPA)
+# 18/03/2025:  V4.0.3 - Added SIGMA_FACTOR, ALI_PHOTO, and
+#                       ALI_ALLOW_OFF (TdPA)
 #
 #####################
 
@@ -815,7 +816,7 @@ def rInput():
          'LIM_COLS_TT','LIM_COLS_LL','LIM_DAMP','LIM_BACK', \
          'LIM_POP','LIM_QEL','ATMO_STRAT','WEIGHT','ATOM_NO_WAVE', \
          'PSF_FWHM','LTE_LINE','K_CUT_TERM','EXCLUDE_PIXEL', \
-         'WEIGHT_FACTOR']
+         'WEIGHT_FACTOR','SIGMA_FACTOR']
 
   # Inversion variables
   varis = ['B','BT','BP','F','T','VX','VY','VZ','VT','PG', \
@@ -3810,6 +3811,23 @@ def rInput():
   else:
     f.write('0\n')
 
+  # ALI_PHOTO
+  if rmode >= -1 and rmode <= 1:
+    check = 0
+    if 'ALI_PHOTO' in Dictionary:
+      val = Dictionary['ALI_PHOTO'][0]
+      if val == 'Y' or val == 'YE' or val == 'YES' or \
+         val == 'S' or val =='SI':
+        f.write('Y\n')
+        check = 1
+      if val == 'N' or val == 'NO' or val == 'NON':
+        f.write('N\n')
+        check = 1
+    if check == 0:
+      f.write('Y\n')
+  else:
+    f.write('Y\n')
+
   # ALI_DELAY
   if rmode >= -1 and rmode <= 1:
     check = 0
@@ -3841,6 +3859,23 @@ def rInput():
       f.write('N\n')
   else:
     f.write('N\n')
+
+  # ALI_ALLOW_OFF
+  if rmode >= -1 and rmode <= 1:
+    check = 0
+    if 'ALI_ALLOW_OFF' in Dictionary:
+      val = Dictionary['ALI_ALLOW_OFF'][0]
+      if val == 'Y' or val == 'YE' or val == 'YES' or \
+         val == 'S' or val =='SI':
+        f.write('Y\n')
+        check = 1
+      if val == 'N' or val == 'NO' or val == 'NON':
+        f.write('N\n')
+        check = 1
+    if check == 0:
+      f.write('Y\n')
+  else:
+    f.write('Y\n')
 
   # APPEND_MRC
   if rmode == 0:
@@ -4979,7 +5014,7 @@ def rInput():
           if len(lval) == 4:
             lval[0] = lval[0].strip().upper()
             if lval[0] not in conversion:
-              verbose(' # Identifier in WEIGHT_FAVOR ' + \
+              verbose(' # Identifier in WEIGHT_FACTOR ' + \
                       lval[0] + 'not in [I,Q,U,V]', \
                       ofolder, verbosity)
               abort(f, filename)
@@ -5016,6 +5051,55 @@ def rInput():
             f.write(ou)
       if check == 0:
         f.write('0\n')
+
+    # SIGMA_FACTOR
+    conversion = {'I': '0.','Q': '1.','U': '2.','V': '3.'}
+    check = 0
+    if 'SIGMA_FACTOR' in Dictionary:
+      val = Dictionary['SIGMA_FACTOR']
+      out = []
+      for lval in val:
+        if lval[0].strip().lower() == 'none': continue
+        if len(lval) == 4:
+          lval[0] = lval[0].strip().upper()
+          if lval[0] not in conversion:
+            verbose(' # Identifier in SIGMA_FACTOR ' + \
+                    lval[0] + 'not in [I,Q,U,V]', \
+                    ofolder, verbosity)
+            abort(f, filename)
+          lval[0] = conversion[lval[0]]
+          try:
+            l0 = float(lval[1])
+            l1 = float(lval[2])
+            ff = float(lval[3])
+          except ValueError:
+            verbose(' # Arguments in SIGMA_FACTOR must be ' + \
+                    'one string and three floats', \
+                    ofolder, verbosity)
+            abort(f, filename)
+          except:
+            raise
+          if ff < 0:
+            verbose(' # Factor in SIGMA_FACTOR must be ' + \
+                    'non-negative', \
+                    ofolder, verbosity)
+            abort(f, filename)
+          if l0 > l1:
+            out.append('{0} {1} {2} {3}\n'.format(lval[0],l1,l0,ff))
+          else:
+            out.append('{0} {1} {2} {3}\n'.format(lval[0],l0,l1,ff))
+        else:
+          verbose(' # Number of elements in SIGMA_FACTOR ' + \
+                  'not equal to 4 in line: ' + ' '.join(lval), \
+                  ofolder, verbosity)
+          abort(f, filename)
+      check = 1
+      f.write('{0}\n'.format(len(out)))
+      if len(out) > 0:
+        for ou in out:
+          f.write(ou)
+    if check == 0:
+      f.write('0\n')
 
     # INV_INIT
     check = 0

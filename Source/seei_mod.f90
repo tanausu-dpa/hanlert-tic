@@ -10,15 +10,18 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     18/02/2025 V4.0.1
+!     18/03/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/02/2025:    V4.0.1 - Bugfix: fixed the implementation of the
-!                             zero_ion option (TdPA)
+!     18/03/2025:    V4.0.2 - Added the option to not apply ALI to
+!                             bound-free transitions (TdPA)
+!                           - Added the option to not allow switching
+!                             off ALI if negative populations are
+!                             found (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -94,12 +97,15 @@
       !!  LamP(double(:,:,:)): Lambda operator for bound-free
       !!                       transitions\n
       !!          iz(integer): Height index\n
-      !!        lALI(logical): If to apply ALI
+      !!        lALI(logical): If to apply ALI\n
+      !!        ALIp(logical): If to apply ALI to bound-free\n
+      !!       ALIao(logical): Switch off ALI if negative populations
 #ifdef DEBUGSEE
       subroutine SEEI(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP,iz,lALI, &
-                      INPUT)
+                      ALIp,ALIao,INPUT)
 #else
-      subroutine SEEI(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP,iz,lALI)
+      subroutine SEEI(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP,iz, &
+                      lALI,ALIao,ALIp)
 #endif
 
       ! I/O
@@ -109,7 +115,7 @@
 #endif
       type(Atom_class), intent(inout):: Atom
       type(Rhoc_class), intent(in):: Atom0
-      logical, intent(in):: lALI
+      logical, intent(in):: lALI,ALIp,ALIao
       integer, intent(in):: iz
       double precision, dimension(:), intent(in):: JRad,JRadS
       double precision, dimension(:,:), intent(in):: LamL
@@ -129,10 +135,10 @@
       !
 #ifdef DEBUGSEE
       call SEEI_actual(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP, &
-                       iz,lALI,try_no_ALI,INPUT)
+                       iz,lALI,ALIp,ALIao,try_no_ALI,INPUT)
 #else
       call SEEI_actual(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP, &
-                       iz,lALI,try_no_ALI)
+                       iz,lALI,ALIp,ALIao,try_no_ALI)
 #endif
 
       !
@@ -143,10 +149,10 @@
 
 #ifdef DEBUGSEE
         call SEEI_actual(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP, &
-                         iz,.False.,try_no_ALI,INPUT)
+                         iz,.False.,.False.,.False.,try_no_ALI,INPUT)
 #else
         call SEEI_actual(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP, &
-                         iz,.False.,try_no_ALI)
+                         iz,.False.,.False.,.False.,try_no_ALI)
 #endif
 
       end if
@@ -174,13 +180,16 @@
       !!                       transitions\n
       !!          iz(integer): Height index\n
       !!        lALI(logical): If to apply ALI\n
+      !!        ALIp(logical): If to apply ALI to bound-free\n
+      !!       ALIao(logical): Switch off ALI if negative
+      !!                       populations\n
       !!  try_no_ALI(logical): If we need to try again without ALI
 #ifdef DEBUGSEE
       subroutine SEEI_actual(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP, &
-                             iz,lALI,try_no_ALI,INPUT)
+                             iz,lALI,ALIp,ALIao,try_no_ALI,INPUT)
 #else
       subroutine SEEI_actual(Atom,Atom0,JRad,JRadS,Jphot,LamL,LamP, &
-                             iz,lALI,try_no_ALI)
+                             iz,lALI,ALIp,ALIao,try_no_ALI)
 #endif
 
       ! I/O
@@ -190,7 +199,7 @@
 #endif
       type(Atom_class), intent(inout):: Atom
       type(Rhoc_class), intent(in):: Atom0
-      logical, intent(in):: lALI
+      logical, intent(in):: lALI,ALIp,ALIao
       logical, intent(out):: try_no_ALI
       integer, intent(in):: iz
       double precision, dimension(:), intent(in):: JRad,JRadS
@@ -213,7 +222,7 @@
 #endif
 
       ! Add the contributions due to Lambda operator
-      if (lALI) call ALIbuildI(Atom,Atom0,LamL,LamP,STcoeff,iz)
+      if (lALI) call ALIbuildI(Atom,Atom0,LamL,LamP,STcoeff,iz,ALIp)
 
 #ifdef DEBUGSEE
       if (lALI.and.pid.eq.0) &
@@ -227,7 +236,7 @@
       call densmatrI(rho,Atom%nlevel,STcoeff)
 
       ! Rearrange the solution into the rhoKQ matrices
-      call rhosolI(Atom,rho,iz,lALI,try_no_ALI)
+      call rhosolI(Atom,rho,iz,lALI,ALIao,try_no_ALI)
 
       end subroutine SEEI_actual
 
@@ -620,13 +629,15 @@
       !!   LamP(double(:,:,:)): Lambda operator for bound-free
       !!                        transitions\n
       !!  STcoeff(double(:,:)): Statistical equilibrium equations\n
-      !!           iz(integer): Height index
-      subroutine ALIbuildI(Atom,Atom0,LamL,LamP,STcoeff,iz)
+      !!           iz(integer): Height index\n
+      !!         ALIp(logical): If to apply ALI to bound-free
+      subroutine ALIbuildI(Atom,Atom0,LamL,LamP,STcoeff,iz,ALIp)
 
       ! I/O
 
       type(Atom_class), intent(in):: Atom
       type(Rhoc_class), intent(in):: Atom0
+      logical, intent(in):: ALIp
       integer, intent(in):: iz
       double precision,dimension(:,:), intent(in):: LamL
       double precision,dimension(:,:,:), intent(in):: LamP
@@ -684,6 +695,14 @@
               if (Atom%stage(itterm).eq.Atom%stage(Atom%nMulti)) cycle
 
             end if ! Zero_ion
+
+            ! Skip if not doing photoionization ALI
+            if (.not.ALIp) then
+
+              ! Skip if different ions
+              if (Atom%stage(itterm).eq.Atom%stage(iterm)) cycle
+
+            end if ! Not doing ALI in bound-free
 
             ! Get term quantities
             rLL = Atom%rLval(itterm)
@@ -1013,13 +1032,15 @@
       !!                       equations\n
       !!          iz(integer): Height index\n
       !!        lALI(logical): If to apply ALI\n
+      !!       ALIao(logical): Switch off ALI if negative
+      !!                       populations\n
       !!  try_no_ALI(logical): If we need to try again without ALI
-      subroutine rhosolI(Atom,rho,iz,lALI,try_no_ALI)
+      subroutine rhosolI(Atom,rho,iz,lALI,ALIao,try_no_ALI)
 
       ! I/O
 
       type(Atom_class), intent(inout):: Atom
-      logical, intent(in):: lALI
+      logical, intent(in):: lALI,ALIao
       logical, intent(out):: try_no_ALI
       integer, intent(in):: iz
       double precision, dimension(:), intent(in):: rho
@@ -1057,14 +1078,43 @@
           ! If doing ALI
           if (lALI) then
 
-            ! Issue warning
-            write(umsg,'(A)') 'Negative population in SEEI '// &
-                              'solution, will try without ALI'
-            call abortedS(umsg,urou,.False.,.True.)
+            ! If can swith if off
+            if (ALIao) then
 
-            ! Flag and go back
-            try_no_ALI = .True.
-            return
+              ! Issue warning
+              write(umsg,'(A)') 'Negative population in SEEI '// &
+                                'solution, will try without ALI'
+              call abortedS(umsg,urou,.False.,.True.)
+
+              ! Flag and go back
+              try_no_ALI = .True.
+              return
+
+            ! If cannot swith it off
+            else
+
+              ! Find
+              do i=1,Atom%nlevel
+
+                ! Check negativity
+                if(rho(i).lt.0d0)then
+
+                  ! Issue error
+                  write(umsg,'(A,i4,",",i4,A,1x,es11.4)') &
+                    'Negative population in SEE solution'// &
+                    new_line('A')// &
+                    '(iz,il)=(',iz,i,')'// &
+                    new_line('A')//'rho00: ',rho(i)
+                  call abortedS(umsg,urou,.not.nphysR,.True.)
+
+                end if ! Negative population at this heright
+
+              end do ! Levels
+
+              ! Go back, we are aborting
+              return
+
+            end if ! Can swith ALI off
 
           ! Not doing ALI
           else

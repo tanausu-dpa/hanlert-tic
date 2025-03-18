@@ -100,7 +100,7 @@
             LM_Stru%WeightI = Inf_Stokes%weight(0,:)* &
                               Inf_Stokes%weight(0,:)/ &
                               (Inf_Stokes%Sigma_W(0,:)* &
-                               Inf_Stokes%sigma_W(0,:))
+                               Inf_Stokes%Sigma_W(0,:))
 
           ! No wavelength dependent sigma
           else

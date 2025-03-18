@@ -10,16 +10,22 @@
 !  Start:
 !     16/02/2023
 !  Last version:
-!     12/03/2025 V4.0.1
+!     18/03/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.1 - Added warnings for unexpected changes
-!                             in the MRAMc memory counter between
-!                             calls to Inversion (TdPA)
+!     18/03/2025:    V4.0.2 - Bugfix: set_atom_indexes had the wrong
+!                             arguments to trigger the indexing for
+!                             polarization calculations (TdPA)
+!                           - Added call to the new enhance_sigma
+!                             function (TdPA)
+!                           - Added argument to the call to
+!                             setmpi_sizes (TdPA)
+!                           - Added argument to the call to
+!                             set_up_data_frombuffer (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -155,9 +161,9 @@
 
       ! Get index atoms
       call set_atom_indexes(Atom,Input,.True., &
-                            Inf_Nodes%Num_Thermal.ne.0, &
+                            Input%Type_Inversion.ne.0, &
                             .True., &
-                            Inf_Nodes%Num_Thermal.ne.0)
+                            Input%Type_Inversion.ne.0)
 
 
 #ifdef FITSSUP
@@ -406,6 +412,20 @@
           ! Get sigma
           call get_data_sigma(unitD,aborting,finfo, &
                               Inf_Stokes,Input%FITSFILE)
+
+          ! If to enhance Sigma
+          if (allocated(Input%Sigma_factor)) then
+
+            ! Enhance the input directly
+            call enhance_sigma(Input%Sigma_factor, &
+                               Inf_Stokes%Sigma_in, &
+                               Sol%omega_input)
+
+            ! Free space
+            MRAMc = MRAMc - 1d-6*sizeof(Input%Sigma_factor)
+            deallocate(Input%Sigma_factor)
+
+          end if ! Enhancing Sigma
 
         endif
 
@@ -1170,14 +1190,14 @@
 
             ! Compute size for MPI messages in solvers
             call setmpi_sizes(MPID,GeomI,Geom,Frec,.True.,.False., &
-                              .True.,.False.,.False.)
+                              .True.,.False.,Input%ALI_photo,.False.)
 
           ! If full Stokes
           else
 
             ! Compute size for MPI messages in solvers
             call setmpi_sizes(MPID,GeomI,Geom,Frec,.True.,.True., &
-                              .True.,.True.,.False.)
+                              .True.,.True.,Input%ALI_photo,.False.)
 
           end if ! Intensity/Stokes
         end if ! Freq. MPI
@@ -1721,6 +1741,7 @@
 
             ! Get data from buffer
             call set_up_data_frombuffer(finfo,Inf_Stokes,Sol, &
+                                        Input%Sigma_factor, &
                                    p_transfer_buffer(1:s_data_buffer))
 
             ! If restoring
@@ -2037,6 +2058,7 @@
 
           ! Get data from buffer
           call set_up_data_frombuffer(finfo,Inf_Stokes,Sol, &
+                                      Input%Sigma_factor, &
                                    p_transfer_buffer(1:s_data_buffer))
 
           ! If restoring

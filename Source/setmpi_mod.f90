@@ -9,19 +9,16 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     19/12/2024 V4.0.0
+!     18/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     19/12/2024:    V4.0.0 - Removed all the subroutines related to
-!                             OpenMP (TdPA)
-!                           - Moved to its own subroutine the
-!                             algorithm to distribute tasks based
-!                             on weights (TdPA)
-!                           - Removed the alternative broadcast (TdPA)
+!     18/03/2025:    V4.0.1 - Implemented the option to skip ALI for
+!                             photoionizations, changing the sizes
+!                             for the relevant buffers (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1082,16 +1079,17 @@
       !!            lp(logical): If solving for polarization\n
       !!            lJ(logical): If solving for continuum\n
       !!          lGen(logical): If correcting for multi-term\n
+      !!     ALI_photo(logical): If doing ALI in photoionization\n
       !!         reval(logical): In here to recalculate the sizes
       subroutine setmpi_sizes(MPID,GeomI,Geom,Frec,lio,lp,lJ,lGen, &
-                              reval)
+                              ALI_photo,reval)
 
       ! I/O
 
       type(MPI_class), intent(inout):: MPID
       type(Geometry_class), intent(in):: Geom,GeomI
       type(Frequency_class), intent(in):: Frec
-      logical, intent(in):: lio,lp,lJ,lGen,reval
+      logical, intent(in):: lio,lp,lJ,lGen,reval,ALI_photo
 
       ! Local
 
@@ -1169,6 +1167,11 @@
 
         end do ! For each CPU
 
+        ! Correct photo
+        if (.not.ALI_photo) then
+          MPID%sizei0(iproc) = 0
+          MPID%sizei10(iproc) = 0
+        end if
 
         !
         ! Check sizes of specific buffers than can go beyond limits
@@ -1208,6 +1211,7 @@
           b2 = 8d-6*MPID%nxtfreqi*2*GeomI%nTh*GeomI%nPh*Rnz
           b3 = 8d-6*MPID%nxtfreqi*nxb*GeomI%nTh*GeomI%nPh*Rnz
           b4 = 8d-6*MPID%nxpfreq*nxb*GeomI%nTh*GeomI%nPh*Rnz
+          if (.not.ALI_photo) b4 = 0
 
           ! If buffers are going to be too big
           if ((b1+b2+b3+b4).gt.maxbuffer) then
@@ -1222,6 +1226,7 @@
               MPID%sizei9(iproc) = nxb*Frec%Mntfreqi(iproc)*Rnz
               MPID%sizei0(iproc) = nxb*Frec%Mnpfreq(iproc)*Rnz
             end do
+            if (.not.ALI_photo) MPID%sizei0 = 0
 
           end if ! Buffer to big
         end if ! Going through solveri
@@ -1442,6 +1447,12 @@
 
         end do ! Processes
 
+        ! Correct photo
+        if (.not.ALI_photo) then
+          MPID%sizei0(iproc) = 0
+          MPID%sizei10(iproc) = 0
+        end if
+
 
         !
         ! Check sizes of specific buffers than can go beyond limits
@@ -1465,6 +1476,7 @@
 
             ! If buffers are going to be too big
             if (b1.gt.maxbuffer) then
+              print*,gpid,b1,maxbuffer
               umsg = 'The buffer is too big even with '// &
                      'the alternative routines. Reduce the '// &
                      'number of frequencies or use more CPU'
@@ -1501,6 +1513,7 @@
           b2 = 8d-6*MPID%nxtfreqi*2*GeomI%nTh*GeomI%nPh*nz
           b3 = 8d-6*MPID%nxtfreqi*nxb*GeomI%nTh*GeomI%nPh*nz
           b4 = 8d-6*MPID%nxpfreq*nxb*GeomI%nTh*GeomI%nPh*nz
+          if (.not.ALI_photo) b4 = 0
 
           ! If buffers are going to be too big
           if ((b1+b2+b3+b4).gt.maxbuffer) then
@@ -1516,6 +1529,7 @@
 
             ! If buffers are going to be too big
             if ((b1+b2+b3+b4).gt.maxbuffer) then
+              print*,gpid,b1,b2,b3,b4,b1+b2+b3+b4,maxbuffer
               umsg = 'The buffer is too big even with '// &
                      'the alternative routines. Reduce the '// &
                      'number of frequencies or use more CPU'
@@ -1538,6 +1552,7 @@
               MPID%sizei9(iproc) = nxb*Frec%Mntfreqi(iproc)*nz
               MPID%sizei0(iproc) = nxb*Frec%Mnpfreq(iproc)*nz
             end do
+            if (.not.ALI_photo) MPID%sizei0 = 0
 
           end if ! Buffer to big
         end if ! Going through solveri

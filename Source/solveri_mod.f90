@@ -9,29 +9,16 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     12/03/2025 V4.0.3
+!     18/03/2025 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.3 - Bugfix: The %crho variables in
-!                             Atom_class and in Rhoc_class have, in
-!                             general, different sizes. Just equating
-!                             them was changing the size of the
-!                             Rhoc_class one and messing the memory
-!                             couting (TdPA)
-!                           - Bugfix: NG_scratch should be allocatable
-!                             in solveI_SEE (TdPA)
-!                           - Bugfix: the memory to be stored in the
-!                             tau and contribution functions for
-!                             the inversion were counted in excess by
-!                             a factor of two because they are single
-!                             precision (TdPA)
-!                           - Bugfix: removed an umbalanced call to
-!                             control during the inversion (TdPA)
-!                           - Explicitly initialize NG_dim (TdPA) 
+!     18/03/2025:    V4.0.4 - Added argument to solveI_RT call (TdPA)
+!                           - Added the option to neglect ALI for
+!                             bound-free transitions (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -360,10 +347,11 @@
 
             ! Solve RTE
             call solveI_RT(Atom,LTElines,Atmo,Cont,Frec,Red,Geom, &
-                           MPID,lALI,lp_exu,if0,if1,Stokes_s, &
-                           rLine_s,rPhot_s,Prof_s,data1M,data1O, &
-                           data2O,rLineO,rPhotO,LO,LambdaL,LambdaP, &
-                           p_exu,Stokes,J00,J00S,J00C,J00P,J00C_n)
+                           MPID,lALI,Input%ALI_photo,lp_exu,if0,if1, &
+                           Stokes_s,rLine_s,rPhot_s,Prof_s, &
+                           data1M,data1O,data2O,rLineO,rPhotO,LO, &
+                           LambdaL,LambdaP,p_exu,Stokes,J00,J00S, &
+                           J00C,J00P,J00C_n)
 
           end if ! Manage or compute
 
@@ -489,9 +477,10 @@
                               MPI_COMM_RT, ierr)
 
                 ! Share Lambda operator for b-f transitions
-                call MPI_BCAST(LambdaP(1,1,1,Rz0), MPID%sizei2(0), &
-                              MPI_DOUBLE_PRECISION, 0, &
-                              MPI_COMM_RT, ierr)
+                if (Input%ALI_photo) &
+                  call MPI_BCAST(LambdaP(1,1,1,Rz0), MPID%sizei2(0), &
+                                MPI_DOUBLE_PRECISION, 0, &
+                                MPI_COMM_RT, ierr)
 
               end if ! ALI
             end if ! To do SEE
@@ -852,8 +841,10 @@
             TRAMc = TRAMc + 8d-6*dble(iaux)
 
             ! To receive Lambda operator for b-f transitions
-            iaux = MPID%nxpfreq*nxb*Rnz
-            TRAMc = TRAMc + 8d-6*dble(iaux)
+            if (Input%ALI_photo) then
+              iaux = MPID%nxpfreq*nxb*Rnz
+              TRAMc = TRAMc + 8d-6*dble(iaux)
+            end if
 
             ! To receive profile information
             iaux = MPID%nxtfreqi*2*Rnz
@@ -876,9 +867,11 @@
             TRAMc = TRAMc + 8d-6*dble(iaux)
 
             ! To receive Lambda operator for b-f transitions
-            iaux = MPID%nxpfreq*nxb*ntpz
-            if (iaux.lt.1) iaux = 1
-            TRAMc = TRAMc + 8d-6*dble(iaux)
+            if (Input%ALI_photo) then
+              iaux = MPID%nxpfreq*nxb*ntpz
+              if (iaux.lt.1) iaux = 1
+              TRAMc = TRAMc + 8d-6*dble(iaux)
+            end if
 
             ! To receive profile information
             iaux = MPID%nxtfreqi*2*ntpz
@@ -923,7 +916,8 @@
           TRAMc = TRAMc + 8d-6*dble(Rnz*nPh*nTh*Frec%ntfreqi)
 
           ! To send Lambda operator for b-f transitions
-          TRAMc = TRAMc + 8d-6*dble(Rnz*nPh*nTh*Frec%npfreq)
+          if (Input%ALI_photo) &
+            TRAMc = TRAMc + 8d-6*dble(Rnz*nPh*nTh*Frec%npfreq)
 
           ! Common (Master and slave)
           ! Allocate O pointers
@@ -1203,8 +1197,10 @@
             allocate(LambdaL_r(iaux))
 
             ! To receive Lambda operator for b-f transitions
-            iaux = MPID%nxpfreq*nxb*Rnz
-            allocate(LambdaP_r(iaux))
+            if (Input%ALI_photo) then
+              iaux = MPID%nxpfreq*nxb*Rnz
+              allocate(LambdaP_r(iaux))
+            end if
 
             ! To receive profile information
             iaux = MPID%nxtfreqi*2*Rnz
@@ -1230,9 +1226,11 @@
             allocate(LambdaL_r(iaux))
 
             ! To receive Lambda operator for b-f transitions
-            iaux = MPID%nxpfreq*nxb*ntpz
-            if (iaux.lt.1) iaux = 1
-            allocate(LambdaP_r(iaux))
+            if (Input%ALI_photo) then
+              iaux = MPID%nxpfreq*nxb*ntpz
+              if (iaux.lt.1) iaux = 1
+              allocate(LambdaP_r(iaux))
+            end if
 
             ! To receive profile information
             iaux = MPID%nxtfreqi*2*ntpz
@@ -1276,7 +1274,8 @@
           allocate(rLine_s(Frec%ntfreqi,Rz0:Rz1,nPh,nTh))
 
           ! To send Lambda operator for b-f transitions
-          allocate(rPhot_s(Frec%npfreq,Rz0:Rz1,nPh,nTh))
+          if (Input%ALI_photo) &
+            allocate(rPhot_s(Frec%npfreq,Rz0:Rz1,nPh,nTh))
 
           ! Common (Master and slave)
           ! Allocate O pointers
@@ -1582,15 +1581,17 @@
             end do
 
             ! Receive Lambda operator for b-f transition
-            do while (.True.)
-              call MPI_recv(LambdaP_r(1), &
-                            MPID%sizei0(info_b), &
-                            MPI_DOUBLE_PRECISION, info_b, &
-                            3+info_b, &
-                            MPI_COMM_RT, &
-                            MPI_STATUS_IGNORE, ierr)
-              if (ierr.eq.0) exit
-            end do
+            if (Input%ALI_photo) then
+              do while (.True.)
+                call MPI_recv(LambdaP_r(1), &
+                              MPID%sizei0(info_b), &
+                              MPI_DOUBLE_PRECISION, info_b, &
+                              3+info_b, &
+                              MPI_COMM_RT, &
+                              MPI_STATUS_IGNORE, ierr)
+                if (ierr.eq.0) exit
+              end do
+            end if
 
           end if ! ALI
 
@@ -1616,7 +1617,8 @@
           if (lALI) then
             p_MrLine(1:nftl,1:Rnz) => &
                              LambdaL_r(1:MPID%sizei9(info_b))
-            p_MrPhot(1:nfpl,1:Rnz) => &
+            if (Input%ALI_photo) &
+              p_MrPhot(1:nfpl,1:Rnz) => &
                              LambdaP_r(1:MPID%sizei0(info_b))
           end if
 
@@ -1657,7 +1659,7 @@
                             p_MStk(:,iz),p_MrPhot(:,iz), &
                             J00P(:,:,iz),J00C(:,iz), &
                             LambdaP(:,:,:,iz),lALI, &
-                            p_exu)
+                            Input%ALI_photo,p_exu)
 
             ! Nullify exponential pointer
             if (deal) deallocate(p_exu)
@@ -1723,14 +1725,15 @@
             end do
 
             ! Receive Lambda operator for b-f transition
-            do while (.True.)
-              call MPI_recv(LambdaP_r(1), MPID%sizei0(info_b), &
-                            MPI_DOUBLE_PRECISION, info_b, &
-                            3+info_b, MPI_COMM_RT, &
-                            MPI_STATUS_IGNORE, ierr)
-              if (ierr.eq.0) exit
-            end do
-
+            if (Input%ALI_photo) then
+              do while (.True.)
+                call MPI_recv(LambdaP_r(1), MPID%sizei0(info_b), &
+                              MPI_DOUBLE_PRECISION, info_b, &
+                              3+info_b, MPI_COMM_RT, &
+                              MPI_STATUS_IGNORE, ierr)
+                if (ierr.eq.0) exit
+              end do
+            end if
           end if ! ALI iteration
 
           ! If measuring performance
@@ -1756,12 +1759,14 @@
           if (lALI) then
             p_MrLine(1:nftl,1:ntpz) => &
                                  LambdaL_r(1:MPID%sizei9(info_b))
-            p_MrPhot(1:nfpl,1:ntpz) => &
+            if (Input%ALI_photo) &
+              p_MrPhot(1:nfpl,1:ntpz) => &
                                  LambdaP_r(1:MPID%sizei0(info_b))
           else
             ! Point to whatever
             p_MrLine(1:1,1:ntpz) => Prof_r(1:ntpz)
-            p_MrPhot(1:1,1:ntpz) => Prof_r(1:ntpz)
+            if (Input%ALI_photo) &
+              p_MrPhot(1:1,1:ntpz) => Prof_r(1:ntpz)
           end if
 
           ! Initialize deal
@@ -1814,7 +1819,7 @@
                             p_MStk(:,itpz),p_MrPhot(:,itpz), &
                             J00P(:,:,iz),J00C(:,iz), &
                             LambdaP(:,:,:,iz),lALI, &
-                            p_exu)
+                            Input%ALI_photo,p_exu)
 
 
             ! Nullify pointer
@@ -1933,7 +1938,7 @@
             J00P(jtran,2,iz) = J00P(jtran,2,iz)*dsm
 
             ! Apply it to the emission Lambda operator
-            if (lALI) &
+            if (lALI.and.Input%ALI_photo) &
               LambdaP(:,jtran,2,iz) = LambdaP(:,jtran,2,iz)*dsm
 
           end do ! b-f transitions
@@ -1969,6 +1974,7 @@
       !!        Geom(Geometry_class): Structure with geometric data\n
       !!             MPID(MPI_class): Structure with MPI data\n
       !!               lALI(logical): If doing ALI\n
+      !!               ALIp(logical): If doing ALI in bound-free\n
       !!             lp_exu(logical): If available pre-computed
       !!                              exponentials\n
       !!               if0(integer): Initial frequency index\n
@@ -2001,7 +2007,7 @@
       !!        J00C_n(double(:,:)): New mean intensity with frequency
       !!                             dependence
       subroutine solveI_RT(Atom,LTElines,Atmo,Cont,Frec,Red,Geom, &
-                           MPID,lALI,lp_exu,if0,if1,Stokes_s, &
+                           MPID,lALI,ALIp,lp_exu,if0,if1,Stokes_s, &
                            rLine_s,rPhot_s,Prof_s,data1M,data1O, &
                            data2O,rLineO,rPhotO,LO,LambdaL,LambdaP, &
                            p_exu,Stokes,J00,J00S,J00C,J00P,J00C_n)
@@ -2017,7 +2023,7 @@
       type(Red_class), intent(in):: Red
       type(Geometry_class), intent(in):: Geom
       type(MPI_class), intent(in):: MPID
-      logical, intent(in):: lALI,lp_exu
+      logical, intent(in):: lALI,ALIp,lp_exu
       integer, intent(in):: if0,if1
       double precision, dimension(:,:,:,:), &
                         allocatable, intent(inout):: Stokes_s
@@ -2082,7 +2088,7 @@
         J00C_n = 0d0
         if (lALI) then
           LambdaL = 0d0
-          LambdaP = 0d0
+          if (ALIp) LambdaP = 0d0
         end if
       end if
 
@@ -2227,7 +2233,7 @@
 
               ! b-f Lambda operator (bottom boundary does not
               ! contribute)
-              rPhot_s(:,o,jph,jth) = 0d0
+              if (ALIp) rPhot_s(:,o,jph,jth) = 0d0
 
             end if
 
@@ -2241,7 +2247,7 @@
             ! operator
             if (lALI) then
               rLineO = 0d0
-              rPhotO = 0d0
+              if (ALIp) rPhotO = 0d0
             end if
 
             ! Point to exu values
@@ -2256,7 +2262,7 @@
                         data1M(:,3),rLineO,rPhotO,data2O, &
                         J00(:,o),J00S(:,o),J00P(:,:,o), &
                         J00C_n(:,o),LambdaL(:,:,o), &
-                        LambdaP(:,:,:,o),lALI,p_exu)
+                        LambdaP(:,:,:,o),lALI,ALIp,p_exu)
 
           end if ! MPI/serial
 
@@ -2428,27 +2434,34 @@
                   end do ! FS transition
                 end do ! b-b transition
 
-                ! For each b-f transition
-                do itran=1,Atom(ia)%nphot
+                ! If ALI photoionization
+                if (ALIp) then
 
-                  ! If this CPU does not have frequencies in
-                  ! this transition, skip
-                  if (Atom(ia)%phot(itran)%absent) cycle
+                  ! For each b-f transition
+                  do itran=1,Atom(ia)%nphot
 
-                  ! Apply shift
-                  jtran = itran + Atom(ia)%pshift
+                    ! If this CPU does not have frequencies in
+                    ! this transition, skip
+                    if (Atom(ia)%phot(itran)%absent) cycle
 
-                  ! For each frequency
-                  do ifreq=Atom(ia)%phot(itran)%if0, &
-                           Atom(ia)%phot(itran)%if1
+                    ! Apply shift
+                    jtran = itran + Atom(ia)%pshift
 
-                    ! Advance and store scaled
-                    iip = iip + 1
-                    rPhotO(iip) = LO(ifreq)*rPhotO(iip)
+                    ! For each frequency
+                    do ifreq=Atom(ia)%phot(itran)%if0, &
+                             Atom(ia)%phot(itran)%if1
 
-                  end do ! frequency
-                end do ! b-f transition
+                      ! Advance and store scaled
+                      iip = iip + 1
+                      rPhotO(iip) = LO(ifreq)*rPhotO(iip)
+
+                    end do ! frequency
+                  end do ! b-f transition
+
+                end if ! If ALI photoionization
+
               end do ! atom
+
 
               ! If MPI
               if (pid.gt.0) then
@@ -2457,7 +2470,8 @@
                 rLine_s(:,o,jph,jth) = rLineO(:)
 
                 ! Send b-f Lambda operator
-                rPhot_s(:,o,jph,jth) = rPhotO(:)
+                if (ALIp) &
+                  rPhot_s(:,o,jph,jth) = rPhotO(:)
 
               end if ! MPI
 
@@ -2494,7 +2508,7 @@
                           data1O(:,3),rLineO,rPhotO,data2O, &
                           J00(:,o),J00S(:,o),J00P(:,:,o), &
                           J00C_n(:,o),LambdaL(:,:,o), &
-                          LambdaP(:,:,:,o),lALI,p_exu)
+                          LambdaP(:,:,:,o),lALI,ALIp,p_exu)
 
             end if
 
@@ -2598,25 +2612,31 @@
                 end do ! FS transition
               end do ! b-b transition
 
-              ! For each b-f transition
-              do itran=1,Atom(ia)%nphot
+              ! If ALI photoionization
+              if (ALIp) then
 
-                ! If this CPU does not have frequencies in
-                ! this transition, skip
-                if (Atom(ia)%phot(itran)%absent) cycle
+                ! For each b-f transition
+                do itran=1,Atom(ia)%nphot
 
-                ! Apply atomic shift
-                jtran = itran + Atom(ia)%pshift
+                  ! If this CPU does not have frequencies in
+                  ! this transition, skip
+                  if (Atom(ia)%phot(itran)%absent) cycle
 
-                ! For each frequency
-                do ifreq=Atom(ia)%phot(itran)%if0, &
-                         Atom(ia)%phot(itran)%if1
+                  ! Apply atomic shift
+                  jtran = itran + Atom(ia)%pshift
 
-                  iip = iip + 1
-                  rPhotO(iip) = LO(ifreq)*rPhotO(iip)
+                  ! For each frequency
+                  do ifreq=Atom(ia)%phot(itran)%if0, &
+                           Atom(ia)%phot(itran)%if1
 
-                end do ! frequency
-              end do ! b-f transition
+                    iip = iip + 1
+                    rPhotO(iip) = LO(ifreq)*rPhotO(iip)
+
+                  end do ! frequency
+                end do ! b-f transition
+
+              end if ! If ALI photoionization
+
             end do ! atom
 
             ! MPI
@@ -2626,7 +2646,8 @@
               rLine_s(:,o,jph,jth) = rLineO(:)
 
               ! b-f Lambda operator
-              rPhot_s(:,o,jph,jth) = rPhotO(:)
+              if (ALIp) &
+                rPhot_s(:,o,jph,jth) = rPhotO(:)
 
             end if
 
@@ -2696,14 +2717,16 @@
                 end do
 
                 ! Send b-f Lambda operator
-                do while (.True.)
-                  call MPI_SEND(rPhot_s(1,Rz0,1,1), &
-                                MPID%sizei0(pid), &
-                                MPI_DOUBLE_PRECISION, &
-                                0, 3+pid, MPI_COMM_RT, &
-                                ierr)
-                  if (ierr.eq.0) exit
-                end do
+                if (ALIp) then
+                  do while (.True.)
+                    call MPI_SEND(rPhot_s(1,Rz0,1,1), &
+                                  MPID%sizei0(pid), &
+                                  MPI_DOUBLE_PRECISION, &
+                                  0, 3+pid, MPI_COMM_RT, &
+                                  ierr)
+                    if (ierr.eq.0) exit
+                  end do
+                end if
 
               end if ! ALI
             end if ! Alternative MPI
@@ -2726,7 +2749,7 @@
                         data1O(:,3),rLineO,rPhotO,data2O, &
                         J00(:,o),J00S(:,o),J00P(:,:,o), &
                         J00C_n(:,o),LambdaL(:,:,o), &
-                        LambdaP(:,:,:,o),lALI,p_exu)
+                        LambdaP(:,:,:,o),lALI,ALIp,p_exu)
 
           end if ! MPI/serial
 
@@ -2783,14 +2806,16 @@
           end do
 
           ! Send b-f Lambda operator
-          do while (.True.)
-            call MPI_SEND(rPhot_s(1,Rz0,1,1), &
-                          MPID%sizei0(pid), &
-                          MPI_DOUBLE_PRECISION, &
-                          0, 3+pid, MPI_COMM_RT, &
-                          ierr)
-            if (ierr.eq.0) exit
-          end do
+          if (ALIp) then
+            do while (.True.)
+              call MPI_SEND(rPhot_s(1,Rz0,1,1), &
+                            MPID%sizei0(pid), &
+                            MPI_DOUBLE_PRECISION, &
+                            0, 3+pid, MPI_COMM_RT, &
+                            ierr)
+              if (ierr.eq.0) exit
+            end do
+          end if
 
         end if ! ALI
       end if ! Normal MPI
@@ -2937,13 +2962,15 @@
                    !J00S(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
                     J00(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
                     LambdaL(:,itran:jtran,iz), &
-                    LambdaP(:,fftran:jftran,:,iz),iz,lALI,Input)
+                    LambdaP(:,fftran:jftran,:,iz),iz,lALI, &
+                    Input%ALI_photo,Input%ALI_allow_off,Input)
 #else
           call SEEI(Atom(ia),Rho_old(ia),J00(itran:jtran,iz), &
                    !J00S(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
                     J00(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
                     LambdaL(:,itran:jtran,iz), &
-                    LambdaP(:,fftran:jftran,:,iz),iz,lALI)
+                    LambdaP(:,fftran:jftran,:,iz),iz,lALI, &
+                    Input%ALI_photo,INPUT%ALI_allow_off)
 #endif
 
         end do ! heights
@@ -5947,12 +5974,12 @@
             call SEEI(Atom(ia),Rho_old(ia),J00(itran:jtran,iz), &
                       J00(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
                      !J00S(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
-                      LambdaL,LambdaP,iz,.False.,Input)
+                      LambdaL,LambdaP,iz,.False.,.False.,.True.,Input)
 #else
             call SEEI(Atom(ia),Rho_old(ia),J00(itran:jtran,iz), &
                       J00(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
                      !J00S(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
-                      LambdaL,LambdaP,iz,.False.)
+                      LambdaL,LambdaP,iz,.False.,.False.,.True.)
 #endif
 
           end do ! heights

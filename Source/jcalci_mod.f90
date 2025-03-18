@@ -9,14 +9,16 @@
 !  Start:
 !     26/04/2017
 !  Last version:
-!     13/12/2024 V4.0.0
+!     18/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     13/12/2024:    V4.0.0 - Removed OpenMP (TdPA)
+!     18/03/2025:    V4.0.1 - Added the option to skip the calculation
+!                             of the lambda operator for bound-free
+!                             transitions (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -108,16 +110,18 @@
       !!    LambdaL(double(:,:)): Bound-bound Lambda operator\n
       !!  LambdaP(double(:,:,:)): Bound-free Lambda operator\n
       !!            ALI(logical): If computing Lambda operator\n
+      !!           ALIp(logical): If computing Lambda operator for
+      !!                          photoionizations\n
       !!         iexu(double(:)): Pre-computed frequency exponential
       subroutine JcalcI(Atom,Geom,omega,Wfreq,pf0,pf1,T,ne,iph,ith, &
                         Stk,rLine,rPhot,Prof,J00,J00S,J00P,J00C, &
-                        LambdaL,LambdaP,ALI,iexu)
+                        LambdaL,LambdaP,ALI,ALIp,iexu)
 
       ! I/O
 
       type(Atom_class), dimension(:), intent(in):: Atom
       type(Geometry_class), intent(in):: Geom
-      logical, intent(in):: ALI
+      logical, intent(in):: ALI,ALIp
       integer, intent(in):: ith,iph,pf0,pf1
       double precision, intent(in):: T, ne
       double precision, dimension(:), intent(in):: Wfreq, omega
@@ -135,7 +139,7 @@
 
       ! Local
 
-      logical:: nALI
+      logical:: nALI,nALIp
 
       integer:: iil,iip,jjl,jjp,nf
       integer:: ifreq,if0,if1,ia,itran,jtran,ftran,jftran
@@ -163,6 +167,7 @@
 
       ! Not ALI
       nALI = .not.ALI
+      nALIp = .not.(ALI.and.ALIp)
 
       ! If pre-computed exponentials
       if (PIRAM.and.pf1.ge.pf0) then
@@ -360,7 +365,7 @@
             J00P(jtran,2) = J00P(jtran,2) + WF*exu(ifreq)*c3
 
             ! Check ALI
-            if (nALI) cycle
+            if (nALIp) cycle
 
             ! Weight for Lambda operator
             WFS = c1*rPhot(jjp)
@@ -607,15 +612,17 @@
       !!                            dependence\n
       !!  LambdaP(double(:,:,:)): Bound-free Lambda operator\n
       !!            ALI(logical): If computing Lambda operator\n
+      !!           ALIp(logical): If computing Lambda operator for
+      !!                          photoionizations\n
       !!         iexu(double(:)): Pre-computed frequency exponential
       subroutine FIntI_rest(Atom,MPID,omega,Wfreq,pf0,pf1,T,proc,WA, &
-                            Stk,rPhot,J00P,J00C,LambdaP,ALI,iexu)
+                            Stk,rPhot,J00P,J00C,LambdaP,ALI,ALIp,iexu)
 
       ! I/O
 
       type(Atom_class), dimension(:), intent(in):: Atom
       type(MPI_class), intent(in):: MPID
-      logical, intent(in):: ALI
+      logical, intent(in):: ALI,ALIP
       integer, intent(in):: proc
       integer, intent(in):: pf0,pf1
       double precision, intent(in):: WA
@@ -630,7 +637,7 @@
 
       ! Local
 
-      logical:: nALI
+      logical:: nALI,yALI
 
       integer:: ifreq,ifreqs,ia,itran,jtran,if0,if1,if0p,if0s,if1s,iip
 
@@ -646,7 +653,8 @@
       if0p = MPID%if0(proc) - 1
 
       ! Not ALI
-      nALI = .not.ALI
+      yALI = ALI.and.ALIp
+      nALI = .not.yALI
 
 
       !
@@ -740,7 +748,7 @@
           J00P(jtran,2) = J00P(jtran,2) + WF*exu(if0)
 
           ! If computing lambda operator
-          if (ALI) then
+          if (yALI) then
 
             ! Weight for Lambda operator
             iip = iip + 1
@@ -798,7 +806,7 @@
           J00P(jtran,2) = J00P(jtran,2) + WF*exu(if1)
 
           ! Add the contribution to the Lambda operator
-          if (ALI) then
+          if (yALI) then
 
             ! Weight for Lambda operator
             iip = iip + 1

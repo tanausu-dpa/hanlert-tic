@@ -10,14 +10,17 @@
 !  Start:
 !     22/02/2023
 !  Last version:
-!     13/12/2024 V4.0.0
+!     18/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     13/12/2024:    V4.0.0 - Revised headers (TdPA)
+!     18/03/2025:    V4.0.1 - Added argument to set_up_data_frombuffer
+!                             to call the new enhance_sigma function,
+!                             which artificially modifies the sigma
+!                             in the data file (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1646,8 +1649,10 @@
       !!                            synthetic Stokes parameters in the
       !!                            frequency range of the inverted
       !!                            data\n
+      !!      Sfactor(double(:,:)): Enhancement factors for sigma\n
       !!         buffer(double(:)): Data buffer
-      subroutine set_up_data_frombuffer(finfo,Inf_Stokes,Sol,buffer)
+      subroutine set_up_data_frombuffer(finfo,Inf_Stokes,Sol, &
+                                        Sfactor,buffer)
 
       ! I/O
 
@@ -1655,6 +1660,8 @@
       type(Solution_class), intent(inout):: Sol
       integer, dimension(:), intent(in):: finfo
       double precision, dimension(:), intent(in):: buffer
+      double precision, dimension(:,:), &
+                        allocatable, intent(in):: Sfactor
 
       ! Local
 
@@ -1805,6 +1812,11 @@
           end if ! Negative sigma
 
         end do ! For each Stokes parameter
+
+        ! If needs enhancement
+        if (allocated(Sfactor)) &
+          call enhance_sigma(Sfactor,Inf_Stokes%Sigma_W, &
+                             Sol%omega_input)
 
         ! Share
         call control

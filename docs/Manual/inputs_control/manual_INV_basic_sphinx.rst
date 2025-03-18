@@ -825,6 +825,17 @@ WEIGHT_FACTOR
 
   * Description: Each entry of this keyword specifies a multiplicative factor for the weights of a given Stokes parameter between two wavelengths. The string must be I, Q, U, or V, the first two floats specify the wavelength range of the weights to enhance in nanometers, and the last one is a non-negative multiplicative factor. If there are several ranges sharing at least one wavelength for the same Stokes parameter, the inversion will be aborted before starting. Ignored if AUTO_WEIGHT=Yes.
 
+SIGMA_FACTOR
+------------
+
+  * OPTIONAL, ADDITIVE
+
+  * Formats:
+    
+    - string + float*3
+
+  * Description: Each entry of this keyword specifies a multiplicative factor for the sigma of a given Stokes parameter between two wavelengths. The string must be I, Q, U, or V, the first two floats specify the wavelength range of the weights to enhance in nanometers, and the last one is a non-negative multiplicative factor. If there are several ranges sharing at least one wavelength for the same Stokes parameter, the inversion will be aborted before starting. Ignored if there is no sigma information in the data.
+
 INV_INIT
 --------
 

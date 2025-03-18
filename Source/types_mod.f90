@@ -11,15 +11,15 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     12/03/2025 V4.0.2
+!     18/03/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.2 - Added ndzaoA to Red_class (TdPA)
-!                           - Added warning to Solution_class (TdPA)
+!     18/03/2025:    V4.0.3 - Added ALI_photo, ALI_allow_off, and
+!                             Sigma_Factor to Input_class (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1190,7 +1190,8 @@
         ! spectrum when computing input JKQ in CLE if no input
         ! spectra, if restricting height for redistribution, if
         ! restricting tau for redistribution, if considering only K=2
-        ! for MRC
+        ! for MRC, if consider ALI for photoionization transitions,
+        ! allow switching off ALI if SEE gives negative populations
         logical:: AV,appendMRC,appendMRCI,out_contr,out_tau1,store, &
                   storeI,Pcorr,Raman,keepIsol,NG,keep_back, &
                   keep_damp,keep_cols,bfieldn,keep_aparam,addbb, &
@@ -1203,7 +1204,7 @@
                   two_step_pol,lexcl,rest_tau_strc,rest_z_strc, &
                   ALI_force,init_J_bb,keep_qel,add_cont_cle, &
                   use_allen,flat_cle_in,rest_z_red,rest_tau_red, &
-                  anisotropy_only
+                  anisotropy_only,ALI_photo,ALI_allow_off
 
         ! If asymmetry input
         logical, dimension(2):: lasym
@@ -1446,9 +1447,10 @@
         ! Data to specify atmospheric stratification modifications
         double precision, dimension(:,:), allocatable:: Atmo_strat
 
-        ! Additional weight factor
-        double precision, dimension(:,:), allocatable:: Weight_Factor
-
+        ! Additional weight factor, additional sigma factor
+        double precision, dimension(:,:), allocatable:: &
+                                                      Weight_Factor, &
+                                                      Sigma_Factor
       end type Input_class
 
 !#####################################################################

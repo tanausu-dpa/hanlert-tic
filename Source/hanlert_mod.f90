@@ -10,19 +10,15 @@
 !  Start:
 !     22/06/2022
 !  Last version:
-!     12/03/2025 V4.0.1
+!     18/03/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.1 - Added warnings for unexpected changes
-!                             in the MRAMc memory counter between
-!                             calls to hanle in HanleRT15DS (TdPA)
-!                           - Explicitly free the space allocated
-!                             in LTEline_class when finished with
-!                             the synthesis in one pixel (TdPA)
+!     18/03/2025:    V4.0.2 - Added argument to the call to
+!                             setmpi_sizes (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -436,7 +432,8 @@
 
       ! If doing MPI, setup the buffer sizes
       if (MPID%mpi) &
-        call setmpi_sizes(MPID,GeomI,Geom,Frec,lio,lp,l1,l2,.False.)
+        call setmpi_sizes(MPID,GeomI,Geom,Frec,lio,lp,l1,l2, &
+                          Input%ALI_photo,.False.)
 
 #ifdef DEBUGATMO
       ! Write in an ASCII file the model atmosphere
@@ -850,7 +847,8 @@
 
         ! If doing RT MPI, define the buffer sizes
         if (MPID%mpi) &
-          call setmpi_sizes(MPID,GeomI,Geom,Frec,lio,lp,l1,l2,.False.)
+          call setmpi_sizes(MPID,GeomI,Geom,Frec,lio,lp,l1,l2, &
+                            Input%ALI_photo,.False.)
 
       end if ! Not global master or not distributer
 

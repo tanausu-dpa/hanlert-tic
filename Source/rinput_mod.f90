@@ -10,14 +10,16 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     20/02/2025 V4.0.1
+!     18/03/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/02/2025:    V4.0.1 - Read Input%anisotropy_only (TdPA)
+!     18/03/2025:    V4.0.2 - Read Input%Sigma_factor,
+!                             Input%ALI_photo, and
+!                             Input%ALI_allow_off (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -920,12 +922,20 @@
       ! PRD in intensity delay
       read(100,*,err=1100) Input%PRD_delay
 
+      ! ALI photoionizations
+      read(100,*,err=1100) cdump
+      Input%ALI_photo = cdump.eq.'Y'
+
       ! ALI method delay
       read(100,*,err=1100) Input%ALI_delay
 
       ! ALI force
       read(100,*,err=1100) cdump
       Input%ALI_force = cdump.eq.'Y'
+
+      ! ALI allow off
+      read(100,*,err=1100) cdump
+      Input%ALI_allow_off = cdump.eq.'Y'
 
       ! Append into the MRC file
       read(100,*,err=1100) cdump
@@ -1359,6 +1369,23 @@
 
           end if ! Additional factors to read
         end if ! No automatic weights
+
+        ! Sigma factors
+        read(100,*,err=1100) ios
+
+        ! If sigma factor to read
+        if (ios.gt.0) then
+
+          ! Allocate
+          allocate(Input%Sigma_Factor(4,ios))
+          MRAMc = MRAMc + 1d-6*sizeof(Input%Sigma_Factor)
+
+          ! Read entries
+          do i1=1,ios
+            read(100,*,err=1100) Input%Sigma_Factor(:,i1)
+          end do
+
+        end if ! Additional factors to read
 
         ! Inversion initialization
         read(100,'(A)',err=1100) Input%Inv_init

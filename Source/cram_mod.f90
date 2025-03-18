@@ -9,16 +9,15 @@
 !  Start:
 !     24/10/2024
 !  Last version:
-!     12/03/2025 V4.0.1
+!     18/03/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.1 - JKQin now is counted in RRAMc instead
-!                             of in MRAMc (TdPA)
-!                           - Added cram_report routine (TdPA)
+!     18/03/2025:    V4.0.2 - Added Sigma_factor to Input_class RAM
+!                             counting (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1782,6 +1781,10 @@
       ! Weight_Factor
       if (allocated(Input%Weight_Factor)) &
         num = num + 1d-6*sizeof(Input%Weight_Factor)
+
+      ! Sigma_Factor
+      if (allocated(Input%Sigma_Factor)) &
+        num = num + 1d-6*sizeof(Input%Sigma_Factor)
 
       end subroutine cram_input
 

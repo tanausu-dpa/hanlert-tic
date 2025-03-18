@@ -11,20 +11,15 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     12/03/2025 V4.0.2
+!     18/03/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.2 - Added the JKQ_asym variable to the RRAMc
-!                             counter (TdPA)
-!                           - The BRAMc counter has been moved from
-!                             background_mod to here (TdPA)
-!                           - Explicitly free memory in GeomI (TdPA)
-!                           - Explicitly reset the prediction TRAMc
-!                             memory counter (TdPA)
+!     18/03/2025:    V4.0.3 - Added argument to the call to
+!                             setmpi_sizes (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -41,7 +36,7 @@
 !
 !  Data:
 !
-!  hanle:
+!  hanle
 !    Solve the NLTE self-consistent problem and calculate the emergent
 !  profiles
 !
@@ -54,18 +49,18 @@
 !  hanle_reback
 !    Recalculate the background continuum quantities
 !
-!  hanle_init:
+!  hanle_init
 !    Initialize radiation and density matrices
 !
-!  hanle_intensity:
+!  hanle_intensity
 !    Solve the self-consistent NLTE problem for intensity or/and
 !  calculate the emergent intensity profiles
 !
-!  hanle_polarization:
+!  hanle_polarization
 !    Solve the self-consistent NLTE problem or the second kind or/and
 !  calculate the emergent Stokes profiles
 !
-!  prepare_buffers:
+!  prepare_buffers
 !    Allocate the arrays to store the solution of the forward problem
 !  in the inversion mode and configure the synthesis mode for the
 !  inversion code, depending on if the synthesis is a trial or a
@@ -273,7 +268,8 @@
 
         ! If doing MPI, recalculate the message sizes
         if (MPID%mpi) &
-          call setmpi_sizes(MPID,GeomI,Geom,Frec,lio,lp,l1,l2,.True.)
+          call setmpi_sizes(MPID,GeomI,Geom,Frec,lio,lp,l1,l2, &
+                            Input%ALI_photo,.True.)
 
       end if ! Restricting the vertical dimension
 

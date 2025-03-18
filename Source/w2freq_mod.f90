@@ -10,15 +10,14 @@
 !  Start:
 !     17/02/2023
 !  Last version:
-!     20/12/2024 V4.0.0
+!     18/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/12/2024:    V4.0.0 - Removed references to threads in the
-!                             calls to abortedS (TdPA)
+!     18/03/2025:    V4.0.1 - Added enhance_sigma subroutine (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -41,6 +40,10 @@
 !
 !  inversion_weights
 !    Create the wavelength dependent weights for the L2 merit function
+!
+!  enhance_sigma
+!    Multiply the sigma for the data by a constant factor in specific
+!  wavelength ranges indicated in the input
 !
 !  Profile_Conversion
 !    Convert Stokes profiles from HanleRT units to SI
@@ -155,7 +158,7 @@
       !!                            data\n
       !!  Inf_Stokes(Stokes_class): Structure with inversion Stokes
       !!                            parameters data\n
-      !!       omega_in(double(:)): Frequency axis from data\n
+      !!       omega_in(double(:)): Frequency axis from data
       subroutine inversion_weights(Input,Inf_Stokes,omega_in)
 
       ! I/O
@@ -532,6 +535,165 @@
       return
 
       end subroutine inversion_weights
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Multiply the sigma for the data by a constant factor in
+      !! specific wavelength ranges indicated in the input\n
+      !!       factor(double(:,:)): Enhancement factors for sigma\n
+      !!        Sigma(double(:,:)): Structure with data sigma\n
+      !!       omega_in(double(:)): Frequency axis from data\n
+      subroutine enhance_sigma(factor,Sigma,omega_in)
+
+      ! I/O
+
+      double precision, dimension(:), intent(in):: omega_in
+      double precision, dimension(:,:), intent(in):: factor
+      double precision, dimension(:,:), intent(inout):: Sigma
+
+      ! Local
+
+      logical:: left,right
+
+      integer:: i,j,il,ir,nl,nstk,ios,ileft,iright
+
+      double precision:: wileft,wiright,wleft,wright
+
+
+      ! Run over all entries
+      do i=1,size(factor,2)-1
+
+        ! Flag that limits are to be check
+        left = .True.
+
+        ! Run over all other entry
+        do j=i+1,size(factor,2)
+
+          ! If Stokes is not the same, skip
+          if (nint(factor(1,i)).ne.nint(factor(1,j))) cycle
+
+          ! Get index limits for first if not yet
+          if (left) then
+
+            ! Get indexes
+            il = minloc(abs(omega_in - factor(2,i)),1)
+            ir = minloc(abs(omega_in - factor(3,i)),1)
+
+            ! Flag that found
+            left = .False.
+
+          end if ! Need to get indexes for first
+
+          ! Get indexes for second
+          nl = minloc(abs(omega_in - factor(2,j)),1)
+          nstk = minloc(abs(omega_in - factor(3,j)),1)
+
+          ! Check superposition
+          if ((nl.ge.il.and.nl.le.ir).or. &
+              (nstk.ge.il.and.nstk.le.ir)) then
+
+            ! Abort if superposition
+            select case (nint(factor(1,i)))
+
+              ! I
+              case (0)
+
+                ! Abort
+                write(umsg, &
+                      '(A,2(A,i2,"(",es15.8,",",es15.8,")"))') &
+                       'There is superposition of at least two '// &
+                       'ranges in SIGMA_FACTOR for Stokes I: ', &
+                       'range ',i,omega_in(il),omega_in(ir), &
+                       ' and range ',j,omega_in(nl),omega_in(nstk)
+
+              ! Q
+              case (1)
+
+                ! Abort
+                write(umsg, &
+                      '(A,2(A,i2,"(",es15.8,",",es15.8,")"))') &
+                       'There is superposition of at least two '// &
+                       'ranges in SIGMA_FACTOR for Stokes Q: ', &
+                       'range ',i,omega_in(il),omega_in(ir), &
+                       ' and range ',j,omega_in(nl),omega_in(nstk)
+
+              ! U
+              case (2)
+
+                ! Abort
+                write(umsg, &
+                      '(A,2(A,i2,"(",es15.8,",",es15.8,")"))') &
+                       'There is superposition of at least two '// &
+                       'ranges in SIGMA_FACTOR for Stokes U: ', &
+                       'range ',i,omega_in(il),omega_in(ir), &
+                       ' and range ',j,omega_in(nl),omega_in(nstk)
+
+              ! V
+              case (3)
+
+                ! Abort
+                write(umsg, &
+                      '(A,2(A,i2,"(",es15.8,",",es15.8,")"))') &
+                       'There is superposition of at least two '// &
+                       'ranges in SIGMA_FACTOR for Stokes V: ', &
+                       'range ',i,omega_in(il),omega_in(ir), &
+                       ' and range ',j,omega_in(nl),omega_in(nstk)
+
+              ! Unknown
+              case default
+
+                ! Abort
+                write(umsg, &
+                      '(A,2(A,i2,"(",es15.8,",",es15.8,")"))') &
+                       'There is superposition of at least two '// &
+                       'ranges in SIGMA_FACTOR: ', &
+                       'range ',i,omega_in(il),omega_in(ir), &
+                       ' and range ',j,omega_in(nl),omega_in(nstk)
+
+            end select ! Stokes profiles
+
+            ! Finish the error
+            urou = 'enhance_sigma'
+            call abortedS(umsg,urou,.True.,.True.)
+            call control
+            return
+
+          end if ! Error
+
+        end do ! All other entries
+      end do ! All entries
+
+      ! Run over all entries
+      do i=1,size(factor,2)
+
+        ! Get indexes
+        nstk = nint(factor(1,i)) + 1
+        il = minloc(abs(omega_in - factor(2,i)),1)
+        ir = minloc(abs(omega_in - factor(3,i)),1)
+
+        ! Apply scale
+        Sigma(nstk,il:ir) = factor(4,i)*Sigma(nstk,il:ir)
+
+      end do ! Factor entries
+
+      !
+      ! Sanity check
+      !
+      if (minval(Sigma).lt.0d0) then
+
+        ! Abort
+        umsg = 'Found a negative sigma for the inversion'
+        urou = 'enhance_sigma'
+        call aborted
+        return
+
+      end if
+
+      return
+
+      end subroutine enhance_sigma
 
 !#####################################################################
 !#####################################################################
