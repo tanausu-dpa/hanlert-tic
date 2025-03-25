@@ -10,22 +10,16 @@
 !  Start:
 !     16/02/2023
 !  Last version:
-!     18/03/2025 V4.0.2
+!     25/03/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/03/2025:    V4.0.2 - Bugfix: set_atom_indexes had the wrong
-!                             arguments to trigger the indexing for
-!                             polarization calculations (TdPA)
-!                           - Added call to the new enhance_sigma
-!                             function (TdPA)
-!                           - Added argument to the call to
-!                             setmpi_sizes (TdPA)
-!                           - Added argument to the call to
-!                             set_up_data_frombuffer (TdPA)
+!     25/03/2025:    V4.0.3 - Added not doing a thermal inversion for
+!                             a dynamic atmosphere as a trigger to
+!                             store all Stokes paramters (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1038,9 +1032,11 @@
 
       ! Decide if need to keep Stokes
       if (.not.MPID%mpi15d.or.(pid.eq.0.and.gpid.ne.0)) then
-        KSTK = KSTK.or.(PRD.and.(dyn.or..not.AV))
+        KSTK = KSTK.or.(PRD.and.(dyn.or..not.AV)).or. &
+               (dyn.and.Input%Type_inversion.gt.0)
       else
-        KSTK = PRD.and.(dyn.or..not.AV)
+        KSTK = (PRD.and.(dyn.or..not.AV)).or. &
+               (dyn.and.Input%Type_inversion.gt.0)
       end if
 
 

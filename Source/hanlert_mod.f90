@@ -287,14 +287,14 @@
 
         ! Keep Stokes if pre-imposed or doing PRD that
         ! is either dynamic or angle-dependent
-        KSTK = KSTK.or.(PRD.and.(dyn.or..not.AV))
+        KSTK = KSTK.or.(PRD.and.(dyn.or..not.AV)).or.(lp.and.dyn)
 
       ! Slaves
       else
 
         ! Keep Stokes if doing PRD that is either dynamic
         ! or angle-dependent
-        KSTK = PRD.and.(dyn.or..not.AV)
+        KSTK = (PRD.and.(dyn.or..not.AV)).or.(lp.and.dyn)
 
       end if ! Master/slave
 
@@ -659,13 +659,15 @@
 
         ! Keep Stokes if already flagged or if doind PRD either
         ! dynamic or angle-dependent
-        KSTK = KSTK.or.(PRD.and.(.not.Input%static.or..not.AV))
+        KSTK = KSTK.or.(PRD.and.(.not.Input%static.or..not.AV)).or. &
+               (lp.and.dyn)
 
       ! If RT slave
       else
 
         ! Keep Stokes if doind PRD either dynamic or angle-dependent
-        KSTK = PRD.and.(.not.Input%static.or..not.AV)
+        KSTK = (PRD.and.(.not.Input%static.or..not.AV)).or. &
+               (lp.and.dyn)
 
       end if ! RT slave
 

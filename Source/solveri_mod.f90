@@ -9,16 +9,16 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     18/03/2025 V4.0.4
+!     25/03/2025 V4.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/03/2025:    V4.0.4 - Added argument to solveI_RT call (TdPA)
-!                           - Added the option to neglect ALI for
-!                             bound-free transitions (TdPA)
+!     25/03/2025:    V4.0.5 - If there are velocities, it is necessary
+!                             to integrate in directions even if there
+!                             is no PRD (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -6158,7 +6158,7 @@
       ADD = AD.or.dyn
 
       ! Select the angular limits
-      if (PRD.and.ADD) then
+      if ((PRD.and.ADD).or.dyn) then
         nth = Geom%nTh
         nph = Geom%nPh
       else
@@ -6434,7 +6434,7 @@
             !
             ! Calculate frequency integral
             !
-            if (PRD.and.ADD) then
+            if ((PRD.and.ADD).or.dyn) then
               if (axiali) then
                 call FJgInt(Atom,MPID,Frec%W_freq,info_b, &
                             Stokes0(:,1,ith,iz), &
@@ -6515,7 +6515,7 @@
             !
             ! Calculate frequency integral
             !
-            if (PRD.and.ADD) then
+            if ((PRD.and.ADD).or.dyn) then
               if (axiali) then
                 call FJgInt(Atom,MPID,Frec%W_freq,info_b, &
                             Stokes0(:,1,ith,iz), &
@@ -6557,7 +6557,7 @@
           do iph=1,nph
 
             ! Get the angular integral weight
-            if (PRD.and.ADD) then
+            if ((PRD.and.ADD).or.dyn) then
               WA = Geom%W_mu(ith)*Geom%W_mux(iph)
             else
               WA = 1d0
@@ -6704,7 +6704,7 @@
           if (pid.eq.0) then
 
             ! Select the angular limits
-            if (PRD.and.ADD) then
+            if ((PRD.and.ADD).or.dyn) then
               WA = Geom%W_mu(ith)*Geom%W_mux(iph)
             else
               WA = 1d0
@@ -6767,7 +6767,7 @@
             if (pid.eq.0) then
 
               ! If PRD and angle-dependent or dynamic
-              if (PRD.and.ADD) then
+              if ((PRD.and.ADD).or.dyn) then
 
                 ! If intensity axially symmetric
                 if (axiali) then

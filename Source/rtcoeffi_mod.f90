@@ -11,21 +11,16 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     19/12/2024 V4.0.0
+!     25/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     19/12/2024:    V4.0.0 - Removed OpenMP directives (TdPA)
-!                           - Combined RTCoeffI and RTCoeffIe into
-!                             a single subroutine (TdPA)
-!                           - Changed how the normalization factor,
-!                             profiles, and redistribution functions
-!                             are stored (TdPA)
-!                           - The second order emissitivy is now
-!                             calculated elsewhere (TdPA)
+!     25/03/2025:    V4.0.1 - Updated Termprof routine to only use
+!                             rt1ord and follow the same logic than
+!                             rtcoeff to normalize profiles (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1076,89 +1071,54 @@
             Dw = Atom(ia)%Dfreq(jtran)*sqrt(DwT*DwT + &
                                             Atmo%vmi(iz)**2d0)
 
-            ! If stimulated
-            if (stm) then
+            !
+            ! First order RT coefficients
+            !
+            call rt1ord(Atom(ia),TKQo,Frec%omega,Flgsg, &
+                        jtran,itermu,iterml,iz,if0l,if1l, &
+                        p_Norm,Dw,vfac,absK, &
+                        etmp0(if0l:if1l),etmp1(if0l:if1l), &
+                        etmp2(if0l:if1l),etmp3(if0l:if1l), &
+                        rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
+                        rtmp3(if0l:if1l), &
+                        estmp0(if0l:if1l),estmp1(if0l:if1l), &
+                        estmp2(if0l:if1l),estmp3(if0l:if1l), &
+                        rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
+                        rstmp3(if0l:if1l))
 
-              !
-              ! First order RT coefficients
-              !
-              call rt1ord(Atom(ia),TKQo,Frec%omega,Flgsg, &
-                          jtran,itermu,iterml,iz,if0l,if1l, &
-                          p_Norm,Dw,vfac,absK, &
-                          etmp0(if0l:if1l),etmp1(if0l:if1l), &
-                          etmp2(if0l:if1l),etmp3(if0l:if1l), &
-                          rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
-                          rtmp3(if0l:if1l), &
-                          estmp0(if0l:if1l),estmp1(if0l:if1l), &
-                          estmp2(if0l:if1l),estmp3(if0l:if1l), &
-                          rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
-                          rstmp3(if0l:if1l))
+            ! Copy absorbtivity in data2
+            data2(iil:iil+nf,1) = etmp0(if0l:if1l)
 
-            ! Not stimulated
-            else
+            ! If there is no MPI, normalize it here
+            if (nproc.le.1) then
 
-              !
-              ! Absorptivity
-              !
-              call absorb(Atom(ia),TKQo,Frec%omega,Flgsg, &
-                          jtran,itermu,iterml,iz,if0l,if1l, &
-                          p_Norm,Dw,vfac,absK, &
-                          etmp0(if0l:if1l),etmp1(if0l:if1l), &
-                          etmp2(if0l:if1l),etmp3(if0l:if1l), &
-                          rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
-                          rtmp3(if0l:if1l))
+              ! Get index
+              jjl = iil
 
-            end if ! Stimulated emission
+              ! Add to norm
+              daux = data2(jjl,1)*Atom(ia)%W0(jtran)
 
-            ! If MPI
-            if (nproc.gt.1) then
+              ! For non-boundary frequencies
+              do ifreq=if0l+1,if1l-1
 
-              ! Copy absorbtivity in data2
-              data2(iil:iil+nf,1) = etmp0(if0l:if1l)
+                ! Get index
+                jjl = jjl + 1
 
-            ! No MPI
-            else
+                ! Add to norm
+                daux = daux + data2(jjl,1)*Frec%W_freq(ifreq)
 
-              ! Initialize
-              daux = 0d0
+              end do ! Internal frequencies
 
-              ! Store absorption profile
-              data2(iil:iil+nf,1) = etmp0(if0l:if1l)
+              ! If not a single point
+              if (if1l.gt.if0l) then
 
-              ! For each line frequency
-              do ifreq=if0l,if1l
+                ! Get index
+                jjl = jjl + 1
 
-                ! Left limit
-                if (ifreq.eq.if0l) then
+                ! Add to norm
+                daux = daux + data2(jjl,1)*Atom(ia)%W1(jtran)
 
-                  ! Get index
-                  jjl = iil
-
-                  ! Add to norm
-                  daux = daux + data2(jjl,1)*Atom(ia)%W0(jtran)
-
-                ! Not left limit
-                else
-
-                  ! Get index
-                  jjl = iil + ifreq - if0l
-
-                  ! Right limit
-                  if (ifreq.eq.if1l) then
-
-                    ! Add to norm
-                    daux = daux + data2(jjl,1)*Atom(ia)%W1(jtran)
-
-                  ! No limit
-                  else
-
-                    ! Add to norm
-                    daux = daux + data2(jjl,1)*Frec%W_freq(ifreq)
-
-                  end if ! Right limit
-                end if ! Left limit
-
-              end do ! Frequencies
+              end if ! Not a single point
 
               ! If non-zero norm
               if (daux.gt.0d0) then
@@ -1178,63 +1138,43 @@
             ! If there is stimulated emission
             if (stm) then
 
-              ! If MPI
-              if (nproc.gt.1) then
+              ! Correct for stimulated emission
+              etmp0(if0l:if1l) = etmp0(if0l:if1l) - &
+                                 estmp0(if0l:if1l)/absK
 
-                ! Correct for stimulated emission
-                etmp0(if0l:if1l) = etmp0(if0l:if1l) - &
-                                   estmp0(if0l:if1l)/absK
+              ! Store emission profile
+              data2(iil:iil+nf,2) = estmp0(if0l:if1l)
 
-                ! Store emission profile
-                data2(iil:iil+nf,2) = estmp0(if0l:if1l)
+              ! If there is no MPI, normalize it here
+              if (nproc.le.1) then
 
-              ! No MPI
-              else
+                ! Get index
+                jjl = iil
 
-                ! Initialize
-                daux = 0d0
+                ! Add to norm
+                daux = data2(jjl,2)*Atom(ia)%W0(jtran)
 
-                ! Correct for stimulated emission
-                etmp0(if0l:if1l) = etmp0(if0l:if1l) - &
-                                   estmp0(if0l:if1l)/absK
+                ! For non-boundary frequencies
+                do ifreq=if0l+1,if1l-1
 
-                ! Store emission profile
-                data2(iil:iil+nf,2) = estmp0(if0l:if1l)
+                  ! Get index
+                  jjl = jjl + 1
 
-                ! For each line frequency
-                do ifreq=if0l,if1l
+                  ! Add to norm
+                  daux = daux + data2(jjl,2)*Frec%W_freq(ifreq)
 
-                  ! Left limit
-                  if (ifreq.eq.if0l) then
+                end do ! non-boundary frequencies
 
-                    ! Get index
-                    jjl = iil
+                ! If not a single frequency
+                if (if1l.gt.if0l) then
 
-                    ! Add to norm
-                    daux = daux + data2(jjl,2)*Atom(ia)%W0(jtran)
+                  ! Get index
+                  jjl = jjl + 1
 
-                  ! Not left limit
-                  else
+                  ! Add to norm
+                  daux = daux + data2(jjl,2)*Atom(ia)%W1(jtran)
 
-                    ! Get index
-                    jjl = iil + ifreq - if0l
-
-                    ! Right limit
-                    if (ifreq.eq.if1l) then
-
-                      ! Add to norm
-                      daux = daux + data2(jjl,2)*Atom(ia)%W1(jtran)
-
-                    ! No limit
-                    else
-
-                      ! Add to norm
-                      daux = daux + data2(jjl,2)*Frec%W_freq(ifreq)
-
-                    end if ! Right limit
-                  end if ! Left limit
-
-                end do ! Frequencies
+                end if ! Single frequency
 
                 ! If non-zero norm
                 if (daux.gt.0d0) then
@@ -1289,92 +1229,56 @@
             ! Add the microt. to Doppler width
             Dw = Atom(ia)%Dfreq(jtran)*sqrt(DwT*DwT + &
                                             Atmo%vmi(iz)**2d0)
-
             !
-            ! Absorptivity
+            ! First order RT coefficients
             !
 
-            ! If stimulated
-            if (stm) then
+            ! Get absorption and emission
+            call rt1ordNB(Atom(ia),TSo,Frec%omega,Flgsg, &
+                          jtran,itermu,iterml,iz,if0l,if1l, &
+                          p_Norm,Dw,vfac,absK, &
+                          etmp0(if0l:if1l),etmp1(if0l:if1l), &
+                          etmp2(if0l:if1l),etmp3(if0l:if1l), &
+                          rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
+                          rtmp3(if0l:if1l), &
+                          estmp0(if0l:if1l),estmp1(if0l:if1l), &
+                          estmp2(if0l:if1l),estmp3(if0l:if1l), &
+                          rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
+                          rstmp3(if0l:if1l))
 
-              ! Get absorption and emission
-              call rt1ordNB(Atom(ia),TSo,Frec%omega,Flgsg, &
-                            jtran,itermu,iterml,iz,if0l,if1l, &
-                            p_Norm,Dw,vfac,absK, &
-                            etmp0(if0l:if1l),etmp1(if0l:if1l), &
-                            etmp2(if0l:if1l),etmp3(if0l:if1l), &
-                            rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
-                            rtmp3(if0l:if1l), &
-                            estmp0(if0l:if1l),estmp1(if0l:if1l), &
-                            estmp2(if0l:if1l),estmp3(if0l:if1l), &
-                            rstmp1(if0l:if1l),rstmp2(if0l:if1l), &
-                            rstmp3(if0l:if1l))
+            ! Copy absorbtivity in data2
+            data2(iil:iil+nf,1) = etmp0(if0l:if1l)
 
-            ! Not stimulated
-            else
+            ! If there is no MPI, normalize it here
+            if (nproc.le.1) then
 
-              !
-              ! Absorptivity
-              !
-              call absorbNB(Atom(ia),TSo,Frec%omega,Flgsg, &
-                            jtran,itermu,iterml,iz,if0l,if1l, &
-                            p_Norm,Dw,vfac,absK, &
-                            etmp0(if0l:if1l),etmp1(if0l:if1l), &
-                            etmp2(if0l:if1l),etmp3(if0l:if1l), &
-                            rtmp1(if0l:if1l),rtmp2(if0l:if1l), &
-                            rtmp3(if0l:if1l))
+              ! Get index
+              jjl = iil
 
-            end if ! Stimulated emission
+              ! Add to norm
+              daux = data2(jjl,1)*Atom(ia)%W0(jtran)
 
-            ! If MPI
-            if (nproc.gt.1) then
+              ! For non-boundary frequencies
+              do ifreq=if0l+1,if1l-1
 
-              ! Copy absorbtivity in data2
-              data2(iil:iil+nf,1) = etmp0(if0l:if1l)
+                ! Get index
+                jjl = jjl + 1
 
-            ! No MPI
-            else
+                ! Add to norm
+                daux = daux + data2(jjl,1)*Frec%W_freq(ifreq)
 
-              ! Initialize
-              daux = 0d0
+              end do ! Non-boundary frequencies
 
-              ! Store absorption profile
-              data2(iil:iil+nf,1) = etmp0(if0l:if1l)
+              ! Not single frequency
+              if (if1l.gt.if0l) then
 
-              ! For each line frequency
-              do ifreq=if0l,if1l
+                ! Get index
+                jjl = jjl + 1
 
-                ! Left limit
-                if (ifreq.eq.if0l) then
+                ! Add to norm
+                daux = daux + data2(jjl,1)*Atom(ia)%W1(jtran)
 
-                  ! Get index
-                  jjl = iil
-
-                  ! Add to norm
-                  daux = daux + data2(jjl,1)*Atom(ia)%W0(jtran)
-
-                ! Not left limit
-                else
-
-                  ! Get index
-                  jjl = iil + ifreq - if0l
-
-                  ! Right limit
-                  if (ifreq.eq.if1l) then
-
-                    ! Add to norm
-                    daux = daux + data2(jjl,1)*Atom(ia)%W1(jtran)
-
-                  ! No limit
-                  else
-
-                    ! Add to norm
-                    daux = daux + data2(jjl,1)*Frec%W_freq(ifreq)
-
-                  end if ! Right limit
-                end if ! Left limit
-
-              end do ! Frequencies
+              end if ! single frequency
 
               ! Non-zero norm
               if (daux.gt.0d0) then
@@ -1394,63 +1298,43 @@
             ! If there is stimulated emission
             if (stm) then
 
-              ! If MPI
-              if (nproc.gt.1) then
+              ! Correct for stimulated emission
+              etmp0(if0l:if1l) = etmp0(if0l:if1l) - &
+                                 estmp0(if0l:if1l)/absK
 
-                ! Correct for stimulated emission
-                etmp0(if0l:if1l) = etmp0(if0l:if1l) - &
-                                   estmp0(if0l:if1l)/absK
+              ! Store emission profile
+              data2(iil:iil+nf,2) = estmp0(if0l:if1l)
 
-                ! Store emission profile
-                data2(iil:iil+nf,2) = estmp0(if0l:if1l)
+              ! If there is no MPI, normalize it here
+              if (nproc.le.1) then
 
-              ! No MPI
-              else
+                ! Get index
+                jjl = iil
 
-                ! Initialize
-                daux = 0d0
+                ! Add to norm
+                daux = data2(jjl,2)*Atom(ia)%W0(jtran)
 
-                ! Correct for stimulated emission
-                etmp0(if0l:if1l) = etmp0(if0l:if1l) - &
-                                   estmp0(if0l:if1l)/absK
+                ! Non-boundary frequencies
+                do ifreq=if0l+1,if1l-1
 
-                ! Store emission profile
-                data2(iil:iil+nf,2) = estmp0(if0l:if1l)
+                  ! Get index
+                  jjl = jjl + 1
 
-                ! For each line frequency
-                do ifreq=if0l,if1l
+                  ! Add to norm
+                  daux = daux + data2(jjl,2)*Frec%W_freq(ifreq)
 
-                  ! Left limit
-                  if (ifreq.eq.if0l) then
+                end do ! Non-boundary index
 
-                    ! Get index
-                    jjl = iil
+                ! Single frequency
+                if (if1l.gt.if0l) then
 
-                    ! Add to norm
-                    daux = daux + data2(jjl,2)*Atom(ia)%W0(jtran)
+                  ! Get index
+                  jjl = jjl + 1
 
-                  ! Not left limit
-                  else
+                  ! Add to norm
+                  daux = daux + data2(jjl,2)*Atom(ia)%W1(jtran)
 
-                    ! Get index
-                    jjl = iil + ifreq - if0l
-
-                    ! Right limit
-                    if (ifreq.eq.if1l) then
-
-                      ! Add to norm
-                      daux = daux + data2(jjl,2)*Atom(ia)%W1(jtran)
-
-                    ! No limit
-                    else
-
-                      ! Add to norm
-                      daux = daux + data2(jjl,2)*Frec%W_freq(ifreq)
-
-                    end if ! Right limit
-                  end if ! Left limit
-
-                end do ! Frequencies
+                end if ! Single frequency
 
                 ! Non-zero norm
                 if (daux.gt.0d0) then
