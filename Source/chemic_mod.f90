@@ -9,15 +9,19 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     28/11/2024 V4.0.0
+!     25/03/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     28/11/2024:    V4.0.0 - Updated calls to abortedS to not include
-!                             thread information (TdPA)
+!     25/03/2025:    V4.0.1 - The mass density was being computed
+!                             following what is done in the NICOLE
+!                             code, but the expression did not seem
+!                             right. The determination of the mass
+!                             density now follows Eq.(3-52) in Mihalas
+!                             1970 (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -77,7 +81,7 @@
       use aborted_mod
       use chemicaux_mod
       use commons_mod
-      use parameters_mod , only : hplanck , PI , me , kb, Avog
+      use parameters_mod , only : hplanck , PI , me , kb, Avog, mhm
       use initpopuaux_mod
       use rmol_mod
       use types_mod
@@ -1296,16 +1300,18 @@
 
       integer:: iz,ia,natom,iter,istg
 
-      double precision:: kbcgs,ikbcgs,Watom,Aatom,daux
+      double precision:: kbcgs,ikbcgs,Watom,C0,daux
 
 
       ! Inverse of Boltzmann constant in cgs
       kbcgs = kb*1d7
       ikbcgs = 1d-7/kb
 
+      ! Density constant
+      C0 = ikbcgs*mhm/Avog/recallmass_ind(1)
+
       ! Compute sum of atomic weights and abundances
       Watom = 0d0
-      Aatom = 0d0
       natom = Atmo%nele
 
       ! Allocate partition function
@@ -1372,9 +1378,6 @@
         ! Get mass times abundance
         Watom = Watom + recallmass_ind(ia)*daux
 
-        ! Add abundance
-        Aatom = Aatom + daux
-
       end do ! Atomic contributions
 
       ! If only here because you want to output an atmospheric file
@@ -1387,14 +1390,13 @@
         call eqstate_known(Atmo,Atom,Atomb,nlte,depar,atoms)
 
         ! Preliminar rho
-        Atmo%rho = Atmo%Pg/Atmo%T
-        Atmo%rho = Atmo%rho*ikbcgs/Avog
+        Atmo%rho = Atmo%Pe*C0/Atmo%T
 
         ! For each height
         do iz=1,nz
 
           ! Get mass density
-          daux = Watom/(Aatom + Atmo%Pe(iz)/Atmo%Pg(iz))
+          daux = Watom*Atmo%nHa(iz)/Atmo%ne(iz)
           Atmo%rho(iz) = Atmo%rho(iz)*daux
 
         end do ! Heights
@@ -1425,14 +1427,13 @@
         call eqstate_ele(Atmo,Atom,Atomb,nlte,depar,atoms)
 
         ! Preliminar rho
-        Atmo%rho = Atmo%Pg/Atmo%T
-        Atmo%rho = Atmo%rho*ikbcgs/Avog
+        Atmo%rho = Atmo%Pe*C0/Atmo%T
 
         ! For each height
         do iz=1,nz
 
           ! Get mass density
-          daux = Watom/(Aatom + Atmo%Pe(iz)/Atmo%Pg(iz))
+          daux = Watom*Atmo%nHa(iz)/Atmo%ne(iz)
           Atmo%rho(iz) = Atmo%rho(iz)*daux
 
         end do ! Heights
@@ -1444,14 +1445,13 @@
         call eqstate_gas(Atmo,Atom,Atomb,nlte,depar,atoms)
 
         ! Preliminar rho
-        Atmo%rho = Atmo%Pg/Atmo%T
-        Atmo%rho = Atmo%rho*ikbcgs/Avog
+        Atmo%rho = Atmo%Pe*C0/Atmo%T
 
         ! For each height
         do iz=1,nz
 
           ! Get mass density
-          daux = Watom/(Aatom + Atmo%Pe(iz)/Atmo%Pg(iz))
+          daux = Watom*Atmo%nHa(iz)/Atmo%ne(iz)
           Atmo%rho(iz) = Atmo%rho(iz)*daux
 
         end do ! Heights
@@ -1459,26 +1459,27 @@
       ! If mass density
       else if (Atmo%typo.eq.5) then
 
+        ! C0 is used with the inverse
+        C0 = 1d0/C0
+
         ! Stimate gass pressure
-        daux = Avog*kbcgs*Aatom/Watom
-        Atmo%Pg = Atmo%rho*Atmo%T*daux
+        Atmo%Pe = Atmo%rho*Atmo%T*C0
 
         ! Iterate
         do iter=1,maxiter
 
           ! Solve equation of state
-          call eqstate_gas(Atmo,Atom,Atomb,nlte,depar,atoms)
+          call eqstate_ele(Atmo,Atom,Atomb,nlte,depar,atoms)
 
-          ! Preliminar Pg
-          Atmo%Pg = Atmo%rho*Atmo%T
-          Atmo%Pg = Atmo%Pg*kbcgs*Avog
+          ! Preliminar Pe
+          Atmo%Pe = Atmo%rho*Atmo%T*C0
 
           ! For each height
           do iz=1,nz
 
-            ! Compute density
-            daux = Watom/(Aatom + Atmo%Pe(iz)/Atmo%Pg(iz))
-            Atmo%Pg(iz) = Atmo%Pg(iz)/daux
+            ! Compute electron pressure
+            daux = Watom*Atmo%nHa(iz)/Atmo%ne(iz)
+            Atmo%Pe(iz) = Atmo%Pe(iz)/daux
 
           end do ! Heights
         end do ! Iterations
@@ -1525,9 +1526,9 @@
 
       integer:: natom,iatom,ia,istg,iterm,iJ,ilevel,iter,iz,Mstg
 
-      double precision:: C0,ikb,T,iT,ikT,np,nea,ne,ne0,dne,nht,nha
+      double precision:: C0,C1,ikb,T,iT,ikT,np,nea,ne,ne0,dne,nht,nha
       double precision:: PhiH,arg,exu,err,SS,U0,ctr
-      double precision:: kbcgs,ikbcgs,daux,Watom,Aatom
+      double precision:: kbcgs,ikbcgs,daux,Watom
       double precision, dimension(:), allocatable:: frc, dfrc, popu
 
 
@@ -1536,6 +1537,9 @@
       kbcgs = 1d7*kb
       ikbcgs = 1d-7/kb
       ikb = fktoJ/kb
+
+      ! Density constant
+      C1 = ikbcgs*mhm/Avog/recallmass_ind(1)
 
       ! Get number of atoms in database
       natom = Atmo%nele
@@ -1546,7 +1550,6 @@
 
       ! Initialize
       Watom = 0d0
-      Aatom = 0d0
 
       ! For each contribution
       do ia=1,natom
@@ -1554,7 +1557,6 @@
         ! Sum mass and mass times abundance
         daux = Atmo%abund(ia)
         Watom = Watom + recallmass_ind(ia)*daux
-        Aatom = Aatom + daux
 
       end do ! Atomic contributions
 
@@ -1859,10 +1861,8 @@
         Atmo%Pe(iz) = Atmo%ne(iz)*kbcgs*Atmo%T(iz)
 
         ! Rewrite rho
-        Atmo%rho(iz) = Atmo%Pg(iz)/Atmo%T(iz)
-        Atmo%rho(iz) = Atmo%rho(iz)*ikbcgs/Avog
-        Atmo%rho(iz) = Atmo%rho(iz)*Watom/ &
-                       (Aatom + Atmo%Pe(iz)/Atmo%Pg(iz))
+        Atmo%rho(iz) = Atmo%Pe(iz)*C1/Atmo%T(iz)
+        Atmo%rho(iz) = Atmo%rho(iz)*Watom*Atmo%NHa(iz)/Atmo%ne(iz)
 
       end do ! Every height
 
