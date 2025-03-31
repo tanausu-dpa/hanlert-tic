@@ -9,16 +9,19 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     25/03/2025 V4.0.5
+!     31/03/2025 V4.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     25/03/2025:    V4.0.5 - If there are velocities, it is necessary
-!                             to integrate in directions even if there
-!                             is no PRD (TdPA)
+!     31/03/2025:    V4.0.6 - Bugfix: when computing the emergent
+!                             profiles, there was no forced
+!                             synchronization between CPU between LOS,
+!                             what could lead to a CPU sending more
+!                             than one LOS before another had the
+!                             chance to send one (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -3473,7 +3476,9 @@
           if (dyn) call free_norm(Red,.False.)
 
           ! Failure
+          call control
           if (laborted) goto 2000
+
 
         end do ! Azimuth
       end do ! Polar
