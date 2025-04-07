@@ -11,15 +11,15 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     18/03/2025 V4.0.3
+!     07/04/2025 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/03/2025:    V4.0.3 - Added ALI_photo, ALI_allow_off, and
-!                             Sigma_Factor to Input_class (TdPA)
+!     07/04/2025:    V4.0.4 - Changed s_inv_atmo and s_inv_res in
+!                             Input_class to double precision (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1395,10 +1395,12 @@
                   SVD_type,fits_index,Num_Weight,atmoin_type, &
                   Lam_track,LM_Back_Mode,storeinv_step
 
-        ! Output file sizes
-        integer:: s_inv_h,s_inv_atmo,s_inv_atmo_c,s_inv_res_h, &
-                  s_inv_res_c,s_inv_res,s_inv_RF_h,s_inv_RF_c
+        ! Output file sizes (int)
+        integer:: s_inv_h,s_inv_atmo_c,s_inv_res_h,s_inv_res_c, &
+                  s_inv_RF_h,s_inv_RF_c
 
+        ! Output file sizes (double)
+        double precision:: s_inv_atmo,s_inv_res
 
         ! Units to direct the verbosity
         integer, dimension(3):: Unit_VB

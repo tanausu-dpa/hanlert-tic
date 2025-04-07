@@ -6456,12 +6456,15 @@ class _inversion_out():
                                         'cm^-3','cm^-3','cm^-3', \
                                         'cm^-3','cm^-3','cm^-3', \
                                         'cm^-3','cm^-3','']
+            if debug: print(f'nvar_atmo {self.__nvar_atmo}')
 
             # Atmosphere pixel size                          v f_diff
             self.__s_atmo_c = self.__nz*self.__nvar_atmo*4 + 4
+            if debug: print(f's_atmo_c {self.__s_atmo_c}')
 
             # Atmosphere size
             __s_atmo = self.__nx*self.__ny*self.__s_atmo_c
+            if debug: print(f's_atmo {__s_atmo}')
 
             # Skip atmosphere
             f.seek(__s_atmo,1)

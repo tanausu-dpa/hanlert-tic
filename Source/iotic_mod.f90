@@ -10,17 +10,17 @@
 !  Start:
 !     22/02/2023
 !  Last version:
-!     18/03/2025 V4.0.1
+!     07/04/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/03/2025:    V4.0.1 - Added argument to set_up_data_frombuffer
-!                             to call the new enhance_sigma function,
-!                             which artificially modifies the sigma
-!                             in the data file (TdPA)
+!     07/04/2025:    V4.0.2 - The size of the atmosphere and result
+!                             data in the inversion file can exceed
+!                             the 4 byte integer limit, changed to
+!                             double precision (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -2259,7 +2259,8 @@
       Input%s_inv_atmo_c = Input%s_inv_atmo_c + 4*1
 
       ! Total block
-      Input%s_inv_atmo = dims(1)*dims(2)*Input%s_inv_atmo_c
+      Input%s_inv_atmo = dble(dims(1))*dble(dims(2))* &
+                         dble(Input%s_inv_atmo_c)
 
 
       !
@@ -2294,7 +2295,7 @@
 
             ! Add node size
             Input%s_inv_res_c = Input%s_inv_res_c + &
-                                   12*Inf_Nodes%Num_nodes(ivar)
+                                  12*Inf_Nodes%Num_nodes(ivar)
 
           ! No inverting
           else
@@ -2309,7 +2310,8 @@
       end do ! Variables
 
       ! Total
-      Input%s_inv_res = Input%s_inv_res_c*dims(1)*dims(2)
+      Input%s_inv_res = dble(Input%s_inv_res_c)* &
+                        dble(dims(1))*dble(dims(2))
 
       ! If output response functions
       if (Input%Keep_RF) then
@@ -2337,8 +2339,8 @@
 
             ! Add node size
             Input%s_inv_RF_c = Input%s_inv_RF_c + &
-                                  (4 + 4*dims(3))* &
-                                  Inf_Nodes%Num_vary(ivar)
+                               (4 + 4*dims(3))* &
+                               Inf_Nodes%Num_vary(ivar)
 
           end do ! Variables
 
@@ -2359,8 +2361,8 @@
 
             ! Add node size
             Input%s_inv_RF_c = Input%s_inv_RF_c + &
-                                  (4 + 4*4*dims(3))* &
-                                  Inf_Nodes%Num_vary(ivar)
+                               (4 + 4*4*dims(3))* &
+                               Inf_Nodes%Num_vary(ivar)
 
           end do ! Variables
 
@@ -2516,7 +2518,8 @@
 
       ! Local
 
-      integer:: i,j,ios,iran
+      integer:: i,j,ios,iran,offset
+      double precision:: loffset
 
 
       !
@@ -2678,7 +2681,14 @@
       write(200) nz
 
       ! Skip atmo
-      call fseek(200,Input%s_inv_atmo,1)
+      loffset = Input%s_inv_atmo
+      do while(loffset.gt.offlimit)
+        offset = int(offlimit)
+        call fseek(200,offset,1)
+        loffset = loffset - offlimit
+      end do
+      offset = int(loffset)
+      call fseek(200,offset,1)
 
       ! Second header
       write(200) Input%nvar
@@ -2711,7 +2721,14 @@
       if (Input%Keep_RF) then
 
         ! Jump result block
-        call fseek(200,Input%s_inv_res,1)
+        loffset = Input%s_inv_res
+        do while(loffset.gt.offlimit)
+          offset = int(offlimit)
+          call fseek(200,offset,1)
+          loffset = loffset - offlimit
+        end do
+        offset = int(loffset)
+        call fseek(200,offset,1)
 
         ! Count number of variables in the inversion
         j = 0
@@ -2742,7 +2759,15 @@
         end do ! Variables
 
         ! Skip to last four bytes
-        call fseek(200,dims(1)*dims(2)*Input%s_inv_RF_c-4,1)
+        loffset = dble(dims(1))*dble(dims(2))* &
+                  dble(Input%s_inv_RF_c) - 4d0
+        do while(loffset.gt.offlimit)
+          offset = int(offlimit)
+          call fseek(200,offset,1)
+          loffset = loffset - offlimit
+        end do
+        offset = int(loffset)
+        call fseek(200,offset,1)
 
         ! Write a zero to set the filesize
         write(200) real(0.0)
@@ -2751,7 +2776,14 @@
       else
 
         ! Jump result block but 1 position
-        call fseek(200,Input%s_inv_res-4,1)
+        loffset = Input%s_inv_res - 4d0
+        do while(loffset.gt.offlimit)
+          offset = int(offlimit)
+          call fseek(200,offset,1)
+          loffset = loffset - offlimit
+        end do
+        offset = int(loffset)
+        call fseek(200,offset,1)
 
         ! Write a zero to set the filesize
         write(200) real(0.0)
@@ -2985,7 +3017,7 @@
       ! Get offset
       loffset = dble(icoords(3)-1)*dble(Input%s_inv_res_c) + &
                 dble(Input%s_inv_h) + &
-                dble(Input%s_inv_atmo) + &
+                Input%s_inv_atmo + &
                 dble(Input%s_inv_res_h)
       do while(loffset.gt.offlimit)
         offset = int(offlimit)
@@ -3255,9 +3287,9 @@
         ! Get offset
         loffset = dble(icoords(3)-1)*dble(Input%s_inv_RF_c) + &
                   dble(Input%s_inv_h) + &
-                  dble(Input%s_inv_atmo) + &
+                  Input%s_inv_atmo + &
                   dble(Input%s_inv_res_h) + &
-                  dble(Input%s_inv_res) + &
+                  Input%s_inv_res + &
                   dble(Input%s_inv_RF_h)
         do while(loffset.gt.offlimit)
           offset = int(offlimit)
