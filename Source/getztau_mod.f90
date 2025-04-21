@@ -9,17 +9,15 @@
 !  Start:
 !     03/12/2019
 !  Last version:
-!     12/03/2025 V4.0.1
+!     21/04/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.1 - Explicitly account for changes in the
-!                             memory allocated in Atmo_class (TdPA)
-!                           - Only consider the limitation for PRD
-!                             if there is PRD (TdPA)
+!     21/04/2025:    V4.0.2 - Ensure that the Rz1 limit for PRD is
+!                             always defined (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -588,6 +586,13 @@
             Rz1_PRD = min(zz1,tz1)
 
           end if ! Restricting both tau and z
+
+        ! If PRD and restriction of any kind
+        else if (PRD.and.(Input%rest_z.or.Input%rest_tau)) then
+
+          ! Just copy
+          Rz1_PRD = Rz1
+
         end if ! Restricting PRD range
       end if ! Master
 

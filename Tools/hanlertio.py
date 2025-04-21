@@ -10850,7 +10850,7 @@ class hanlertio_class():
     def __get_stokesu15d_p(self,il=None,fractional=False):
         return self.__object._get_stokesu_plane(il,fractional)
     # stokes 15D, inversion in
-    def __get_stokesv15d_p(self,i=None,fractional=False):
+    def __get_stokesv15d_p(self,il=None,fractional=False):
         return self.__object._get_stokesv_plane(il,fractional)
     # stokes 15D, inversion in
     def __get_stokes15d_p(self,il=None,fractional=False):

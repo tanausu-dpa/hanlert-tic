@@ -12,27 +12,17 @@
 !  Start:
 !     27/04/2017
 !  Last version:
-!     19/12/2024 V4.0.0
+!     21/04/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     19/12/2024:    V4.0.0 - Removed OpenMP directives (TdPA)
-!                           - Combined the subroutines to calculate
-!                             the second order emissivity with
-!                             angle-averaged and angle-dependent
-!                             redistributions into a single
-!                             subroutine (TdPA)
-!                           - Moved some atomic loops to their
-!                             own subroutine (TdPA)
-!                           - Changed how the normalization factor,
-!                             profiles, and redistribution functions
-!                             are stored (TdPA)
-!                           - The second order emissitivy is now
-!                             calculated in the comoving frame and
-!                             for all directions simultaneously (TdPA)
+!     21/04/2025:    V4.0.1 - In rare cases the Norme2 variable could
+!                             be zero in the input frequency integrals
+!                             so now we ensure we are not dividing by
+!                             zero (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1671,38 +1661,44 @@
             ! Non-coherent
             else
 
-              ! If conjugate
-              if (conj) then
-
-                ! Point to positive Q
-                p_JKQ => JradC(jjfreq+1:jjfreq+p_mfreq,-iQ,K)
-
-                ! Integrate
-                PRDin = sum(conjg(p_JKQ)* &
-                            p_red%W_freq(jjfreq+1:jjfreq+p_mfreq)* &
-                            p_warr2(jjfreq+1:jjfreq+p_mfreq))*sig
-
-              ! Not conjugate
-              else
-
-                ! Point
-                p_JKQ => JradC(jjfreq+1:jjfreq+p_mfreq,iQ,K)
-
-                ! Integrate
-                PRDin = sum(p_JKQ* &
-                            p_red%W_freq(jjfreq+1:jjfreq+p_mfreq)* &
-                            p_warr2(jjfreq+1:jjfreq+p_mfreq))
-
-              end if
-
               ! Compute norm
               Norme2 = sum(p_warr2(jjfreq+1:jjfreq+p_mfreq)* &
                            p_red%W_freq(jjfreq+1:jjfreq+p_mfreq))
 
-              ! Normalize to the first order profile (the
-              ! normalization is completed later when multiplying
-              ! by CRD)
-              PRDin = PRDin/Norme2
+              ! If valid norm
+              if (abs(Norme2).gt.0d0) then
+
+                ! If conjugate
+                if (conj) then
+
+                  ! Point to positive Q
+                  p_JKQ => JradC(jjfreq+1:jjfreq+p_mfreq,-iQ,K)
+
+                  ! Integrate
+                  PRDin = sum(conjg(p_JKQ)* &
+                              p_red%W_freq(jjfreq+1:jjfreq+p_mfreq)* &
+                              p_warr2(jjfreq+1:jjfreq+p_mfreq))*sig
+
+                ! Not conjugate
+                else
+
+                  ! Point
+                  p_JKQ => JradC(jjfreq+1:jjfreq+p_mfreq,iQ,K)
+
+                  ! Integrate
+                  PRDin = sum(p_JKQ* &
+                              p_red%W_freq(jjfreq+1:jjfreq+p_mfreq)* &
+                              p_warr2(jjfreq+1:jjfreq+p_mfreq))
+
+                end if
+
+
+                ! Normalize to the first order profile (the
+                ! normalization is completed later when multiplying
+                ! by CRD)
+                PRDin = PRDin/Norme2
+
+              end if ! Valid norm
 
               ! Update index
               jjfreq = jjfreq + p_mfreq
@@ -1875,30 +1871,34 @@
                           p_warr2(kkfreq0b+1:kkfreq0b+p_mfreq)* &
                           p_red%W_freq(llfreq0+1:llfreq0+p_mfreq)
 
-                    ! Sum Stokes
-                    intergrin(1:p_mfreq) = &
-                            Stokesin(0,jjfreq0+1:jjfreq0+p_mfreq)* &
-                            Geom%TS(0,iQ,K,idir) + &
-                            Stokesin(1,jjfreq0+1:jjfreq0+p_mfreq)* &
-                            Geom%TS(1,iQ,K,idir) + &
-                            Stokesin(2,jjfreq0+1:jjfreq0+p_mfreq)* &
-                            Geom%TS(2,iQ,K,idir) + &
-                            Stokesin(3,jjfreq0+1:jjfreq0+p_mfreq)* &
-                            Geom%TS(3,iQ,K,idir)
-
                     ! Compute norm denominator
                     Norme2 = sum(Warr2xW(1:p_mfreq))
 
-                    ! Normalize to the first order profile
-                    ! and add the directional weights (the
-                    ! normalization will be completed later
-                    ! multiplying by CRD)
-                    PRDin = PRDin + &
-                            sum(Warr2xW(1:p_mfreq)* &
-                                intergrin(1:p_mfreq))* &
-                            Geom%W_mu(ith1)* &
-                            Geom%W_mux2(iph1)/Norme2
+                    ! If valid norm
+                    if (abs(Norme2).gt.0d0) then
 
+                      ! Sum Stokes
+                      intergrin(1:p_mfreq) = &
+                              Stokesin(0,jjfreq0+1:jjfreq0+p_mfreq)* &
+                              Geom%TS(0,iQ,K,idir) + &
+                              Stokesin(1,jjfreq0+1:jjfreq0+p_mfreq)* &
+                              Geom%TS(1,iQ,K,idir) + &
+                              Stokesin(2,jjfreq0+1:jjfreq0+p_mfreq)* &
+                              Geom%TS(2,iQ,K,idir) + &
+                              Stokesin(3,jjfreq0+1:jjfreq0+p_mfreq)* &
+                              Geom%TS(3,iQ,K,idir)
+
+                      ! Normalize to the first order profile
+                      ! and add the directional weights (the
+                      ! normalization will be completed later
+                      ! multiplying by CRD)
+                      PRDin = PRDin + &
+                              sum(Warr2xW(1:p_mfreq)* &
+                                  intergrin(1:p_mfreq))* &
+                              Geom%W_mu(ith1)* &
+                              Geom%W_mux2(iph1)/Norme2
+
+                    end if ! Valid norm
                   end if ! Type of scattering
 
                   ! Advance index if not axial
@@ -3837,37 +3837,42 @@
                 ! Non-coherent
                 else
 
-                  ! If conjugate
-                  if (conj) then
-
-                    ! Point to positive Q
-                    p_JKQ => JradC(jjfreq+1:jjfreq+p_mfreq,-iPP,K1)
-
-                    ! Integrate
-                    PRD = sig*sum(conjg(p_JKQ)* &
-                            p_red%W_freq(jjfreq+1:jjfreq+p_mfreq)* &
-                            p_warr2(kkfreq+1:kkfreq+p_mfreq))
-
-                  ! Not conjugate
-                  else
-
-                    ! Point to positive Q
-                    p_JKQ => JradC(jjfreq+1:jjfreq+p_mfreq,iPP,K1)
-
-                    ! Integrate
-                    PRD = sum(p_JKQ* &
-                            p_red%W_freq(jjfreq+1:jjfreq+p_mfreq)* &
-                            p_warr2(kkfreq+1:kkfreq+p_mfreq))
-
-                  end if
-
                   ! Norm denominator
                   Norme2 = sum(p_warr2(kkfreq+1:kkfreq+p_mfreq)* &
                                p_red%W_freq(jjfreq+1:jjfreq+p_mfreq))
 
-                  ! Normalize to the first order profile (the product
-                  ! with CRD happens later)
-                  PRD = PRD/Norme2
+                  ! If valid norm
+                  if (abs(Norme2).gt.0d0) then
+
+                    ! If conjugate
+                    if (conj) then
+
+                      ! Point to positive Q
+                      p_JKQ => JradC(jjfreq+1:jjfreq+p_mfreq,-iPP,K1)
+
+                      ! Integrate
+                      PRD = sig*sum(conjg(p_JKQ)* &
+                              p_red%W_freq(jjfreq+1:jjfreq+p_mfreq)* &
+                              p_warr2(kkfreq+1:kkfreq+p_mfreq))
+
+                    ! Not conjugate
+                    else
+
+                      ! Point to positive Q
+                      p_JKQ => JradC(jjfreq+1:jjfreq+p_mfreq,iPP,K1)
+
+                      ! Integrate
+                      PRD = sum(p_JKQ* &
+                              p_red%W_freq(jjfreq+1:jjfreq+p_mfreq)* &
+                              p_warr2(kkfreq+1:kkfreq+p_mfreq))
+
+                    end if
+
+                    ! Normalize to the first order profile (the product
+                    ! with CRD happens later)
+                    PRD = PRD/Norme2
+
+                  end if ! Valid norm
 
                   ! Update indexes
                   jjfreq = jjfreq + p_mfreq
@@ -4065,8 +4070,14 @@
                               p_warr2(kkfreq0b+1:kkfreq0b+p_mfreq)* &
                               p_red%W_freq(llfreq0+1:llfreq0+p_mfreq)
 
-                        ! Sum Stokes
-                        intergrin(1:p_mfreq) = &
+                        ! Compute norm
+                        Norme2 = sum(Warr2xW(1:p_mfreq))
+
+                        ! If valid norm
+                        if (abs(Norme2).gt.0d0) then
+
+                          ! Sum Stokes
+                          intergrin(1:p_mfreq) = &
                               Stokesin(0,jjfreq0+1:jjfreq0+p_mfreq)* &
                               Geom%TB(0,iPP,K1,idir,iz) + &
                               Stokesin(1,jjfreq0+1:jjfreq0+p_mfreq)* &
@@ -4076,18 +4087,16 @@
                               Stokesin(3,jjfreq0+1:jjfreq0+p_mfreq)* &
                               Geom%TB(3,iPP,K1,idir,iz)
 
-                        ! Compute norm
-                        Norme2 = sum(Warr2xW(1:p_mfreq))
+                          ! Normalize to the first order profile
+                          ! and add the directional weights (the
+                          ! product with CRD happens later)
+                          PRD = PRD + &
+                                sum(Warr2xW(1:p_mfreq)* &
+                                    intergrin(1:p_mfreq))* &
+                                Geom%W_mu(ith1)* &
+                                Geom%W_mux2(iph1)/Norme2
 
-                        ! Normalize to the first order profile
-                        ! and add the directional weights (the
-                        ! product with CRD happens later)
-                        PRD = PRD + &
-                              sum(Warr2xW(1:p_mfreq)* &
-                                  intergrin(1:p_mfreq))* &
-                              Geom%W_mu(ith1)* &
-                              Geom%W_mux2(iph1)/Norme2
-
+                        end if ! Valid norm
                       end if ! Type of scattering
 
                       ! Advance index if not axial
