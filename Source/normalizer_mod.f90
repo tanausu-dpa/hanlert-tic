@@ -9,20 +9,17 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     12/03/2025 V4.0.2
+!     24/04/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.2 - Bugfix: There was an issue when
-!                             deallocating the %Norm array in mass
-!                             because the indexes of the LTE lines
-!                             were mixed with the active atoms (TdPA)
-!                           - Bugfix: in normalize, the sending buffer
-!                             with normalization data could have the
-!                             wrong size (TdPA)
+!     24/04/2025:    V4.0.3 - Bugfix: The normalizer functions for the
+!                             polarization problem were trying to
+!                             process forbidden lines that were not
+!                             indexed by the atom (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -414,8 +411,10 @@
               jj = size1(jtran,iz,jdir)
 
               ! Allocate and initialize norm
-              allocate(Red%dzao(indx)%Norm(jj))
-              Red%dzao(indx)%Norm = 0d0
+              if (jj.gt.0) then
+                allocate(Red%dzao(indx)%Norm(jj))
+                Red%dzao(indx)%Norm = 0d0
+              end if
 
               ! Master doing MPI skips
               if (MPID%mpi.and.pid.eq.0) cycle
@@ -444,8 +443,9 @@
                   Red%dzao(indx)%VRAM = .True.
 
                   ! Allocate
-                  allocate(Red%dzao(indx)%cp(Atom(ia)%if0(jtran): &
-                                             Atom(ia)%if1(jtran),jj))
+                  if (jj.gt.0) &
+                    allocate(Red%dzao(indx)%cp(Atom(ia)%if0(jtran): &
+                                              Atom(ia)%if1(jtran),jj))
                   ! Update RAM
                   RAM = RAM + d1
 
@@ -712,14 +712,15 @@
                       ! Get energy, Jl, and indexes
                       el = Atom(ia)%FSfreq(iJf,itermf)
                       rJf = Atom(ia)%rJval(iJf,itermf)
-                      indF = Atom(ia)%irho(itermf)%irho_ij(iJf)
-                      indK = Atom(ia)%trano(jtran)%indNB(indF,indU)
 
                       ! 6-j
                       f62 = fun6j(rLu,rLf,1d0,rJf,rJu,S,Flgsg)
 
                       ! Check zero
                       if (abs(f62).lt.TINYJS) cycle
+
+                      indF = Atom(ia)%irho(itermf)%irho_ij(iJf)
+                      indK = Atom(ia)%trano(jtran)%indNB(indF,indU)
 
                       !
                       ! Calculate profile
@@ -1101,7 +1102,8 @@
           do indx=1,Red%ndzaoA
 
             ! Deallocate
-            deallocate(Red%dzao(indx)%Norm)
+            if (allocated(Red%dzao(indx)%Norm)) &
+              deallocate(Red%dzao(indx)%Norm)
 
           end do
 
@@ -1144,7 +1146,8 @@
                 if (indx.le.0) cycle
 
                 ! If storing
-                if (Red%dzao(indx)%VRAM) then
+                if (Red%dzao(indx)%VRAM.and. &
+                    allocated(Red%dzao(indx)%Norm)) then
 
                   ! Run over components
                   do jj=1,size(Red%dzao(indx)%Norm)
@@ -1182,7 +1185,7 @@
                   deallocate(Red%dzao(indx)%Norm)
 
                 ! Not storing
-                else
+                else if (allocated(Red%dzao(indx)%Norm)) then
 
                   ! Run over components
                   do jj=1,size(Red%dzao(indx)%Norm)
@@ -1600,7 +1603,7 @@
       logical:: LVRAM,nfield
 
       integer:: ia,jtran,itermf,itermu,nMu,nMf,iMu,iMf,iU,mF
-      integer:: iz,indx,ifreq,if0,if1,nf,indU,indF,indK
+      integer:: iz,indx,ifreq,if0,if1,nf,indU,indF,indK,ncom
 
       double precision:: RAM,d1,rMu,rMf,el,eu
       double precision:: rLu,rLf,S,rJumax,rJfmax,rJu,rJf
@@ -1701,9 +1704,12 @@
             ! No magnetic field
             if (nfield) then
 
+              ! Get size
+              ncom = Atom(ia)%trano(jtran)%ncomNB
+              if (ncom.lt.1) ncom = 1
+
               ! Allocate and initialize
-              allocate(Red%pzao(indx)% &
-                           Norm(Atom(ia)%trano(jtran)%ncomNB))
+              allocate(Red%pzao(indx)%Norm(ncom))
               Red%pzao(indx)%Norm = 0d0
 
               ! Allocate profile itself if storing and it is present
@@ -1711,8 +1717,7 @@
 
                 ! Prediction
                 ! Subtract norm already accounted for
-                d1 = 16d-6*dble(Atom(ia)%trano(jtran)%ncomNB*nf) - &
-                     8d-6*dble(Atom(ia)%trano(jtran)%ncomNB)
+                d1 = 16d-6*dble(ncom*nf) - 8d-6*dble(ncom)
 
                 ! If no more space
                 if (floor(RAM+d1).gt.RLIM) then
@@ -1728,9 +1733,8 @@
                   Red%pzao(indx)%VRAM = .True.
 
                   ! Allocate
-                  allocate(Red%pzao(indx)% &
-                               cp(if0:if1,Atom(ia)%trano(jtran)% &
-                                                   ncomNB))
+                  allocate(Red%pzao(indx)%cp(if0:if1,ncom))
+
                   ! Update RAM
                   RAM = RAM + d1
 
@@ -1778,6 +1782,12 @@
 
                     ! Get indexes
                     indF = Atom(ia)%irho(itermf)%irho_ij(mF)
+
+                    ! Electric dipole
+                    if (abs(rJu-rJf).gt.1d0.or. &
+                        rJu+rJf.lt..25) cycle
+
+                    ! Get component index
                     indK = Atom(ia)%trano(jtran)%indNB(indF,indU)
 
                     ! Skip 0
@@ -1846,8 +1856,7 @@
 
                 ! Compute the norm
                 call MPI_ALLREDUCE(MPI_IN_PLACE,Red%pzao(indx)%Norm, &
-                                   Atom(ia)%trano(jtran)%ncomNB, &
-                                   MPI_DOUBLE_PRECISION,MPI_SUM, &
+                                   ncom,MPI_DOUBLE_PRECISION,MPI_SUM, &
                                    MPI_COMM_RT,ierr)
 
                 !
@@ -1881,7 +1890,7 @@
 
                     ! Free
                     RAM = RAM - 1d-6*sizeof(Red%pzao(indx)%cp) + &
-                          8d-6*dble(Atom(ia)%trano(jtran)%ncomNB)
+                          8d-6*dble(ncom)
                     deallocate(Red%pzao(indx)%cp)
 
                   end if ! Was storing but cannot anymore
@@ -1890,7 +1899,7 @@
               end if ! MPI
 
               ! Larger than zero norm
-              do indK=1,Atom(ia)%trano(jtran)%ncomNB
+              do indK=1,ncom
 
                 ! If non-zero norm
                 if (Red%pzao(indx)%Norm(indK).gt.0d0) &
@@ -1914,9 +1923,12 @@
             ! Yes magnetic field
             else
 
+              ! Get size
+              ncom = Atom(ia)%trano(jtran)%ncomB
+              if (ncom.lt.1) ncom = 1
+
               ! Allocate and initialize
-              allocate(Red%pzao(indx)%Norm(Atom(ia)%trano(jtran)% &
-                                                    ncomB))
+              allocate(Red%pzao(indx)%Norm(ncom))
               Red%pzao(indx)%Norm = 0d0
 
               ! Allocate profile itself if storing and it is present
@@ -1924,8 +1936,7 @@
 
                 ! Prediction
                 ! Subtract norm already accounted for
-                d1 = 16d-6*dble(Atom(ia)%trano(jtran)%ncomB*nf) - &
-                     8d-6*dble(Atom(ia)%trano(jtran)%ncomB)
+                d1 = 16d-6*dble(ncom*nf) - 8d-6*dble(ncom)
 
                 ! If no more space
                 if (floor(RAM+d1).gt.RLIM) then
@@ -1941,9 +1952,8 @@
                   Red%pzao(indx)%VRAM = .True.
 
                   ! Allocate
-                  allocate(Red%pzao(indx)% &
-                               cp(if0:if1,Atom(ia)%trano(jtran)% &
-                                                   ncomB))
+                  allocate(Red%pzao(indx)%cp(if0:if1,ncom))
+
                   ! Update RAM
                   RAM = RAM + d1
 
@@ -2065,9 +2075,8 @@
 
                 ! Compute the norm
                 call MPI_ALLREDUCE(MPI_IN_PLACE,Red%pzao(indx)%Norm, &
-                                   Atom(ia)%trano(jtran)%ncomB, &
-                                   MPI_DOUBLE_PRECISION,MPI_SUM, &
-                                   MPI_COMM_RT,ierr)
+                                   ncom,MPI_DOUBLE_PRECISION, &
+                                   MPI_SUM,MPI_COMM_RT,ierr)
 
                 !
                 ! Check everyone is saving
@@ -2099,7 +2108,7 @@
 
                     ! Free
                     RAM = RAM - 1d-6*sizeof(Red%pzao(indx)%cp) + &
-                          8d-6*dble(Atom(ia)%trano(jtran)%ncomB)
+                          8d-6*dble(ncom)
                     deallocate(Red%pzao(indx)%cp)
 
                   end if ! Was storing but cannot anymore
@@ -2108,7 +2117,7 @@
               end if ! MPI
 
               ! For each component
-              do indK=1,Atom(ia)%trano(jtran)%ncomB
+              do indK=1,ncom
 
                 ! If non-zero norm, get inverse
                 if (Red%pzao(indx)%Norm(indK).gt.0d0) &

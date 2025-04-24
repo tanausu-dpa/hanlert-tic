@@ -11,16 +11,19 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     12/03/2025 V4.0.1
+!     24/04/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.1 - The 'dzao' index for the normalization
-!                             now has all the LTE lines indexes after
-!                             all the active atoms (TdPA)
+!     24/04/2025:    V4.0.2 - Bugfix: The number of magnetic
+!                             components for a transition can be zero
+!                             if it is a forbidden line, this needs
+!                             to be taken into account when indexing
+!                             to predict the normalization size in
+!                             memory (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -5802,7 +5805,7 @@
 
       logical:: lvel,field
 
-      integer:: njdir,ntran,idir,iz,ia,nl
+      integer:: njdir,ntran,idir,iz,ia,nl,ncom
       integer:: jtran,ktran,fjtran,ffjtran,ffktran
 
       double precision:: vel
@@ -5916,18 +5919,21 @@
                   ! If magnetic
                   if (field) then
 
-                    ! Add RAM for normalization
-                    DRAMc = DRAMc + &
-                            8d-6*dble(Atom(ia)%trano(jtran)%ncomB)
+                    ! Get ncom
+                    ncom = Atom(ia)%trano(jtran)%ncomB
+                    if (ncom.lt.1) ncom = 1
 
                   ! Non magnetic
                   else
 
-                    ! Add RAM for normalization
-                    DRAMc = DRAMc + &
-                            8d-6*dble(Atom(ia)%trano(jtran)%ncomNB)
+                    ! Get ncom
+                    ncom = Atom(ia)%trano(jtran)%ncomNB
+                    if (ncom.lt.1) ncom = 1
 
                   end if ! Magnetic
+
+                  ! Add RAM for norms
+                  DRAMc = DRAMc + 8d-6*dble(ncom)
 
                   ! Store index
                   Red%idzao(ktran,iz,idir) = Red%ndzao
@@ -6068,7 +6074,7 @@
       ! Local
 
       integer:: ia,jtran,it,ffjtran,ffktran,indx,itran,iz
-      integer:: mina,maxa,minto,maxto,nat,nti
+      integer:: mina,maxa,minto,maxto,nat,nti,ncom
 
 
       !
@@ -6205,18 +6211,21 @@
               ! Magnetic
               if (Bstrength(iz).gt.TINYB) then
 
-                ! Add logical and components norm
-                DRAM2c = DRAM2c + 4d-6 + &
-                         8d-6*dble(Atom(ia)%trano(jtran)%ncomB)
+                ! Get ncom
+                ncom = Atom(ia)%trano(jtran)%ncomB
+                if (ncom.lt.1) ncom = 1
 
               ! Non-magnetic
               else
 
-                ! Add logical and components norm
-                DRAM2c = DRAM2c + 4d-6 + &
-                         8d-6*dble(Atom(ia)%trano(jtran)%ncomNB)
+                ! Get ncom
+                ncom = Atom(ia)%trano(jtran)%ncomNB
+                if (ncom.lt.1) ncom = 1
 
               end if ! Magnetic field
+
+              ! Add logical and components norm
+              DRAM2c = DRAM2c + 4d-6 + 8d-6*dble(ncom)
 
               !
               ! Allocate input transition structures

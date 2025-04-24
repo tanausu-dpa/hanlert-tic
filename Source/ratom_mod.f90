@@ -10,18 +10,16 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     12/03/2025 V4.0.1
+!     24/04/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.1 - Bugfix: the Ccoeff_special pointer was
-!                             not nullified for the hard-coded
-!                             hydrogen atom (TdPA)
-!                           - Removed an unnecessary nullification
-!                             of Ccoeff_special in rAtom (TdPA)
+!     24/04/2025:    V4.0.2 - Initialize the number of line components
+!                             in absence of magnetic field to zero in
+!                             case a line is forbidden (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -3669,6 +3667,9 @@
 
             ! For each transition
             do jtran=1,Atom(ia)%ntran
+
+              ! Initialize count
+              Atom(ia)%trano(jtran)%ncomNB = 0
 
               ! Get terms
               itermf = Atom(ia)%fst(jtran)%iterml

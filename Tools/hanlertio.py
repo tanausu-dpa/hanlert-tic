@@ -6261,6 +6261,10 @@ class _inversion_out():
           [None,'Get number of nodes in the x, y, and height dimensions'], \
          'get_nl': \
           [None,'Get number of wavelengths'], \
+         'get_nvar_atmo': \
+          [None,'Get number of variables in model atmosphere'], \
+         'get_nvar': \
+          [None,'Get number of variables in node data'], \
          'get_dims': \
           [None,'Get number of nodes in the x, y, height, and wavelength dimensions'], \
          'get_vars': \
@@ -6769,6 +6773,16 @@ class _inversion_out():
         '''
         return self.__nl
 
+    def _get_nvar_atmo(self):
+        ''' Get number of variables in model atmosphere
+        '''
+        return self.__nvar_atmo
+
+    def _get_nvar(self):
+        ''' Get number of variables in node data
+        '''
+        return self.__nvar
+
     def _get_dims(self):
         ''' Get number of positions in x, y, height, and wavelength axes
         '''
@@ -7071,7 +7085,7 @@ class _inversion_out():
                 if not isinstance(evar, str):
                     _error('The field var requires strings',1)
                     return None
-                if evar not in self.__vars_atmo:
+                if evar not in self.__vars_atmo+['ltau']:
                     _error('The requested variable ' + evar + \
                            ' is not available, ' + \
                            'check with get_vars_atmo',1)
@@ -10446,6 +10460,8 @@ class hanlertio_class():
                             self.get_nxy = self.__get_nxy
                             self.get_nxyz = self.__get_nxyz
                             self.get_dims = self.__get_dims
+                            self.get_nvar_atmo = self.__get_nvar_atmo
+                            self.get_nvar = self.__get_nvar
                             self.get_vars = self.__get_vars
                             self.get_vars_units = self.__get_vars_units
                             self.get_vars_fix = self.__get_vars_fix
@@ -10732,6 +10748,12 @@ class hanlertio_class():
     # jkq 1D, 1D damp
     def __get_nt(self,atom=None):
         return self.__object._get_nt(atom)
+    # inversion out
+    def __get_nvar_atmo(self):
+        return self.__object._get_nvar_atmo()
+    # inversion out
+    def __get_nvar(self):
+        return self.__object._get_nvar()
     # inversion in
     def __get_los(self):
         return self.__object._get_los()
