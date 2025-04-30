@@ -9,14 +9,14 @@
 !  Start:
 !     20/12/2017
 !  Last version:
-!     13/12/2024 V4.0.0
+!     30/05/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     13/12/2024:    V4.0.0 - Added TINYVEL (TdPA)
+!     30/05/2025:    V4.0.1 - Reduced TINYR to 1d-17 (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -229,7 +229,7 @@
       double precision, parameter:: TINYM = 1d-15
 
       !> When a rhoKQ is too small (relative to rho00)
-      double precision, parameter:: TINYR = 1d-15
+      double precision, parameter:: TINYR = 1d-17
 
       !> When a J00 is too small to be accounter for in MRC
       double precision, parameter:: TINYMRCJ = 1d-6

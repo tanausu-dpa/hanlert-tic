@@ -130,6 +130,18 @@ MOLECULE_INPUT
 
   * Description: Path, absolute or relative to the running directory, of the file with the molecular data that will be used to compute the chemical equilibrium and the contribution of some molecules to the background opacity.
 
+BFIELD_INPUT
+------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string: file path; default: None (only 1D)
+    - float*3
+
+  * Description: Path, absolute or relative to the running directory, of the file with the stratification of the magnetic field vector. | Assume an homogeneous magnetic field with the strength (in Gauss), inclination (in degrees), and azimuth (in degrees) specified by such three floats, respectively.
+
 OPACITY_FUDGE
 -------------
 

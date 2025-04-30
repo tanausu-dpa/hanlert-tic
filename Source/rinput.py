@@ -6,8 +6,8 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an (IAC)
 # Hao Li (IAC/NSSCC)
 #
-# 18/03/2025:  V4.0.3 - Added SIGMA_FACTOR, ALI_PHOTO, and
-#                       ALI_ALLOW_OFF (TdPA)
+# 30/04/2025:  V4.0.4 - Bugfix: BFIELD_INPUT was ignored in the
+#                       inversion mode (TdPA)
 #
 #####################
 
@@ -1537,7 +1537,7 @@ def rInput():
     f.write('0\n')
 
   # BFIELD_INPUT
-  if rmode == 0:
+  if rmode == 0 or rmode == -1:
     check = 0
     if 'BFIELD_INPUT' in Dictionary:
       val = Dictionary['BFIELD_INPUT']

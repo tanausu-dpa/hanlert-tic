@@ -10,16 +10,16 @@
 !  Start:
 !     23/02/2023
 !  Last version:
-!     12/03/2025 V4.0.1
+!     30/04/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.1 - Bugfix: Forgot to count the memory
-!                             allocated in Bfield in the routine
-!                             Atmo_Stratify (TdPA)
+!     30/04/2025:    V4.0.2 - Bugfix: The text record was overflown
+!                             when the number of nodes was larger
+!                             than 32 (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -2462,7 +2462,8 @@
       character(3):: length
       character(30):: fmt
 
-      integer::j
+      integer::j,i0,nnode
+      double precision:: ff
 
 
       ! If inverting variable
@@ -2496,41 +2497,133 @@
           write(umsg, '(A,i2)') "   Parameter index = ",indx
           call verboseI(3)
 
-          ! Get format
-          write(length, "(i3)") Inf_Nodes%Num_Nodes(indx)
-          fmt = '(A,'//trim(adjustl(length))//'es15.4)'
-          fmt = trim(adjustl(fmt))
+          ! Small enough nodes for a single line
+          if (Inf_Nodes%Num_Nodes(indx).lt.33) then
 
-          ! Verbose positions
-          write(umsg, FMT=fmt) "   Position: ", &
-            (Inf_Nodes%Node(indx)%H(j), j=1, &
-             Inf_Nodes%Num_Nodes(indx))
-          call verboseI(3)
+            ! Get format
+            write(length, "(i3)") Inf_Nodes%Num_Nodes(indx)
+            fmt = '(A,'//trim(adjustl(length))//'es15.4)'
+            fmt = trim(adjustl(fmt))
 
-          !
-          ! Verbose values
-          !
-          ! If velocity
-          if (indx.eq.Inf_Nodes%index_vz.or. &
-              indx.eq.Inf_Nodes%index_vx.or. &
-              (indx.eq.Inf_Nodes%index_vy.and. &
-               Inf_Nodes%vtype.eq.0).or. &
-              indx.eq.Inf_Nodes%index_vm) then
-
-            write(umsg, FMT=fmt) "     Values: ", &
-             (Inf_Nodes%Node(indx)%Var(j)*1d6*c, j=1, &
-              Inf_Nodes%Num_Nodes(indx))
+            ! Verbose positions
+            write(umsg, FMT=fmt) "   Position: ", &
+              (Inf_Nodes%Node(indx)%H(j), j=1, &
+               Inf_Nodes%Num_Nodes(indx))
             call verboseI(3)
 
-          ! No velocity
+            !
+            ! Verbose values
+            !
+            ! If velocity
+            if (indx.eq.Inf_Nodes%index_vz.or. &
+                indx.eq.Inf_Nodes%index_vx.or. &
+                (indx.eq.Inf_Nodes%index_vy.and. &
+                 Inf_Nodes%vtype.eq.0).or. &
+                indx.eq.Inf_Nodes%index_vm) then
+
+              write(umsg, FMT=fmt) "     Values: ", &
+               (Inf_Nodes%Node(indx)%Var(j)*1d6*c, j=1, &
+                Inf_Nodes%Num_Nodes(indx))
+              call verboseI(3)
+
+            ! No velocity
+            else
+
+              write(umsg, FMT=fmt) "     Values: ", &
+               (Inf_Nodes%Node(indx)%Var(j), j=1, &
+                Inf_Nodes%Num_Nodes(indx))
+              call verboseI(3)
+
+            end if ! Velocity
+
+          ! Too many nodes
           else
 
-            write(umsg, FMT=fmt) "     Values: ", &
-             (Inf_Nodes%Node(indx)%Var(j), j=1, &
-              Inf_Nodes%Num_Nodes(indx))
+            ! If velocity
+            if (indx.eq.Inf_Nodes%index_vz.or. &
+                indx.eq.Inf_Nodes%index_vx.or. &
+                (indx.eq.Inf_Nodes%index_vy.and. &
+                 Inf_Nodes%vtype.eq.0).or. &
+                indx.eq.Inf_Nodes%index_vm) then
+
+              ! Multiplicative factor
+              ff = 1d6*c
+
+            ! No velocity
+            else
+
+              ! Multiplicative factor
+              ff = 1d0
+
+            end if
+
+            ! Save
+            nnode = Inf_Nodes%Num_Nodes(indx)
+            i0 = 1
+
+            ! Get format
+            write(length, "(i3)") 32
+            fmt = '(A,'//trim(adjustl(length))//'es15.4)'
+            fmt = trim(adjustl(fmt))
+
+            ! Verbose positions
+            write(umsg, FMT=fmt) "   Position: ", &
+              (Inf_Nodes%Node(indx)%H(j), j=1, 32)
             call verboseI(3)
 
-          end if ! Velocity
+            ! Verbose values
+            write(umsg, FMT=fmt) "     Values: ", &
+             (Inf_Nodes%Node(indx)%Var(j)*ff, j=1, 32)
+            call verboseI(3)
+
+            ! Update
+            i0 = i0 + 32
+            nnode = nnode - 32
+
+            ! If still more
+            do while (nnode.gt.32)
+
+              ! Get format
+              write(length, "(i3)") 32
+              fmt = '(A,'//trim(adjustl(length))//'es15.4)'
+              fmt = trim(adjustl(fmt))
+
+              ! Verbose positions
+              write(umsg, FMT=fmt) "   Position: ", &
+                (Inf_Nodes%Node(indx)%H(j), j=i0, i0+32-1)
+              call verboseI(3)
+
+              ! Verbose values
+              write(umsg, FMT=fmt) "     Values: ", &
+               (Inf_Nodes%Node(indx)%Var(j)*ff, j=i0, i0+32-1)
+              call verboseI(3)
+
+              ! Update
+              i0 = i0 + 32
+              nnode = nnode - 32
+
+            end do
+
+            ! If remaining
+            if (nnode.gt.0) then
+
+              ! Get format
+              write(length, "(i3)") nnode
+              fmt = '(A,'//trim(adjustl(length))//'es15.4)'
+              fmt = trim(adjustl(fmt))
+
+              ! Verbose positions
+              write(umsg, FMT=fmt) "   Position: ", &
+                (Inf_Nodes%Node(indx)%H(j), j=i0, i0+nnode-1)
+              call verboseI(3)
+
+              ! Verbose values
+              write(umsg, FMT=fmt) "     Values: ", &
+               (Inf_Nodes%Node(indx)%Var(j)*ff, j=i0, i0+nnode-1)
+              call verboseI(3)
+
+            end if ! There are nodes to write
+          end if ! Number of nodes
         end if ! Master
       end if ! Inverting variable
 

@@ -10,17 +10,16 @@
 !  Start:
 !     22/02/2023
 !  Last version:
-!     07/04/2025 V4.0.2
+!     30/05/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     07/04/2025:    V4.0.2 - The size of the atmosphere and result
-!                             data in the inversion file can exceed
-!                             the 4 byte integer limit, changed to
-!                             double precision (TdPA)
+!     30/04/2025:    V4.0.3 - Bugfix: The text record was overflown
+!                             when the number of nodes was larger
+!                             than 32 (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -259,7 +258,8 @@
       character(3):: length
       character(30):: fmt
 
-      integer:: i, j
+      integer:: i,j,i0,nnode
+      double precision:: ff
 
 
       !
@@ -292,34 +292,111 @@
           write(umsg, '(A,i2)') "   Parameter index = ",i
           call verboseI(3)
 
-          ! Write number of nodes in string and prepare format
-          write(length, "(i3)") Inf_Nodes%Num_Nodes(i)
-          fmt = '   ('//trim(adjustl(length))//'es15.5)'
-          fmt = trim(adjustl(fmt))
+          ! Small enough nodes for a single line
+          if (Inf_Nodes%Num_Nodes(i).lt.33) then
 
-          ! If vertical or microturbulent velocity
-          if (i.eq.Inf_Nodes%index_vx.or. &
-              (i.eq.Inf_Nodes%index_vy.and. &
-               Inf_Nodes%vtype.eq.0).or. &
-              i.eq.Inf_Nodes%index_vz.or. &
-              i.eq.Inf_Nodes%index_vm) then
+            ! Write number of nodes in string and prepare format
+            write(length, "(i3)") Inf_Nodes%Num_Nodes(i)
+            fmt = '   ('//trim(adjustl(length))//'es15.5)'
+            fmt = trim(adjustl(fmt))
 
-            ! Write transformed velocity in verbosity file
-            write(umsg, FMT=fmt) &
-              (Inf_Nodes%Node(i)%Var(j)*c*1d6, j = 1, &
+            ! If vertical or microturbulent velocity
+            if (i.eq.Inf_Nodes%index_vx.or. &
+                (i.eq.Inf_Nodes%index_vy.and. &
+                 Inf_Nodes%vtype.eq.0).or. &
+                i.eq.Inf_Nodes%index_vz.or. &
+                i.eq.Inf_Nodes%index_vm) then
+
+              ! Write transformed velocity in verbosity file
+              write(umsg, FMT=fmt) &
+                (Inf_Nodes%Node(i)%Var(j)*c*1d6, j = 1, &
                                                Inf_Nodes%Num_Nodes(i))
-            call verboseI(3)
+              call verboseI(3)
 
-          ! Other variables
+            ! Other variables
+            else
+
+              ! Write to verbosity file
+              write(umsg, FMT=fmt) &
+                (Inf_Nodes%Node(i)%Var(j), j = 1, &
+                                           Inf_Nodes%Num_Nodes(i))
+              call verboseI(3)
+
+            end if ! Velocity variable
+
+          ! Too many nodes
           else
 
-            ! Write to verbosity file
+            ! If velocity
+            if (i.eq.Inf_Nodes%index_vz.or. &
+                i.eq.Inf_Nodes%index_vx.or. &
+                (i.eq.Inf_Nodes%index_vy.and. &
+                 Inf_Nodes%vtype.eq.0).or. &
+                i.eq.Inf_Nodes%index_vm) then
+
+              ! Multiplicative factor
+              ff = 1d6*c
+
+            ! No velocity
+            else
+
+              ! Multiplicative factor
+              ff = 1d0
+
+            end if
+
+            ! Save
+            nnode = Inf_Nodes%Num_Nodes(i)
+            i0 = 1
+
+            ! Get format
+            write(length, "(i3)") 32
+            fmt = '   ('//trim(adjustl(length))//'es15.5)'
+            fmt = trim(adjustl(fmt))
+
+            ! Verbose values
             write(umsg, FMT=fmt) &
-              (Inf_Nodes%Node(i)%Var(j), j = 1, &
-                                         Inf_Nodes%Num_Nodes(i))
+             (Inf_Nodes%Node(i)%Var(j)*ff, j=1, 32)
             call verboseI(3)
 
-          end if ! If velocity or not
+            ! Update
+            i0 = i0 + 32
+            nnode = nnode - 32
+
+            ! If still more
+            do while (nnode.gt.32)
+
+              ! Get format
+              write(length, "(i3)") 32
+              fmt = '   ('//trim(adjustl(length))//'es15.5)'
+              fmt = trim(adjustl(fmt))
+
+              ! Verbose values
+              write(umsg, FMT=fmt) &
+               (Inf_Nodes%Node(i)%Var(j)*ff, j=i0, i0+32-1)
+              call verboseI(3)
+
+              ! Update
+              i0 = i0 + 32
+              nnode = nnode - 32
+
+            end do
+
+            ! If remaining
+            if (nnode.gt.0) then
+
+              ! Get format
+              write(length, "(i3)") nnode
+              fmt = '   ('//trim(adjustl(length))//'es15.5)'
+              fmt = trim(adjustl(fmt))
+
+              ! Verbose values
+              write(umsg, FMT=fmt) &
+               (Inf_Nodes%Node(i)%Var(j)*ff, j=i0, i0+nnode-1)
+              call verboseI(3)
+
+            end if ! There are nodes to write
+          end if ! Number of nodes
         end if ! If inverting
 
       end do ! Variables

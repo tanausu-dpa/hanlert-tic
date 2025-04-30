@@ -10,16 +10,16 @@
 !  Start:
 !     16/02/2023
 !  Last version:
-!     25/03/2025 V4.0.3
+!     30/05/2025 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     25/03/2025:    V4.0.3 - Added not doing a thermal inversion for
-!                             a dynamic atmosphere as a trigger to
-!                             store all Stokes paramters (TdPA)
+!     30/05/2025:    V4.0.4 - Added a check to nicely abort when the
+!                             SOLUTION_BOX input leads to no columns
+!                             to invert (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -754,8 +754,10 @@
       ! Fix wildcards in input
       if (Input%sol_box(1).lt.1) Input%sol_box(1) = 1
       if (Input%sol_box(2).lt.1) Input%sol_box(2) = dims(1)
+      if (Input%sol_box(2).gt.dims(1)) Input%sol_box(2) = dims(1)
       if (Input%sol_box(3).lt.1) Input%sol_box(3) = 1
       if (Input%sol_box(4).lt.1) Input%sol_box(4) = dims(2)
+      if (Input%sol_box(4).gt.dims(2)) Input%sol_box(4) = dims(2)
 
       ! Global master
       if (gpid.eq.0) then
@@ -764,6 +766,18 @@
         out_dims(1) = Input%sol_box(2) - Input%sol_box(1) + 1
         out_dims(2) = Input%sol_box(4) - Input%sol_box(3) + 1
         out_dims(3) = dims(3)
+
+        ! Check output dimensions
+        if (out_dims(1).lt.1.or.out_dims(2).lt.1) then
+
+          ! Issue error
+          write(umsg,'(A,i4,",",i4)') &
+            ' # Error: X-Y zero size after applying '// &
+            'the SOLUTION_BOX limits: ',out_dims(1:2)
+          call verbosev
+          laborted = .True.
+
+        end if ! Final output dimensions
 
       ! Others
       else
@@ -774,6 +788,8 @@
 
       end if ! Global master or not
 
+      ! Control
+      call gcontrol
 
       ! If reading from a 3D model, open the file
       if (Input%atmoin_type.gt.0) then

@@ -185,7 +185,7 @@ BFIELD_INPUT
 
   * OPTIONAL
 
-  * Modes: 1D
+  * Modes: 1D, INV
 
   * Formats:
     

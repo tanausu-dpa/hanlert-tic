@@ -160,7 +160,7 @@
       read (200,err=1100) nL_popu
 
       ! Check if it has the correct number of levels
-      if(Atom%nlevel .ne. nL_popu)then
+      if(Atom%nlevel.ne.nL_popu)then
 
         ! Error due to incompatible model sizes
         write(umsg,'(A,1x,i4,1x,A,1x,i4)') &
