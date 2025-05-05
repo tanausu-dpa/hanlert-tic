@@ -10,14 +10,18 @@
 !  Start:
 !     17/02/2023
 !  Last version:
-!     18/03/2025 V4.0.1
+!     05/05/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/03/2025:    V4.0.1 - Added enhance_sigma subroutine (TdPA)
+!     05/05/2025:    V4.0.2 - Zero out the weights for polarization
+!                             for only thermal inversions to ensure
+!                             the weights are not normalized by
+!                             accounting for the four Stokes
+!                             parameters (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -444,6 +448,10 @@
           end do ! Ranges in data
         end do ! Weight ranges
 
+        ! If thermal, set polarization to 0
+        if (Input%Type_Inversion.eq.0) &
+          Inf_Stokes%weight(1:3,:) = 0d0
+
       end if ! Type of input
 
 
@@ -844,6 +852,7 @@
                                      1d0/Inf_Stokes%Scales(i,2))
           ! U
           Inf_Stokes%Weight(i, 2) = Inf_Stokes%Weight(i, 1)
+
           ! V
           Inf_Stokes%Weight(i, 3) = Inf_Stokes%Scales(i,0)/ &
                                     Inf_Stokes%Scales(i,3)
