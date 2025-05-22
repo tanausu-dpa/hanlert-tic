@@ -10,16 +10,20 @@
 !  Start:
 !     16/02/2023
 !  Last version:
-!     30/05/2025 V4.0.4
+!     15/05/2025 V4.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     30/05/2025:    V4.0.4 - Added a check to nicely abort when the
-!                             SOLUTION_BOX input leads to no columns
-!                             to invert (TdPA)
+!     15/05/2025:    V4.0.5 - Generalized declarations of Atom to
+!                             allow for empty arrays for any of
+!                             them (TdPA)
+!                           - Bugfix: There was a check on a potential
+!                             undefined string. Did not have any
+!                             consequence, but pops-up when running
+!                             memcheck (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -83,7 +87,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Atom_class), dimension(:), &
                         allocatable, intent(inout):: Atomb
       type(Mol_class), dimension(:), allocatable, intent(inout):: Mol
@@ -681,54 +686,57 @@
             call rAtmo(Input%atmo,Input%source, &
                        Input%ID, Atmo_in, -1d0)
 
-            ! If no input field, generate one
-            if (trim(Input%bfield).eq.'NONE'.and. &
-                .not.Input%bfieldn) then
+            ! If non-numeric input
+            if (.not.Input%bfieldn) then
 
-              ! Hard-code input
-              Input%bfieldn = .True.
+              ! If no input field, generate one
+              if (trim(Input%bfield).eq.'NONE') then
 
-              ! If thermal
-              if (Input%Type_Inversion.eq.0) then
+                ! Hard-code input
+                Input%bfieldn = .True.
 
-                ! No magnetic field
-                Input%bfieldv = (/ 0d0, 0d0, 0d0 /)
+                ! If thermal
+                if (Input%Type_Inversion.eq.0) then
 
-              ! Magnetic
-              else
+                  ! No magnetic field
+                  Input%bfieldv = (/ 0d0, 0d0, 0d0 /)
 
-                ! Depending on the inverted quantities
-                ii = Inf_Nodes%index_Bt
-                jj = Inf_Nodes%index_Bp
-
-                ! If inverting Bt or Bp
-                if (Inf_Nodes%Nodes_Flags(ii).and. &
-                    Inf_Nodes%Nodes_Flags(jj)) then
-
-                  ! Add an arbitrary direction field
-                  Input%bfieldv = (/ 1d0, PI*0.25d0, 5.7d0 /)
-
-                ! If inverting Bt and not Bp
-                else if (Inf_Nodes%Nodes_Flags(ii)) then
-
-                  ! Add an inclined field at azimuth 0
-                  Input%bfieldv = (/ 1d0, PI*0.25d0, 0.0d0 /)
-
-                ! If inverting Bp and not Bt
-                else if (Inf_Nodes%Nodes_Flags(jj)) then
-
-                  ! Add a vertical magnetic field
-                  Input%bfieldv = (/ 1d0,       0d0, 5.7d0 /)
-
-                ! Not inverting either
+                ! Magnetic
                 else
 
-                  ! Add a vertical magnetic field
-                  Input%bfieldv = (/ 1d0,       0d0,   0d0 /)
+                  ! Depending on the inverted quantities
+                  ii = Inf_Nodes%index_Bt
+                  jj = Inf_Nodes%index_Bp
 
-                end if ! Inverting Bt or Bp
-              end if ! Thermal or magnetic inversion
-            end if ! No magnetic field model and no input
+                  ! If inverting Bt or Bp
+                  if (Inf_Nodes%Nodes_Flags(ii).and. &
+                      Inf_Nodes%Nodes_Flags(jj)) then
+
+                    ! Add an arbitrary direction field
+                    Input%bfieldv = (/ 1d0, PI*0.25d0, 5.7d0 /)
+
+                  ! If inverting Bt and not Bp
+                  else if (Inf_Nodes%Nodes_Flags(ii)) then
+
+                    ! Add an inclined field at azimuth 0
+                    Input%bfieldv = (/ 1d0, PI*0.25d0, 0.0d0 /)
+
+                  ! If inverting Bp and not Bt
+                  else if (Inf_Nodes%Nodes_Flags(jj)) then
+
+                    ! Add a vertical magnetic field
+                    Input%bfieldv = (/ 1d0,       0d0, 5.7d0 /)
+
+                  ! Not inverting either
+                  else
+
+                    ! Add a vertical magnetic field
+                    Input%bfieldv = (/ 1d0,       0d0,   0d0 /)
+
+                  end if ! Inverting Bt or Bp
+                end if ! Thermal or magnetic inversion
+              end if ! No magnetic field model
+            end if ! Non-numeric input
 
             ! Set-up initial field
             call rBField(Input%bfield,Input%source, &
@@ -1172,16 +1180,10 @@
 
         end do ! Atoms
 
-      ! Manager
-      else
-
-        ! Match setphoto control call
-        call gcontrol
-
-      end if ! Manager or not
+      end if ! Not manager
 
       ! Master verbose
-      if (gpid.eq.0) then
+      if (gpid.eq.0.and.nA.gt.0) then
         umsg = ' - Initialized photoionization quantities '//&
                '(cross section)'
         call verbosev

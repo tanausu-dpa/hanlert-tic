@@ -11,21 +11,16 @@
 !  Start:
 !     27/04/2017
 !  Last version:
-!     19/12/2024 V4.0.0
+!     15/05/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     19/12/2024:    V4.0.0 - Removed OpenMP directives (TdPA)
-!                           - Combined RTCoeff and RTCoeffe into
-!                             a single subroutine (TdPA)
-!                           - Changed how the normalization factor,
-!                             profiles, and redistribution functions
-!                             are stored (TdPA)
-!                           - The second order emissitivy is now
-!                             calculated elsewhere (TdPA)
+!     15/05/2025:    V4.0.1 - Generalized declarations of Atom to
+!                             allow for empty arrays for any of
+!                             them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -122,7 +117,8 @@
       ! I/O
 
       type(Atmo_class), intent(in):: Atmo
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
       type(Frequency_class), intent(in):: Frec
@@ -1020,7 +1016,8 @@
       ! I/O
 
       type(Atmo_class), intent(in):: Atmo
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
       type(Frequency_class), intent(in):: Frec
@@ -1455,7 +1452,8 @@
       ! I/O
 
       type(Atmo_class), intent(in):: Atmo
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Frequency_class), intent(in):: Frec
       type(Red_class), intent(in):: Red
       type(Fctsg_class), intent(in):: Flgsg

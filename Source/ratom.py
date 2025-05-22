@@ -5,8 +5,10 @@ import sys, math, os
 #
 # Tanaus\'u del Pino Alem\'an (IAC)
 #
-# 13/03/2025:  V4.0.1 - Added 'cross' mode to the allowed types
+# 15/05/2025:  V4.0.2 - Added 'kurucz' mode to the allowed types
 #                       of broadening (TdPA)
+#                     - Cleaned the processing of radiative
+#                       transitions
 #
 #####################
 
@@ -304,10 +306,33 @@ def rAtom():
   # Auxiliars for transitions
   bark = ['s','p','d','f']
   bardic = {'s':'0','p':'1','d':'2','f':'3'}
-  broads = ['barklem','unsold','param','cross']
-  broads_dic = {'barklem':'0','unsold':'1','param':'2','cross':'3'}
+  broads = ['barklem','unsold','param','cross','kurucz']
+  broads_dic = {'barklem':'0','unsold':'1','param':'2', \
+                'cross':'3','kurucz':'4'}
   classe = ['e1','m1','e2','m2','un']
   classe_dic = {'e1':1,'m1':2,'e2':3,'m2':4,'un':5}
+
+  # Identifiers
+  #  0   j
+  #  1   i
+  #  2   Aul
+  #  3   Transition type
+  #  4   Broadening type
+  #  5   Broad par. 1
+  #  6   Broad par. 2
+  #  7   Broad par. 3
+  #  8   Broad par. 4
+  #  9   Stark broad
+  # 10   Number of total frequencies
+  # 11   Number of core frequencies
+  # 12   Number of total Doppler widths
+  # 13   Number of core Doppler widths
+  # 14   If PRD
+  # 15   If FS-wise frequencies
+
+  # List of positions that are numbers (automatic correction of 'd'
+  # notation)
+  numbers = [0,1,2,10,11,12,13,14,15]
 
   # Transitions
   nfor = 0
@@ -315,14 +340,12 @@ def rAtom():
     iline += 1
     line = lines[iline]
     cols = line.lower().split()
-    # Check format
-    if cols[3] in classe:
-      new = True
-      numbers = [0,1,2,6,8,9,10,11,12,13,14,15]
-    elif cols[3] in broads:
-      new = False
-      numbers = [0,1,2,5,7,8,9,10,11,12,13,14]
-    else:
+    # Correct if no transition type
+    mod = 0
+    if cols[3] not in classe and cols[3] in broads:
+      cols = cols[:3] + ['e1'] + cols[3:]
+      mod = -1
+    elif cols[3] not in classe and cols[3] not in broads:
       verbose(' # The fourth element in transition ' + \
             '{0}'.format(ii+1) + \
             ', {0}, is not a broadening of the '.format(cols[3]) + \
@@ -331,151 +354,113 @@ def rAtom():
             'following: {0}, {1}, {2}, {3} or {4},'.format(*classe), \
               verbfile, verbosity)
       abort(f,filename)
-    if new:
-      if len(cols) < 15:
-        verbose(' # Wrong number of transition inputs, ' + \
-                'expected at least 14, got ' + \
-                '{0} for transition {1}'.format(len(cols),ii+1), \
-                verbfile, verbosity)
-        abort(f,filename)
-      if len(cols) > 16:
-        verbose(' # Wrong number of transition inputs, ' + \
-                'expected not more than 15, got ' + \
-                '{0} for transition {1}'.format(len(cols),ii+1), \
-                verbfile, verbosity)
-        abort(f,filename)
-      if len(cols) != 16:
-          cols.append('1')
-      if cols[3].lower() not in classe:
-        verbose(' # The transition type in transition ' + \
-            '{0}'.format(ii+1) + \
-            ', {0}, is none of the '.format(cols[3]) + \
-            'following: {0}, {1}, {2}, {3}, or {4}'.format(*classe), \
-                verbfile, verbosity)
-        abort(f,filename)
-      if cols[3].lower() != classe[0] and \
-         cols[3].lower() != classe[1]:
-          nfor += 1
-      if cols[4] not in broads:
-        verbose(' # The broadening type in transition ' + \
-                '{0}'.format(ii+1) + \
-                ', {0}, is none of the '.format(cols[4]) + \
-                'following: {0}, {1}, or {2}'.format(*broads), \
-                verbfile, verbosity)
-        abort(f,filename)
-      if cols[4] == 'barklem':
-        changed = False
-        if cols[5] not in bark:
-          verbose(' # There is no Barklem data for l: ' + \
-                  '{0}'.format(cols[5]) + \
-                  ', changed to Unsold without enhancement for' + \
-                  ' line {0}'.format(ii+1), verbfile, verbosity)
-          cols[4] = 'unsold'
-          cols[5] = '1e0'
-          cols[6] = '0e0'
-          cols[7] = '1e0'
-          cols[8] = '0e0'
-          changed = True
-        if cols[7] not in bark and not changed:
-          verbose(' # There is no Barklem data for l: ' + \
-                  '{0}'.format(cols[7]) + \
-                  ', changed to Unsold without enhancement for' + \
-                  ' line {0}'.format(ii+1), verbfile, verbosity)
-          cols[4] = 'unsold'
-          cols[5] = '1e0'
-          cols[6] = '0e0'
-          cols[7] = '1e0'
-          cols[8] = '0e0'
-        if not changed:
-          cols[5] = bardic[cols[5]]
-          cols[7] = bardic[cols[7]]
-      if cols[4] == 'unsold' or cols[4] == 'param':
-        numbers.append(5)
-        numbers.append(7)
-      for kk in numbers:
-        lst = list(cols[kk])
-        while lst.count('d') > 0:
-          lst[lst.index('d')] = 'e'
-        cols[kk] = ''.join(lst)
-        num = float(cols[kk])
-      output.append(' '.join(cols[0:3]))
-      output.append('\n')
-      output.append(classe_dic[cols[3]])
-      output.append('\n')
-      output.append(broads_dic[cols[4]])
-      output.append('\n')
-      for jj in range(5,9):
-        output.append(cols[jj] + ' ')
-        output.append('\n')
-      output.append(' '.join(cols[9:]))
-      output.append('\n')
-    # Old
+    # Check correct number of inputs
+    if len(cols) < 15:
+      verbose(' # Wrong number of transition inputs, ' + \
+              'expected at least {0}, got '.format(14+mod) + \
+              '{0} for transition {1}'.format(len(cols)+mod,ii+1), \
+              verbfile, verbosity)
+      abort(f,filename)
+    if len(cols) > 16:
+      verbose(' # Wrong number of transition inputs, ' + \
+              'expected not more than {0}, got '.format(15+mod) + \
+              '{0} for transition {1}'.format(len(cols)+mod,ii+1), \
+              verbfile, verbosity)
+      abort(f,filename)
+    if len(cols) != 16:
+      cols.append('1')
+    # Check transition type
+    if cols[3].lower() not in classe:
+      verbose(' # The transition type in transition ' + \
+              '{0}'.format(ii+1) + \
+              ', {0}, is none of the '.format(cols[3]) + \
+              'following: {0}, {1}, {2}, {3}, or {4}'.format(*classe), \
+               verbfile, verbosity)
+      abort(f,filename)
+    if cols[3].lower() != classe[0] and \
+       cols[3].lower() != classe[1]:
+      nfor += 1
+    # Check Van der Waals
+    if cols[4] not in broads:
+      verbose(' # The broadening type in transition ' + \
+              '{0}'.format(ii+1) + \
+              ', {0}, is none of the '.format(cols[4]) + \
+              'following: {0}, {1}, or {2}'.format(*broads), \
+              verbfile, verbosity)
+      abort(f,filename)
+    if cols[4] == 'barklem':
+      changed = False
+      if cols[5] not in bark:
+        verbose(' # There is no Barklem data for l: ' + \
+                '{0}'.format(cols[5]) + \
+                ', changed to Unsold without enhancement for' + \
+                ' line {0}'.format(ii+1), verbfile, verbosity)
+        cols[4] = 'unsold'
+        cols[5] = '1e0'
+        cols[6] = '0e0'
+        cols[7] = '1e0'
+        cols[8] = '0e0'
+        changed = True
+      if cols[7] not in bark and not changed:
+        verbose(' # There is no Barklem data for l: ' + \
+                '{0}'.format(cols[7]) + \
+                ', changed to Unsold without enhancement for' + \
+                ' line {0}'.format(ii+1), verbfile, verbosity)
+        cols[4] = 'unsold'
+        cols[5] = '1e0'
+        cols[6] = '0e0'
+        cols[7] = '1e0'
+        cols[8] = '0e0'
+      if not changed:
+        cols[5] = bardic[cols[5]]
+        cols[7] = bardic[cols[7]]
+    elif cols[4] == 'unsold' or cols[4] == 'param':
+      numbers.append(5)
+      numbers.append(6)
+      numbers.append(7)
+      numbers.append(8)
+    elif cols[4] == 'cross':
+      numbers.append(5)
+      numbers.append(6)
+      cols[7] = '0e0'
+      cols[8] = '0e0'
+    elif cols[4] == 'kurucz':
+      numbers.append(5)
+      cols[6] = '0e0'
+      cols[7] = '0e0'
+      cols[8] = '0e0'
+    # Check Stark
+    if 'l' in cols[9]:
+      # Get value without K
+      cols[9] = cols[9][1:]
+      # Check double notation
+      lst = list(cols[9])
+      while lst.count('d') > 0:
+        lst[lst.index('d')] = 'e'
+      cols[9] = ''.join(lst)
+      # Get log
+      cols[9] = '-{0}'.format(10.0**float(cols[9]))
     else:
-      if len(cols) < 14:
-        verbose(' # Wrong number of transition inputs, ' + \
-                'expected at least 14, got ' + \
-                '{0} for transition {1}'.format(len(cols),ii+1), \
-                verbfile, verbosity)
-        abort(f,filename)
-      if len(cols) > 15:
-        verbose(' # Wrong number of transition inputs, ' + \
-                'expected not more than 15, got ' + \
-                '{0} for transition {1}'.format(len(cols),ii+1), \
-                verbfile, verbosity)
-        abort(f,filename)
-      if len(cols) != 15:
-          cols.append('1')
-      if cols[3] not in broads:
-        verbose(' # The broadening type in transition ' + \
-                '{0}'.format(ii+1) + \
-                ', {0}, is none of the '.format(cols[3]) + \
-                'following: {0}, {1}, or {2}'.format(*broads), \
-                verbfile, verbosity)
-        abort(f,filename)
-      if cols[3] == 'barklem':
-        changed = False
-        if cols[4] not in bark:
-          verbose(' # There is no Barklem data for l: ' + \
-                  '{0}'.format(cols[4]) + \
-                  ', changed to Unsold without enhancement for' + \
-                  ' line {0}'.format(ii+1), verbfile, verbosity)
-          cols[3] = 'unsold'
-          cols[4] = '1e0'
-          cols[5] = '0e0'
-          cols[6] = '1e0'
-          cols[7] = '0e0'
-          changed = True
-        if cols[6] not in bark and not changed:
-          verbose(' # There is no Barklem data for l: ' + \
-                  '{0}'.format(cols[6]) + \
-                  ', changed to Unsold without enhancement for' + \
-                  ' line {0}'.format(ii+1), verbfile, verbosity)
-          cols[3] = 'unsold'
-          cols[4] = '1e0'
-          cols[5] = '0e0'
-          cols[6] = '1e0'
-          cols[7] = '0e0'
-        if not changed:
-          cols[4] = bardic[cols[4]]
-          cols[6] = bardic[cols[6]]
-      if cols[3] == 'unsold' or cols[3] == 'param':
-        numbers.append(4)
-        numbers.append(6)
-      for kk in numbers:
-        lst = list(cols[kk])
-        while lst.count('d') > 0:
-          lst[lst.index('d')] = 'e'
-        cols[kk] = ''.join(lst)
-        num = float(cols[kk])
-      output.append(' '.join(cols[0:3]))
+      numbers.append(9)
+    # Process numbers
+    for kk in numbers:
+      lst = list(cols[kk])
+      while lst.count('d') > 0:
+        lst[lst.index('d')] = 'e'
+      cols[kk] = ''.join(lst)
+      num = float(cols[kk])
+    # Add to output
+    output.append(' '.join(cols[0:3]))
+    output.append('\n')
+   #output.append(classe_dic[cols[3]])
+   #output.append('\n')
+    output.append(broads_dic[cols[4]])
+    output.append('\n')
+    for jj in range(5,9):
+      output.append(cols[jj] + ' ')
       output.append('\n')
-      output.append(broads_dic[cols[3]])
-      output.append('\n')
-      for jj in range(4,8):
-        output.append(cols[jj] + ' ')
-        output.append('\n')
-      output.append(' '.join(cols[8:]))
-      output.append('\n')
+    output.append(' '.join(cols[9:]))
+    output.append('\n')
 
   # Depolarizing collisions
   depcol = ['fit']

@@ -9,29 +9,16 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     12/03/2025 V4.0.2
+!     15/05/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.2 - Bugfix: The %crho variables in
-!                             Atom_class and in Rhoc_class have, in
-!                             general, different sizes. Just equating
-!                             them was changing the size of the
-!                             Rhoc_class one and messing the memory
-!                             couting (TdPA)
-!                           - Bugfix: the memory to be stored in the
-!                             tau and contribution functions for
-!                             the inversion were counted in excess by
-!                             a factor of two because they are single
-!                             precision (TdPA)
-!                           - The LOS pointers in Geometry_class are
-!                             now deallocated in its own routine,
-!                             free_los_geom (TdPA)
-!                           - Moved some MPI_WAIT calls to a more
-!                             appropriate location (TdPA)
+!     15/05/2025:    V4.0.1 - Generalized declarations of Atom,
+!                             Rho_old, JKQ, and JKQS to allow for
+!                             empty arrays for any of them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -159,10 +146,12 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
-      type(Rhoc_class), dimension(:), intent(inout):: Rho_old
+      type(Rhoc_class), dimension(:), &
+                        allocatable, intent(inout):: Rho_old
       type(Atmo_class), intent(in):: Atmo
       type(Continuum_class), intent(in):: Cont
       type(Frequency_class), intent(in):: Frec
@@ -176,10 +165,10 @@
              dimension(0:3,nfreq,Geom%nPh,Geom%nTh,giz0:giz1), &
              target, intent(inout):: Stokes
       complex(kind=8), dimension(:,:,:), intent(in):: JKQ_asym
-      complex(kind=8), dimension(-2:2,0:2,nxtran,Rz0:Rz1), &
-                       intent(inout):: JKQ
-      complex(kind=8), dimension(-2:2,0:2,nxtran,Rz0:Rz1), &
-                       intent(inout):: JKQS
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(inout):: JKQ
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(inout):: JKQS
       complex(kind=8), dimension(-2:2,0:2,nfreq,Rz0:Rz1), &
                        intent(inout):: JKQC
 
@@ -609,7 +598,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Frequency_class), intent(in):: Frec
       type(Red_class), intent(in):: Red
       type(Geometry_class), intent(in):: Geom
@@ -830,7 +820,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Frequency_class), intent(in):: Frec
       type(Geometry_class), intent(in):: Geom
       type(MPI_class), intent(in):: MPID
@@ -1171,7 +1162,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Atmo_class), intent(in):: Atmo
       type(Frequency_class), intent(in):: Frec
       type(Geometry_class), intent(in):: Geom
@@ -1190,10 +1182,10 @@
       double precision, dimension(nxphot,2,Rz0:Rz1), &
                         intent(out):: J00P
       complex(kind=8), dimension(:,:,:), intent(in):: JKQ_asym
-      complex(kind=8), dimension(-2:2,0:2,nxtran,Rz0:Rz1), &
-                       intent(out):: JKQ
-      complex(kind=8), dimension(-2:2,0:2,nxtran,Rz0:Rz1), &
-                       intent(out):: JKQS
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(inout):: JKQ
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(inout):: JKQS
       complex(kind=8), dimension(-2:2,0:2,nfreq,Rz0:Rz1), &
                        intent(out):: JKQC
 
@@ -1701,7 +1693,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
       type(Atmo_class), intent(in):: Atmo
@@ -1725,10 +1718,10 @@
       double precision, dimension(nxphot,2,Rz0:Rz1), &
                        intent(out):: J00P
       complex(kind=8), dimension(:,:,:):: JKQ_asym
-      complex(kind=8), dimension(-2:2,0:2,nxtran,Rz0:Rz1), &
-                       intent(out):: JKQ
-      complex(kind=8), dimension(-2:2,0:2,nxtran,Rz0:Rz1), &
-                       intent(out):: JKQS
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(inout):: JKQ
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(inout):: JKQS
       complex(kind=8), dimension(-2:2,0:2,nfreq,Rz0:Rz1), &
                        intent(inout):: JKQC
       complex(kind=8), dimension(:,:,:,:), &
@@ -2420,8 +2413,10 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Rhoc_class), dimension(:), intent(in):: Rho_old
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Rhoc_class), dimension(:), &
+                        allocatable, intent(in):: Rho_old
       type(Atmo_class), intent(in):: Atmo
       type(Bfield_class), intent(in):: Bfield
       type(Geometry_class), intent(in):: Geom
@@ -2439,10 +2434,10 @@
       double precision, &
           dimension(0:3,nfreq,Geom%nPh,Geom%nTh,giz0:giz1), &
           intent(inout):: Stokes
-      complex(kind=8), dimension(-2:2,0:2,nxtran,Rz0:Rz1), &
-                       intent(in):: JKQ
-      complex(kind=8), dimension(-2:2,0:2,nxtran,Rz0:Rz1), &
-                       intent(in):: JKQS
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(in):: JKQ
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(in):: JKQS
       complex(kind=8), dimension(-2:2,0:2,nfreq,Rz0:Rz1), &
                        intent(inout):: JKQC
 
@@ -2857,7 +2852,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
       type(Atmo_class), intent(in):: Atmo
@@ -2874,8 +2870,8 @@
              dimension(0:3,nfreq,Geom%nPh,Geom%nTh,giz0:giz1), &
              target, intent(in):: Stokes
       complex(kind=8), dimension(:,:,:), intent(in):: JKQ_asym
-      complex(kind=8), dimension(-2:2,0:2,nxtran,Rz0:Rz1), &
-                       intent(in):: JKQ
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(in):: JKQ
       complex(kind=8), dimension(-2:2,0:2,nfreq,Rz0:Rz1), &
                        intent(in):: JKQC
 
@@ -3041,7 +3037,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Red_class), intent(in):: Red
       type(Geometry_class), intent(in):: Geom
       type(MPI_class), intent(in):: MPID
@@ -3612,7 +3609,8 @@
                              data1M,data1O,JKQC)
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
       type(Atmo_class), intent(in):: Atmo

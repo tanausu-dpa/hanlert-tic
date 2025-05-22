@@ -9,18 +9,16 @@
 !  Start:
 !     16/06/2023
 !  Last version:
-!     12/03/2025 V4.0.1
+!     15/05/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.1 - Bugfix: the LTElines variable in
-!                             setlte_lines routine had to be
-!                             allocatable (TdPA)
-!                           - Bugfix: Missing couting of chi500 in
-!                             MRAMc in setup_Atmo_ininv (TdPA)
+!     15/05/2025:    V4.0.2 - Generalized declarations of Atom, Atomb,
+!                             and Mol to allow for empty arrays for
+!                             any of them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -130,13 +128,16 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(inout):: Atomb
-      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
       integer, intent(in):: nn
 
       ! Prepare active atoms
-      call prepareatom(Atom,nA)
+      if (nA.gt.0) call prepareatom(Atom,nA)
 
       ! Prepare background atoms
       if (nAb.gt.0) call prepareatom(Atomb,nAb)
@@ -166,8 +167,10 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
       type(Atmo_class), intent(in):: Atmo
       type(Input_class), intent(in):: Input
       integer, dimension(:), allocatable, intent(inout):: nlte,depar
@@ -215,8 +218,10 @@
       subroutine reviseH_init(Atom,Atomb,Atmo)
 
       ! I/O
-      type(Atom_class), dimension(:), intent(in):: Atom
-      type(Atom_class), dimension(:), intent(in):: Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atomb
       type(Atmo_class), intent(inout):: Atmo
 
       ! Local
@@ -294,8 +299,10 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
       type(Atmo_class), intent(inout):: Atmo
       type(Input_class), intent(in):: Input
 
@@ -388,8 +395,10 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
       type(Atmo_class), intent(in):: Atmo
       type(Input_class), intent(in):: Input
 
@@ -440,7 +449,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atomb
       type(LTEline_class), dimension(:), &
                            allocatable, intent(inout):: LTElines
       type(Atmo_class), intent(in):: Atmo
@@ -499,8 +509,10 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
       type(Atmo_class), intent(in):: Atmo
       type(Fctsg_class), intent(inout):: Flgsg
       type(Input_class), intent(in):: Input
@@ -523,7 +535,7 @@
       if (laborted) return
 
       ! If keeping collisions, call writer
-      if (Input%keep_cols) &
+      if (Input%keep_cols.and.nA.gt.0) &
         call writecols(Atom,Input%folder,&
                        Input%lim_cols_tt,Input%lim_cols_ll)
 
@@ -554,8 +566,10 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
       type(Atmo_class), intent(in):: Atmo
 
       ! Local
@@ -598,8 +612,10 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
       type(Atmo_class), intent(in):: Atmo
       type(Input_class), intent(in):: Input
 
@@ -620,12 +636,13 @@
       if (laborted) return
 
       ! If keeping damping, call writer
-      if (Input%keep_damp) call writedamp(Atom,Atmo,Input%folder, &
-                                          Input%lim_damp)
+      if (Input%keep_damp.and.nA.gt.0) &
+        call writedamp(Atom,Atmo,Input%folder, &
+                       Input%lim_damp)
 
       ! If keeping elastic rates, call writer
-      if (Input%keep_qel) call writeqel(Atom,Input%folder, &
-                                        Input%lim_qel)
+      if (Input%keep_qel.and.nA.gt.0) &
+        call writeqel(Atom,Input%folder,Input%lim_qel)
 
       ! Control
       if (laborted) return
@@ -657,7 +674,8 @@
 
       ! I/O
 
-      type(LTEline_class), dimension(:), intent(inout):: LTElines
+      type(LTEline_class), dimension(:), &
+                           allocatable, intent(inout):: LTElines
       type(Atmo_class), intent(in):: Atmo
 
       ! Local
@@ -694,11 +712,14 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
       type(LTEline_class), dimension(:), &
                            allocatable, intent(inout):: LTEline
-      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
       type(Atmo_class), intent(inout):: Atmo
       type(Input_class), intent(in):: Input
 
@@ -783,7 +804,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
 
       ! Local
 
@@ -816,8 +838,10 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(in):: Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atomb
       type(Atmo_class), intent(inout):: Atmo
       type(Bfield_class), intent(in):: Bfield
       type(Input_class), intent(in):: Input
@@ -897,11 +921,14 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
       type(LTEline_class), dimension(:), &
                            allocatable, intent(inout):: LTElines
-      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
       type(Atmo_class), intent(inout):: Atmo
       type(Fctsg_class), intent(inout):: Flgsg
       type(Input_class), intent(in):: Input
@@ -1032,9 +1059,12 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(inout):: Atomb
-      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
       type(Atmo_class), intent(inout):: Atmo
       type(fudge_class), intent(in):: fudge
       type(Input_class), intent(in):: Input
@@ -1242,9 +1272,12 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(inout):: Atomb
-      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
       type(Atmo_class), intent(inout):: Atmo
       type(fudge_class), intent(in):: fudge
       type(Input_class), intent(in):: Input

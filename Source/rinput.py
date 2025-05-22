@@ -6,8 +6,17 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an (IAC)
 # Hao Li (IAC/NSSCC)
 #
-# 30/04/2025:  V4.0.4 - Bugfix: BFIELD_INPUT was ignored in the
-#                       inversion mode (TdPA)
+# 15/05/2025:  V4.0.5 - Added Kurucz broadening mode to LTE lines
+#                       in native format (TdPA)
+#                     - Changed the way to indicate constant
+#                       logarithmic values for the quadratic Stark
+#                       broadening (TdPA)
+#                     - Changed the name from 'gamma' to 'cross' for
+#                       inputting the Barklem coefficients in LTE
+#                       lines (TdPA)
+#                     - ATOM_INPUT is now only mandatory in CLE mode
+#                       and can be absent in others if there is at
+#                       least an LTE_LINE input (TdPA)
 #
 #####################
 
@@ -278,7 +287,7 @@ def rInput():
       lout.append(Aul)
 
       # VdW
-      lout.append('3')
+      lout.append('4')
       code = entry[92:98]
       num = 10e0**float(code)
       lout.append(num)
@@ -498,8 +507,9 @@ def rInput():
     # Transition lines
     bark = ['s','p','d','f']
     bardic = {'s':0,'p':1,'d':2,'f':3}
-    broads = ['barklem','unsold','param','gamma']
-    broads_dic = {'barklem':'0','unsold':'1','param':'2','gamma':'3'}
+    broads = ['barklem','unsold','param','cross','kurucz']
+    broads_dic = {'barklem':'0','unsold':'1','param':'2','cross':'3', \
+                  'kurucz':4}
 
 
     # VdW broadening
@@ -508,7 +518,7 @@ def rInput():
     # Type
     msg = 'Van der Waals broadening type '+cols[i]+ \
           ' is none of the following: '+ \
-          'following: {0}, {1}, {2}, or {3}'.format(*broads)
+          'following: {0}, {1}, {2}, {3}, or {4}'.format(*broads)
     if cols[i] not in broads:
       lerror(msg,ofolder,verbosity)
       return False, []
@@ -520,6 +530,7 @@ def rInput():
             ', changed to Unsold'
       if cols[i+1] not in bark:
         lerror(msg,ofolder,verbosity)
+        cols[i] = 'unsold'
         cols[i+1] = 1e0
         cols[i+2] = 0e0
         cols[i+3] = 1e0
@@ -530,6 +541,7 @@ def rInput():
             ', changed to Unsold'
       if cols[i+3] not in bark:
         lerror(msg,ofolder,verbosity)
+        cols[i] = 'unsold'
         cols[i+1] = 1e0
         cols[i+2] = 0e0
         cols[i+3] = 1e0
@@ -547,11 +559,21 @@ def rInput():
         except:
             lerror(msg,ofolder,verbosity)
             return False, []
-    if cols[i] == 'gamma':
+    elif cols[i] == 'cross':
+      msg = 'Barklem sigma coefficient '+cols[i]
+      try:
+        cols[i+1] = interpret(cols[i+1])
+        cols[i+1] = 10.0**float(cols[i+1])
+        for j in range(2,5): cols[i+j] = 0e0
+      except:
+        lerror(msg,ofolder,verbosity)
+        return False, []
+    elif cols[i] == 'Kurucz':
       msg = 'Van der Waals coefficient '+cols[i]
       try:
         cols[i+1] = interpret(cols[i+1])
         cols[i+1] = 10.0**float(cols[i+1])
+        for j in range(2,5): cols[i+j] = 0e0
       except:
         lerror(msg,ofolder,verbosity)
         return False, []
@@ -560,16 +582,13 @@ def rInput():
     # Stark coefficient
     i = 14
     msg = 'Stark coefficient '+cols[i]
-    if '--' in cols[i] or '-+' in cols[i]:
-        ff = -1e0
-        cols[i] = cols[i][1:]
-        if cols[i][0] == '+':
-            cols[i] = cols[i][1:]
-    else:
-        ff = 1e0
     try:
-      cols[i] = interpret(cols[i])
-      cols[i] = ff*(10.0**(float(cols[i])))
+      if 'l' in cols[i].lower():
+        cols[i] = interpret(cols[i][1:])
+        cols[i] = '-{0}'.format(10.0**(float(cols[i])))
+      else:
+        cols[i] = interpret(cols[i])
+        cols[i] = float(cols[i])
     except:
       lerror(msg,ofolder,verbosity)
       return False, []
@@ -1228,9 +1247,14 @@ def rInput():
         verbose(' # ATOM_INPUT file not found '+cols[0], \
                 ofolder, verbosity)
         abort(f, filename)
-  else:
-    verbose(' # ATOM_INPUT necessary keyword', ofolder, verbosity)
+  # If CLE mode
+  elif rmode == 2:
+    verbose(' # ATOM_INPUT necessary keyword in CLE mode', \
+            ofolder, verbosity)
     abort(f, filename)
+  # Non-CLE modes
+  else:
+    NA = 0
 
 
   # ATOM_BACK
@@ -1289,6 +1313,12 @@ def rInput():
   # ATOM_POPU
   if 'ATOM_POPU' in Dictionary:
 
+    # If no atom
+    if NA < 1:
+      verbose(' # ATOM_POPU cannot be specified without ATOM_INPUT', \
+              ofolder, verbosity)
+      abort(f, filename)
+
     # Get populations entries
     val = Dictionary['ATOM_POPU']
 
@@ -1331,6 +1361,12 @@ def rInput():
   # ATOM_FIX_POP
   if 'ATOM_FIX_POP' in Dictionary:
 
+    # If no atom
+    if NA < 1:
+      verbose(' # ATOM_FIX_POP cannot be specified without ' + \
+              'ATOM_INPUT', ofolder, verbosity)
+      abort(f, filename)
+
     # Get fix populations entries
     val = Dictionary['ATOM_FIX_POP']
 
@@ -1358,6 +1394,12 @@ def rInput():
 
   # ATOM_ZERO_ION
   if 'ATOM_ZERO_ION' in Dictionary:
+
+    # If no atom
+    if NA < 1:
+      verbose(' # ATOM_ZERO_ION cannot be specified without ' + \
+              'ATOM_INPUT', ofolder, verbosity)
+      abort(f, filename)
 
     # Get fix populations entries
     val = Dictionary['ATOM_ZERO_ION']
@@ -1387,6 +1429,12 @@ def rInput():
   # ATOM_NO_WAVE
   if 'ATOM_NO_WAVE' in Dictionary:
 
+    # If no atom
+    if NA < 1:
+      verbose(' # ATOM_NO_WAVE cannot be specified without ' + \
+              'ATOM_INPUT', ofolder, verbosity)
+      abort(f, filename)
+
     # Get fix populations entries
     val = Dictionary['ATOM_NO_WAVE']
 
@@ -1414,6 +1462,12 @@ def rInput():
 
   # ATOM_FIX_POP_LTERM
   if 'ATOM_FIX_POP_LTERM' in Dictionary:
+
+    # If no atom
+    if NA < 1:
+      verbose(' # ATOM_FIX_POP_LTERM cannot be specified without ' + \
+              'ATOM_INPUT', ofolder, verbosity)
+      abort(f, filename)
 
     # Get fix populations entries
     val = Dictionary['ATOM_FIX_POP_LTERM']
@@ -1817,7 +1871,14 @@ def rInput():
       f.write('0\n')
   # No for CLE
   else:
+    NL = 0
     f.write('0\n')
+
+  # Check that there are atoms or lines
+  if NA < 1 and NL < 1:
+    verbose(' # It is necessary to specify at least one ' + \
+            'ATOM_INPUT or LTE_LINE input', ofolder, verbosity)
+    abort(f, filename)
 
   # WAVELENTHS
   if 'WAVELENGTHS' in Dictionary:

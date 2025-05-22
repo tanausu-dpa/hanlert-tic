@@ -9,15 +9,16 @@
 !  Start:
 !     01/10/2022
 !  Last version:
-!     13/12/2024 V4.0.0
+!     15/05/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     13/12/2024:    V4.0.0 - Updated for the new dimensions in the
-!                             geometrical tensors (TdPA)
+!     15/05/2025:    V4.0.1 - Generalized declarations of Atom to
+!                             allow for empty arrays for any of
+!                             them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -112,7 +113,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Spect_class), intent(inout):: spect
       type(Fctsg_class), intent(inout):: Flgsg
       type(Frequency_class), intent(in):: Frec

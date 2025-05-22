@@ -11,17 +11,19 @@
 !  Start:
 !     20/04/2016
 !  Last version:
-!     12/03/2025 V4.0.2
+!     15/05/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.2 - Bugfix: The wrong Stokes variables was
-!                             being used to count the allocated
-!                             memory in getsol for the intensity only
-!                             case (TdPA)
+!     15/05/2025:    V4.0.3 - Generalized declarations of Atom to
+!                             allow for empty arrays for any of
+!                             them (TdPA)
+!                           - Skip reading or writing atomic
+!                             quantities if there are no active atoms
+!                             in the run (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -179,7 +181,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Geometry_class), intent(in):: Geom,GeomI
       type(Fctsg_class), intent(in):: Flgsg
       type(Bfield_class), intent(in):: Bfield
@@ -312,8 +315,10 @@
       end if ! Wrong label
 
       ! Allocate J00 for photoionizations (common for both pathts)
-      allocate(J00P(nxphot,2,Rz0:Rz1))
-      RRAMc = RRAMc + 1d-6*sizeof(J00P)
+      if (nA.gt.0) then
+        allocate(J00P(nxphot,2,Rz0:Rz1))
+        RRAMc = RRAMc + 1d-6*sizeof(J00P)
+      end if
 
       !
       ! Polarization read
@@ -321,7 +326,7 @@
       if (ilabel.eq.0) then
 
         ! Initialize J00P
-        J00P = 0d0
+        if (nA.gt.0) J00P = 0d0
 
         !
         ! Allocations
@@ -348,13 +353,18 @@
         ! Count memory
         RRAMc = RRAMc + 1d-6*sizeof(Stokes)
 
-        ! JKQ for absorptivity
-        allocate(JKQ(-2:2,0:2,nxtran,Rz0:Rz1))
-        RRAMc = RRAMc + 1d-6*sizeof(JKQ)
+        ! If atoms
+        if (nA.gt.0) then
 
-        ! JKQ for stimulated emission
-        allocate(JKQS(-2:2,0:2,nxtran,Rz0:Rz1))
-        RRAMc = RRAMc + 1d-6*sizeof(JKQS)
+          ! JKQ for absorptivity
+          allocate(JKQ(-2:2,0:2,nxtran,Rz0:Rz1))
+          RRAMc = RRAMc + 1d-6*sizeof(JKQ)
+
+          ! JKQ for stimulated emission
+          allocate(JKQS(-2:2,0:2,nxtran,Rz0:Rz1))
+          RRAMc = RRAMc + 1d-6*sizeof(JKQS)
+
+        end if ! Atoms
 
         ! JKQ frequency dependent
         allocate(JKQC(-2:2,0:2,nfreq,Rz0:Rz1))
@@ -841,7 +851,7 @@
         end if ! Master
 
         ! If there are slaves
-        if (nproc.gt.1) then
+        if (nproc.gt.1.and.nA.gt.0) then
 
           ! Control
           call control
@@ -938,7 +948,7 @@
           end if ! Master
 
           ! If there are slaves
-          if (nproc.gt.1) then
+          if (nproc.gt.1.and.nA.gt.0) then
 
             ! Control
             call control
@@ -958,7 +968,7 @@
         else
 
           ! Just copy JKQ data then
-          if (stm) JKQS = JKQ
+          if (stm.and.nA.gt.0) JKQS = JKQ
 
         end if ! Stimulated emission in the input
 
@@ -1437,13 +1447,18 @@
         ! Initialize
         Stokes0 = 0d0
 
-        ! J00 for absorptivity
-        allocate(J00(nxt,Rz0:Rz1))
-        RRAMc = RRAMc + 1d-6*sizeof(J00)
+        ! If atoms
+        if (nA.gt.0) then
 
-        ! J00 for stimulated emission
-        allocate(J00S(nxt,Rz0:Rz1))
-        RRAMc = RRAMc + 1d-6*sizeof(J00S)
+          ! J00 for absorptivity
+          allocate(J00(nxt,Rz0:Rz1))
+          RRAMc = RRAMc + 1d-6*sizeof(J00)
+
+          ! J00 for stimulated emission
+          allocate(J00S(nxt,Rz0:Rz1))
+          RRAMc = RRAMc + 1d-6*sizeof(J00S)
+
+        end if ! Atoms
 
         ! J00 frequency dependent
         allocate(J00C(nfreq,Rz0:Rz1))
@@ -1809,7 +1824,7 @@
         end if ! Master
 
         ! If there are slaves
-        if (nproc.gt.1) then
+        if (nproc.gt.1.and.nA.gt.0) then
 
           ! Control
           call control
@@ -1859,7 +1874,7 @@
           end if ! Master
 
           ! If there are slaves
-          if (nproc.gt.1) then
+          if (nproc.gt.1.and.nA.gt.0) then
 
             ! Control
             call control
@@ -1878,7 +1893,7 @@
         else
 
           ! Just copy J00 if necessary
-          if (stm) J00S = J00
+          if (stm.and.nA.gt.0) J00S = J00
 
         end if ! Stimulated emission in the input
 
@@ -1920,7 +1935,7 @@
         end if ! Master
 
         ! If there are slaves
-        if (nproc.gt.1) then
+        if (nproc.gt.1.and.nA.gt.0) then
 
           ! Control
           call control
@@ -2288,7 +2303,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Geometry_class), intent(in):: Geom,GeomI
       type(Fctsg_class), intent(in):: Flgsg
       type(Bfield_class), intent(in):: Bfield
@@ -2355,21 +2371,26 @@
         ! Count memory
         RRAMc = RRAMc + 1d-6*sizeof(Stokes0)
 
-        ! J00 for absorptivity
-        allocate(J00(nxt,Rz0:Rz1))
-        RRAMc = RRAMc + 1d-6*sizeof(J00)
+        ! If there are atoms
+        if (nA.gt.0) then
 
-        ! J00 for stimulated emission
-        allocate(J00S(nxt,Rz0:Rz1))
-        RRAMc = RRAMc + 1d-6*sizeof(J00S)
+          ! J00 for absorptivity
+          allocate(J00(nxt,Rz0:Rz1))
+          RRAMc = RRAMc + 1d-6*sizeof(J00)
+
+          ! J00 for stimulated emission
+          allocate(J00S(nxt,Rz0:Rz1))
+          RRAMc = RRAMc + 1d-6*sizeof(J00S)
+
+          ! J00 for photoionizations
+          allocate(J00P(nxphot,2,Rz0:Rz1))
+          RRAMc = RRAMc + 1d-6*sizeof(J00P)
+
+        end if ! Atoms
 
         ! J00 frequency dependent
         allocate(J00C(nfreq,Rz0:Rz1))
         RRAMc = RRAMc + 1d-6*sizeof(J00C)
-
-        ! J00 for photoionizations
-        allocate(J00P(nxphot,2,Rz0:Rz1))
-        RRAMc = RRAMc + 1d-6*sizeof(J00P)
 
         ! Master
         if (pid.eq.0) then
@@ -2400,35 +2421,39 @@
 
           end if
 
-          ! J00 bar
-          J00 = SolF%i_J00_b(:,Rz0:Rz1)
+          ! There are atoms
+          if (nA.gt.0) then
 
-          ! MPI
-          if (nproc.gt.1) then
+            ! J00 bar
+            J00 = SolF%i_J00_b(:,Rz0:Rz1)
 
-            ! Buffer size
-            psize = nxt*RnZ
+            ! MPI
+            if (nproc.gt.1) then
 
-            ! Share
-            call MPI_BCAST(J00(1,Rz0), psize, &
-                           MPI_DOUBLE_PRECISION, 0, &
-                           MPI_COMM_RT, ierr)
-          end if ! MPI
+              ! Buffer size
+              psize = nxt*RnZ
 
-          ! J00 photo
-          J00P = SolF%i_J00P_b(:,:,Rz0:Rz1)
+              ! Share
+              call MPI_BCAST(J00(1,Rz0), psize, &
+                             MPI_DOUBLE_PRECISION, 0, &
+                             MPI_COMM_RT, ierr)
+            end if ! MPI
 
-          ! MPI
-          if (nproc.gt.1) then
+            ! J00 photo
+            J00P = SolF%i_J00P_b(:,:,Rz0:Rz1)
 
-            ! Buffer size
-            psize = nxphot*2*Rnz
+            ! MPI
+            if (nproc.gt.1) then
 
-            ! Share
-            call MPI_BCAST(J00P(1,1,Rz0), psize, &
-                           MPI_DOUBLE_PRECISION, 0, &
-                           MPI_COMM_RT, ierr)
-          end if ! MPI
+              ! Buffer size
+              psize = nxphot*2*Rnz
+
+              ! Share
+              call MPI_BCAST(J00P(1,1,Rz0), psize, &
+                             MPI_DOUBLE_PRECISION, 0, &
+                             MPI_COMM_RT, ierr)
+            end if ! MPI
+          end if ! Atoms
 
           ! J00 freq. dependent
           J00C = SolF%i_J00C_b(:,Rz0:Rz1)
@@ -2467,17 +2492,21 @@
 
           end if
 
-          ! J00
-          psize = nxt*RnZ
-          call MPI_BCAST(J00(1,Rz0), psize, &
-                         MPI_DOUBLE_PRECISION, 0, &
-                         MPI_COMM_RT, ierr)
+          ! Atoms
+          if (nA.gt.0) then
 
-          ! J00P
-          psize = nxphot*2*Rnz
-          call MPI_BCAST(J00P(1,1,Rz0), psize, &
-                         MPI_DOUBLE_PRECISION, 0, &
-                         MPI_COMM_RT, ierr)
+            ! J00
+            psize = nxt*RnZ
+            call MPI_BCAST(J00(1,Rz0), psize, &
+                           MPI_DOUBLE_PRECISION, 0, &
+                           MPI_COMM_RT, ierr)
+
+            ! J00P
+            psize = nxphot*2*Rnz
+            call MPI_BCAST(J00P(1,1,Rz0), psize, &
+                           MPI_DOUBLE_PRECISION, 0, &
+                           MPI_COMM_RT, ierr)
+          end if ! Atoms
 
           ! J00C
           psize = nfreq*Rnz
@@ -2485,10 +2514,10 @@
                          MPI_DOUBLE_PRECISION, 0, &
                          MPI_COMM_RT, ierr)
 
-        end if
+        end if ! Master/Slave
 
         ! Copy in J00S
-        J00S = J00
+        if (nA.gt.0) J00S = J00
 
         ! For each atom
         do ia=1,nA
@@ -2609,21 +2638,26 @@
         ! Memory count
         RRAMc = RRAMc + 1d-6*sizeof(Stokes)
 
-        ! JKQ for absorptivity
-        allocate(JKQ(-2:2,0:2,nxtran,Rz0:Rz1))
-        RRAMc = RRAMc + 1d-6*sizeof(JKQ)
+        ! If atoms
+        if (nA.gt.0) then
 
-        ! JKQ for stimulated emission
-        allocate(JKQS(-2:2,0:2,nxtran,Rz0:Rz1))
-        RRAMc = RRAMc + 1d-6*sizeof(JKQS)
+          ! JKQ for absorptivity
+          allocate(JKQ(-2:2,0:2,nxtran,Rz0:Rz1))
+          RRAMc = RRAMc + 1d-6*sizeof(JKQ)
+
+          ! JKQ for stimulated emission
+          allocate(JKQS(-2:2,0:2,nxtran,Rz0:Rz1))
+          RRAMc = RRAMc + 1d-6*sizeof(JKQS)
+
+          ! J00 for photoionizations
+          allocate(J00P(nxphot,2,Rz0:Rz1))
+          RRAMc = RRAMc + 1d-6*sizeof(J00P)
+
+        end if ! Atoms
 
         ! JKQ frequency dependent
         allocate(JKQC(-2:2,0:2,nfreq,Rz0:Rz1))
         RRAMc = RRAMc + 1d-6*sizeof(JKQC)
-
-        ! J00 for photoionizations
-        allocate(J00P(nxphot,2,Rz0:Rz1))
-        RRAMc = RRAMc + 1d-6*sizeof(J00P)
 
         ! Master
         if (pid.eq.0) then
@@ -2654,46 +2688,11 @@
 
           end if
 
-          ! JKQ bar
-          JKQ = SolF%i_JKQ_b(:,:,:,Rz0:Rz1)
+          ! Atoms
+          if (nA.gt.0) then
 
-          !
-          ! Rotate JKQ
-          !
-
-          ! For each height
-          do iz=Rz0,Rz1
-
-            ! No field, skip
-            if (Bfield%Bstrength(iz).le.TINYB) cycle
-
-            ! For each transition
-            do itran=1,nxtran
-
-              ! Rotate
-              call fieldB(JKQ(:,:,itran,iz),1,Flgsg, &
-                          Bfield%Btheta(iz),Bfield%Bphi(iz),1)
-
-            end do ! Transitions
-          end do ! heights
-
-          ! MPI
-          if (nproc.gt.1) then
-
-            ! Buffer size
-            psize = 15*nxtran*RnZ
-
-            ! Share
-            call MPI_BCAST(JKQ(-2,0,1,Rz0), psize, &
-                           MPI_DOUBLE_COMPLEX, 0, &
-                           MPI_COMM_RT, ierr)
-          end if ! MPI
-
-          ! If stimulated emission
-          if (stm) then
-
-            ! JKQS bar
-            JKQS = SolF%i_JKQS_b(:,:,:,Rz0:Rz1)
+            ! JKQ bar
+            JKQ = SolF%i_JKQ_b(:,:,:,Rz0:Rz1)
 
             !
             ! Rotate JKQ
@@ -2709,7 +2708,7 @@
               do itran=1,nxtran
 
                 ! Rotate
-                call fieldB(JKQS(:,:,itran,iz),1,Flgsg, &
+                call fieldB(JKQ(:,:,itran,iz),1,Flgsg, &
                             Bfield%Btheta(iz),Bfield%Bphi(iz),1)
 
               end do ! Transitions
@@ -2722,11 +2721,50 @@
               psize = 15*nxtran*RnZ
 
               ! Share
-              call MPI_BCAST(JKQS(-2,0,1,Rz0), psize, &
+              call MPI_BCAST(JKQ(-2,0,1,Rz0), psize, &
                              MPI_DOUBLE_COMPLEX, 0, &
                              MPI_COMM_RT, ierr)
             end if ! MPI
-          end if ! Stimulated emission
+
+            ! If stimulated emission
+            if (stm) then
+
+              ! JKQS bar
+              JKQS = SolF%i_JKQS_b(:,:,:,Rz0:Rz1)
+
+              !
+              ! Rotate JKQ
+              !
+
+              ! For each height
+              do iz=Rz0,Rz1
+
+                ! No field, skip
+                if (Bfield%Bstrength(iz).le.TINYB) cycle
+
+                ! For each transition
+                do itran=1,nxtran
+
+                  ! Rotate
+                  call fieldB(JKQS(:,:,itran,iz),1,Flgsg, &
+                              Bfield%Btheta(iz),Bfield%Bphi(iz),1)
+
+                end do ! Transitions
+              end do ! heights
+
+              ! MPI
+              if (nproc.gt.1) then
+
+                ! Buffer size
+                psize = 15*nxtran*RnZ
+
+                ! Share
+                call MPI_BCAST(JKQS(-2,0,1,Rz0), psize, &
+                               MPI_DOUBLE_COMPLEX, 0, &
+                               MPI_COMM_RT, ierr)
+              end if ! MPI
+            end if ! Stimulated emission
+          end if ! Atoms
 
           ! JKQ freq. dependent
           JKQC = SolF%i_JKQC_b(:,:,:,Rz0:Rz1)
@@ -2765,22 +2803,26 @@
 
           end if
 
-          ! JKQ
-          psize = 15*nxtran*RnZ
-          call MPI_BCAST(JKQ(-2,0,1,Rz0), psize, &
-                         MPI_DOUBLE_COMPLEX, 0, &
-                         MPI_COMM_RT, ierr)
+          ! Atoms
+          if (nA.gt.0) then
 
-          ! If stimulatted
-          if (stm) then
-
-            ! JKQS
+            ! JKQ
             psize = 15*nxtran*RnZ
-            call MPI_BCAST(JKQS(-2,0,1,Rz0), psize, &
+            call MPI_BCAST(JKQ(-2,0,1,Rz0), psize, &
                            MPI_DOUBLE_COMPLEX, 0, &
                            MPI_COMM_RT, ierr)
 
-          end if ! Stimulated emission
+            ! If stimulatted
+            if (stm) then
+
+              ! JKQS
+              psize = 15*nxtran*RnZ
+              call MPI_BCAST(JKQS(-2,0,1,Rz0), psize, &
+                             MPI_DOUBLE_COMPLEX, 0, &
+                             MPI_COMM_RT, ierr)
+
+            end if ! Stimulated emission
+          end if ! Atoms
 
           ! JKQC
           psize = 15*nfreq*Rnz
@@ -3003,7 +3045,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Fctsg_class), intent(in):: Flgsg
       type(Bfield_class), intent(in):: Bfield
       type(Solution_F_class), intent(inout):: SolF
@@ -3069,12 +3112,24 @@
           end do ! Term
         end do ! Atom
 
-        !
-        ! Mean radiation field tensors
-        !
-        SolF%i_J00(:,1:Rz0-1) = 0d0
-        SolF%i_J00(:,Rz1+1:nz) = 0d0
-        SolF%i_J00(:,Rz0:Rz1) = J00(:,Rz0:Rz1)
+        ! Atoms
+        if (nA.gt.0) then
+
+          !
+          ! Mean radiation field tensors
+          !
+          SolF%i_J00(:,1:Rz0-1) = 0d0
+          SolF%i_J00(:,Rz1+1:nz) = 0d0
+          SolF%i_J00(:,Rz0:Rz1) = J00(:,Rz0:Rz1)
+
+          !
+          ! Photoionization
+          !
+          SolF%i_J00P(:,:,1:Rz0-1) = 0d0
+          SolF%i_J00P(:,:,Rz1+1:nz) = 0d0
+          SolF%i_J00P(:,:,Rz0:Rz1) = J00P(:,:,Rz0:Rz1)
+
+        end if ! Atoms
 
         !
         ! Radiation field tensors
@@ -3082,13 +3137,6 @@
         SolF%i_J00C(:,1:Rz0-1) = 0d0
         SolF%i_J00C(:,Rz1+1:nz) = 0d0
         SolF%i_J00C(:,Rz0:Rz1) = J00C(:,Rz0:Rz1)
-
-        !
-        ! Photoionization
-        !
-        SolF%i_J00P(:,:,1:Rz0-1) = 0d0
-        SolF%i_J00P(:,:,Rz1+1:nz) = 0d0
-        SolF%i_J00P(:,:,Rz0:Rz1) = J00P(:,:,Rz0:Rz1)
 
         !
         ! Stokes
@@ -3190,47 +3238,52 @@
           end do ! Terms
         end do ! Atoms
 
-        !
-        ! Mean radiation field tensors
-        !
+        ! Atoms
+        if (nA.gt.0) then
 
-        ! Heights
-        do iz=1,nz
+          !
+          ! Mean radiation field tensors
+          !
 
-          ! Out of limits
-          if (iz.lt.Rz0.or.iz.gt.Rz1) then
+          ! Heights
+          do iz=1,nz
 
-            ! Set to zero and skip
-            SolF%i_JKQ(:,:,:,iz) = cZero
-            if (stm) SolF%i_JKQS(:,:,:,iz) = cZero
-            cycle
+            ! Out of limits
+            if (iz.lt.Rz0.or.iz.gt.Rz1) then
 
-          end if ! Out of limits
+              ! Set to zero and skip
+              SolF%i_JKQ(:,:,:,iz) = cZero
+              if (stm) SolF%i_JKQS(:,:,:,iz) = cZero
+              cycle
 
-          ! Store JKQ and JKQS
-          SolF%i_JKQ(:,:,:,iz) = JKQ(:,:,:,iz)
-          if (stm) SolF%i_JKQS(:,:,:,iz) = JKQS(:,:,:,iz)
+            end if ! Out of limits
 
-          ! If there is a magnetic field
-          if (Bfield%Bstrength(iz).gt.TINYB) then
+            ! Store JKQ and JKQS
+            SolF%i_JKQ(:,:,:,iz) = JKQ(:,:,:,iz)
+            if (stm) SolF%i_JKQS(:,:,:,iz) = JKQS(:,:,:,iz)
 
-            ! For each transition
-            do itran=1,nxtran
+            ! If there is a magnetic field
+            if (Bfield%Bstrength(iz).gt.TINYB) then
 
-              ! Rotate
-              call fieldB(SolF%i_JKQ(:,:,itran,iz),1,Flgsg, &
-                          -Bfield%Btheta(iz),-Bfield%Bphi(iz),-1)
+              ! For each transition
+              do itran=1,nxtran
 
-              ! If stimulated emission, rotate
-              if (stm) &
-              call fieldB(SolF%i_JKQS(:,:,itran,iz),1,Flgsg, &
-                          -Bfield%Btheta(iz),-Bfield%Bphi(iz),-1)
+                ! Rotate
+                call fieldB(SolF%i_JKQ(:,:,itran,iz),1,Flgsg, &
+                            -Bfield%Btheta(iz),-Bfield%Bphi(iz),-1)
 
-            end do ! Transitions
+                ! If stimulated emission, rotate
+                if (stm) &
+                call fieldB(SolF%i_JKQS(:,:,itran,iz),1,Flgsg, &
+                            -Bfield%Btheta(iz),-Bfield%Bphi(iz),-1)
 
-          end if ! Magnetic field
+              end do ! Transitions
 
-        end do ! Heights
+            end if ! Magnetic field
+
+          end do ! Heights
+
+        end if ! Atoms
 
         !
         ! JKQC radiation field tensors
@@ -3289,7 +3342,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Input_class), intent(in):: Input
       type(Geometry_class), intent(in):: Geom
       type(Fctsg_class), intent(in):: Flgsg
@@ -3298,10 +3352,10 @@
       double precision, dimension(:), intent(in):: omega,z
       double precision, dimension(0:3,nfreq,Geom%nPh,Geom%nTh, &
                                      giz0:giz1), intent(in):: Stokes
-      complex(kind=8), &
-             dimension(-2:2,0:2,nxtran,Rz0:Rz1), intent(in):: JKQ
-      complex(kind=8), &
-             dimension(-2:2,0:2,nxtran,Rz0:Rz1), intent(in):: JKQS
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(in):: JKQ
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(in):: JKQS
       complex(kind=8), &
              dimension(-2:2,0:2,nfreq,Rz0:Rz1), intent(in):: JKQC
 
@@ -3343,10 +3397,14 @@
       !
       filename = Input%folder
       saveSol = Input%keep_sol
-      saveP = Input%keep_pop.and.(suff.eq.'NONE'.or.run_mode.eq.0)
-      saveD = Input%keep_dep.and.(suff.eq.'NONE'.or.run_mode.eq.0)
-      saverKQ = Input%keep_rhoKQ.and.(suff.eq.'NONE'.or.run_mode.eq.0)
-      saveJKQ = Input%keep_JKQ.and.(suff.eq.'NONE'.or.run_mode.eq.0)
+      saveP = Input%keep_pop.and.nA.gt.0.and. &
+              (suff.eq.'NONE'.or.run_mode.eq.0)
+      saveD = Input%keep_dep.and.nA.gt.0.and. &
+              (suff.eq.'NONE'.or.run_mode.eq.0)
+      saverKQ = Input%keep_rhoKQ.and.nA.gt.0.and. &
+                (suff.eq.'NONE'.or.run_mode.eq.0)
+      saveJKQ = Input%keep_JKQ.and.nA.gt.0.and. &
+                (suff.eq.'NONE'.or.run_mode.eq.0)
       saveS = Input%keep_stokesQ.and.(suff.eq.'NONE'.or.run_mode.eq.0)
       saveJKQnu = Input%keep_jkqnu.and.(suff.eq.'NONE'.or. &
                                         run_mode.eq.0)
@@ -4743,7 +4801,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Input_class), intent(in):: Input
       type(Geometry_class), intent(in):: Geom
       character(len=4), intent(in):: suff
@@ -4792,10 +4851,14 @@
       !
       filename = Input%folder
       saveSol = Input%keep_sol
-      saveP = Input%keep_pop.and.(suff.eq.'NONE'.or.run_mode.eq.0)
-      saveD = Input%keep_dep.and.(suff.eq.'NONE'.or.run_mode.eq.0)
-      saverKQ = Input%keep_rhoKQ.and.(suff.eq.'NONE'.or.run_mode.eq.0)
-      saveJKQ = Input%keep_JKQ.and.(suff.eq.'NONE'.or.run_mode.eq.0)
+      saveP = Input%keep_pop.and.nA.gt.0.and. &
+              (suff.eq.'NONE'.or.run_mode.eq.0)
+      saveD = Input%keep_dep.and.nA.gt.0.and. &
+              (suff.eq.'NONE'.or.run_mode.eq.0)
+      saverKQ = Input%keep_rhoKQ.and.nA.gt.0.and. &
+                (suff.eq.'NONE'.or.run_mode.eq.0)
+      saveJKQ = Input%keep_JKQ.and.nA.gt.0.and. &
+                (suff.eq.'NONE'.or.run_mode.eq.0)
       saveS = Input%keep_stokesQ.and.(suff.eq.'NONE'.or.run_mode.eq.0)
       saveJ00nu = Input%keep_jkqnu.and. &
                   (suff.eq.'NONE'.or.run_mode.eq.0)
@@ -8543,7 +8606,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(IO_helper_class), intent(in):: btt,bll
       character(len=500), intent(in):: folder
 
@@ -8559,7 +8623,7 @@
 
 
       ! Slaves
-      if (pid.gt.0) then
+      if (pid.gt.0.or.nA.eq.0) then
 
         ! Control
         call control
@@ -8898,7 +8962,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Atmo_class), intent(in):: Atmo
       type(IO_helper_class), intent(in):: buff
       character(len=500), intent(in):: folder
@@ -8916,7 +8981,7 @@
 
 
       ! Slaves
-      if (pid.gt.0) then
+      if (pid.gt.0.or.nA.eq.0) then
 
         ! Control
         call control
@@ -9140,7 +9205,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(IO_helper_class), intent(in):: buff
       character(len=500), intent(in):: folder
 
@@ -9156,7 +9222,7 @@
 
 
       ! Slaves
-      if (pid.gt.0) then
+      if (pid.gt.0.or.nA.eq.0) then
 
         ! Control
         call control
@@ -10398,7 +10464,8 @@
       subroutine dump_rho00(Atom,folder,iter)
 
       ! I/O
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       character(len=500), intent(in):: folder
       integer, intent(in):: iter
 
@@ -10407,6 +10474,10 @@
       logical:: exists
       integer:: ia,iz,it,iJ
       double precision:: ff
+
+
+      ! Sanity
+      if (nA.lt.1) return
 
       ! Get file name for 1D
       if (run_mode.eq.0) then
@@ -10484,7 +10555,8 @@
       subroutine dump_j00(Atom,J00,J00S,J00P,folder,iter)
 
       ! I/O
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       character(len=500), intent(in):: folder
       integer, intent(in):: iter
       double precision, dimension(nxt,Rz0:Rz1), intent(in):: J00, J00S
@@ -10495,6 +10567,10 @@
       logical:: exists
       integer:: ia,iz,itran,jtran
       double precision, parameter:: ff=1d0/299792458d5
+
+
+      ! Sanity
+      if (nA.lt.1) return
 
       ! Get file name for 1D
       if (run_mode.eq.0) then
@@ -10575,7 +10651,8 @@
       subroutine dump_lambda(Atom,LamL,LamP,folder,iter)
 
       ! I/O
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       character(len=500), intent(in):: folder
       integer, intent(in):: iter
       double precision, dimension(nxb,nxt,Rz0:Rz1), intent(in):: LamL
@@ -10587,6 +10664,10 @@
       logical:: exists
       integer:: ia,iz,itran,jtran
       double precision, parameter:: ff=1d0/299792458d5
+
+
+      ! Sanity
+      if (nA.lt.1) return
 
       ! Get file name for 1D
       if (run_mode.eq.0) then
@@ -10654,7 +10735,8 @@
       subroutine dump_rho(Atom,folder,iter)
 
       ! I/O
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       character(len=500), intent(in):: folder
       integer, intent(in):: iter
 
@@ -10663,6 +10745,10 @@
       logical:: exists
       integer:: ia,iz,it,iJ,iJ1,K,iQ
       double precision:: rJ,rJ1
+
+
+      ! Sanity
+      if (nA.lt.1) return
 
       ! Get file name for 1D
       if (run_mode.eq.0) then
@@ -10762,7 +10848,8 @@
       subroutine dump_jkq(Atom,Bfield,Flgsg,JKQ,JKQS,folder,iter)
 
       ! I/O
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Bfield_class), intent(in):: Bfield
       type(Fctsg_class):: Flgsg
       character(len=500), intent(in):: folder
@@ -10777,6 +10864,10 @@
       logical:: exists
       integer:: ia,iz,itran,jtran,K,iQ
       complex(kind=8), dimension(-2:2,0:2,nz):: JKQaux,JKQSaux
+
+
+      ! Sanity
+      if (nA.lt.1) return
 
       ! Get file name for 1D
       if (run_mode.eq.0) then

@@ -9,15 +9,18 @@
 !  Start:
 !     29/06/2022
 !  Last version:
-!     07/04/2025 V4.0.1
+!     15/05/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     07/04/2025:    V4.0.1 - Changed the maximum value to consider
-!                             a dimension reasonable (TdPA)
+!     15/05/2025:    V4.0.2 - Generalized declarations of Atom to
+!                             allow for empty arrays for any of
+!                             them (TdPA)
+!                           - Skip atomic quantities for output when
+!                             there are not active atoms (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -2291,7 +2294,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(IO_helper_class), intent(inout):: buff1
       type(IO_helper_class), intent(inout):: buff2
 
@@ -2366,7 +2370,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(IO_helper_class), intent(inout):: buff
 
       ! Local
@@ -2409,7 +2414,8 @@
       subroutine set_pop_limit(buff,Atom)
 
       ! I/O
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(IO_helper_class), intent(inout):: buff
 
       ! Local
@@ -2467,7 +2473,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Frequency_class), intent(in):: Frec
       type(Input_class), intent(inout):: Input
       integer, intent(in):: mode
@@ -2532,6 +2539,34 @@
 
 
       !
+      ! Background
+      !
+      if (Input%keep_back) then
+
+        ! Look for wavelength indexes
+        call set_lambda_limit(Input%lim_back,Frec)
+
+        ! Header and buffer sizes
+        Input%lim_back%head_size = 24 + Input%lim_back%nn*8
+        Input%lim_back%buffer_size = 12*Input%lim_back%nn*nz
+
+      end if
+
+
+      !
+      ! Atmosphere
+      !
+      if (Input%keep_atmo) then
+        Input%lim_atmo%head_size = 20
+        Input%lim_atmo%buffer_size = 24*8*nz
+      end if
+
+
+      ! Leave if no atoms
+      if (nA.lt.1) return
+
+
+      !
       ! Collisions
       !
       if (Input%keep_cols) then
@@ -2579,21 +2614,6 @@
 
 
       !
-      ! Background
-      !
-      if (Input%keep_back) then
-
-        ! Look for wavelength indexes
-        call set_lambda_limit(Input%lim_back,Frec)
-
-        ! Header and buffer sizes
-        Input%lim_back%head_size = 24 + Input%lim_back%nn*8
-        Input%lim_back%buffer_size = 12*Input%lim_back%nn*nz
-
-      end if
-
-
-      !
       ! Populations
       !
       if (Input%keep_pop.or.Input%keep_dep) then
@@ -2605,14 +2625,6 @@
         Input%lim_pop%head_size = 20
         Input%lim_pop%nbuff = Input%lim_pop%nbuff*nz*4
 
-      end if
-
-      !
-      ! Atmosphere
-      !
-      if (Input%keep_atmo) then
-        Input%lim_atmo%head_size = 20
-        Input%lim_atmo%buffer_size = 24*8*nz
       end if
 
       end subroutine set_io_buffers
@@ -2629,7 +2641,8 @@
       subroutine check_cols_limit(buff1,buff2,Atom)
 
       ! I/O
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(IO_helper_class), intent(inout):: buff1
       type(IO_helper_class), intent(inout):: buff2
 
@@ -2742,7 +2755,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(IO_helper_class), intent(inout):: buff
 
       ! Local
@@ -2804,7 +2818,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(IO_helper_class), intent(inout):: buff
 
       ! Local
@@ -2866,7 +2881,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(IO_helper_class), intent(inout):: buff
 
       ! Local
@@ -2930,9 +2946,13 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Input_class), intent(inout):: Input
 
+
+      ! Skip if no atoms
+      if (nA.lt.1) return
 
       ! Collisions
       if (Input%keep_cols) &
@@ -2965,7 +2985,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Geometry_class), intent(in):: Geom
       type(Input_class), intent(inout):: Input
       logical, intent(out):: aborting
@@ -3087,6 +3108,80 @@
         end do ! Azimuth (LOS)
       end do ! Polar (LOS)
 
+      ! If storing background
+      if (Input%keep_back) then
+
+        ! Try opening background file
+        open (200,file=trim(Input%folder)//'/background', &
+              status='old', iostat=ios, access='stream', &
+              action='read', form='unformatted')
+
+        ! If could not open
+        if (ios.ne.0) then
+
+          ! Issue error
+          umsg = 'There is no existing background file'
+          call verbose
+          aborting = .True.
+          return
+
+        end if
+
+        ! Close
+        close(200)
+
+      end if ! Storing background quantities
+
+      ! If storing atmosphere
+      if (Input%keep_atmo) then
+
+        ! Try opening atmosphetic file
+        open (200,file=trim(Input%folder)//'/atmo.hrt', &
+              status='old', iostat=ios, access='stream', &
+              action='read', form='unformatted')
+
+        ! If could not open
+        if (ios.ne.0) then
+
+          ! Issue error
+          umsg = 'There is no existing atmosphere file'
+          call verbose
+          aborting = .True.
+          return
+        end if
+
+        ! Close
+        close(200)
+
+      end if ! Storing atmosphere
+
+      ! Leave if no atoms
+      if (nA.lt.1) return
+
+      ! If storing MRC
+      if (Input%keep_MRC) then
+
+        ! Try opening MRC file
+        open (200,file=trim(Input%folder)//'/MRC', &
+              status='old', iostat=ios, access='stream', &
+              action='read', form='unformatted')
+
+        ! If could not open
+        if (ios.ne.0) then
+
+          ! Issue error
+          umsg = 'There is no existing MRC file'
+          call verbose
+          aborting = .True.
+          return
+
+        end if
+
+        ! Close
+        close(200)
+
+      end if ! Storing atmosphere
+
       ! If storing collisions
       if (Input%keep_cols) then
 
@@ -3178,30 +3273,6 @@
 
       end if ! Storing elastic rates
 
-      ! If storing background
-      if (Input%keep_back) then
-
-        ! Try opening background file
-        open (200,file=trim(Input%folder)//'/background', &
-              status='old', iostat=ios, access='stream', &
-              action='read', form='unformatted')
-
-        ! If could not open
-        if (ios.ne.0) then
-
-          ! Issue error
-          umsg = 'There is no existing background file'
-          call verbose
-          aborting = .True.
-          return
-
-        end if
-
-        ! Close
-        close(200)
-
-      end if ! Storing background quantities
-
       ! If storing populations or departure coeff.
       if (Input%keep_pop.or.Input%keep_dep) then
 
@@ -3266,53 +3337,6 @@
 
       end if ! Storing population or departure coefficient
 
-      ! If storing atmosphere
-      if (Input%keep_atmo) then
-
-        ! Try opening atmosphetic file
-        open (200,file=trim(Input%folder)//'/atmo.hrt', &
-              status='old', iostat=ios, access='stream', &
-              action='read', form='unformatted')
-
-        ! If could not open
-        if (ios.ne.0) then
-
-          ! Issue error
-          umsg = 'There is no existing atmosphere file'
-          call verbose
-          aborting = .True.
-          return
-        end if
-
-        ! Close
-        close(200)
-
-      end if ! Storing atmosphere
-
-      ! If storing MRC
-      if (Input%keep_MRC) then
-
-        ! Try opening MRC file
-        open (200,file=trim(Input%folder)//'/MRC', &
-              status='old', iostat=ios, access='stream', &
-              action='read', form='unformatted')
-
-        ! If could not open
-        if (ios.ne.0) then
-
-          ! Issue error
-          umsg = 'There is no existing MRC file'
-          call verbose
-          aborting = .True.
-          return
-
-        end if
-
-        ! Close
-        close(200)
-
-      end if ! Storing atmosphere
-
       end subroutine check_io_buffers_exist
 
 !#####################################################################
@@ -3332,7 +3356,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Frequency_class), intent(in):: Frec
       type(Geometry_class), intent(in):: Geom, GeomI
       type(Input_class), intent(inout):: Input
@@ -3539,6 +3564,80 @@
 
 
       !
+      ! Background
+      !
+      if (Input%keep_back) then
+
+        ! Try opening background file
+        open (200,file=trim(Input%folder)//'/background', &
+              status='unknown', iostat=ios, access='stream', &
+              action='write', form='unformatted')
+
+        ! Write header
+        write(200) '2Dba'
+        write(200) dims
+        write(200) Input%lim_back%nn
+        write(200) 1
+
+        ! If specified ranges
+        if (Input%lim_back%nran.gt.0) then
+
+          ! For each range
+          do iran=1,Input%lim_back%nran
+
+            ! Write relevant frequencies
+            write(200) Frec%omega(Input%lim_back%indx(1,iran): &
+                                  Input%lim_back%indx(2,iran))
+          end do ! Ranges
+
+        ! Full range
+        else
+
+          ! Write frequency
+          write(200) Frec%omega
+
+        end if ! Specified ranges
+
+        ! Close
+        close(200)
+
+      end if ! Output background quantities
+
+
+      !
+      ! Atmosphere
+      !
+      if (Input%keep_atmo) then
+
+        ! Open file
+        open (200,file=trim(Input%folder)//'/atmo.hrt', &
+              status='unknown', iostat=ios, access='stream', &
+              action='write', form='unformatted')
+
+        ! Write header
+        write(200) '2Dat'
+        write(200) int(8)
+        write(200) dims
+
+        ! Close
+        close(200)
+
+      end if ! Output atmosphere
+
+
+      ! If no atoms
+      if (nA.lt.1) then
+
+        ! Free
+        if (allocated(Tlos)) deallocate(Tlos,Plos)
+
+        ! And leave
+        return
+
+      end if
+
+
+      !
       ! Collisions
       !
       if (Input%keep_cols) then
@@ -3619,47 +3718,6 @@
 
 
       !
-      ! Background
-      !
-      if (Input%keep_back) then
-
-        ! Try opening background file
-        open (200,file=trim(Input%folder)//'/background', &
-              status='unknown', iostat=ios, access='stream', &
-              action='write', form='unformatted')
-
-        ! Write header
-        write(200) '2Dba'
-        write(200) dims
-        write(200) Input%lim_back%nn
-        write(200) 1
-
-        ! If specified ranges
-        if (Input%lim_back%nran.gt.0) then
-
-          ! For each range
-          do iran=1,Input%lim_back%nran
-
-            ! Write relevant frequencies
-            write(200) Frec%omega(Input%lim_back%indx(1,iran): &
-                                  Input%lim_back%indx(2,iran))
-          end do ! Ranges
-
-        ! Full range
-        else
-
-          ! Write frequency
-          write(200) Frec%omega
-
-        end if ! Specified ranges
-
-        ! Close
-        close(200)
-
-      end if ! Output background quantities
-
-
-      !
       ! Populations
       !
       if (Input%keep_pop) then
@@ -3717,27 +3775,6 @@
         end do ! Atoms
 
       end if ! Output departure coefficients
-
-
-      !
-      ! Atmosphere
-      !
-      if (Input%keep_atmo) then
-
-        ! Open file
-        open (200,file=trim(Input%folder)//'/atmo.hrt', &
-              status='unknown', iostat=ios, access='stream', &
-              action='write', form='unformatted')
-
-        ! Write header
-        write(200) '2Dat'
-        write(200) int(8)
-        write(200) dims
-
-        ! Close
-        close(200)
-
-      end if ! Output atmosphere
 
 
       !

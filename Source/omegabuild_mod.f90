@@ -11,19 +11,18 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     24/04/2025 V4.0.2
+!     15/05/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     24/04/2025:    V4.0.2 - Bugfix: The number of magnetic
-!                             components for a transition can be zero
-!                             if it is a forbidden line, this needs
-!                             to be taken into account when indexing
-!                             to predict the normalization size in
-!                             memory (TdPA)
+!     15/05/2025:    V4.0.3 - Generalized declarations of Atom to
+!                             allow for empty arrays for any of
+!                             them (TdPA)
+!                           - Add sanity checks for when there are no
+!                             active atoms (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -153,7 +152,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Input_class), intent(inout):: Input
       type(Frequency_class), intent(inout):: Frec
       double precision, intent(in):: maxB
@@ -228,28 +228,32 @@
         DwTmin(ia) = Atom(ia)%cDopp*sqrt(Input%minT)
       end do
 
-      ! Take the Doppler width from the input
-      allocate(DwT(nA))
+      ! If active atoms
+      if (nA.gt.0) then
+          
+        ! Take the Doppler width from the input
+        allocate(DwT(nA))
 
-      ! Maximum Doppler width
-      if(Input%dws.eq.'MAX')then
+        ! Maximum Doppler width
+        if(Input%dws.eq.'MAX')then
 
-        ! Copy
-        DwT = DwTmax
+          ! Copy
+          DwT = DwTmax
 
-      ! Minimum Doppler width
-      else if(Input%dws.eq.'MIN')then
+        ! Minimum Doppler width
+        else if(Input%dws.eq.'MIN')then
 
-        ! Copy
-        DwT = DwTmin
+          ! Copy
+          DwT = DwTmin
 
-      ! Or fixed input Doppler width
-      else if(Input%dws.eq.'NUM')then
+        ! Or fixed input Doppler width
+        else if(Input%dws.eq.'NUM')then
 
-        ! Compute
-        DwT = Input%dw*1d-9/c
+          ! Compute
+          DwT = Input%dw*1d-9/c
 
-      end if
+        end if
+      end if ! Active atoms
 
       ! If LTE lines
       if (nLTEl.gt.0) then
@@ -380,7 +384,7 @@
       end if ! If possible MIT transitions
 
       ! Allocate temporal limits array
-      allocate(tmp_lim(2,nxtran))
+      if (nxtran.gt.0) allocate(tmp_lim(2,nxtran))
       if (nLTEl.gt.0) allocate(tmp_limL(2,nLTEl))
 
       ! Set counter of frequencies to 0
@@ -413,9 +417,9 @@
       ! Initial vector
       allocate(omega(nfreq))
       ! Fine structure frequencies
-      allocate(nut(nMu))
+      if (nMu.gt.0) allocate(nut(nMu))
       ! Vector for MIT flag
-      allocate(vMIT(nMU))
+      if (nMu.gt.0) allocate(vMIT(nMU))
 
       ! Initialize quantities to check velocity shifts
       if (dyn) maxV = Input%maxV
@@ -1038,7 +1042,7 @@
       deallocate(omega)
 
       ! Free
-      deallocate(nut,vMIT)
+      if (allocated(nut)) deallocate(nut,vMIT)
 
       ! Order the frequencies in the axis
       call QsortC(Frec%omega)
@@ -1506,7 +1510,7 @@
       end do ! Frequencies in the interval
 
       ! Deallocate arrays
-      deallocate(tmp_lim)
+      if (allocated(tmp_lim)) deallocate(tmp_lim)
       deallocate(protect)
 
       ! Check if everything is fine
@@ -1537,7 +1541,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
 
       ! Local
 
@@ -3744,7 +3749,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Atmo_class), intent(in):: Atmo
       type(Input_class), intent(in):: Input
       type(Frequency_class), intent(in):: Frec
@@ -4210,7 +4216,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Red_class), intent(inout):: Red
       type(Geometry_class), intent(inout):: Geom
       double precision, dimension(:), intent(in):: Bstrength
@@ -4478,7 +4485,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Atmo_class), intent(in):: Atmo
       type(Input_class), intent(in):: Input
       type(Frequency_class), intent(in):: Frec
@@ -4700,7 +4708,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Red_class), intent(inout):: Red
       type(Geometry_class),intent(inout):: Geom
       logical, intent(out):: ofram
@@ -4851,7 +4860,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Frequency_class), intent(inout):: Frec
       type(Input_class), intent(inout):: Input
       type(MPI_class), intent(in):: MPID
@@ -5272,7 +5282,8 @@
 
       type(Input_class), intent(in):: Input
       type(MPI_class), intent(in):: MPID
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Frequency_class), intent(inout):: Frec
 
       ! Local
@@ -5792,7 +5803,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
       type(Atmo_class), intent(in):: Atmo
@@ -6066,7 +6078,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Red_class), intent(inout):: Red
       logical, intent(in):: pol
       double precision, dimension(:), intent(in):: Bstrength
@@ -6148,6 +6161,12 @@
         end do ! Atoms
 
       end if ! Polarization or intensity
+
+      ! Sanity check
+      if (mina.gt.maxa.or.minto.gt.maxto) then
+        Red%nzao = 0
+        return
+      end if
 
       ! Allocate indexing array and first step of Frec and Red
       allocate(Red%izao(minto:maxto,mina:maxa,Rz0:Rz1_PRD))
@@ -6330,7 +6349,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Bfield_class), intent(in):: Bfield
       complex(kind=8), dimension(-2:2,0:2,nxtran,Rz0:Rz1), &
                        intent(in):: JKQ

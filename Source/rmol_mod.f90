@@ -9,14 +9,16 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     17/12/2024 V4.0.0
+!     15/05/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     17/12/2024:    V4.0.0 - Revised headers (TdPA)
+!     15/05/2025:    V4.0.1 - Generalized declarations of Mol to
+!                             allow for empty arrays for any of
+!                             them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -674,7 +676,8 @@
 
       ! I/O
 
-      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
       integer, intent(in):: nn
 
       ! Local
@@ -709,7 +712,8 @@
 
       ! I/O
 
-      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
       type(Atmo_class), intent(in):: Atmo
       integer, intent(in):: nn
 
@@ -779,7 +783,8 @@
 
       ! I/O
 
-      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
       type(Atmo_class), intent(in):: Atmo
       integer, intent(in):: nn
 

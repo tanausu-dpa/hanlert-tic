@@ -9,14 +9,16 @@
 !  Start:
 !     01/10/2022
 !  Last version:
-!     12/03/2025 V4.0.1
+!     15/05/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.1 - Gave access to commonds_mod (TdPA)
+!     15/05/2025:    V4.0.2 - Generalized declarations of Atom, Atomb,
+!                             and Mol to allow for empty arrays for
+!                             any of them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -121,9 +123,12 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(inout):: Atomb
-      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
       type(Atmo_class), intent(inout):: Atmo
       type(Fctsg_class), intent(inout):: Flgsg
       type(fudge_class), intent(in):: fudge

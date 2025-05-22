@@ -10,16 +10,16 @@
 !  Start:
 !     22/02/2023
 !  Last version:
-!     12/03/2025 V4.0.1
+!     15/05/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.1 - Added a warning for unexpected values
-!                             in the SRAMc memory counter at the
-!                             end of the Inversion routine (TdPA)
+!     15/05/2025:    V4.0.2 - Generalized declarations of Atom to
+!                             allow for empty arrays for any of
+!                             them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -99,7 +99,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Atom_class), dimension(:), &
                         allocatable, intent(inout):: Atomb
       type(Mol_class), dimension(:), &
@@ -960,7 +961,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Atom_class), dimension(:), &
                         allocatable, intent(inout):: Atomb
       type(Mol_class), dimension(:), &

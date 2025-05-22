@@ -11,17 +11,20 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     12/03/2025 V4.0.1
+!     15/05/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.1 - Bugfix: The MRAMc counter needs to be
-!                             initialized with the memory in
-!                             commons_mod before adding the memory
-!                             in innate structures (TdPA)
+!     15/05/2025:    V4.0.2 - Generalized the code to be able to
+!                             perform calculations (1DS, 15DS, and
+!                             inversion, but not CLE) with only LTE
+!                             lines (TdPA)
+!                           - Consider the quantum numbers of LTE
+!                             lines to decide what factorials and
+!                             signs need to be calculated (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -415,13 +418,30 @@
       if (nxphot.lt.1) nxphot = 1
 
       ! Update size for signs and factorials
-      nxdim = max(nxJ*4,nint(dble(nxJ+nxL+nxS)*0.5d0))
+      nxdim = max(4,nxJ*4,nint(dble(nxJ+nxL+nxS)*0.5d0))
+
+      ! Account for LTE lines
+      do ia=1,nLTEl
+
+        ! Update size
+        nxdim = max(nxdim,nint(4*Input%LTEline(ia)%Ju), &
+                          nint(4*Input%LTEline(ia)%Jl))
+
+      end do
 
       ! Check that there is some PRD line if we chose PRD calculation
       if(.not.isPRD.and.PRD) then
-        umsg = 'PRD is on, but there are not PRD lines'
-        urou = 'hanlert'
-        call aborted
+        if (verbosity) then
+          umsg = 'PRD is on, but there are not PRD lines'
+          urou = 'hanlert'
+          call aborted
+        else
+          umsg = ' ## PRD is on, but there are not PRD lines'
+          urou = 'hanlert'
+          if (gpid.eq.0) call verbose
+          laborted = .True.
+          call gcontrol
+        end if
       end if
 
       ! Check if dynamic and angle-averaged
@@ -525,7 +545,7 @@
       !
       ! Check there is no repeated atom both in active and
       ! in background
-      do ia=1,NA
+      do ia=1,nA
         do iab=1,nAb
           if (Atom(ia)%Element.eq.Atomb(iab)%Element) then
             umsg = 'You have the same atom in the list '// &
@@ -542,7 +562,7 @@
       if (nLTEl.gt.0) then
 
         ! Run over active atoms
-        do ia=1,NA
+        do ia=1,nA
 
           ! Run over LTE transitions
           do iab=1,nLTEl
@@ -687,7 +707,7 @@
       end do ! Active atoms
 
       ! Verbose
-      if(pid.eq.0) then
+      if (pid.eq.0.and.nA.gt.0) then
         umsg = ' - Dipole strengths calculated'
         call verbose
       end if
@@ -713,7 +733,8 @@
       end do ! Active atoms
 
       ! Deallocate fixp, fixplt, zero_ion, and filenames
-      deallocate(Input%fixp,Input%zero_ion,Input%atom,Input%fixplt)
+      if (allocated(Input%fixp)) &
+        deallocate(Input%fixp,Input%zero_ion,Input%atom,Input%fixplt)
       if (allocated(Input%atomback)) deallocate(Input%atomback)
       if (allocated(Input%mol)) deallocate(Input%mol)
 

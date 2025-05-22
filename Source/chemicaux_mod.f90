@@ -9,14 +9,16 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     28/11/2024 V4.0.0
+!     15/05/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     28/11/2024:    V4.0.0 - Revised headers (TdPA)
+!     15/05/2025:    V4.0.1 - Generalized declarations of Atom, Atomb,
+!                             and Mol to allow for empty arrays for
+!                             any of them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1216,7 +1218,10 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom,Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atomb
       type(Atmo_class), intent(inout):: Atmo
       type(catm_class), dimension(:), intent(in):: atoms
       integer, dimension(:), intent(in):: nlte,depar
@@ -1258,7 +1263,10 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom, Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atomb
       type(Atmo_class), intent(inout):: Atmo
       type(catm_class), dimension(:), intent(in):: atoms
       integer, dimension(:), intent(in):: nlte, depar
@@ -1306,7 +1314,10 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom,Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atomb
       type(Atmo_class), intent(inout):: Atmo
       type(catm_class), dimension(:), intent(in):: atoms
       integer, dimension(:), intent(in):: nlte,depar
@@ -1353,7 +1364,10 @@
       ! I/O
 
       type(Atmo_class), intent(inout):: Atmo
-      type(Atom_class), dimension(:), intent(in):: Atom,Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atomb
       type(catm_class), dimension(:), intent(in):: atoms
       integer, intent(in):: iz
       integer, dimension(:), intent(in):: nlte,depar
@@ -1551,7 +1565,10 @@
       ! I/O
 
       type(Atmo_class), intent(inout):: Atmo
-      type(Atom_class), dimension(:), intent(in):: Atom,Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atomb
       type(catm_class), dimension(:), intent(in):: atoms
       integer, intent(in):: iz
       integer, dimension(:), intent(in):: nlte,depar
@@ -1840,7 +1857,10 @@
       ! I/O
 
       type(Atmo_class), intent(inout):: Atmo
-      type(Atom_class), dimension(:), intent(in):: Atom,Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atomb
       type(catm_class), dimension(:), intent(in):: atoms
       integer, intent(in):: iz
       integer, dimension(:), intent(in):: nlte,depar

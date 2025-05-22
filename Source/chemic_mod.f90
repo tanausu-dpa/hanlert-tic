@@ -9,19 +9,16 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     25/03/2025 V4.0.1
+!     15/05/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     25/03/2025:    V4.0.1 - The mass density was being computed
-!                             following what is done in the NICOLE
-!                             code, but the expression did not seem
-!                             right. The determination of the mass
-!                             density now follows Eq.(3-52) in Mihalas
-!                             1970 (TdPA)
+!     15/05/2025:    V4.0.2 - Generalized declarations of Atom, Atomb,
+!                             and Mol to allow for empty arrays for
+!                             any of them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -111,11 +108,14 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(inout):: Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
       type(LTEline_class), dimension(:), &
                            intent(inout), allocatable:: LTElines
-      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
       type(Atmo_class), intent(inout):: Atmo
 
       ! Local
@@ -594,9 +594,12 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(inout):: Atomb
-      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
       type(Atmo_class), intent(inout):: Atmo
       type(catm_class), dimension(:), intent(inout):: atoms
       logical, intent(in):: diss
@@ -1290,7 +1293,10 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom,Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
       type(Atmo_class), intent(inout):: Atmo
       integer, dimension(:), intent(in):: nlte,depar
 
@@ -1514,7 +1520,10 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom,Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atomb
       type(Atmo_class), intent(inout):: Atmo
       integer, dimension(:), intent(in):: nlte,depar
 
@@ -1897,7 +1906,10 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom,Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atomb
       type(Atmo_class), intent(in):: Atmo
       integer, dimension(:), allocatable, intent(inout):: nlte,depar
 
@@ -1961,8 +1973,9 @@
 
       ! I/O
 
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       integer, dimension(:), allocatable, intent(inout):: nlte,depar
-      type(Atom_class), dimension(:), intent(in):: Atom
 
       ! Local
 

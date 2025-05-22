@@ -9,15 +9,16 @@
 !  Start:
 !     14/11/2022
 !  Last version:
-!     11/12/2024 V4.0.0
+!     15/05/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     11/12/2024:    V4.0.0 - Removed any reference to threads in the
-!                             call to abortedS (TdPA)
+!     15/05/2025:    V4.0.1 - Generalized declarations of Atom to
+!                             allow for empty arrays for any of
+!                             them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -66,7 +67,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Input_class), intent(inout):: Input
       type(Geometry_class), intent(in):: Geom
       type(spect_class), intent(out):: spect

@@ -9,15 +9,16 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     12/03/2025 V4.0.1
+!     15/05/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.1 - Moved the memory count out of the
-!                             module (TdPA)
+!     15/05/2025:    V4.0.2 - Generalized declarations of Atom, Atomb,
+!                             and Mol to allow for empty arrays for
+!                             any of them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -86,9 +87,12 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
-      type(Atom_class), dimension(:), intent(in):: Atomb
-      type(Mol_class), dimension(:), intent(in):: Mol
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(in):: Mol
       type(Atmo_class), intent(in):: Atmo
       type(fudge_class), intent(in):: fudge
       type(Input_class), intent(in):: Input
@@ -827,9 +831,12 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
-      type(Atom_class), dimension(:), intent(in):: Atomb
-      type(Mol_class), dimension(:), intent(in):: Mol
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(in):: Mol
       type(Atmo_class), intent(in):: Atmo
       type(fudge_class), intent(in):: fudge
       type(Input_class), intent(in):: Input

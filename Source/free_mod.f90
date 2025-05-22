@@ -9,34 +9,18 @@
 !  Start:
 !     28/06/2022
 !  Last version:
-!     12/03/2025 V4.0.1
+!     15/05/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.1 - Bugfixes:
-!                             o Missing memory counters when freeing
-!                               redipev in the Atom_class.
-!                             o Missing the indexing in the structure
-!                               Geometry_class.
-!                             o Counting the size of pT in the
-!                               structure Atmo_class after having
-!                               deallocated them.
-!                             o Added explicit deallocation of %pf
-!                               and %Ei in %ele in Atmo_class.
-!                             o Removed deallocation of %rho in
-!                               Rhoc_class because the variable no
-!                               longer exists.
-!                             o Ensure that the p_col_p pointer is
-!                               nullified when it should.
-!                                                               (TdPA)
-!                           - Reordered the deallocations in
-!                             free_inv_solution to follow the
-!                             allocation order for a better debugging
-!                             experience (TdPA)
-!                           - Added free_los_geom routine (TdPA)
+!     15/05/2025:    V4.0.2 - Generalized declarations of Atom, Atomb,
+!                             Mol, and Rho_old to allow for empty
+!                             arrays for any of them (TdPA)
+!                           - Added logic to consider that the atoms
+!                             array could not be allocated (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -159,7 +143,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
 
       ! Local
 
@@ -414,7 +399,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Continuum_class), intent(inout):: Cont
       type(Geometry_class), intent(inout):: Geom
       type(Frequency_class), intent(inout):: Frec
@@ -709,9 +695,12 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(inout):: Atomb
-      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
 
       ! Local
 
@@ -775,8 +764,8 @@
       subroutine free_lpop(Atom,Atomb)
 
       ! I/O
-      type(Atom_class), dimension(:):: Atom
-      type(Atom_class), dimension(:):: Atomb
+      type(Atom_class), dimension(:), allocatable:: Atom
+      type(Atom_class), dimension(:), allocatable:: Atomb
 
       ! Local
 
@@ -848,7 +837,8 @@
 
       ! I/O
 
-      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
 
       ! Local
 
@@ -892,7 +882,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
 
       ! Local
       integer:: ii
@@ -902,34 +893,39 @@
       ! Atom
       !
 
-      ! For each active atom
-      do ii=1,size(Atom)
+      ! If allocated
+      if (allocated(Atom)) then
 
-        ! Collisions between terms
-        if (allocated(Atom(ii)%Ccoeff)) then
-          MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%Ccoeff)
-          deallocate(Atom(ii)%Ccoeff)
-        end if
+        ! For each active atom
+        do ii=1,size(Atom)
 
-        ! Collisions between levels
-        if (allocated(Atom(ii)%CcoeffJ)) then
-          MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%CcoeffJ)
-          deallocate(Atom(ii)%CcoeffJ)
-        end if
+          ! Collisions between terms
+          if (allocated(Atom(ii)%Ccoeff)) then
+            MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%Ccoeff)
+            deallocate(Atom(ii)%Ccoeff)
+          end if
 
-        ! Depolarizing elastic collisions
-        if (allocated(Atom(ii)%gk)) then
-          MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%gk)
-          deallocate(Atom(ii)%gk)
-        end if
+          ! Collisions between levels
+          if (allocated(Atom(ii)%CcoeffJ)) then
+            MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%CcoeffJ)
+            deallocate(Atom(ii)%CcoeffJ)
+          end if
 
-        ! Indexing of collisions
-        if (allocated(Atom(ii)%icol)) then
-          MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%icol)
-          deallocate(Atom(ii)%icol)
-        end if
+          ! Depolarizing elastic collisions
+          if (allocated(Atom(ii)%gk)) then
+            MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%gk)
+            deallocate(Atom(ii)%gk)
+          end if
 
-      end do ! Atoms
+          ! Indexing of collisions
+          if (allocated(Atom(ii)%icol)) then
+            MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%icol)
+            deallocate(Atom(ii)%icol)
+          end if
+
+        end do ! Atoms
+
+      end if ! Allocated
 
       end subroutine free_cols
 
@@ -943,7 +939,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
 
       ! Local
 
@@ -954,28 +951,33 @@
       ! Atom
       !
 
-      ! For each atom
-      do ii=1,size(Atom)
+      ! If allocated
+      if (allocated(Atom)) then
 
-        ! Term inverse lifetime
-        if (allocated(Atom(ii)%damp)) then
-          MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%damp)
-          deallocate(Atom(ii)%damp)
-        end if
+        ! For each atom
+        do ii=1,size(Atom)
 
-        ! Line damping
-        if (allocated(Atom(ii)%ldamp)) then
-          MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%ldamp)
-          deallocate(Atom(ii)%ldamp)
-        end if
+          ! Term inverse lifetime
+          if (allocated(Atom(ii)%damp)) then
+            MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%damp)
+            deallocate(Atom(ii)%damp)
+          end if
 
-        ! Line elastic collision rate
-        if (allocated(Atom(ii)%qel)) then
-          MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%qel)
-          deallocate(Atom(ii)%qel)
-        end if
+          ! Line damping
+          if (allocated(Atom(ii)%ldamp)) then
+            MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%ldamp)
+            deallocate(Atom(ii)%ldamp)
+          end if
 
-      end do ! Atoms
+          ! Line elastic collision rate
+          if (allocated(Atom(ii)%qel)) then
+            MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%qel)
+            deallocate(Atom(ii)%qel)
+          end if
+
+        end do ! Atoms
+
+      end if ! Allocated
 
       end subroutine free_damp
 
@@ -1032,12 +1034,14 @@
                             JKQ_asym)
 
       ! I/O
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Continuum_class), intent(inout):: Cont
       type(Geometry_class), intent(inout):: Geom
       type(Frequency_class), intent(inout):: Frec
       type(Bfield_class), intent(inout):: Bfield0
-      type(Rhoc_class), dimension(:), intent(inout):: Rho_old
+      type(Rhoc_class), dimension(:), &
+                        allocatable, intent(inout):: Rho_old
       complex(kind=8), dimension(:,:,:), &
                        allocatable, intent(inout):: JKQ_asym
 
@@ -1058,20 +1062,25 @@
       ! to be leave behind in context
       MRAMc = MRAMc - 1d-6*sizeof(Bfield0)
 
-      ! For each atom
-      do ia=1,size(Rho_old)
+      ! Rho_old allocated
+      if (allocated(Rho_old)) then
 
-        ! Density matrix
-        if (allocated(Rho_old(ia)%crho)) then
-          MRAMc = MRAMc - 1d-6*sizeof(Rho_old(ia)%crho)
-          deallocate(Rho_old(ia)%crho)
-        end if
+        ! For each atom
+        do ia=1,size(Rho_old)
 
-      end do ! Atoms
+          ! Density matrix
+          if (allocated(Rho_old(ia)%crho)) then
+            MRAMc = MRAMc - 1d-6*sizeof(Rho_old(ia)%crho)
+            deallocate(Rho_old(ia)%crho)
+          end if
 
-      ! Remove count of non-allocatables, as the structure is going
-      ! to be leave behind in context
-      MRAMc = MRAMc - 1d-6*sizeof(Rho_old)
+        end do ! Atoms
+
+        ! Remove count of non-allocatables, as the structure is going
+        ! to be leave behind in context
+        MRAMc = MRAMc - 1d-6*sizeof(Rho_old)
+
+      end if ! Allocated Rho_old
 
       ! If ad-hoc radiation data
       if (allocated(JKQ_asym)) then
@@ -1097,9 +1106,12 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(inout):: Atomb
-      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
       type(Bfield_class), intent(inout):: Bfield
 
       ! Free global populations
@@ -1116,7 +1128,7 @@
 
       ! Free damping
       call free_damp(Atom)
-      if (nAb.gt.0) call free_damp(Atomb)
+      call free_damp(Atomb)
 
       ! Free Magnetic field
       call free_B(Bfield)
@@ -1143,9 +1155,12 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(inout):: Atomb
-      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
       type(Atmo_class), intent(inout):: Atmo
       type(Bfield_class), intent(inout):: Bfield
       type(Geometry_class), intent(inout):: Geom

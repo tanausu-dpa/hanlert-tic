@@ -10,16 +10,16 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     24/04/2025 V4.0.2
+!     15/05/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     24/04/2025:    V4.0.2 - Initialize the number of line components
-!                             in absence of magnetic field to zero in
-!                             case a line is forbidden (TdPA)
+!     15/05/2025:    V4.0.3 - Generalized declarations of Atom to
+!                             allow for empty arrays for any of
+!                             them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -2506,7 +2506,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
 
       ! Local
 
@@ -2742,7 +2743,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(LTEline_class), intent(inout):: line
 
       ! Local
@@ -2965,7 +2967,7 @@
       integer, intent(in):: nn
 
       ! Allocate array
-      allocate(Atom(nn))
+      if (nn.gt.0) allocate(Atom(nn))
 
       return
 
@@ -2982,7 +2984,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       integer, intent(in):: nn
 
       ! Local
@@ -3166,7 +3169,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       integer, intent(in):: nn
 
       ! Local
@@ -3195,7 +3199,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
 
       ! Local
 
@@ -3251,7 +3256,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
 
       ! Local
 
@@ -3372,7 +3378,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Input_class), intent(in):: Input
       logical, intent(in):: li,lp,nfield,yfield
 
@@ -3890,7 +3897,8 @@
                                 ! Advance index and store
                                 ii = ii + 1
                                 Atom(ia)%trano(jtran)%trani(iti)% &
-                                  indNB(indL1,indL,indF,indU1,indU) = ii
+                                  indNB(indL1,indL,indF, &
+                                        indU1,indU) = ii
 
                               end if ! Round
 

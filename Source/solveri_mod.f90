@@ -9,19 +9,18 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     31/03/2025 V4.0.6
+!     15/05/2025 V4.0.7
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     31/03/2025:    V4.0.6 - Bugfix: when computing the emergent
-!                             profiles, there was no forced
-!                             synchronization between CPU between LOS,
-!                             what could lead to a CPU sending more
-!                             than one LOS before another had the
-!                             chance to send one (TdPA)
+!     15/05/2025:    V4.0.7 - Generalized declarations of Atom,
+!                             Rho_old, J00, J00S, and J00P to allow
+!                             for empty arrays for any of them (TdPA)
+!                           - Skip the conversion from J00/S to JKQ/S
+!                             if there are no active atoms (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -181,10 +180,12 @@
                         J00,J00S,J00C,J00P)
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
-      type(Rhoc_class), dimension(:), intent(inout):: Rho_old
+      type(Rhoc_class), dimension(:), &
+                        allocatable, intent(inout):: Rho_old
       type(Atmo_class), intent(in):: Atmo
       type(Continuum_class), intent(in):: Cont
       type(Frequency_class), intent(in):: Frec
@@ -197,10 +198,12 @@
              dimension(nfreq,Geom%nPh,Geom%nTh,giz0:giz1), &
              intent(inout):: Stokes
       double precision, dimension(nfreq,Rz0:Rz1), intent(inout):: J00C
-      double precision, dimension(nxt,Rz0:Rz1), intent(inout):: J00
-      double precision, dimension(nxt,Rz0:Rz1), intent(inout):: J00S
-      double precision, dimension(nxphot,2,Rz0:Rz1), &
-                        intent(inout):: J00P
+      double precision, dimension(:,:), &
+                        allocatable, intent(inout):: J00
+      double precision, dimension(:,:), &
+                        allocatable, intent(inout):: J00S
+      double precision, dimension(:,:,:), &
+                        allocatable, intent(inout):: J00P
 
       ! Local
 
@@ -739,7 +742,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Atmo_class), intent(in):: Atmo
       type(Frequency_class), intent(in):: Frec
       type(Red_class), intent(in):: Red
@@ -1022,7 +1026,8 @@
                              LO,p_exu,J00C_n)
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Frequency_class), intent(in):: Frec
       type(Geometry_class), intent(in):: Geom
       type(MPI_class), intent(in):: MPID
@@ -1452,7 +1457,8 @@
                                 Stokes,J00C,J00,J00S,J00P)
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Atmo_class), intent(in):: Atmo
       type(Frequency_class), intent(in):: Frec
       type(Geometry_class), intent(in):: Geom
@@ -1471,10 +1477,12 @@
       double precision, dimension(nfreq,Geom%nPh,Geom%nTh,giz0:giz1),&
                         target, intent(out):: Stokes
       double precision, dimension(nfreq,Rz0:Rz1), intent(out):: J00C
-      double precision, dimension(nxt,Rz0:Rz1), intent(out):: J00
-      double precision, dimension(nxt,Rz0:Rz1), intent(out):: J00S
-      double precision, dimension(nxphot,2,Rz0:Rz1), &
-                        intent(out):: J00P
+      double precision, dimension(:,:), &
+                        allocatable, intent(inout):: J00
+      double precision, dimension(:,:), &
+                        allocatable, intent(inout):: J00S
+      double precision, dimension(:,:,:), &
+                        allocatable, intent(inout):: J00P
       double precision, dimension(nxb,nxt,Rz0:Rz1), &
                         intent(out):: LambdaL
       double precision, dimension(nxb,nxphot,2,Rz0:Rz1), &
@@ -2017,7 +2025,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
       type(Atmo_class), intent(in):: Atmo
@@ -2049,10 +2058,12 @@
              dimension(nfreq,Geom%nPh,Geom%nTh,giz0:giz1), &
              intent(inout):: Stokes
       double precision, dimension(nfreq,Rz0:Rz1), intent(in):: J00C
-      double precision, dimension(nxt,Rz0:Rz1), intent(inout):: J00
-      double precision, dimension(nxt,Rz0:Rz1), intent(inout):: J00S
-      double precision, dimension(nxphot,2,Rz0:Rz1), &
-                        intent(inout):: J00P
+      double precision, dimension(:,:), &
+                        allocatable, intent(inout):: J00
+      double precision, dimension(:,:), &
+                        allocatable, intent(inout):: J00S
+      double precision, dimension(:,:,:), &
+                        allocatable, intent(inout):: J00P
       double precision, dimension(nxb,nxt,Rz0:Rz1), &
                         intent(inout):: LambdaL
       double precision, dimension(nxb,nxphot,2,Rz0:Rz1), &
@@ -2906,8 +2917,10 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Rhoc_class), dimension(:), intent(in):: Rho_old
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Rhoc_class), dimension(:), &
+                        allocatable, intent(in):: Rho_old
       type(Atmo_class), intent(in):: Atmo
       type(Geometry_class), intent(in):: Geom
       type(Input_class), intent(in):: Input
@@ -2923,9 +2936,12 @@
                         intent(in):: LambdaP
       double precision, dimension(nfreq,Geom%nPh,Geom%nTh,giz0:giz1),&
                         target, intent(inout):: Stokes
-      double precision, dimension(nxt,Rz0:Rz1), intent(in):: J00
-      double precision, dimension(nxt,Rz0:Rz1), intent(in):: J00S
-      double precision, dimension(nxphot,2,Rz0:Rz1), intent(in):: J00P
+      double precision, dimension(:,:), &
+                        allocatable, intent(in):: J00
+      double precision, dimension(:,:), &
+                        allocatable, intent(in):: J00S
+      double precision, dimension(:,:,:), &
+                        allocatable, intent(in):: J00P
       double precision, dimension(nfreq,Rz0:Rz1), intent(inout):: J00C
       double precision, dimension(:,:), &
                         allocatable, intent(inout):: NG_scratch
@@ -3350,7 +3366,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
       type(Atmo_class), intent(in):: Atmo
@@ -3364,7 +3381,8 @@
       double precision, dimension(nfreq,Geom%nPh,Geom%nTh,giz0:giz1),&
                         target, intent(in):: Stokes
       double precision, dimension(nfreq,Rz0:Rz1), intent(in):: J00C
-      double precision, dimension(nxt,Rz0:Rz1), intent(in):: J00
+      double precision, dimension(:,:), &
+                        allocatable, intent(in):: J00
 
       ! Local
 
@@ -3523,7 +3541,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Atmo_class), intent(in):: Atmo
       type(Red_class), intent(in):: Red
       type(Geometry_class), intent(in):: Geom
@@ -4079,7 +4098,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
       type(Atmo_class), intent(in):: Atmo
@@ -4704,7 +4724,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Atmo_class), intent(in):: Atmo
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
@@ -5244,7 +5265,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
       type(Atmo_class), intent(in):: Atmo
@@ -5810,8 +5832,10 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Rhoc_class), dimension(:), intent(inout):: Rho_old
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Rhoc_class), dimension(:), &
+                        allocatable, intent(inout):: Rho_old
       type(Atmo_class), intent(in):: Atmo
       type(Frequency_class), intent(in):: Frec
       type(Red_class), intent(in):: Red
@@ -5869,150 +5893,161 @@
       ! Nullify pointers
       nullify(data2O)
 
-      ! Initialize
-      call JKQgen_init(Atom,Rho_old,Frec,Geom,MPID,ADD,if0,if1, &
-                       nth,nph,npz,ntpz,nsend,psize,Norm,BStk, &
-                       LambdaL,LambdaP,JKQ,JKQS,Prof_r,Prof_s,data2O)
+      ! If there are atoms
+      if (nA.gt.0) then
 
-      ! Control
-      call control
-      if (laborted) goto 2000
+        ! Initialize
+        call JKQgen_init(Atom,Rho_old,Frec,Geom,MPID,ADD,if0,if1, &
+                         nth,nph,npz,ntpz,nsend,psize,Norm,BStk, &
+                         LambdaL,LambdaP,JKQ,JKQS,Prof_r,Prof_s, &
+                         data2O)
 
-      ! If MPI and master
-      if (MPID%mpi.and.pid.eq.0) then
+        ! Control
+        call control
+        if (laborted) goto 2000
 
-        ! Call manager
-        call JKQgen_manager(Atom,Frec,Geom,MPID,ADD,nth,nph,npz, &
-                            ntpz,nsend,psize,Norm,BStk, &
-                            Prof_r,Stokes0,J00C,JKQ,JKQS)
+        ! If MPI and master
+        if (MPID%mpi.and.pid.eq.0) then
 
-      ! Serial or slave
-      else
+          ! Call manager
+          call JKQgen_manager(Atom,Frec,Geom,MPID,ADD,nth,nph,npz, &
+                              ntpz,nsend,psize,Norm,BStk, &
+                              Prof_r,Stokes0,J00C,JKQ,JKQS)
 
-        ! Get profile data
-        call JKQgen_RT(Atom,Atmo,Frec,Red,Geom,MPID,Flgsg,Bfield, &
-                       ADD,nth,nph,if0,if1,psize,data2O,Prof_s, &
-                       Stokes0,J00C,JKQ,JKQS)
+        ! Serial or slave
+        else
 
-      end if
+          ! Get profile data
+          call JKQgen_RT(Atom,Atmo,Frec,Red,Geom,MPID,Flgsg,Bfield, &
+                         ADD,nth,nph,if0,if1,psize,data2O,Prof_s, &
+                         Stokes0,J00C,JKQ,JKQS)
 
-      ! Control
-      call control
-      if (laborted) goto 2000
+        end if
 
-      ! If MPI
-      if (MPID%mpi) then
+        ! Control
+        call control
+        if (laborted) goto 2000
 
-        ! Share JKQ
-        call MPI_BCAST(JKQ(-2,0,1,Rz0), MPID%size6(0), &
-                       MPI_DOUBLE_COMPLEX, 0, &
-                       MPI_COMM_RT, ierr)
+        ! If MPI
+        if (MPID%mpi) then
 
-        ! Share JKQS if stimulated emission
-        if (stm) &
-          call MPI_BCAST(JKQS(-2,0,1,Rz0), MPID%size6(0), &
+          ! Share JKQ
+          call MPI_BCAST(JKQ(-2,0,1,Rz0), MPID%size6(0), &
                          MPI_DOUBLE_COMPLEX, 0, &
                          MPI_COMM_RT, ierr)
-      end if
 
-      !
-      ! If Polarization initial correction
-      if (Pcorr) then
-
-        !
-        ! Make the J00 and J00S flat
-        !
-
-        ! For each height
-        do iz=Rz0,Rz1
-
-          ! For each atom
-          do ia=1,nA
-
-            ! For each transition
-            do itran=1,Atom(ia)%ntran
-
-              ! Apply shift
-              jtran = itran + Atom(ia)%tshift
-
-              ! For each FS transition within this transition
-              do ftran=1,Atom(ia)%fst(itran)%nt
-
-                ! Get the global transition index
-                fftran = Atom(ia)%ifst_ij(ftran,itran)
-
-                ! Apply shift
-                jftran = fftran + Atom(ia)%tfshift
-
-                ! Each transition gets the same contribution of
-                ! the term-term J00, as an initial condition
-                J00(jftran,iz) = dble(JKQ(0,0,jtran,iz))
-
-                ! Each transition gets the same contribution of
-                ! the term-term J00, as an initial condition
-                J00S(jftran,iz) = dble(JKQS(0,0,jtran,iz))
-
-              end do ! fs transition
-            end do ! term transition
-          end do ! atom
-        end do ! height
-
+          ! Share JKQS if stimulated emission
+          if (stm) &
+            call MPI_BCAST(JKQS(-2,0,1,Rz0), MPID%size6(0), &
+                           MPI_DOUBLE_COMPLEX, 0, &
+                           MPI_COMM_RT, ierr)
+        end if
 
         !
-        ! Solve SEE
-        !
+        ! If Polarization initial correction
+        if (Pcorr) then
 
-        ! For each atom
-        do ia=1,nA
-
-          ! Limiting indexes
-          itran = Atom(ia)%tfshift + 1
-          jtran = itran + Atom(ia)%nftran - 1
-          fftran = Atom(ia)%pshift + 1
-          jftran = fftran + Atom(ia)%nphot - 1
+          !
+          ! Make the J00 and J00S flat
+          !
 
           ! For each height
           do iz=Rz0,Rz1
 
-            ! Solve the SEE
+            ! For each atom
+            do ia=1,nA
+
+              ! For each transition
+              do itran=1,Atom(ia)%ntran
+
+                ! Apply shift
+                jtran = itran + Atom(ia)%tshift
+
+                ! For each FS transition within this transition
+                do ftran=1,Atom(ia)%fst(itran)%nt
+
+                  ! Get the global transition index
+                  fftran = Atom(ia)%ifst_ij(ftran,itran)
+
+                  ! Apply shift
+                  jftran = fftran + Atom(ia)%tfshift
+
+                  ! Each transition gets the same contribution of
+                  ! the term-term J00, as an initial condition
+                  J00(jftran,iz) = dble(JKQ(0,0,jtran,iz))
+
+                  ! Each transition gets the same contribution of
+                  ! the term-term J00, as an initial condition
+                  J00S(jftran,iz) = dble(JKQS(0,0,jtran,iz))
+
+                end do ! fs transition
+              end do ! term transition
+            end do ! atom
+          end do ! height
+
+
+          !
+          ! Solve SEE
+          !
+
+          ! For each atom
+          do ia=1,nA
+
+            ! Limiting indexes
+            itran = Atom(ia)%tfshift + 1
+            jtran = itran + Atom(ia)%nftran - 1
+            fftran = Atom(ia)%pshift + 1
+            jftran = fftran + Atom(ia)%nphot - 1
+
+            ! For each height
+            do iz=Rz0,Rz1
+
+              ! Solve the SEE
 #ifdef DEBUGSEE
-            call SEEI(Atom(ia),Rho_old(ia),J00(itran:jtran,iz), &
-                      J00(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
-                     !J00S(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
-                      LambdaL,LambdaP,iz,.False.,.False.,.True.,Input)
+              call SEEI(Atom(ia),Rho_old(ia),J00(itran:jtran,iz), &
+                        J00(itran:jtran,iz), &
+                        J00P(fftran:jftran,:,iz), &
+                       !J00S(itran:jtran,iz), &
+                       !J00P(fftran:jftran,:,iz), &
+                        LambdaL,LambdaP,iz, &
+                        .False.,.False.,.True.,Input)
 #else
-            call SEEI(Atom(ia),Rho_old(ia),J00(itran:jtran,iz), &
-                      J00(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
-                     !J00S(itran:jtran,iz),J00P(fftran:jftran,:,iz), &
-                      LambdaL,LambdaP,iz,.False.,.False.,.True.)
+              call SEEI(Atom(ia),Rho_old(ia),J00(itran:jtran,iz), &
+                        J00(itran:jtran,iz), &
+                        J00P(fftran:jftran,:,iz), &
+                       !J00S(itran:jtran,iz), &
+                       !J00P(fftran:jftran,:,iz), &
+                        LambdaL,LambdaP,iz, &
+                        .False.,.False.,.True.)
 #endif
 
-          end do ! heights
-        end do ! atoms
+            end do ! heights
+          end do ! atoms
 
-        !
-        !  Calculate MRC
-        !
+          !
+          !  Calculate MRC
+          !
 
-        ! Only the master does
-        if (pid.eq.0) then
+          ! Only the master does
+          if (pid.eq.0) then
 
-          ! Calculate MRC
-          call MRC_sb(Atom,Rho_old,Input%anisotropy_only,MRC)
+            ! Calculate MRC
+            call MRC_sb(Atom,Rho_old,Input%anisotropy_only,MRC)
 
-          ! Convert cm into km
-          MRC%values(1,1) = Atmo%z(MRC%indexes(2,1))*1d-5
+            ! Convert cm into km
+            MRC%values(1,1) = Atmo%z(MRC%indexes(2,1))*1d-5
 
-          ! Write in stdout
-          if (gpid.eq.0) then
-            write(umsg,'(A,1x,es22.12)') ' - The conversion to '// &
-                       'terms have changed the populations a '// &
-                       'maximum of ',MRC%values(2,1)
-            call verbose
+            ! Write in stdout
+            if (gpid.eq.0) then
+              write(umsg,'(A,1x,es22.12)') ' - The conversion to '// &
+                         'terms have changed the populations a '// &
+                         'maximum of ',MRC%values(2,1)
+              call verbose
+            end if
+
           end if
-
-        end if
-      end if ! P correction
+        end if ! P correction
+      end if ! If Atoms
 
       !
       ! Stokes
@@ -6043,7 +6078,8 @@
       deallocate(Stokes0)
 
       ! Deallocate J00 and J00S (memory discounted in hanle)
-      deallocate(J00,J00S)
+      if (allocated(J00)) &
+        deallocate(J00,J00S)
 
 
       !
@@ -6121,8 +6157,10 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
-      type(Rhoc_class), dimension(:), intent(inout):: Rho_old
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
+      type(Rhoc_class), dimension(:), &
+                        allocatable, intent(inout):: Rho_old
       type(Frequency_class), intent(in):: Frec
       type(Geometry_class), intent(in):: Geom
       type(MPI_class), intent(in):: MPID
@@ -6345,7 +6383,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Frequency_class), intent(in):: Frec
       type(Geometry_class), intent(in):: Geom
       type(MPI_class), intent(in):: MPID
@@ -6654,7 +6693,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Atmo_class), intent(in):: Atmo
       type(Frequency_class), intent(in):: Frec
       type(Red_class), intent(in):: Red

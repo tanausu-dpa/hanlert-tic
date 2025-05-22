@@ -9,15 +9,16 @@
 !  Start:
 !     24/10/2024
 !  Last version:
-!     18/03/2025 V4.0.2
+!     15/05/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/03/2025:    V4.0.2 - Added Sigma_factor to Input_class RAM
-!                             counting (TdPA)
+!     15/05/2025:    V4.0.3 - Generalized declarations of Atom, Atomb,
+!                             and Mol to allow for empty arrays for
+!                             any of them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -129,7 +130,7 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), allocatable, intent(in):: Atom
       type(Atom_class), dimension(:), allocatable, intent(in):: Atomb
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
@@ -272,7 +273,7 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), allocatable, intent(in):: Atom
       type(Atom_class), dimension(:), allocatable, intent(in):: Atomb
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
@@ -499,7 +500,7 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), allocatable, intent(in):: Atom
       double precision, intent(out):: num
 
       ! Local
@@ -2499,7 +2500,7 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), allocatable, intent(in):: Atom
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
       type(Atmo_class), intent(in):: Atmo

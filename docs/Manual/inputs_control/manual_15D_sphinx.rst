@@ -45,13 +45,13 @@ ATMO_CHAR
 ATOM_INPUT
 ----------
 
-  * MANDATORY, ADDITIVE
+  * OPTIONAL, ADDITIVE
 
   * Formats:
     
     - string: file path; optional: string (a single word and unique label) (default: index given by reading order)
 
-  * Description: Path, absolute or relative to the running directory, of the file with the atomic model whose density matrix elements are to be calculated, in principle, in non-LTE. Optional: Unique label to identify this atom in other input options.
+  * Description: Path, absolute or relative to the running directory, of the file with the atomic model whose density matrix elements are to be calculated, in principle, in non-LTE. This keyword in MANDATORY in CLE mode. In other models, at least one entry of ATOM_INPUT or LTE_LINE must exist. Optional: Unique label to identify this atom in other input options.
 
 ATOM_BACK
 ---------
@@ -228,7 +228,7 @@ LTE_LINE
     - entry
     - string: file path
 
-  * Description: Entry with the data of an atomic transition to be included under the assumption of LTE. The format can be the same from the Kurucz's database (fill with zeros to fulfill the restricted size requirements) or the specific format of the code. | Path, absolute or relative to the running directory, to the file with a list of atomic transitions to be included under the assumption of LTE. The format of each entry in the file can be the same from the Kurucz's database (fill with zeros to fulfill the restricted size requirements) or the specific format of the code.
+  * Description: Entry with the data of an atomic transition to be included under the assumption of LTE. The format can be the same from the Kurucz's database (fill with zeros to fulfill the restricted size requirements) or the specific format of the code. | Path, absolute or relative to the running directory, to the file with a list of atomic transitions to be included under the assumption of LTE. The format of each entry in the file can be the same from the Kurucz's database (fill with zeros to fulfill the restricted size requirements) or the specific format of the code. While optional, at least one entry of ATOM_INPUT or LTE_LINE must exist.
 
 WAVELENGTHS
 -----------

@@ -5,7 +5,10 @@ import sys, math, os
 #
 # Tanaus\'u del Pino Alem\'an (IAC)
 #
-# 17/12/2024:  V4.0.0 - Changed global version (TdPA)
+# 15/05/2025:  V4.0.1 - Added 'kurucz' mode to the spectral line
+#                       Van der Waals broadening (TdPA)
+#                     - Unified and ordered the transcription of
+#                       the radiative transition data (TdPA)
 #
 #####################
 

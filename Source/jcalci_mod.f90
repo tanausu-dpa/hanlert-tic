@@ -9,16 +9,16 @@
 !  Start:
 !     26/04/2017
 !  Last version:
-!     18/03/2025 V4.0.1
+!     15/05/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/03/2025:    V4.0.1 - Added the option to skip the calculation
-!                             of the lambda operator for bound-free
-!                             transitions (TdPA)
+!     15/05/2025:    V4.0.2 - Generalized declarations of Atom to
+!                             allow for empty arrays for any of
+!                             them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -119,7 +119,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Geometry_class), intent(in):: Geom
       logical, intent(in):: ALI,ALIp
       integer, intent(in):: ith,iph,pf0,pf1
@@ -429,7 +430,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(MPI_class), intent(in):: MPID
       logical, intent(in):: ALI
       integer, intent(in):: proc
@@ -620,7 +622,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(MPI_class), intent(in):: MPID
       logical, intent(in):: ALI,ALIP
       integer, intent(in):: proc
@@ -943,7 +946,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       double precision, intent(in):: WA
       double precision, dimension(:), intent(in):: Wfreq
       double precision, dimension(nfreq), intent(in):: inpt
@@ -1063,7 +1067,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(MPI_class), intent(in):: MPID
       integer, intent(in):: proc
       double precision, dimension(:), intent(in):: Wfreq

@@ -9,17 +9,23 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     13/03/2025 V4.0.1
+!     15/05/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     13/03/2025:    V4.0.1 - Added the possibility of specifying the
-!                             cross section and alpha parameter for
-!                             Van der Waals broadening directly in the
-!                             atomic file (TdPA)
+!     15/05/2025:    V4.0.2 - Added the possibility of inputting a
+!                             Gamma parameter for the Van der Waals
+!                             broadening, Kurucz like (TdPA)
+!                           - Removed the 10^6 factor scaling the
+!                             parametric qaudratic Stark broadening
+!                             constant (TdPA)
+!                           - Bugfix: Constant broadening parameters
+!                             for the Van der Waals broadening for LTE
+!                             lines was not being multiplied by the
+!                             hydrogen ground level density (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -143,12 +149,13 @@
       end do ! Terms above upper term
 
       ! If we did not find the continuum
-      if (itermc.lt.0.and.Atom%broad_type(itran).ne.2) then
+      if (itermc.lt.0.and.Atom%broad_type(itran).ne.2.and. &
+          Atom%broad_type(itran).ne.4) then
 
         ! Notify error and return
         umsg = 'Could not find continuum in atom '// &
                Atom%Element//' and Van der Waals '// &
-               'broadening not set to parametric.'
+               'broadening not set to parametric nor Kurucz.'
         call aborted
         return
 
@@ -160,7 +167,8 @@
       !
 
       ! If not parametric
-      if (Atom%broad_type(itran).ne.2) then
+      if (Atom%broad_type(itran).ne.2.and. &
+          Atom%broad_type(itran).ne.4) then
 
         ! Energy part
         d1 = ryd*ryd/(Atom%TRfreq(itermc) - &
@@ -188,7 +196,8 @@
 
       !
       ! If the type of broadening is Barklem
-      if (Atom%broad_type(itran).eq.0) then
+      if (Atom%broad_type(itran).eq.0.or. &
+          Atom%broad_type(itran).eq.3) then
 
         ! Sigma and alpha calculated in rBarklem
         sigma = Atom%broad_args(1,itran)
@@ -211,7 +220,7 @@
         end if
 
         ! For each height
-        do iz=1,NZ
+        do iz=1,nz
 
           ! Barklem for H
           damp(iz) = sigc*(Atmo%T(iz)**(.5d0*(1d0 - alpha)))* &
@@ -323,56 +332,27 @@
 
       end if ! Parametric broadening
 
+
       !
-      ! If the type of broadening is a direct Barklem data
-      if (Atom%broad_type(itran).eq.3) then
+      ! If the type of broadening is from Kurucz
+      if (Atom%broad_type(itran).eq.4) then
 
         ! Sigma and alpha calculated in rBarklem
-        sigma = Atom%broad_args(1,itran)
-        alpha = Atom%broad_args(2,itran)
-
-        ! Broadening constant part. 1d6 for cgs populations.
-        sigc = 2d0*rb*rb*(4d0/pi)**(0.5d0*alpha)* &
-               GAMMA(0.5d0*(4d0 - alpha))*1d4*sigma* &
-               (v02c/1d8)**(.5d0*(1d0 - alpha))*1d6
+        sigc = 10d0**Atom%broad_args(1,itran)
 
         ! If storing parametric equivalence
         if (aparam) then
-          b1 = 0.5*(1d0 - alpha)
-          a1 = 1d8*sigc/((1d0 + mhm/Atom%rmass)**b1)
-          b2 = .3d0
-          a2 = 1d9*C6*(v02che**.3)/((1d0 + mhem/Atom%rmass)**b2)
+          b1 = 0d0
+          a1 = 1d8*sigc
+          b2 = 0d0
+          a2 = 0d0
           write(600,'(i10,1x,i10,"-->",2x,i10,1x,A,4(1x,es15.8))', &
                 err=1100) itran,itermu,iterml, &
                           '    barklem',a1,b1,a2,b2
         end if
 
-        ! For each height
-        do iz=1,NZ
-
-          ! Barklem for H
-          damp(iz) = sigc*(Atmo%T(iz)**(.5d0*(1d0 - alpha)))* &
-                     Atmo%nh(iz,1) + damp(iz)
-
-          ! Helium population from the atmosphere
-          if (Atmo%nhe(1,1).ge.0d0) then
-
-            ! Get population
-            nhe = Atmo%nhe(iz,1)
-
-          ! Helium population from the abundance
-          else
-
-            ! Get population
-            nhe = Atmo%nh(iz,1)*Ahe
-
-          end if
-
-          ! Unsold for Helium
-          damp(iz) = C6*(v02che**.3d0)*nhe*(Atmo%T(iz)**.3d0) + &
-                     damp(iz)
-
-        end do ! Heights
+        ! Barklem for H
+        damp(:) = sigc*Atmo%nh(:,1) + damp(:)
 
       end if ! Barklem inputs
 
@@ -427,7 +407,7 @@
       if (stk.lt.0d0) then
 
         ! Constant broadening given by the parameter
-        stk = abs(stk)*1d6
+        stk = abs(stk)
 
         ! For each height
         do iz=1,NZ
@@ -676,9 +656,9 @@
       ! Take the arguments in the input
       args = line%broad_args
 
-      ! If gamma, easy
-      if (line%broad_type.eq.3) then
-        damp = args(1)
+      ! If Kurucz, easy
+      if (line%broad_type.eq.4) then
+        damp = args(1)*Atmo%nh(:,1)
         return
       end if
 
@@ -722,7 +702,8 @@
       !
 
       ! If the type of broadening is Barklem
-      if (line%broad_type.eq.0) then
+      if (line%broad_type.eq.0.or. &
+          line%broad_type.eq.3) then
 
         ! Sigma and alpha calculated in rBarklem
         sigma = line%broad_args(1)

@@ -9,15 +9,16 @@
 !  Start:
 !     22/03/2019
 !  Last version:
-!     13/12/2024 V4.0.0
+!     15/05/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     13/12/2024:    V4.0.0 - Removed reference to threads in the
-!                             calls for abortedS (TdPA)
+!     15/05/2025:    V4.0.1 - Generalized declarations of Atom and
+!                             Atomb to allow for empty arrays for
+!                             any of them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -81,8 +82,10 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
-      type(Atom_class), dimension(:), intent(in):: Atomb
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atomb
       type(LTEline_class), dimension(:), intent(in):: LTE
       type(Atmo_class), intent(in):: Atmo
       type(strarr_class), dimension(:), intent(in):: filenames

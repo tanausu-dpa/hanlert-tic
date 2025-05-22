@@ -9,14 +9,16 @@
 !  Start:
 !     26/04/2017
 !  Last version:
-!     13/12/2024 V4.0.0
+!     15/05/2024 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     13/12/2024:    V4.0.0 - Removed OpenMP (TdPA)
+!     15/05/2025:    V4.0.1 - Generalized declarations of Atom to
+!                             allow for empty arrays for any of
+!                             them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -104,7 +106,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       integer, intent(in):: lf0,lf1,pf0,pf1
       double precision, intent(in):: T,ne,WA
       double precision, dimension(:), intent(in):: Wfreq, omega
@@ -414,7 +417,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       integer, intent(in):: proc,lf0,lf1,if0p
       double precision, dimension(:), intent(in):: Wfreq
       double precision, dimension(0:3,nfreq), intent(in):: Stk
@@ -639,7 +643,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       integer, intent(in):: proc,if0p,pf0,if0l,if1l,pf1
       double precision, intent(in):: T,WA
       double precision, dimension(:), intent(in):: Wfreq, omega

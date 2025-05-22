@@ -9,15 +9,16 @@
 !  Start:
 !     24/11/2022
 !  Last version:
-!     28/11/2024 V4.0.0
+!     15/05/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     28/11/2024:    V4.0.0 - Adapted the routine to the changes in
-!                             the profile normalization storage (TdPA)
+!     15/05/2025:    V4.0.1 - Generalized declarations of Atom, Atomb,
+!                             and Mol to allow for empty arrays for
+!                             any of them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -97,9 +98,12 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(inout):: Atomb
-      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
       type(Fctsg_class), intent(inout):: Flgsg
       type(fudge_class), intent(in):: fudge
       type(Geometry_class), intent(inout):: Geom

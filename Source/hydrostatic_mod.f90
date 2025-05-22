@@ -10,17 +10,16 @@
 !  Start:
 !     17/02/2023
 !  Last version:
-!     12/03/2025 V4.0.1
+!     15/05/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.1 - The temporal and fake atmospheric model
-!                             is now created in the dAtmo routine
-!                             in rAtmo_mod in order to correctly
-!                             count the allocated memory (TdPA)
+!     15/05/2025:    V4.0.2 - Generalized declarations of Atom, Atomb,
+!                             and Mol to allow for empty arrays for
+!                             any of them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -86,9 +85,12 @@
       ! I/O
 
       type(Atmo_class), intent(inout):: Atmo
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(inout):: Atomb
-      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
       type(Input_class), intent(in):: Input
       type(fudge_class), intent(in):: fudge
       double precision, intent(in):: Pg_input
@@ -271,9 +273,12 @@
 
       ! I/O
       type(Atmo_class), intent(inout):: Atmo
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(inout):: Atomb
-      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Atom_class), dimension(:),  &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
       type(Input_class), intent(in):: Input
       type(fudge_class), intent(in):: fudge
       double precision, intent(inout):: Beta, Pg
@@ -332,9 +337,12 @@
 
       ! I/O
       type(Atmo_class), intent(inout):: Atmo
-      type(Atom_class), dimension(:), intent(inout):: Atom
-      type(Atom_class), dimension(:), intent(inout):: Atomb
-      type(Mol_class), dimension(:), intent(inout):: Mol
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atomb
+      type(Mol_class), dimension(:), &
+                       allocatable, intent(inout):: Mol
       type(Input_class), intent(in):: Input
 
       ! Local

@@ -10,20 +10,19 @@
 !  Start:
 !     22/03/2023
 !  Last version:
-!     12/03/2025 V4.0.1
+!     15/05/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.1 - Explicitly count the innate size of
-!                             the Solution_F_class structure in the
-!                             SRAMc counter (TdPA)
-!                           - Bugfix: the memory count for the
-!                             emergent variables duplicated in the
-!                             set_best routine was not being accounted
-!                             for (TdPA)
+!     15/05/2025:    V4.0.2 - Generalized declarations of Atom to
+!                             allow for empty arrays for any of
+!                             them (TdPA)
+!                           - Bugfix: The wrong variable was checked
+!                             to see if the Sol%i_JKQS_* variables
+!                             were allocated (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -144,7 +143,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Atom_class), dimension(:), &
                         allocatable, intent(inout):: Atomb
       type(Mol_class), dimension(:), &
@@ -555,12 +555,12 @@
               end if ! Master
 
               ! Get trial synthesis
-              call Trial_Synthesis(LM_Stru, Inf_Nodes, &
-                                   LM_Stru%Lambda, Solution, &
-                                   Atmo, Bfield, Atom, Atomb, &
-                                   Mol, Geom, GeomI, Flgsg, Frec, &
-                                   fudge, kurucz, MPID, Input, &
-                                   Sol, SolF)
+              call Trial_Synthesis(LM_Stru,Inf_Nodes, &
+                                   LM_Stru%Lambda,Solution, &
+                                   Atmo,Bfield,Atom,Atomb, &
+                                   Mol,Geom,GeomI,Flgsg,Frec, &
+                                   fudge,kurucz,MPID,Input, &
+                                   Sol,SolF)
               if (laborted) return
 
               ! Get merit function
@@ -648,11 +648,11 @@
           case(1)
 
             ! Optimize lambda parameter with backtracking algorithm
-            call Backtracking(LM_Stru, Atom, Atomb, Mol, Geom, &
-                              GeomI, Flgsg, Frec, fudge, kurucz, &
-                              MPID, Atmo, Bfield, Sol, SolF, &
-                              Inf_Nodes, Input, Inf_Stokes, &
-                              Solution, Stokes_Min)
+            call Backtracking(LM_Stru,Atom,Atomb,Mol,Geom, &
+                              GeomI,Flgsg,Frec,fudge,kurucz, &
+                              MPID,Atmo,Bfield,Sol,SolF, &
+                              Inf_Nodes,Input,Inf_Stokes, &
+                              Solution,Stokes_Min)
 
             ! If improved the chi2
             if (LM_Stru%Chisq.lt.Chisq_old) then
@@ -1071,7 +1071,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Atom_class), dimension(:), &
                         allocatable, intent(inout):: Atomb
       type(Mol_class), dimension(:), &
@@ -1738,7 +1739,8 @@
       type(Nodes_class), intent(in):: Inf_Nodes
       type(Atmo_class), intent(inout):: Atmo
       type(Bfield_class), intent(inout):: Bfield
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Atom_class), dimension(:), &
                         allocatable, intent(inout):: Atomb
       type(Mol_class), dimension(:), &
@@ -1810,8 +1812,8 @@
         call cAtmo(Atmo,Tmp_Atmo)
 
         ! Generate new stratification
-        call Intpol_Atmo(Inf_Nodes_tmp, Tmp_Atmo, Atom, Atomb, &
-                         Mol, Input, fudge)
+        call Intpol_Atmo(Inf_Nodes_tmp,Tmp_Atmo,Atom,Atomb, &
+                         Mol,Input,fudge)
 
         ! Get Stokes profiles
         call HanleRTTIC(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec,fudge, &
@@ -1844,8 +1846,8 @@
         call cBfield(Bfield,Tmp_Bfield)
 
         ! Get new stratification
-        call Intpol_Atmo_all(Inf_Nodes_tmp, Tmp_Atmo, Tmp_Bfield, &
-                             Atom, Atomb, Mol, Input, fudge)
+        call Intpol_Atmo_all(Inf_Nodes_tmp,Tmp_Atmo,Tmp_Bfield, &
+                             Atom,Atomb,Mol,Input,fudge)
 
         ! Get Stokes profiles
         call HanleRTTIC(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec,fudge, &
@@ -1939,7 +1941,8 @@
       ! I/O
 
       type(LMFIT_class), intent(inout):: LM_Stru
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Atom_class), dimension(:), &
                         allocatable, intent(inout):: Atomb
       type(Mol_class), dimension(:), &
@@ -2047,11 +2050,11 @@
           do while (.True.)
 
             ! Try new solution
-            call Trial_Synthesis(LM_Stru, Inf_Nodes, &
-                                 Lambda_array(indx), Solution, Atmo, &
-                                 Bfield, Atom, Atomb, Mol, Geom, &
-                                 GeomI, Flgsg, Frec, fudge, kurucz, &
-                                 MPID, Input, Sol, SolF)
+            call Trial_Synthesis(LM_Stru,Inf_Nodes, &
+                                 Lambda_array(indx),Solution,Atmo, &
+                                 Bfield,Atom,Atomb,Mol,Geom, &
+                                 GeomI,Flgsg,Frec,fudge,kurucz, &
+                                 MPID,Input,Sol,SolF)
 
             ! If there was an issue with the trial
             if (laborted) then
@@ -2352,10 +2355,10 @@
           end if ! Master
 
           ! Try new solution
-          call Trial_Synthesis(LM_Stru, Inf_Nodes, Lambda_TMP, &
-                               Solution, Atmo, Bfield, Atom, Atomb, &
-                               Mol, Geom, GeomI, Flgsg, Frec, fudge, &
-                               kurucz, MPID, Input, Sol, SolF)
+          call Trial_Synthesis(LM_Stru,Inf_Nodes,Lambda_TMP, &
+                               Solution,Atmo,Bfield,Atom,Atomb, &
+                               Mol,Geom,GeomI,Flgsg,Frec,fudge, &
+                               kurucz,MPID,Input, Sol,SolF)
 
           ! If failed
           if (laborted) then
@@ -3062,7 +3065,7 @@
           if (allocated(Sol%i_StkI_t)) Sol%i_StkI_b = Sol%i_StkI_t
           if (allocated(Sol%i_Stk_t)) Sol%i_Stk_b = Sol%i_Stk_t
           if (allocated(Sol%i_JKQ_t)) Sol%i_JKQ_b = Sol%i_JKQ_t
-          if (allocated(Sol%i_JKQC_t)) Sol%i_JKQS_b = Sol%i_JKQS_t
+          if (allocated(Sol%i_JKQS_t)) Sol%i_JKQS_b = Sol%i_JKQS_t
           if (allocated(Sol%i_JKQC_t)) Sol%i_JKQC_b = Sol%i_JKQC_t
           if (allocated(Sol%i_rhoes_t)) Sol%i_rhoes_b = Sol%i_rhoes_t
 
@@ -3079,7 +3082,7 @@
           if (allocated(Sol%i_StkI)) Sol%i_StkI_b = Sol%i_StkI
           if (allocated(Sol%i_Stk)) Sol%i_Stk_b = Sol%i_Stk
           if (allocated(Sol%i_JKQ)) Sol%i_JKQ_b = Sol%i_JKQ
-          if (allocated(Sol%i_JKQC)) Sol%i_JKQS_b = Sol%i_JKQS
+          if (allocated(Sol%i_JKQS)) Sol%i_JKQS_b = Sol%i_JKQS
           if (allocated(Sol%i_JKQC)) Sol%i_JKQC_b = Sol%i_JKQC
           if (allocated(Sol%i_rhoes_t)) Sol%i_rhoes_b = Sol%i_rhoes
 
@@ -3110,7 +3113,7 @@
         if (allocated(Sol%i_StkI)) Sol%i_StkI_t = Sol%i_StkI
         if (allocated(Sol%i_Stk)) Sol%i_Stk_t = Sol%i_Stk
         if (allocated(Sol%i_JKQ)) Sol%i_JKQ_t = Sol%i_JKQ
-        if (allocated(Sol%i_JKQC)) Sol%i_JKQS_t = Sol%i_JKQS
+        if (allocated(Sol%i_JKQS)) Sol%i_JKQS_t = Sol%i_JKQS
         if (allocated(Sol%i_JKQC)) Sol%i_JKQC_t = Sol%i_JKQC
         if (allocated(Sol%i_rhoes)) Sol%i_rhoes_t = Sol%i_rhoes
 

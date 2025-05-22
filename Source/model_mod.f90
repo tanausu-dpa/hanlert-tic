@@ -10,14 +10,16 @@
 !  Start:
 !     17/02/2023
 !  Last version:
-!     13/12/2024 V4.0.0
+!     15/05/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     13/12/2024:    V4.0.0 - Revised headers (TdPA)
+!     15/05/2025:    V4.0.2 - Generalized declarations of Atom to
+!                             allow for empty arrays for any of
+!                             them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -102,7 +104,8 @@
       type(Nodes_class), intent(inout):: Inf_Nodes
       type(Atmo_class), intent(inout):: Atmo
       type(Bfield_class), intent(inout):: Bfield
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Atom_class), dimension(:), &
                         allocatable, intent(inout):: Atomb
       type(Mol_class), dimension(:), &
@@ -239,7 +242,8 @@
 
       type(Nodes_class), intent(inout):: Inf_Nodes
       type(Atmo_class), intent(inout):: Atmo
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Atom_class), dimension(:), &
                         allocatable, intent(inout):: Atomb
       type(Mol_class), dimension(:), &

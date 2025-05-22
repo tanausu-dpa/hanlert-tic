@@ -9,15 +9,16 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     11/12/2024 V4.0.0
+!     15/05/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     11/12/2024:    V4.0.0 - Removed references to threads in the
-!                             calls to abortedS (TdPA)
+!     15/05/2025:    V4.0.1 - Initialize frequency integrated
+!                             radiation field quantities only if
+!                             there are active atoms (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -143,24 +144,29 @@
       RRAMc = RRAMc + 1d-6*sizeof(Stokes)
       Stokes = 0d0
 
-      ! JKQ integrated over absorption profiles
-      allocate(JKQ(-2:2,0:2,nxtran,Rz0:Rz1))
-      RRAMc = RRAMc + 1d-6*sizeof(JKQ)
-      JKQ = cZero
+      ! Atoms
+      if (nA.gt.0) then
 
-      ! JKQ integrated over emission profiles
-      allocate(JKQS(-2:2,0:2,nxtran,Rz0:Rz1))
-      RRAMc = RRAMc + 1d-6*sizeof(JKQS)
-      JKQS = cZero
+        ! JKQ integrated over absorption profiles
+        allocate(JKQ(-2:2,0:2,nxtran,Rz0:Rz1))
+        RRAMc = RRAMc + 1d-6*sizeof(JKQ)
+        JKQ = cZero
+
+        ! JKQ integrated over emission profiles
+        allocate(JKQS(-2:2,0:2,nxtran,Rz0:Rz1))
+        RRAMc = RRAMc + 1d-6*sizeof(JKQS)
+        JKQS = cZero
+
+        ! J00 for photoionizations
+        allocate(J00P(nxphot,2,Rz0:Rz1))
+        RRAMc = RRAMc + 1d-6*sizeof(J00P)
+        J00P = 0d0
+
+      end if ! Atoms
 
       ! JKQ frequency dependent
       allocate(JKQC(-2:2,0:2,nfreq,Rz0:Rz1))
       RRAMc = RRAMc + 1d-6*sizeof(JKQC)
-
-      ! J00 for photoionizations
-      allocate(J00P(nxphot,2,Rz0:Rz1))
-      RRAMc = RRAMc + 1d-6*sizeof(J00P)
-      J00P = 0d0
 
       ! If we are reading a solution, do not initialize to LTE
       if (mode.eq.'R'.or.mode.eq.'B') return
@@ -263,24 +269,29 @@
       RRAMc = RRAMc + 1d-6*sizeof(Stokes)
       Stokes = 0d0
 
-      ! J00 integrated over absorption profiles
-      allocate(J00(nxt,Rz0:Rz1))
-      RRAMc = RRAMc + 1d-6*sizeof(J00)
-      J00 = 0d0
+      ! Atoms
+      if (nA.gt.0) then
 
-      ! J00 integrated over emission profiles
-      allocate(J00S(nxt,Rz0:Rz1))
-      RRAMc = RRAMc + 1d-6*sizeof(J00S)
-      J00S = 0d0
+        ! J00 integrated over absorption profiles
+        allocate(J00(nxt,Rz0:Rz1))
+        RRAMc = RRAMc + 1d-6*sizeof(J00)
+        J00 = 0d0
+
+        ! J00 integrated over emission profiles
+        allocate(J00S(nxt,Rz0:Rz1))
+        RRAMc = RRAMc + 1d-6*sizeof(J00S)
+        J00S = 0d0
+
+        ! J00 for photoionizations
+        allocate(J00P(nxphot,2,Rz0:Rz1))
+        RRAMc = RRAMc + 1d-6*sizeof(J00P)
+        J00P = 0d0
+
+      end if ! Atoms
 
       ! J00 frequency dependent
       allocate(J00C(nfreq,Rz0:Rz1))
       RRAMc = RRAMc + 1d-6*sizeof(J00C)
-
-      ! J00 for photoionizations
-      allocate(J00P(nxphot,2,Rz0:Rz1))
-      RRAMc = RRAMc + 1d-6*sizeof(J00P)
-      J00P = 0d0
 
       ! If we are reading a solution, do not initialize to LTE
       if (mode.eq.'R'.or.mode.eq.'B') return

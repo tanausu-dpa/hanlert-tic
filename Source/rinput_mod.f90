@@ -10,16 +10,17 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     18/03/2025 V4.0.2
+!     15/05/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/03/2025:    V4.0.2 - Read Input%Sigma_factor,
-!                             Input%ALI_photo, and
-!                             Input%ALI_allow_off (TdPA)
+!     15/05/2025:    V4.0.3 - The active atom related inputs are no
+!                             longer mandatory (TdPA)
+!                           - The sanity check on wavelengths is only
+!                             called if there are active atoms (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -125,86 +126,91 @@
       read(100,*,err=1100) Input%nA
       nA = Input%nA
 
-      ! Allocations
-      ! Filename of atomic models
-      allocate(Input%atom(nA))
-      ! Filename of atomic populations
-      allocate(Input%popu(nA))
-      ! Keep populations fixed
-      allocate(Input%fixp(nA))
-      ! Keep populations fixed for lower terms
-      allocate(Input%fixplt(nA))
-      ! Zero ion
-      allocate(Input%zero_ion(nA))
-      ! No wavelengths
-      allocate(Input%skip_wave(nA))
-      ! Ionization files for CLE
-      if (Input%run_mode.eq.2) allocate(Input%ionf(nA))
+      ! If there are atoms to allocate
+      if (nA.gt.0) then
 
-      ! Read atomic file, population file names, and if fixing
-      ! populations
-      do ia=1,nA
-
-        ! Add to RAM (fixp, zero_ion, atom, and fixplt are
-        ! deallocated before any relevant call)
-        MRAMc = MRAMc + 1d-6*(sizeof(Input%popu(ia)) + &
-                              sizeof(Input%skip_wave(ia)))
-        if (Input%run_mode.eq.2) &
-          MRAMc = MRAMc + 1d-6*sizeof(Input%ionf)
-
-        ! Atom file model
-        read(100,'(A)',err=1100) Input%atom(ia)
-        ! Atom population file
-        read(100,'(A)',err=1100) Input%popu(ia)
-
-        ! Atom fix population
-        read(100,'(A)',err=1100) cdump
-        Input%fixp(ia) = cdump.eq.'F'
-
-        ! Atom zero ion
-        read(100,'(A)',err=1100) cdump
-        Input%zero_ion(ia) = cdump.eq.'F'
-
+        ! Allocations
+        ! Filename of atomic models
+        allocate(Input%atom(nA))
+        ! Filename of atomic populations
+        allocate(Input%popu(nA))
+        ! Keep populations fixed
+        allocate(Input%fixp(nA))
+        ! Keep populations fixed for lower terms
+        allocate(Input%fixplt(nA))
+        ! Zero ion
+        allocate(Input%zero_ion(nA))
+        ! No wavelengths
+        allocate(Input%skip_wave(nA))
         ! Ionization files for CLE
-        if (Input%run_mode.eq.2) then
+        if (Input%run_mode.eq.2) allocate(Input%ionf(nA))
 
-          ! Read type of ionization specification
-          read(100,*,err=1100) Input%ionf(ia)%typ
+        ! Read atomic file, population file names, and if fixing
+        ! populations
+        do ia=1,nA
 
-          ! If file
-          if (Input%ionf(ia)%typ.eq.0) then
+          ! Add to RAM (fixp, zero_ion, atom, and fixplt are
+          ! deallocated before any relevant call)
+          MRAMc = MRAMc + 1d-6*(sizeof(Input%popu(ia)) + &
+                                sizeof(Input%skip_wave(ia)))
+         if (Input%run_mode.eq.2) &
+             MRAMc = MRAMc + 1d-6*sizeof(Input%ionf)
 
-            ! Read filename
-            read(100,'(A)',err=1100) Input%ionf(ia)%str
+          ! Atom file model
+          read(100,'(A)',err=1100) Input%atom(ia)
+          ! Atom population file
+          read(100,'(A)',err=1100) Input%popu(ia)
 
-          ! If number
-          else if (Input%ionf(ia)%typ.eq.1) then
+          ! Atom fix population
+          read(100,'(A)',err=1100) cdump
+          Input%fixp(ia) = cdump.eq.'F'
 
-            ! Read value
-            read(100,*,err=1100) Input%ionf(ia)%val
+          ! Atom zero ion
+          read(100,'(A)',err=1100) cdump
+          Input%zero_ion(ia) = cdump.eq.'F'
 
-          end if ! Type of input
+          ! Ionization files for CLE
+          if (Input%run_mode.eq.2) then
 
-        ! No CLE
-        else
+            ! Read type of ionization specification
+            read(100,*,err=1100) Input%ionf(ia)%typ
 
-          ! Read dummy -1
-          read(100,*,err=1100) ios
+            ! If file
+            if (Input%ionf(ia)%typ.eq.0) then
 
-        end if ! Value
+              ! Read filename
+              read(100,'(A)',err=1100) Input%ionf(ia)%str
 
-        ! Atom skip wavelengths
-        read(100,'(A)',err=1100) cdump
-        Input%skip_wave(ia) = .not.(cdump.eq.'N')
+            ! If number
+            else if (Input%ionf(ia)%typ.eq.1) then
 
-        ! Atom fix terms populations
-        read(100,'(A)',err=1100) cdump
-        Input%fixplt(ia) = cdump.eq.'F'
+              ! Read value
+              read(100,*,err=1100) Input%ionf(ia)%val
 
-        ! Check cascades of conditions for fixing populations
-        if (Input%fixp(ia)) Input%fixplt(ia) = .False.
+            end if ! Type of input
 
-      end do
+          ! No CLE
+          else
+
+            ! Read dummy -1
+            read(100,*,err=1100) ios
+
+          end if ! Value
+
+          ! Atom skip wavelengths
+          read(100,'(A)',err=1100) cdump
+          Input%skip_wave(ia) = .not.(cdump.eq.'N')
+
+          ! Atom fix terms populations
+          read(100,'(A)',err=1100) cdump
+          Input%fixplt(ia) = cdump.eq.'F'
+
+          ! Check cascades of conditions for fixing populations
+          if (Input%fixp(ia)) Input%fixplt(ia) = .False.
+
+        end do
+
+      end if ! Atoms to read
 
       ! Number of background atoms
       read(100,*,err=1100) Input%nAb
@@ -431,12 +437,24 @@
 
       end if ! Wavelength files
 
-      ! Sanity check
-      if (all(Input%skip_wave).and.Input%NW.eq.0) then
-        umsg = 'Cannot neglect automatically generated '// &
-               'wavelengths without including wavelength files'
-        call gaborted
-      end if
+      !
+      ! Sanity check wavelengths
+      !
+
+      ! If there are atoms
+      if (nA.gt.0) then
+
+        ! If no wavelengths
+        if (all(Input%skip_wave).and.Input%NW.eq.0) then
+
+          ! Error
+          umsg = 'Cannot neglect automatically generated '// &
+                 'wavelengths without including LTE lines or '// &
+                 'wavelength files'
+          call gaborted
+
+        end if ! No wavelengths
+      end if ! Active atoms
 
       ! Asymmetry inputs
       read(100,*,err=1100) Input%nasym
@@ -914,7 +932,8 @@
       read(100,*,err=1100) Input%NGI_ord
 
       ! Sanity check order
-      if (Input%NGI_ord.lt.1.or.Input%NGI_ord.gt.5) Input%NGI = .False.
+      if (Input%NGI_ord.lt.1.or.Input%NGI_ord.gt.5) &
+        Input%NGI = .False.
 
       ! NG acceleration delay for intensity
       read(100,*,err=1100) Input%NGI_delay

@@ -10,15 +10,20 @@
 !  Start:
 !     22/06/2022
 !  Last version:
-!     18/03/2025 V4.0.2
+!     15/05/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/03/2025:    V4.0.2 - Added argument to the call to
-!                             setmpi_sizes (TdPA)
+!     15/05/2025:    V4.0.3 - Generalized declarations of Atom, Atomb,
+!                             and Mol to allow for empty arrays for
+!                             any of them (TdPA)
+!                           - Bugfix: There was a potentially
+!                             unbalanced call to gcontrol when setting
+!                             up photoionization quantities in 15DS,
+!                             inversion, and CLE modes (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -102,7 +107,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Atom_class), dimension(:), &
                         allocatable, intent(inout):: Atomb
       type(Mol_class), dimension(:), &
@@ -410,7 +416,7 @@
       end do ! Active atoms
 
       ! Verbose initialized photoionization cross sections
-      if (pid.eq.0) then
+      if (pid.eq.0.and.nA.gt.0) then
         umsg = ' - Initialized photoionization quantities '//&
                '(cross section)'
         call verbose
@@ -490,7 +496,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Atom_class), dimension(:), &
                         allocatable, intent(inout):: Atomb
       type(Mol_class), dimension(:), &
@@ -812,12 +819,6 @@
           call setphoto(Atom(ia),Frec%omega)
 
         end do ! Active atoms
-
-      ! The distributer
-      else
-
-        ! Just call control to match the call in setphoto
-        call gcontrol
 
       end if ! Not splitting pixels or not the distributer
 
@@ -1789,7 +1790,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Atom_class), dimension(:), &
                         allocatable, intent(inout):: Atomb
       type(Mol_class), dimension(:), &
@@ -2067,7 +2069,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Atom_class), dimension(:), &
                         allocatable, intent(inout):: Atomb
       type(Mol_class), dimension(:), allocatable, intent(inout):: Mol
@@ -2454,12 +2457,6 @@
           call setphoto(Atom(ia),Frec%omega)
 
         end do ! Active atoms
-
-      ! The distributer
-      else
-
-        ! Just call control to match the call in setphoto
-        call gcontrol
 
       end if ! Not splitting pixels or not the distributer
 

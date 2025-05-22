@@ -11,16 +11,16 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     25/03/2025 V4.0.1
+!     15/05/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     25/03/2025:    V4.0.1 - Updated Termprof routine to only use
-!                             rt1ord and follow the same logic than
-!                             rtcoeff to normalize profiles (TdPA)
+!     15/05/2025:    V4.0.2 - Generalized declarations of Atom to
+!                             allow for empty arrays for any of
+!                             them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -116,7 +116,8 @@
       type(Frequency_class), intent(in):: Frec
       type(Red_class), intent(in):: Red
       type(Atmo_class), intent(in):: Atmo
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
       logical, intent(in):: iterating
@@ -644,7 +645,8 @@
       type(Frequency_class), intent(in):: Frec
       type(Red_class), intent(in):: Red
       type(Atmo_class), intent(in):: Atmo
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
       integer, intent(in):: iz,jdir,cdir,if0,if1
@@ -987,7 +989,8 @@
       ! I/O
 
       type(Atmo_class), intent(in):: Atmo
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Frequency_class), intent(in):: Frec
       type(Red_class), intent(in):: Red
       type(Fctsg_class), intent(in):: Flgsg

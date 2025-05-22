@@ -9,14 +9,18 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     11/12/2024 V4.0.0
+!     15/05/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     11/12/2024:    V4.0.0 - Revised headers (TdPA)
+!     15/05/2025:    V4.0.1 - Generalized declarations of Atom to
+!                             allow for empty arrays for any of
+!                             them (TdPA)
+!                           - Removed potentially blocking call to
+!                             control (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -251,9 +255,6 @@
         end do ! upper levels
       end do ! lower levels
 
-      ! Check if everything is fine
-      call gcontrol
-
       return
 
       end subroutine setphoto
@@ -435,7 +436,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Frequency_class), intent(inout):: Frec
       double precision, dimension(:), intent(in):: T
 

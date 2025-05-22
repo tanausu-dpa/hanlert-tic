@@ -9,17 +9,18 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     24/04/2025 V4.0.3
+!     15/05/2025 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     24/04/2025:    V4.0.3 - Bugfix: The normalizer functions for the
-!                             polarization problem were trying to
-!                             process forbidden lines that were not
-!                             indexed by the atom (TdPA)
+!     15/05/2025:    V4.0.4 - Generalized declarations of Atom to
+!                             allow for empty arrays for any of
+!                             them (TdPA)
+!                           - Added sanity checks for when there are
+!                             no active atoms (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -118,7 +119,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
       type(Atmo_class), intent(in):: Atmo
@@ -240,7 +242,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(LTEline_class), dimension(:), allocatable:: LTElines
       type(Atmo_class), intent(in):: Atmo
       type(Geometry_class), intent(in):: Geom
@@ -1591,7 +1594,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Atmo_class), intent(in):: Atmo
       type(Frequency_class), intent(in):: Frec
       type(Red_class), intent(inout):: Red
@@ -1618,6 +1622,9 @@
 
       ! Initialize
       ofram = .False.
+
+      ! Sanity
+      if (Red%nzao.lt.1) return
 
       ! Allocate space for data
       allocate(Red%pzao(Red%nzao))
@@ -2187,7 +2194,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
       type(Atmo_class), intent(in):: Atmo
@@ -3266,7 +3274,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Atmo_class), intent(in):: Atmo
       type(Frequency_class), intent(in):: Frec
       type(Red_class), intent(inout):: Red
@@ -3289,6 +3298,9 @@
 
       ! Initialize
       ofram = .False.
+
+      ! Sanity
+      if (Red%nzao.lt.1) return
 
       ! Allocate space for data
       allocate(Red%pzao(Red%nzao))
@@ -3669,7 +3681,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Red_class), intent(inout):: Red
 
       ! Local

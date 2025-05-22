@@ -9,14 +9,15 @@
 !  Start:
 !     08/10/2024
 !  Last version:
-!     28/11/2024 V4.0.0
+!     15/05/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     28/11/2024:    V4.0.0 - First version (TdPA)
+!     15/05/2025:    V4.0.1 - Added sanity check for allocated atoms
+!                             array (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -92,6 +93,9 @@
 
       integer:: ia,jtran,iz,indx,if0l2,if1l2,ndir,nf
 
+
+      ! If no atoms, leave
+      if (nA.lt.1) return
 
       ! Master is not going to use these, so leave if master in MPI
       if (pid.eq.0.and.nproc.gt.1) return
@@ -178,6 +182,9 @@
 
       double precision:: vel
 
+
+      ! If no atoms, leave
+      if (nA.lt.1) return
 
       ! Master is not going to use these, so leave if master MPI
       if (pid.eq.0.and.nproc.gt.1) return
@@ -318,6 +325,10 @@
 
       integer:: ia,jtran,iz,indx,if0l2,if1l2,ndir
 
+
+      ! If no atoms, leave
+      if (nA.lt.1) return
+
       ! Master is not going to use these, so leave if master MPI
       if (pid.eq.0.and.nproc.gt.1) return
 
@@ -392,6 +403,9 @@
 
       double precision:: vel
 
+
+      ! If no atoms, leave
+      if (nA.lt.1) return
 
       ! Master is not going to use these, so leave if master MPI
       if (pid.eq.0.and.nproc.gt.1) return
@@ -582,6 +596,9 @@
 
       ! Nullify pointers
       nullify(p_red,p_rwarr,p_Norm,TKQo)
+
+      ! If no atoms, leave
+      if (nA.lt.1) return
 
       ! Dummy
       if (.not.PRAM) p_rwarr => p_dummy
@@ -1104,6 +1121,9 @@
 
       ! Nullify pointers
       nullify(p_red,p_rwarr,p_Norm)
+
+      ! If no atoms, leave
+      if (nA.lt.1) return
 
       ! Dummy
       if (.not.IRAM) p_rwarr => p_dummy

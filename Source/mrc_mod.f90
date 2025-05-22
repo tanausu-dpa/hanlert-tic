@@ -9,16 +9,16 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     20/02/2025 V4.0.1
+!     15/05/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/02/2025:    V4.0.1 - Added the possibility of only
-!                             considering multipoles with K=0 and
-!                             K=2 when checking the MRC (TdPA)
+!     15/05/2025:    V4.0.2 - Generalized declarations of Atom and
+!                             Atom0 to allow for empty arrays for
+!                             any of them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -74,8 +74,10 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
-      type(Rhoc_class), dimension(:), intent(in):: Atom0
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
+      type(Rhoc_class), dimension(:), &
+                        allocatable, intent(in):: Atom0
       logical, intent(in):: anis
       type(MRC_class), intent(out):: MRC
 
@@ -259,8 +261,10 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
-      type(Rhoc_class), dimension(:), intent(in):: Atom0
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
+      type(Rhoc_class), dimension(:), &
+                        allocatable, intent(in):: Atom0
       type(MRC_class), intent(out):: MRC
 
       ! Local

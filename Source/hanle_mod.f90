@@ -11,16 +11,21 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     25/03/2025 V4.0.4
+!     15/05/2025 V4.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     25/03/2025:    V4.0.4 - Added doing polarization for a dynamic
-!                             atmosphere as a trigger to store all
-!                             Stokes paramters (TdPA)
+!     15/05/2025:    V4.0.5 - Generalized declarations of Atom, Atomb,
+!                             Mol, and Rho_old to allow for empty
+!                             arrays for any of them (TdPA)
+!                           - Consider that the integrated radiation
+!                             field tensors may not be needed (TdPA)
+!                           - Add the existence of active atoms to the
+!                             requirements to perform iterations at
+!                             all (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -145,7 +150,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Atom_class), dimension(:), &
                         allocatable, intent(inout):: Atomb
       type(LTEline_class), dimension(:), &
@@ -169,7 +175,7 @@
 
       type(Bfield_class):: Bfield0
       type(Continuum_class):: Cont
-      type(Rhoc_class), dimension(nA):: Rho_old
+      type(Rhoc_class), allocatable, dimension(:):: Rho_old
 
       logical:: rlimw = .True.
       logical:: csize
@@ -201,7 +207,10 @@
       ! Memory count for locally allocated types
       MRAMc = MRAMc + 1d-6*sizeof(Bfield0)
       MRAMc = MRAMc + 1d-6*sizeof(Cont)
-      MRAMc = MRAMc + 1d-6*sizeof(Rho_old)
+      if (nA.gt.0) then
+        allocate(Rho_old(nA))
+        MRAMc = MRAMc + 1d-6*sizeof(Rho_old)
+      end if
       if (allocated(JKQ_asym)) RRAMc = 1d-6*(sizeof(JKQ_asym))
 
       ! Original RAM storage flags
@@ -439,7 +448,7 @@
 
           ! This is what is going to be kept in radiation
           ! memory
-          RRAMc = 1d-6*(sizeof(JKQ_asym) + sizeof(J00P))
+          RRAMc = 1d-6*sizeof(JKQ_asym)
 
           !
           ! Pre-compute amount of RAM to fill with radiation later
@@ -460,8 +469,16 @@
           end if ! Keeping Stokes
 
           ! Size in radiation field tensors
-          RRAMc = RRAMc + 16d-6*dble(Rnz*15*(2*nxtran + nfreq))
+          RRAMc = RRAMc + 16d-6*dble(Rnz*15*nfreq)
 
+          ! If Atoms
+          if (nA.gt.0) then
+
+            ! Atomic radiation field tensors
+            RRAMc = RRAMc + 1d-6*sizeof(J00P) + &
+                            16d-6*dble(Rnz*15*2*nxtran)
+
+          end if ! Atoms
         end if ! Recalculate RAM for radiation
 
         ! If we need to redo the background, do it
@@ -686,7 +703,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Atom_class), dimension(:), &
                         allocatable, intent(inout):: Atomb
       type(LTEline_class), dimension(:), &
@@ -702,7 +720,8 @@
       type(Geometry_class), intent(in):: GeomI,Geom
       type(Input_class), intent(in):: Input
       type(MPI_class), intent(in):: MPID
-      type(Rhoc_class), dimension(:), intent(inout):: Rho_old
+      type(Rhoc_class), dimension(:), &
+                        allocatable, intent(inout):: Rho_old
       logical, intent(in):: free
       logical, intent(out):: rback
 
@@ -975,7 +994,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Atom_class), dimension(:), &
                         allocatable, intent(inout):: Atomb
       type(Mol_class), dimension(:), allocatable, intent(inout):: Mol
@@ -1018,7 +1038,7 @@
 
         ! Free background atoms
         nAb = 0
-        call free_atom_full(AtomB)
+        call free_atom_full(Atomb)
 
         ! Free molecules
         nM = 0
@@ -1086,7 +1106,8 @@
                             StokesI,J00,J00S,J00C,J00P)
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(Atmo_class), intent(in):: Atmo
       type(Bfield_class), intent(in):: Bfield
       type(Fctsg_class), intent(in):: Flgsg
@@ -1307,7 +1328,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
       type(Atmo_class), intent(in):: Atmo
@@ -1319,7 +1341,8 @@
       type(MPI_class), intent(inout):: MPID
       type(Solution_F_class), intent(inout):: SolF
       type(Continuum_class), intent(in):: Cont
-      type(Rhoc_class), dimension(:), intent(inout):: Rho_old
+      type(Rhoc_class), dimension(:), &
+                        allocatable, intent(inout):: Rho_old
       logical, intent(in):: lload,lio,lie,lp
       logical, intent(inout):: rlimw,ofram
       double precision, dimension(:,:,:,:), &
@@ -1355,7 +1378,7 @@
 
       ! Check if doing any iteration in J or in populations
       literJ = Input%iter_J.gt.0
-      liter = lio.and.(Input%iteri_max.ge.Input%iteri_min)
+      liter = lio.and.(Input%iteri_max.ge.Input%iteri_min).and.nA.gt.0
 
       !
       ! Preliminars
@@ -1401,7 +1424,7 @@
           if (laborted) goto 1000
 
           ! Master verbose
-          if (gpid.eq.0) then
+          if (gpid.eq.0.and.nA.gt.0) then
             umsg = ' - Input frequency axis initialized (intensity)'
             call verbose
           end if ! Master
@@ -1426,7 +1449,7 @@
             if (laborted) goto 1000
 
             ! Master verbose
-            if (gpid.eq.0) then
+            if (gpid.eq.0.and.nA.gt.0) then
               umsg = ' - Normalized 1st order profiles for '// &
                      'PRD (intensity)'
               call verbose
@@ -1756,7 +1779,8 @@
           
       ! I/O
 
-      type(Atom_class), dimension(:), intent(inout):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
       type(LTEline_class), dimension(:), &
                            allocatable, intent(in):: LTElines
       type(Atmo_class), intent(in):: Atmo
@@ -1768,7 +1792,8 @@
       type(MPI_class), intent(inout):: MPID
       type(Solution_F_class), intent(inout):: SolF
       type(Continuum_class), intent(in):: Cont
-      type(Rhoc_class), dimension(:), intent(inout):: Rho_old
+      type(Rhoc_class), dimension(:), &
+                        allocatable, intent(inout):: Rho_old
       logical, intent(in):: saving,lload,lio,lp,lpe
       logical, intent(inout):: rlimw,ofram
       integer, intent(in):: rnPh
@@ -1809,10 +1834,10 @@
       FRAMc = FRAMc + 1d-6*sizeof(Red)
 
       ! Check if iterating
-      liter = lp.and.(Input%iter_max.ge.Input%iter_min)
+      liter = lp.and.nA.gt.0.and.(Input%iter_max.ge.Input%iter_min)
 
       ! Check if correcting JKQ
-      lcorr = lio.or.(lload.and..not.allocated(Stokes))
+      lcorr = (lio.or.(lload.and..not.allocated(Stokes)))
 
       ! Check if there is a magnetic field
       field = maxval(Bfield%Bstrength).gt.TINYB
@@ -1849,7 +1874,7 @@
         end do ! Atoms
 
         ! Master verbose
-        if(gpid.eq.0) then
+        if(gpid.eq.0.and.nA.gt.0) then
           umsg = ' - Hamiltonian diagonalized'
           call verbose
           umsg = ' - Dipole strengths in energy eigenbasis calculated'
@@ -1916,7 +1941,7 @@
           if (laborted) goto 1000
 
           ! Master verbose
-          if (gpid.eq.0) then
+          if (gpid.eq.0.and.nA.gt.0) then
             umsg = ' - Input frequency axis initialized'
             call verbose
           end if ! Master
@@ -1939,7 +1964,7 @@
           if (laborted) goto 1000
 
           ! Master verbose
-          if (gpid.eq.0) then
+          if (gpid.eq.0.and.nA.gt.0) then
             umsg = ' - Normalized 1st order profiles for PRD'
             call verbose
           end if
@@ -1981,7 +2006,7 @@
       end if ! Iterating or non dynamic
 
 #ifdef DEBUGRHOKQ
-        if (pid.eq.0) call dump_rho(Atom,Input%folder,-3)
+      if (pid.eq.0) call dump_rho(Atom,Input%folder,-3)
 #endif
       ! If we need to correct the JKQ to multi-term from the
       ! multi-level solution
@@ -2232,7 +2257,8 @@
 
       ! I/O
 
-      type(Atom_class), dimension(:), intent(in):: Atom
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(in):: Atom
       type(Geometry_class), intent(in):: GeomI, Geom
       type(Input_class), intent(inout):: Input
       type(Solution_F_class), intent(inout):: SolF
@@ -2310,60 +2336,72 @@
           end if
 
           ! Allocate
-          allocate(SolF%i_J00(nxt,nz))
           allocate(SolF%i_J00C(nfreq,nz))
-          allocate(SolF%i_J00P(nxphot,2,nz))
-          allocate(SolF%i_J00_b(nxt,nz))
           allocate(SolF%i_J00C_b(nfreq,nz))
-          allocate(SolF%i_J00P_b(nxphot,2,nz))
           if (Input%LM_Method.eq.1) then
-            allocate(SolF%i_J00_t(nxt,nz))
             allocate(SolF%i_J00C_t(nfreq,nz))
-            allocate(SolF%i_J00P_t(nxphot,2,nz))
           end if
 
           ! Count memory
-          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00)
           SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00C)
-          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00P)
-          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00_b)
           SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00C_b)
-          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00P_b)
           if (Input%LM_Method.eq.1) then
-            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00_t)
             SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00C_t)
-            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00P_t)
           end if
 
-          ! Allocate rhoes
-          allocate(SolF%i_rhoes(na))
-          allocate(SolF%i_rhoes_b(na))
-          if (Input%LM_Method.eq.1) &
-            allocate(SolF%i_rhoes_t(na))
-
-          ! Count memory
-          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes)
-          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_b)
-          if (Input%LM_Method.eq.1) &
-            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_t)
-
-          ! For each atom
-          do ia=1,nA
+          ! If active atoms
+          if (nA.gt.0) then
 
             ! Allocate
-            allocate(SolF%i_rhoes(ia)%rho(Atom(ia)%nlevel,nz))
-            allocate(SolF%i_rhoes_b(ia)%rho(Atom(ia)%nlevel,nz))
-            if (Input%LM_Method.eq.1) &
-              allocate(SolF%i_rhoes_t(ia)%rho(Atom(ia)%nlevel,nz))
+            allocate(SolF%i_J00(nxt,nz))
+            allocate(SolF%i_J00P(nxphot,2,nz))
+            allocate(SolF%i_J00_b(nxt,nz))
+            allocate(SolF%i_J00P_b(nxphot,2,nz))
+            if (Input%LM_Method.eq.1) then
+              allocate(SolF%i_J00_t(nxt,nz))
+              allocate(SolF%i_J00P_t(nxphot,2,nz))
+            end if
 
             ! Count memory
-            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes(ia)%rho)
-            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_b(ia)%rho)
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00)
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00P)
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00_b)
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00P_b)
+            if (Input%LM_Method.eq.1) then
+              SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00_t)
+              SRAMc = SRAMc + 1d-6*sizeof(SolF%i_J00P_t)
+            end if
+
+            ! Allocate rhoes
+            allocate(SolF%i_rhoes(na))
+            allocate(SolF%i_rhoes_b(na))
             if (Input%LM_Method.eq.1) &
-              SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_t(ia)%rho)
+              allocate(SolF%i_rhoes_t(na))
 
-          end do ! Atoms
+            ! Count memory
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes)
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_b)
+            if (Input%LM_Method.eq.1) &
+              SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_t)
 
+            ! For each atom
+            do ia=1,nA
+
+              ! Allocate
+              allocate(SolF%i_rhoes(ia)%rho(Atom(ia)%nlevel,nz))
+              allocate(SolF%i_rhoes_b(ia)%rho(Atom(ia)%nlevel,nz))
+              if (Input%LM_Method.eq.1) &
+                allocate(SolF%i_rhoes_t(ia)%rho(Atom(ia)%nlevel,nz))
+
+              ! Count memory
+              SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes(ia)%rho)
+              SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_b(ia)%rho)
+              if (Input%LM_Method.eq.1) &
+                SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_t(ia)%rho)
+
+            end do ! Atoms
+
+          end if ! If active atoms
         end if ! Intensity
 
         ! If doing polarization
@@ -2390,60 +2428,72 @@
           end if ! Keeping Stokes parameters
 
           ! Allocate
-          allocate(SolF%i_JKQ(-2:2,0:2,nxtran,nz))
-          allocate(SolF%i_JKQS(-2:2,0:2,nxtran,nz))
           allocate(SolF%i_JKQC(-2:2,0:2,nfreq,nz))
-          allocate(SolF%i_JKQ_b(-2:2,0:2,nxtran,nz))
-          allocate(SolF%i_JKQS_b(-2:2,0:2,nxtran,nz))
           allocate(SolF%i_JKQC_b(-2:2,0:2,nfreq,nz))
           if (Input%LM_Method.eq.1) then
-            allocate(SolF%i_JKQ_t(-2:2,0:2,nxtran,nz))
-            allocate(SolF%i_JKQS_t(-2:2,0:2,nxtran,nz))
             allocate(SolF%i_JKQC_t(-2:2,0:2,nfreq,nz))
           end if
 
           ! Count memory
-          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQ)
-          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQS)
           SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQC)
-          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQ_b)
-          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQS_b)
           SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQC_b)
           if (Input%LM_Method.eq.1) then
-            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQ_t)
-            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQS_t)
             SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQC_t)
           end if
 
-          ! Allocate rhoes
-          allocate(SolF%i_rhoes(na))
-          allocate(SolF%i_rhoes_b(na))
-          if (Input%LM_Method.eq.1) &
-            allocate(SolF%i_rhoes_t(na))
-
-          ! Count memory
-          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes)
-          SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_b)
-          if (Input%LM_Method.eq.1) &
-            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_t)
-
-          ! For each atom
-          do ia=1,nA
+          ! If active atoms
+          if (nA.gt.0) then
 
             ! Allocate
-            allocate(SolF%i_rhoes(ia)%crho(Atom(ia)%ndim,nz))
-            allocate(SolF%i_rhoes_b(ia)%crho(Atom(ia)%ndim,nz))
-            if (Input%LM_Method.eq.1) &
-              allocate(SolF%i_rhoes_t(ia)%crho(Atom(ia)%ndim,nz))
+            allocate(SolF%i_JKQ(-2:2,0:2,nxtran,nz))
+            allocate(SolF%i_JKQS(-2:2,0:2,nxtran,nz))
+            allocate(SolF%i_JKQ_b(-2:2,0:2,nxtran,nz))
+            allocate(SolF%i_JKQS_b(-2:2,0:2,nxtran,nz))
+            if (Input%LM_Method.eq.1) then
+              allocate(SolF%i_JKQ_t(-2:2,0:2,nxtran,nz))
+              allocate(SolF%i_JKQS_t(-2:2,0:2,nxtran,nz))
+            end if
 
             ! Count memory
-            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes(ia)%crho)
-            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_b(ia)%crho)
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQ)
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQS)
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQ_b)
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQS_b)
+            if (Input%LM_Method.eq.1) then
+              SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQ_t)
+              SRAMc = SRAMc + 1d-6*sizeof(SolF%i_JKQS_t)
+            end if
+
+            ! Allocate rhoes
+            allocate(SolF%i_rhoes(na))
+            allocate(SolF%i_rhoes_b(na))
             if (Input%LM_Method.eq.1) &
-              SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_t(ia)%crho)
+              allocate(SolF%i_rhoes_t(na))
 
-          end do ! Atoms
+            ! Count memory
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes)
+            SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_b)
+            if (Input%LM_Method.eq.1) &
+              SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_t)
 
+            ! For each atom
+            do ia=1,nA
+
+              ! Allocate
+              allocate(SolF%i_rhoes(ia)%crho(Atom(ia)%ndim,nz))
+              allocate(SolF%i_rhoes_b(ia)%crho(Atom(ia)%ndim,nz))
+              if (Input%LM_Method.eq.1) &
+                allocate(SolF%i_rhoes_t(ia)%crho(Atom(ia)%ndim,nz))
+
+              ! Count memory
+              SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes(ia)%crho)
+              SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_b(ia)%crho)
+              if (Input%LM_Method.eq.1) &
+                SRAMc = SRAMc + 1d-6*sizeof(SolF%i_rhoes_t(ia)%crho)
+
+            end do ! Atoms
+
+          end if ! Active atoms
         end if ! Polarization
 
         ! Flag initialized
