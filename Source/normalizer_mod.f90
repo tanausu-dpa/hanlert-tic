@@ -9,18 +9,17 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     15/05/2025 V4.0.4
+!     27/05/2025 V4.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.4 - Generalized declarations of Atom to
-!                             allow for empty arrays for any of
-!                             them (TdPA)
-!                           - Added sanity checks for when there are
-!                             no active atoms (TdPA)
+!     27/05/2025:    V4.0.5 - Bugfix: the normalization of PRD
+!                             profiles did not allow for an excess in
+!                             the number of CPU with respect to the
+!                             number of actual PRD frequencies (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1679,11 +1678,13 @@
             nf = if1 - if0 + 1
 
             ! Correct weights if not extreme wavelength
-            if (if0.ne.Atom(ia)%tif0(jtran)) &
-              W0(jtran) = Frec%W_freq(if0)
-            if (if1.ne.Atom(ia)%tif1(jtran)) &
-              W1(jtran) = Frec%W_freq(if1)
-            if (if1.le.if0) W1(jtran) = 0d0
+            if (nf.gt.0) then
+              if (if0.ne.Atom(ia)%tif0(jtran)) &
+                W0(jtran) = Frec%W_freq(if0)
+              if (if1.ne.Atom(ia)%tif1(jtran)) &
+                W1(jtran) = Frec%W_freq(if1)
+              if (if1.le.if0) W1(jtran) = 0d0
+            end if
 
             ! Identify the terms
             itermf = Atom(ia)%fst(jtran)%iterml
@@ -3378,11 +3379,13 @@
               Red%pzao(indx)%Norm = 0d0
 
               ! Correct weights
-              if (if0.ne.Atom(ia)%tif0(jtran)) &
-                W0 = Frec%W_freq(if0)
-              if (if1.ne.Atom(ia)%tif1(jtran)) &
-                W1 = Frec%W_freq(if1)
-              if (if1.le.if0) W1 = 0d0
+              if (nf.gt.0) then
+                if (if0.ne.Atom(ia)%tif0(jtran)) &
+                  W0 = Frec%W_freq(if0)
+                if (if1.ne.Atom(ia)%tif1(jtran)) &
+                  W1 = Frec%W_freq(if1)
+                if (if1.le.if0) W1 = 0d0
+              end if
 
               ! Allocate profile itself if storing and it is present
               if (VIRAM.and.nf.gt.0) then
