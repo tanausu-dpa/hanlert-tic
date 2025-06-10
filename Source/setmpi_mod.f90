@@ -9,16 +9,17 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     18/03/2025 V4.0.1
+!     06/06/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/03/2025:    V4.0.1 - Implemented the option to skip ALI for
-!                             photoionizations, changing the sizes
-!                             for the relevant buffers (TdPA)
+!     06/06/2025:    V4.0.2 - Removed remnants of debug prints (TdPA)
+!                           - Removed the message about reaching the
+!                             limit of iterations in the task
+!                             distributer (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1056,8 +1057,8 @@
 
           ! Issue warning
           change = .False.
-          umsg = ' # Limit of iterations in task distributer'
-          call verbose
+         !umsg = ' # Limit of iterations in task distributer'
+         !call verbose
 
         end if ! Changed more than the limit
 
@@ -1476,7 +1477,6 @@
 
             ! If buffers are going to be too big
             if (b1.gt.maxbuffer) then
-              print*,gpid,b1,maxbuffer
               umsg = 'The buffer is too big even with '// &
                      'the alternative routines. Reduce the '// &
                      'number of frequencies or use more CPU'
@@ -1529,7 +1529,6 @@
 
             ! If buffers are going to be too big
             if ((b1+b2+b3+b4).gt.maxbuffer) then
-              print*,gpid,b1,b2,b3,b4,b1+b2+b3+b4,maxbuffer
               umsg = 'The buffer is too big even with '// &
                      'the alternative routines. Reduce the '// &
                      'number of frequencies or use more CPU'

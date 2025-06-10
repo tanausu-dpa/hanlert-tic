@@ -10,20 +10,20 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     12/03/2025 V4.0.1
+!     06/06/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.1 - Bugfix: in cAtmo, the memory allocated
-!                             in the partition function and ionization
-!                             energy data was being subtracted from
-!                             the counter instead of added (TdPA)
-!                           - Bugfix: rAtmo_frombuffer was missing
-!                             the counting of the %ne variable (TdPA)
-!                           - Added the dAtmo routine (TdPA)
+!     06/06/2025:    V4.0.2 - Added read of the alternative
+!                             stratification and the H- number density
+!                             to the interpreter of 1.5DS model
+!                             atmospheres (TdPA)
+!                           - Bugfix: Properly zero out hydrogen
+!                             number densities when not read in 1.5DS
+!                             model atmospheres (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1709,6 +1709,28 @@
 
       end if ! Vertical scale
 
+      ! If respecting the alternative scale
+      if (Input%respect_zalt) then
+
+        ! Allocate array
+        allocate(Atmo%zalt(nZ))
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo%zalt)
+
+        ! Tau scale
+        if (Atmo%scal.eq.'T') then
+
+          ! Read height
+          Atmo%zalt = buffer(1:nz)
+
+        ! Geometrical scale
+        else
+
+          ! Read tau scale
+          Atmo%zalt = buffer(nz+1:2*nz)
+
+        end if ! Vertical scale
+      end if ! Respecting alternative scale
+
       ! Temperature
       Atmo%T => buffer(3*nz+1:4*nz)
 
@@ -1744,6 +1766,10 @@
       MRAMc = MRAMc + 1d-6*sizeof(Atmo%nH)
       MRAMc = MRAMc + 1d-6*sizeof(Atmo%ne)
 
+      ! H^- density
+      allocate(Atmo%nhm(nZ))
+      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nhm)
+
       !
       ! Depending on type of scale
       !
@@ -1755,7 +1781,14 @@
         Atmo%ne = buffer(14*nz+1:15*nz)
         Atmo%nH = reshape(buffer(18*nz+1:24*nz), (/ nz, 6 /))
 
+        ! H^-
+        Atmo%nhm = buffer(17*nz+1:18*nz)
+
       else
+
+        ! To zero
+        Atmo%nH = 0d0
+        Atmo%nhm = 0d0
 
         ! Only electron density
         if (Atmo%typo.eq.1) then
@@ -1806,16 +1839,9 @@
       allocate(Atmo%nha(nZ))
       MRAMc = MRAMc + 1d-6*sizeof(Atmo%nha)
 
-      ! H^- density
-      allocate(Atmo%nhm(nZ))
-      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nhm)
-
       !
       ! Initialize
       !
-
-      ! H^-
-      Atmo%nhm = 0d0
 
       ! If number densities
       if (Atmo%typo.eq.0) then
@@ -1828,7 +1854,7 @@
         do iz=1,nZ
 
           ! And the total in atomic
-          Atmo%nha(iz) = sum(Atmo%nH(iz,:))
+          Atmo%nha(iz) = sum(Atmo%nH(iz,:)) + Atmo%nhm(iz)
 
           ! And whole
           Atmo%nht(iz) = Atmo%nha(iz)

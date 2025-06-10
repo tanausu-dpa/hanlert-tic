@@ -9,23 +9,18 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     15/05/2025 V4.0.2
+!     10/06/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.2 - Added the possibility of inputting a
-!                             Gamma parameter for the Van der Waals
-!                             broadening, Kurucz like (TdPA)
-!                           - Removed the 10^6 factor scaling the
-!                             parametric qaudratic Stark broadening
-!                             constant (TdPA)
-!                           - Bugfix: Constant broadening parameters
-!                             for the Van der Waals broadening for LTE
-!                             lines was not being multiplied by the
-!                             hydrogen ground level density (TdPA)
+!     10/06/2025:    V4.0.3 - Bugfix: Wrong labels when writing
+!                             the equivalent damping parameters (TdPA)
+!                           - Bugfix: There was missing conditionals
+!                             for the newest VdW modes for lines in
+!                             LTE (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -214,9 +209,15 @@
           a1 = 1d8*sigc/((1d0 + mhm/Atom%rmass)**b1)
           b2 = .3d0
           a2 = 1d9*C6*(v02che**.3)/((1d0 + mhem/Atom%rmass)**b2)
-          write(600,'(i10,1x,i10,"-->",2x,i10,1x,A,4(1x,es15.8))', &
-                err=1100) itran,itermu,iterml, &
-                          '    barklem',a1,b1,a2,b2
+          if (Atom%broad_type(itran).eq.0) then
+            write(600,'(i10,1x,i10,"-->",2x,i10,1x,A,4(1x,es15.8))', &
+                  err=1100) itran,itermu,iterml, &
+                            '    barklem',a1,b1,a2,b2
+          else
+            write(600,'(i10,1x,i10,"-->",2x,i10,1x,A,4(1x,es15.8))', &
+                  err=1100) itran,itermu,iterml, &
+                            '      cross',a1,b1,a2,b2
+          end if
         end if
 
         ! For each height
@@ -337,7 +338,7 @@
       ! If the type of broadening is from Kurucz
       if (Atom%broad_type(itran).eq.4) then
 
-        ! Sigma and alpha calculated in rBarklem
+        ! Constant in input
         sigc = 10d0**Atom%broad_args(1,itran)
 
         ! If storing parametric equivalence
@@ -348,13 +349,13 @@
           a2 = 0d0
           write(600,'(i10,1x,i10,"-->",2x,i10,1x,A,4(1x,es15.8))', &
                 err=1100) itran,itermu,iterml, &
-                          '    barklem',a1,b1,a2,b2
+                          '    Kurucz',a1,b1,a2,b2
         end if
 
         ! Barklem for H
         damp(:) = sigc*Atmo%nh(:,1) + damp(:)
 
-      end if ! Barklem inputs
+      end if ! Kurucz inputs
 
       return
 
@@ -676,8 +677,9 @@
       !
       Ei = Atmo%ele(line%ele)%Ei(line%stage)
 
-      ! If not parametric
-      if (line%broad_type.ne.2) then
+      ! If not parametric or Kurucz
+      if (line%broad_type.ne.2.and. &
+          line%broad_type.ne.4) then
 
         !
         ! Calculate the Van der Waals cross section C6

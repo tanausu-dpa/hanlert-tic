@@ -9,15 +9,25 @@
 !  Start:
 !     03/12/2019
 !  Last version:
-!     21/04/2025 V4.0.2
+!     06/06/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     21/04/2025:    V4.0.2 - Ensure that the Rz1 limit for PRD is
-!                             always defined (TdPA)
+!     06/06/2025:    V4.0.3 - Added the possility of respecting the
+!                             alternative stratification scale from
+!                             the input model (TdPA)
+!                           - Added find_T, which is the auxiliar for
+!                             the new option to limit the RT domain
+!                             by temperatures (TdPA)
+!                           - Bugfix: There was a missing return
+!                             condition at the beginning of find_tau
+!                             and find_z (TdPA)
+!                           - Bugfix: The index that limits the PRD
+!                             domain only needs to be sanity checked
+!                             if doing PRD (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -45,6 +55,10 @@
 !    Find the height indexes that restrict the calculation to the
 !  specified height range
 !
+!  find_T
+!    Find the height indexes that restrict the calculation to the
+!  specified temperature maximum\n
+!
 !  restrict_zaxis
 !    Find the indexes to limit the height axis in the RT problem from
 !  the specified input in heights and/or continuum optical depth
@@ -70,13 +84,15 @@
 
       !> Computes height or tau scale given the other\n
       !!    Atmo(Atmo_class): Structure with atmospheric data\n
-      !!  can_leave(logical): Indicate if slaves can leave
-      subroutine getztau(Atmo,can_leave)
+      !!  can_leave(logical): Indicate if slaves can leave\n
+      !!    respect(logical): If the alternative axis is already
+      !!                      loaded
+      subroutine getztau(Atmo,can_leave,respect)
 
       ! I/O
 
       type(Atmo_class), intent(inout):: Atmo
-      logical, intent(in):: can_leave
+      logical, intent(in):: can_leave,respect
 
       ! Local
 
@@ -124,6 +140,9 @@
 
       ! Rest of CPU can leave now
       if (pid.gt.0.and.can_leave) return
+
+      ! If axis already here
+      if (respect) return
 
       ! If zalt is already allocated
       if (allocated(Atmo%zalt)) then
@@ -265,6 +284,9 @@
       ! just specify it
       if (z(nz).le.r1) rz1 = nz
 
+      ! If we have found both limits, leave
+      if (rz1.gt.0.and.rz0.gt.0) return
+
       ! For all non-boundary heights going down
       do iz=2,nz-1
 
@@ -353,6 +375,9 @@
       ! just specify it
       if (z(1).le.r1) rz0 = 1
 
+      ! If we have found both limits, leave
+      if (rz1.gt.0.and.rz0.gt.0) return
+
       ! For all non-boundary heights going down
       do iz=2,nz-1
 
@@ -400,6 +425,88 @@
       end do ! Intermediate heights
 
       end subroutine find_z
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Find the height indexes that restrict the calculation to the
+      !! specified temperature maximum\n
+      !!  T(double(:)): Temperature\n
+      !!  str(logical): If the restriction is strict\n
+      !!   i0(integer): Initial index\n
+      !!    T0(double): Value of temperature cutoff\n
+      !!  rT0(integer): Index for cutoff
+      subroutine find_T(T,str,i0,T0,rT0)
+
+      ! I/O
+
+      logical, intent(in):: str
+      integer, intent(in):: i0
+      integer, intent(out):: rT0
+      double precision, intent(in):: T0
+      double precision, dimension(:), intent(in):: T
+
+      ! Local
+
+      integer:: iz,i1,diz
+
+
+      !
+      ! Get final and direction of indexes
+      !
+
+      ! Beginning up
+      if (i0.eq.1) then
+
+        ! Going down
+        i1 = nz
+        diz = 1
+
+      ! Beginning down
+      else
+
+        ! Going down
+        i1 = 1
+        diz = -1
+
+      end if ! Beginning
+
+
+      ! If the beginning is already below limit
+      if (T(i0).le.T0) then
+        rT0 = i0
+        return
+      end if
+
+      ! For all non-boundary heights going down
+      do iz=i0+diz,i1,diz
+
+        ! If below limit
+        if (T(iz).le.T0) then
+
+          ! If strict restriction
+          if (str) then
+
+            ! Cut at this point
+            rT0 = iz
+
+          ! If lax restriction
+          else
+
+            ! Cut at previous point
+            rT0 = iz - diz
+
+          end if ! Strict or lax restriction
+
+          ! Finished
+          exit
+
+        end if ! If lower limit between current and previous
+
+      end do ! Intermediate heights
+
+      end subroutine find_T
 
 !#####################################################################
 !#####################################################################
@@ -509,6 +616,28 @@
           Rz1 = min(zz1,tz1)
 
         end if ! Restricting both tau and z
+
+        ! If restricting top temperature
+        if (Input%rest_Tup) then
+
+          ! Find index
+          call find_T(Atmo%T,Input%rest_Tup_strc,1,Input%r0tt,zz0)
+
+          ! Update if more restrictive
+          if (zz0.gt.Rz0) Rz0 = zz0
+
+        end if ! Restricting top temperature
+
+        ! If restricting bottom temperature
+        if (Input%rest_Tlo) then
+
+          ! Find index
+          call find_T(Atmo%T,Input%rest_Tlo_strc,nz,Input%r1tt,zz1)
+
+          ! Update if more restrictive
+          if (zz1.lt.Rz1) Rz1 = zz1
+
+        end if ! Restricting top temperature
 
         ! Correct PRD lim.
         if (PRD.and.(Input%rest_z_red.or.Input%rest_tau_red)) then
@@ -646,7 +775,7 @@
       end if ! Non-sense index
 
       ! If non-sense
-      if (Rz1_PRD.gt.nz) then
+      if (Rz1_PRD.gt.nz.and.PRD) then
 
         ! Error message
         urou = 'restrict_zaxis'
@@ -658,7 +787,7 @@
       end if ! Non-sense index
 
       ! If non-sense
-      if (Rz1_PRD.gt.Rz1) then
+      if (Rz1_PRD.gt.Rz1.and.PRD) then
 
         ! Error message
         urou = 'restrict_zaxis'
@@ -671,7 +800,7 @@
       end if ! Non-sense index
 
       ! If non-sense
-      if (Rz1_PRD.lt.Rz0) then
+      if (Rz1_PRD.lt.Rz0.and.PRD) then
 
         ! Error message
         urou = 'restrict_zaxis'
@@ -692,7 +821,7 @@
 !#####################################################################
 
       !> Find the index to limit the height axis in the RT problem for
-      !! a LTE line
+      !! a LTE line\n
       !!         Atmo(Atmo_class): Structure with atmospheric data\n
       !!  lines(LTEline_class(:)): Structures with LTE line data
       subroutine restrict_LTE_lines(Atmo,lines)

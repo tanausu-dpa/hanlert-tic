@@ -10,20 +10,16 @@
 !  Start:
 !     22/06/2022
 !  Last version:
-!     15/05/2025 V4.0.3
+!     10/06/2025 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.3 - Generalized declarations of Atom, Atomb,
-!                             and Mol to allow for empty arrays for
-!                             any of them (TdPA)
-!                           - Bugfix: There was a potentially
-!                             unbalanced call to gcontrol when setting
-!                             up photoionization quantities in 15DS,
-!                             inversion, and CLE modes (TdPA)
+!     10/06/2025:    V4.0.4 - Added control calls after trying to
+!                             generate the frequency axis in order to
+!                             exit in case of failure (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -323,6 +319,9 @@
       !
       ! Define the output frequency axis
       call omegabuild(Frec,Atom,Input,maxB,dummy)
+
+      ! Control
+      call gcontrol
 
       ! Initialize MPI arrays for Master
       call omegainitmaster(Atom)
@@ -637,6 +636,9 @@
       !
       ! Define the output frequency axis
       call omegabuild(Frec,Atom,Input,maxB,buffer_atmo)
+
+      ! Control
+      call gcontrol
 
       ! Verbose that the frequency axis is defined
       if (gpid.eq.0) then
@@ -2206,6 +2208,9 @@
       !
       ! Define the output frequency axis
       call omegabuild(Frec,Atom,Input,maxB,dummy)
+
+      ! Control
+      call gcontrol
 
       ! Verbose that the frequency axis is defined
       if (gpid.eq.0) then

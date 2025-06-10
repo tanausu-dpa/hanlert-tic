@@ -372,10 +372,10 @@ def rAtom():
     # Check transition type
     if cols[3].lower() not in classe:
       verbose(' # The transition type in transition ' + \
-              '{0}'.format(ii+1) + \
-              ', {0}, is none of the '.format(cols[3]) + \
-              'following: {0}, {1}, {2}, {3}, or {4}'.format(*classe), \
-               verbfile, verbosity)
+            '{0}'.format(ii+1) + \
+            ', {0}, is none of the '.format(cols[3]) + \
+            'following: {0}, {1}, {2}, {3}, or {4}'.format(*classe), \
+            verbfile, verbosity)
       abort(f,filename)
     if cols[3].lower() != classe[0] and \
        cols[3].lower() != classe[1]:

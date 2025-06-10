@@ -11,18 +11,19 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     15/05/2025 V4.0.3
+!     10/06/2025 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.3 - Generalized declarations of Atom to
-!                             allow for empty arrays for any of
-!                             them (TdPA)
-!                           - Add sanity checks for when there are no
-!                             active atoms (TdPA)
+!     10/06/2025:    V4.0.4 - Added the posibility of LTE lines not
+!                             adding frequencies (TdPA)
+!                           - Changed the expected input in wavelength
+!                             files to nanometers (TdPA)
+!                           - Added a sanity check for the total
+!                             number of frequencies (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -881,6 +882,9 @@
                            Input%LTEline(ia)%Dfreq*DwTL(ia) + &
                            Input%LTEline(ia)%Dfreq
 
+        ! Skip if this line does not add wavelengths
+        if (Input%LTEline(ia)%nowave) cycle
+
         !
         ! Build real contribution
         !
@@ -918,6 +922,9 @@
 
         ! Read wavelengths
         read(200,err=1100) omega(cfreq+1:cfreq+jfreq)
+
+        ! Convert
+        omega(cfreq+1:cfreq+jfreq) = 1d2/omega(cfreq+1:cfreq+jfreq)
 
         ! Update last index
         cfreq = cfreq + jfreq
@@ -1016,6 +1023,20 @@
 
       ! Deallocate the flag
       deallocate(flag)
+
+      ! At this points we need sanity check
+      if (nfreq.lt.1) then
+
+        ! No frequencies!
+        urou = 'omegabuild'
+        umsg = 'Error when creating wavelength axis, there '// &
+               'are no wavelengths to allocate'
+        call abortedS(umsg,urou,.True.,.True.)
+        call control
+        return
+
+      end if
+
 
       !
       ! Allocate the true axes

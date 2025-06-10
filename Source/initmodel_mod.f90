@@ -9,16 +9,18 @@
 !  Start:
 !     16/06/2023
 !  Last version:
-!     15/05/2025 V4.0.2
+!     06/06/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.2 - Generalized declarations of Atom, Atomb,
-!                             and Mol to allow for empty arrays for
-!                             any of them (TdPA)
+!     06/06/2025:    V4.0.3 - Added the argument to control the
+!                             keeping of the input H- number density
+!                             and to ensure the compatibility of
+!                             the call to getztau with the new
+!                             input (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -287,7 +289,7 @@
 !#####################################################################
 !#####################################################################
 
-      !> Revise the hydrogen  populations in the model atmosphere or
+      !> Revise the hydrogen populations in the model atmosphere or
       !! in the model atom depending on the inputs once the EoS has
       !! been solved\n
       !!   Atom(Atom_class(:)): Structures with atomic data\n
@@ -749,7 +751,7 @@
 
       !
       ! Calculate chemical equilibrium
-      call chemeq(Atom,Atomb,LTEline,Mol,Atmo)
+      call chemeq(Atom,Atomb,LTEline,Mol,Atmo,Input%protect_Hm)
 
       ! Control
       if (laborted) return
@@ -1143,7 +1145,7 @@
         !
         ! Compute missing height or tau
         !
-        call getztau(Atmo_tmp,.False.)
+        call getztau(Atmo_tmp,.False.,.False.)
 
 
         !

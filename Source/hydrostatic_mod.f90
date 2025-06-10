@@ -10,16 +10,15 @@
 !  Start:
 !     17/02/2023
 !  Last version:
-!     15/05/2025 V4.0.2
+!     06/06/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.2 - Generalized declarations of Atom, Atomb,
-!                             and Mol to allow for empty arrays for
-!                             any of them (TdPA)
+!     06/06/2025:    V4.0.3 - Added argument to chemeq to ensure
+!                             compatibility with new input (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -365,7 +364,7 @@
       end do
 
       ! Compute chemical equilibrium
-      call chemeq(Atom,Atomb,dummy,Mol,Atmo)
+      call chemeq(Atom,Atomb,dummy,Mol,Atmo,.False.)
 
       return
 

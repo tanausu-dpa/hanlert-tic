@@ -6,17 +6,18 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an (IAC)
 # Hao Li (IAC/NSSCC)
 #
-# 15/05/2025:  V4.0.5 - Added Kurucz broadening mode to LTE lines
-#                       in native format (TdPA)
-#                     - Changed the way to indicate constant
-#                       logarithmic values for the quadratic Stark
-#                       broadening (TdPA)
-#                     - Changed the name from 'gamma' to 'cross' for
-#                       inputting the Barklem coefficients in LTE
-#                       lines (TdPA)
-#                     - ATOM_INPUT is now only mandatory in CLE mode
-#                       and can be absent in others if there is at
-#                       least an LTE_LINE input (TdPA)
+# 10/06/2025:  V4.0.7 - The field LTE_LINE can interpret the format
+#                       used in the SIR line files (TdPA)
+#                     - Added an option for LTE_LINE (only in native
+#                       format) for the line to not add frequencies
+#                       to the axis (TdPA)
+#                     - The tau limit is now expected in decimal
+#                       logarithm (TdPA)
+#                     - Added a warning for when a WAVELENGTHS file
+#                       is rejected (TdPA)
+#                     - Bugfix: The 'Barklem' mode in LTE_LINE in
+#                       native format was not writing the "alpha"
+#                       parameter (TdPA)
 #
 #####################
 
@@ -211,6 +212,150 @@ def rInput():
       fv.write(msg+' in rinput.py\n')
       fv.close()
 
+  # Routine to process an LTE line input in SIR format
+  def process_LTEline_entry_sir(entry):
+    ''' Process an entry for LTE lines in SIR format
+    '''
+
+    # Check equal sign
+    if '=' not in entry: return False,[]
+
+    # Try processing
+    try:
+
+      # Initialize output with character type
+      lout = [0]
+
+      # Split in spaces
+      cols = entry.upper().split()
+
+      # CODATA 2019 voncertion:
+      # 1 eV = 8065.54429 cm^-1
+      evtcm = 8065.54429
+
+      # Atom is always character
+      i = 0
+      atom = cols[i].split()[0]
+      if atom == 'XX': atom = 'FE'
+      lout.append(atom)
+
+      # Stage if always integer
+      i = 1
+      stage = int(cols[i])
+      lout.append(stage)
+
+      # Lower level energy
+      i = 4
+      E1 = float(interpret(cols[i]))*evtcm*1e-5
+
+      # Upper level energy
+      E2 = E1 + 1e8/float(interpret(cols[2]))
+
+      # J dic
+      dic_J = {'S':  0., \
+               'P':  1., \
+               'D':  2., \
+               'F':  3., \
+               'G':  4., \
+               'H':  5., \
+               'I':  6., \
+               'J':  7., \
+               'K':  8., \
+               'L':  9., \
+               'M': 10.}
+
+      # Process configuration
+      conf = cols[6:-2].join(' ')
+      up, down = conf.split('-')
+      CU, JU = up.split()
+      SU = 0.5*(float(CU[:-1]) - 1.)
+      LU = dic_J[CU[-1]]
+      JU = float(JU)
+      CL, JL = down.split()
+      SL = 0.5*(float(CL[:-1]) - 1.)
+      LL = dic_J[CL[-1]]
+      JL = float(JL)
+
+      a = J
+      b = S
+      c = L
+
+      # Get Land\'e factors LS
+      if JU < .4:
+          gu = 0.
+      else:
+          gu = 1. + 0.5*(JU*(JU+1.) + SU*(SU+1.) - LU*(LU+1.))/ \
+                        (JU*(JU+1.))
+      if JL < .4:
+          gl = 0.
+      else:
+          gl = 1. + 0.5*(JL*(JL+1.) + SL*(SL+1.) - LL*(LL+1.))/ \
+                        (JL*(JL+1.))
+
+      # Add quantities
+      lout.append(E1)
+      lout.append(JL)
+      lout.append(gL)
+      lout.append(E2)
+      lout.append(JU)
+      lout.append(gu)
+
+      # Einstein
+      Aul = 10e0**float(interpret(cols[5]))
+      Aul = Aul/(2e0*lout[-2]+1e0)
+      # Constants
+      e0 = 1.60217646e-19      #C(A*s) Fundamental charge in SI
+      ep0 = 8.854187817e-12    #F*m**-1
+      me = 9.10938188e-31      #Kg electron mass
+      cl = 299792458e0         #m/s speed of light
+      lamb = 1e2/(lout[-3] - lout[-6])
+      Aul = 2e0*math.pi*e0*e0*Aul*1e10/(lamb*lamb*cl*ep0*me)
+      lout.append(Aul)
+
+      # VdW
+      alfa = float(cols[-2])
+      sigma = float(cols[-1])*1e14
+      # Barklem and O'Mara
+      if abs(sigma) > 0. and abs(alfa) > 0.:
+          lout.append(3)
+          lout.append(sigma*1e16)
+          lout.append(alfa)
+          lout.append(0.)
+          lout.append(0.)
+      # Unsold
+      else:
+          lout.append(1)
+          enh = float(interpret(cols[3]))
+          lout.append(enh)
+          lout.append(0.)
+          lout.append(0.)
+          lout.append(0.)
+
+      # Stark
+      lout.append(0.)
+
+      # Collisional
+      lout.append(0.)
+
+      # Radiative
+      lout.append(Aul)
+
+      # Frequencies
+      lout.append(41)
+      lout.append(31)
+      lout.append(10.)
+      lout.append(5.)
+      lout.append('1')
+      lout.append('-1e0')
+      lout.append('1e90')
+      lout.append('F')
+
+      # If we are here, everything is valid
+      return True, lout
+
+    except:
+      return False, []
+
   # Routine to process an LTE line input in Kurucz format
   def process_LTEline_entry_kur(entry):
     ''' Process an entry for LTE lines in Kurucz format
@@ -316,6 +461,7 @@ def rInput():
       lout.append('1')
       lout.append('-1e0')
       lout.append('1e90')
+      lout.append('F')
 
       # If we are here, everything is valid
       return True, lout
@@ -347,19 +493,25 @@ def rInput():
     elif len(cols) < 22:
 
       # Add fake limits
-      cols += ['e1','-1e0','1e90']
+      cols += ['e1','-1e0','1e90','F']
 
-    # No Tlim or taulim
+    # No Tlim or taulim or nowave
     elif len(cols) < 23:
 
-      # Add fake limits
-      cols += ['-1e0','1e90']
+      # Add fake limits and nowave
+      cols += ['-1e0','1e90','F']
 
-    # No Tlim
+    # No Tlim or nowave
     elif len(cols) < 24:
 
+      # Add fake limit and nowave
+      cols += ['1e90','F']
+
+    # No Tlim or taulim
+    elif len(cols) < 25:
+
       # Add fake limit
-      cols.append('1e90')
+      cols.append('F')
 
     #
     # Atom
@@ -508,8 +660,8 @@ def rInput():
     bark = ['s','p','d','f']
     bardic = {'s':0,'p':1,'d':2,'f':3}
     broads = ['barklem','unsold','param','cross','kurucz']
-    broads_dic = {'barklem':'0','unsold':'1','param':'2','cross':'3', \
-                  'kurucz':4}
+    broads_dic = {'barklem':'0','unsold':'1','param':'2', \
+                  'cross':'3','kurucz':4}
 
 
     # VdW broadening
@@ -563,8 +715,8 @@ def rInput():
       msg = 'Barklem sigma coefficient '+cols[i]
       try:
         cols[i+1] = interpret(cols[i+1])
-        cols[i+1] = 10.0**float(cols[i+1])
-        for j in range(2,5): cols[i+j] = 0e0
+        cols[i+2] = interpret(cols[i+2])
+        for j in range(3,5): cols[i+j] = 0e0
       except:
         lerror(msg,ofolder,verbosity)
         return False, []
@@ -689,7 +841,7 @@ def rInput():
     msg = 'Tau limit '+cols[i]
     try:
       cols[i] = interpret(cols[i])
-      cols[i] = float(cols[i])
+      cols[i] = 10.0**float(cols[i])
     except:
       lerror(msg,ofolder,verbosity)
       return False, []
@@ -703,6 +855,18 @@ def rInput():
     except:
       lerror(msg,ofolder,verbosity)
       return False, []
+
+    # No wavelengths
+    i = 24
+    msg = 'Do not create wavelengths '+cols[i]
+    cols[i] = cols[i].upper()
+    if cols[i] == 'Y' or cols[i] == 'YE' or \
+       cols[i] == 'YES' or cols[i] == 'T' or \
+       cols[i] == 'TR' or cols[i] == 'TRU' or \
+       cols[i] == 'TRUE':
+        cols[i] = 'T'
+    else:
+        cols[i] = 'F'
 
     # If we are here, everything is valid
     return True, [iatom_type] + cols
@@ -740,8 +904,12 @@ def rInput():
               if len(lline.split()) == 0:
                 continue
 
+              # Try as SIR
+              valid, lout = process_LTEline_entry_sir(lline)
+
               # Try as Kurucz
-              valid, lout = process_LTEline_entry_kur(lline)
+              if not valid:
+                valid, lout = process_LTEline_entry_kur(lline)
 
               # Process the entry as custom
               if not valid:
@@ -757,8 +925,12 @@ def rInput():
       # Not a file
       else:
 
+        # Try as SIR
+        valid, lout = process_LTEline_entry_sir(entry)
+
         # Try as Kurucz
-        valid, lout = process_LTEline_entry_kur(entry)
+        if not valid:
+          valid, lout = process_LTEline_entry_kur(entry)
 
         # Process the entry
         if not valid:
@@ -1194,6 +1366,23 @@ def rInput():
       f.write('0\n')
   else:
     f.write('0\n')
+
+  # RESPECT_ALT_SCALE
+  if rmode == 1:
+    check = 0
+    if 'RESPECT_ALT_SCALE' in Dictionary:
+      val = Dictionary['RESPECT_ALT_SCALE'][0]
+      if val == 'Y' or val == 'YE' or val == 'YES' or \
+         val == 'S' or val =='SI':
+        f.write('Y\n')
+        check = 1
+      if val == 'N' or val == 'NO' or val == 'NON':
+        f.write('N\n')
+        check = 1
+    if check == 0:
+      f.write('N\n')
+  else:
+    f.write('N\n')
 
   # Initialize atoms output buffer, labels, and mapping
   atom_lab_act = []
@@ -1892,7 +2081,8 @@ def rInput():
         NK += 1
         out.append(name)
       except:
-        pass
+        verbose(' # There was an issue processing the entry ' + \
+                'WAVELENGTHS = ' + name, ofolder, verbosity)
     f.write(str(NK)+'\n')
     for ou in out:
       f.write(ou+'\n')
@@ -2242,6 +2432,91 @@ def rInput():
   else:
     f.write('N\n')
 
+  # TWO_STEP_INTENSITY_V
+  if rmode == 0 or rmode == 1 or rmode == -1:
+    check = 0
+    if 'TWO_STEP_INTENSITY_V' in Dictionary:
+      val = Dictionary['TWO_STEP_INTENSITY_V'][0]
+      if val == 'Y' or val == 'YE' or val == 'YES' or \
+         val == 'S' or val =='SI':
+        f.write('Y\n')
+        check = 1
+      if val == 'N' or val == 'NO' or val == 'NON':
+        f.write('N\n')
+        check = 1
+    if check == 0:
+      f.write('N\n')
+  else:
+    f.write('N\n')
+
+  # RESTRICT_T_BOT_STRICT
+  if rmode == 0 or rmode == 1:
+    check = 0
+    if 'RESTRICT_T_BOT_STRICT' in Dictionary:
+      val = Dictionary['RESTRICT_T_BOT_STRICT'][0]
+      if val == 'Y' or val == 'YE' or val == 'YES' or \
+         val == 'S' or val =='SI':
+        f.write('Y\n')
+        check = 1
+      if val == 'N' or val == 'NO' or val == 'NON':
+        f.write('N\n')
+        check = 1
+    if check == 0:
+      f.write('N\n')
+  else:
+    f.write('N\n')
+
+  # RESTRICT_T_BOT
+  if rmode == 0 or rmode == 1:
+    if 'RESTRICT_T_BOT' in Dictionary:
+      val = Dictionary['RESTRICT_T_BOT'][0]
+      try:
+        val = interpret(val)
+        t0 = float(val)
+      except:
+        verbose(' # RESTRICT_T_BOT wrong format', ofolder, verbosity)
+        abort(f, filename)
+      f.write('Y\n')
+      f.write('{0}\n'.format(t0))
+    else:
+      f.write('N\n')
+  else:
+    f.write('N\n')
+
+  # RESTRICT_T_UP_STRICT
+  if rmode == 0 or rmode == 1:
+    check = 0
+    if 'RESTRICT_T_UP_STRICT' in Dictionary:
+      val = Dictionary['RESTRICT_T_UP_STRICT'][0]
+      if val == 'Y' or val == 'YE' or val == 'YES' or \
+         val == 'S' or val =='SI':
+        f.write('Y\n')
+        check = 1
+      if val == 'N' or val == 'NO' or val == 'NON':
+        f.write('N\n')
+        check = 1
+    if check == 0:
+      f.write('N\n')
+  else:
+    f.write('N\n')
+
+  # RESTRICT_T_UP
+  if rmode == 0 or rmode == 1:
+    if 'RESTRICT_T_UP' in Dictionary:
+      val = Dictionary['RESTRICT_T_UP'][0]
+      try:
+        val = interpret(val)
+        t0 = float(val)
+      except:
+        verbose(' # RESTRICT_T_UP wrong format', ofolder, verbosity)
+        abort(f, filename)
+      f.write('Y\n')
+      f.write('{0}\n'.format(t0))
+    else:
+      f.write('N\n')
+  else:
+    f.write('N\n')
+
   # RESTRICT_TAUC_STRICT
   if rmode == 0 or rmode == 1:
     check = 0
@@ -2287,6 +2562,7 @@ def rInput():
 
   # RESTRICT_HEIGHT_STRICT
   if rmode == 0 or rmode == 1:
+    check = 0
     if 'RESTRICT_HEIGHT_STRICT' in Dictionary:
       val = Dictionary['RESTRICT_HEIGHT_STRICT'][0]
       if val == 'Y' or val == 'YE' or val == 'YES' or \
@@ -2844,7 +3120,7 @@ def rInput():
         val = interpret(val)
         rang = 10e0**float(val)
         f.write('Y\n')
-        f.write('{0:22.16e}\n'.format(float(val)))
+        f.write('{0:22.16e}\n'.format(float(rang)))
         check = 1
       except:
         verbose(' # RED_RESTRICT_TAUC wrong format', \
@@ -2931,6 +3207,23 @@ def rInput():
       f.write('Y\n')
       check = 1
   if check == 0:
+    f.write('N\n')
+
+  # TWO_STEP_AD
+  if rmode == 0 or rmode == 1 or rmode == -1:
+    check = 0
+    if 'TWO_STEP_AD' in Dictionary:
+      val = Dictionary['TWO_STEP_AD'][0]
+      if val == 'Y' or val == 'YE' or val == 'YES' or \
+         val == 'S' or val =='SI':
+        f.write('Y\n')
+        check = 1
+      if val == 'N' or val == 'NO' or val == 'NON':
+        f.write('N\n')
+        check = 1
+    if check == 0:
+      f.write('N\n')
+  else:
     f.write('N\n')
 
   # RED_IRAM
@@ -3553,9 +3846,37 @@ def rInput():
       val = Dictionary['ITERI_MAX'][0]
       if val.isdigit():
         f.write('{0:7d}\n'.format(int(val)))
+        itimax = val
         check = 1
     if check == 0:
       f.write('{0:7d}\n'.format(itmax))
+      itimax = itmax
+  else:
+    f.write('0\n')
+
+  # ITERAD_MAX
+  if rmode >= -1 and rmode <= 1:
+    check = 0
+    if 'ITERAD_MAX' in Dictionary:
+      val = Dictionary['ITERAD_MAX'][0]
+      if val.isdigit():
+        f.write('{0:7d}\n'.format(int(val)))
+        check = 1
+    if check == 0:
+      f.write('{0:7d}\n'.format(itmax))
+  else:
+    f.write('0\n')
+
+  # ITERIAD_MAX
+  if rmode >= -1 and rmode <= 1:
+    check = 0
+    if 'ITERIAD_MAX' in Dictionary:
+      val = Dictionary['ITERIAD_MAX'][0]
+      if val.isdigit():
+        f.write('{0:7d}\n'.format(int(val)))
+        check = 1
+    if check == 0:
+      f.write('{0:7d}\n'.format(itimax))
   else:
     f.write('0\n')
 
@@ -3635,11 +3956,13 @@ def rInput():
       try:
         val = interpret(val)
         f.write('{0:22.16e}\n'.format(float(val)))
+        mrcii = val
         check = 1
       except:
         pass
     if check == 0:
       f.write('{0:22.16e}\n'.format(mrci))
+      mrcii = mrci
   else:
     f.write('0\n')
 
@@ -3651,11 +3974,61 @@ def rInput():
       try:
         val = interpret(val)
         f.write('{0:22.16e}\n'.format(float(val)))
+        mrcp = val
         check = 1
       except:
         pass
     if check == 0:
       f.write('{0:22.16e}\n'.format(1e-3))
+      mrcp = 1e-3
+  else:
+    f.write('0\n')
+
+  # ITER_MRC_ADI
+  if rmode >= -1 and rmode <= 1:
+    check = 0
+    if 'ITER_MRC_ADI' in Dictionary:
+      val = Dictionary['ITER_MRC_ADI'][0]
+      try:
+        val = interpret(val)
+        f.write('{0:22.16e}\n'.format(float(val)))
+        check = 1
+      except:
+        pass
+    if check == 0:
+      f.write('{0:22.16e}\n'.format(mrci))
+  else:
+    f.write('0\n')
+
+  # ITERI_MRC_ADI
+  if rmode >= -1 and rmode <= 1:
+    check = 0
+    if 'ITERI_MRC_I' in Dictionary:
+      val = Dictionary['ITERI_MRC_I'][0]
+      try:
+        val = interpret(val)
+        f.write('{0:22.16e}\n'.format(float(val)))
+        check = 1
+      except:
+        pass
+    if check == 0:
+      f.write('{0:22.16e}\n'.format(mrcii))
+  else:
+    f.write('0\n')
+
+  # ITER_MRC_ADP
+  if rmode >= -1 and rmode <= 1:
+    check = 0
+    if 'ITER_MRC_P' in Dictionary:
+      val = Dictionary['ITER_MRC_P'][0]
+      try:
+        val = interpret(val)
+        f.write('{0:22.16e}\n'.format(float(val)))
+        check = 1
+      except:
+        pass
+    if check == 0:
+      f.write('{0:22.16e}\n'.format(mrcp))
   else:
     f.write('0\n')
 
@@ -4800,6 +5173,20 @@ def rInput():
   check = 0
   if 'PROTECT_H' in Dictionary:
     val = Dictionary['PROTECT_H'][0]
+    if val == 'Y' or val == 'YE' or val == 'YES' or \
+       val == 'S' or val =='SI':
+      f.write('Y\n')
+      check = 1
+    if val == 'N' or val == 'NO' or val == 'NON':
+      f.write('N\n')
+      check = 1
+  if check == 0:
+    f.write('N\n')
+
+  # PROTECT_HM
+  check = 0
+  if 'PROTECT_HM' in Dictionary:
+    val = Dictionary['PROTECT_HM'][0]
     if val == 'Y' or val == 'YE' or val == 'YES' or \
        val == 'S' or val =='SI':
       f.write('Y\n')

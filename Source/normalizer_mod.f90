@@ -9,17 +9,17 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     27/05/2025 V4.0.5
+!     06/06/2025 V4.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     27/05/2025:    V4.0.5 - Bugfix: the normalization of PRD
-!                             profiles did not allow for an excess in
-!                             the number of CPU with respect to the
-!                             number of actual PRD frequencies (TdPA)
+!     06/06/2025:    V4.0.6 - Bugfix: Was missing the toggle of the
+!                             profile-wise VRAM variable when it is
+!                             decided a posteriori that no CPU is
+!                             going to keep it in memory (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -2119,6 +2119,9 @@
                           8d-6*dble(ncom)
                     deallocate(Red%pzao(indx)%cp)
 
+                    ! And signal that this is not being stored anymore
+                    Red%pzao(indx)%VRAM = .False.
+
                   end if ! Was storing but cannot anymore
                 end if ! Valid range
 
@@ -3516,6 +3519,9 @@
                     ! Put back Norm memory
                     RAM = RAM - 1d-6*sizeof(Red%pzao(indx)%p) + 8d-6
                     deallocate(Red%pzao(indx)%p)
+
+                    ! And signal that this is not being stored anymore
+                    Red%pzao(indx)%VRAM = .False.
 
                   end if ! Was storing but cannot anymore
                 end if ! Valid range

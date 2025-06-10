@@ -156,10 +156,12 @@ There is one line for each bound-bound transition with the following information
 
 1. Two integers with the level index of the upper and lower levels of the transition.
 2. A floating point number with the Einstein coefficient for spontaneous emission in s\ :sup:`-1`.
-3. Five fields that characterize the Van der Waals broadening of the transition. Three types are allowed:
+3. Five fields that characterize the Van der Waals broadening of the transition. Fire types are allowed:
 
   * *unsold*. Computes the broadening with the Unsold's approximation (`1960ZA.....49..231T <https://ui.adsabs.harvard.edu/abs/1960ZA.....49..231T/abstract>`_). This option only uses arguments 1 and 3, which are enhancement factors for the H and He contributions, respectively.
   * *barklem*. Computes the broadening with the Anstee & O'Mara formalistm (`1995MNRAS.276..859A <https://academic.oup.com/mnras/article/276/3/859/1034639>`_, `1997MNRAS.290..102B <https://academic.oup.com/mnras/article/290/1/102/1107836>`_, `1998MNRAS.296.1057B <https://academic.oup.com/mnras/article/296/4/1057/1064804>`_). This option uses the four arguments. Argument 1 and 3 are the type of orbital of the upper and lower levels, respectively (i.e., *s*, *p*, *d*, or *f*). Arguments 2 and 4 are the energy, in cm\ :sup:`-1`, of the ionizing level for the upper and lower levels of the transition to be used to compute the effective principal quantum number, respectively (usually the energy of the ground level of the next ionization stage). If the transition does not admit this option (due to not being a neutral atom, because the type of orbital is not in the available list, or because the principal effective quantum number is not in the data table) the broadening is computed using the *unsold* approximation without enhancements.
+  * *kurucz*. The broadening is constant with temperature and the constant is given in decimal logarithm in Argument 1, the only one it uses. This constant is just multiplied by the number density of neutral hydrogen in the ground level.
+  * *cross*. Computes the broadening with the Anstee & O'Mara formalistm. but the parameters are directly specified. This option uses the first two arguments. Argument 1 is the :math:`\sigma` parameter, given in cm\ :sup:`2` multiplied by 10\ :sup:`14`'. Argument 2 is the :math:`\alpha` parameter.
   * *param*. Computes the broadening in a parametric way. This option uses the four arguments. Arguments 1 and 2 determine parameters for the Hydrogen contribution, while Arguments 3 and 4 determine parameters for the Helium contribution. The broadening is computed in the following way,
 
   .. math::
@@ -178,7 +180,7 @@ There is one line for each bound-bound transition with the following information
    in
    `1960ZA.....49..231T <https://ui.adsabs.harvard.edu/abs/1960ZA.....49..231T/abstract>`_
    . If negative, the quadratic Stark contribution is computed as 10\ :sup:`6` times
-   the absolute value of the parameter times the electron density in cm\ :sup:`-3`.
+   the absolute value of the parameter times the electron density in cm\ :sup:`-3`. To specify a parameter in logarithmic form, add a letter *L* as the first character in this field (in this case, only put a minus sign if the value of the logarithm is negative).
 
 5. Two integers that control the number of frequency nodes to be assigned to the
    transition. The first (NFT) indicates the total number of frequencies, while

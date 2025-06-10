@@ -11,20 +11,15 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     15/05/2025 V4.0.2
+!     06/06/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.2 - Generalized the code to be able to
-!                             perform calculations (1DS, 15DS, and
-!                             inversion, but not CLE) with only LTE
-!                             lines (TdPA)
-!                           - Consider the quantum numbers of LTE
-!                             lines to decide what factorials and
-!                             signs need to be calculated (TdPA)
+!     06/06/2025:    V4.0.3 - Added the size of a new logical in
+!                             commons to the misc. counter (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -127,7 +122,7 @@
       MRAMc = 1d-6*dble(500*3 + &
                         650 + &
                         20 + &
-                        4*28 + &
+                        4*29 + &
                         4 + &
                         4*2 + &
                         4*2 + &

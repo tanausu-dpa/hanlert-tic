@@ -10,20 +10,16 @@
 !  Start:
 !     16/02/2023
 !  Last version:
-!     15/05/2025 V4.0.5
+!     10/06/2025 V4.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.5 - Generalized declarations of Atom to
-!                             allow for empty arrays for any of
-!                             them (TdPA)
-!                           - Bugfix: There was a check on a potential
-!                             undefined string. Did not have any
-!                             consequence, but pops-up when running
-!                             memcheck (TdPA)
+!     10/06/2025:    V4.0.6 - Added control calls after trying to
+!                             generate the frequency axis in order to
+!                             exit in case of failure (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1089,6 +1085,9 @@
 
       ! Define the output frequency axis
       call omegabuild(Frec,Atom,Input,maxB,Sol%omega_input)
+
+      ! Control
+      call gcontrol
 
       ! Master verbose
       if (gpid.eq.0) then

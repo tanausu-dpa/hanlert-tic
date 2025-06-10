@@ -1088,6 +1088,17 @@ PROTECT_H
 
   * Description: Do not let the chemical equilibrium to change the atomic Hydrogen number density.
 
+PROTECT_HM
+----------
+
+  * OPTIONAL, ADVANCED
+
+  * Formats:
+    
+    - string: Yes, No; default: No
+
+  * Description: Do not let the chemical equilibrium to change the atomic Hydrogen minus number density.
+
 CHEM_PROTECT_ALL
 ----------------
 

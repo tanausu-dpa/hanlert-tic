@@ -42,6 +42,17 @@ ATMO_CHAR
 
   * Description: Variable which variable the model atmosphere is providing to characterize the stratification, together with the temperature, both electron and Hydrogen number densities (NENH), electron number densities (NE), electron pressure in dyn cm^-2 (PE), electron density in g cm^-3 (RHOE), gas pressure in dyn cm^-2 (PG), or total density in g cm^-3 (RHO).
 
+RESPECT_ALT_SCALE
+-----------------
+
+  * OPTIONAL, ADVANCED
+
+  * Formats:
+    
+    - string: Yes/No
+
+  * Description: If the primary provided stratification is geometrical height (optical depth), but the secondary optical depth (geometrical height) axis is also provided in the atmospheric model, skip the internal calculation. This is particularly useful when using keywords to limit the domain of the radiation transfer problem relying in such secondary axis.
+
 ATOM_INPUT
 ----------
 
@@ -228,7 +239,7 @@ LTE_LINE
     - entry
     - string: file path
 
-  * Description: Entry with the data of an atomic transition to be included under the assumption of LTE. The format can be the same from the Kurucz's database (fill with zeros to fulfill the restricted size requirements) or the specific format of the code. | Path, absolute or relative to the running directory, to the file with a list of atomic transitions to be included under the assumption of LTE. The format of each entry in the file can be the same from the Kurucz's database (fill with zeros to fulfill the restricted size requirements) or the specific format of the code. While optional, at least one entry of ATOM_INPUT or LTE_LINE must exist.
+  * Description: Entry with the data of an atomic transition to be included under the assumption of LTE. The format can be the same from the SIR code (include the full SIR line after 'LTE_LINE =', including the line index and the equal sign, even though the index is not used), from the Kurucz's database (fill with zeros to fulfill the restricted size requirements), or the specific format of the code. | Path, absolute or relative to the running directory, to the file with a list of atomic transitions to be included under the assumption of LTE. The format of each entry in the file can be the same from the SIR code (include the full SIR line, including the line index and the equal sign, even though the index is not used), from the Kurucz's database (fill with zeros to fulfill the restricted size requirements) or the specific format of the code. While optional, at least one entry of ATOM_INPUT or LTE_LINE must exist.
 
 WAVELENGTHS
 -----------
@@ -373,6 +384,60 @@ FORCE
     - string: intensity, polarization, all, none; default: none
 
   * Description: Force the code to solve only the intensity problem (intensity), to solve the polarization problem skipping the intensity problem (polarization), to solve both intensity and polarization problem (all), or let the code decide from the available inputs (none).
+
+TWO_STEP_INTENSITY_V
+--------------------
+
+  * OPTIONAL
+
+  * Formats:
+    ; string: Yes/No
+
+  * Description: Solve the intensity problem in two steps, by first converging the problem without any velocity and then switching on the velocity field. WARNING: It does not work if a Solution file needs to be loaded.
+
+RESTRICT_T_BOT_STRICT
+---------------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string: Yes, No
+
+  * Description: If yes, the nodes will be truncated to not include the height in RESTRICT_T_BOT. If not, once the restriction is identified, the selected node will move one step to the extrema.
+
+RESTRICT_T_BOT
+--------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - float
+
+  * Description: Lower limit to the temperature from the bottom of the model to solve the radiative transfer problem. Contiguous nodes with values of the temperature larger than the specified toward the bottom will be neglected.
+
+RESTRICT_T_UP_STRICT
+--------------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string: Yes, No
+
+  * Description: If yes, the nodes will be truncated to not include the height in RESTRICT_T_UP. If not, once the restriction is identified, the selected node will move one step to the extrema.
+
+RESTRICT_T_UP
+-------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - float
+
+  * Description: Lower limit to the temperature from the top of the model to solve the radiative transfer problem. Contiguous nodes with values of the temperature larger than the specified toward the top will be neglected.
 
 RESTRICT_TAUC_STRICT
 --------------------
@@ -748,6 +813,17 @@ RED_AAINT
     - string: Yes, No; default: No
 
   * Description: Force angle-average redistribution function for the only intensity problem, regardless of the RED_MOD input.
+
+TWO_STEP_AD
+-----------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string: Yes, No
+
+  * Description: Solve the PRD-AD problem in two steps, first converging the PRD-AA problem and then switching PRD-AD on. WARNING: It does not work if a Solution file needs to be loaded.
 
 RED_IRAM
 --------
@@ -1177,7 +1253,7 @@ ITER_MAX
     
     - integer; default: 500
 
-  * Description: Maximum iteration index allowed for in a formal solution.
+  * Description: Maximum iteration index allowed for in a self-consistent solution.
 
 ITERI_MAX
 ---------
@@ -1188,7 +1264,29 @@ ITERI_MAX
     
     - integer; default: ITER_MAX
 
-  * Description: Maximum iteration index allowed for in an only intensity formal solution.
+  * Description: Maximum iteration index allowed for in an only intensity self-consistent solution.
+
+ITERAD_MAX
+----------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - integer; default: ITER_MAX
+
+  * Description: Maximum iteration index allowed for in the self-consistent solution for the PRD-AD phase if TWO_STEP_AD is activated.
+
+ITERIAD_MAX
+-----------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - integer; default: ITERI_MAX
+
+  * Description: Maximum iteration index allowed for in an only intensity self-consistent solution for the PRD-AD phase if TWO_STEP_AD is activated.
 
 ITER_2ORD
 ---------
@@ -1255,6 +1353,39 @@ ITER_MRC_P
     - float; default: 1e-3
 
   * Description: Maximum relative change of the non-population density matrix elements to consider that they have converged.
+
+ITER_MRC_ADI
+------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - float; default: ITER_MRC_I
+
+  * Description: Maximum relative change of the populations to consider that they have converged in the PRD-AD phase if TWO_STEP_AD is activated.
+
+ITERI_MRC_ADI
+-------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - float; default: ITERI_MRC_I
+
+  * Description: Maximum relative change of the populations to consider that they have converged in the only intensity solution in the PRD-AD phase if TWO_STEP_AD is activated.
+
+ITER_MRC_ADP
+------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - float; default: ITER_MRC_P
+
+  * Description: Maximum relative change of the non-population density matrix elements to consider that they have converged in the PRD-AD phase if TWO_STEP_AD is activated.
 
 ITER_J
 ------
@@ -1783,6 +1914,17 @@ PROTECT_H
     - string: Yes, No; default: No
 
   * Description: Do not let the chemical equilibrium to change the atomic Hydrogen number density.
+
+PROTECT_HM
+----------
+
+  * OPTIONAL, ADVANCED
+
+  * Formats:
+    
+    - string: Yes, No; default: No
+
+  * Description: Do not let the chemical equilibrium to change the atomic Hydrogen minus number density.
 
 CHEM_PROTECT_ALL
 ----------------

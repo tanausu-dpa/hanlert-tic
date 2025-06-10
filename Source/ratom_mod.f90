@@ -10,16 +10,15 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     15/05/2025 V4.0.3
+!     10/06/2025 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.3 - Generalized declarations of Atom to
-!                             allow for empty arrays for any of
-!                             them (TdPA)
+!     10/06/2025:    V4.0.4 - Added the posibility of LTE lines not
+!                             adding frequencies (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -2816,8 +2815,8 @@
 
       end if ! Valid number of frequencies
 
-      ! Add frequencies to global count
-      nfreq = nfreq + line%nfreq
+      ! Add frequencies to global count if not skipping
+      if (.not.line%nowave) nfreq = nfreq + line%nfreq
 
       end subroutine setup_LTE_transition
 

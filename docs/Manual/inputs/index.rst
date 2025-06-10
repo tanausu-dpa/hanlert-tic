@@ -164,6 +164,10 @@ Kurucz File
 LTE line File
 =============
 
+The LTE line file contains the list of atomic lines to calculate in LTE.
+It is in ASCII format and allows for comments. Each entry in a LTE line
+can have one of three formats.
+
 .. include:: lte_file.rst
 
 .. _ion_file:

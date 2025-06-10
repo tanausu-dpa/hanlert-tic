@@ -11,15 +11,14 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     07/04/2025 V4.0.4
+!     10/06/2025 V4.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     07/04/2025:    V4.0.4 - Changed s_inv_atmo and s_inv_res in
-!                             Input_class to double precision (TdPA)
+!     10/06/2025:    V4.0.6 - Added nowave to LTEline_class (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -673,8 +672,9 @@
         character(len=2):: Element
 
         ! If there is a background model atom, if limited in tau, if
-        ! limited in T, line is absent for a CPU
-        logical:: is_passive,taulim_l,Tlim_l,absent
+        ! limited in T, line is absent for a CPU, do not generate
+        ! wavelengths for this line
+        logical:: is_passive,taulim_l,Tlim_l,absent,nowave
 
         ! Element, ion, number of Ml, number of Mu, maximum height
         ! index for presence, total number of frequencies, number
@@ -1191,7 +1191,15 @@
         ! spectra, if restricting height for redistribution, if
         ! restricting tau for redistribution, if considering only K=2
         ! for MRC, if consider ALI for photoionization transitions,
-        ! allow switching off ALI if SEE gives negative populations
+        ! allow switching off ALI if SEE gives negative populations,
+        ! if protecting input hydrogen minus density, if restricting
+        ! by temperature on the top, if the temperature restriction in
+        ! the top is strict, if restricting by temperature on the
+        ! bottom, if the temperature restriction in the bottom is
+        ! strict, keep the secondary scale from the input model
+        ! atmosphere, if solving the intensity problem in a static
+        ! atmosphere first, if solving the angle-average PRD problem
+        ! first
         logical:: AV,appendMRC,appendMRCI,out_contr,out_tau1,store, &
                   storeI,Pcorr,Raman,keepIsol,NG,keep_back, &
                   keep_damp,keep_cols,bfieldn,keep_aparam,addbb, &
@@ -1204,7 +1212,9 @@
                   two_step_pol,lexcl,rest_tau_strc,rest_z_strc, &
                   ALI_force,init_J_bb,keep_qel,add_cont_cle, &
                   use_allen,flat_cle_in,rest_z_red,rest_tau_red, &
-                  anisotropy_only,ALI_photo,ALI_allow_off
+                  anisotropy_only,ALI_photo,ALI_allow_off, &
+                  protect_Hm,rest_Tup,rest_Tup_strc,rest_Tlo, &
+                  rest_Tlo_strc,respect_zalt,two_step_I_v,two_step_AD
 
         ! If asymmetry input
         logical, dimension(2):: lasym
@@ -1283,7 +1293,8 @@
         ! lines, number of pixels to exclude, for how many iterations
         ! allow negative populations, type of interpolation for the
         ! PRD to transform into the observer reference frame, number
-        ! of internal PRD iterations
+        ! of internal PRD iterations, maximum number of AD iterations,
+        ! maximum number of AD iterations in intensity
         integer:: iter_min,iter_max,iter_ord,store_step,nA,nAb,nM, &
                   iteri_min,iteri_max,storei_step,iteri_prd,iter_j, &
                   NG_ord,NG_delay,ALI_delay,NK,allownphys_stk, &
@@ -1292,7 +1303,7 @@
                   nasym_fil,nasym,MIT_input,run_mode,rt_group_n, &
                   atmo_char,nTh,nPh,nThI,nPhI,nThAA,nThAAI,nThLOS, &
                   nPhLOS,nLTE,nexcl,allownphys_pop,PRD_int_mode, &
-                  iter_prd
+                  iter_prd,iterad_max,iteriad_max
 
         ! Box to solve in 1.5D synthesis problem
         integer, dimension(:), allocatable:: sol_box
@@ -1311,10 +1322,12 @@
         ! of the star for CLE, minimum tauc to consider, maximum tauc
         ! to consider, minimum height to consider, maximum height to
         ! consider, forced microturbulence, maximum tau continuum to
-        ! calculate PRD, minimim height to calculate PRD
+        ! calculate PRD, minimim height to calculate PRD, maximum
+        ! temperature to consider from the top, maximum temperature
+        ! to consider from the bottom
         double precision:: dw,MIT_node,dcohw,dcohwi,minT,maxT,maxV, &
                            omega_ref,T_rad,R_star,r0tc,r1tc,r0z,r1z, &
-                           fvmicro,r1tc_prd,r1z_prd
+                           fvmicro,r1tc_prd,r1z_prd,r0tt,r1tt
 
         ! LOS polar mus, LOS azimuthal angles
         double precision, dimension(:), allocatable:: L_mu,L_phi
@@ -1327,9 +1340,12 @@
         ! MRC for rho00, MRC for rhoKQ with K!=0, MRC for rho00 in the
         ! intensity problem, MRC for J00 in the intensity problem,
         ! MRC for J00 initial iterations, MRC for J00, MRC for JKQ
-        ! with K!=0
+        ! with K!=0, maximum relative change for intensity with AD
+        ! PRD, maixmum relative change for intensity in the intensity
+        ! problem with AD PRD, maximum relative change for
+        ! polarization with AD PRD
         double precision:: mrc_i,mrc_p,mrci_i,mrci_r,mrcj,mrc_r, &
-                           mrc_p_r
+                           mrc_p_r,mrc_adi,mrci_adi,mrc_adp
 
         ! Numerical values for field
         double precision, dimension(3):: bfieldv

@@ -10,18 +10,14 @@
 !  Start:
 !     17/02/2023
 !  Last version:
-!     05/05/2025 V4.0.2
+!     06/06/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     05/05/2025:    V4.0.2 - Zero out the weights for polarization
-!                             for only thermal inversions to ensure
-!                             the weights are not normalized by
-!                             accounting for the four Stokes
-!                             parameters (TdPA)
+!     06/06/2025:    V4.0.3 - Removed unused declared variables (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -563,11 +559,9 @@
 
       ! Local
 
-      logical:: left,right
+      logical:: left
 
-      integer:: i,j,il,ir,nl,nstk,ios,ileft,iright
-
-      double precision:: wileft,wiright,wleft,wright
+      integer:: i,j,il,ir,nl,nstk
 
 
       ! Run over all entries

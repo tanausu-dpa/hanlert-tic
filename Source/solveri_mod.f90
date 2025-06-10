@@ -9,18 +9,19 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     15/05/2025 V4.0.7
+!     06/06/2025 V4.0.8
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.7 - Generalized declarations of Atom,
-!                             Rho_old, J00, J00S, and J00P to allow
-!                             for empty arrays for any of them (TdPA)
-!                           - Skip the conversion from J00/S to JKQ/S
-!                             if there are no active atoms (TdPA)
+!     06/06/2025:    V4.0.8 - Manage what maximum number of iterations
+!                             and MRC criteria is used based on the
+!                             twostepAD flag (TdPA)
+!                           - Bugfix: When the main scale is optical
+!                             depth, the MRC data needs to be scaled
+!                             differently to the heights (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -128,7 +129,7 @@
       use mrc_mod
       use ng_mod
       use normalizer_mod
-      use parameters_mod , only : kb, cSaha, fktoJ
+      use parameters_mod , only : kb, cSaha, fktoJ, VTINY
       use rtcoeffi_mod
       use rtstepi_mod
       use seei_mod
@@ -215,12 +216,12 @@
       logical:: lp_exu,lALI,NGI
 
       integer:: ierr,iter,iterr,ia,if0,if1,npz,ntpz,nsend
-      integer:: NG_dim,NG_entry
+      integer:: NG_dim,NG_entry,iter_min,iter_max
       integer(kind=MPI_OFFSET_KIND):: offset
 
       real, dimension(3):: bMRC
 
-      double precision:: loffset
+      double precision:: loffset,mrc_val
       double precision, dimension(nxb,nxt,Rz0:Rz1):: LambdaL
       double precision, dimension(nxb,nxphot,2,Rz0:Rz1):: LambdaP
       double precision, dimension(:), allocatable, target:: LO
@@ -283,12 +284,23 @@
         call report_mpi_timeI(Input%folder,Input%ID, &
                              0,0,0,.False.)
 
+      ! Choose iteration parameters
+      if (.not.AVI.and.twostepAD) then
+        iter_min = 1
+        iter_max = Input%iteriad_max
+        mrc_val = Input%mrci_adi
+      else
+        iter_min = Input%iteri_min
+        iter_max = Input%iteri_max
+        mrc_val = Input%mrci_i
+      end if
+
       !
       ! Start iterations
       !
 
       ! For each iteration between the limits specified
-      do iter=Input%iteri_min,Input%iteri_max
+      do iter=iter_min,iter_max
 
         ! Flags for physics in Stokes
         if (iter.le.Input%allownphys_stk) then
@@ -512,8 +524,8 @@
 
         ! Advance populations
         call solveI_SEE(Atom,Rho_old,Atmo,Geom,Input,MRC,lALI,PRDl, &
-                        ADD,ADT,NGI,doNG,goout,iter,NG_dim,NG_entry, &
-                        NG_scratch,LambdaL,LambdaP, &
+                        ADD,ADT,NGI,doNG,goout,iter,mrc_val,NG_dim, &
+                        NG_entry,NG_scratch,LambdaL,LambdaP, &
                         Stokes,J00,J00S,J00C,J00P)
 
         ! We can switch now to AD if we had AV input
@@ -2894,6 +2906,7 @@
       !!              NGI(logical): If doing NG acceleration\n
       !!             doNG(logical): If doing NG iteration\n
       !!            goout(logical): If converged\n
+      !!              mrcv(double): Convergence criteria\n
       !!             iter(integer): Current interation\n
       !!           NG_dim(integer): Size of NG entry\n
       !!         NG_entry(integer): Index of NG entries\n
@@ -2911,9 +2924,9 @@
       !!       J00P(double(:,:,:)): Intensity integrals in the
       !!                            photoionization rates
       subroutine solveI_SEE(Atom,Rho_old,Atmo,Geom,Input,MRC,lALI, &
-                            PRDl,ADD,ADT,NGI,doNG,goout,iter,NG_dim, &
-                            NG_entry,NG_scratch,LambdaL,LambdaP, &
-                            Stokes,J00,J00S,J00C,J00P)
+                            PRDl,ADD,ADT,NGI,doNG,goout,iter,mrcv, &
+                            NG_dim,NG_entry,NG_scratch, &
+                            LambdaL,LambdaP,Stokes,J00,J00S,J00C,J00P)
 
       ! I/O
 
@@ -2930,6 +2943,7 @@
       logical, intent(inout):: doNG
       integer, intent(in):: iter,NG_dim
       integer, intent(inout):: NG_entry
+      double precision, intent(in):: mrcv
       double precision, dimension(nxb,nxt,Rz0:Rz1), &
                         intent(in):: LambdaL
       double precision, dimension(nxb,nxphot,2,Rz0:Rz1), &
@@ -3258,11 +3272,15 @@
         ! Calculate MRC
         call MRCI_sb(Atom,Rho_old,MRC)
 
-        ! Convert cm into km
-        MRC%values(1,1) = Atmo%z(MRC%indexes(2,1))*1d-5
+        ! Convert cm into km or logtau
+        if (ztau) then
+          MRC%values(1,1) = log10(Atmo%z(MRC%indexes(2,1))+VTINY)
+        else
+          MRC%values(1,1) = Atmo%z(MRC%indexes(2,1))*1d-5
+        end if
 
         ! Check exit criteria
-        if (MRC%values(2,1).le.Input%mrci_i) goout = .True.
+        if (MRC%values(2,1).le.mrcv) goout = .True.
 
         ! Check in first iteration if was a fix population case
         ! but we want PRD

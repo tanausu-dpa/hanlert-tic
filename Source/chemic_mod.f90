@@ -9,16 +9,15 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     15/05/2025 V4.0.2
+!     06/06/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.2 - Generalized declarations of Atom, Atomb,
-!                             and Mol to allow for empty arrays for
-!                             any of them (TdPA)
+!     06/06/2025:    V4.0.3 - Added the option to keep the H- number
+!                             density from the input model (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -103,8 +102,10 @@
       !!                             background atoms\n
       !! LTElines(LTEline_class(:)): Structures with LTE line data\n
       !!          Mol(Mol_class(:)): Structures with molecular data\n
-      !!           Atmo(Atmo_class): Structure with atmospheric data
-      subroutine chemeq(Atom,Atomb,LTElines,Mol,Atmo)
+      !!           Atmo(Atmo_class): Structure with atmospheric data\n
+      !!           prot_Hm(logical): If protecting Hminus density from
+      !!                             input model
+      subroutine chemeq(Atom,Atomb,LTElines,Mol,Atmo,prot_Hm)
 
       ! I/O
 
@@ -117,6 +118,7 @@
       type(Mol_class), dimension(:), &
                        allocatable, intent(inout):: Mol
       type(Atmo_class), intent(inout):: Atmo
+      logical, intent(in):: prot_Hm
 
       ! Local
 
@@ -369,7 +371,7 @@
                           atoms,atom_index,warning,nwarning, &
                           max_it_chem,check_it_chem,check_it_res, &
                           nres_opt,mrc_chem,c0,iz,.True., &
-                          minT,xx,xxT)
+                          minT,prot_Hm,xx,xxT)
 
             ! If temperature even smaller
             if (Atmo%T(iz).lt.minT2) then
@@ -379,7 +381,7 @@
                             atoms,atom_index,warning,nwarning, &
                             max_it_chem,check_it_chem,check_it_res, &
                             nres_opt,mrc_chem,c0,iz,.False., &
-                            minT2,xxT,xx)
+                            minT2,prot_Hm,xxT,xx)
 
               ! Update initial
               xxT = xx
@@ -391,7 +393,7 @@
                           atoms,atom_index,warning,nwarning, &
                           max_it_chem,check_it_chem,check_it_res, &
                           nres_opt,mrc_chem,c0,iz,.False., &
-                          Atmo%T(iz),xxT,xx)
+                          Atmo%T(iz),prot_Hm,xxT,xx)
 
           ! Normal temperature
           else
@@ -401,7 +403,7 @@
                           atoms,atom_index,warning,nwarning, &
                           max_it_chem,check_it_chem,check_it_res, &
                           nres_opt,mrc_chem,c0,iz,.True., &
-                          Atmo%T(iz),xxT,xx)
+                          Atmo%T(iz),prot_Hm,xxT,xx)
 
           end if
 
@@ -518,8 +520,8 @@
 
         end do ! Heights
 
-      ! If no molecules, calculate just Hminus
-      else
+      ! If no molecules and not protected, calculate just Hminus
+      else if (.not.prot_Hm) then
 
         ! For every height
         do iz=1,nz
@@ -585,12 +587,15 @@
       !!             diss(logical): If to initialize full
       !!                            dissociation\n
       !!                 T(double): Temperature\n
+      !!          prot_Hm(logical): If protecting Hminus density from
+      !!                            input model\n
       !!               xx0(double): Initial solution\n
       !!                xx(double): Solution
       subroutine chemeq_T(Atom,Atomb,Mol,Atmo,natom,nmol, &
                           neq,atoms,atom_index,warning,nwarning, &
                           max_it_chem,check_it_chem,check_it_res, &
-                          nres_opt,mrc_chem,c0,iz,diss,T,xx0,xx)
+                          nres_opt,mrc_chem,c0,iz,diss,T,prot_Hm, &
+                          xx0,xx)
 
       ! I/O
 
@@ -602,7 +607,7 @@
                        allocatable, intent(inout):: Mol
       type(Atmo_class), intent(inout):: Atmo
       type(catm_class), dimension(:), intent(inout):: atoms
-      logical, intent(in):: diss
+      logical, intent(in):: diss,prot_Hm
       logical, intent(inout):: warning,nwarning
       integer, intent(in):: natom,nmol,neq,iz
       integer, intent(in):: max_it_chem,check_it_chem
@@ -1264,7 +1269,8 @@
       !
       ! Store Hm density in atmospheric model
       !
-      Atmo%nHm(iz) = Atmo%ne(iz)*xx(1)*phiHm
+      if (.not.prot_Hm) &
+        Atmo%nHm(iz) = Atmo%ne(iz)*xx(1)*phiHm
 
       ! Free auxiliar variables
       do iatom=1,natom

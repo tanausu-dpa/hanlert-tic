@@ -10,17 +10,14 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     15/05/2025 V4.0.3
+!     10/06/2025 V4.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.3 - The active atom related inputs are no
-!                             longer mandatory (TdPA)
-!                           - The sanity check on wavelengths is only
-!                             called if there are active atoms (TdPA)
+!     10/06/2025:    V4.0.5 - Read LTEline%nowave (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -121,6 +118,10 @@
 
       ! Atmosphere pressure/density scale
       read(100,*,err=1100) Input%atmo_char
+
+      ! Atom fix population
+      read(100,'(A)',err=1100) cdump
+      Input%respect_zalt = cdump.eq.'Y'
 
       ! Number of atoms
       read(100,*,err=1100) Input%nA
@@ -416,6 +417,10 @@
           read(100,*,err=1100) Input%LTEline(ia)%taulim
           read(100,*,err=1100) Input%LTEline(ia)%Tlim
 
+          ! No wavelengths
+          read(100,*,err=1100) cdump
+          Input%LTEline(ia)%nowave = cdump.eq.'T'
+
         end do ! Entries
 
       end if ! LTE lines
@@ -563,6 +568,36 @@
 
       ! Force type of calculation
       read(100,*,err=1100) Input%force
+
+      ! Two-step velocity for intensity
+      read(100,*,err=1100) cdump
+      Input%two_step_I_v = cdump.eq.'Y'
+
+      ! Restrict problem in T bottom strictly
+      read(100,*,err=1100) cdump
+      Input%rest_Tlo_strc = cdump.eq.'Y'
+
+      ! Restrict problem in T bottom
+      read(100,*,err=1100) cdump
+      Input%rest_Tlo = cdump.eq.'Y'
+
+      ! Get range if they exist
+      if (Input%rest_Tlo) then
+        read(100,*,err=1100) Input%r1tt
+      end if
+
+      ! Restrict problem in T up strictly
+      read(100,*,err=1100) cdump
+      Input%rest_Tup_strc = cdump.eq.'Y'
+
+      ! Restrict problem in T up
+      read(100,*,err=1100) cdump
+      Input%rest_Tup = cdump.eq.'Y'
+
+      ! Get range if they exist
+      if (Input%rest_Tup) then
+        read(100,*,err=1100) Input%r0tt
+      end if
 
       ! Restrict problem in tau_c strictly
       read(100,*,err=1100) cdump
@@ -759,6 +794,17 @@
       ! Either by force or because the problem is that way
       AVI = Input%AVI.or.AV
 
+      ! Two-step for angle-dependent
+      read(100,*,err=1100) cdump
+      Input%two_step_AD = cdump.eq.'Y'
+
+      ! Check necessity of two-step
+      if (Input%force.eq.'I'.and.AVI) then
+        Input%two_step_AD = .False.
+      else if (AV) then
+        Input%two_step_AD = .False.
+      end if
+
       ! Store Wfunc for intensity in RAM
       read(100,*,err=1100) cdump
       IRAM = cdump.eq.'Y'
@@ -868,6 +914,10 @@
       read(100,*,err=1100) Input%iter_max
       read(100,*,err=1100) Input%iteri_max
 
+      ! Maximum number of AD iterations
+      read(100,*,err=1100) Input%iterad_max
+      read(100,*,err=1100) Input%iteriad_max
+
       ! Order of emissivity
       read(100,*,err=1100) cdump
       PRD = cdump.eq.'Y'
@@ -886,6 +936,9 @@
       read(100,*,err=1100) Input%mrc_i
       read(100,*,err=1100) Input%mrci_i
       read(100,*,err=1100) Input%mrc_p
+      read(100,*,err=1100) Input%mrc_adi
+      read(100,*,err=1100) Input%mrci_adi
+      read(100,*,err=1100) Input%mrc_adp
 
       ! Iterations of radiation field
       read(100,*,err=1100) Input%iter_j
@@ -1271,6 +1324,11 @@
       ! equation of state
       read(100,*,err=1100) cdump
       Input%protect_H = cdump.eq.'Y'
+
+      ! Keep input Hydrogen minus densities (atmos) after
+      ! equation of state
+      read(100,*,err=1100) cdump
+      Input%protect_Hm = cdump.eq.'Y'
 
       ! Do not change the atomic populations in the
       ! chemical equilibrium

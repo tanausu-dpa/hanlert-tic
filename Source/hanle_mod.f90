@@ -11,26 +11,33 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     15/05/2025 V4.0.5
+!     06/06/2025 V4.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.5 - Generalized declarations of Atom, Atomb,
-!                             Mol, and Rho_old to allow for empty
-!                             arrays for any of them (TdPA)
-!                           - Consider that the integrated radiation
-!                             field tensors may not be needed (TdPA)
-!                           - Add the existence of active atoms to the
-!                             requirements to perform iterations at
-!                             all (TdPA)
+!     06/06/2025:    V4.0.6 - Implemented the option to solve the
+!                             intensity problem in two steps, by
+!                             first converging it without velocities
+!                             and then switching them on (TdPA)
+!                           - Implemented the option to solve the
+!                             PRD-AD problem in two steps, first
+!                             converging in PRD-AA and then switching
+!                             PRD-AD on (TdPA)
+!                           - Bugfix: There was a specific
+!                             configuration calling the normalization
+!                             subroutine when it should not (TdPA)
 !
 !#####################################################################
 !#####################################################################
 !
 !  Known bugs:
+!
+!    Not an actual bug, but a limitation. The two-step solution
+!  procedures do not (and not sure they will work) as intended when
+!  the calculation is halted in any of their respective first phases
 !
 !#####################################################################
 !#####################################################################
@@ -178,9 +185,9 @@
       type(Rhoc_class), allocatable, dimension(:):: Rho_old
 
       logical:: rlimw = .True.
-      logical:: csize
-      logical:: rback,rdyn,raxial
-      logical:: l1, l2, ofram
+      logical:: csize,twostepI
+      logical:: rback,rdyn,raxial,rAV,rAVI
+      logical:: l1, l2, ofram, liel, lpel
       logical:: rVIRAM,rVPRAM,rWIRAM,rWPRAM
 
       integer:: iph,rnPh
@@ -219,12 +226,38 @@
       rWIRAM = IRAM
       rWPRAM = PRAM
 
+      ! Original AD flags
+      rAVI = AVI
+      rAV = AV
+
+      ! If two-step AD, force angle-averaged and no output (for now)
+      if (Input%two_step_AD.and.lio.and..not.rAVI.and..not.lload) then
+        AVI = .True.
+        liel = .False.
+        twostepAD = .True.
+      else
+        liel = lie
+      end if
+
+      ! If two-step AD, force angle-averaged and no ouput (for now)
+      if (Input%two_step_AD.and.lp.and..not.rAV.and..not.lload) then
+        AV = .True.
+        lpel = .False.
+        twostepAD = .True.
+      else
+        lpel = lpe
+      end if
+
+      ! doing two-step velcity intensity?
+      twostepI = dyn.and.Input%two_step_I_v.and.lio.and.lie.and. &
+                 .not.lload
+
       ! Original dynamic flag
       rdyn = dyn
 
-      ! If forcing the problem to be static for intensity, but it
-      ! is dynamic
-      if (dyn.and.Input%static_int) then
+      ! If forcing the problem to be static for intensity or doing
+      ! the solution in two steps, but it it is dynamic
+      if (dyn.and.(Input%static_int.or.twostepI)) then
 
         ! Trick the problem pointing the velocity to the array
         ! of zeros
@@ -306,18 +339,83 @@
       ! Self-consistent NLTE problem for intensity
       !
 
+      ! If doing it in two steps for velocities
+      if (twostepI) then
+
+        ! Solve static
+        call hanle_intensity(Atom,LTElines,Atmo,MPID,Input, &
+                             GeomI,Bfield,Frec,Flgsg,SolF, &
+                             Cont,Rho_old, &
+                             StokesI,J00,J00S,J00C,J00P, &
+                             lload,lio,.False.,.False.,rlimw,ofram)
+
+        ! Control
+        if (laborted) goto 1000
+
+        ! Return the problem to its original state
+        dyn = rdyn
+
+        ! Point the velocities back to original data
+        Atmo%vx => Atmo%vxa
+        Atmo%vy => Atmo%vya
+        Atmo%vz => Atmo%vza
+
+        ! Nullify auxiliar pointers
+        nullify(Atmo%vxa,Atmo%vya,Atmo%vza)
+
+        ! If we need to redo the background, do it
+        if (rback) &
+          call hanle_reback(Atom,Atomb,Mol,Atmo,MPID,Input,Geom, &
+                            Frec,Flgsg,fudge,kurucz,Cont,free)
+
+        !
+        ! Solve the NLTE self-consistent problem for intensity
+        ! or/and get emergent intensity
+        if (lio.or.lie) &
+          call hanle_intensity(Atom,LTElines,Atmo,MPID,Input, &
+                               GeomI,Bfield,Frec,Flgsg,SolF, &
+                               Cont,Rho_old, &
+                               StokesI,J00,J00S,J00C,J00P, &
+                               .True.,lio,liel,lp.or.lpe,rlimw,ofram)
+
+      ! Single step in velocity
+      else
+
+        !
+        ! Solve the NLTE self-consistent problem for intensity
+        ! or/and get emergent intensity
+        if (lio.or.lie) &
+          call hanle_intensity(Atom,LTElines,Atmo,MPID,Input, &
+                               GeomI,Bfield,Frec,Flgsg,SolF, &
+                               Cont,Rho_old, &
+                               StokesI,J00,J00S,J00C,J00P, &
+                               lload,lio,liel,lp.or.lpe,rlimw,ofram)
+
+        ! Control
+        if (laborted) goto 1000
+
+      end if ! Two-step velocity solution
+
+      ! Restore AVI
+      AVI = rAVI
+
       !
-      ! Solve the NLTE self-consistent problem for intensity
-      ! or/and get emergent intensity
-      if (lio.or.lie) &
+      ! Two-step intensity AD?
+      !
+      if (lie.and.Input%two_step_AD.and..not.rAVI.and. &
+          lio.and..not.lload) then
+
         call hanle_intensity(Atom,LTElines,Atmo,MPID,Input, &
                              GeomI,Bfield,Frec,Flgsg,SolF, &
                              Cont,Rho_old, &
                              StokesI,J00,J00S,J00C,J00P, &
                              lload,lio,lie,lp.or.lpe,rlimw,ofram)
 
-      ! Control
-      if (laborted) goto 1000
+        ! Control
+        if (laborted) goto 1000
+
+      end if ! two-step AD
+
 
       !
       ! Finished self-consistent NLTE problem for intensity
@@ -603,7 +701,7 @@
                                   StokesI,J00,J00S,J00C,J00P, &
                                   Stokes,JKQ,JKQS,JKQC,JKQ_asym, &
                                   Geom%nPh,.True., &
-                                  lload,.False.,lp,lpe, &
+                                  lload,.False.,lp,lpel, &
                                   rlimw,ofram)
 
         ! Normal run
@@ -616,9 +714,28 @@
                                   StokesI,J00,J00S,J00C,J00P, &
                                   Stokes,JKQ,JKQS,JKQC,JKQ_asym, &
                                   Geom%nPh,.True., &
-                                  lload,lio,lp,lpe,rlimw,ofram)
+                                  lload,lio,lp,lpel,rlimw,ofram)
 
         end if ! Zero field first step solution
+
+        ! Restore AV
+        AV = rAV
+
+        !
+        ! Two-step polarization AD?
+        !
+        if (Input%two_step_AD.and.lp.and..not.rAV.and..not.lload) then
+
+          ! Solve the polarization problem
+          call hanle_polarization(Atom,LTElines,Atmo,MPID,Input, &
+                                  Geom,Bfield,Frec,Flgsg,SolF, &
+                                  Cont,Rho_old, &
+                                  StokesI,J00,J00S,J00C,J00P, &
+                                  Stokes,JKQ,JKQS,JKQC,JKQ_asym, &
+                                  Geom%nPh,.True., &
+                                  lload,lio,lp,lpe,rlimw,ofram)
+
+        end if ! two-step AD
       end if ! Polarization
 
       !
@@ -645,6 +762,10 @@
 
       ! Restore dyn just in case we got here due to error
       dyn = rdyn
+
+      ! Restore AVI and AV
+      AVI = rAVI
+      AV = rAV
 
       ! Memory count
       if (allocated(JKQ_asym)) then
@@ -814,7 +935,7 @@
       !
       ! Compute missing height or tau, whatever is not the
       ! input axis
-      call getztau(Atmo,.True.)
+      call getztau(Atmo,.True.,Input%respect_zalt)
 
 
       !
@@ -916,6 +1037,11 @@
       if (Input%nLTE.gt.0) &
         call restrict_LTE_lines(Atmo,LTElines)
 
+      ! Control
+      call control
+
+      ! Control
+      if (laborted) return
 
       ! For each active atom
       do ia=1,nA
@@ -1477,8 +1603,9 @@
         end if ! Doing any kind of calculation here
       end if ! Intensity formal solution
 
-      ! If iterating or non-dynamic
-      if (.not.dyn.or.liter.or.(literJ.and.Input%init_J_bb)) then
+      ! If iterating or non-dynamic and emerging
+      if ((.not.dyn.and.lie).or.liter.or. &
+          (literJ.and.Input%init_J_bb)) then
 
         ! Normalize first order profiles
         call normalization(Atom,LTElines,Atmo,Atmo%zeros,GeomI, &

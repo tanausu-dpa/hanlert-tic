@@ -9,17 +9,14 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     28/11/2024 V4.0.0
+!     06/06/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     28/11/2024:    V4.0.0 - Added nJs (TdPA)
-!                           - Removed variables related to store
-!                             profiles in files, interpolation
-!                             data storage, and threads (TdPA)
+!     06/06/2025:    V4.0.1 - Added twostepAD (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -76,13 +73,14 @@
       ! synthesis not in inversion mode (important for verbosity
       ! output), use RAM to store Voigt profiles for LTE lines in
       ! intensity, use RAM to store Voigt profiles for LTE lines in
-      ! polarization
+      ! polarization, is performing iterations in two-steps to
+      ! account for PRD AD
       logical, save:: stm, AV, tbAD, axial, dyn, PRD, IRAM, &
                       PRAM, VIRAM, VPRAM , RTaxial, laborted, &
                       verbosity, nphysS, nphysR, vaborted, ztau, &
                       PIRAM, NCHLT, KcutAB, KSTK, fcol_transfer, &
                       force_asym, axiali, AVI, ninv_mode, LVIRAM, &
-                      LVPRAM
+                      LVPRAM, twostepAD
 
       ! Global integer to use as error in MPI routines
       integer:: ierr
