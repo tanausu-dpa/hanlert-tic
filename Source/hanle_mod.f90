@@ -11,24 +11,19 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     06/06/2025 V4.0.6
+!     11/06/2025 V4.0.7
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     06/06/2025:    V4.0.6 - Implemented the option to solve the
-!                             intensity problem in two steps, by
-!                             first converging it without velocities
-!                             and then switching them on (TdPA)
-!                           - Implemented the option to solve the
-!                             PRD-AD problem in two steps, first
-!                             converging in PRD-AA and then switching
-!                             PRD-AD on (TdPA)
-!                           - Bugfix: There was a specific
-!                             configuration calling the normalization
-!                             subroutine when it should not (TdPA)
+!     11/06/2025:    V4.0.7 - Made the two step intensity solution
+!                             compatible with making the intensity
+!                             in axial mode. Removed the limitation
+!                             of the two step intensity solution to
+!                             cases where no polarization is expected
+!                             to be calculated (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -248,8 +243,8 @@
         lpel = lpe
       end if
 
-      ! doing two-step velcity intensity?
-      twostepI = dyn.and.Input%two_step_I_v.and.lio.and.lie.and. &
+      ! Doing two-step velcity intensity?
+      twostepI = dyn.and.Input%two_step_I_v.and.lio.and. &
                  .not.lload
 
       ! Original dynamic flag
@@ -362,6 +357,17 @@
 
         ! Nullify auxiliar pointers
         nullify(Atmo%vxa,Atmo%vya,Atmo%vza)
+
+        ! If axial intensity and not polarization
+        if (axiali.and..not.axial) then
+
+          ! Cheat the velocities by pointing to the array of zeros
+          Atmo%vxa => Atmo%vx
+          Atmo%vya => Atmo%vy
+          Atmo%vx => Atmo%zeros
+          Atmo%vy => Atmo%zeros
+
+        end if ! Axial intensity and not polarization
 
         ! If we need to redo the background, do it
         if (rback) &
@@ -499,7 +505,7 @@
 
       ! If forcing the problem to be static for intensity, but it
       ! is dynamic
-      if (rdyn.and.Input%static_int) then
+      if (rdyn.and.Input%static_int.and..not.twostepI) then
 
         ! Return the problem to its original state
         dyn = rdyn
