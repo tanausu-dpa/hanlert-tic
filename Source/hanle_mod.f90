@@ -11,17 +11,15 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     26/06/2025 V4.0.8
+!     30/06/2025 V4.0.9
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     26/06/2025:    V4.0.8 - Bugfix: wrong message when RAM limit was
-!                             reached with redistribution (TdPA)
-!                           - Removed Atmo as argument for intensity
-!                             RT RAM predictors (TdPA)
+!     30/06/2025:    V4.0.9 - Bugfix: Forgot to nullify Red%ao at
+!                             subroutine entry level (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1501,7 +1499,7 @@
 
 
       ! Initialize redistribution structure pointers
-      nullify(Red%dzao,Red%rzao,Red%pzao,Red%zao)
+      nullify(Red%dzao,Red%rzao,Red%pzao,Red%zao,Red%ao)
 
       ! Initialize memory used in input frequency data
       FRAMc = FRAMc + 1d-6*sizeof(Red)
@@ -1959,7 +1957,7 @@
 
 
       ! Initialize redistribution pointers
-      nullify(Red%dzao,Red%rzao,Red%pzao,Red%zao)
+      nullify(Red%dzao,Red%rzao,Red%pzao,Red%zao,Red%ao)
 
       ! Initialize memory in Red structure
       FRAMc = FRAMc + 1d-6*sizeof(Red)
