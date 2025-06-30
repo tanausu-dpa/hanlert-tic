@@ -248,7 +248,7 @@
               xl = Atmo%z(ix)
 
               ! If behind, continue searching
-              if (xl.lt.0.) cycle
+              if (xl.lt.0d0) cycle
 
               ! If in front, compute distance from center
               r = sqrt(xl*xl + Atmo%ypos*Atmo%ypos + &

@@ -9,17 +9,23 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     06/06/2025 V4.0.2
+!     26/06/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     06/06/2025:    V4.0.2 - Removed remnants of debug prints (TdPA)
-!                           - Removed the message about reaching the
-!                             limit of iterations in the task
-!                             distributer (TdPA)
+!     26/06/2025:    V4.0.3 - Added the painters, painters_check, and
+!                             painters_sol subroutines. These allow
+!                             to split tasks from an array of weights
+!                             in such a way that the optimal solution
+!                             for the minimum-maximum sum of weights
+!                             in a single CPU. This solution is fed
+!                             into the brute-force and heuristic
+!                             algorithm to further distribute tasks
+!                             while still keeping the optimal maximum
+!                             sum of weights (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -46,6 +52,15 @@
 !  setmpi_CLE
 !    Split tasks in the radiation transfer problem in the CLE
 !  synthesis
+!
+!  painters_check
+!    Auxiliar function for the solution of the painter's problem
+!
+!  painters_sol
+!    Find the optimal solution of the painter's problem
+!
+!  painters
+!    Solve the painters problem\n
 !
 !  weighted_split
 !    Split the ranges of a vector of positive numbers to minimize
@@ -821,14 +836,182 @@
 !#####################################################################
 !#####################################################################
 
+      !> Auxiliar function for the solution of the painter's problem\n
+      !!       kk(integer): Partitions\n
+      !!  work(integer(:)): Expected work load array\n
+      !!   sample(integer): Sum to check
+      logical function painters_check(kk,work,sample)
+
+      ! I/O
+
+      integer, intent(in):: kk,sample
+      integer, dimension(:), intent(in):: work
+
+      ! Local
+
+      integer:: coun,total,ii
+
+      ! Initialize
+      coun = 0
+      total = 0
+
+      ! Loop over array
+      do ii=1,size(work)
+
+        ! If element is larger than sample, not possible
+        if (work(ii).gt.sample) then
+          painters_check = .False.
+          return
+        end if
+
+        ! Add to total
+        total = total + work(ii)
+
+        ! If sum already above
+        if (total.gt.sample) then
+
+          ! Advance count and update total
+          coun = coun + 1
+          total = work(ii)
+
+        end if ! Sum already above
+
+      end do ! Work array
+
+      ! Add last one
+      coun = coun + 1
+
+      ! Evaluate if possible
+      painters_check = coun.le.kk
+
+      return
+
+      end function painters_check
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Find the optimal solution of the painter's problem\n
+      !!       kk(integer): Partitions\n
+      !!  work(integer(:)): Expected work load array
+      integer function painters_sol(kk,work)
+
+      ! I/O
+
+      integer, intent(in):: kk
+      integer, dimension(:), intent(in):: work
+
+      ! Local
+
+      integer:: start,fin,sample
+
+
+      ! Initialize
+      start = maxval(work)
+      fin = sum(work)
+      painters_sol = 0
+
+      ! While the start is below the end
+      do while (start.le.fin)
+
+        ! Get new sample
+        sample = (start + fin)/2
+
+        ! If sample is possible
+        if (painters_check(kk,work,sample)) then
+
+          ! Store this answer, reduce end point, and loop
+          painters_sol = sample
+          fin = sample - 1
+
+        ! Solution not possible
+        else
+
+          ! Advance starting point
+          start = sample + 1
+
+        end if ! Possible answer
+
+      end do ! Working loop for binary search
+
+      end function painters_sol
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Solve the painters problem\n
+      !!       kk(integer): Partitions\n
+      !!  work(integer(:)): Expected work load array\n
+      !!    i0(integer(:)): Initial index for partition\n
+      !!    i1(integer(:)): Final index for partition\n
+      !!    nn(integer(:)): Number of elements per partition\n
+      !!    max_W(integer): Optimal total work
+      subroutine painters(kk,work,i0,i1,nn,max_W)
+
+      ! I/O
+
+      integer, intent(in):: kk
+      integer, dimension(:), intent(in):: work
+      integer, dimension(:), intent(inout):: i0,i1,nn
+      integer, intent(out):: max_W
+
+      ! Local
+
+      integer:: ii,jj,suma,coun
+
+
+      ! Initialize
+      ii = size(work)
+      jj = kk
+
+      ! Get solution to painters
+      max_W = painters_sol(kk,work)
+
+      ! While there are partitions to setup
+      do while (jj.gt.1)
+
+        ! Initialize
+        suma = 0
+        coun = 0
+
+        ! Try collecting as many elements as possible
+        do while (ii.ge.1.and.suma+work(ii).le.max_W.and.ii+1.gt.jj-1)
+          suma = suma + work(ii)
+          coun = coun + 1
+          ii = ii - 1
+        end do ! Collecting
+
+        ! Store partition
+        i0(jj) = ii + 1
+        i1(jj) = ii + coun
+        nn(jj) = coun
+
+        ! Reduce partition index
+        jj = jj - 1
+
+      end do ! Partitions to setup
+
+      ! Last partition
+      i0(jj) = 1
+      i1(jj) = ii
+      nn(jj) = ii
+
+      end subroutine painters
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
       !> Read weigths and times from a previous run to try readjust
       !! the expected weights\n
       !!      lnproc(integer): Number of processes to split in\n
       !!     maxcoun(integer): Maximum number of tries for the
       !!                       split\n
-      !!  IW_freq(integer(:)): Expected work load array
-      !!      if0(integer(:)): Initial index for ramge\n
-      !!      if0(integer(:)): Final index for range\n
+      !!  IW_freq(integer(:)): Expected work load array\n
+      !!      if0(integer(:)): Initial index for range\n
+      !!      if1(integer(:)): Final index for range\n
       !!       nf(integer(:)): Number of frequencies for each range
       subroutine weighted_split(lnproc,maxcoun,IW_freq,if0,if1,nf)
 
@@ -840,13 +1023,27 @@
 
       ! Local
 
-      logical:: change
+      logical:: change,check,good
 
       integer:: coun,ifbl,ifblb,ii,MTW,LW,TW,Mwg1,TWb,Mwg2,mMwg
-      integer:: TTW,TTWb,TWM
+      integer:: TTW,TTWb,TWM,max_W,MM,LL
 
+
+      ! Solve the painters problem
+      call painters(lnproc,IW_freq,if0,if1,nf,max_W)
+
+      ! Check maximum is correct
+      MM = 0
+      do ii=1,lnproc
+        LL = sum(IW_freq(if0(ii):if1(ii)))
+        if (LL.gt.MM) MM = LL
+      end do
+
+      ! Check maximum satisfies the problem
+      check = MM.le.max_W
 
       ! Set logical variable
+      good = .True.
       change = .True.
       coun = 0
 
@@ -949,28 +1146,81 @@
                   if (TWb.lt.TWM.and. &
                       TTWb.le.TTW+abs(TWb-TWM)) then
 
-                    ! Remove one point from the first range
-                    if1(ifbl) = if1(ifbl)-1
-                    nf(ifbl) = nf(ifbl)-1
+                    ! If checking goodness
+                    if (check) then
 
-                    ! Shift all intermediate ranges
-                    do ii=ifbl+1,ifblb-1
-                      if0(ii) = if0(ii)-1
-                      if1(ii) = if1(ii)-1
-                    end do
+                      ! Initialize
+                      good = .True.
 
-                    ! Add one point to the second range
-                    if0(ifblb) = if0(ifblb)-1
-                    nf(ifblb) = nf(ifblb)+1
+                      ! For each CPU
+                      do ii=1,lnproc
 
-                    ! Update sum and maximum
-                    TW = sum(IW_freq(if0(ifbl): &
-                                     if1(ifbl)))
-                    Mwg1 = maxval(IW_freq(if0(ifbl): &
-                                          if1(ifbl)))
+                        ! Outside
+                        if (ii.lt.ifbl.or.ii.gt.ifblb) then
 
-                    ! Flag there was a change
-                    change = .True.
+                          ! Sum
+                          LL = sum(IW_freq(if0(ii):if1(ii)))
+
+                        ! In between
+                        else if (ii.gt.ifbl.and.ii.lt.ifblb) then
+
+                          ! Sum
+                          LL = sum(IW_freq(if0(ii)-1:if1(ii)-1))
+
+                        ! If the first
+                        else if (ii.eq.ifbl) then
+
+                          ! Sum
+                          LL = sum(IW_freq(if0(ii):if1(ii)-1))
+
+                        ! If the second
+                        else if (ii.eq.ifblb) then
+
+                          ! Sum
+                          LL = sum(IW_freq(if0(ii)-1:if1(ii)))
+
+                        end if
+
+                        ! Check no weight is larger than optimal
+                        if (LL.gt.max_W) then
+
+                          ! Not good!
+                          good = .False.
+                          exit
+
+                        end if ! Sum below optimal
+
+                      end do ! CPUs
+
+                    end if ! Checking goodness
+
+                    ! If change was good
+                    if (good) then
+
+                      ! Remove one point from the first range
+                      if1(ifbl) = if1(ifbl)-1
+                      nf(ifbl) = nf(ifbl)-1
+
+                      ! Shift all intermediate ranges
+                      do ii=ifbl+1,ifblb-1
+                        if0(ii) = if0(ii)-1
+                        if1(ii) = if1(ii)-1
+                      end do
+
+                      ! Add one point to the second range
+                      if0(ifblb) = if0(ifblb)-1
+                      nf(ifblb) = nf(ifblb)+1
+
+                      ! Update sum and maximum
+                      TW = sum(IW_freq(if0(ifbl): &
+                                       if1(ifbl)))
+                      Mwg1 = maxval(IW_freq(if0(ifbl): &
+                                            if1(ifbl)))
+
+                      ! Flag there was a change
+                      change = .True.
+
+                    end if
 
                   end if ! It is worth to interchange nodes
                 end if ! First range can give node
@@ -1021,26 +1271,79 @@
                   if (TWb.lt.TWM.and. &
                       TTWb.le.TTW+abs(TWb-TWM)) then
 
-                    ! Add one point to the first range
-                    if1(ifbl) = if1(ifbl)+1
-                    nf(ifbl) = nf(ifbl)+1
+                    ! If checking goodness
+                    if (check) then
 
-                    ! Shift all intermediate ranges
-                    do ii=ifbl+1,ifblb-1
-                      if0(ii) = if0(ii)+1
-                      if1(ii) = if1(ii)+1
-                    end do
+                      ! Initialize
+                      good = .True.
 
-                    ! Remove one point from the second range
-                    if0(ifblb) = if0(ifblb)+1
-                    nf(ifblb) = nf(ifblb)-1
-                    TW = sum(IW_freq(if0(ifbl):if1(ifbl)))
-                    Mwg1 = maxval(IW_freq(if0(ifbl): &
-                                          if1(ifbl)))
+                      ! For each CPU
+                      do ii=1,lnproc
 
-                    ! Flag there was a change
-                    change = .True.
+                        ! Outside
+                        if (ii.lt.ifbl.or.ii.gt.ifblb) then
 
+                          ! Sum
+                          LL = sum(IW_freq(if0(ii):if1(ii)))
+
+                        ! In between
+                        else if (ii.gt.ifbl.and.ii.lt.ifblb) then
+
+                          ! Sum
+                          LL = sum(IW_freq(if0(ii)+1:if1(ii)+1))
+
+                        ! If the first
+                        else if (ii.eq.ifbl) then
+
+                          ! Sum
+                          LL = sum(IW_freq(if0(ii):if1(ii)+1))
+
+                        ! If the second
+                        else if (ii.eq.ifblb) then
+
+                          ! Sum
+                          LL = sum(IW_freq(if0(ii)+1:if1(ii)))
+
+                        end if
+
+                        ! Check no weight is larger than optimal
+                        if (LL.gt.max_W) then
+
+                          ! Not good!
+                          good = .False.
+                          exit
+
+                        end if ! Sum below optimal
+
+                      end do ! CPUs
+
+                    end if ! Checking goodness
+
+                    ! If change was good
+                    if (good) then
+
+                      ! Add one point to the first range
+                      if1(ifbl) = if1(ifbl)+1
+                      nf(ifbl) = nf(ifbl)+1
+
+                      ! Shift all intermediate ranges
+                      do ii=ifbl+1,ifblb-1
+                        if0(ii) = if0(ii)+1
+                        if1(ii) = if1(ii)+1
+                      end do
+
+                      ! Remove one point from the second range
+                      if0(ifblb) = if0(ifblb)+1
+                      nf(ifblb) = nf(ifblb)-1
+
+                      TW = sum(IW_freq(if0(ifbl):if1(ifbl)))
+                      Mwg1 = maxval(IW_freq(if0(ifbl): &
+                                            if1(ifbl)))
+
+                      ! Flag there was a change
+                      change = .True.
+
+                    end if ! Good change
                   end if ! It is worth to interchange nodes
                 end if ! Second range can give node
               end if ! What range has larger weight

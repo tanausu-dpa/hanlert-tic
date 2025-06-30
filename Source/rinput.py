@@ -6,18 +6,7 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an (IAC)
 # Hao Li (IAC/NSSCC)
 #
-# 10/06/2025:  V4.0.7 - The field LTE_LINE can interpret the format
-#                       used in the SIR line files (TdPA)
-#                     - Added an option for LTE_LINE (only in native
-#                       format) for the line to not add frequencies
-#                       to the axis (TdPA)
-#                     - The tau limit is now expected in decimal
-#                       logarithm (TdPA)
-#                     - Added a warning for when a WAVELENGTHS file
-#                       is rejected (TdPA)
-#                     - Bugfix: The 'Barklem' mode in LTE_LINE in
-#                       native format was not writing the "alpha"
-#                       parameter (TdPA)
+# 30/06/2025:  V4.0.9 - Added CLV (TdPA)
 #
 #####################
 
@@ -1856,6 +1845,19 @@ def rInput():
         check = 1
       if val == 'N' or val == 'NO' or val == 'NON':
         f.write('N\n')
+        check = 1
+    if check == 0:
+      f.write('N\n')
+  else:
+    f.write('N\n')
+
+  # CLV
+  if rmode == 2:
+    check = 0
+    if 'CLV' in Dictionary:
+      val = Dictionary['CLV'][0]
+      if val in 'ALLEN':
+        f.write('A\n')
         check = 1
     if check == 0:
       f.write('N\n')
@@ -3846,7 +3848,7 @@ def rInput():
       val = Dictionary['ITERI_MAX'][0]
       if val.isdigit():
         f.write('{0:7d}\n'.format(int(val)))
-        itimax = val
+        itimax = int(val)
         check = 1
     if check == 0:
       f.write('{0:7d}\n'.format(itmax))

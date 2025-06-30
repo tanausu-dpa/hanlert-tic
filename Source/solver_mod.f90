@@ -2285,7 +2285,7 @@
         do while (.True.)
           call MPI_SEND(Stokes_s(0,if0,Rz0,1,1), &
                         MPID%size4(pid), &
-                        MPI_DOUBLE_PRECISION, 0, pid, &
+                        MPI_DOUBLE_PRECISION,0,pid, &
                         MPI_COMM_RT, ierr)
           if (ierr.eq.0) exit
         end do
@@ -2377,8 +2377,7 @@
 
           ! Send error
           do while (.True.)
-            call MPI_SEND(-pid,1,MPI_INTEGER,0,0,MPI_COMM_RT, &
-                          ierr)
+            call MPI_SEND(-pid,1,MPI_INTEGER,0,0,MPI_COMM_RT,ierr)
             if (ierr.eq.0) exit
           end do
 

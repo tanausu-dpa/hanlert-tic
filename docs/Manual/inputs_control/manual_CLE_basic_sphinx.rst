@@ -163,6 +163,17 @@ USE_ALLEN
 
   * Description: Use Allen's tabulation to determine the intensity of the star.
 
+CLV
+---
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string: None/Allen
+
+  * Description: Uses Allen's tabulation to determine the intensity CLV or neglect CLV. This is only used if there is no SPECT_INPUT data for a needed frequency.
+
 FLAT_CLE_IN
 -----------
 

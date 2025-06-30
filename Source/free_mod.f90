@@ -9,18 +9,15 @@
 !  Start:
 !     28/06/2022
 !  Last version:
-!     15/05/2025 V4.0.2
+!     26/06/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.2 - Generalized declarations of Atom, Atomb,
-!                             Mol, and Rho_old to allow for empty
-!                             arrays for any of them (TdPA)
-!                           - Added logic to consider that the atoms
-!                             array could not be allocated (TdPA)
+!     26/06/2025:    V4.0.3 - Updated due to changes in the Red_class
+!                             and Redb_class structures (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -3142,20 +3139,6 @@
         do indx=1,Red%nzao
 
           ! Free arrays
-          if (allocated(Red%zao(indx)%nf)) &
-            deallocate(Red%zao(indx)%nf)
-          if (allocated(Red%zao(indx)%Mif0)) &
-            deallocate(Red%zao(indx)%Mif0)
-          if (allocated(Red%zao(indx)%Mif1)) &
-            deallocate(Red%zao(indx)%Mif1)
-          if (allocated(Red%zao(indx)%Rif0)) &
-            deallocate(Red%zao(indx)%Rif0)
-          if (allocated(Red%zao(indx)%Rif1)) &
-            deallocate(Red%zao(indx)%Rif1)
-          if (allocated(Red%zao(indx)%if0)) &
-            deallocate(Red%zao(indx)%if0)
-          if (allocated(Red%zao(indx)%if1)) &
-            deallocate(Red%zao(indx)%if1)
           if (allocated(Red%zao(indx)%eps20)) &
             deallocate(Red%zao(indx)%eps20)
           if (allocated(Red%zao(indx)%eps21)) &
@@ -3194,6 +3177,33 @@
         ! Free zao
         deallocate(Red%zao)
         nullify(Red%zao)
+
+      end if
+
+      !
+      ! If thete is data
+      if (associated(Red%ao)) then
+
+        ! Run over indexes
+        do indx=1,Red%nao
+
+          ! Free arrays
+          if (allocated(Red%ao(indx)%nn)) &
+            deallocate(Red%ao(indx)%nn)
+          if (allocated(Red%ao(indx)%Mi0)) &
+            deallocate(Red%ao(indx)%Mi0)
+          if (allocated(Red%ao(indx)%Mi1)) &
+            deallocate(Red%ao(indx)%Mi1)
+          if (allocated(Red%ao(indx)%if0)) &
+            deallocate(Red%ao(indx)%if0)
+          if (allocated(Red%ao(indx)%if1)) &
+            deallocate(Red%ao(indx)%if1)
+
+        end do ! Indexes
+
+        ! Free zao
+        deallocate(Red%ao)
+        nullify(Red%ao)
 
       end if
 

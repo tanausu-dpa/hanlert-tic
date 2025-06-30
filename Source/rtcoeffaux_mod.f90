@@ -12,17 +12,22 @@
 !  Start:
 !     27/04/2017
 !  Last version:
-!     21/04/2025 V4.0.1
+!     30/06/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     21/04/2025:    V4.0.1 - In rare cases the Norme2 variable could
-!                             be zero in the input frequency integrals
-!                             so now we ensure we are not dividing by
-!                             zero (TdPA)
+!     30/06/2025:    V4.0.3 - Bugfix: The coherent scattering for the
+!                             magnetic case angle-averaged was
+!                             pointing to the wrong radiative transfer
+!                             tensors (TdPA)
+!                           - Bugfix: Wrong index for the Stokes
+!                             parameters in the magnetic case angle-
+!                             dependent. This bug was introduced in
+!                             V4.0.2 (previous week) and thus has not
+!                             affected anything (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1003,6 +1008,8 @@
       !!               vz(double): Velocity vector along Z\n
       !!            lvel(logical): If dynamic node\n
       !!         omega(double(:)): Frequency array\n
+      !!          Fed(Reda_class): Structure with redistribution
+      !!                           output frequency data\n
       !!          Red(Redb_class): Structure with redistribution input
       !!                           frequency data\n
       !!       RWarr(Redb2_class): Structure with redistribution
@@ -1019,6 +1026,8 @@
       !!                           transition\n
       !!             if1(integer): Last frequency index for this
       !!                           transition\n
+      !!            Mif0(integer): First frequency for this CPU\n
+      !!            Mif1(integer): Last frequency for this CPU\n
       !!              DwT(double): Thermal part of Doppler width\n
       !!               Dw(double): Doppler width of the output
       !!                           transition\n
@@ -1035,9 +1044,9 @@
       !!         eps21(double(:)): Q emissivity\n
       !!         eps22(double(:)): U emissivity\n
       !!         eps23(double(:)): V emissivity
-      subroutine emiss2ordNB(Atom,Geom,vx,vy,vz,lvel,omega,Red, &
+      subroutine emiss2ordNB(Atom,Geom,vx,vy,vz,lvel,omega,Fed,Red, &
                              RWarr,Norma,Flgsg,jtran,itermu,itermf, &
-                             iz,if0,if1,DwT,Dw,vmi,TSout, &
+                             iz,if0,if1,Mif0,Mif1,DwT,Dw,vmi,TSout, &
                              Stokes,JKQa,JKQ,JKQC, &
                              eps20,eps21,eps22,eps23)
 
@@ -1045,12 +1054,13 @@
 
       type(Atom_class), intent(in):: Atom
       type(Geometry_class), intent(in):: Geom
+      type(Reda_class), intent(in):: Fed
       type(Redb_class), intent(in):: Red
       type(Redb2_class), intent(inout):: RWarr
       type(Prof_class), intent(in):: Norma
       type(Fctsg_class), intent(in):: Flgsg
       logical, intent(in):: lvel
-      integer, intent(in):: jtran,itermu,itermf,iz,if0,if1
+      integer, intent(in):: jtran,itermu,itermf,iz,if0,if1,Mif0,Mif1
       double precision, intent(in):: DwT,Dw,vmi,vx,vy,vz
       double precision, dimension(:), intent(in):: omega
       double precision, dimension(0:3,nfreq,Geom%nPh,Geom%nTh), &
@@ -1072,7 +1082,7 @@
       integer:: mF,iU,iU1,iL,iL1,iifreq,iran,ifreq,iR,ishift
       integer:: K,iQ,K1,iQ1,iQl,Kmin,Kmax,Kl,kwfreq0,llfreq0
       integer:: jjfreq,jjfreq0,kkfreq0,kkfreq0b,nmfreq
-      integer:: indF,indU,indU1,indL,indL1,indK,nfs
+      integer:: indF,indU,indU1,indL,indL1,indK,nfs,i0,i1
 
       double precision:: rLu,rLl,rLf,S,rJu,rJu1,rJl,rJl1,rJf
       double precision:: rK,Q,rK1,Q1,Ql,rKl,wlf
@@ -1085,11 +1095,11 @@
       double precision, dimension(:,:), allocatable:: Stokesin
 
       complex(kind=8):: hanleden,prof,rhoc,intgr,Norme2,y0,PRDin
-      complex(kind=8), dimension(if0:if1):: CRD0,CRD
-      complex(kind=8), dimension(Geom%njdir,if0:if1):: tmp0
-      complex(kind=8), dimension(Geom%njdir,if0:if1):: tmp1
-      complex(kind=8), dimension(Geom%njdir,if0:if1):: tmp2
-      complex(kind=8), dimension(Geom%njdir,if0:if1):: tmp3
+      complex(kind=8), dimension(if0:if1):: CRD0,CRD,PRDaux
+      complex(kind=8), dimension(if0:if1,Geom%njdir):: tmp0
+      complex(kind=8), dimension(if0:if1,Geom%njdir):: tmp1
+      complex(kind=8), dimension(if0:if1,Geom%njdir):: tmp2
+      complex(kind=8), dimension(if0:if1,Geom%njdir):: tmp3
       complex(kind=8), dimension(-2:2,0:2):: Jrad
       complex(kind=8), dimension(:), allocatable, target:: Warr2
       complex(kind=8), dimension(:), allocatable:: Warr2xW
@@ -1140,13 +1150,13 @@
       if (AV) then
 
         ! Only one direction
-        allocate(PRD(1,if0:if1))
+        allocate(PRD(if0:if1,1))
 
       ! Angle-dependent
       else
 
         ! Allocate all output directions
-        allocate(PRD(Geom%njdir,if0:if1))
+        allocate(PRD(if0:if1,Geom%njdir))
 
       end if ! AA or AD
 
@@ -1235,14 +1245,15 @@
           if (lvel) then
 
             ! Get input radiation field
-            call getJKQin(p_red,Red,nmfreq,omega,JradC,JKQinMV)
+            call getJKQin(p_red,Fed,Red,Mif0,Mif1,nmfreq,omega, &
+                          JradC,JKQinMV)
 
           ! If static
           else
 
             ! Get input radiation field
-            call getJKQin(p_red,Red,nmfreq,omega,JradC, &
-                          JKQC(:,:,Red%ggf0:Red%ggf1))
+            call getJKQin(p_red,Fed,Red,Mif0,Mif1,nmfreq,omega, &
+                          JradC,JKQC(:,:,Red%ggf0:Red%ggf1))
 
           end if ! Dynamic
 
@@ -1266,8 +1277,8 @@
           end if ! Rayleigh/Raman scattering
 
           ! Get interpolated intensity
-          call getStkin(Geom,p_red,Red,omega,vx,vy,vz,lvel, &
-                        Stokesin,Stokes)
+          call getStkin(Geom,p_red,Fed,Red,Mif0,Mif1,omega, &
+                        vx,vy,vz,lvel,Stokesin,Stokes)
 
         end if ! AA/AD
 
@@ -1499,7 +1510,7 @@
         if (PRDc.and.nmfreq.gt.0) then
 
           ! Calculate redistribution function Warr2
-          call get_Warr(Atom,Geom,Red,p_red,p_rwarr,LPRAM, &
+          call get_Warr(Atom,Geom,Fed,p_red,p_rwarr,LPRAM,Mif0,Mif1, &
                         itran,jtran,icom,kwfreq0,nmfreq,omega, &
                         Dw,Dw1,el,el1,eu,eu1,ef, &
                         al,au,af,aul,auf,Warr2)
@@ -1603,15 +1614,15 @@
 
         ! For each output frequency
         iifreq = 0
-        do iran=1,Red%nran
-          do ifreq=Red%if0(iran),Red%if1(iran)
+        do iran=1,Fed%nran
+          do ifreq=Fed%if0(iran),Fed%if1(iran)
 
             ! Advance index
             iifreq = iifreq + 1
 
             ! Manage MPI
-            if (iifreq.lt.Red%Mif0(pid)) cycle
-            if (iifreq.gt.Red%Mif1(pid)) exit
+            if (iifreq.lt.Mif0) cycle
+            if (iifreq.gt.Mif1) exit
 
             ! Point to dimension
             p_mfreq => p_red%mfreq(iifreq)
@@ -1707,7 +1718,7 @@
 
             ! Substract the flat spectrum part due to just
             ! radiative excitation
-            PRD(1,ifreq) = PRDin - Jrad(iQ,K)
+            PRD(ifreq,1) = PRDin - Jrad(iQ,K)
 
           end do ! Output frequencies
         end do ! Output frequencies ranges
@@ -1734,15 +1745,15 @@
 
           ! For each output frequency
           iifreq = 0
-          do iran=1,Red%nran
-            do ifreq=Red%if0(iran),Red%if1(iran)
+          do iran=1,Fed%nran
+            do ifreq=Fed%if0(iran),Fed%if1(iran)
 
               ! Advance index
               iifreq = iifreq + 1
 
               ! Manage MPI
-              if (iifreq.lt.Red%Mif0(pid)) cycle
-              if (iifreq.gt.Red%Mif1(pid)) exit
+              if (iifreq.lt.Mif0) cycle
+              if (iifreq.gt.Mif1) exit
 
               ! Initialize
               PRDin = cZero
@@ -1879,13 +1890,13 @@
 
                       ! Sum Stokes
                       intergrin(1:p_mfreq) = &
-                              Stokesin(0,jjfreq0+1:jjfreq0+p_mfreq)* &
+                              Stokesin(jjfreq0+1:jjfreq0+p_mfreq,0)* &
                               Geom%TS(0,iQ,K,idir) + &
-                              Stokesin(1,jjfreq0+1:jjfreq0+p_mfreq)* &
+                              Stokesin(jjfreq0+1:jjfreq0+p_mfreq,1)* &
                               Geom%TS(1,iQ,K,idir) + &
-                              Stokesin(2,jjfreq0+1:jjfreq0+p_mfreq)* &
+                              Stokesin(jjfreq0+1:jjfreq0+p_mfreq,2)* &
                               Geom%TS(2,iQ,K,idir) + &
-                              Stokesin(3,jjfreq0+1:jjfreq0+p_mfreq)* &
+                              Stokesin(jjfreq0+1:jjfreq0+p_mfreq,3)* &
                               Geom%TS(3,iQ,K,idir)
 
                       ! Normalize to the first order profile
@@ -1917,7 +1928,7 @@
 
               ! Subtract the flat spectrum part due to just
               ! radiative excitation
-              PRD(jdir,ifreq) = PRDin - Jrad(iQ,K)
+              PRD(ifreq,jdir) = PRDin - Jrad(iQ,K)
 
             end do ! output frequencies
           end do ! output frequencies ranges
@@ -2003,34 +2014,48 @@
 
             ! For each output frequency
             iifreq = 0
-            do iran=1,Red%nran
-              do ifreq=Red%if0(iran),Red%if1(iran)
+            do iran=1,Fed%nran
 
-                ! Advance index
-                iifreq = iifreq + 1
+              ! Limits in range
+              i0 = iifreq + 1
+              i1 = i0 + Fed%if1(iran) - Fed%if0(iran)
 
-                ! Manage MPI
-                if (iifreq.lt.Red%Mif0(pid)) cycle
-                if (iifreq.gt.Red%Mif1(pid)) exit
+              ! Update iifreq
+              iifreq = i1
 
-                ! Auxiliar (complete normalization)
-                PRDin = PRD(1,ifreq)*CRD(ifreq)*rhoc
+              ! Check MPI
+              if (i1.lt.Mif0) cycle
+              if (i0.gt.Mif1) exit
 
-                ! Output directions
-                do jdir=1,Geom%njdir
+              ! Get limits
+              if (Mif0.gt.i0) then
+                i0 = Fed%if0(iran) + Mif0 - i0
+              else
+                i0 = Fed%if0(iran)
+              end if
+              if (Mif1.lt.i1) then
+                i1 = Fed%if1(iran) + Mif1 - i1
+              else
+                i1 = Fed%if1(iran)
+              end if
 
-                  ! Add to tmp
-                  tmp0(jdir,ifreq) = tmp0(jdir,ifreq) + &
-                                     TSout(0,iQ1,K1,jdir)*PRDin
-                  tmp1(jdir,ifreq) = tmp1(jdir,ifreq) + &
-                                     TSout(1,iQ1,K1,jdir)*PRDin
-                  tmp2(jdir,ifreq) = tmp2(jdir,ifreq) + &
-                                     TSout(2,iQ1,K1,jdir)*PRDin
-                  tmp3(jdir,ifreq) = tmp3(jdir,ifreq) + &
-                                     TSout(3,iQ1,K1,jdir)*PRDin
+              ! Auxiliar (complete normalization)
+              PRDaux(i0:i1) = PRD(i0:i1,1)*CRD(i0:i1)*rhoc
 
-                end do ! Output directions
-              end do ! Output frequencies
+              ! Output directions
+              do jdir=1,Geom%njdir
+
+                ! Add to tmp
+                tmp0(i0:i1,jdir) = tmp0(i0:i1,jdir) + &
+                                   TSout(0,iQ1,K1,jdir)*PRDaux(i0:i1)
+                tmp1(i0:i1,jdir) = tmp1(i0:i1,jdir) + &
+                                   TSout(1,iQ1,K1,jdir)*PRDaux(i0:i1)
+                tmp2(i0:i1,jdir) = tmp2(i0:i1,jdir) + &
+                                   TSout(2,iQ1,K1,jdir)*PRDaux(i0:i1)
+                tmp3(i0:i1,jdir) = tmp3(i0:i1,jdir) + &
+                                   TSout(3,iQ1,K1,jdir)*PRDaux(i0:i1)
+
+              end do ! Output directions
             end do ! Output frequency ranges
 
           !
@@ -2040,34 +2065,48 @@
 
             ! For each output frequency
             iifreq = 0
-            do iran=1,Red%nran
-              do ifreq=Red%if0(iran),Red%if1(iran)
+            do iran=1,Fed%nran
 
-                ! Advance index
-                iifreq = iifreq + 1
+              ! Limits in range
+              i0 = iifreq + 1
+              i1 = i0 + Fed%if1(iran) - Fed%if0(iran)
 
-                ! Manage MPI
-                if (iifreq.lt.Red%Mif0(pid)) cycle
-                if (iifreq.gt.Red%Mif1(pid)) exit
+              ! Update iifreq
+              iifreq = i1
 
-                ! Output directions
-                do jdir=1,Geom%njdir
+              ! Check MPI
+              if (i1.lt.Mif0) cycle
+              if (i0.gt.Mif1) exit
 
-                  ! Auxiliar (complete normalization)
-                  PRDin = PRD(jdir,ifreq)*CRD(ifreq)*rhoc
+              ! Get limits
+              if (Mif0.gt.i0) then
+                i0 = Fed%if0(iran) + Mif0 - i0
+              else
+                i0 = Fed%if0(iran)
+              end if
+              if (Mif1.lt.i1) then
+                i1 = Fed%if1(iran) + Mif1 - i1
+              else
+                i1 = Fed%if1(iran)
+              end if
 
-                  ! Add to tmp
-                  tmp0(jdir,ifreq) = tmp0(jdir,ifreq) + &
-                                     TSout(0,iQ1,K1,jdir)*PRDin
-                  tmp1(jdir,ifreq) = tmp1(jdir,ifreq) + &
-                                     TSout(1,iQ1,K1,jdir)*PRDin
-                  tmp2(jdir,ifreq) = tmp2(jdir,ifreq) + &
-                                     TSout(2,iQ1,K1,jdir)*PRDin
-                  tmp3(jdir,ifreq) = tmp3(jdir,ifreq) + &
-                                     TSout(3,iQ1,K1,jdir)*PRDin
+              ! Output directions
+              do jdir=1,Geom%njdir
 
-                end do ! Output directions
-              end do ! Output frequencies
+                ! Auxiliar (complete normalization)
+                PRDaux(i0:i1) = PRD(i0:i1,jdir)*CRD(i0:i1)*rhoc
+
+                ! Add to tmp
+                tmp0(i0:i1,jdir) = tmp0(i0:i1,jdir) + &
+                                   TSout(0,iQ1,K1,jdir)*PRDaux(i0:i1)
+                tmp1(i0:i1,jdir) = tmp1(i0:i1,jdir) + &
+                                   TSout(1,iQ1,K1,jdir)*PRDaux(i0:i1)
+                tmp2(i0:i1,jdir) = tmp2(i0:i1,jdir) + &
+                                   TSout(2,iQ1,K1,jdir)*PRDaux(i0:i1)
+                tmp3(i0:i1,jdir) = tmp3(i0:i1,jdir) + &
+                                   TSout(3,iQ1,K1,jdir)*PRDaux(i0:i1)
+
+              end do ! Output directions
             end do ! Output frequency ranges
 
           end if ! AA/AD (tmp)
@@ -2087,10 +2126,10 @@
 
         ! Apply hanle factor and Einstein coefficient
         daux = (2d0*rLl+1d0)*Atom%Ecoeff(iterml,itermu)
-        eps20 = eps20 + dble(tmp0/hanleden)*daux
-        eps21 = eps21 + dble(tmp1/hanleden)*daux
-        eps22 = eps22 + dble(tmp2/hanleden)*daux
-        eps23 = eps23 + dble(tmp3/hanleden)*daux
+        eps20 = eps20 + dble(transpose(tmp0)/hanleden)*daux
+        eps21 = eps21 + dble(transpose(tmp1)/hanleden)*daux
+        eps22 = eps22 + dble(transpose(tmp2)/hanleden)*daux
+        eps23 = eps23 + dble(transpose(tmp3)/hanleden)*daux
 
                   !
                   ! Recover indentation
@@ -2116,6 +2155,8 @@
       if (associated(p_rwarr)) nullify(p_rwarr)
       if (associated(p_mfreq)) nullify(p_mfreq)
       if (associated(p_warr2)) nullify(p_warr2)
+      if (associated(p_JKQ)) nullify(p_JKQ)
+      if (associated(p_JKQC)) nullify(p_JKQC)
 
       return
 
@@ -3143,6 +3184,8 @@
       !!               vz(double): Velocity vector along Z\n
       !!            lvel(logical): If dynamic node\n
       !!         omega(double(:)): Frequency array\n
+      !!          Fed(Reda_class): Structure with redistribution
+      !!                           output frequency data\n
       !!          Red(Redb_class): Structure with redistribution input
       !!                           frequency data\n
       !!       RWarr(Redb2_class): Structure with redistribution
@@ -3159,6 +3202,8 @@
       !!                           transition\n
       !!             if1(integer): Last frequency index for this
       !!                           transition\n
+      !!            Mif0(integer): First frequency for this CPU\n
+      !!            Mif1(integer): Last frequency for this CPU\n
       !!              DwT(double): Thermal part of Doppler width\n
       !!               Dw(double): Doppler width of the output
       !!                           transition\n
@@ -3177,10 +3222,10 @@
       !!         eps21(double(:)): Q emissivity\n
       !!         eps22(double(:)): U emissivity\n
       !!         eps23(double(:)): V emissivity
-      subroutine emiss2ord(Atom,Geom,vx,vy,vz,lvel,omega,Red,RWarr, &
-                           Norma,Flgsg,jtran,itermu,itermf,iz, &
-                           if0,if1,DwT,Dw,Bfield,vmi,TBout, &
-                           Stokes,JKQa,JKQ,JKQC, &
+      subroutine emiss2ord(Atom,Geom,vx,vy,vz,lvel,omega,Fed,Red, &
+                           RWarr,Norma,Flgsg,jtran,itermu,itermf,iz, &
+                           if0,if1,Mif0,Mif1,DwT,Dw,Bfield,vmi, &
+                           TBout,Stokes,JKQa,JKQ,JKQC, &
                            eps20,eps21,eps22,eps23)
 
       ! I/O
@@ -3188,12 +3233,13 @@
       type(Atom_class), intent(in):: Atom
       type(Geometry_class), intent(in):: Geom
       type(Bfield_class), intent(in):: Bfield
+      type(Reda_class), intent(in):: Fed
       type(Redb_class), intent(in):: Red
       type(Redb2_class), intent(inout):: RWarr
       type(Prof_class), intent(in):: Norma
       type(Fctsg_class), intent(in):: Flgsg
       logical, intent(in):: lvel
-      integer, intent(in):: jtran,itermu,itermf,iz,if0,if1
+      integer, intent(in):: jtran,itermu,itermf,iz,if0,if1,Mif0,Mif1
       double precision, intent(in):: DwT,Dw,vmi,vx,vy,vz
       double precision, dimension(:), intent(in):: omega
       double precision, dimension(0:3,nfreq,Geom%nPh,Geom%nTh), &
@@ -3216,7 +3262,7 @@
       integer:: nMl,nMu,nMf,iMl,iMl1,iMu,iMu1,iMf
       integer:: indF,indU,indU1,indL,indL1,indK,icom
       integer:: jjfreq0,jjfreq,kkfreq0,kkfreq0b,kkfreq,kwfreq0
-      integer:: llfreq0,nmfreq,iL,iL1,iU,iU1,mF
+      integer:: llfreq0,nmfreq,iL,iL1,iU,iU1,mF,i0,i1
 
       double precision:: omegai,rLl,rLu,rLf,S,rJlmax,rJumax,rJfmax
       double precision:: rMl,rMl1,rMu,rMu1,rMf
@@ -3404,7 +3450,8 @@
         if (AV) then
 
           ! Get input radiation field
-          call getJKQin(p_red,Red,nmfreq,omega,JradC,JKQinMV)
+          call getJKQin(p_red,Fed,Red,Mif0,Mif1,nmfreq,omega, &
+                        JradC,JKQinMV)
 
         ! If angle-dendent
         else
@@ -3426,8 +3473,8 @@
           end if ! Rayleigh/Raman scattering
 
           ! Get interpolated intensity
-          call getStkin(Geom,p_red,Red,omega,vx,vy,vz,lvel, &
-                        Stokesin,Stokes)
+          call getStkin(Geom,p_red,Fed,Red,Mif0,Mif1,omega, &
+                        vx,vy,vz,lvel,Stokesin,Stokes)
 
         end if ! AA or AD
 
@@ -3690,7 +3737,7 @@
         if (PRDc.and.nmfreq.gt.0) then
 
           ! Calculate redistribution function Warr2
-          call get_Warr(Atom,Geom,Red,p_red,p_rwarr,LPRAM, &
+          call get_Warr(Atom,Geom,Fed,p_red,p_rwarr,LPRAM,Mif0,Mif1, &
                         itran,jtran,icom,kwfreq0,nmfreq,omega, &
                         Dw,Dw1,el,el1,eu,eu1,ef, &
                         al,au,af,aul,auf,Warr2)
@@ -3766,9 +3813,9 @@
 
               ! Just point
               if (conj) then
-                p_JKQC(Red%ggf0:Red%ggf1) => JKQinMV(-iPP,K,:)
+                p_JKQC(Red%ggf0:Red%ggf1) => JKQinMV(-iPP,K1,:)
               else
-                p_JKQC(Red%ggf0:Red%ggf1) => JKQinMV(iPP,K,:)
+                p_JKQC(Red%ggf0:Red%ggf1) => JKQinMV(iPP,K1,:)
               end if
 
             end if ! Coherent
@@ -3779,15 +3826,15 @@
 
             ! For each output frequency
             iifreq = 0
-            do iran=1,Red%nran
-              do ifreq=Red%if0(iran),Red%if1(iran)
+            do iran=1,Fed%nran
+              do ifreq=Fed%if0(iran),Fed%if1(iran)
 
                 ! Advance index
                 iifreq = iifreq + 1
 
                 ! Manage MPI
-                if (iifreq.lt.Red%Mif0(pid)) cycle
-                if (iifreq.gt.Red%Mif1(pid)) exit
+                if (iifreq.lt.Mif0) cycle
+                if (iifreq.gt.Mif1) exit
 
                 ! Point to dimension
                 p_mfreq => p_red%mfreq(iifreq)
@@ -3868,8 +3915,8 @@
 
                     end if
 
-                    ! Normalize to the first order profile (the product
-                    ! with CRD happens later)
+                    ! Normalize to the first order profile (the
+                    ! product with CRD happens later)
                     PRD = PRD/Norme2
 
                   end if ! Valid norm
@@ -3891,24 +3938,27 @@
                 ! Scale with CRD to finish normalization
                 PRD = PRD*CRD(ifreq)
 
-                ! Initialize index
-                do jdir=1,Geom%njdir
+                ! For each K
+                do K=abs(iQQ),2
 
-                  ! For each K
-                  do K=abs(iQQ),2
+                  ! Recycle prof as scaled PRD
+                  prof = PRD*tmpK(K)
+
+                  ! Initialize index
+                  do jdir=1,Geom%njdir
 
                     ! Add TKQ to the PRD contribution and accumulate
-                    tmp0(jdir,ifreq) = tmpK(K)*TBout(0,-iQQ,K,jdir)* &
-                                       PRD + tmp0(jdir,ifreq)
-                    tmp1(jdir,ifreq) = tmpK(K)*TBout(1,-iQQ,K,jdir)* &
-                                       PRD + tmp1(jdir,ifreq)
-                    tmp2(jdir,ifreq) = tmpK(K)*TBout(2,-iQQ,K,jdir)* &
-                                       PRD + tmp2(jdir,ifreq)
-                    tmp3(jdir,ifreq) = tmpK(K)*TBout(3,-iQQ,K,jdir)* &
-                                       PRD + tmp3(jdir,ifreq)
+                    tmp0(jdir,ifreq) = prof*TBout(0,-iQQ,K,jdir) + &
+                                       tmp0(jdir,ifreq)
+                    tmp1(jdir,ifreq) = prof*TBout(1,-iQQ,K,jdir) + &
+                                       tmp1(jdir,ifreq)
+                    tmp2(jdir,ifreq) = prof*TBout(2,-iQQ,K,jdir) + &
+                                       tmp2(jdir,ifreq)
+                    tmp3(jdir,ifreq) = prof*TBout(3,-iQQ,K,jdir) + &
+                                       tmp3(jdir,ifreq)
 
-                  end do ! K
-                end do ! Output directions
+                  end do ! Output directions
+                end do ! K
               end do ! Output frequencies
             end do ! Output frequencies ranges
 
@@ -3934,15 +3984,15 @@
 
               ! For each output frequency
               iifreq = 0
-              do iran=1,Red%nran
-                do ifreq=Red%if0(iran),Red%if1(iran)
+              do iran=1,Fed%nran
+                do ifreq=Fed%if0(iran),Fed%if1(iran)
 
                   ! Advance index
                   iifreq = iifreq + 1
 
                   ! Manage MPI
-                  if (iifreq.lt.Red%Mif0(pid)) cycle
-                  if (iifreq.gt.Red%Mif1(pid)) exit
+                  if (iifreq.lt.Mif0) cycle
+                  if (iifreq.gt.Mif1) exit
 
                   ! Initialize
                   PRD = cZero
@@ -4078,13 +4128,13 @@
 
                           ! Sum Stokes
                           intergrin(1:p_mfreq) = &
-                              Stokesin(0,jjfreq0+1:jjfreq0+p_mfreq)* &
+                              Stokesin(jjfreq0+1:jjfreq0+p_mfreq,0)* &
                               Geom%TB(0,iPP,K1,idir,iz) + &
-                              Stokesin(1,jjfreq0+1:jjfreq0+p_mfreq)* &
+                              Stokesin(jjfreq0+1:jjfreq0+p_mfreq,1)* &
                               Geom%TB(1,iPP,K1,idir,iz) + &
-                              Stokesin(2,jjfreq0+1:jjfreq0+p_mfreq)* &
+                              Stokesin(jjfreq0+1:jjfreq0+p_mfreq,2)* &
                               Geom%TB(2,iPP,K1,idir,iz) + &
-                              Stokesin(3,jjfreq0+1:jjfreq0+p_mfreq)* &
+                              Stokesin(jjfreq0+1:jjfreq0+p_mfreq,3)* &
                               Geom%TB(3,iPP,K1,idir,iz)
 
                           ! Normalize to the first order profile
@@ -4193,6 +4243,8 @@
       if (associated(p_rwarr)) nullify(p_rwarr)
       if (associated(p_mfreq)) nullify(p_mfreq)
       if (associated(p_warr2)) nullify(p_warr2)
+      if (associated(p_JKQ)) nullify(p_JKQ)
+      if (associated(p_JKQC)) nullify(p_JKQC)
 
       return
 
@@ -4360,7 +4412,7 @@
       !> Calculate the redistribution function\n
       !!      Atom(Atom_class): Structure with atomic data\n
       !!  Geom(Geometry_class): Structure with geometric data\n
-      !!       Red(Redb_class): Structure with redistribution input
+      !!       Fed(Reda_class): Structure with redistribution output
       !!                        frequency data\n
       !!     p_red(Redc_class): Structure with redistribution input
       !!                        frequency data for a given input
@@ -4369,6 +4421,8 @@
       !!                        functions\n
       !!        LPRAM(logical): If storing the redistribution
       !!                        function in RAM\n
+      !!         Mif0(integer): First frequency for this CPU\n
+      !!         Mif1(integer): Last frequency for this CPU\n
       !!        itran(integer): Input transition index\n
       !!        jtran(integer): Output transition index\n
       !!         icom(integer): Index of the magnetic component of the
@@ -4397,20 +4451,20 @@
       !!           auf(double): Damping parameter of the output
       !!                        transition\n
       !!    Warr2(dcomplex(:)): Redistribution function
-      subroutine get_Warr(Atom,Geom,Red,p_red,p_rwarr,LPRAM, &
-                          itran,jtran,icom,kwfreq0,nmfreq,omega, &
-                          Dw,Dw1,el,el1,eu,eu1,ef, &
+      subroutine get_Warr(Atom,Geom,Fed,p_red,p_rwarr,LPRAM, &
+                          Mif0,Mif1,itran,jtran,icom,kwfreq0, &
+                          nmfreq,omega,Dw,Dw1,el,el1,eu,eu1,ef, &
                           al,au,af,aul,auf,Warr2)
 
       ! I/O
 
       type(Atom_class), intent(in):: Atom
       type(Geometry_class), intent(in):: Geom
-      type(Redb_class), intent(in):: Red
+      type(Reda_class), intent(in):: Fed
       type(Redc_class), intent(in), pointer:: p_red
       type(Redc2_class), intent(inout):: p_rwarr
       logical, intent(in):: LPRAM
-      integer, intent(in):: icom,nmfreq,jtran,itran,kwfreq0
+      integer, intent(in):: icom,nmfreq,jtran,itran,kwfreq0,Mif0,Mif1
       double precision, intent(in):: el,el1,eu,eu1,ef,al,au,af,aul,auf
       double precision, intent(in):: Dw,Dw1
       double precision, dimension(:), intent(in):: omega
@@ -4448,6 +4502,7 @@
         end if ! Wrong-size
       end if ! Allocated or not
 
+
       !
       ! Angle-average (Warr2)
       !
@@ -4461,15 +4516,15 @@
 
         ! For each output frequency
         iifreq = 0
-        do iran=1,Red%nran
-          do ifreq=Red%if0(iran),Red%if1(iran)
+        do iran=1,Fed%nran
+          do ifreq=Fed%if0(iran),Fed%if1(iran)
 
             ! Advance index
             iifreq = iifreq + 1
 
             ! Manage MPI
-            if (iifreq.lt.Red%Mif0(pid)) cycle
-            if (iifreq.gt.Red%Mif1(pid)) exit
+            if (iifreq.lt.Mif0) cycle
+            if (iifreq.gt.Mif1) exit
 
             ! Point to dimension
             p_mfreq => p_red%mfreq(iifreq)
@@ -4519,15 +4574,15 @@
 
         ! For each output frequency
         iifreq = 0
-        do iran=1,Red%nran
-          do ifreq=Red%if0(iran),Red%if1(iran)
+        do iran=1,Fed%nran
+          do ifreq=Fed%if0(iran),Fed%if1(iran)
 
             ! Advance index
             iifreq = iifreq + 1
 
             ! Manage MPI
-            if (iifreq.lt.Red%Mif0(pid)) cycle
-            if (iifreq.gt.Red%Mif1(pid)) exit
+            if (iifreq.lt.Mif0) cycle
+            if (iifreq.gt.Mif1) exit
 
             ! Point to dimension
             p_mfreq => p_red%mfreq(iifreq)
@@ -6455,8 +6510,12 @@
       !!     p_red(Redc_class): Structure with redistribution input
       !!                        frequency data for a given input
       !!                        transition\n
+      !!       Fed(Reda_class): Structure with redistribution
+      !!                        output frequency data\n
       !!       Red(Redb_class): Structure with redistribution input
       !!                        frequency data\n
+      !!         Mif0(integer): First frequency for this CPU\n
+      !!         Mif1(integer): Last frequency for this CPU\n
       !!      omega(double(:)): Frequency array\n
       !!            vx(double): Velocity vector along X\n
       !!            vy(double): Velocity vector along Y\n
@@ -6464,15 +6523,17 @@
       !!         lvel(logical): If dynamic node\n
       !!    Stkin(double(:,:)): Interpolated Stokes parameters\n
       !!  Stk(double(:,:,:,:)): Original Stokes parameters
-      subroutine getStkin(Geom,p_red,Red,omega,vx,vy,vz,lvel, &
-                          Stkin,Stk)
+      subroutine getStkin(Geom,p_red,Fed,Red,Mif0,Mif1,omega, &
+                          vx,vy,vz,lvel,Stkin,Stk)
 
       ! I/O
 
       type(Geometry_class), intent(in):: Geom
       type(Redc_class), intent(in), pointer:: p_red
+      type(Reda_class), intent(in):: Fed
       type(Redb_class), intent(in):: Red
       logical, intent(in):: lvel
+      integer, intent(in):: Mif0,Mif1
       double precision, intent(in):: vx,vy,vz
       double precision, dimension(:), intent(in):: omega
       double precision, dimension(:,:,:,:), intent(in):: Stk
@@ -6500,15 +6561,15 @@
 
       ! Run over all output frequencies
       iifreq = 0
-      do iran=1,Red%nran
-        do ifreq=Red%if0(iran),Red%if1(iran)
+      do iran=1,Fed%nran
+        do ifreq=Fed%if0(iran),Fed%if1(iran)
 
           ! Advance index
           iifreq = iifreq + 1
 
           ! MPI
-          if (iifreq.gt.Red%Mif1(pid)) exit
-          if (iifreq.lt.Red%Mif0(pid)) cycle
+          if (iifreq.gt.Mif1) exit
+          if (iifreq.lt.Mif0) cycle
 
           ! Input frequency number
           p_mfreq => p_red%mfreq(iifreq)
@@ -6524,9 +6585,9 @@
 
       ! Allocate Stokes parameters
       if (axial) then
-        allocate(Stkin(0:3,nmfreq*Geom%nTh))
+        allocate(Stkin(nmfreq*Geom%nTh,0:3))
       else
-        allocate(Stkin(0:3,nmfreq*(Geom%nPh2*Geom%nTh)))
+        allocate(Stkin(nmfreq*(Geom%nPh2*Geom%nTh),0:3))
       end if
 
       ! If axial
@@ -6541,15 +6602,15 @@
 
           ! For each output frequency
           iifreq = 0
-          do iran=1,Red%nran
-            do ifreq=Red%if0(iran),Red%if1(iran)
+          do iran=1,Fed%nran
+            do ifreq=Fed%if0(iran),Fed%if1(iran)
 
               ! Advance index
               iifreq = iifreq + 1
 
               ! MPI
-              if (iifreq.gt.Red%Mif1(pid)) exit
-              if (iifreq.lt.Red%Mif0(pid)) cycle
+              if (iifreq.gt.Mif1) exit
+              if (iifreq.lt.Mif0) cycle
 
               ! Input frequency number
               p_mfreq => p_red%mfreq(iifreq)
@@ -6588,7 +6649,7 @@
                     lifreq = Red%ggf0
 
                     ! The index to take is 1
-                    Stkin(:,kkfreq) = Stk(:,Red%ggf0,1,ith1)
+                    Stkin(kkfreq,:) = Stk(:,Red%ggf0,1,ith1)
 
                   ! If out of range, take the value at the
                   ! boundary
@@ -6599,7 +6660,7 @@
                     lifreq = Red%ggf1
 
                     ! The index to take is nfreq
-                    Stkin(:,kkfreq) = Stk(:,Red%ggf1,1,ith1)
+                    Stkin(kkfreq,:) = Stk(:,Red%ggf1,1,ith1)
 
                   ! If within the boundaries
                   else
@@ -6616,7 +6677,7 @@
                         lifreq = ibfreq
 
                         ! This frequency gives us the value
-                        Stkin(:,kkfreq) = Stk(:,lifreq,1,ith1)
+                        Stkin(kkfreq,:) = Stk(:,lifreq,1,ith1)
 
                         exit
 
@@ -6643,7 +6704,7 @@
                              (omega(lifreq+1) - omega(lifreq))
 
                         ! Interpolate
-                        Stkin(:,kkfreq) = dx*dy + y0
+                        Stkin(kkfreq,:) = dx*dy + y0
 
                         exit
 
@@ -6675,15 +6736,15 @@
 
           ! For each output frequency
           iifreq = 0
-          do iran=1,Red%nran
-            do ifreq=Red%if0(iran),Red%if1(iran)
+          do iran=1,Fed%nran
+            do ifreq=Fed%if0(iran),Fed%if1(iran)
 
               ! Advance index
               iifreq = iifreq + 1
 
               ! MPI
-              if (iifreq.gt.Red%Mif1(pid)) exit
-              if (iifreq.lt.Red%Mif0(pid)) cycle
+              if (iifreq.gt.Mif1) exit
+              if (iifreq.lt.Mif0) cycle
 
               ! Input frequency number
               p_mfreq => p_red%mfreq(iifreq)
@@ -6715,7 +6776,7 @@
                     kkfreq = kkfreq0 + p_mfreq*(ith1-1) + jfreq
 
                     ! The index to take is 1
-                    Stkin(:,kkfreq) = Stk(:,Red%ggf0,1,ith1)
+                    Stkin(kkfreq,:) = Stk(:,Red%ggf0,1,ith1)
 
                   end do
 
@@ -6734,7 +6795,7 @@
                     kkfreq = kkfreq0 + p_mfreq*(ith1-1) + jfreq
 
                     ! The index to take is nfreq
-                    Stkin(:,kkfreq) = Stk(:,Red%ggf1,1,ith1)
+                    Stkin(kkfreq,:) = Stk(:,Red%ggf1,1,ith1)
 
                   end do
 
@@ -6759,7 +6820,7 @@
                         kkfreq = kkfreq0 + p_mfreq*(ith1-1) + jfreq
 
                         ! The index to take is nfreq
-                        Stkin(:,kkfreq) = Stk(:,lifreq,1,ith1)
+                        Stkin(kkfreq,:) = Stk(:,lifreq,1,ith1)
 
                       end do
 
@@ -6794,7 +6855,7 @@
                         dy = Stk(:,lifreq+1,1,ith1) - y0
 
                         ! Interpolate
-                        Stkin(:,kkfreq) = dx*dy + y0
+                        Stkin(kkfreq,:) = dx*dy + y0
 
                       end do
 
@@ -6831,15 +6892,15 @@
 
           ! For each output frequency
           iifreq = 0
-          do iran=1,Red%nran
-            do ifreq=Red%if0(iran),Red%if1(iran)
+          do iran=1,Fed%nran
+            do ifreq=Fed%if0(iran),Fed%if1(iran)
 
               ! Advance index
               iifreq = iifreq + 1
 
               ! MPI
-              if (iifreq.gt.Red%Mif1(pid)) exit
-              if (iifreq.lt.Red%Mif0(pid)) cycle
+              if (iifreq.gt.Mif1) exit
+              if (iifreq.lt.Mif0) cycle
 
               ! Input frequency number
               p_mfreq => p_red%mfreq(iifreq)
@@ -6884,7 +6945,7 @@
                       lifreq = Red%ggf0
 
                       ! The index to take is 1
-                      Stkin(:,kkfreq) = Stk(:,Red%ggf0,iph1,ith1)
+                      Stkin(kkfreq,:) = Stk(:,Red%ggf0,iph1,ith1)
 
                     ! If out of range, take the value at the
                     ! boundary
@@ -6895,7 +6956,7 @@
                       lifreq = Red%ggf1
 
                       ! The index to take is nfreq
-                      Stkin(:,kkfreq) = Stk(:,Red%ggf1,iph1,ith1)
+                      Stkin(kkfreq,:) = Stk(:,Red%ggf1,iph1,ith1)
 
                     ! If within the boundaries
                     else
@@ -6912,7 +6973,7 @@
                           lifreq = ibfreq
 
                           ! This frequency gives us the value
-                          Stkin(:,kkfreq) = Stk(:,lifreq,iph1,ith1)
+                          Stkin(kkfreq,:) = Stk(:,lifreq,iph1,ith1)
 
                           exit
 
@@ -6939,7 +7000,7 @@
                                (omega(lifreq+1) - omega(lifreq))
 
                           ! Interpolate
-                          Stkin(:,kkfreq) = dx*dy + y0
+                          Stkin(kkfreq,:) = dx*dy + y0
 
                           exit
 
@@ -6972,15 +7033,15 @@
 
           ! For each output frequency
           iifreq = 0
-          do iran=1,Red%nran
-            do ifreq=Red%if0(iran),Red%if1(iran)
+          do iran=1,Fed%nran
+            do ifreq=Fed%if0(iran),Fed%if1(iran)
 
               ! Advance index
               iifreq = iifreq + 1
 
               ! MPI
-              if (iifreq.gt.Red%Mif1(pid)) exit
-              if (iifreq.lt.Red%Mif0(pid)) cycle
+              if (iifreq.gt.Mif1) exit
+              if (iifreq.lt.Mif0) cycle
 
               ! Input frequency number
               p_mfreq => p_red%mfreq(iifreq)
@@ -7019,7 +7080,7 @@
                       kkfreq = kkfreq0 + jfreq + p_mfreq*nblock
 
                       ! The index to take is 1
-                      Stkin(:,kkfreq) = Stk(:,Red%ggf0,iph1,ith1)
+                      Stkin(kkfreq,:) = Stk(:,Red%ggf0,iph1,ith1)
 
                     end do
                   end do
@@ -7046,7 +7107,7 @@
                       kkfreq = kkfreq0 + jfreq + p_mfreq*nblock
 
                       ! The index to take is nfreq
-                      Stkin(:,kkfreq) = Stk(:,Red%ggf1,iph1,ith1)
+                      Stkin(kkfreq,:) = Stk(:,Red%ggf1,iph1,ith1)
 
                     end do
                   end do
@@ -7079,7 +7140,7 @@
                           kkfreq = kkfreq0 + jfreq + p_mfreq*nblock
 
                           ! This frequency gives us the value
-                          Stkin(:,kkfreq) = Stk(:,lifreq,iph1,ith1)
+                          Stkin(kkfreq,:) = Stk(:,lifreq,iph1,ith1)
 
                         end do
                       end do
@@ -7122,7 +7183,7 @@
                           kkfreq = kkfreq0 + jfreq + p_mfreq*nblock
 
                           ! Interpolate
-                          Stkin(:,kkfreq) = dx*dy + y0
+                          Stkin(kkfreq,:) = dx*dy + y0
 
                         end do
                       end do
@@ -7310,21 +7371,27 @@
       !!    p_red(Redc_class): Structure with redistribution input
       !!                       frequency data for a given input
       !!                       transition\n
+      !!      Fed(Reda_class): Structure with redistribution output
+      !!                       frequency data\n
       !!      Red(Redb_class): Structure with redistribution input
       !!                       frequency data\n
+      !!        Mif0(integer): First frequency for this CPU\n
+      !!        Mif1(integer): Last frequency for this CPU\n
       !!      nmfreq(integer): Size of frequency space\n
       !!     omega(double(:)): Frequency array\n
       !!  Jin(dcomplx(:,:,:)): Interpolated frequency dependent JKQ
       !!                       tensors\n
       !!  JKQ(dcomplx(:,:,:)): Original frequency dependent JKQ
       !!                       tensors
-      subroutine getJKQin(p_red,Red,nmfreq,omega,Jin,JKQ)
+      subroutine getJKQin(p_red,Fed,Red,Mif0,Mif1,nmfreq,omega, &
+                          Jin,JKQ)
 
       ! I/O
 
       type(Redc_class), intent(in), pointer:: p_red
+      type(Reda_class), intent(in):: Fed
       type(Redb_class), intent(in):: Red
-      integer, intent(in):: nmfreq
+      integer, intent(in):: nmfreq,Mif0,Mif1
       double precision, dimension(:), intent(in):: omega
       complex(kind=8), dimension(:,:,:), &
                        allocatable, intent(out):: Jin
@@ -7358,15 +7425,15 @@
 
       ! For each output frequency
       iifreq = 0
-      do iran=1,Red%nran
-        do ifreq=Red%if0(iran),Red%if1(iran)
+      do iran=1,Fed%nran
+        do ifreq=Fed%if0(iran),Fed%if1(iran)
 
           ! Advance index
           iifreq = iifreq + 1
 
           ! MPI
-          if (iifreq.gt.Red%Mif1(pid)) exit
-          if (iifreq.lt.Red%Mif0(pid)) cycle
+          if (iifreq.gt.Mif1) exit
+          if (iifreq.lt.Mif0) cycle
 
           ! Input frequency number
           p_mfreq => p_red%mfreq(iifreq)

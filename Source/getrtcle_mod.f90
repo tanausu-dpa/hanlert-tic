@@ -9,15 +9,15 @@
 !  Start:
 !     01/10/2022
 !  Last version:
-!     06/06/2025 V4.0.3
+!     30/06/2025 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     06/06/2025:    V4.0.3 - Added argument to chemeq to ensure
-!                             compatibility with new input (TdPA)
+!     30/06/2025:    V4.0.4 - Changed arguments in getSEEJ and
+!                             get_bottom_allen calls (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -438,8 +438,7 @@
       !
       ! Get radiation field
       !
-      call getSEEJ(Atom,Atmo,Input%T_rad,Input%use_allen, &
-                   Input%flat_cle_in,Bfield,Flgsg,Frec,spect, &
+      call getSEEJ(Atom,Atmo,Input,Bfield,Flgsg,Frec,spect, &
                    Geom,GeomP,MPID,JKQC,JKQ,Jphot)
 
       !
@@ -513,7 +512,7 @@
           else if (Input%use_allen) then
 
             ! Get background from Allen tabulation
-            call get_bottom_allen(Atmo,Frec%omega_ou(if0:if1), &
+            call get_bottom_allen(Atmo,Input,Frec%omega_ou(if0:if1), &
                                   Atmo%vx(1),Atmo%vy(1),Atmo%vz(1), &
                                   GeomP,data1(:,:,5))
 

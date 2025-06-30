@@ -10,14 +10,14 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     10/06/2025 V4.0.5
+!     30/06/2025 V4.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     10/06/2025:    V4.0.5 - Read LTEline%nowave (TdPA)
+!     30/06/2025:    V4.0.6 - Read Input%clv_type (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -288,6 +288,14 @@
       ! Use Allen tabulation for intensity
       read(100,*,err=1100) cdump
       Input%use_allen = cdump.eq.'Y'
+
+      ! Type of CLV
+      read(100,*,err=1100) cdump
+      if (cdump.eq.'A') then
+        Input%clv_type = 0
+      else
+        Input%clv_type = -1
+      end if
 
       ! Assume fully flat spectrum at input (if no input spectra)
       read(100,*,err=1100) cdump

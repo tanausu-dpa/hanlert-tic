@@ -9,14 +9,15 @@
 !  Start:
 !     08/10/2024
 !  Last version:
-!     15/05/2025 V4.0.1
+!     26/06/2025 V4.1.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.1 - Added sanity check for allocated atoms
+!     26/06/2025:    V4.1.0 - Changed the parallelization strategy
+!                             to calculate the PRD emissivity (TdPA)
 !                             array (TdPA)
 !
 !#####################################################################
@@ -91,7 +92,9 @@
 
       ! Local
 
-      integer:: ia,jtran,iz,indx,if0l2,if1l2,ndir,nf
+      integer:: ia,jtran,indx,ndir,nf,nf2,lnz
+
+      double precision:: MTRAMc,lTRAMc,lTRAMbc
 
 
       ! If no atoms, leave
@@ -106,49 +109,72 @@
       ! Number of output directions
       ndir = Geom%njdir
 
-      ! For each height
-      do iz=Rz0,Rz1_PRD
+      ! Number of heights
+      lnz = Rz1_PRD - Rz0 + 1
 
-        ! For each atom
-        do ia=1,nA
+      ! Initialize maximum
+      MTRAMc = 0d0
 
-          ! For each transition
-          do jtran=1,Atom(ia)%ntran
+      ! For each atom
+      do ia=1,nA
 
-            ! If no PRD, skip
-            if (.not.Atom(ia)%lemiss2(jtran)) cycle
+        ! For each transition
+        do jtran=1,Atom(ia)%ntran
 
-            ! Get zao index
-            indx = Red%izao(jtran,ia,iz)
+          ! If no PRD, skip
+          if (.not.Atom(ia)%lemiss2(jtran)) cycle
 
-            ! Transition ranges
-            if0l2 = Red%zao(indx)%tgf0
-            if1l2 = Red%zao(indx)%tgf1
-            nf = if1l2 - if0l2 + 1
+          ! Get zao index
+          indx = Red%izao(jtran,ia,Rz0)
 
-            ! Size for collection
-            ! The 4 assumes that will be using splines to
-            ! interpolate
-            if (nf.gt.0) TRAMc = TRAMc + 8d-6*dble(nf*(ndir*8 + 4))
+          ! Initialize size
+          nf = 0
+          nf2 = 0
 
-            ! If this CPU does not have frequencies
-            ! in this line, skip
-            if (Atom(ia)%fflag(jtran)%absent) cycle
+          ! Get size
+          if (Red%ao(indx)%tgf1.ge.Red%ao(indx)%tgf0) &
+            nf = Red%ao(indx)%tgf1 - Red%ao(indx)%tgf0 + 1
+          if (Red%ao(indx)%gf1.ge.Red%ao(indx)%gf0) &
+            nf2 = Red%ao(indx)%gf1 - Red%ao(indx)%gf0 + 1
 
-            ! Get indexes for frequency
-            if0l2 = Red%zao(indx)%gf0
-            if1l2 = Red%zao(indx)%gf1
-            nf = if1l2 - if0l2 + 1
+          ! Get size for sender
+          lTRAMc = 8d-6*dble(ndir*4*Red%ao(indx)%nn(pid))
 
-            ! Skip if transition is outside limits
-            if (nf.le.0) cycle
+          ! If MPI, add receiver
+          if (nproc.gt.1) &
+            lTRAMc = 8d-6*dble(ndir*4*lnz*nf)
 
-            ! Size for storage
-            TRAMc = TRAMc + 8d-6*dble(ndir*4*nf)
+          ! Check auxiliar top
+          lTRAMbc = lTRAMc + 8d-6*dble(nf*8*ndir)
+          if (lTRAMbc.gt.MTRAMc) MTRAMc = lTRAMbc
 
-          end do ! Transition
-        end do ! Atom
-      end do ! Height
+          ! Check auxiliar bottom
+          lTRAMbc = lTRAMc + 8d-6*dble(3*nf + nf2)
+          if (lTRAMbc.gt.MTRAMc) MTRAMc = lTRAMbc
+
+          ! Size for collection
+          ! The 4 assumes that will be using splines to
+          ! interpolate
+          if (nf.gt.0) then
+            lTRAMc = 8d-6*dble(nf*(lnz*ndir*8 + 4))
+            if (lTRAMc.gt.MTRAMc) MTRAMc = lTRAMc
+          end if
+
+          ! If this CPU does not have frequencies
+          ! in this line, skip
+          if (Atom(ia)%fflag(jtran)%absent) cycle
+
+          ! Skip if transition is outside limits
+          if (nf2.le.0) cycle
+
+          ! Size for storage
+          TRAMc = TRAMc + 8d-6*dble(ndir*4*nf2*lnz)
+
+        end do ! Transition
+      end do ! Atom
+
+      ! Add the maximum working package
+      TRAMc = TRAMc + MTRAMc
 
       end subroutine predict_emiss
 
@@ -159,28 +185,25 @@
       !> Predict the amount of memory space that will be needed by the
       !! second order emissivity for intensity\n
       !!   Atom(Atom_class(:)): Structures with atomic data\n
-      !!      Atmo(Atmo_class): Structure with atmospheric data\n
       !!  Geom(Geometry_class): Structure with geometric data\n
       !!        Red(Red_class): Structure with redistribution input
       !!                        frequency data, redistribution
       !!                        function data, and profile or
       !!                        normalization data
-      subroutine predict_emissI(Atom,Atmo,Geom,Red)
+      subroutine predict_emissI(Atom,Geom,Red)
 
       ! I/O
 
       type(Atom_class), dimension(:), intent(in):: Atom
-      type(Atmo_class), intent(in):: Atmo
       type(Geometry_class), intent(in):: Geom
       type(Red_class), intent(in):: Red
 
       ! Local
 
-      logical:: lvel
+      integer:: ia,jtran,indx,fjtran,ffjtran
+      integer:: ndir,nf,nf2,lnz
 
-      integer:: ia,jtran,iz,indx,fjtran,ffjtran,if0l2,if1l2,ndir,nf
-
-      double precision:: vel
+      double precision:: MTRAMc,lTRAMc,lTRAMbc
 
 
       ! If no atoms, leave
@@ -192,113 +215,98 @@
       ! If no PRD, how did you even get here
       if (.not.PRD) return
 
-      ! For each height
-      do iz=Rz0,Rz1_PRD
+      ! Number of output directions
+      ndir = Geom%njdir
 
-        ! If dynamic
-        if (dyn) then
+      ! Number of heights
+      lnz = Rz1_PRD - Rz0 + 1
 
-          ! Compute maximum velocity
-          vel = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
-                     Atmo%vy(iz)*Atmo%vy(iz) + &
-                     Atmo%vz(iz)*Atmo%vz(iz))
+      ! Initialize maximum
+      MTRAMc = 0d0
 
-          ! Check if large enough
-          lvel = vel.gt.TINYVEL
+      ! If dynamic
+      if (dyn) then
 
-          ! Large enough velocity
-          if (lvel) then
+        ! Number of output directions in geometry
+        ndir = Geom%njdir
 
-            ! Number of output directions in geometry
-            ndir = Geom%njdir
+      ! No velocity
+      else
 
-          ! No velocity
-          else
+        ! If angle-averaged
+        if (AVI) then
 
-            ! If angle-averaged
-            if (AVI) then
+          ! Isotropic
+          ndir = 1
 
-              ! Isotropic
-              ndir = 1
-
-            ! If angle-dependent
-            else
-
-              ! In general non-isotropic
-              ndir = Geom%njdir
-
-            end if ! AA/AD
-          end if ! Velocity magnitude
-
-        ! No velocity
+        ! If angle-dependent
         else
 
-          ! Trivial
-          vel = 0d0
-          lvel = .False.
+          ! In general non-isotropic
+          ndir = Geom%njdir
 
-          ! If angle-averaged
-          if (AVI) then
+        end if ! AA/AD
+      end if ! Dynamic
 
-            ! Isotropic
-            ndir = 1
+      ! For each atom
+      do ia=1,nA
 
-          ! If angle-dependent
-          else
+        ! For each transition
+        do jtran=1,Atom(ia)%ntran
 
-            ! In general non-isotropic
-            ndir = Geom%njdir
+          ! If no PRD, skip
+          if (.not.Atom(ia)%lemiss2(jtran)) cycle
 
-          end if ! AA/AD
-        end if ! Dynamic
+          ! For each FS transition
+          do fjtran=1,Atom(ia)%fst(jtran)%nt
 
-        ! For each atom
-        do ia=1,nA
+            ! Get the sequential index of this FS transition
+            ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
 
-          ! For each transition
-          do jtran=1,Atom(ia)%ntran
+            ! Get zao index
+            indx = Red%izao(ffjtran,ia,Rz0)
 
-            ! If no PRD, skip
-            if (.not.Atom(ia)%lemiss2(jtran)) cycle
+            ! Initialize size
+            nf = 0
+            nf2 = 0
 
-            ! For each FS transition
-            do fjtran=1,Atom(ia)%fst(jtran)%nt
+            ! Get size
+            if (Red%ao(indx)%tgf1.ge.Red%ao(indx)%tgf0) &
+              nf = Red%ao(indx)%tgf1 - Red%ao(indx)%tgf0 + 1
+            if (Red%ao(indx)%gf1.ge.Red%ao(indx)%gf0) &
+              nf2 = Red%ao(indx)%gf1 - Red%ao(indx)%gf0 + 1
 
-              ! Get the sequential index of this FS transition
-              ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
+            ! Get size for sender
+            lTRAMc = 8d-6*dble(ndir*2*Red%ao(indx)%nn(pid))
 
-              ! Get zao index
-              indx = Red%izao(ffjtran,ia,iz)
+            ! If MPI, add receiver
+            if (nproc.gt.1) &
+              lTRAMc = 8d-6*dble(ndir*2*lnz*nf)
 
-              ! Get indexes
-              if0l2 = Red%zao(indx)%tgf0
-              if1l2 = Red%zao(indx)%tgf1
-              nf = if1l2 - if0l2 + 1
+            ! Check auxiliar top
+            lTRAMbc = lTRAMc + 8d-6*dble(nf*(1 + 2*ndir))
+            if (lTRAMbc.gt.MTRAMc) MTRAMc = lTRAMbc
 
-              ! Size for collection
-              ! The 5 assumes that will be using splines to
-              ! interpolate
-              if (nf.gt.0) TRAMc = TRAMc + 8d-6*dble(nf*(ndir*2 + 5))
+            ! Check auxiliar bottom
+            lTRAMbc = lTRAMc + 8d-6*dble(3*nf + nf2)
+            if (lTRAMbc.gt.MTRAMc) MTRAMc = lTRAMbc
 
-              ! If this CPU does not have frequencies
-              ! in this line, skip
-              if (Atom(ia)%fflag(jtran)%absent) cycle
+            ! If this CPU does not have frequencies
+            ! in this line, skip
+            if (Atom(ia)%fflag(jtran)%absent) cycle
 
-              ! Get indexes
-              if0l2 = Red%zao(indx)%gf0
-              if1l2 = Red%zao(indx)%gf1
-              nf = if1l2 - if0l2 + 1
+            ! Skip if transition is outside limits
+            if (nf2.le.0) cycle
 
-              ! Skip if transition is outside limits
-              if (nf.le.0) cycle
+            ! Size for storage
+            TRAMc = TRAMc + 8d-6*dble(ndir*2*nf2*lnz)
 
-              ! Size for storage
-              TRAMc = TRAMc + 8d-6*dble(ndir*2*nf)
+          end do ! Transition level
+        end do ! Transition term
+      end do ! Atom
 
-            end do ! Transition level
-          end do ! Transition term
-        end do ! Atom
-      end do ! Height
+      ! Add the maximum working package
+      TRAMc = TRAMc + MTRAMc
 
       end subroutine predict_emissI
 
@@ -323,7 +331,7 @@
 
       ! Local
 
-      integer:: ia,jtran,iz,indx,if0l2,if1l2,ndir
+      integer:: ia,jtran,iz,indx,jndx,if0l2,if1l2,ndir
 
 
       ! If no atoms, leave
@@ -352,11 +360,12 @@
             if (Atom(ia)%fflag(jtran)%absent) cycle
 
             ! Get zao index
+            jndx = Red%izao(jtran,ia,Rz0)
             indx = Red%izao(jtran,ia,iz)
 
             ! Get indexes
-            if0l2 = Red%zao(indx)%gf0
-            if1l2 = Red%zao(indx)%gf1
+            if0l2 = Red%ao(jndx)%gf0
+            if1l2 = Red%ao(jndx)%gf1
 
             ! Skip if outside range
             if (if0l2.gt.if1l2) cycle
@@ -399,7 +408,7 @@
 
       logical:: lvel
 
-      integer:: ia,jtran,iz,indx,fjtran,ffjtran,if0l2,if1l2,ndir
+      integer:: ia,jtran,iz,indx,jndx,fjtran,ffjtran,if0l2,if1l2,ndir
 
       double precision:: vel
 
@@ -490,11 +499,12 @@
               ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
 
               ! Get zao index
+              jndx = Red%izao(ffjtran,ia,Rz0)
               indx = Red%izao(ffjtran,ia,iz)
 
               ! Get indexes
-              if0l2 = Red%zao(indx)%gf0
-              if1l2 = Red%zao(indx)%gf1
+              if0l2 = Red%ao(jndx)%gf0
+              if1l2 = Red%ao(jndx)%gf1
 
               ! Skip if outside range
               if (if0l2.gt.if1l2) cycle
@@ -568,11 +578,17 @@
 
       ! Local
 
+#ifndef oldmpi
+      type(MPI_request), dimension(:), allocatable:: requests
+#endif
+
       logical:: lfield, lvel
 
-      integer:: iz,ia,jtran,itermu,itermf,indx,t0,t1
+      integer:: iz0,iz1,Mif0,Mif1,jndx,jj,kk,ll,iran,iproc
+      integer:: iz,ia,jtran,itermu,itermf,indx,t0,t1,i0,i1,jz0,jz1
       integer:: if0l2,if1l2,if0tl2,if1tl2,if0Il2,if1Il2,ifreq,nf,nfl
-      integer:: ndir,idir,ierr,iph,ith,nth,nph
+      integer:: ndir,idir,ierr,iph,ith,nth,nph,nsend,lnz
+      integer, dimension(:), allocatable:: nf_s,disp
 
       double precision:: vel,DwT,Dw,ct,st,cc,sc,vfac
       double precision, dimension(:), allocatable:: omega
@@ -581,27 +597,49 @@
       double precision, dimension(:,:), allocatable:: eps1
       double precision, dimension(:,:), allocatable:: eps2
       double precision, dimension(:,:), allocatable:: eps3
-      double precision, dimension(:,:), allocatable:: eps20
-      double precision, dimension(:,:), allocatable:: eps21
-      double precision, dimension(:,:), allocatable:: eps22
-      double precision, dimension(:,:), allocatable:: eps23
+      double precision, dimension(:,:,:), &
+                        allocatable, target:: eps20123_s
 
       ! Pointers
+      type(Reda_class), pointer:: p_fed
       type(Redb_class), pointer:: p_red
       type(Redb2_class), pointer:: p_rwarr
       type(Prof_class), pointer:: p_Norm
+      double precision, dimension(:,:), pointer:: eps20
+      double precision, dimension(:,:), pointer:: eps21
+      double precision, dimension(:,:), pointer:: eps22
+      double precision, dimension(:,:), pointer:: eps23
+      double precision, dimension(:,:,:), pointer:: eps20123_r
       complex(kind=8), dimension(:,:,:,:), pointer:: TKQo
       type(Redb2_class), target:: p_dummy
 
 
       ! Nullify pointers
-      nullify(p_red,p_rwarr,p_Norm,TKQo)
+      nullify(p_fed,p_red,p_rwarr,p_Norm,eps20123_r,TKQo)
+
+      ! If MPI
+      if (nproc.gt.1) then
+#ifndef oldmpi
+        ! Initialize requests
+        allocate(requests(Rz0:Rz1_PRD))
+        do iz=Rz0,Rz1_PRD
+          requests(iz) = MPI_REQUEST_NULL
+        end do
+#endif
+        ! Allocate frequency size for output
+        allocate(nf_s(0:nproc-1))
+        allocate(disp(0:nproc-1))
+
+      end if ! MPI
 
       ! If no atoms, leave
       if (nA.lt.1) return
 
       ! Dummy
       if (.not.PRAM) p_rwarr => p_dummy
+
+      ! Number of heights
+      lnz = Rz1_PRD - Rz0 + 1
 
       ! Directions
       ndir = Geom%njdir
@@ -615,182 +653,215 @@
         nph = Geom%nPh
       end if
 
-      ! For each height
-      do iz=Rz0,Rz1_PRD
+      ! For each atom
+      do ia=1,nA
 
-        ! Magnetic
-        if (Bfield%Bstrength(iz).gt.TINYB) then
+        ! For each output transition
+        do jtran=1,Atom(ia)%ntran
 
-          ! Flag
-          lfield = .True.
+          ! Skip if no PRD
+          if (.not.Atom(ia)%lemiss2(jtran)) cycle
 
-          ! If Line of sight
-          if (LOS) then
+          ! Identify involved terms
+          itermu = Atom(ia)%fst(jtran)%itermu
+          itermf = Atom(ia)%fst(jtran)%iterml
 
-            ! Point to geometrical tensor
-            TKQo => Geom%TBL(:,:,:,:,iz)
+          ! Transition ranges
+          t0 = Atom(ia)%tshift + 1
+          t1 = t0 + Atom(ia)%ntran - 1
 
-          ! Quadrature
+          ! Get index
+          jndx = Red%izao(jtran,ia,Rz0)
+
+          ! Point to relevant variable
+          p_fed => Red%ao(jndx)
+
+          ! Get limits for this transition
+          if0l2 = p_fed%gf0
+          if1l2 = p_fed%gf1
+          if0tl2 = p_fed%tgf0
+          if1tl2 = p_fed%tgf1
+
+          ! If no output, skip
+          if ((if1tl2-if0tl2).lt.0) cycle
+
+          ! Allocate emissivity to collect
+          allocate(eps0(ndir,if0tl2:if1tl2))
+          allocate(eps1(ndir,if0tl2:if1tl2))
+          allocate(eps2(ndir,if0tl2:if1tl2))
+          allocate(eps3(ndir,if0tl2:if1tl2))
+          allocate(eps20(ndir,if0tl2:if1tl2))
+          allocate(eps21(ndir,if0tl2:if1tl2))
+          allocate(eps22(ndir,if0tl2:if1tl2))
+          allocate(eps23(ndir,if0tl2:if1tl2))
+
+          ! Number of frequencies
+          nf = if1tl2 - if0tl2 + 1
+
+          ! Allocate emissivity to receive
+          if (nproc.gt.1) &
+            allocate(eps20123_r(ndir,4,nf*lnz))
+
+          ! Has work to do
+          if (p_fed%nn(pid).gt.0) then
+
+            ! Get height limits
+            iz0 = Rz0 + (p_fed%Mi0(pid)-1)/p_fed%nfreq
+            iz1 = Rz0 + (p_fed%Mi1(pid)-1)/p_fed%nfreq
+
+            ! Allocate sender
+            allocate(eps20123_s(ndir,4,p_fed%nn(pid)))
+
+            ! Initialize rolling indexes
+            jj = 0
+
+          ! Does not have work
           else
 
-            ! Point to geometrical tensor
-            TKQo => Geom%TBo(:,:,:,:,iz)
+            ! Ensure no looping
+            iz0 = 0
+            iz1 = -1
 
-          end if
+          end if ! Sanity check
 
-        ! No magnetic field
-        else
+          ! Initialize index
+          ll = 0
 
-          ! Flag
-          lfield = .False.
+          ! For each height
+          do iz=Rz0,Rz1_PRD
 
-          ! If Line of sight
-          if (LOS) then
+            ! If within limits
+            if (iz.ge.iz0.and.iz.le.iz1) then
 
-            ! Point to geometrical tensor
-            TKQo => Geom%TSL
+              ! Magnetic
+              if (Bfield%Bstrength(iz).gt.TINYB) then
 
-          ! Quadrature
-          else
+                ! Flag
+                lfield = .True.
 
-            ! Point to geometrical tensor
-            TKQo => Geom%TSo
+                ! If Line of sight
+                if (LOS) then
 
-          end if
+                  ! Point to geometrical tensor
+                  TKQo => Geom%TBL(:,:,:,:,iz)
 
-        end if ! Magnetic field
+                ! Quadrature
+                else
 
-        ! Velocity
-        if (dyn) then
+                  ! Point to geometrical tensor
+                  TKQo => Geom%TBo(:,:,:,:,iz)
 
-          ! Compute maximum velocity
-          vel = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
-                     Atmo%vy(iz)*Atmo%vy(iz) + &
-                     Atmo%vz(iz)*Atmo%vz(iz))
+                end if
 
-          ! Check if large enough
-          lvel = vel.gt.TINYVEL
-
-        ! No velocity
-        else
-
-          ! Trivial
-          vel = 0d0
-          lvel = .False.
-
-        end if
-
-        ! For each atom
-        do ia=1,nA
-
-          ! Thermal part of the Doppler width
-          DwT = Atom(ia)%cDopp*sqrt(Atmo%T(iz))
-
-          ! For each output transition
-          do jtran=1,Atom(ia)%ntran
-
-            ! Skip if no PRD
-            if (.not.Atom(ia)%lemiss2(jtran)) cycle
-
-            ! Get zao index
-            indx = Red%izao(jtran,ia,iz)
-
-            ! Identify involved terms
-            itermu = Atom(ia)%fst(jtran)%itermu
-            itermf = Atom(ia)%fst(jtran)%iterml
-
-            ! Add the microt. to Doppler width
-            Dw = Atom(ia)%Dfreq(jtran)*sqrt(DwT*DwT + &
-                                            Atmo%vmi(iz)**2d0)
-
-            ! Get limits for this transition
-            if0l2 = Red%zao(indx)%gf0
-            if1l2 = Red%zao(indx)%gf1
-            if0tl2 = Red%zao(indx)%tgf0
-            if1tl2 = Red%zao(indx)%tgf1
-            if0Il2 = Red%zao(indx)%Igf0
-            if1Il2 = Red%zao(indx)%Igf1
-
-            ! Transition ranges
-            t0 = Atom(ia)%tshift + 1
-            t1 = t0 + Atom(ia)%ntran - 1
-
-            ! If no output, skip
-            if ((if1tl2-if0tl2).lt.0) cycle
-
-            ! Allocate emissivity to collect
-            allocate(eps0(ndir,if0tl2:if1tl2))
-            allocate(eps1(ndir,if0tl2:if1tl2))
-            allocate(eps2(ndir,if0tl2:if1tl2))
-            allocate(eps3(ndir,if0tl2:if1tl2))
-            allocate(eps20(ndir,if0tl2:if1tl2))
-            allocate(eps21(ndir,if0tl2:if1tl2))
-            allocate(eps22(ndir,if0tl2:if1tl2))
-            allocate(eps23(ndir,if0tl2:if1tl2))
-
-            ! Initialize
-            eps0 = 0d0
-            eps1 = 0d0
-            eps2 = 0d0
-            eps3 = 0d0
-            eps20 = 0d0
-            eps21 = 0d0
-            eps22 = 0d0
-            eps23 = 0d0
-
-            ! Emissivity for local calculation
-            if ((if1Il2-if0Il2).ge.0) then
-
-              ! Pointers to zao, pzao, and rzao
-              p_red => Red%zao(indx)
-              p_Norm => Red%pzao(indx)
-              if (PRAM) p_rwarr => Red%rzao(indx)
-
-              ! If magnetic
-              if (lfield) then
-
-                ! Call first order emissivity
-                call emiss(Atom(ia),TKQo,Frec%omega,Flgsg,jtran, &
-                           itermu,itermf,iz,if0Il2,if1Il2, &
-                           Geom%njdir,p_Norm,Dw, &
-                           eps0(:,if0Il2:if1Il2), &
-                           eps1(:,if0Il2:if1Il2), &
-                           eps2(:,if0Il2:if1Il2), &
-                           eps3(:,if0Il2:if1Il2))
-
-                ! Call second order emissivity
-                call emiss2ord(Atom(ia),Geom,Atmo%vx(iz), &
-                               Atmo%vy(iz),Atmo%vz(iz),lvel, &
-                               Frec%omega,p_red,p_rwarr,p_Norm, &
-                               Flgsg,jtran, &
-                               itermu,itermf,iz,if0Il2,if1Il2, &
-                               DwT,Dw,Bfield,Atmo%vmi(iz), &
-                               TKQo,Stokes(:,:,:,:,iz), &
-                               JKQa,JKQ(:,:,:,iz),JKQC(:,:,:,iz), &
-                               eps20(:,if0Il2:if1Il2), &
-                               eps21(:,if0Il2:if1Il2), &
-                               eps22(:,if0Il2:if1Il2), &
-                               eps23(:,if0Il2:if1Il2))
-
-              ! If non-magnetic
+              ! No magnetic field
               else
 
-                ! Call first order emissivity
-                call emissNB(Atom(ia),TKQo,Frec%omega,Flgsg,jtran, &
+                ! Flag
+                lfield = .False.
+
+                ! If Line of sight
+                if (LOS) then
+
+                  ! Point to geometrical tensor
+                  TKQo => Geom%TSL
+
+                ! Quadrature
+                else
+
+                  ! Point to geometrical tensor
+                  TKQo => Geom%TSo
+
+                end if
+
+              end if ! Magnetic field
+
+              ! Velocity
+              if (dyn) then
+
+                ! Compute maximum velocity
+                vel = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                           Atmo%vy(iz)*Atmo%vy(iz) + &
+                           Atmo%vz(iz)*Atmo%vz(iz))
+
+                ! Check if large enough
+                lvel = vel.gt.TINYVEL
+
+              ! No velocity
+              else
+
+                ! Trivial
+                vel = 0d0
+                lvel = .False.
+
+              end if
+
+              ! Thermal part of the Doppler width
+              DwT = Atom(ia)%cDopp*sqrt(Atmo%T(iz))
+
+              ! Add the microt. to Doppler width
+              Dw = Atom(ia)%Dfreq(jtran)*sqrt(DwT*DwT + &
+                                              Atmo%vmi(iz)**2d0)
+
+              ! Get zao index
+              indx = Red%izao(jtran,ia,iz)
+
+              ! Get limits for this transition
+              if0Il2 = Red%zao(indx)%Igf0
+              if1Il2 = Red%zao(indx)%Igf1
+
+              ! Get left frequency indexes
+              if (iz.eq.iz0) then
+                Mif0 = p_fed%Mi0(pid) - (iz0-Rz0)*p_fed%nfreq
+              else
+                Mif0 = 1
+              end if
+
+              ! Get right frequency index
+              if (iz.eq.iz1) then
+                Mif1 = p_fed%Mi1(pid) - (iz1-Rz0)*p_fed%nfreq
+              else
+                Mif1 = p_fed%nfreq
+              end if
+
+              ! Initialize
+              eps0 = 0d0
+              eps1 = 0d0
+              eps2 = 0d0
+              eps3 = 0d0
+              eps20 = 0d0
+              eps21 = 0d0
+              eps22 = 0d0
+              eps23 = 0d0
+
+              ! Emissivity for local calculation
+              if ((if1Il2-if0Il2).ge.0) then
+
+                ! Pointers to zao, pzao, and rzao
+                p_red => Red%zao(indx)
+                p_Norm => Red%pzao(indx)
+                if (PRAM) p_rwarr => Red%rzao(indx)
+
+                ! If magnetic
+                if (lfield) then
+
+                  ! Call first order emissivity
+                  call emiss(Atom(ia),TKQo,Frec%omega,Flgsg,jtran, &
                              itermu,itermf,iz,if0Il2,if1Il2, &
-                             Geom%njdir,p_Norm,Dw, &
+                             ndir,p_Norm,Dw, &
                              eps0(:,if0Il2:if1Il2), &
                              eps1(:,if0Il2:if1Il2), &
                              eps2(:,if0Il2:if1Il2), &
                              eps3(:,if0Il2:if1Il2))
 
-                ! Call second order emissivity
-                call emiss2ordNB(Atom(ia),Geom,Atmo%vx(iz), &
+                  ! Call second order emissivity
+                  call emiss2ord(Atom(ia),Geom,Atmo%vx(iz), &
                                  Atmo%vy(iz),Atmo%vz(iz),lvel, &
-                                 Frec%omega,p_red,p_rwarr,p_Norm, &
+                                 Frec%omega, &
+                                 p_fed,p_red,p_rwarr,p_Norm, &
                                  Flgsg,jtran, &
-                                 itermu,itermf,iz,if0Il2,if1Il2, &
-                                 DwT,Dw,Atmo%vmi(iz), &
+                                 itermu,itermf,iz, &
+                                 if0Il2,if1Il2,Mif0,Mif1, &
+                                 DwT,Dw,Bfield,Atmo%vmi(iz), &
                                  TKQo,Stokes(:,:,:,:,iz), &
                                  JKQa,JKQ(:,:,:,iz),JKQC(:,:,:,iz), &
                                  eps20(:,if0Il2:if1Il2), &
@@ -798,64 +869,260 @@
                                  eps22(:,if0Il2:if1Il2), &
                                  eps23(:,if0Il2:if1Il2))
 
-              end if ! Magnetic-field
+                ! If non-magnetic
+                else
 
-              ! Combine to get total emissivity
-              eps20(:,if0Il2:if1Il2) = eps20(:,if0Il2:if1Il2) + &
-                                       eps0(:,if0Il2:if1Il2)
-              eps21(:,if0Il2:if1Il2) = eps21(:,if0Il2:if1Il2) + &
-                                       eps1(:,if0Il2:if1Il2)
-              eps22(:,if0Il2:if1Il2) = eps22(:,if0Il2:if1Il2) + &
-                                       eps2(:,if0Il2:if1Il2)
-              eps23(:,if0Il2:if1Il2) = eps23(:,if0Il2:if1Il2) + &
-                                       eps3(:,if0Il2:if1Il2)
+                  ! Call first order emissivity
+                  call emissNB(Atom(ia),TKQo,Frec%omega,Flgsg,jtran, &
+                               itermu,itermf,iz,if0Il2,if1Il2, &
+                               ndir,p_Norm,Dw, &
+                               eps0(:,if0Il2:if1Il2), &
+                               eps1(:,if0Il2:if1Il2), &
+                               eps2(:,if0Il2:if1Il2), &
+                               eps3(:,if0Il2:if1Il2))
 
-            end if ! Local size
+                  ! Call second order emissivity
+                  call emiss2ordNB(Atom(ia),Geom,Atmo%vx(iz), &
+                                   Atmo%vy(iz),Atmo%vz(iz),lvel, &
+                                   Frec%omega, &
+                                   p_fed,p_red,p_rwarr,p_Norm, &
+                                   Flgsg,jtran, &
+                                   itermu,itermf,iz, &
+                                   if0Il2,if1Il2,Mif0,Mif1, &
+                                   DwT,Dw,Atmo%vmi(iz), &
+                                   TKQo,Stokes(:,:,:,:,iz), &
+                                   JKQa,JKQ(:,:,:,iz), &
+                                   JKQC(:,:,:,iz), &
+                                   eps20(:,if0Il2:if1Il2), &
+                                   eps21(:,if0Il2:if1Il2), &
+                                   eps22(:,if0Il2:if1Il2), &
+                                   eps23(:,if0Il2:if1Il2))
 
+                end if ! Magnetic-field
+
+                ! Combine to get total emissivity
+                eps20(:,if0Il2:if1Il2) = eps20(:,if0Il2:if1Il2) + &
+                                         eps0(:,if0Il2:if1Il2)
+                eps21(:,if0Il2:if1Il2) = eps21(:,if0Il2:if1Il2) + &
+                                         eps1(:,if0Il2:if1Il2)
+                eps22(:,if0Il2:if1Il2) = eps22(:,if0Il2:if1Il2) + &
+                                         eps2(:,if0Il2:if1Il2)
+                eps23(:,if0Il2:if1Il2) = eps23(:,if0Il2:if1Il2) + &
+                                         eps3(:,if0Il2:if1Il2)
+
+                ! Second rolling index
+                kk = 0
+
+                ! Save
+                do iran=1,p_fed%nran
+                  do ifreq=p_fed%if0(iran),p_fed%if1(iran)
+
+                    ! Advance index
+                    kk = kk + 1
+
+                    ! Manage MPI
+                    if (kk.lt.Mif0) cycle
+                    if (kk.gt.Mif1) exit
+
+                    ! Advance index
+                    jj = jj + 1
+
+                    ! Save
+                    eps20123_s(:,1,jj) = eps20(:,ifreq)
+                    eps20123_s(:,2,jj) = eps21(:,ifreq)
+                    eps20123_s(:,3,jj) = eps22(:,ifreq)
+                    eps20123_s(:,4,jj) = eps23(:,ifreq)
+
+                  end do
+                end do
+
+              end if ! Local calculation
+            end if ! Within own height limits
 
             ! If MPI
             if (nproc.gt.1) then
 
+              ! Initialize
+              nsend = 0
+              nf_s = 0
+              disp = 0
+              i0 = 1
+
+              ! For each CPU
+              do iproc=0,nproc-1
+
+                ! Get height limits
+                jz0 = Rz0 + (p_fed%Mi0(iproc)-1)/p_fed%nfreq
+                jz1 = Rz0 + (p_fed%Mi1(iproc)-1)/p_fed%nfreq
+
+                ! In range
+                if (iz.ge.jz0.and.iz.le.jz1) then
+
+                  ! Get left frequency indexes
+                  if (iz.eq.jz0) then
+                    Mif0 = p_fed%Mi0(iproc) - (jz0-Rz0)*p_fed%nfreq
+                  else
+                    Mif0 = 1
+                  end if
+
+                  ! Get right frequency index
+                  if (iz.eq.jz1) then
+                    Mif1 = p_fed%Mi1(iproc) - (jz1-Rz0)*p_fed%nfreq
+                  else
+                    Mif1 = p_fed%nfreq
+                  end if
+
+                  ! Save receiving
+                  nf_s(iproc) = Mif1 - Mif0 + 1
+                  disp(iproc) = Mif0 - 1
+
+                  ! If this is the CPU
+                  if (pid.eq.iproc) then
+
+                    ! Save number of sends
+                    nsend = nf_s(pid)
+
+                    ! Advance index
+                    ll = ll + 1
+
+                    ! Save initial point
+                    i0 = ll
+
+                    ! Advance rest
+                    ll = ll + Mif1 - Mif0
+
+                  end if ! This is the CPU
+                end if ! In height range
+
+              end do ! CPUs
+
+              ! Scale
+              nsend = nsend*ndir*4
+              nf_s = nf_s*ndir*4
+              disp = disp*ndir*4
+#ifdef oldmpi
               ! Share
-              call MPI_ALLGATHERV(MPI_IN_PLACE,0, &
-                                  MPI_DATATYPE_NULL, &
-                                  eps20,Red%zao(indx)%nf*ndir, &
-                                  ndir*(Red%zao(indx)%Mif0 - 1), &
+              call MPI_ALLGATHERV(eps20123_s(1,1,i0),nsend, &
                                   MPI_DOUBLE_PRECISION, &
-                                  MPI_COMM_RT, ierr)
-              call MPI_ALLGATHERV(MPI_IN_PLACE,0, &
-                                  MPI_DATATYPE_NULL, &
-                                  eps21,Red%zao(indx)%nf*ndir, &
-                                  ndir*(Red%zao(indx)%Mif0 - 1), &
+                                  eps20123_r(1,1,1+(iz-Rz0)*nf), &
+                                  nf_s,disp, &
                                   MPI_DOUBLE_PRECISION, &
-                                  MPI_COMM_RT, ierr)
-              call MPI_ALLGATHERV(MPI_IN_PLACE,0, &
-                                  MPI_DATATYPE_NULL, &
-                                  eps22,Red%zao(indx)%nf*ndir, &
-                                  ndir*(Red%zao(indx)%Mif0 - 1), &
-                                  MPI_DOUBLE_PRECISION, &
-                                  MPI_COMM_RT, ierr)
-              call MPI_ALLGATHERV(MPI_IN_PLACE,0, &
-                                  MPI_DATATYPE_NULL, &
-                                  eps23,Red%zao(indx)%nf*ndir, &
-                                  ndir*(Red%zao(indx)%Mif0 - 1), &
-                                  MPI_DOUBLE_PRECISION, &
-                                  MPI_COMM_RT, ierr)
+                                  MPI_COMM_RT,ierr)
+#else
+              ! Share
+              call MPI_IALLGATHERV(eps20123_s(1,1,i0),nsend, &
+                                   MPI_DOUBLE_PRECISION, &
+                                   eps20123_r(1,1,1+(iz-Rz0)*nf), &
+                                   nf_s,disp, &
+                                   MPI_DOUBLE_PRECISION, &
+                                   MPI_COMM_RT,requests(iz),ierr)
+#endif
             end if ! MPI
 
+          end do ! Heights
 
-            !
-            ! Get what is needed
-            !
+          ! Free
+          deallocate(eps0,eps1,eps2,eps3)
+          deallocate(eps20,eps21,eps22,eps23)
+          nullify(eps20,eps21,eps22,eps23)
+
+          ! If serial, just point
+          if (nproc.eq.1) eps20123_r => eps20123_s
+
+
+          !
+          ! Get what is needed
+          !
+
+          ! For each height
+          do iz=Rz0,Rz1_PRD
+
+            ! Get zao index
+            indx = Red%izao(jtran,ia,iz)
 
             ! If the CPU allocated eps20
             if (allocated(Red%zao(indx)%eps20)) then
+
+              ! Magnetic
+              if (Bfield%Bstrength(iz).gt.TINYB) then
+
+                ! Flag
+                lfield = .True.
+
+                ! If Line of sight
+                if (LOS) then
+
+                  ! Point to geometrical tensor
+                  TKQo => Geom%TBL(:,:,:,:,iz)
+
+                ! Quadrature
+                else
+
+                  ! Point to geometrical tensor
+                  TKQo => Geom%TBo(:,:,:,:,iz)
+
+                end if
+
+              ! No magnetic field
+              else
+
+                ! Flag
+                lfield = .False.
+
+                ! If Line of sight
+                if (LOS) then
+
+                  ! Point to geometrical tensor
+                  TKQo => Geom%TSL
+
+                ! Quadrature
+                else
+
+                  ! Point to geometrical tensor
+                  TKQo => Geom%TSo
+
+                end if
+
+              end if ! Magnetic field
+
+              ! Velocity
+              if (dyn) then
+
+                ! Compute maximum velocity
+                vel = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                           Atmo%vy(iz)*Atmo%vy(iz) + &
+                           Atmo%vz(iz)*Atmo%vz(iz))
+
+                ! Check if large enough
+                lvel = vel.gt.TINYVEL
+
+              ! No velocity
+              else
+
+                ! Trivial
+                vel = 0d0
+                lvel = .False.
+
+              end if ! Velocity
+
+              ! Indexes to point to
+              i0 = 1 + (iz-Rz0)*nf
+              i1 = i0 + nf - 1
+#ifndef oldmpi
+              ! Check request
+              if (nproc.gt.1) &
+                call MPI_WAIT(requests(iz),MPI_STATUS_IGNORE,ierr)
+#endif
+              ! Point to relevant data
+              eps20 => eps20123_r(:,1,i0:i1)
+              eps21 => eps20123_r(:,2,i0:i1)
+              eps22 => eps20123_r(:,3,i0:i1)
+              eps23 => eps20123_r(:,4,i0:i1)
 
               ! If dynamic, we need to interpolate
               if (lvel) then
 
                 ! Number of frequencies
-                nf = if1tl2 - if0tl2 + 1
                 nfl = if1l2 - if0l2 + 1
 
                 ! Get memory space
@@ -1029,25 +1296,39 @@
               ! If static
               else
 
+                ! Limits
+                i0 = if0l2 - if0tl2 + 1
+                i1 = if1l2 - if0tl2 + 1
+
                 ! Just fetch
-                Red%zao(indx)%eps20 = eps20(:,if0l2:if1l2)
-                Red%zao(indx)%eps21 = eps21(:,if0l2:if1l2)
-                Red%zao(indx)%eps22 = eps22(:,if0l2:if1l2)
-                Red%zao(indx)%eps23 = eps23(:,if0l2:if1l2)
+                Red%zao(indx)%eps20 = eps20(:,i0:i1)
+                Red%zao(indx)%eps21 = eps21(:,i0:i1)
+                Red%zao(indx)%eps22 = eps22(:,i0:i1)
+                Red%zao(indx)%eps23 = eps23(:,i0:i1)
 
               end if ! Dynamic
+#ifndef oldmpi
+            ! No data but MPI
+            else if (nproc.gt.1) then
+
+              ! Check reception
+              call MPI_WAIT(requests(iz),MPI_STATUS_IGNORE,ierr)
+#endif
             end if ! If need to take anything
 
-            ! Deallocate emissivity to collect
-            deallocate(eps0,eps1,eps2,eps3)
-            deallocate(eps20,eps21,eps22,eps23)
+          end do ! Heights
 
-          end do ! Output transition
-        end do ! Atoms
-      end do ! Heights
+          ! Free
+          nullify(eps20,eps21,eps22,eps23)
+          if (nproc.gt.1) deallocate(eps20123_r)
+          nullify(eps20123_r)
+          deallocate(eps20123_s)
+
+        end do ! Output transition
+      end do ! Atoms
 
       ! Nullify pointers
-      nullify(p_red,p_rwarr,p_Norm,TKQo)
+      nullify(p_fed,p_red,p_rwarr,p_Norm,eps20123_r,TKQo)
 
       return
 
@@ -1099,34 +1380,86 @@
 
       ! Local
 
+#ifndef oldmpi
+      type(MPI_request), dimension(:), allocatable:: requests
+#endif
+
       logical:: lvel
 
-      integer:: iz,ia,jtran,itermu,itermf,indx,jdir,t0,t1
+      integer:: iz0,iz1,jz0,jz1,Mif0,Mif1,jndx,jj,kk,ll,iran,iproc
+      integer:: iz,ia,jtran,itermu,itermf,indx,jdir,t0,t1,i0,i1
       integer:: if0l2,if1l2,if0tl2,if1tl2,if0Il2,if1Il2,ifreq,nf,nfl
-      integer:: if0jl2,if1jl2,ffjtran,ffktran,ffltran,fjtran
-      integer:: iJf,iJu,ndir,idir,ierr,iph,ith,nth,nph
+      integer:: if0jl2,if1jl2,ffjtran,ffktran,ffltran,fjtran,lnz
+      integer:: iJf,iJu,ndir,njdir,idir,ierr,iph,ith,nth,nph,nsend
+      integer, dimension(:), allocatable:: nf_s,disp
 
       double precision:: vel,DwT,Dw,ct,st,cc,sc,vfac,Dfreq
       double precision, dimension(:), allocatable:: omega
       double precision, dimension(:), allocatable:: eps0
       double precision, dimension(:,:), allocatable:: splin
-      double precision, dimension(:,:), allocatable:: eps20,rpf
+      double precision, dimension(:,:,:), &
+                        allocatable, target:: eps20rpf_s
 
       ! Pointers
+      type(Reda_class), pointer:: p_fed
       type(Redb_class), pointer:: p_red
       type(Redb2_class), pointer:: p_rwarr
       type(Prof_class), pointer:: p_Norm
+      double precision, dimension(:,:), pointer:: eps20,rpf
+      double precision, dimension(:,:,:), pointer:: eps20rpf_r
       type(Redb2_class), target:: p_dummy
 
 
       ! Nullify pointers
-      nullify(p_red,p_rwarr,p_Norm)
+      nullify(p_fed,p_red,p_rwarr,p_Norm,eps20rpf_r)
+
+      ! If MPI
+      if (nproc.gt.1) then
+#ifndef oldmpi
+        ! Initialize requests
+        allocate(requests(Rz0:Rz1_PRD))
+        do iz=Rz0,Rz1_PRD
+          requests(iz) = MPI_REQUEST_NULL
+        end do
+#endif
+        ! Allocate frequency size for output
+        allocate(nf_s(0:nproc-1))
+        allocate(disp(0:nproc-1))
+
+      end if ! MPI
 
       ! If no atoms, leave
       if (nA.lt.1) return
 
       ! Dummy
       if (.not.IRAM) p_rwarr => p_dummy
+
+      ! Number of heights
+      lnz = Rz1_PRD - Rz0 + 1
+
+      ! If dynamic
+      if (dyn) then
+
+        ! Number of output directions in geometry
+        njdir = Geom%njdir
+
+      ! No velocity
+      else
+
+        ! If angle-averaged
+        if (AVI) then
+
+          ! Isotropic
+          njdir = 1
+
+        ! If angle-dependent
+        else
+
+          ! In general non-isotropic
+          njdir = Geom%njdir
+
+        end if ! AA/AD
+      end if ! Dynamic
 
       ! Number of directions
       if (los) then
@@ -1137,198 +1470,436 @@
         nph = Geom%nPh
       end if
 
-      ! For each height
-      do iz=Rz0,Rz1_PRD
+      ! For each atom
+      do ia=1,nA
 
-        ! Velocity
-        if (dyn) then
+        ! For each output transition
+        do jtran=1,Atom(ia)%ntran
 
-          ! Compute maximum velocity
-          vel = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
-                     Atmo%vy(iz)*Atmo%vy(iz) + &
-                     Atmo%vz(iz)*Atmo%vz(iz))
+          ! Skip if no PRD
+          if (.not.Atom(ia)%lemiss2(jtran)) cycle
 
-          ! Check velocity magnitude
-          lvel = vel.gt.TINYVEL
+          ! Identify involved terms
+          itermu = Atom(ia)%fst(jtran)%itermu
+          itermf = Atom(ia)%fst(jtran)%iterml
 
-          ! If large enough velocity
-          if (lvel) then
+          ! For each FS transition
+          do fjtran=1,Atom(ia)%fst(jtran)%nt
 
-            ! Directions from geometry structure
-            ndir = Geom%njdir
+            ! Idenfity involved levels
+            iJu = Atom(ia)%fst(jtran)%ilevelu(fjtran)
+            iJf = Atom(ia)%fst(jtran)%ilevell(fjtran)
 
-          ! Small velocity
-          else
+            ! Get the sequential index of this FS transition
+            ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
+            ffktran = ffjtran + Atom(ia)%tfshift
 
-            ! If angle-averaged
-            if (AVI) then
+            ! Get frequency of FS transition
+            Dfreq = Atom(ia)%FSfreq(iJu,itermu) - &
+                    Atom(ia)%FSfreq(iJf,itermf)
 
-              ! Isotropic
-              ndir = 1
+            ! Real index in trano
+            ffltran = Atom(ia)%itrano(ffjtran)
 
-            ! If angle-dependent
+            ! Get izao index
+            jndx = Red%izao(ffjtran,ia,Rz0)
+
+            ! Point to relevant variable
+            p_fed => Red%ao(jndx)
+
+            ! Get limits for this transition
+            if0l2 = p_fed%gf0
+            if1l2 = p_fed%gf1
+            if0tl2 = p_fed%tgf0
+            if1tl2 = p_fed%tgf1
+
+            ! If no output, skip
+            if ((if1tl2-if0tl2).lt.0) cycle
+
+            ! Allocate emissivity to collect
+            allocate(eps0(if0tl2:if1tl2))
+
+            ! Number of frequencies
+            nf = if1tl2 - if0tl2 + 1
+
+            ! Allocate emissivity to receive
+            if (nproc.gt.1) &
+              allocate(eps20rpf_r(njdir,2,nf*lnz))
+
+            ! Has work to do
+            if (p_fed%nn(pid).gt.0) then
+
+              ! Get height limits
+              iz0 = Rz0 + (p_fed%Mi0(pid)-1)/p_fed%nfreq
+              iz1 = Rz0 + (p_fed%Mi1(pid)-1)/p_fed%nfreq
+
+              ! Allocate sender
+              allocate(eps20rpf_s(njdir,2,p_fed%nn(pid)))
+
+              ! Initialize rolling index
+              jj = 0
+
+            ! Does not have work
             else
 
-              ! In general non-isotropic
-              ndir = Geom%njdir
+              ! Ensure no looping
+              iz0 = 0
+              iz1 = -1
 
-            end if ! AA/AD
-          end if ! Large velocity
+            end if ! Sanity check
 
-        ! No velocity
-        else
+            ! Initialize index
+            ll = 0
 
-          ! Trivial
-          vel = 0d0
-          lvel = .False.
+            ! For each height
+            do iz=Rz0,Rz1_PRD
 
-          ! If angle-averaged
-          if (AVI) then
+              ! If within limits
+              if (iz.ge.iz0.and.iz.le.iz1) then
 
-            ! Isotropic
-            ndir = 1
+                ! Velocity
+                if (dyn) then
 
-          ! If angle-dependent
-          else
+                  ! Compute maximum velocity
+                  vel = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                             Atmo%vy(iz)*Atmo%vy(iz) + &
+                             Atmo%vz(iz)*Atmo%vz(iz))
 
-            ! In general non-isotropic
-            ndir = Geom%njdir
+                  ! Check velocity magnitude
+                  lvel = vel.gt.TINYVEL
 
-          end if ! AA/AD
-        end if ! Dynamic
+                  ! If large enough velocity
+                  if (lvel) then
 
-        ! For each atom
-        do ia=1,nA
+                    ! Directions from geometry structure
+                    ndir = Geom%njdir
 
-          ! Thermal part of the Doppler width
-          DwT = Atom(ia)%cDopp*sqrt(Atmo%T(iz))
+                  ! Small velocity
+                  else
 
-          ! For each output transition
-          do jtran=1,Atom(ia)%ntran
+                    ! If angle-averaged
+                    if (AVI) then
 
-            ! Skip if no PRD
-            if (.not.Atom(ia)%lemiss2(jtran)) cycle
+                      ! Isotropic
+                      ndir = 1
 
-            ! Identify involved terms
-            itermu = Atom(ia)%fst(jtran)%itermu
-            itermf = Atom(ia)%fst(jtran)%iterml
+                    ! If angle-dependent
+                    else
 
-            ! For each FS transition
-            do fjtran=1,Atom(ia)%fst(jtran)%nt
+                      ! In general non-isotropic
+                      ndir = Geom%njdir
 
-              ! Idenfity involved levels
-              iJu = Atom(ia)%fst(jtran)%ilevelu(fjtran)
-              iJf = Atom(ia)%fst(jtran)%ilevell(fjtran)
+                    end if ! AA/AD
+                  end if ! Large velocity
 
-              ! Get the sequential index of this FS transition
-              ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
-              ffktran = ffjtran + Atom(ia)%tfshift
+                ! No velocity
+                else
 
-              ! Get izao index
-              indx = Red%izao(ffjtran,ia,iz)
+                  ! Trivial
+                  vel = 0d0
+                  lvel = .False.
 
-              ! Get frequency of FS transition
-              Dfreq = Atom(ia)%FSfreq(iJu,itermu) - &
-                      Atom(ia)%FSfreq(iJf,itermf)
+                  ! If angle-averaged
+                  if (AVI) then
 
-              ! Add the microt. to Doppler width
-              Dw = Dfreq*sqrt(DwT*DwT + Atmo%vmi(iz)**2d0)
+                    ! Isotropic
+                    ndir = 1
 
-              ! Real index in trano
-              ffltran = Atom(ia)%itrano(ffjtran)
+                  ! If angle-dependent
+                  else
 
-              ! Get limits for this transition
-              if0l2 = Red%zao(indx)%gf0
-              if1l2 = Red%zao(indx)%gf1
-              if0tl2 = Red%zao(indx)%tgf0
-              if1tl2 = Red%zao(indx)%tgf1
-              if0Il2 = Red%zao(indx)%Igf0
-              if1Il2 = Red%zao(indx)%Igf1
-              if0jl2 = Red%zao(indx)%ggf0
-              if1jl2 = Red%zao(indx)%ggf1
+                    ! In general non-isotropic
+                    ndir = Geom%njdir
 
-              ! Transition ranges
-              t0 = Atom(ia)%tfshift + 1
-              t1 = t0 + Atom(ia)%nftran - 1
+                  end if ! AA/AD
+                end if ! Dynamic
 
-              ! If no output, skip
-              if ((if1tl2-if0tl2).lt.0) cycle
+                ! Thermal part of the Doppler width
+                DwT = Atom(ia)%cDopp*sqrt(Atmo%T(iz))
 
-              ! Allocate emissivity to collect
-              allocate(eps0(if0tl2:if1tl2))
-              allocate(eps20(ndir,if0tl2:if1tl2))
-              allocate(rpf(ndir,if0tl2:if1tl2))
+                ! Add the microt. to Doppler width
+                Dw = Dfreq*sqrt(DwT*DwT + Atmo%vmi(iz)**2d0)
 
-              ! Initialize
-              eps0 = 0d0
-              eps20 = 0d0
-              rpf = 0d0
+                ! Allocate emissivity to collect
+                allocate(eps20(ndir,if0tl2:if1tl2))
+                allocate(rpf(ndir,if0tl2:if1tl2))
 
-              ! Emissivity for local calculation
-              if ((if1Il2-if0Il2).ge.0) then
+                ! Get izao index
+                indx = Red%izao(ffjtran,ia,iz)
 
-                ! Pointers to zao, pzao, and rzao
-                p_red => Red%zao(indx)
-                p_Norm => Red%pzao(indx)
-                if (IRAM) p_rwarr => Red%rzao(indx)
+                ! Get limits for this transition
+                if0Il2 = Red%zao(indx)%Igf0
+                if1Il2 = Red%zao(indx)%Igf1
+                if0jl2 = Red%zao(indx)%ggf0
+                if1jl2 = Red%zao(indx)%ggf1
 
-                ! First order
-                call emissI(Atom(ia),Frec%omega,jtran, &
-                            itermu,itermf,iJu,iJf,iz,if0Il2,if1Il2, &
-                            p_Norm,Dw,eps0(if0Il2:if1Il2))
+                ! Get left frequency indexes
+                if (iz.eq.iz0) then
+                  Mif0 = p_fed%Mi0(pid) - (iz0-Rz0)*p_fed%nfreq
+                else
+                  Mif0 = 1
+                end if
 
-                ! Second order
-                call emissI2ord(Atom(ia),Geom,Atmo%vx(iz), &
-                                Atmo%vy(iz),Atmo%vz(iz),lvel, &
-                                Frec%omega,p_red,p_rwarr,p_Norm, &
-                                ndir,jtran,fjtran,itermu,itermf, &
-                                iJu,iJf,iz, &
-                                if0Il2,if1Il2,DwT,Dw, &
-                                Atmo%vmi(iz), &
-                                Stokes(:,:,:,iz), &
-                                JKQ(t0:t1,iz), &
-                                JKQC(if0jl2:if1jl2,iz), &
-                                eps20(:,if0Il2:if1Il2), &
-                                rpf(:,if0Il2:if1Il2))
+                ! Get right frequency index
+                if (iz.eq.iz1) then
+                  Mif1 = p_fed%Mi1(pid) - (iz1-Rz0)*p_fed%nfreq
+                else
+                  Mif1 = p_fed%nfreq
+                end if
 
-                ! Combine
-                do idir=1,ndir
-                  eps20(idir,if0Il2:if1Il2) = eps0(if0Il2:if1Il2) + &
+                ! Transition ranges
+                t0 = Atom(ia)%tfshift + 1
+                t1 = t0 + Atom(ia)%nftran - 1
+
+                ! Initialize
+                eps0 = 0d0
+                eps20 = 0d0
+                rpf = 0d0
+
+                ! Emissivity for local calculation
+                if ((if1Il2-if0Il2).ge.0) then
+
+                  ! Pointers to zao, pzao, and rzao
+                  p_red => Red%zao(indx)
+                  p_Norm => Red%pzao(indx)
+                  if (IRAM) p_rwarr => Red%rzao(indx)
+
+                  ! First order
+                  call emissI(Atom(ia),Frec%omega,jtran, &
+                              itermu,itermf,iJu,iJf,iz, &
+                              if0Il2,if1Il2, &
+                              p_Norm,Dw,eps0(if0Il2:if1Il2))
+
+                  ! Second order
+                  call emissI2ord(Atom(ia),Geom,Atmo%vx(iz), &
+                                  Atmo%vy(iz),Atmo%vz(iz),lvel, &
+                                  Frec%omega, &
+                                  p_fed,p_red,p_rwarr,p_Norm, &
+                                  ndir,jtran,fjtran,itermu,itermf, &
+                                  iJu,iJf,iz, &
+                                  if0Il2,if1Il2,Mif0,Mif1,DwT,Dw, &
+                                  Atmo%vmi(iz), &
+                                  Stokes(:,:,:,iz), &
+                                  JKQ(t0:t1,iz), &
+                                  JKQC(if0jl2:if1jl2,iz), &
+                                  eps20(:,if0Il2:if1Il2), &
+                                  rpf(:,if0Il2:if1Il2))
+
+                  ! Combine
+                  do idir=1,ndir
+                    eps20(idir,if0Il2:if1Il2) = &
+                                             eps0(if0Il2:if1Il2) + &
                                              eps20(idir,if0Il2:if1Il2)
-                end do
+                  end do
 
-              end if ! Local calculation
+                  ! Second rolling index
+                  kk = 0
+
+                  ! Save
+                  do iran=1,p_fed%nran
+                    do ifreq=p_fed%if0(iran),p_fed%if1(iran)
+
+                      ! Advance index
+                      kk = kk + 1
+
+                      ! Manage MPI
+                      if (kk.lt.Mif0) cycle
+                      if (kk.gt.Mif1) exit
+
+                      ! Advance index
+                      jj = jj + 1
+
+                      ! Save
+                      eps20rpf_s(1:ndir,1,jj) = eps20(:,ifreq)
+                      eps20rpf_s(1:ndir,2,jj) = rpf(:,ifreq)
+
+                    end do
+                  end do
+
+                end if ! Local calculation
+
+                ! Free
+                deallocate(eps20,rpf)
+                nullify(eps20,rpf)
+
+              end if ! Within own height limits
 
               ! If MPI
               if (nproc.gt.1) then
 
+                ! Initialize
+                nsend = 0
+                nf_s = 0
+                disp = 0
+                i0 = 1
+
+                ! For each CPU
+                do iproc=0,nproc-1
+
+                  ! Get height limits
+                  jz0 = Rz0 + (p_fed%Mi0(iproc)-1)/p_fed%nfreq
+                  jz1 = Rz0 + (p_fed%Mi1(iproc)-1)/p_fed%nfreq
+
+                  ! In range
+                  if (iz.ge.jz0.and.iz.le.jz1) then
+
+                    ! Get left frequency indexes
+                    if (iz.eq.jz0) then
+                      Mif0 = p_fed%Mi0(iproc) - (jz0-Rz0)*p_fed%nfreq
+                    else
+                      Mif0 = 1
+                    end if
+
+                    ! Get right frequency index
+                    if (iz.eq.jz1) then
+                      Mif1 = p_fed%Mi1(iproc) - (jz1-Rz0)*p_fed%nfreq
+                    else
+                      Mif1 = p_fed%nfreq
+                    end if
+
+                    ! Save receiving
+                    nf_s(iproc) = Mif1 - Mif0 + 1
+                    disp(iproc) = Mif0 - 1
+
+                    ! If this is the CPU
+                    if (pid.eq.iproc) then
+
+                      ! Save number of sends
+                      nsend = nf_s(pid)
+
+                      ! Advance index
+                      ll = ll + 1
+
+                      ! Save initial point
+                      i0 = ll
+
+                      ! Advance rest
+                      ll = ll + Mif1 - Mif0
+
+                    end if ! This is the CPU
+                  end if ! In height range
+
+                end do ! CPUs
+
+                ! Scale
+                nsend = nsend*njdir*2
+                nf_s = nf_s*njdir*2
+                disp = disp*njdir*2
+#ifdef oldmpi
                 ! Share
-                call MPI_ALLGATHERV(MPI_IN_PLACE,0, &
-                                    MPI_DATATYPE_NULL, &
-                                    eps20,Red%zao(indx)%nf*ndir, &
-                                    ndir*(Red%zao(indx)%Mif0 - 1), &
+                call MPI_ALLGATHERV(eps20rpf_s(1,1,i0),nsend, &
                                     MPI_DOUBLE_PRECISION, &
-                                    MPI_COMM_RT, ierr)
-                call MPI_ALLGATHERV(MPI_IN_PLACE,0, &
-                                    MPI_DATATYPE_NULL, &
-                                    rpf,Red%zao(indx)%nf*ndir, &
-                                    ndir*(Red%zao(indx)%Mif0 - 1), &
+                                    eps20rpf_r(1,1,1+(iz-Rz0)*nf), &
+                                    nf_s,disp, &
                                     MPI_DOUBLE_PRECISION, &
-                                    MPI_COMM_RT, ierr)
+                                    MPI_COMM_RT,ierr)
+#else
+
+                ! Share
+                call MPI_IALLGATHERV(eps20rpf_s(1,1,i0),nsend, &
+                                     MPI_DOUBLE_PRECISION, &
+                                     eps20rpf_r(1,1,1+(iz-Rz0)*nf), &
+                                     nf_s,disp, &
+                                     MPI_DOUBLE_PRECISION, &
+                                     MPI_COMM_RT,requests(iz),ierr)
+#endif
               end if ! MPI
 
-              !
-              ! Get what is needed
-              !
+            end do ! Heights
+
+            ! Free
+            deallocate(eps0)
+
+            ! If serial, just point
+            if (nproc.eq.1) eps20rpf_r => eps20rpf_s
+
+
+            !
+            ! Get what is needed
+            !
+
+            ! For each height
+            do iz=Rz0,Rz1_PRD
+
+              ! Get index
+              indx = Red%izao(ffjtran,ia,iz)
 
               ! If emissivity is allocated
               if (allocated(Red%zao(indx)%eps20)) then
+
+                ! Velocity
+                if (dyn) then
+
+                  ! Compute maximum velocity
+                  vel = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                             Atmo%vy(iz)*Atmo%vy(iz) + &
+                             Atmo%vz(iz)*Atmo%vz(iz))
+
+                  ! Check velocity magnitude
+                  lvel = vel.gt.TINYVEL
+
+                  ! If large enough velocity
+                  if (lvel) then
+
+                    ! Directions from geometry structure
+                    ndir = Geom%njdir
+
+                  ! Small velocity
+                  else
+
+                    ! If angle-averaged
+                    if (AVI) then
+
+                      ! Isotropic
+                      ndir = 1
+
+                    ! If angle-dependent
+                    else
+
+                      ! In general non-isotropic
+                      ndir = Geom%njdir
+
+                    end if ! AA/AD
+                  end if ! Large velocity
+
+                ! No velocity
+                else
+
+                  ! Trivial
+                  vel = 0d0
+                  lvel = .False.
+
+                  ! If angle-averaged
+                  if (AVI) then
+
+                    ! Isotropic
+                    ndir = 1
+
+                  ! If angle-dependent
+                  else
+
+                    ! In general non-isotropic
+                    ndir = Geom%njdir
+
+                  end if ! AA/AD
+                end if ! Dynamic
+
+                ! Indentify pointing indexes
+                i0 = 1 + (iz-Rz0)*nf
+                i1 = i0 + nf - 1
+#ifndef oldmpi
+                ! Check request
+                if (nproc.gt.1) &
+                  call MPI_WAIT(requests(iz),MPI_STATUS_IGNORE,ierr)
+#endif
+                ! Point to relevant data
+                eps20 => eps20rpf_r(:,1,i0:i1)
+                rpf => eps20rpf_r(:,2,i0:i1)
 
                 ! If dynamic, we need to interpolate
                 if (lvel) then
 
                   ! Number of frequencies
-                  nf = if1tl2 - if0tl2 + 1
                   nfl = if1l2 - if0l2 + 1
 
                   ! Get memory space
@@ -1470,23 +2041,38 @@
                 ! If static
                 else
 
+                  ! Limits
+                  i0 = if0l2 - if0tl2 + 1
+                  i1 = if1l2 - if0tl2 + 1
+
                   ! Just fetch
-                  Red%zao(indx)%eps20 = eps20(:,if0l2:if1l2)
-                  Red%zao(indx)%rpf = rpf(:,if0l2:if1l2)
+                  Red%zao(indx)%eps20 = eps20(1:ndir,i0:i1)
+                  Red%zao(indx)%rpf = rpf(1:ndir,i0:i1)
 
                 end if ! Dynamic
+#ifndef oldmpi
+              ! No data but MPI
+              else if (nproc.gt.1) then
+
+                ! Check reception
+                call MPI_WAIT(requests(iz),MPI_STATUS_IGNORE,ierr)
+#endif
               end if ! If need to take anything
 
-              ! Deallocate emissivity to collect
-              deallocate(eps0,eps20,rpf)
+            end do ! Heights
 
-            end do ! Output transition FS
-          end do ! Output transition term
-        end do ! Atoms
-      end do ! Heights
+            ! Free
+            nullify(eps20,rpf)
+            if (nproc.gt.1) deallocate(eps20rpf_r)
+            nullify(eps20rpf_r)
+            deallocate(eps20rpf_s)
+
+          end do ! Output transition FS
+        end do ! Output transition term
+      end do ! Atoms
 
       ! Nullify pointers
-      nullify(p_red,p_rwarr,p_Norm)
+      nullify(p_fed,p_red,p_rwarr,p_Norm,eps20rpf_r)
 
       end subroutine comoving_emissI2ord
 

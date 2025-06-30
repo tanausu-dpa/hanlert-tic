@@ -10,15 +10,15 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     10/06/2025 V4.0.4
+!     30/06/2025 V4.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     10/06/2025:    V4.0.4 - Added the posibility of LTE lines not
-!                             adding frequencies (TdPA)
+!     30/06/2025:    V4.0.6 - Initialize the components counters to
+!                             zero (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -3587,6 +3587,19 @@
           ! Allocate output transition structure
           allocate(Atom(ia)%trano(Atom(ia)%ntran))
 
+          !
+          ! Initialize component count
+          !
+
+          ! For each transition
+          do jtran=1,Atom(ia)%ntran
+
+            ! Initialize count
+            Atom(ia)%trano(jtran)%ncomNB = 0
+            Atom(ia)%trano(jtran)%ncomB = 0
+
+          end do ! Transitions
+
           ! If PRD
           if (PRD) then
 
@@ -4071,8 +4084,8 @@
                 end do ! iMf
               end do ! Round i1
 
-              ! If PRD and storing
-              if (PRD.and.PRAM.and.Atom(ia)%lemiss2(jtran)) then
+              ! If PRD
+              if (PRD.and.Atom(ia)%lemiss2(jtran)) then
 
                 ! For each other transition
                 do iti=1,Atom(ia)%trano(jtran)%nt

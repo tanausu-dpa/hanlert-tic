@@ -11,19 +11,19 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     10/06/2025 V4.0.4
+!     26/06/2025 V4.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     10/06/2025:    V4.0.4 - Added the posibility of LTE lines not
-!                             adding frequencies (TdPA)
-!                           - Changed the expected input in wavelength
-!                             files to nanometers (TdPA)
-!                           - Added a sanity check for the total
-!                             number of frequencies (TdPA)
+!     26/06/2025:    V4.0.5 - Changed the parallelization scheme for
+!                             the redistribution (TdPA)
+!                           - The output frequencies to calculate
+!                             PRD do not depend on height anymore. The
+!                             Doppler width used to set-up the
+!                             frequency axis is used instead (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1628,25 +1628,22 @@
       !!                    transition\n
       !!      if1(integer): Final frequency index for this
       !!                    transition\n
-      !!     Dfreq(double): Transition frequency needed for
-      !!                    Doppler width\n
       !!  red_negl(double): Doppler width distance to neglect
       !!                    frequencies in the second order
       !!                    emissivity\n
-      !!             cDopp: Atomic dependent part of the Doppler
-      !!                    width\n
+      !!               DwN: Nominal Doppler width\n
       !!    nut(double(:)): Array of output frequencies\n
       !!  omega(double(:)): Frequency axis
       subroutine get_transition_out_limit(Atmo,Red,ia,jtran,nt, &
-                                          if0,if1,Dfreq,red_negl, &
-                                          cDopp,nut,omega)
+                                          if0,if1,red_negl, &
+                                          DwN,nut,omega)
 
       ! I/O
 
       type(Atmo_class), intent(in):: Atmo
       type(Red_class), intent(inout):: Red
       integer, intent(in):: ia,jtran,nt,if0,if1
-      double precision, intent(in):: Dfreq,red_negl,cDopp
+      double precision, intent(in):: red_negl,DwN
       double precision, dimension(:), intent(in):: nut,omega
 
       ! Local
@@ -1655,84 +1652,217 @@
 
       integer:: iz,indx,it,ifreq,nran,bf0,bf1,np
 
-      double precision:: vfacm,vfacp,Dw,DwT,red_neglW
+      double precision:: vfacm,vfacp,Dw,red_neglW
 
 
-      !
-      ! For each considered height
-      do iz=Rz0,Rz1_PRD
+      ! Get index
+      indx = Red%izao(jtran,ia,Rz0)
 
-        ! Get index
-        indx = Red%izao(jtran,ia,iz)
+      ! Doppler shift factor
+      vfacm = 1d0
+      vfacp = 1d0
 
-        ! Doppler shift factor
-        vfacm = 1d0
-        vfacp = 1d0
+      ! If dynamic
+      if (dyn) then
 
-        ! If dynamic
-        if (dyn) then
+        ! Maximum velocity
+        Dw = maxval(sqrt(Atmo%vx*Atmo%vx + &
+                         Atmo%vy*Atmo%vy + &
+                         Atmo%vz*Atmo%vz))
 
-          ! Maximum velocity
-          Dw = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
-                    Atmo%vy(iz)*Atmo%vy(iz) + &
-                    Atmo%vz(iz)*Atmo%vz(iz))
+        ! If big enough
+        if (Dw.gt.TINYVEL) then
 
-          ! If big enough
-          if (Dw.gt.TINYVEL) then
+          ! Calculate Doppler shift factors
+          vfacp = 1d0 + Dw
+          vfacm = 1d0 - Dw
 
-            ! Calculate Doppler shift factors
-            vfacp = 1d0 + Dw
-            vfacm = 1d0 - Dw
+        end if
+      end if ! Dynamic
 
-          end if
-        end if ! Dynamic
+      ! Transform the searching parameters from normalized
+      ! to proper frequency units
+      red_neglW = red_negl*DwN
 
-        !
-        ! Calculate the Doppler width
-        !
+      ! Initialize search parameters
+      nran = 0
+      bf0 = -1
+      bf1 = -2
 
-        ! Thermal common part
-        DwT = cDopp*sqrt(Atmo%T(iz))
+      ! Only one output
+      if (if0.eq.if1) then
 
-        ! Output transition
-        Dw  = Dfreq*sqrt(DwT*DwT + Atmo%vmi(iz)**2d0)
+        ! For each line component
+        do it=1,nt
 
-        ! Transform the searching parameters from normalized
-        ! to proper frequency units
-        red_neglW = red_negl*Dw
+          ! Check if we are close to a transition frequency
+          if (abs(omega(if0)*vfacm-nut(it)).lt.red_neglW.or. &
+              abs(omega(if0)*vfacp-nut(it)).lt.red_neglW) then
 
-        ! Initialize search parameters
-        nran = 0
-        bf0 = -1
-        bf1 = -2
+            ! Only trivial range
+            bf0 = if0
+            bf1 = if1
+            nran = 1
+            exit
 
-        ! Only one output
-        if (if0.eq.if1) then
+          end if ! Close to a transition
+        end do ! Transitions
 
-          ! For each line component
+      ! More than one output
+      else
+
+        ! Reset logical variable
+        lskip = .True.
+
+        ! Look for the limits, for each output frequency
+        do ifreq=if0,if1
+
+          ! Initialize the flag
+          skip = .True.
+
+          ! For each transition component
           do it=1,nt
 
             ! Check if we are close to a transition frequency
-            if (abs(omega(if0)*vfacm-nut(it)).lt.red_neglW.or. &
-                abs(omega(if0)*vfacp-nut(it)).lt.red_neglW) then
+            if (abs(omega(ifreq)*vfacm-nut(it)).lt.red_neglW.or. &
+                abs(omega(ifreq)*vfacp-nut(it)).lt.red_neglW) then
 
-              ! Only trivial range
-              bf0 = if0
-              bf1 = if1
-              nran = 1
+              ! We cannot skip this one
+              skip = .False.
               exit
 
-            end if ! Close to a transition
-          end do ! Transitions
+            end if ! Close to a transition component
 
-        ! More than one output
+          end do ! Transition components
+
+          ! If we skip this frequency or it is the last
+          if (skip.or.ifreq.eq.if1) then
+
+            ! If we have found anything before
+            if (.not.lskip) then
+
+              ! If it is the last
+              if (ifreq.eq.if1) then
+
+                ! End of range is this
+                bf1 = ifreq
+
+              ! Not the last
+              else
+
+                ! Previous one was end of range
+                bf1 = ifreq - 1
+
+              end if ! If last index
+
+              ! Add a new range
+              nran = nran + 1
+
+            end if ! We have found anything before
+
+          ! If we cannot skip this frequency
+          else
+
+            ! If this is the first index for this
+            ! transition
+            if (bf0.lt.0) bf0 = ifreq
+
+          end if ! Can skip
+
+          ! Update status of last frequency
+          lskip = skip
+
+        end do ! output frequencies
+
+      end if ! Number of outputs
+
+      ! Store number of ranges in structure
+      Red%ao(indx)%nran = nran
+
+      ! If no ranges
+      if (Red%ao(indx)%nran.lt.1) then
+
+        ! No frequencies
+        Red%ao(indx)%nran = 0
+        Red%ao(indx)%nfreq = 0
+        Red%ao(indx)%Mi0 = 0
+        Red%ao(indx)%Mi1 = -1
+        Red%ao(indx)%nn = 0
+        return
+
+      end if
+
+      ! Allocate the range indexes
+      allocate(Red%ao(indx)%if0(nran))
+      Red%ao(indx)%if0 = bf0
+      allocate(Red%ao(indx)%if1(nran))
+      Red%ao(indx)%if1 = bf1
+
+      ! Only one frequency
+      if (if0.eq.if1) then
+
+        ! Single range
+        nran = 1
+        np = 1
+        Red%ao(indx)%if0(nran) = if0
+        Red%ao(indx)%if1(nran) = if0
+
+      ! More than one frequency
+      else
+
+        ! Only one output
+        if (bf1.eq.bf0) then
+
+          ! Initialize the flag
+          skip = .True.
+
+          ! For each transition component
+          do it=1,nt
+
+            ! Check if we are close to a transition frequency
+            if (abs(omega(bf0)*vfacm-nut(it)).lt.red_neglW.or. &
+                abs(omega(bf0)*vfacp-nut(it)).lt.red_neglW) then
+
+              ! Cannot skip this one
+              skip = .False.
+              exit
+
+            end if ! Close to a transition component
+
+          end do ! Transition components
+
+          ! No transition
+          if (skip) then
+
+            ! Zero out
+            Red%ao(indx)%nran = 0
+            deallocate(Red%ao(indx)%if0)
+            deallocate(Red%ao(indx)%if1)
+            Red%ao(indx)%Mi0 = 0
+            Red%ao(indx)%Mi1 = -1
+            Red%ao(indx)%nn = 0
+            return
+
+          end if ! No transition
+
+          ! Save limits
+          Red%ao(indx)%if0(1) = bf0
+          Red%ao(indx)%if1(1) = bf0
+          np = 1
+          nran = 1
+
+        ! Several outputs
         else
 
           ! Reset logical variable
           lskip = .True.
 
-          ! Look for the limits, for each output frequency
-          do ifreq=if0,if1
+          ! Initialize counters
+          nran = 0
+          np = 0
+
+          ! For each output frequency in the pre-checked limits
+          do ifreq=bf0,bf1
 
             ! Initialize the flag
             skip = .True.
@@ -1744,7 +1874,7 @@
               if (abs(omega(ifreq)*vfacm-nut(it)).lt.red_neglW.or. &
                   abs(omega(ifreq)*vfacp-nut(it)).lt.red_neglW) then
 
-                ! We cannot skip this one
+                ! Cannot skip this frequency
                 skip = .False.
                 exit
 
@@ -1753,208 +1883,69 @@
             end do ! Transition components
 
             ! If we skip this frequency or it is the last
-            if (skip.or.ifreq.eq.if1) then
+            if (skip.or.ifreq.eq.bf1) then
 
-              ! If we have found anything before
+              ! Did not skip the last
               if (.not.lskip) then
 
-                ! If it is the last
-                if (ifreq.eq.if1) then
+                ! It is the last
+                if (ifreq.eq.bf1) then
 
-                  ! End of range is this
-                  bf1 = ifreq
+                  ! Last is this one then
+                  Red%ao(indx)%if1(nran) = ifreq
+                  np = np + 1
 
-                ! Not the last
+                ! It is not the last
                 else
 
-                  ! Previous one was end of range
-                  bf1 = ifreq - 1
+                  ! Previous one closes
+                  Red%ao(indx)%if1(nran) = ifreq - 1
 
-                end if ! If last index
-
-                ! Add a new range
-                nran = nran + 1
-
-              end if ! We have found anything before
+                end if ! Last index
+              end if ! Did skip the last
 
             ! If we cannot skip this frequency
             else
 
-              ! If this is the first index for this
-              ! transition
-              if (bf0.lt.0) bf0 = ifreq
+              ! Advance index
+              np = np + 1
 
-            end if ! Can skip
+              ! If skipped last
+              if (lskip) then
 
-            ! Update status of last frequency
+                ! Initialize next range
+                nran = nran + 1
+                Red%ao(indx)%if0(nran) = ifreq
+
+              end if ! Skipped last
+            end if ! Skip this frequency
+
+            ! Update skipped status
             lskip = skip
 
           end do ! output frequencies
 
         end if ! Number of outputs
+      end if ! Number of outputs
 
-        ! Store number of ranges in structure
-        Red%zao(indx)%nran = nran
+      ! Set global limits
+      Red%ao(indx)%gf0 = minval(Red%ao(indx)%if0)
+      Red%ao(indx)%gf1 = maxval(Red%ao(indx)%if1)
+      Red%ao(indx)%tgf0 = Red%ao(indx)%gf0
+      Red%ao(indx)%tgf1 = Red%ao(indx)%gf1
 
-        ! If no ranges
-        if (Red%zao(indx)%nran.lt.1) then
+      ! Count frequencies
+      Red%ao(indx)%nfreq = np
 
-          ! No frequencies
-          Red%zao(indx)%nran = 0
-          Red%zao(indx)%nfreq = 0
-          Red%zao(indx)%Mif0 = 0
-          Red%zao(indx)%Mif1 = -1
-          Red%zao(indx)%nf = 0
-          cycle
+      ! Initialize for heights
+      do iz=Rz0,Rz1_PRD
 
-        end if
+        ! Get index
+        indx = Red%izao(jtran,ia,iz)
 
-        ! Allocate the range indexes
-        allocate(Red%zao(indx)%if0(nran))
-        Red%zao(indx)%if0 = bf0
-        allocate(Red%zao(indx)%if1(nran))
-        Red%zao(indx)%if1 = bf1
-
-        ! Only one frequency
-        if (if0.eq.if1) then
-
-          ! Single range
-          nran = 1
-          np = 1
-          Red%zao(indx)%if0(nran) = if0
-          Red%zao(indx)%if1(nran) = if0
-
-        ! More than one frequency
-        else
-
-          ! Only one output
-          if (bf1.eq.bf0) then
-
-            ! Initialize the flag
-            skip = .True.
-
-            ! For each transition component
-            do it=1,nt
-
-              ! Check if we are close to a transition frequency
-              if (abs(omega(bf0)*vfacm-nut(it)).lt.red_neglW.or. &
-                  abs(omega(bf0)*vfacp-nut(it)).lt.red_neglW) then
-
-                ! Cannot skip this one
-                skip = .False.
-                exit
-
-              end if ! Close to a transition component
-
-            end do ! Transition components
-
-            ! No transition
-            if (skip) then
-
-              ! Zero out
-              Red%zao(indx)%nran = 0
-              deallocate(Red%zao(indx)%if0)
-              deallocate(Red%zao(indx)%if1)
-              Red%zao(indx)%Mif0 = 0
-              Red%zao(indx)%Mif1 = -1
-              Red%zao(indx)%nf = 0
-              cycle
-
-            end if ! No transition
-
-            ! Save limits
-            Red%zao(indx)%if0(1) = bf0
-            Red%zao(indx)%if1(1) = bf0
-            np = 1
-            nran = 1
-
-          ! Several outputs
-          else
-
-            ! Reset logical variable
-            lskip = .True.
-
-            ! Initialize counters
-            nran = 0
-            np = 0
-
-            ! For each output frequency in the pre-checked limits
-            do ifreq=bf0,bf1
-
-              ! Initialize the flag
-              skip = .True.
-
-              ! For each transition component
-              do it=1,nt
-
-                ! Check if we are close to a transition frequency
-                if (abs(omega(ifreq)*vfacm-nut(it)).lt.red_neglW.or. &
-                    abs(omega(ifreq)*vfacp-nut(it)).lt.red_neglW) then
-
-                  ! Cannot skip this frequency
-                  skip = .False.
-                  exit
-
-                end if ! Close to a transition component
-
-              end do ! Transition components
-
-              ! If we skip this frequency or it is the last
-              if (skip.or.ifreq.eq.bf1) then
-
-                ! Did not skip the last
-                if (.not.lskip) then
-
-                  ! It is the last
-                  if (ifreq.eq.bf1) then
-
-                    ! Last is this one then
-                    Red%zao(indx)%if1(nran) = ifreq
-                    np = np + 1
-
-                  ! It is not the last
-                  else
-
-                    ! Previous one closes
-                    Red%zao(indx)%if1(nran) = ifreq - 1
-
-                  end if ! Last index
-                end if ! Did skip the last
-
-              ! If we cannot skip this frequency
-              else
-
-                ! Advance index
-                np = np + 1
-
-                ! If skipped last
-                if (lskip) then
-
-                  ! Initialize next range
-                  nran = nran + 1
-                  Red%zao(indx)%if0(nran) = ifreq
-
-                end if ! Skipped last
-              end if ! Skip this frequency
-
-              ! Update skipped status
-              lskip = skip
-
-            end do ! output frequencies
-
-          end if ! Number of outputs
-        end if ! Number of outputs
-
-        ! Set global limits
-        Red%zao(indx)%gf0 = minval(Red%zao(indx)%if0)
-        Red%zao(indx)%gf1 = maxval(Red%zao(indx)%if1)
-        Red%zao(indx)%tgf0 = Red%zao(indx)%gf0
-        Red%zao(indx)%tgf1 = Red%zao(indx)%gf1
+        ! Initialize limits
         Red%zao(indx)%ggf0 = 10000000
         Red%zao(indx)%ggf1 = -1
-
-        ! Count frequencies
-        Red%zao(indx)%nfreq = np
 
       end do ! Heights
 
@@ -2020,7 +2011,7 @@
 
       logical:: cohw,core,reset,nfound,init
 
-      integer:: iz,indx,iifreq,iran,ifreq,it,ir,jfreq,kfreq,cfreq
+      integer:: iz,indx,jndx,iifreq,iran,ifreq,it,ir,jfreq,kfreq,cfreq
       integer:: np,ni,nie,ip,ipp,npp,nn
 
       double precision:: vfacm,vfacp,DwT,Dw1,Dw
@@ -2042,14 +2033,17 @@
       dnlmin = minval(dnl(1:nr))
       dnlmax = maxval(dnl(1:nr))
 
+      ! Get index
+      jndx = Red%izao(jtran,ia,Rz0)
+
+      ! If the CPU does not have ranges, leave
+      if (Red%ao(jndx)%nran.lt.1) return
+
       ! For each height node
       do iz=Rz0,Rz1_PRD
 
         ! Get index
         indx = Red%izao(jtran,ia,iz)
-
-        ! If the CPU does not have ranges, leave
-        if (Red%zao(indx)%nran.lt.1) cycle
 
         ! Init
         vfacm = 1d0
@@ -2103,7 +2097,7 @@
         red_mstpcW1 = red_fstpcW1*red_pars(11)
 
         ! Allocate input frequency size
-        np = Red%zao(indx)%nfreq
+        np = Red%ao(jndx)%nfreq
         allocate(Redd_aux(iti,iz)%mfreq(np))
 
         ! Allocate and initialize pointers and back dimension trace
@@ -2117,9 +2111,9 @@
 
         ! For each output frequency
         iifreq = 0
-        do iran=1,Red%zao(indx)%nran
-          do ifreq=Red%zao(indx)%if0(iran), &
-                   Red%zao(indx)%if1(iran)
+        do iran=1,Red%ao(jndx)%nran
+          do ifreq=Red%ao(jndx)%if0(iran), &
+                   Red%ao(jndx)%if1(iran)
 
             ! Advance index
             iifreq = iifreq + 1
@@ -3039,6 +3033,7 @@
 
       !> Split tasks for the calculation of the second order
       !! emissivity of a given transition\n
+      !!      Atom(Atom_class): Structure with atomic data\n
       !!        Red(Red_class): Structure with redistribution input
       !!                        frequency data, redistribution
       !!                        function data, and profile or
@@ -3050,139 +3045,232 @@
       !!           ia(integer): Index of current atom\n
       !!        jtran(integer): Index of current output transition\n
       !!          nti(integer): Number of input transitions for the
-      !!                        current output transition
-      subroutine setmpi_red(Red,Redd_aux,MPID,ia,jtran,nti)
+      !!                        current output transition\n
+      !!    Lfield(logical(:)): Array flagging flags with fields if
+      !!                        there is mix of yes and no fields
+      subroutine setmpi_red(Atom,Red,Redd_aux,MPID,ia,jtran,nti, &
+                            Lfield)
 
       ! I/O
 
+      type(Atom_class), intent(in):: Atom
       type(Red_class), intent(inout):: Red
       type(Redc_class), dimension(:,:), &
                         allocatable, intent(inout):: Redd_aux
       type(MPI_class), intent(in):: MPID
+      logical, dimension(:), allocatable, intent(inout):: Lfield
       integer, intent(in):: ia,jtran,nti
 
       ! Local
 
-      integer:: iaux,extra,i0,i1,np,nn
-      integer:: iz,indx,iproc,iti,jjfreq,kkfreq,iifreq,iran,ifreq
-      integer, dimension(:), allocatable:: IW_freq
+      integer:: iaux,extra,i0,i1,np,nn,ntask,lnz,iz0,iz1,ff
+      integer:: iz,indx,jndx,iproc,iti,jjfreq,kkfreq,iifreq,iran,ifreq
+      integer, dimension(:), allocatable:: IW_freq,fB,fNB
 
 
-      ! For each height
-      do iz=Rz0,Rz1_PRD
+      ! Atom -- transition index
+      jndx = Red%izao(jtran,ia,Rz0)
 
-        ! Get index
-        indx = Red%izao(jtran,ia,iz)
+      ! If no frequencies to calculate
+      if (Red%ao(jndx)%nran.lt.1) return
 
-        ! If no frequencies to calculate
-        if (Red%zao(indx)%nran.lt.1) cycle
+      ! Number of heights
+      lnz = Rz1_PRD - Rz0 + 1
 
-        ! If MPI
-        if (nproc.gt.1) then
+      ! Number of tasks
+      ntask = Red%ao(jndx)%nfreq*lnz
 
-          ! If more processes than frequencies
-          if (nproc.ge.Red%zao(indx)%nfreq) then
+      ! If MPI
+      if (nproc.gt.1) then
 
-            ! One frequency each (until done)
-            iaux = 0
-            do iproc=0,Red%zao(indx)%nfreq-1
-              Red%zao(indx)%Mif0(iproc) = iproc+1
-              Red%zao(indx)%Mif1(iproc) = iproc+1
-              Red%zao(indx)%nf(iproc) = 1
+        ! If more processes than frequencies
+        if (nproc.ge.ntask) then
+
+          ! One frequency each (until done)
+          iaux = 0
+          do iproc=0,ntask-1
+            Red%ao(jndx)%Mi0(iproc) = iproc+1
+            Red%ao(jndx)%Mi1(iproc) = iproc+1
+            Red%ao(jndx)%nn(iproc) = 1
+          end do
+
+          ! Rest do nothing
+          do iproc=ntask,nproc-1
+            Red%ao(jndx)%Mi0(iproc) = 0
+            Red%ao(jndx)%Mi1(iproc) = -1
+            Red%ao(jndx)%nn(iproc) = 0
+          end do
+
+        ! All participate (more tasks than CPU)
+        else
+
+          ! Only master
+          if (pid.eq.0) then
+
+            ! Basic amount
+            iaux = ntask/nproc
+            extra = ntask - iaux*nproc
+
+            ! Initialize
+            i0 = 0
+            i1 = 0
+
+            ! First CPUs have extra
+            do iproc=0,extra-1
+              Red%ao(jndx)%Mi0(iproc) = i1+1
+              i1 = i1 + iaux + 1
+              Red%ao(jndx)%Mi1(iproc) = i1
+              Red%ao(jndx)%nn(iproc) = iaux + 1
             end do
 
-            ! Rest do nothing
-            do iproc=Red%zao(indx)%nfreq,nproc-1
-              Red%zao(indx)%Mif0(iproc) = 0
-              Red%zao(indx)%Mif1(iproc) = -1
-              Red%zao(indx)%nf(iproc) = 0
+            ! Rest have nominal
+            do iproc=extra,nproc-1
+              Red%ao(jndx)%Mi0(iproc) = i1+1
+              i1 = i1 + iaux
+              Red%ao(jndx)%Mi1(iproc) = i1
+              Red%ao(jndx)%nn(iproc) = iaux
             end do
 
-          ! All participate (more frequencies than CPU)
-          else
+            ! Allocate and initialize work weights
+            allocate(IW_freq(ntask))
+            IW_freq = 1
 
-            ! Only master
-            if (pid.eq.0) then
+            ! If there is information about the magnetic field
+            if (allocated(Lfield)) then
 
-              ! Basic amount
-              iaux = Red%zao(indx)%nfreq/nproc
-              extra = Red%zao(indx)%nfreq - iaux*nproc
-
-              ! Initialize
-              i0 = 0
-              i1 = 0
-
-              ! First CPUs have extra
-              do iproc=0,extra-1
-                Red%zao(indx)%Mif0(iproc) = i1+1
-                i1 = i1 + iaux + 1
-                Red%zao(indx)%Mif1(iproc) = i1
-                Red%zao(indx)%nf(iproc) = iaux + 1
-              end do
-
-              ! Rest have nominal
-              do iproc=extra,nproc-1
-                Red%zao(indx)%Mif0(iproc) = i1+1
-                i1 = i1 + iaux
-                Red%zao(indx)%Mif1(iproc) = i1
-                Red%zao(indx)%nf(iproc) = iaux
-              end do
-
-              ! Allocate and initialize work weights
-              allocate(IW_freq(Red%zao(indx)%nfreq))
-              IW_freq = 1
+              ! Allocate factors
+              allocate(fB(nti),fNB(nti))
 
               ! For each input transition
               do iti=1,nti
 
-                ! Add input frequencies to weight
-                IW_freq = IW_freq + Redd_aux(iti,iz)%mfreq
+                ! Calculate sizes in components
+                fB(iti) = maxval(Atom%trano(jtran)%trani(iti)%indB)
+                fNB(iti) = maxval(Atom%trano(jtran)%trani(iti)%indNB)
 
-              end do
+              end do ! Input transitions
 
-              ! Optimize split
-              call weighted_split(nproc,1000, &
-                                  IW_freq, &
-                                  Red%zao(indx)%Mif0, &
-                                  Red%zao(indx)%Mif1, &
-                                  Red%zao(indx)%nf)
+              ! For each height
+              do iz=Rz0,Rz1_PRD
 
-              ! Deallocate weights
-              deallocate(IW_freq)
+                ! Limits
+                i0 = (iz - Rz0)*Red%ao(jndx)%nfreq + 1
+                i1 = i0 + Red%ao(jndx)%nfreq - 1
 
-            end if ! Master
+                ! For each input transition
+                do iti=1,nti
 
-            ! Share split with everyone
-            call MPI_BCAST(Red%zao(indx)%nf(0), nproc, &
-                           MPI_INTEGER, 0, MPI_COMM_RT, ierr)
-            call MPI_BCAST(Red%zao(indx)%Mif0(0), nproc, &
-                           MPI_INTEGER, 0, MPI_COMM_RT, ierr)
-            call MPI_BCAST(Red%zao(indx)%Mif1(0), nproc, &
-                           MPI_INTEGER, 0, MPI_COMM_RT, ierr)
+                  ! Choose factor
+                  if (Lfield(iz)) then
+                    ff = fB(iti)
+                  else
+                    ff = fNB(iti)
+                  end if
 
-          end if ! Type of distribution
+                  ! Add input frequencies to weight
+                  IW_freq(i0:i1) = IW_freq(i0:i1) + &
+                                   Redd_aux(iti,iz)%mfreq*ff
 
-        ! Serial
-        else
+                end do ! Input transitions
+              end do ! Heights
 
-          ! Everything for single CPU
-          Red%zao(indx)%Mif0(0) = 1
-          Red%zao(indx)%Mif1(0) = Red%zao(indx)%nfreq
-          Red%zao(indx)%nf(0) = Red%zao(indx)%nfreq
+            ! No information about magnetic field
+            else
 
-        end if ! MPI/serial
+              ! For each height
+              do iz=Rz0,Rz1_PRD
 
-        ! Reinitialize indexes
-        Red%zao(indx)%Igf0 = nfreq+1
-        Red%zao(indx)%Igf1 = 0
+                ! Limits
+                i0 = (iz - Rz0)*Red%ao(jndx)%nfreq + 1
+                i1 = i0 + Red%ao(jndx)%nfreq - 1
 
+                ! For each input transition
+                do iti=1,nti
 
-        !
-        ! Now take only what is needed
-        !
+                  ! Add input frequencies to weight
+                  IW_freq(i0:i1) = IW_freq(i0:i1) + &
+                                   Redd_aux(iti,iz)%mfreq
 
-        ! If frequencies to compute
-        if (Red%zao(indx)%nf(pid).gt.0) then
+                end do ! Input transitions
+              end do ! Heights
+
+            end if ! Magnetic field information
+
+            ! Control overflow
+            do while (sum(IW_freq).lt.maxval(IW_freq).and. &
+                      minval(IW_freq).gt.1)
+
+              ! Reduce by factor 2
+              IW_freq = IW_freq/2
+
+            end do ! If overflow
+
+            ! Optimize split
+            call weighted_split(nproc,1000, &
+                                IW_freq, &
+                                Red%ao(jndx)%Mi0, &
+                                Red%ao(jndx)%Mi1, &
+                                Red%ao(jndx)%nn)
+
+            ! Deallocate weights
+            deallocate(IW_freq)
+
+          end if ! Master
+
+          ! Share split with everyone
+          call MPI_BCAST(Red%ao(jndx)%nn(0), nproc, &
+                         MPI_INTEGER, 0, MPI_COMM_RT, ierr)
+          call MPI_BCAST(Red%ao(jndx)%Mi0(0), nproc, &
+                         MPI_INTEGER, 0, MPI_COMM_RT, ierr)
+          call MPI_BCAST(Red%ao(jndx)%Mi1(0), nproc, &
+                         MPI_INTEGER, 0, MPI_COMM_RT, ierr)
+
+        end if ! Type of distribution
+
+      ! Serial
+      else
+
+        ! Everything for single CPU
+        Red%ao(jndx)%Mi0(0) = 1
+        Red%ao(jndx)%Mi1(0) = ntask
+        Red%ao(jndx)%nn(0) = ntask
+
+      end if ! MPI/serial
+
+      ! If CPU has tasks
+      if (Red%ao(jndx)%nn(pid).gt.0) then
+
+        ! Get z limits
+        iz0 = Rz0 + (Red%ao(jndx)%Mi0(pid)-1)/Red%ao(jndx)%nfreq
+        iz1 = Rz0 + (Red%ao(jndx)%Mi1(pid)-1)/Red%ao(jndx)%nfreq
+
+        ! For each height
+        do iz=iz0,iz1
+
+          ! Get index
+          indx = Red%izao(jtran,ia,iz)
+
+          ! Get left frequency indexes
+          if (iz.eq.iz0) then
+            i0 = Red%ao(jndx)%Mi0(pid) - (iz0-Rz0)*Red%ao(jndx)%nfreq
+          else
+            i0 = 1
+          end if
+
+          ! Get right frequency index
+          if (iz.eq.iz1) then
+            i1 = Red%ao(jndx)%Mi1(pid) - (iz1-Rz0)*Red%ao(jndx)%nfreq
+          else
+            i1 = Red%ao(jndx)%nfreq
+          end if
+
+          ! Reinitialize indexes
+          Red%zao(indx)%Igf0 = nfreq+1
+          Red%zao(indx)%Igf1 = 0
+
+          !
+          ! Now take only what is needed
+          !
 
           ! Initialize maximum number of frequencies for this CPU
           Red%zao(indx)%mxfreq = 0
@@ -3195,14 +3283,11 @@
             kkfreq = 0
 
             ! Allocate local sizes
-            allocate(Red%zao(indx)%trani(iti)% &
-                         mfreq(Red%zao(indx)%Mif0(pid): &
-                               Red%zao(indx)%Mif1(pid)))
+            allocate(Red%zao(indx)%trani(iti)%mfreq(i0:i1))
 
             ! Copy number of frequencies
             Red%zao(indx)%trani(iti)%mfreq = &
-                Redd_aux(iti,iz)%mfreq(Red%zao(indx)%Mif0(pid): &
-                                       Red%zao(indx)%Mif1(pid))
+                                         Redd_aux(iti,iz)%mfreq(i0:i1)
 
             ! Total number of frequencies for this CPU
             np = sum(Red%zao(indx)%trani(iti)%mfreq)
@@ -3220,18 +3305,18 @@
 
             ! For each output frequency
             iifreq = 0
-            do iran=1,Red%zao(indx)%nran
-              do ifreq=Red%zao(indx)%if0(iran), &
-                       Red%zao(indx)%if1(iran)
+            do iran=1,Red%ao(jndx)%nran
+              do ifreq=Red%ao(jndx)%if0(iran), &
+                       Red%ao(jndx)%if1(iran)
 
                 ! Advance index
                 iifreq = iifreq + 1
 
                 ! If out of range above, done
-                if (iifreq.gt.Red%zao(indx)%Mif1(pid)) exit
+                if (iifreq.gt.i1) exit
 
                 ! If out of range below
-                if (iifreq.lt.Red%zao(indx)%Mif0(pid)) then
+                if (iifreq.lt.i0) then
 
                   ! Advance and skip
                   jjfreq = jjfreq + Redd_aux(iti,iz)%mfreq(iifreq)
@@ -3272,16 +3357,16 @@
 
           ! For each output frequency
           iifreq = 0
-          do iran=1,Red%zao(indx)%nran
-            do ifreq=Red%zao(indx)%if0(iran), &
-                     Red%zao(indx)%if1(iran)
+          do iran=1,Red%ao(jndx)%nran
+            do ifreq=Red%ao(jndx)%if0(iran), &
+                     Red%ao(jndx)%if1(iran)
 
               ! Advance index
               iifreq = iifreq + 1
 
               ! If out of range
-              if (iifreq.gt.Red%zao(indx)%Mif1(pid)) exit
-              if (iifreq.lt.Red%zao(indx)%Mif0(pid)) cycle
+              if (iifreq.gt.i1) exit
+              if (iifreq.lt.i0) cycle
 
               ! Update limits
               if (ifreq.lt.Red%zao(indx)%Igf0) &
@@ -3291,28 +3376,27 @@
 
             end do
           end do
+        end do ! Height
 
-          ! Determine frequency range to save
-          Red%zao(indx)%gf0 = max(Red%zao(indx)%tgf0,MPID%if0(pid))
-          Red%zao(indx)%gf1 = min(Red%zao(indx)%tgf1,MPID%if1(pid))
+        ! Determine frequency range to save
+        Red%ao(jndx)%gf0 = max(Red%ao(jndx)%tgf0,MPID%if0(pid))
+        Red%ao(jndx)%gf1 = min(Red%ao(jndx)%tgf1,MPID%if1(pid))
 
-        end if ! Frequencies to deal with
+      end if ! Tasks to deal with
 
-      end do ! Height
+      ! For every considered height
+      do iz=Rz0,Rz1_PRD
 
-      ! For every input transition
-      do iti=1,nti
-
-        ! For every considered height
-        do iz=Rz0,Rz1_PRD
+        ! For every input transition
+        do iti=1,nti
 
           ! Free space in auxiliar structure
           deallocate(Redd_aux(iti,iz)%omega, &
                      Redd_aux(iti,iz)%W_freq, &
                      Redd_aux(iti,iz)%mfreq)
 
-        end do ! Heights
-      end do ! Input transitions
+        end do ! Input transitions
+      end do ! Heights
 
       ! Free auxiliar
       deallocate(Redd_aux)
@@ -3348,6 +3432,7 @@
 
       ! Local
 
+      integer:: iz0,iz1,jndx,i0,i1
       integer:: iz,ktran,jtran,fjtran,indx,jtrano,itran,fitran,ffitran
       integer:: itermu,itermf,iterml,iJu,iJf,iJl,ii,iti
       integer:: jjfreq,iifreq,iran,ifreq,lifreq,jfreq,jufreq,ibfreq
@@ -3355,75 +3440,95 @@
 
       double precision:: vfacm,vfacp,dnl,dnlmin,dnlmax,O0,O1
 
+      ! For each output transition level
+      do ktran=lbound(Red%ao,1),ubound(Red%ao,1)
 
-      ! For each height
-      do iz=Rz0,Rz1_PRD
+        ! If polarization
+        if (pol) then
 
-        ! Initialize Doppler displacement factor
-        vfacm = 1d0
-        vfacp = 1d0
+          ! Skip if too big index
+          if (ktran.gt.Atom%ntran) cycle
 
-        ! If dynamic
-        if (dyn) then
+          ! Get transition term index
+          jtran = ktran
 
-          ! Compute velocity
-          dnl = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
-                     Atmo%vy(iz)*Atmo%vy(iz) + &
-                     Atmo%vz(iz)*Atmo%vz(iz))
+          ! If no PRD line, skip
+          if (.not.Atom%lemiss2(jtran)) cycle
 
-          ! Big enough velocity
-          if (dnl.gt.TINYVEL) then
+          ! Other index
+          jtrano = jtran
 
-            ! Compute displacements
-            vfacp = 1d0 - dnl
-            vfacp = 1d0/vfacp
-            vfacm = 1d0 + dnl
-            vfacm = 1d0/vfacm
+        ! If intensity
+        else
 
-          end if ! Significant velocity
-        end if ! Dynamic
+          ! Skip if too big index
+          if (ktran.gt.Atom%nftran) cycle
 
-        ! For each output transition level
-        do ktran=lbound(Red%zao,1),ubound(Red%zao,1)
+          ! Get transition term index
+          jtran = Atom%ifst(ktran)
 
-          ! If polarization
-          if (pol) then
+          ! If no PRD line, skip
+          if (.not.Atom%lemiss2(jtran)) cycle
 
-            ! Skip if too big index
-            if (ktran.gt.Atom%ntran) cycle
+          ! Other index
+          jtrano = Atom%itrano(ktran)
 
-            ! Get transition term index
-            jtran = ktran
+        end if
 
-            ! If no PRD line, skip
-            if (.not.Atom%lemiss2(jtran)) cycle
+        ! Atom -- transition index
+        jndx = Red%izao(ktran,ia,Rz0)
 
-            ! Other index
-            jtrano = jtran
+        ! Skip if no assigned frequencies
+        if (Red%ao(jndx)%nran.lt.1) cycle
+        if (Red%ao(jndx)%nn(pid).lt.1) cycle
 
-          ! If intensity
-          else
+        ! Get z limits
+        iz0 = Rz0 + (Red%ao(jndx)%Mi0(pid)-1)/Red%ao(jndx)%nfreq
+        iz1 = Rz0 + (Red%ao(jndx)%Mi1(pid)-1)/Red%ao(jndx)%nfreq
 
-            ! Skip if too big index
-            if (ktran.gt.Atom%nftran) cycle
+        ! For each height
+        do iz=iz0,iz1
 
-            ! Get transition term index
-            jtran = Atom%ifst(ktran)
+          ! Initialize Doppler displacement factor
+          vfacm = 1d0
+          vfacp = 1d0
 
-            ! If no PRD line, skip
-            if (.not.Atom%lemiss2(jtran)) cycle
+          ! If dynamic
+          if (dyn) then
 
-            ! Other index
-            jtrano = Atom%itrano(ktran)
+            ! Compute velocity
+            dnl = sqrt(Atmo%vx(iz)*Atmo%vx(iz) + &
+                       Atmo%vy(iz)*Atmo%vy(iz) + &
+                       Atmo%vz(iz)*Atmo%vz(iz))
 
-          end if
+            ! Big enough velocity
+            if (dnl.gt.TINYVEL) then
+
+              ! Compute displacements
+              vfacp = 1d0 - dnl
+              vfacp = 1d0/vfacp
+              vfacm = 1d0 + dnl
+              vfacm = 1d0/vfacm
+
+            end if ! Significant velocity
+          end if ! Dynamic
 
           ! Get index
           indx = Red%izao(ktran,ia,iz)
 
-          ! Skip if no assigned frequencies
-          if (Red%zao(indx)%nran.lt.1) cycle
-          if (Red%zao(indx)%nf(pid).lt.1) cycle
+          ! Get left frequency indexes
+          if (iz.eq.iz0) then
+            i0 = Red%ao(jndx)%Mi0(pid) - (iz0-Rz0)*Red%ao(jndx)%nfreq
+          else
+            i0 = 1
+          end if
+
+          ! Get right frequency index
+          if (iz.eq.iz1) then
+            i1 = Red%ao(jndx)%Mi1(pid) - (iz1-Rz0)*Red%ao(jndx)%nfreq
+          else
+            i1 = Red%ao(jndx)%nfreq
+          end if
 
           ! If intensity case
           if (.not.pol) then
@@ -3517,16 +3622,16 @@
 
       ! For each output frequency
       iifreq = 0
-      do iran=1,Red%zao(indx)%nran
-        do ifreq=Red%zao(indx)%if0(iran), &
-                 Red%zao(indx)%if1(iran)
+      do iran=1,Red%ao(jndx)%nran
+        do ifreq=Red%ao(jndx)%if0(iran), &
+                 Red%ao(jndx)%if1(iran)
 
           ! Advance index
           iifreq = iifreq + 1
 
           ! In MPI range
-          if (iifreq.gt.Red%zao(indx)%Mif1(pid)) exit
-          if (iifreq.lt.Red%zao(indx)%Mif0(pid)) cycle
+          if (iifreq.gt.i1) exit
+          if (iifreq.lt.i0) cycle
 
           ! Input frequency number
           np = Red%zao(indx)%trani(iti)%mfreq(iifreq)
@@ -3785,13 +3890,14 @@
       type(Redc_class), dimension(:,:), allocatable:: Redd_aux
 
       logical:: skip,Yfield,Nfield,RAMOF,ldipole
+      logical, dimension(:), allocatable:: Lfield
 
       integer:: iz,ia,itran,jtran,if0,if1
       integer:: iJl,iJu,iJf,itermf,itermu,iterml
       integer:: nr,nt,ntj,ntk,ni,np0,nti,iti
       integer, dimension(:), allocatable:: flag
 
-      double precision:: dnlmin,dnlmax,SRAM
+      double precision:: dnlmin,dnlmax,SRAM,DwN
       double precision, dimension(:), allocatable:: dnl, nut
       double precision, dimension(:), allocatable:: vphv, vplv, vpr
       double precision, dimension(:), allocatable:: vphve, vplve
@@ -3809,27 +3915,25 @@
       Nfield = .False.
       RAMOF = .False.
 
-      ! For each considered height
-      do iz=Rz0,Rz1_PRD
+      ! Small field
+      Nfield = minval(Bstrength(Rz0:Rz1_PRD)).le.TINYB
+      Yfield = maxval(Bstrength(Rz0:Rz1_PRD)).gt.TINYB
 
-        ! If small field
-        if (Bstrength(iz).le.TINYB) then
+      ! If found both
+      if (Yfield.and.Nfield) then
 
-          ! Points without field
-          Nfield = .True.
+        ! Allocate vector
+        allocate(Lfield(Rz0:Rz1_PRD))
 
-        ! If significant field
-        else
+        ! For each considered height
+        do iz=Rz0,Rz1_PRD
 
-          ! Points with field
-          Yfield = .True.
+          ! Flag
+          Lfield(iz) = Bstrength(iz).gt.TINYB
 
-        end if ! Field strength
+        end do ! Heights
 
-        ! If found both, stop
-        if (Yfield.and.Nfield) exit
-
-      end do ! Heights
+      end if ! Found both magnetic and non-magnetic
 
       ! Flag if we need to check selection rules
       ldipole = .not.Yfield.and.Input%MIT_input.lt.0
@@ -3862,6 +3966,30 @@
 
         ! There are no PRD lines for this atom
         if (skip) cycle
+
+        !
+        ! Calculate nominal Doppler width
+        !
+
+        ! Maximum temperature
+        if (Input%dws.eq.'MAX') then
+
+          ! Calculate
+          DwN = Atom(ia)%cDopp*sqrt(Input%maxT)
+
+        ! Minimum temperature
+        else if (Input%dws.eq.'MIN') then
+
+          ! Calculate
+          DwN = Atom(ia)%cDopp*sqrt(Input%minT)
+
+        ! Fixed input Doppler width
+        else if (Input%dws.eq.'NUM') then
+
+          ! Calculate
+          DwN = Input%dw*1d-9/c
+
+        end if ! Type of nominal Doppler width
 
         ! For each output transition
         do jtran=1,Atom(ia)%ntran
@@ -4028,10 +4156,8 @@
           ! Determine frequency limits for the output transition
           call get_transition_out_limit(Atmo,Red,ia, &
                                         jtran,nt,if0,if1, &
-                                        Atom(ia)%Dfreq(jtran), &
                                         Input%red_pars(3), &
-                                        Atom(ia)%cDopp, &
-                                        nut,Frec%omega)
+                                        DwN,nut,Frec%omega)
 
           ! Allocate auxiliar structure to store input frequencies
           allocate(Redd_aux(nti,Rz0:Rz1_PRD))
@@ -4197,8 +4323,8 @@
           end do ! Input transition
 
           ! Split tasks by amount of frequencies
-          call setmpi_red(Red,Redd_aux,MPID,ia,jtran, &
-                          Atom(ia)%trano(jtran)%nt)
+          call setmpi_red(Atom(ia),Red,Redd_aux,MPID,ia,jtran, &
+                          Atom(ia)%trano(jtran)%nt,Lfield)
 
         end do ! Output transition
 
@@ -4248,7 +4374,8 @@
 
       logical:: Yfield,Nfield,lNCHLT
 
-      integer:: indx,iz,ia,jtran,iti,itran
+      integer:: indx,jndx,iz0,iz1
+      integer:: iz,ia,jtran,iti,itran
       integer:: nn,iYNF,iYYF,iNF,iDF,iDFR
 
       double precision:: RAM,SRAM
@@ -4317,8 +4444,19 @@
           ! Skip CRD
           if (.not.Atom(ia)%lemiss2(jtran)) cycle
 
+          ! Get indexes
+          jndx = Red%izao(jtran,ia,Rz0)
+
+          ! Skip no work
+          if (Red%ao(jndx)%nran.lt.1) cycle
+          if (Red%ao(jndx)%nn(pid).lt.1) cycle
+
+          ! Get z limits
+          iz0 = Rz0 + (Red%ao(jndx)%Mi0(pid)-1)/Red%ao(jndx)%nfreq
+          iz1 = Rz0 + (Red%ao(jndx)%Mi1(pid)-1)/Red%ao(jndx)%nfreq
+
           ! For every height
-          do iz=Rz0,Rz1_PRD
+          do iz=iz0,iz1
 
             ! Get indexes
             indx = Red%izao(jtran,ia,iz)
@@ -4356,7 +4494,7 @@
             if (Yfield.and.NCHLT) then
 
               ! For each height
-              do iz=Rz0,Rz1_PRD
+              do iz=iz0,iz1
 
                 ! If non-coherent for this transition
                 if (Atom(ia)%NCHLT(iz,itran)) then
@@ -4372,17 +4510,13 @@
             end if ! Magnetic and non-coherent input
 
             ! For every considered height
-            do iz=Rz0,Rz1_PRD
+            do iz=iz0,iz1
 
               ! Get indexes
               indx = Red%izao(jtran,ia,iz)
 
               ! Initialize as not stored
               Red%rzao(indx)%trani(iti)%RAM = .False.
-
-              ! If no range or frequency, skip
-              if (Red%zao(indx)%nran.lt.1) cycle
-              if (Red%zao(indx)%nf(pid).lt.1) cycle
 
               ! Non magnetic
               if (Bstrength(iz).le.TINYB) then
@@ -4520,6 +4654,7 @@
       type(Redc_class), dimension(:,:), allocatable:: Redd_aux
 
       logical:: skip
+      logical, dimension(:), allocatable:: dummy
 
       integer:: ia,itran,jtran,ni,np0,nti,if0,if1
       integer:: fitran,fjtran,ffitran,ffjtran,ffktran
@@ -4527,7 +4662,7 @@
       integer:: nr,nt,ntj,ntk
       integer, dimension(:), allocatable:: flag
 
-      double precision:: RAM
+      double precision:: RAM,DwN
       double precision, dimension(1):: nutout, dnl, vpr
       double precision, dimension(2):: nut
       double precision, dimension(3):: vphv, vplv
@@ -4569,6 +4704,30 @@
 
         ! There are no PRD lines for this atom
         if (skip) cycle
+
+        !
+        ! Calculate nominal Doppler width
+        !
+
+        ! Maximum temperature
+        if (Input%dws.eq.'MAX') then
+
+          ! Calculate
+          DwN = Atom(ia)%cDopp*sqrt(Input%maxT)
+
+        ! Minimum temperature
+        else if (Input%dws.eq.'MIN') then
+
+          ! Calculate
+          DwN = Atom(ia)%cDopp*sqrt(Input%minT)
+
+        ! Fixed input Doppler width
+        else if (Input%dws.eq.'NUM') then
+
+          ! Calculate
+          DwN = Input%dw*1d-9/c
+
+        end if ! Type of nominal Doppler width
 
         ! For each output transition
         do jtran=1,Atom(ia)%ntran
@@ -4623,10 +4782,9 @@
 
       ! Get output transition ranges
       call get_transition_out_limit(Atmo,Red,ia,ffjtran, &
-                                    1,if0,if1,nutout(1), &
+                                    1,if0,if1, &
                                     Input%redi_pars(3), &
-                                    Atom(ia)%cDopp, &
-                                    nutout,Frec%omega)
+                                    DwN,nutout,Frec%omega)
 
       ! Allocate auxiliar structure to hold input frequencies
       allocate(Redd_aux(nti,Rz0:Rz1_PRD))
@@ -4683,8 +4841,8 @@
       end do ! Input transitions
 
       ! Split tasks weighted by number of frequencies
-      call setmpi_red(Red,Redd_aux,MPID,ia,ffjtran, &
-                      Atom(ia)%tranoI(ffktran)%nt)
+      call setmpi_red(Atom(ia),Red,Redd_aux,MPID,ia,ffjtran, &
+                      Atom(ia)%tranoI(ffktran)%nt,dummy)
 
 
             !
@@ -4737,8 +4895,8 @@
 
       ! Local
 
-      integer:: nn
-      integer:: indx,iz,ia,jtran,fjtran,ffjtran,ffktran,ffitran,iti
+      integer:: nn,indx,jndx,iz0,iz1
+      integer:: iz,ia,jtran,fjtran,ffjtran,ffktran,ffitran,iti
 
       double precision:: RAM,SRAM
 
@@ -4771,33 +4929,55 @@
 
       end do ! Indexes
 
-      ! For each height
-      do iz=Rz0,Rz1_PRD
+      ! For each atom
+      do ia=1,nA
 
-        ! For each atom
-        do ia=1,nA
+        ! For output transition
+        do jtran=1,Atom(ia)%ntran
 
-          ! For output transition
-          do jtran=1,Atom(ia)%ntran
+          ! Skip CRD
+          if (.not.Atom(ia)%lemiss2(jtran)) cycle
 
-            ! Skip CRD
-            if (.not.Atom(ia)%lemiss2(jtran)) cycle
+          ! For each FS transition
+          do fjtran=1,Atom(ia)%fst(jtran)%nt
 
-            ! For each FS transition
-            do fjtran=1,Atom(ia)%fst(jtran)%nt
+            ! Get indexes
+            ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
+            ffktran = Atom(ia)%itrano(ffjtran)
+            jndx = Red%izao(ffjtran,ia,Rz0)
 
-              ! Get indexes
-              ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
-              ffktran = Atom(ia)%itrano(ffjtran)
+            ! Skip no work
+            if (Red%ao(jndx)%nran.lt.1) cycle
+            if (Red%ao(jndx)%nn(pid).lt.1) cycle
+
+            ! Get z limits
+            iz0 = Rz0 + (Red%ao(jndx)%Mi0(pid)-1)/Red%ao(jndx)%nfreq
+            iz1 = Rz0 + (Red%ao(jndx)%Mi1(pid)-1)/Red%ao(jndx)%nfreq
+
+            ! For each height
+            do iz=iz0,iz1
+
+              ! Get index
               indx = Red%izao(ffjtran,ia,iz)
-
-              ! If no range or frequency, skip
-              if (Red%zao(indx)%nran.lt.1) cycle
-              if (Red%zao(indx)%nf(pid).lt.1) cycle
 
               ! Allocate input transitions
               allocate(Red%rzao(indx)%trani(Atom(ia)% &
                                             tranoI(ffktran)%nt))
+
+              ! For each input transition
+              do iti=1,Atom(ia)%tranoI(ffktran)%nt
+
+                ! Add RAM
+                RAM = RAM + 1d-6*sizeof(Red%rzao(indx)%trani(iti))
+
+              end do ! Input transitions
+            end do ! Heights
+
+            ! For each height
+            do iz=iz0,iz1
+
+              ! Get index
+              indx = Red%izao(ffjtran,ia,iz)
 
               ! For each input transition
               do iti=1,Atom(ia)%tranoI(ffktran)%nt
@@ -4855,10 +5035,10 @@
                 allocate(Red%rzao(indx)%trani(iti)%IWarr2(nn))
 
               end do ! Input transition
-            end do ! Output transition (FS)
-          end do ! Output transition
-        end do ! Atoms
-      end do ! Height
+            end do ! Height
+          end do ! Output transition (FS)
+        end do ! Output transition
+      end do ! Atoms
 
       ! Count RAM
       call cram_red_warr(Red,RAM)
@@ -6185,15 +6365,18 @@
 
       ! Sanity check
       if (mina.gt.maxa.or.minto.gt.maxto) then
+        Red%nao = 0
         Red%nzao = 0
         return
       end if
 
       ! Allocate indexing array and first step of Frec and Red
       allocate(Red%izao(minto:maxto,mina:maxa,Rz0:Rz1_PRD))
+      Red%nao = nat
       Red%nzao = nat*(Rz1_PRD-Rz0+1)
 
       ! Allocate frequency data
+      allocate(Red%ao(Red%nao))
       allocate(Red%zao(Red%nzao))
 
       ! For each index
@@ -6240,9 +6423,11 @@
               Red%zao(nat)%mxfreq = 0
 
               ! Allocate
-              allocate(Red%zao(nat)%Mif0(0:nproc-1))
-              allocate(Red%zao(nat)%Mif1(0:nproc-1))
-              allocate(Red%zao(nat)%nf(0:nproc-1))
+              if (iz.eq.Rz0) then
+                allocate(Red%ao(nat)%Mi0(0:nproc-1))
+                allocate(Red%ao(nat)%Mi1(0:nproc-1))
+                allocate(Red%ao(nat)%nn(0:nproc-1))
+              end if
 
               !
               ! Count minimum memory for normalization
@@ -6323,9 +6508,11 @@
                 Red%zao(nat)%mxfreq = 0
 
                 ! Allocate
-                allocate(Red%zao(nat)%Mif0(0:nproc-1))
-                allocate(Red%zao(nat)%Mif1(0:nproc-1))
-                allocate(Red%zao(nat)%nf(0:nproc-1))
+                if (iz.eq.Rz0) then
+                  allocate(Red%ao(nat)%Mi0(0:nproc-1))
+                  allocate(Red%ao(nat)%Mi1(0:nproc-1))
+                  allocate(Red%ao(nat)%nn(0:nproc-1))
+                end if
 
                 ! Add logical and norm necessary sizes
                 DRAM2c = DRAM2c + 12d-6

@@ -11,16 +11,15 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     15/05/2025 V4.0.2
+!     26/06/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.2 - Generalized declarations of Atom to
-!                             allow for empty arrays for any of
-!                             them (TdPA)
+!     26/06/2025:    V4.0.3 - Updated due to changes in the Red_class
+!                             and Redb_class structures (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -133,7 +132,7 @@
       ! Local
 
       integer:: iterml,itermu,iJl,iJu,ilevell,ilevelu,ifreq,nf2
-      integer:: ia,jtran,ktran,fjtran,ffktran,ffjtran,indx
+      integer:: ia,jtran,ktran,fjtran,ffktran,ffjtran,indx,jndx
       integer:: icdir,if0l,if1l,if0l2,if1l2,iil,jjl,iip,nf
 
       double precision:: daux,DwT,Dfreq,pE,absK,Dw,pop,rhou
@@ -408,14 +407,15 @@
                 iz.lt.Rz1_PRD) then
 
               ! Red index
+              jndx = Red%izao(ffjtran,ia,Rz0)
               indx = Red%izao(ffjtran,ia,iz)
 
               ! There are valid ranges
-              if (Red%zao(indx)%nran.gt.0) then
+              if (Red%ao(jndx)%nran.gt.0) then
 
                 ! Get limits for emissivity
-                if0l2 = Red%zao(indx)%gf0
-                if1l2 = Red%zao(indx)%gf1
+                if0l2 = Red%ao(jndx)%gf0
+                if1l2 = Red%ao(jndx)%gf1
 
                 ! If valid range
                 if (if1l2.ge.if0l2) then

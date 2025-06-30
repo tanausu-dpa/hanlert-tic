@@ -9,16 +9,21 @@
 !  Start:
 !     01/10/2022
 !  Last version:
-!     15/05/2025 V4.0.1
+!     30/06/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.1 - Generalized declarations of Atom to
-!                             allow for empty arrays for any of
-!                             them (TdPA)
+!     30/06/2025:    V4.0.2 - Changed arguments of getSEEJ because
+!                             the list of members of Input_class being
+!                             passed was becoming too long (TdPA)
+!                           - The getCLV subroutine is now a manager,
+!                             to allow for different options. The
+!                             possibility of no CLV has been added,
+!                             and a new subroutine, getCLV_Allen,
+!                             calculates the usual CLV (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -53,6 +58,9 @@
 !    Get radiation intensity from Allen's tabulation
 !
 !  get_CLV
+!    Get CLV coefficients
+!
+!  get_CLV_Allen
 !    Get CLV coefficients for a given frequency from Allen's
 !  tabulation
 !
@@ -84,10 +92,8 @@
       !! the SEE\n
       !!       Atom(Atom_class(:)): Structures with atomic data\n
       !!          Atmo(Atmo_class): Structure with atmospheric data\n
-      !!              Trad(double): Radiation temperature of the
-      !!                            illuminating disk\n
-      !!        use_allen(logical): If using Allen's tabulation for
-      !!                            input radiation\n
+      !!        Input(Input_class): Structure with configuration
+      !!                            data\n
       !!      flat_cle_in(logical): If assuming flat spectrum input\n
       !!      Bfield(Bfield_class): Structure with magnetic field
       !!                            data\n
@@ -107,14 +113,14 @@
       !!                            profile\n
       !!        JPhot(double(:,:)): Intensity integrals in the
       !!                            photoionization rates
-      subroutine getSEEJ(Atom,Atmo,Trad,use_allen,flat_cle_in, &
-                         Bfield,Flgsg,Frec,spect,Geom,GeomP,MPID, &
-                         JKQC,JKQ,Jphot)
+      subroutine getSEEJ(Atom,Atmo,Input,Bfield,Flgsg,Frec,spect, &
+                         Geom,GeomP,MPID,JKQC,JKQ,Jphot)
 
       ! I/O
 
       type(Atom_class), dimension(:), &
                         allocatable, intent(in):: Atom
+      type(Input_class), intent(in):: Input
       type(Spect_class), intent(inout):: spect
       type(Fctsg_class), intent(inout):: Flgsg
       type(Frequency_class), intent(in):: Frec
@@ -123,21 +129,19 @@
       type(Atmo_class), intent(in):: Atmo
       type(Bfield_class), intent(in):: Bfield
       type(MPI_class), intent(in):: MPID
-      logical, intent(in):: use_allen,flat_cle_in
-      double precision, intent(in):: Trad
       double precision, dimension(nxphot,2), intent(out):: Jphot
       complex(kind=8), dimension(-2:2,0:2,nxtran), intent(out):: JKQ
       complex(kind=8), dimension(-2:2,0:2,nfreq), intent(out):: JKQC
 
       ! Local
 
-      logical:: first
+      logical:: first,use_allen,flat_cle_in
 
       integer:: ia,ith,iph,iph1,ifreq,jfreq,cljfreq,ljfreq,iproc,istk
       integer:: if0,if1,jf0,jf1,lf0,lf1,K,iQ
       integer:: itermu,iterml,iJu,iJl,jdir
       integer:: jtran,ktran,fjtran,ffjtran,ffktran
-      integer:: iaux,ntasks,itask,nbag,ios
+      integer:: iaux,ntasks,itask,nbag,ios,clv_type
       integer, dimension(0:nproc-1):: nf,pif0,pif1
 
       double precision:: CYp1h,CYm1h,theta,phi,vfac
@@ -145,7 +149,7 @@
       double precision:: WA,W0,W1,DwT,Dw,gl
       double precision:: omegain,dx,feta,Tfeta
       double precision:: al,au,aul,at,Dfreq,u1,u2
-      double precision:: prof,c0,c1,c3,Saha,arg,exu,I0
+      double precision:: prof,c0,c1,c3,Saha,arg,exu,Trad,I0
       double precision, dimension(:), allocatable:: dy
       double precision, dimension(:), allocatable:: b,c,d
       double precision, dimension(:,:,:), allocatable:: dyv
@@ -163,6 +167,12 @@
       Jphot = 0d0
       JKQ = cZero
       JKQC = cZero
+
+      ! Shorter
+      Trad = Input%T_rad
+      use_allen = Input%use_allen
+      flat_cle_in = Input%flat_cle_in
+      clv_type = Input%clv_type
 
       ! Get frequency limits for this CPU
       if0 = MPID%iif0(pid)
@@ -1288,7 +1298,11 @@
 
             ! Get CLV
             ljfreq = -1
-            call getCLV(Dfreq,ljfreq,u1,u2)
+            call getCLV(clv_type,Dfreq,ljfreq,u1,u2)
+
+            !
+            ! Get radiation
+            !
 
             ! Get radiation from Allen
             if (use_allen) then
@@ -1312,6 +1326,7 @@
             JKQ(0,2,ktran) = I0*0.25d0*(GeomP%CLV(4) + &
                                         GeomP%CLV(5)*u1 + &
                                         GeomP%CLV(6)*u2)/sqrt(2d0)
+
 
           !
           ! No flat
@@ -1393,7 +1408,11 @@
                 WA = WA*prof
 
                 ! Get CLV
-                call getCLV(Frec%omega(ifreq),ljfreq,u1,u2)
+                call getCLV(clv_type,Frec%omega(ifreq),ljfreq,u1,u2)
+
+                !
+                ! Get radiation
+                !
 
                 ! Get radiation from Allen
                 if (use_allen) then
@@ -1511,8 +1530,8 @@
 
             end if
 
-            ! Geometry
-            call getCLV(Frec%omega(ifreq),ljfreq,u1,u2)
+            ! Get CLV
+            call getCLV(clv_type,Frec%omega(ifreq),ljfreq,u1,u2)
 
             ! Weight
             WA = c1*Geom%W_mu(ith)*0.5d0*I0* &
@@ -1826,6 +1845,8 @@
       !> Get boundary condition for the radiation field from Allen's
       !! tabulation\n
       !!          Atmo(Atmo_class): Structure with atmospheric data\n
+      !!        Input(Input_class): Structure with configuration
+      !!                            data\n
       !!          omega(double(:)): Frequency array\n
       !!                vx(double): Velocity vector along X\n
       !!                vy(double): Velocity vector along Y\n
@@ -1833,11 +1854,13 @@
       !!  GeomP(Coronapoint_class): Structure with geometric data for
       !!                            a CLE node\n
       !!       Stokes(double(:,:)): Stokes parameters
-      subroutine get_bottom_allen(Atmo,omega,vx,vy,vz,GeomP,stokes)
+      subroutine get_bottom_allen(Atmo,Input,omega,vx,vy,vz, &
+                                  GeomP,stokes)
 
       ! I/O
 
       type(Atmo_class), intent(in):: Atmo
+      type(Input_class), intent(in):: Input
       type(Coronapoint_class), intent(in):: GeomP
       double precision, intent(in):: vx,vy,vz
       double precision, dimension(:), intent(in):: omega
@@ -1909,7 +1932,7 @@
         omegain = omega(ifreq)*vfac
 
         ! Get Allen data
-        call getCLV(omegain,ljfreq,u1,u2)
+        call getCLV(Input%clv_type,omegain,ljfreq,u1,u2)
         call getI(omegain,cljfreq,I0)
 
         ! Save intensity
@@ -2028,13 +2051,49 @@
 !#####################################################################
 !#####################################################################
 
+      !> Get CLV coefficients\n
+      !!  clv_type(logical): Type of CLV\n
+      !!       freq(double): Frequency to interpolate into\n
+      !!    ifreq0(integer): Frequency index to start search\n
+      !!         u1(double): First CLV coefficient\n
+      !!         u2(double): Second CLV coefficient
+      subroutine getCLV(clv_type,freq,ifreq0,u1,u2)
+
+      ! I/O
+
+      integer, intent(in):: clv_type
+      integer, intent(inout):: ifreq0
+      double precision, intent(in):: freq
+      double precision, intent(out):: u1,u2
+
+      ! If none
+      if (clv_type.lt.0) then
+
+        ! Zero
+        u1 = 0d0
+        u2 = 0d0
+
+      ! Allen
+      else if (clv_type.eq.0) then
+
+        ! Tabulation
+        call getCLV_Allen(freq,ifreq0,u1,u2)
+
+      end if ! Type of CLV
+
+      end subroutine getCLV
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
       !> Get CLV coefficients for a given frequency from Allen's
       !! tabulation\n
       !!     freq(double): Frequency to interpolate into\n
       !!  ifreq0(integer): Frequency index to start search\n
       !!       u1(double): First CLV coefficient\n
       !!       u2(double): Second CLV coefficient
-      subroutine getCLV(freq,ifreq0,u1,u2)
+      subroutine getCLV_Allen(freq,ifreq0,u1,u2)
 
       ! I/O
 
@@ -2128,7 +2187,7 @@
 
       return
 
-      end subroutine getCLV
+      end subroutine getCLV_Allen
 
 !#####################################################################
 !#####################################################################

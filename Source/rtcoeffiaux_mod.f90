@@ -10,25 +10,18 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     19/12/2024 V4.0.0
+!     26/06/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     19/12/2024:    V4.0.0 - Removed OpenMP directives (TdPA)
-!                           - Combined the subroutines to calculate
-!                             the second order emissivity with
-!                             angle-averaged and angle-dependent
-!                             redistributions into a single
-!                             subroutine (TdPA)
-!                           - Changed how the normalization factor,
-!                             profiles, and redistribution functions
-!                             are stored (TdPA)
-!                           - The second order emissitivy is now
-!                             calculated in the comoving frame and
-!                             for all directions simultaneously (TdPA)
+!     26/06/2025:    V4.0.1 - Updated due to changes in the Red_class
+!                             and Redb_class structures (TdPA)
+!                           - Optimized the frequency checks in the
+!                             interpolation to the input frequency
+!                             axis (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -509,6 +502,8 @@
       !!               vz(double): Velocity vector along Z\n
       !!            lvel(logical): If dynamic node\n
       !!         omega(double(:)): Frequency array\n
+      !!          Fed(Reda_class): Structure with redistribution
+      !!                           output frequency data\n
       !!          Red(Redb_class): Structure with redistribution input
       !!                           frequency data\n
       !!       RWarr(Redb2_class): Structure with redistribution
@@ -529,6 +524,8 @@
       !!                           transition\n
       !!             if1(integer): Last frequency index for this
       !!                           transition\n
+      !!            Mif0(integer): First frequency for this CPU\n
+      !!            Mif1(integer): Last frequency for this CPU\n
       !!              DwT(double): Thermal part of Doppler width\n
       !!               Dw(double): Doppler width of the output
       !!                           transition\n
@@ -540,21 +537,22 @@
       !!                           dependence\n
       !!          eps2(double(:)): Intensity emissivity\n
       !!         rpf(double(:,:)): Factor for lambda operator
-      subroutine emissI2ord(Atom,Geom,vx,vy,vz,lvel,omega,Red,RWarr, &
-                            Norma,njdir,jtran,fjtran,itermu,itermf, &
-                            iJu,iJf,iz,if0,if1,DwT,Dw,vmi, &
-                            Stokes,JKQ,JKQC,eps2,rpf)
+      subroutine emissI2ord(Atom,Geom,vx,vy,vz,lvel,omega,Fed,Red, &
+                            RWarr,Norma,njdir,jtran,fjtran,itermu, &
+                            itermf,iJu,iJf,iz,if0,if1,Mif0,Mif1, &
+                            DwT,Dw,vmi,Stokes,JKQ,JKQC,eps2,rpf)
 
       ! I/O
 
       type(Atom_class), intent(in):: Atom
       type(Geometry_class), intent(in):: Geom
+      type(Reda_class), intent(in):: Fed
       type(Redb_class), intent(in):: Red
       type(Redb2_class), intent(inout):: RWarr
       type(Prof_class), intent(in):: Norma
       logical, intent(in):: lvel
       integer, intent(in):: jtran,fjtran,itermu,itermf,iJu,iJf
-      integer, intent(in):: njdir,iz,if0,if1
+      integer, intent(in):: njdir,iz,if0,if1,Mif0,Mif1
       double precision, intent(in):: DwT,Dw,vmi,vx,vy,vz
       double precision, dimension(:), intent(in):: omega
       double precision, dimension(:), intent(in):: JKQ
@@ -747,13 +745,14 @@
           if (lvel) then
 
             ! Get input radiation field
-            call getJin(p_red,Red,nmfreq,omega,Jin,JKQinMV)
+            call getJin(p_red,Fed,Red,Mif0,Mif1,nmfreq,omega, &
+                        Jin,JKQinMV)
 
           ! If static
           else
 
             ! Get input radiation field
-            call getJin(p_red,Red,nmfreq,omega,Jin,JKQC)
+            call getJin(p_red,Fed,Red,Mif0,Mif1,nmfreq,omega,Jin,JKQC)
 
           end if
 
@@ -777,8 +776,8 @@
           end if ! Rayleigh/Raman scattering
 
           ! Get interpolated intensity
-          call getStkinI(Geom,p_red,Red,omega,vx,vy,vz,lvel, &
-                         Stokesin,Stokes)
+          call getStkinI(Geom,p_red,Fed,Red,Mif0,Mif1,omega, &
+                         vx,vy,vz,lvel,Stokesin,Stokes)
 
         end if
 
@@ -813,7 +812,7 @@
         if (PRDc.and.nmfreq.gt.0) then
 
           ! Calculate redistribution function Warr2
-          call get_WarrI(Geom,Red,p_red,p_rwarr,LIRAM, &
+          call get_WarrI(Geom,Fed,p_red,p_rwarr,LIRAM,Mif0,Mif1, &
                          ffitran,ffjtran,nmfreq,omega,Dw,Dw1, &
                          Dfreq,Dfreq1,atl,atf,Warr2)
 
@@ -874,15 +873,15 @@
 
           ! For each output frequency
           iifreq = 0
-          do iran=1,Red%nran
-            do ifreq=Red%if0(iran),Red%if1(iran)
+          do iran=1,Fed%nran
+            do ifreq=Fed%if0(iran),Fed%if1(iran)
 
               ! Advance index
               iifreq = iifreq + 1
 
               ! Manage MPI
-              if (iifreq.lt.Red%Mif0(pid)) cycle
-              if (iifreq.gt.Red%Mif1(pid)) exit
+              if (iifreq.lt.Mif0) cycle
+              if (iifreq.gt.Mif1) exit
 
               ! Point to dimension
               p_mfreq => p_red%mfreq(iifreq)
@@ -935,15 +934,15 @@
 
               ! For each output frequency
               iifreq = 0
-              do iran=1,Red%nran
-                do ifreq=Red%if0(iran),Red%if1(iran)
+              do iran=1,Fed%nran
+                do ifreq=Fed%if0(iran),Fed%if1(iran)
 
                   ! Advance index
                   iifreq = iifreq + 1
 
                   ! Manage MPI
-                  if (iifreq.lt.Red%Mif0(pid)) cycle
-                  if (iifreq.gt.Red%Mif1(pid)) exit
+                  if (iifreq.lt.Mif0) cycle
+                  if (iifreq.gt.Mif1) exit
 
                   ! Initialize
                   PRDin = 0d0
@@ -1045,15 +1044,15 @@
 
               ! For each output frequency
               iifreq = 0
-              do iran=1,Red%nran
-                do ifreq=Red%if0(iran),Red%if1(iran)
+              do iran=1,Fed%nran
+                do ifreq=Fed%if0(iran),Fed%if1(iran)
 
                   ! Advance index
                   iifreq = iifreq + 1
 
                   ! Manage MPI
-                  if (iifreq.lt.Red%Mif0(pid)) cycle
-                  if (iifreq.gt.Red%Mif1(pid)) exit
+                  if (iifreq.lt.Mif0) cycle
+                  if (iifreq.gt.Mif1) exit
 
                   ! Initialize
                   PRDin = 0d0
@@ -1172,8 +1171,7 @@
 
       ! Clean pointers/arrays
       if (associated(p_red)) nullify(p_red)
-      if (associated(p_red)) nullify(p_rwarr)
-      if (associated(p_red)) nullify(p_red)
+      if (associated(p_rwarr)) nullify(p_rwarr)
       if (associated(p_mfreq)) nullify(p_mfreq)
       if (associated(p_JKQ)) nullify(p_JKQ)
       if (associated(p_warr2)) nullify(p_warr2)
@@ -1189,7 +1187,7 @@
 
       !> Calculate the redistribution function\n
       !!  Geom(Geometry_class): Structure with geometric data\n
-      !!       Red(Redb_class): Structure with redistribution input
+      !!       Fed(Reda_class): Structure with redistribution output
       !!                        frequency data\n
       !!     p_red(Redc_class): Structure with redistribution input
       !!                        frequency data for a given input
@@ -1198,6 +1196,8 @@
       !!                        functions\n
       !!        LIRAM(logical): If storing the redistribution
       !!                        function in RAM\n
+      !!         Mif0(integer): First frequency for this CPU\n
+      !!         Mif1(integer): Last frequency for this CPU\n
       !!      ffitran(integer): Input transition index\n
       !!      ffjtran(integer): Output transition index\n
       !!       nmfreq(integer): Total amount of input frequencies
@@ -1215,18 +1215,18 @@
       !!           atf(double): Damping parameter of the output
       !!                        transition\n
       !!      Warr2(double(:)): Redistribution function
-      subroutine get_WarrI(Geom,Red,p_red,p_rwarr,LIRAM,ffitran, &
-                           ffjtran,nmfreq,omega,Dw,Dw1,Dfreq,Dfreq1, &
-                           atl,atf,Warr2)
+      subroutine get_WarrI(Geom,Fed,p_red,p_rwarr,LIRAM, &
+                           Mif0,Mif1,ffitran,ffjtran,nmfreq,omega, &
+                           Dw,Dw1,Dfreq,Dfreq1,atl,atf,Warr2)
 
       ! I/O
 
       type(Geometry_class), intent(in):: Geom
-      type(Redb_class), intent(in):: Red
+      type(Reda_class), intent(in):: Fed
       type(Redc_class), intent(in), pointer:: p_red
       type(Redc2_class), intent(inout):: p_rwarr
       logical, intent(in):: LIRAM
-      integer, intent(in):: ffitran,ffjtran,nmfreq
+      integer, intent(in):: ffitran,ffjtran,nmfreq,Mif0,Mif1
       double precision, intent(in):: Dfreq,Dfreq1,atl,atf,Dw,Dw1
       double precision, dimension(:), intent(in):: omega
       double precision, dimension(:), &
@@ -1274,15 +1274,15 @@
 
         ! For each output frequency
         iifreq = 0
-        do iran=1,Red%nran
-          do ifreq=Red%if0(iran),Red%if1(iran)
+        do iran=1,Fed%nran
+          do ifreq=Fed%if0(iran),Fed%if1(iran)
 
             ! Advance index
             iifreq = iifreq + 1
 
             ! Manage MPI
-            if (iifreq.lt.Red%Mif0(pid)) cycle
-            if (iifreq.gt.Red%Mif1(pid)) exit
+            if (iifreq.lt.Mif0) cycle
+            if (iifreq.gt.Mif1) exit
 
             ! Point to dimension
             p_mfreq => p_red%mfreq(iifreq)
@@ -1345,15 +1345,15 @@
 
         ! For each output frequency
         iifreq = 0
-        do iran=1,Red%nran
-          do ifreq=Red%if0(iran),Red%if1(iran)
+        do iran=1,Fed%nran
+          do ifreq=Fed%if0(iran),Fed%if1(iran)
 
             ! Advance index
             iifreq = iifreq + 1
 
             ! Manage MPI
-            if (iifreq.lt.Red%Mif0(pid)) cycle
-            if (iifreq.gt.Red%Mif1(pid)) exit
+            if (iifreq.lt.Mif0) cycle
+            if (iifreq.gt.Mif1) exit
 
             ! Point to dimension
             p_mfreq => p_red%mfreq(iifreq)
@@ -2198,29 +2198,37 @@
           ! Look after the perfect resonance
           do jfreq=ifreq,if1-1
 
-            ! If this exact frequency is in output
-            if (abs(x - omega(jfreq)).lt.TINYO) then
+            ! Skip before
+            if (x.lt.omega(jfreq)-TINYO) cycle
 
-              ! Get exact intensity
-              getStkinInu = Stokes(jfreq)
+            ! Between
+            if (x.lt.omega(jfreq+1)) then
+
+              ! Same
+              if (abs(x - omega(jfreq)).lt.TINYO) then
+
+                ! Get exact intensity
+                getStkinInu = Stokes(jfreq)
+
+              ! Actually between
+              else
+
+                ! Slope numerator
+                dy = Stokes(jfreq+1) - Stokes(jfreq)
+
+                ! Slope denominator
+                dx = x - omega(jfreq)
+
+                ! Linear interpolation
+                getStkinInu = Stokes(jfreq) + &
+                              dx*dy/(omega(jfreq+1) - omega(jfreq))
+
+              end if ! Same or between
+
+              ! Found, return
               return
 
-            ! If the input is between this output and the next
-            else if (x.ge.omega(jfreq).and. &
-                     x.lt.omega(jfreq+1)) then
-
-              ! Slope numerator
-              dy = Stokes(jfreq+1) - Stokes(jfreq)
-
-              ! Slope denominator
-              dx = x - omega(jfreq)
-
-              ! Linear interpolation
-              getStkinInu = dx*dy/(omega(jfreq+1) - omega(jfreq)) + &
-                            Stokes(jfreq)
-              return
-
-            end if ! Check output frequency
+            end if ! Found range
 
           end do ! Searching frequency
 
@@ -2242,29 +2250,37 @@
           ! Look before the perfect resonance
           do jfreq=ifreq,if0+1,-1
 
-            ! If this exact frequency is in output
-            if (abs(x - omega(jfreq)).lt.TINYO) then
+            ! If larger, skip
+            if (x.gt.omega(jfreq)+TINYO) cycle
 
-              ! Get exact frequency
-              getStkinInu = Stokes(jfreq)
+            ! Between
+            if (x.gt.omega(jfreq-1)) then
+
+              ! Same
+              if (abs(x - omega(jfreq)).lt.TINYO) then
+
+                ! Get exact intensity
+                getStkinInu = Stokes(jfreq)
+
+              ! Actually between
+              else
+
+                ! Slope numerator
+                dy = Stokes(jfreq) - Stokes(jfreq-1)
+
+                ! Slope denominator
+                dx = x - omega(jfreq-1)
+
+                ! Linear interpolation
+                getStkinInu = Stokes(jfreq-1) + &
+                              dx*dy/(omega(jfreq) - omega(jfreq-1))
+
+              end if ! Same or between
+
+              ! Found, return
               return
 
-            ! If the input is between this output and the next
-            else if (x.ge.omega(jfreq-1).and. &
-                     x.lt.omega(jfreq)) then
-
-              ! Slope numerator
-              dy = Stokes(jfreq) - Stokes(jfreq-1)
-
-              ! Slope denominator
-              dx = x - omega(jfreq-1)
-
-              ! Linear interpolation
-              getStkinInu = dx*dy/(omega(jfreq) - omega(jfreq-1)) + &
-                            Stokes(jfreq-1)
-              return
-
-            end if ! Check output frequency
+            end if ! Found range
 
           end do ! Searching frequency
 
@@ -2285,8 +2301,12 @@
       !!     p_red(Redc_class): Structure with redistribution input
       !!                        frequency data for a given input
       !!                        transition\n
+      !!       Fed(Reda_class): Structure with redistribution
+      !!                        output frequency data\n
       !!       Red(Redb_class): Structure with redistribution input
       !!                        frequency data\n
+      !!         Mif0(integer): First frequency for this CPU\n
+      !!         Mif1(integer): Last frequency for this CPU\n
       !!      omega(double(:)): Frequency array\n
       !!            vx(double): Velocity vector along X\n
       !!            vy(double): Velocity vector along Y\n
@@ -2294,15 +2314,17 @@
       !!         lvel(logical): If dynamic node\n
       !!      Stkin(double(:)): Interpolated intensity\n
       !!    Stk(double(:,:,:)): Original intensity
-      subroutine getStkinI(Geom,p_red,Red,omega,vx,vy,vz,lvel, &
-                           Stkin,Stk)
+      subroutine getStkinI(Geom,p_red,Fed,Red,Mif0,Mif1,omega, &
+                           vx,vy,vz,lvel,Stkin,Stk)
 
       ! I/O
 
       type(Geometry_class), intent(in):: Geom
       type(Redc_class), intent(in), pointer:: p_red
+      type(Reda_class), intent(in):: Fed
       type(Redb_class), intent(in):: Red
       logical, intent(in):: lvel
+      integer, intent(in):: Mif0,Mif1
       double precision, intent(in):: vx,vy,vz
       double precision, dimension(:), intent(in):: omega
       double precision, dimension(:,:,:), intent(in):: Stk
@@ -2328,15 +2350,15 @@
 
       ! Run over all output frequencies
       iifreq = 0
-      do iran=1,Red%nran
-        do ifreq=Red%if0(iran),Red%if1(iran)
+      do iran=1,Fed%nran
+        do ifreq=Fed%if0(iran),Fed%if1(iran)
 
           ! Advance index
           iifreq = iifreq + 1
 
           ! MPI
-          if (iifreq.gt.Red%Mif1(pid)) exit
-          if (iifreq.lt.Red%Mif0(pid)) cycle
+          if (iifreq.gt.Mif1) exit
+          if (iifreq.lt.Mif0) cycle
 
           ! Input frequency number
           p_mfreq => p_red%mfreq(iifreq)
@@ -2369,15 +2391,15 @@
 
           ! For each output frequency
           iifreq = 0
-          do iran=1,Red%nran
-            do ifreq=Red%if0(iran),Red%if1(iran)
+          do iran=1,Fed%nran
+            do ifreq=Fed%if0(iran),Fed%if1(iran)
 
               ! Advance index
               iifreq = iifreq + 1
 
               ! MPI
-              if (iifreq.gt.Red%Mif1(pid)) exit
-              if (iifreq.lt.Red%Mif0(pid)) cycle
+              if (iifreq.gt.Mif1) exit
+              if (iifreq.lt.Mif0) cycle
 
               ! Input frequency number
               p_mfreq => p_red%mfreq(iifreq)
@@ -2436,46 +2458,48 @@
                     ! all but the boundary
                     do ibfreq=lifreq,nfreq-1
 
-                      ! If this exact frequency is in output
-                      if (abs(p_red%omega(jjfreq)*vfac1 - &
-                              omega(ibfreq)).lt.TINYO) then
+                      ! If small, skip
+                      if (p_red%omega(jjfreq)*vfac1.lt. &
+                          omega(ibfreq)-TINYO) cycle
+
+                      ! Between
+                      if (p_red%omega(jjfreq)*vfac1.lt. &
+                          omega(ibfreq+1)) then
 
                         ! We are in the found frequency
                         lifreq = ibfreq
 
-                        ! This frequency gives us the value
-                        Stkin(kkfreq) = Stk(lifreq,1,ith1)
+                        ! Same
+                        if (abs(p_red%omega(jjfreq)*vfac1 - &
+                            omega(ibfreq)).lt.TINYO) then
 
+                          ! This frequency gives us the value
+                          Stkin(kkfreq) = Stk(lifreq,1,ith1)
+
+                        ! Actually between
+                        else
+
+                          ! The first index is the lower
+                          y0 = Stk(lifreq,1,ith1)
+
+                          ! The second index is the upper
+                          dy = Stk(lifreq+1,1,ith1) - y0
+
+                          ! Inverse of the distance
+                          ! between the two outputs
+                          dx = (p_red%omega(jjfreq)*vfac1 - &
+                                omega(lifreq))/ &
+                               (omega(lifreq+1) - omega(lifreq))
+
+                          ! Interpolate
+                          Stkin(kkfreq) = dx*dy + y0
+
+                        end if ! Same or between
+
+                        ! Found, leave loop
                         exit
 
-                      ! If the input is between this output and
-                      ! the next
-                      else if(p_red%omega(jjfreq)*vfac1.ge. &
-                              omega(ibfreq).and. &
-                              p_red%omega(jjfreq)*vfac1.lt. &
-                              omega(ibfreq+1)) then
-
-                        ! We found it in the index of the lower
-                        lifreq = ibfreq
-
-                        ! The first index is the lower
-                        y0 = Stk(lifreq,1,ith1)
-
-                        ! The second index is the upper
-                        dy = Stk(lifreq+1,1,ith1) - y0
-
-                        ! Inverse of the distance
-                        ! between the two outputs
-                        dx = (p_red%omega(jjfreq)*vfac1 - &
-                              omega(lifreq))/ &
-                             (omega(lifreq+1) - omega(lifreq))
-
-                        ! Interpolate
-                        Stkin(kkfreq) = dx*dy + y0
-
-                        exit
-
-                      end if ! Check output frequency
+                      end if ! Found range
 
                     end do ! Run output frequencies
 
@@ -2503,15 +2527,15 @@
 
           ! For each output frequency
           iifreq = 0
-          do iran=1,Red%nran
-            do ifreq=Red%if0(iran),Red%if1(iran)
+          do iran=1,Fed%nran
+            do ifreq=Fed%if0(iran),Fed%if1(iran)
 
               ! Advance index
               iifreq = iifreq + 1
 
               ! MPI
-              if (iifreq.gt.Red%Mif1(pid)) exit
-              if (iifreq.lt.Red%Mif0(pid)) cycle
+              if (iifreq.gt.Mif1) exit
+              if (iifreq.lt.Mif0) cycle
 
               ! Input frequency number
               p_mfreq => p_red%mfreq(iifreq)
@@ -2573,62 +2597,63 @@
                   ! all but the boundary
                   do ibfreq=lifreq,nfreq-1
 
-                    ! If this exact frequency is in output
-                    if (abs(p_red%omega(jjfreq)- &
-                            omega(ibfreq)).lt.TINYO) then
+                    ! If small, skip
+                    if (p_red%omega(jjfreq).lt. &
+                        omega(ibfreq)-TINYO) cycle
+
+                    ! Between
+                    if (p_red%omega(jjfreq).lt.omega(ibfreq+1)) then
 
                       ! We are in the found frequency
                       lifreq = ibfreq
 
-                      ! Inclinations
-                      do ith1=1,Geom%nTh
+                      ! Same
+                      if (abs(p_red%omega(jjfreq)- &
+                              omega(ibfreq)).lt.TINYO) then
 
-                        ! Output index
-                        kkfreq = kkfreq0 + p_mfreq*(ith1-1) + jfreq
+                        ! Inclinations
+                        do ith1=1,Geom%nTh
 
-                        ! The index to take is nfreq
-                        Stkin(kkfreq) = Stk(lifreq,1,ith1)
+                          ! Output index
+                          kkfreq = kkfreq0 + p_mfreq*(ith1-1) + jfreq
 
-                      end do
+                          ! The index to take is nfreq
+                          Stkin(kkfreq) = Stk(lifreq,1,ith1)
 
+                        end do
+
+                      ! Actually between
+                      else
+
+                        ! Inverse of the distance
+                        ! between the two outputs
+                        dx = (p_red%omega(jjfreq) - &
+                              omega(lifreq))/ &
+                             (omega(lifreq+1) - omega(lifreq))
+
+                        ! Inclinations
+                        do ith1=1,Geom%nTh
+
+                          ! Output index
+                          kkfreq = kkfreq0 + p_mfreq*(ith1-1) + jfreq
+
+                          ! The first index is the lower
+                          y0 = Stk(lifreq,1,ith1)
+
+                          ! The second index is the upper
+                          dy = Stk(lifreq+1,1,ith1) - y0
+
+                          ! Interpolate
+                          Stkin(kkfreq) = dx*dy + y0
+
+                        end do
+
+                      end if ! Same or between
+
+                      ! Found, leave loop
                       exit
 
-                    ! If the input is between this output and
-                    ! the next
-                    else if(p_red%omega(jjfreq).ge. &
-                            omega(ibfreq).and. &
-                            p_red%omega(jjfreq).lt. &
-                            omega(ibfreq+1)) then
-
-                      ! We found it in the index of the lower
-                      lifreq = ibfreq
-
-                      ! Inverse of the distance
-                      ! between the two outputs
-                      dx = (p_red%omega(jjfreq) - &
-                            omega(lifreq))/ &
-                           (omega(lifreq+1) - omega(lifreq))
-
-                      ! Inclinations
-                      do ith1=1,Geom%nTh
-
-                        ! Output index
-                        kkfreq = kkfreq0 + p_mfreq*(ith1-1) + jfreq
-
-                        ! The first index is the lower
-                        y0 = Stk(lifreq,1,ith1)
-
-                        ! The second index is the upper
-                        dy = Stk(lifreq+1,1,ith1) - y0
-
-                        ! Interpolate
-                        Stkin(kkfreq) = dx*dy + y0
-
-                      end do
-
-                      exit
-
-                    end if ! Check output frequency
+                    end if ! Found range
 
                   end do ! Run output frequencies
 
@@ -2659,15 +2684,15 @@
 
           ! For each output frequency
           iifreq = 0
-          do iran=1,Red%nran
-            do ifreq=Red%if0(iran),Red%if1(iran)
+          do iran=1,Fed%nran
+            do ifreq=Fed%if0(iran),Fed%if1(iran)
 
               ! Advance index
               iifreq = iifreq + 1
 
               ! MPI
-              if (iifreq.gt.Red%Mif1(pid)) exit
-              if (iifreq.lt.Red%Mif0(pid)) cycle
+              if (iifreq.gt.Mif1) exit
+              if (iifreq.lt.Mif0) cycle
 
               ! Input frequency number
               p_mfreq => p_red%mfreq(iifreq)
@@ -2732,46 +2757,48 @@
                       ! all but the boundary
                       do ibfreq=lifreq,nfreq-1
 
-                        ! If this exact frequency is in output
-                        if (abs(p_red%omega(jjfreq)*vfac1 - &
-                                omega(ibfreq)).lt.TINYO) then
+                        ! If small, skip
+                        if (p_red%omega(jjfreq)*vfac1.lt. &
+                            omega(ibfreq)-TINYO) cycle
+
+                        ! Between
+                        if (p_red%omega(jjfreq)*vfac1.lt. &
+                            omega(ibfreq+1)) then
 
                           ! We are in the found frequency
                           lifreq = ibfreq
 
-                          ! This frequency gives us the value
-                          Stkin(kkfreq) = Stk(lifreq,iph1,ith1)
+                          ! Same
+                          if (abs(p_red%omega(jjfreq)*vfac1 - &
+                                  omega(ibfreq)).lt.TINYO) then
 
+                            ! This frequency gives us the value
+                            Stkin(kkfreq) = Stk(lifreq,iph1,ith1)
+
+                          ! Actually between
+                          else
+
+                            ! The first index is the lower
+                            y0 = Stk(lifreq,iph1,ith1)
+
+                            ! The second index is the upper
+                            dy = Stk(lifreq+1,iph1,ith1) - y0
+
+                            ! Inverse of the distance
+                            ! between the two outputs
+                            dx = (p_red%omega(jjfreq)*vfac1 - &
+                                  omega(lifreq))/ &
+                                 (omega(lifreq+1) - omega(lifreq))
+
+                            ! Interpolate
+                            Stkin(kkfreq) = dx*dy + y0
+
+                          end if ! Same or between
+
+                          ! Found, leave loop
                           exit
 
-                        ! If the input is between this output and
-                        ! the next
-                        else if(p_red%omega(jjfreq)*vfac1.ge. &
-                                omega(ibfreq).and. &
-                                p_red%omega(jjfreq)*vfac1.lt. &
-                                omega(ibfreq+1)) then
-
-                          ! We found it in the index of the lower
-                          lifreq = ibfreq
-
-                          ! The first index is the lower
-                          y0 = Stk(lifreq,iph1,ith1)
-
-                          ! The second index is the upper
-                          dy = Stk(lifreq+1,iph1,ith1) - y0
-
-                          ! Inverse of the distance
-                          ! between the two outputs
-                          dx = (p_red%omega(jjfreq)*vfac1 - &
-                                omega(lifreq))/ &
-                               (omega(lifreq+1) - omega(lifreq))
-
-                          ! Interpolate
-                          Stkin(kkfreq) = dx*dy + y0
-
-                          exit
-
-                        end if ! Check output frequency
+                        end if ! Found range
 
                       end do ! Run output frequencies
 
@@ -2800,15 +2827,15 @@
 
           ! For each output frequency
           iifreq = 0
-          do iran=1,Red%nran
-            do ifreq=Red%if0(iran),Red%if1(iran)
+          do iran=1,Fed%nran
+            do ifreq=Fed%if0(iran),Fed%if1(iran)
 
               ! Advance index
               iifreq = iifreq + 1
 
               ! MPI
-              if (iifreq.gt.Red%Mif1(pid)) exit
-              if (iifreq.lt.Red%Mif0(pid)) cycle
+              if (iifreq.gt.Mif1) exit
+              if (iifreq.lt.Mif0) cycle
 
               ! Input frequency number
               p_mfreq => p_red%mfreq(iifreq)
@@ -2886,78 +2913,79 @@
                   ! all but the boundary
                   do ibfreq=lifreq,nfreq-1
 
-                    ! If this exact frequency is in output
-                    if (abs(p_red%omega(jjfreq)- &
-                            omega(ibfreq)).lt.TINYO) then
+                    ! If small, skip
+                    if (p_red%omega(jjfreq).lt. &
+                        omega(ibfreq)-TINYO) cycle
+
+                    ! Between
+                    if (p_red%omega(jjfreq).lt.omega(ibfreq+1)) then
 
                       ! We are in the found frequency
                       lifreq = ibfreq
 
-                      ! Block counter
-                      nblock = -1
+                      ! Same
+                      if (abs(p_red%omega(jjfreq)- &
+                              omega(ibfreq)).lt.TINYO) then
 
-                      ! Directions
-                      do ith1=1,Geom%nTh
-                        do iph1=1,Geom%nPh
+                        ! Block counter
+                        nblock = -1
 
-                          ! Add block
-                          nblock = nblock + 1
+                        ! Directions
+                        do ith1=1,Geom%nTh
+                          do iph1=1,Geom%nPh
 
-                          ! Output index
-                          kkfreq = kkfreq0 + jfreq + p_mfreq*nblock
+                            ! Add block
+                            nblock = nblock + 1
 
-                          ! This frequency gives us the value
-                          Stkin(kkfreq) = Stk(lifreq,iph1,ith1)
+                            ! Output index
+                            kkfreq = kkfreq0 + jfreq + p_mfreq*nblock
 
+                            ! This frequency gives us the value
+                            Stkin(kkfreq) = Stk(lifreq,iph1,ith1)
+
+                          end do
                         end do
-                      end do
 
+                      ! Actually between
+                      else
+
+                        ! Inverse of the distance
+                        ! between the two outputs
+                        dx = (p_red%omega(jjfreq) - &
+                              omega(lifreq))/ &
+                             (omega(lifreq+1) - omega(lifreq))
+
+                        ! Block counter
+                        nblock = -1
+
+                        ! Directions
+                        do ith1=1,Geom%nTh
+                          do iph1=1,Geom%nPh
+
+                            ! Add block
+                            nblock = nblock + 1
+
+                            ! The first index is the lower
+                            y0 = Stk(lifreq,iph1,ith1)
+
+                            ! The second index is the upper
+                            dy = Stk(lifreq+1,iph1,ith1) - y0
+
+                            ! Output index
+                            kkfreq = kkfreq0 + jfreq + p_mfreq*nblock
+
+                            ! Interpolate
+                            Stkin(kkfreq) = dx*dy + y0
+
+                          end do
+                        end do
+
+                      end if ! Same or between
+
+                      ! Found, leave loop
                       exit
 
-                    ! If the input is between this output and
-                    ! the next
-                    else if(p_red%omega(jjfreq).ge. &
-                            omega(ibfreq).and. &
-                            p_red%omega(jjfreq).lt. &
-                            omega(ibfreq+1)) then
-
-                      ! We found it in the index of the lower
-                      lifreq = ibfreq
-
-                      ! Inverse of the distance
-                      ! between the two outputs
-                      dx = (p_red%omega(jjfreq) - &
-                            omega(lifreq))/ &
-                           (omega(lifreq+1) - omega(lifreq))
-
-                      ! Block counter
-                      nblock = -1
-
-                      ! Directions
-                      do ith1=1,Geom%nTh
-                        do iph1=1,Geom%nPh
-
-                          ! Add block
-                          nblock = nblock + 1
-
-                          ! The first index is the lower
-                          y0 = Stk(lifreq,iph1,ith1)
-
-                          ! The second index is the upper
-                          dy = Stk(lifreq+1,iph1,ith1) - y0
-
-                          ! Output index
-                          kkfreq = kkfreq0 + jfreq + p_mfreq*nblock
-
-                          ! Interpolate
-                          Stkin(kkfreq) = dx*dy + y0
-
-                        end do
-                      end do
-
-                      exit
-
-                    end if ! Check output frequency
+                    end if ! Found range
 
                   end do ! Run output frequencies
 
@@ -2991,21 +3019,26 @@
       !!  p_red(Redc_class): Structure with redistribution input
       !!                     frequency data for a given input
       !!                     transition\n
+      !!    Fed(Reda_class): Structure with redistribution output
+      !!                     frequency data\n
       !!    Red(Redb_class): Structure with redistribution input
       !!                     frequency data\n
+      !!      Mif0(integer): First frequency for this CPU\n
+      !!      Mif1(integer): Last frequency for this CPU\n
       !!    nmfreq(integer): Size of frequency space\n
       !!   omega(double(:)): Frequency array\n
       !!     Jin(double(:)): Interpolated frequency dependent mean
       !!                     intensity\n
       !!     J00(double(:)): Original frequency dependent mean
       !!                     intensity
-      subroutine getJin(p_red,Red,nmfreq,omega,Jin,J00)
+      subroutine getJin(p_red,Fed,Red,Mif0,Mif1,nmfreq,omega,Jin,J00)
 
       ! I/O
 
       type(Redc_class), intent(in), pointer:: p_red
+      type(Reda_class), intent(in):: Fed
       type(Redb_class), intent(in):: Red
-      integer, intent(in):: nmfreq
+      integer, intent(in):: nmfreq,Mif0,Mif1
       double precision, dimension(:), intent(in):: omega
       double precision, dimension(:), allocatable, intent(out):: Jin
       double precision, dimension(Red%ggf0:Red%ggf1), intent(in):: J00
@@ -3035,15 +3068,15 @@
 
       ! For each output frequency
       iifreq = 0
-      do iran=1,Red%nran
-        do ifreq=Red%if0(iran),Red%if1(iran)
+      do iran=1,Fed%nran
+        do ifreq=Fed%if0(iran),Fed%if1(iran)
 
           ! Advance index
           iifreq = iifreq + 1
 
           ! MPI
-          if (iifreq.gt.Red%Mif1(pid)) exit
-          if (iifreq.lt.Red%Mif0(pid)) cycle
+          if (iifreq.gt.Mif1) exit
+          if (iifreq.lt.Mif0) cycle
 
           ! Input frequency number
           p_mfreq => p_red%mfreq(iifreq)
@@ -3085,43 +3118,45 @@
               ! all but the boundary
               do ibfreq=lifreq,Red%ggf1-1
 
-                ! If this exact frequency is in output
-                if (abs(p_red%omega(jjfreq) - &
-                        omega(ibfreq)).lt.TINYO) then
+                ! Skip before
+                if (p_red%omega(jjfreq).lt.omega(ibfreq)-TINYO) cycle
+
+                ! Between
+                if (p_red%omega(jjfreq).lt.omega(ibfreq+1)) then
 
                   ! We are in the found frequency
                   lifreq = ibfreq
 
-                  ! This frequency gives us the value
-                  Jin(jjfreq) = J00(lifreq)
+                  ! Same
+                  if (abs(p_red%omega(jjfreq) - &
+                          omega(ibfreq)).lt.TINYO) then
+
+                    ! This frequency gives us the value
+                    Jin(jjfreq) = J00(lifreq)
+
+                  ! Actually between
+                  else
+
+                    ! Inverse of the distance
+                    ! between the two outputs
+                    dx = (p_red%omega(jjfreq) - omega(lifreq))/ &
+                         (omega(lifreq+1) - omega(lifreq))
+
+                    ! The first index is the lower
+                    y0 = J00(ibfreq)
+
+                    ! Difference with next
+                    dy = J00(ibfreq+1) - y0
+
+                    ! Interpolate
+                    Jin(jjfreq) = dy*dx + y0
+
+                  end if ! Same or between
+
+                  ! Found, leave loop
                   exit
 
-                ! If the input is between this output and
-                ! the next
-                else if(p_red%omega(jjfreq).ge. &
-                        omega(ibfreq).and. &
-                        p_red%omega(jjfreq).lt. &
-                        omega(ibfreq+1)) then
-
-                  ! We found it in the index of the lower
-                  lifreq = ibfreq
-
-                  ! Inverse of the distance
-                  ! between the two outputs
-                  dx = (p_red%omega(jjfreq) - omega(lifreq))/ &
-                       (omega(lifreq+1) - omega(lifreq))
-
-                  ! The first index is the lower
-                  y0 = J00(ibfreq)
-
-                  ! Difference with next
-                  dy = J00(ibfreq+1) - y0
-
-                  ! Interpolate
-                  Jin(jjfreq) = dy*dx + y0
-                  exit
-
-                end if ! Check output frequency
+                end if ! Found range
 
               end do ! Run output frequencies
 

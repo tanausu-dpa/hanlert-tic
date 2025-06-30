@@ -9,16 +9,15 @@
 !  Start:
 !     24/10/2024
 !  Last version:
-!     15/05/2025 V4.0.3
+!     26/06/2025 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.3 - Generalized declarations of Atom, Atomb,
-!                             and Mol to allow for empty arrays for
-!                             any of them (TdPA)
+!     26/06/2025:    V4.0.4 - Updated due to changes in the Red_class
+!                             and Redb_class structures (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -2202,34 +2201,6 @@
           ! Constants
           num = num + 1d-6*sizeof(Red%zao(indx))
 
-          ! nf
-          if (allocated(Red%zao(indx)%nf)) &
-            num = num + 1d-6*sizeof(Red%zao(indx)%nf)
-
-          ! Mif0
-          if (allocated(Red%zao(indx)%Mif0)) &
-            num = num + 1d-6*sizeof(Red%zao(indx)%Mif0)
-
-          ! Mif1
-          if (allocated(Red%zao(indx)%Mif1)) &
-            num = num + 1d-6*sizeof(Red%zao(indx)%Mif1)
-
-          ! Rif0
-          if (allocated(Red%zao(indx)%Rif0)) &
-            num = num + 1d-6*sizeof(Red%zao(indx)%Rif0)
-
-          ! Rif1
-          if (allocated(Red%zao(indx)%Rif1)) &
-            num = num + 1d-6*sizeof(Red%zao(indx)%Rif1)
-
-          ! if0
-          if (allocated(Red%zao(indx)%if0)) &
-            num = num + 1d-6*sizeof(Red%zao(indx)%if0)
-
-          ! if1
-          if (allocated(Red%zao(indx)%if1)) &
-            num = num + 1d-6*sizeof(Red%zao(indx)%if1)
-
           ! If input transition data
           if (associated(Red%zao(indx)%trani)) then
 
@@ -2265,6 +2236,39 @@
             num = num + 1d-6*sizeof(Red%zao(indx)%eps23)
           if (allocated(Red%zao(indx)%rpf)) &
             num = num + 1d-6*sizeof(Red%zao(indx)%rpf)
+
+        end do ! Indexes
+
+      end if ! There is PRD data
+
+      ! If there is frequency data
+      if (associated(Red%ao)) then
+
+        ! For each index allocated
+        do indx=1,Red%nao
+
+          ! Constants
+          num = num + 1d-6*sizeof(Red%ao(indx))
+
+          ! nf
+          if (allocated(Red%ao(indx)%nn)) &
+            num = num + 1d-6*sizeof(Red%ao(indx)%nn)
+
+          ! Mif0
+          if (allocated(Red%ao(indx)%Mi0)) &
+            num = num + 1d-6*sizeof(Red%ao(indx)%Mi0)
+
+          ! Mif1
+          if (allocated(Red%ao(indx)%Mi1)) &
+            num = num + 1d-6*sizeof(Red%ao(indx)%Mi1)
+
+          ! if0
+          if (allocated(Red%ao(indx)%if0)) &
+            num = num + 1d-6*sizeof(Red%ao(indx)%if0)
+
+          ! if1
+          if (allocated(Red%ao(indx)%if1)) &
+            num = num + 1d-6*sizeof(Red%ao(indx)%if1)
 
         end do ! Indexes
 

@@ -9,17 +9,16 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     06/06/2025 V4.0.6
+!     30/06/2025 V4.0.8
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     06/06/2025:    V4.0.6 - Bugfix: Was missing the toggle of the
-!                             profile-wise VRAM variable when it is
-!                             decided a posteriori that no CPU is
-!                             going to keep it in memory (TdPA)
+!     30/06/2025:    V4.0.8 - Bugfix: The initialization of norms in
+!                             CLE assumed that there will always be
+!                             a magnetic field (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -340,6 +339,7 @@
 
         ! Allocate and initialize bool for MPI
         allocate(tosend(Atom(ia)%ntran,Rz0:Rz1,njdir))
+
         ! Initialize tosend
         tosend = .False.
 
@@ -350,7 +350,7 @@
           allocate(checkram(Atom(ia)%ntran,Rz0:Rz1,njdir))
 
           ! Initialize if storing profiles
-          if (lVPRAM) then
+          if (VPRAM) then
             checkram = 1
           else
             checkram = -1
@@ -542,7 +542,7 @@
             end if
 
             ! Store checkram if the CPU could not keep this profile
-            if (lVPRAM.and.id(5).lt.0) &
+            if (VPRAM.and.id(5).lt.0) &
               checkram(id(2),id(3),id(4)) = -1
 
             ! Line index
@@ -939,7 +939,6 @@
                                    0, pid, MPI_COMM_RT, &
                                    MPID%request2, ierr)
                   end if
-
                 end if ! MPI
 
               end do ! output transition
@@ -960,12 +959,12 @@
             if (extracomm) then
               do while (.True.)
                 call MPI_SEND(id(1),5,MPI_INTEGER,0,0, &
-                               MPI_COMM_RT,ierr)
+                              MPI_COMM_RT,ierr)
                 if (ierr.eq.0) exit
               end do
             else
               call MPI_ISEND(id(1),5,MPI_INTEGER,0,0, &
-                              MPI_COMM_RT,MPID%request1,ierr)
+                             MPI_COMM_RT,MPID%request1,ierr)
             end if ! Type of comm
           end if ! MPI
         end if ! Master/slave
@@ -978,7 +977,7 @@
           !
 
           ! Slaves allocating profiles
-          if (pid.gt.0.and.lVPRAM) then
+          if (pid.gt.0.and.VPRAM) then
 
             ! Allocate checkram
             allocate(checkram(Atom(ia)%ntran,Rz0:Rz1,njdir))
@@ -1028,7 +1027,7 @@
           end do ! heights
 
           ! If storing in RAM
-          if (lVPRAM) then
+          if (VPRAM) then
 
             ! Send checkram
             lcheckram = Atom(ia)%ntran*Rnz*njdir
@@ -1039,7 +1038,7 @@
                            MPI_COMM_RT, ierr)
 
             ! Slaves deal with it
-            if (pid.gt.0) then
+            if (pid.gt.0.and.lVPRAM) then
 
               ! For each direction
               do jdir=1,njdir
@@ -1607,6 +1606,7 @@
 
       integer:: ia,jtran,itermf,itermu,nMu,nMf,iMu,iMf,iU,mF
       integer:: iz,indx,ifreq,if0,if1,nf,indU,indF,indK,ncom
+      integer:: jndx,iz0,iz1
 
       double precision:: RAM,d1,rMu,rMf,el,eu
       double precision:: rLu,rLf,S,rJumax,rJfmax,rJu,rJf
@@ -1654,20 +1654,28 @@
         ! Allocate the norm array
         !
 
-        ! For each height
-        do iz=Rz0,Rz1_PRD
 
-          ! Thermal part of the Doppler width
-          DwT = Atom(ia)%cDopp*sqrt(Atmo%T(iz))
+        ! For each transition
+        do jtran=1,Atom(ia)%ntran
 
-          ! Check if no field
-          nfield = Bstrength(iz).le.TINYB
+          ! Skip if no PRD
+          if (.not.Atom(ia)%lemiss2(jtran)) cycle
 
-          ! For each transition
-          do jtran=1,Atom(ia)%ntran
+          ! Index
+          jndx = Red%izao(jtran,ia,Rz0)
 
-            ! Skip if no PRD
-            if (.not.Atom(ia)%lemiss2(jtran)) cycle
+          ! Get z limits
+          iz0 = Rz0 + (Red%ao(jndx)%Mi0(pid)-1)/Red%ao(jndx)%nfreq
+          iz1 = Rz0 + (Red%ao(jndx)%Mi1(pid)-1)/Red%ao(jndx)%nfreq
+
+          ! For each height
+          do iz=Rz0,Rz1_PRD
+
+            ! Thermal part of the Doppler width
+            DwT = Atom(ia)%cDopp*sqrt(Atmo%T(iz))
+
+            ! Check if no field
+            nfield = Bstrength(iz).le.TINYB
 
             ! Index
             indx = Red%izao(jtran,ia,iz)
@@ -1676,6 +1684,13 @@
             if0 = Red%zao(indx)%Igf0
             if1 = Red%zao(indx)%Igf1
             nf = if1 - if0 + 1
+
+            ! Correct
+            if (iz.lt.iz0.or.iz.gt.iz1) then
+              if0 = 0
+              if1 = -1
+              nf = 0
+            end if
 
             ! Correct weights if not extreme wavelength
             if (nf.gt.0) then
@@ -1721,7 +1736,7 @@
               Red%pzao(indx)%Norm = 0d0
 
               ! Allocate profile itself if storing and it is present
-              if (VPRAM.and.Red%zao(indx)%nran.gt.0) then
+              if (VPRAM.and.nf.gt.0) then
 
                 ! Prediction
                 ! Subtract norm already accounted for
@@ -1864,8 +1879,8 @@
 
                 ! Compute the norm
                 call MPI_ALLREDUCE(MPI_IN_PLACE,Red%pzao(indx)%Norm, &
-                                   ncom,MPI_DOUBLE_PRECISION,MPI_SUM, &
-                                   MPI_COMM_RT,ierr)
+                                   ncom,MPI_DOUBLE_PRECISION, &
+                                   MPI_SUM,MPI_COMM_RT,ierr)
 
                 !
                 ! Check everyone is saving
@@ -1901,9 +1916,11 @@
                           8d-6*dble(ncom)
                     deallocate(Red%pzao(indx)%cp)
 
+                    ! And signal that this is not being stored anymore
+                    Red%pzao(indx)%VRAM = .False.
+
                   end if ! Was storing but cannot anymore
                 end if ! Valid range
-
               end if ! MPI
 
               ! Larger than zero norm
@@ -1940,7 +1957,7 @@
               Red%pzao(indx)%Norm = 0d0
 
               ! Allocate profile itself if storing and it is present
-              if (VPRAM.and.Red%zao(indx)%nran.gt.0) then
+              if (VPRAM.and.Red%ao(jndx)%nran.gt.0) then
 
                 ! Prediction
                 ! Subtract norm already accounted for
@@ -2108,6 +2125,7 @@
                 call MPI_ALLREDUCE(MPI_IN_PLACE,LVRAM, &
                                    1,MPI_LOGICAL,MPI_LAND, &
                                    MPI_COMM_RT,ierr)
+
                 ! Valid range
                 if (nf.gt.0) then
 
@@ -2150,8 +2168,8 @@
 
             end if ! No magnetic field
 
-          end do ! transitions
-        end do ! heights
+          end do ! heights
+        end do ! transitions
 
         ! Free
         deallocate(W0,W1)
@@ -2448,7 +2466,7 @@
             end if
 
             ! If storing but this CPU could not keep this profile
-            if (lVIRAM.and.id(5).lt.0) then
+            if (VIRAM.and.id(5).lt.0) then
 
               ! Get index and flag checkram
               jtran = Atom(ia)%ifst(id(2))
@@ -2722,12 +2740,12 @@
             if (extracomm) then
               do while (.True.)
                 call MPI_SEND(id(1),5,MPI_INTEGER,0,0, &
-                               MPI_COMM_RT,ierr)
+                              MPI_COMM_RT,ierr)
                 if (ierr.eq.0) exit
               end do
             else
               call MPI_ISEND(id(1),5,MPI_INTEGER,0,0, &
-                              MPI_COMM_RT,MPID%request1,ierr)
+                             MPI_COMM_RT,MPID%request1,ierr)
             end if ! Extracommunication
           end if ! MPI
         end if ! Master or slave (or not mpi)
@@ -2806,7 +2824,7 @@
           end do ! heights
 
           ! If storing in RAM
-          if (lVIRAM) then
+          if (VIRAM) then
 
             ! Send checkram
             lcheckram = Atom(ia)%ntran*Rnz*njdir
@@ -2817,7 +2835,7 @@
                            MPI_COMM_RT, ierr)
 
             ! Slaves deal with it
-            if (pid.gt.0) then
+            if (pid.gt.0.and.lVIRAM) then
 
               ! For each height
               do iz=Rz0,Rz1
@@ -2896,9 +2914,6 @@
             deallocate(Red%dzao(indx)%Norm)
 
           end do
-
-          ! Free
-          deallocate(checkram)
 
         ! Serial or slave
         else
@@ -3047,6 +3062,7 @@
 
         ! Deallocate
         deallocate(outofbound)
+        if (allocated(checkram)) deallocate(checkram)
 
       end do ! Atoms
 
@@ -3290,7 +3306,7 @@
       logical:: LVRAM
 
       integer:: ia,jtran,fjtran,ffjtran,itermf,itermu,iJf,iJu
-      integer:: iz,indx,ifreq,if0,if1,nf
+      integer:: iz,indx,ifreq,if0,if1,nf,jndx,iz0,iz1
 
       double precision:: RAM,prof,d1,W0,W1
       double precision:: el,eu,au,af,auf,atuf,Dfreq,DwT,Dw,iDw
@@ -3338,36 +3354,43 @@
         ! Allocate the norm array
         !
 
-        ! For each height
-        do iz=Rz0,Rz1_PRD
+        ! For each transition
+        do jtran=1,Atom(ia)%ntran
 
-          ! Thermal part of the Doppler width
-          DwT = Atom(ia)%cDopp*sqrt(Atmo%T(iz))
+          ! Skip if no PRD
+          if (.not.Atom(ia)%lemiss2(jtran)) cycle
 
-          ! For each transition
-          do jtran=1,Atom(ia)%ntran
+          ! Find the term indexes for this transition
+          itermf = Atom(ia)%fst(jtran)%iterml
+          itermu = Atom(ia)%fst(jtran)%itermu
 
-            ! Skip if no PRD
-            if (.not.Atom(ia)%lemiss2(jtran)) cycle
+          ! For each FS transition
+          do fjtran=1,Atom(ia)%fst(jtran)%nt
 
-            ! Find the term indexes for this transition
-            itermf = Atom(ia)%fst(jtran)%iterml
-            itermu = Atom(ia)%fst(jtran)%itermu
+            ! Reset limits
+            W0 = W0_0(jtran)
+            W1 = W1_0(jtran)
 
-            ! Get contributions to damping parameter
-            au = Atom(ia)%damp(itermu,iz)
-            af = Atom(ia)%damp(itermf,iz)
-            auf = Atom(ia)%ldamp(jtran,iz)
+            ! Global index
+            ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
 
-            ! For each FS transition
-            do fjtran=1,Atom(ia)%fst(jtran)%nt
+            ! Index
+            jndx = Red%izao(ffjtran,ia,Rz0)
 
-              ! Reset limits
-              W0 = W0_0(jtran)
-              W1 = W1_0(jtran)
+            ! Get z limits
+            iz0 = Rz0 + (Red%ao(jndx)%Mi0(pid)-1)/Red%ao(jndx)%nfreq
+            iz1 = Rz0 + (Red%ao(jndx)%Mi1(pid)-1)/Red%ao(jndx)%nfreq
 
-              ! Global index
-              ffjtran = Atom(ia)%ifst_ij(fjtran,jtran)
+            ! For each height
+            do iz=Rz0,Rz1_PRD
+
+              ! Get contributions to damping parameter
+              au = Atom(ia)%damp(itermu,iz)
+              af = Atom(ia)%damp(itermf,iz)
+              auf = Atom(ia)%ldamp(jtran,iz)
+
+              ! Thermal part of the Doppler width
+              DwT = Atom(ia)%cDopp*sqrt(Atmo%T(iz))
 
               ! Index
               indx = Red%izao(ffjtran,ia,iz)
@@ -3376,6 +3399,13 @@
               if0 = Red%zao(indx)%Igf0
               if1 = Red%zao(indx)%Igf1
               nf = if1 - if0 + 1
+
+              ! Correct
+              if (iz.lt.iz0.or.iz.gt.iz1) then
+                if0 = 0
+                if1 = -1
+                nf = 0
+              end if
 
               ! Initialize norm
               allocate(Red%pzao(indx)%Norm(1))
@@ -3509,6 +3539,7 @@
                 call MPI_ALLREDUCE(MPI_IN_PLACE,LVRAM, &
                                    1,MPI_LOGICAL,MPI_LAND, &
                                    MPI_COMM_RT,ierr)
+
                 ! Valid range
                 if (nf.gt.0) then
 
@@ -3712,6 +3743,8 @@
         do jtran=1,Atom(ia)%ntran
 
           ! Check larger
+          if (Atom(ia)%trano(jtran)%ncomNB.gt.ncom) &
+            ncom = Atom(ia)%trano(jtran)%ncomNB
           if (Atom(ia)%trano(jtran)%ncomB.gt.ncom) &
             ncom = Atom(ia)%trano(jtran)%ncomB
 

@@ -9,19 +9,15 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     06/06/2025 V4.0.8
+!     26/06/2025 V4.0.9
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     06/06/2025:    V4.0.8 - Manage what maximum number of iterations
-!                             and MRC criteria is used based on the
-!                             twostepAD flag (TdPA)
-!                           - Bugfix: When the main scale is optical
-!                             depth, the MRC data needs to be scaled
-!                             differently to the heights (TdPA)
+!     26/06/2025:    V4.0.9 - Removed Atmo as argument for RAM
+!                             predictors (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -741,7 +737,6 @@
       !> Calculate the approximate RAM space necessary for the
       !! routines solving the self-consistent problem for intensity\n
       !!    Atom(Atom_class(:)): Structures with atomic data\n
-      !!       Atmo(Atmo_class): Structure with atmospheric data\n
       !!  Frec(Frequency_class): Structure with frequency data\n
       !!         Red(Red_class): Structure with redistribution input
       !!                         frequency data, redistribution
@@ -750,13 +745,12 @@
       !!   Geom(Geometry_class): Structure with geometric data\n
       !!        MPID(MPI_class): Structure with MPI data\n
       !!     Input(Input_class): Structure with configuration data
-      subroutine solveI_predict(Atom,Atmo,Frec,Red,Geom,MPID,Input)
+      subroutine solveI_predict(Atom,Frec,Red,Geom,MPID,Input)
 
       ! I/O
 
       type(Atom_class), dimension(:), &
                         allocatable, intent(in):: Atom
-      type(Atmo_class), intent(in):: Atmo
       type(Frequency_class), intent(in):: Frec
       type(Red_class), intent(in):: Red
       type(Geometry_class), intent(in):: Geom
@@ -774,7 +768,7 @@
       TRAMc = 0d0
 
       ! Predict PRD
-      if (PRD) call predict_emissI(Atom,Atmo,Geom,Red)
+      if (PRD) call predict_emissI(Atom,Geom,Red)
 
       ! Initialize angle depended flag
       AD = .not.AVI
@@ -3547,7 +3541,6 @@
       !! routines solving the formal solution for the RTE for
       !! intensity\n
       !!   Atom(Atom_class(:)): Structures with atomic data\n
-      !!      Atmo(Atmo_class): Structure with atmospheric data\n
       !!        Red(Red_class): Structure with redistribution input
       !!                        frequency data, redistribution
       !!                        function data, and profile or
@@ -3555,13 +3548,12 @@
       !!  Geom(Geometry_class): Structure with geometric data\n
       !!       MPID(MPI_class): Structure with MPI data\n
       !!    Input(Input_class): Structure with configuration data
-      subroutine emergentI_predict(Atom,Atmo,Red,Geom,MPID,Input)
+      subroutine emergentI_predict(Atom,Red,Geom,MPID,Input)
 
       ! I/O
 
       type(Atom_class), dimension(:), &
                         allocatable, intent(in):: Atom
-      type(Atmo_class), intent(in):: Atmo
       type(Red_class), intent(in):: Red
       type(Geometry_class), intent(in):: Geom
       type(MPI_class), intent(in):: MPID
@@ -3576,7 +3568,7 @@
       TRAMc = 0d0
 
       ! Predict PRD
-      if (PRD) call predict_emissI(Atom,Atmo,Geom,Red)
+      if (PRD) call predict_emissI(Atom,Geom,Red)
 
       !
       ! Allocations

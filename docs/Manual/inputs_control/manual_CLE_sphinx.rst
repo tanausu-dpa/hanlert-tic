@@ -163,6 +163,17 @@ USE_ALLEN
 
   * Description: Use Allen's tabulation to determine the intensity of the star.
 
+CLV
+---
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string: None/Allen
+
+  * Description: Uses Allen's tabulation to determine the intensity CLV or neglect CLV. This is only used if there is no SPECT_INPUT data for a needed frequency.
+
 FLAT_CLE_IN
 -----------
 
@@ -568,7 +579,7 @@ RED_NEGL
     
     - float; default: 1e4
 
-  * Description: Distance in Doppler width from a frequency to the closest transition resonance in order to neglect partial frequency redistribution at that frequency.
+  * Description: Distance in Doppler width from a frequency to the closest transition resonance in order to neglect partial frequency redistribution at that frequency. NOTE: The Doppler width in this variable is the one used to define the output frequency axis, and not the one corresponding to the atmospheric properties at each location.
 
 RED_VLAR
 --------

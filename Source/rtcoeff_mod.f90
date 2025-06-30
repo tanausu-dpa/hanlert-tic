@@ -11,16 +11,15 @@
 !  Start:
 !     27/04/2017
 !  Last version:
-!     15/05/2025 V4.0.1
+!     26/06/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.1 - Generalized declarations of Atom to
-!                             allow for empty arrays for any of
-!                             them (TdPA)
+!     26/06/2025:    V4.0.2 - Updated due to changes in the Red_class
+!                             and Redb_class structures (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -140,7 +139,7 @@
       ! Local
 
       integer:: iS,K,iQ,iterml,itermu,ia,jtran,ktran
-      integer:: icdir,ilevell,ilevelu,nodir,indx
+      integer:: icdir,ilevell,ilevelu,nodir,indx,jndx
       integer:: ifreq,if0l,if1l,if0l2,if1l2,iil,jjl,nf
 
       double precision:: daux,DwT,pE,absK,Dw
@@ -569,14 +568,15 @@
                iz.lt.Rz1_PRD)then
 
               ! Red index
+              jndx = Red%izao(jtran,ia,Rz0)
               indx = Red%izao(jtran,ia,iz)
 
               ! There are valid ranges
-              if (Red%zao(indx)%nran.gt.0) then
+              if (Red%ao(jndx)%nran.gt.0) then
 
                 ! Get limits for emissivity
-                if0l2 = Red%zao(indx)%gf0
-                if1l2 = Red%zao(indx)%gf1
+                if0l2 = Red%ao(jndx)%gf0
+                if1l2 = Red%ao(jndx)%gf1
 
                 ! Valid range
                 if (if1l2.ge.if0l2) then
@@ -810,14 +810,15 @@
                 iz.lt.Rz1_PRD) then
 
               ! Frec index
+              jndx = Red%izao(jtran,ia,Rz0)
               indx = Red%izao(jtran,ia,iz)
 
               ! There are valid ranges
-              if (Red%zao(indx)%nran.gt.0) then
+              if (Red%ao(jndx)%nran.gt.0) then
 
                 ! Get limits for emissivity
-                if0l2 = Red%zao(indx)%gf0
-                if1l2 = Red%zao(indx)%gf1
+                if0l2 = Red%ao(jndx)%gf0
+                if1l2 = Red%ao(jndx)%gf1
 
                 ! Valid range
                 if (if1l2.ge.if0l2) then

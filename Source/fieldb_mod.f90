@@ -10,17 +10,17 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     03/12/2024 V4.0.0
+!     26/06/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     03/12/2024:    V4.0.0 - The determination of the scattering
-!                             does not need to consider particular
-!                             cases for the different propagation
-!                             directions (TdPA)
+!     26/06/2025:    V4.0.1 - Bugfix: the cosine for the forward
+!                             scattering angle could be 1d-16 below 1,
+!                             resulting in the angle not being
+!                             recognized as forward scattering (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -66,7 +66,8 @@
       ! Use
       use commons_mod
       use rdmat_mod
-      use parameters_mod , only : cZero , cOne , cImag , pi , TINYA
+      use parameters_mod , only : cZero , cOne , cImag , pi , &
+                                  TINYA , TINYM
       use qsort_mod
       use types_mod
 
@@ -551,13 +552,13 @@
               Ctheta = Coi + Soi*cos(Geom%V_phi(jj) - &
                                      Geom%V_phi(ll))
 
-              ! If cosine exact 1 or overflown
+              ! Overflown
               if (Ctheta.ge.1.0) then
 
                 ! Angle is zero
                 theta = 0d0
 
-              ! If cosine exact -1 or overflown
+              ! Overflown
               else if (Ctheta.le.-1.0) then
 
                 ! Angle is 180
@@ -568,6 +569,10 @@
 
                 ! Arccos
                 theta = acos(Ctheta)
+
+                ! Check equality
+                if (theta.lt.TINYA) theta = 0d0
+                if (theta.gt.PI-TINYA) theta = PI
 
               end if ! Control invalid cosines
 
@@ -739,13 +744,13 @@
               Ctheta = Coi + Soi*cos(Geom%V_phi(jj) - &
                                      Geom%V_phi(ll))
 
-              ! If cosine exact 1 or overflown
+              ! Overflown
               if (Ctheta.ge.1.0) then
 
                 ! Angle is zero
                 theta = 0d0
 
-              ! If cosine exact -1 or overflown
+              ! Overflown
               else if (Ctheta.le.-1.0) then
 
                 ! Angle is 180
@@ -756,6 +761,10 @@
 
                 ! Arccos
                 theta = acos(Ctheta)
+
+                ! Check equality
+                if (theta.lt.TINYA) theta = 0d0
+                if (theta.gt.PI-TINYA) theta = PI
 
               end if ! Control invalid cosines
 
@@ -784,6 +793,12 @@
       ! Compute cosines and sines for scattering angles
       Geom%V_SScatt = sin(Geom%V_CScatt)
       Geom%V_CScatt = cos(Geom%V_CScatt)
+
+      ! Check first cosine
+      if (Geom%V_CScatt(1).gt.1d0-TINYM) then
+        Geom%V_CScatt(1) = 1d0
+        Geom%V_SScatt(1) = 0d0
+      end if
 
       ! And done
       return
@@ -855,13 +870,13 @@
           Ctheta = Coi + Soi*cos(Geom%L_phi(iph) - &
                                  Geom%V_phi(ll))
 
-          ! If cosine exact 1 or overflown
+          ! Overflown
           if (Ctheta.ge.1.0) then
 
             ! Angle is zero
             theta = 0d0
 
-          ! If cosine exact -1 or overflown
+          ! Overflown
           else if (Ctheta.le.-1.0) then
 
             ! Angle is 180
@@ -872,6 +887,10 @@
 
             ! Arccos
             theta = acos(Ctheta)
+
+            ! Check equality
+            if (theta.lt.TINYA) theta = 0d0
+            if (theta.gt.PI-TINYA) theta = PI
 
           end if ! Control invalid cosines
 
@@ -1031,13 +1050,13 @@
           Ctheta = Coi + Soi*cos(Geom%L_phi(iph) - &
                                  Geom%V_phi(ll))
 
-          ! If cosine exact 1 or overflown
+          ! Overflown
           if (Ctheta.ge.1.0) then
 
             ! Angle is zero
             theta = 0d0
 
-          ! If cosine exact -1 or overflown
+          ! Overflown
           else if (Ctheta.le.-1.0) then
 
             ! Angle is 180
@@ -1048,6 +1067,10 @@
 
             ! Arccos
             theta = acos(Ctheta)
+
+            ! Check equality
+            if (theta.lt.TINYA) theta = 0d0
+            if (theta.gt.PI-TINYA) theta = PI
 
           end if ! Control invalid cosines
 
@@ -1074,6 +1097,12 @@
       ! Compute cosines and sines for scattering angles
       Geom%V_SScatt = sin(Geom%V_CScatt)
       Geom%V_CScatt = cos(Geom%V_CScatt)
+
+      ! Check first cosine
+      if (Geom%V_CScatt(1).gt.1d0-TINYM) then
+        Geom%V_CScatt(1) = 1d0
+        Geom%V_SScatt(1) = 0d0
+      end if
 
       ! And done
       return

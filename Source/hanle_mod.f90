@@ -11,19 +11,17 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     11/06/2025 V4.0.7
+!     26/06/2025 V4.0.8
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     11/06/2025:    V4.0.7 - Made the two step intensity solution
-!                             compatible with making the intensity
-!                             in axial mode. Removed the limitation
-!                             of the two step intensity solution to
-!                             cases where no polarization is expected
-!                             to be calculated (TdPA)
+!     26/06/2025:    V4.0.8 - Bugfix: wrong message when RAM limit was
+!                             reached with redistribution (TdPA)
+!                           - Removed Atmo as argument for intensity
+!                             RT RAM predictors (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1564,7 +1562,7 @@
 
         ! If solving NLTE proble, predict RAM necessary for RT
         if (liter) &
-          call solveI_predict(Atom,Atmo,Frec,Red,GeomI,MPID,Input)
+          call solveI_predict(Atom,Frec,Red,GeomI,MPID,Input)
 
         ! If we need actual line data
         if (liter.or.(literJ.and.Input%init_J_bb).or.lie) then
@@ -1769,7 +1767,7 @@
         end if
 
         ! Predict RAM necessary to solve the RTE
-        call emergentI_predict(Atom,Atmo,Red,GeomI,MPID,Input)
+        call emergentI_predict(Atom,Red,GeomI,MPID,Input)
 
         ! Master verbose
         if (gpid.eq.0) then
@@ -2110,7 +2108,7 @@
 
               ! Verbose
               write(umsg,'(A,1x,i4,1x,A)') ' # Processor',pid, &
-                  ' reached RAM limit with redistribution ', &
+                  ' reached RAM limit with redistribution '// &
                   'allocation'
               call verbose
 

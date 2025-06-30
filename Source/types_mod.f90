@@ -11,14 +11,14 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     10/06/2025 V4.0.6
+!     30/06/2025 V4.0.8
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     10/06/2025:    V4.0.6 - Added nowave to LTEline_class (TdPA)
+!     30/06/2025:    V4.0.8 - Added clv_type to Input_class (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -142,8 +142,10 @@
 !  Redc_class
 !    Input frequency axes and weights
 !  Redb_class
-!    Output frequency ranges for redistribution, input transitions
-!    for frequency axes and weights, and second order RT coefficients
+!    Input transitions for frequency axes and weights, and second
+!    order RT coefficients
+!  Reda_class
+!    Output frequency ranges for redistribution
 !  Prof_class
 !    Voigt and Faraday-Voigt profiles, and Voigt normalization factors
 !  Red_class
@@ -1294,7 +1296,8 @@
         ! allow negative populations, type of interpolation for the
         ! PRD to transform into the observer reference frame, number
         ! of internal PRD iterations, maximum number of AD iterations,
-        ! maximum number of AD iterations in intensity
+        ! maximum number of AD iterations in intensity, type of CLV
+        ! in CLE run
         integer:: iter_min,iter_max,iter_ord,store_step,nA,nAb,nM, &
                   iteri_min,iteri_max,storei_step,iteri_prd,iter_j, &
                   NG_ord,NG_delay,ALI_delay,NK,allownphys_stk, &
@@ -1303,7 +1306,7 @@
                   nasym_fil,nasym,MIT_input,run_mode,rt_group_n, &
                   atmo_char,nTh,nPh,nThI,nPhI,nThAA,nThAAI,nThLOS, &
                   nPhLOS,nLTE,nexcl,allownphys_pop,PRD_int_mode, &
-                  iter_prd,iterad_max,iteriad_max
+                  iter_prd,iterad_max,iteriad_max,clv_type
 
         ! Box to solve in 1.5D synthesis problem
         integer, dimension(:), allocatable:: sol_box
@@ -1714,23 +1717,16 @@
 
 !#####################################################################
 
-      !> Output frequency ranges for redistribution, input transitions
-      !! for frequency axes and weights, and second order RT
-      !! coefficients
+      !> Input transitions for frequency axes and weights, and second
+      !! order RT coefficients
       type Redb_class
 
-        ! Max of input frequencies, number of ranges, number of
-        ! output frequencies, true maximum frequency limits for
-        ! 2ord, maximum frequency limits for 2ord, limits for
-        ! interpolation
-        integer:: mxfreq,nran,nfreq,Igf0,Igf1,tgf0,tgf1,gf0,gf1, &
-                  ggf0,ggf1
-
-        ! Number of frequencies per CPU, lower frequency limits
-        ! for all CPU, upper frequency limits, for all CPU,
-        ! indexes within ranges
-        integer, dimension(:), allocatable:: nf,Mif0,Mif1,Rif0,Rif1, &
-                                             if0,if1
+        ! Max of input frequencies, the minimum and maximum indexes
+        ! of frequencies for the PRD transition at a given height
+        ! accounting for parallelization, the minimum and maximum
+        ! indexes of frequencies necessary for the integrals inside
+        ! for the PRD transition at a given height
+        integer:: mxfreq,Igf0,Igf1,ggf0,ggf1
 
         ! Input transitions
         type(Redc_class), dimension(:), pointer:: trani
@@ -1740,6 +1736,25 @@
                                                         eps22,eps23, &
                                                         rpf
       end type Redb_class
+
+!#####################################################################
+
+      !> Output frequency ranges for redistribution
+      type Reda_class
+
+        ! Number of ranges, number of output frequencies,
+        ! the minimum and maximum indexes of frequencies that a PRD
+        ! transition fill, the minimu mand maximum indexes of
+        ! frequencies that a PRD transition fill accounting for
+        ! the split in frecuencias for RT (indexes to save)
+        integer:: nran,nfreq,tgf0,tgf1,gf0,gf1
+
+        ! Size of CPU work, lower job index limit, upper job index
+        ! limit, indexes of output frequencies included in each
+        ! range
+        integer, dimension(:), allocatable:: nn,Mi0,Mi1,if0,if1
+
+      end type Reda_class
 
 !#####################################################################
 
@@ -1768,7 +1783,7 @@
       type Red_class
 
         ! Sizes
-        integer:: ndzao, nzao, ndzaoA
+        integer:: ndzao, nzao, nao, ndzaoA
 
         ! Indexing height-atom-transition for PRD data and
         ! indexing for direction-height-atom_transition for
@@ -1777,6 +1792,9 @@
 
         ! Redistribution class for height, atom, transition
         type(Prof_class), dimension(:), pointer:: dzao,pzao
+
+        ! Redistribution class for atom, transition
+        type(Reda_class), dimension(:), pointer:: ao
 
         ! Redistribution class for height, atom, transition
         type(Redb_class), dimension(:), pointer:: zao
