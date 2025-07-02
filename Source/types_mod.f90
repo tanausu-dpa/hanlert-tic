@@ -11,14 +11,15 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     30/06/2025 V4.0.8
+!     02/07/2025 V4.0.9
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     30/06/2025:    V4.0.8 - Added clv_type to Input_class (TdPA)
+!     02/07/2025:    V4.0.9 - Added guess_polarity_l, gp_l, gp_r,
+!                             gp_g, and gp_w to Input_class (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1201,7 +1202,7 @@
         ! strict, keep the secondary scale from the input model
         ! atmosphere, if solving the intensity problem in a static
         ! atmosphere first, if solving the angle-average PRD problem
-        ! first
+        ! first, if guessing the polarity of the field
         logical:: AV,appendMRC,appendMRCI,out_contr,out_tau1,store, &
                   storeI,Pcorr,Raman,keepIsol,NG,keep_back, &
                   keep_damp,keep_cols,bfieldn,keep_aparam,addbb, &
@@ -1216,7 +1217,8 @@
                   use_allen,flat_cle_in,rest_z_red,rest_tau_red, &
                   anisotropy_only,ALI_photo,ALI_allow_off, &
                   protect_Hm,rest_Tup,rest_Tup_strc,rest_Tlo, &
-                  rest_Tlo_strc,respect_zalt,two_step_I_v,two_step_AD
+                  rest_Tlo_strc,respect_zalt,two_step_I_v, &
+                  two_step_AD,guess_polarity_l
 
         ! If asymmetry input
         logical, dimension(2):: lasym
@@ -1327,10 +1329,13 @@
         ! consider, forced microturbulence, maximum tau continuum to
         ! calculate PRD, minimim height to calculate PRD, maximum
         ! temperature to consider from the top, maximum temperature
-        ! to consider from the bottom
+        ! to consider from the bottom, left and right wavelenghts
+        ! limits to guess the polarity, effective Lande factor and
+        ! wavelength to guess Blos as well
         double precision:: dw,MIT_node,dcohw,dcohwi,minT,maxT,maxV, &
                            omega_ref,T_rad,R_star,r0tc,r1tc,r0z,r1z, &
-                           fvmicro,r1tc_prd,r1z_prd,r0tt,r1tt
+                           fvmicro,r1tc_prd,r1z_prd,r0tt,r1tt, &
+                           gp_l,gp_r,gp_g,gp_w
 
         ! LOS polar mus, LOS azimuthal angles
         double precision, dimension(:), allocatable:: L_mu,L_phi

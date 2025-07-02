@@ -1504,9 +1504,9 @@ TYPE_INVERSION
 
   * Formats:
     
-    - string: Thermal, Magnetic, All, Sequential, Sequential-Magnetic; default: Thermal
+    - string: Thermal, Magnetic, All, Sequential, Sequential-Magnetic, Sequential-Full; default: Thermal
 
-  * Description: Type of inversion, i.e., without magnetic field (thermal), only the magnetic field (magnetic), both (all), both but with a first convergence without magnetic field (sequential), first everythin but magnetic field and then only the magnetic field (sequential-magnetic). Note: only the first word will be registered when reading the input, so do not introduce spaces.
+  * Description: Type of inversion, i.e., without magnetic field (thermal), only the magnetic field (magnetic), both (all), both but with a first convergence without magnetic field (sequential), first everything but magnetic field and then only the magnetic field (sequential-magnetic), and the same with a last cycle with everything (sequential-full). Note: only the first word will be registered when reading the input, so do not introduce spaces.
 
 AUTO_WEIGHT
 -----------
@@ -3269,6 +3269,17 @@ INI_VAZI
     - float; default: 1.5
 
   * Description: Initial velocity y or azimuth when initializing form an inversion result with a very small value of this quantity.
+
+GUESS_POLARITY
+--------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - float*2 or float*4; default: nothing
+
+  * Description: Try to estimate the polarity (if two floats) and the polarity and strength of the longitudinal magnetic field component (if four floats). The first two floats indicate the wavelength range to consider for the estimation, in nanometers, followed by the effective Landé factor and line's wavelength to consider.
 
 INV_FRACTION
 ------------

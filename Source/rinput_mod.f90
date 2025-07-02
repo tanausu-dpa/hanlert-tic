@@ -10,14 +10,16 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     30/06/2025 V4.0.6
+!     02/07/2025 V4.0.7
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     30/06/2025:    V4.0.6 - Read Input%clv_type (TdPA)
+!     02/07/2025:    V4.0.7 - Read Input%guess_polarity_l, Input%gp_l,
+!                             Input%gp_r, Input%gp_g, and Input%gp_w
+!                             variables (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1739,6 +1741,21 @@
 
         ! Value when too small Vazi initialization
         read(100,*,err=1100) Input%ini_vazi
+
+        ! Guess the polarity of the field
+        read(100,'(A)',err=1100) cdump
+        Input%guess_polarity_l = cdump.eq.'Y'
+
+        ! If guessing polarity
+        if (Input%guess_polarity_l) then
+
+          ! Wavelength limits
+          read(100,*,err=1100) Input%gp_l
+          read(100,*,err=1100) Input%gp_r
+          read(100,*,err=1100) Input%gp_g
+          read(100,*,err=1100) Input%gp_w
+
+        end if
 
         ! Invert fractional Stokes
         read(100,'(A)',err=1100) cdump

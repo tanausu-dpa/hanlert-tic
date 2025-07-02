@@ -4156,6 +4156,8 @@ class _atmo_15D():
         self.__methods = { \
          'get_filename': \
           [None,'Get name of the read file'], \
+         'get_precision': \
+          [None,'Get type of variable in which the variables are stored'], \
          'get_nx': \
           [None,'Get number of nodes in the x dimension'], \
          'get_ny': \
@@ -4224,9 +4226,11 @@ class _atmo_15D():
             # Read precision
             size = int(struct.unpack('i',f.read(4))[0])
             if size == 4:
+                self.__vtype = np.float32
                 self.__fmt = 'f'
                 self.__byt = 4
             elif size == 8:
+                self.__vtype = np.float64
                 self.__fmt = 'd'
                 self.__byt = 8
             else:
@@ -4288,6 +4292,11 @@ class _atmo_15D():
         ''' Get the name of the read file
         '''
         return self.__filename
+
+    def _get_precision(self):
+        ''' Get type of variable in which the variables are stored
+        '''
+        return self.__vtype
 
     def _get_nx(self):
         ''' Get number of positions in x axis
@@ -10367,6 +10376,7 @@ class hanlertio_class():
 
                             # Methods
                             self.get_filename = self.__get_filename
+                            self.get_precision = self.__get_precision
                             self.get_nx = self.__get_nx
                             self.get_ny = self.__get_ny
                             self.get_nz = self.__get_nz
@@ -10664,6 +10674,9 @@ class hanlertio_class():
     # All
     def __get_filename(self):
         return self.__object._get_filename()
+    # 15D atmo
+    def __get_precision(self):
+        return self.__object._get_precision()
     # 1D cols, 1D popdep, 15D cols, 15D popdep
     def __get_type(self):
         return self.__object._get_type()

@@ -10,19 +10,15 @@
 !  Start:
 !     22/03/2023
 !  Last version:
-!     15/05/2025 V4.0.2
+!     02/07/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.2 - Generalized declarations of Atom to
-!                             allow for empty arrays for any of
-!                             them (TdPA)
-!                           - Bugfix: The wrong variable was checked
-!                             to see if the Sol%i_JKQS_* variables
-!                             were allocated (TdPA)
+!     02/07/2025:    V4.0.3 - Added conditionals for new type of
+!                             inversion scheduling (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1153,7 +1149,8 @@
             ! Thermal not from a full inversion
             if (Inf_Nodes%Nodes_type.eq.0.and. &
                 Input%Type_inversion.ne.3.and. &
-                Input%Type_inversion.ne.4) then
+                Input%Type_inversion.ne.4.and. &
+                Input%Type_inversion.ne.5) then
 
               ! Write Stokes
               call writestkI(Input%folder,0,0,Frec%omega,GeomI, &
@@ -1191,7 +1188,8 @@
             ! Thermal not from a full inversion or non-thermal
             if ((Inf_Nodes%Nodes_type.eq.0.and. &
                  Input%Type_inversion.ne.3.and. &
-                 Input%Type_inversion.ne.4).or. &
+                 Input%Type_inversion.ne.4.and. &
+                 Input%Type_inversion.ne.5).or. &
                 (Inf_Nodes%Nodes_type.ne.0)) then
 
               ! Output tau1

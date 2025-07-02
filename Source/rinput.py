@@ -6,7 +6,8 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an (IAC)
 # Hao Li (IAC/NSSCC)
 #
-# 30/06/2025:  V4.0.9 - Added CLV (TdPA)
+# 02/07/2025: V4.0.10 - Added an option to TYPE_INVERSION (TdPA)
+#                     - Added GUESS_POLARITY (TdPA)
 #
 #####################
 
@@ -5322,6 +5323,9 @@ def rInput():
       elif 'S' in val and 'M' in val:
         f.write('4\n')
         check = 1
+      elif 'S' in val and 'F' in val:
+        f.write('5\n')
+        check = 1
       elif 'S' in val:
         f.write('3\n')
         check = 1
@@ -6505,6 +6509,45 @@ def rInput():
         abort(f, filename)
     if check == 0:
       f.write('1.5\n')
+
+    # GUESS_POLARITY
+    if 'GUESS_POLARITY' in Dictionary:
+      val = Dictionary['GUESS_POLARITY']
+      check = 0
+      try:
+        val[0] = interpret(val[0])
+        val[1] = interpret(val[1])
+        l0 = float(val[0])
+        l1 = float(val[1])
+        f.write('Y\n')
+        check = 1
+        if l1 >= l0:
+          f.write('{0}\n'.format(l0))
+          f.write('{0}\n'.format(l1))
+        else:
+          f.write('{0}\n'.format(l1))
+          f.write('{0}\n'.format(l0))
+      except:
+        verbose(' # GUESS_POLARITY wrong format', \
+                ofolder, verbosity)
+        abort(f, filename)
+      if check == 1:
+        try:
+          val[2] = interpret(val[2])
+          val[2] = float(val[2])
+          val[3] = interpret(val[3])
+          val[3] = float(val[3])
+          f.write('{0}\n'.format(val[2]))
+          f.write('{0}\n'.format(val[3]))
+        except IndexError:
+          f.write('-1d90\n')
+          f.write('0\n')
+        except:
+          verbose(' # GUESS_POLARITY wrong format', \
+                  ofolder, verbosity)
+          abort(f, filename)
+    else:
+      f.write('N\n')
 
     # INV_FRACTION
     check = 0

@@ -10,16 +10,18 @@
 !  Start:
 !     23/02/2023
 !  Last version:
-!     30/04/2025 V4.0.2
+!     02/07/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     30/04/2025:    V4.0.2 - Bugfix: The text record was overflown
-!                             when the number of nodes was larger
-!                             than 32 (TdPA)
+!     02/07/2025:    V4.0.3 - Added a new type of schedule to the
+!                             verbosity (TdPA)
+!                           - Added guess_polarity, to estimate the
+!                             initial field with WFA based on some
+!                             new inputs (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -44,6 +46,9 @@
 !      Determine the limits of T, v, and B, as well as if the model
 !    is static/dynamic or un/magnetized. A possible outcome is that
 !    this needs to be checked pixelwise
+!
+!    guess_polarity
+!      Make a first guess of the magnetic field based on WFA
 !
 !    Init_Nodes
 !      Initialize the location, values, and errors of the nodes
@@ -77,7 +82,8 @@
       use commons_mod
       use inter_mod
       use model_mod
-      use parameters_mod, only: c, RAD , TINYSP , PI , TINYB , TINYVEL
+      use parameters_mod, only: c, RAD , TINYSP , PI , TINYB , &
+                                TINYVEL , wfac
       use types_mod
 
       contains
@@ -753,10 +759,14 @@
           write(umsg,'(A)') '   o Full inversion together'
         else if (Input%Type_Inversion.eq.3) then
           write(umsg,'(A)') '   o Full inversion sequential'
+        else if (Input%Type_Inversion.eq.4) then
+          write(umsg,'(A)') '   o Thermodynamic followed by '// &
+                            'magnetic inversion'
+        else if (Input%Type_Inversion.eq.5) then
+          write(umsg,'(A)') '   o Thermodynamic, then magnetic, '// &
+                            'and full inversion'
         else
-          write(umsg,'(A)') '   o Full inversion sequential, '// &
-                            'first non-magnetic, then only '// &
-                            'magnetic'
+          write(umsg,'(A)') '   o Inversion type not recognized'
         end if
         call verboseI(1)
 
@@ -1898,6 +1908,213 @@
       end if ! To update later
 
       end subroutine set_up_limits
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Make a first guess of the magnetic field based on WFA\n
+      !!        Input(Input_class): Structure with configuration
+      !!                            data\n
+      !!     GeomI(Geometry_class): Structure with geometric data for
+      !!                            the intensity problem\n
+      !!  Inf_Stokes(Stokes_class): Structure with inversion Stokes
+      !!                            parameters data\n
+      !!       Sol(Solution_class): Structure with the frequency and
+      !!                            synthetic Stokes parameters in the
+      !!                            frequency range of the inverted
+      !!                            data\n
+      !!      Bfield(Bfield_class): Structure with magnetic field
+      !!                            data
+      subroutine guess_polarity(Input,GeomI,Inf_Stokes,Sol,Bfield)
+
+      ! I/O
+
+      type(Input_class), intent(in):: Input
+      type(Geometry_class), intent(inout):: GeomI
+      type(Stokes_class), intent(in):: Inf_Stokes
+      type(Solution_class), intent(in):: Sol
+      type(Bfield_class), intent(inout):: Bfield
+
+      ! Local
+
+      logical:: homogeneous
+
+      integer:: iz,il0,il1,il
+      integer, dimension(1):: ill
+
+      double precision:: sig,Blos
+      double precision, dimension(:), allocatable:: Ider
+      double precision, dimension(:), allocatable:: aBl,aBtr,aBa
+      double precision, dimension(:), allocatable:: aBm,aBth,aBp
+
+
+      !
+      ! Check if homogeneous
+      !
+
+      ! Initialize
+      homogeneous = .True.
+
+      ! Check heights
+      do iz=2,nz
+
+        ! Check difference strength
+        if (abs(real(Bfield%Bstrength(iz) - Bfield%Bstrength(1))).gt.&
+            TINYSP) then
+
+          ! No homogeneous
+          homogeneous = .False.
+          exit
+
+        end if ! Check 
+
+        ! Check difference theta
+        if (abs(real(Bfield%Btheta(iz) - Bfield%Btheta(1))).gt.&
+            TINYSP) then
+
+          ! No homogeneous
+          homogeneous = .False.
+          exit
+
+        end if ! Check 
+
+        ! Check difference phi
+        if (abs(real(Bfield%Bphi(iz) - Bfield%Bphi(1))).gt.&
+            TINYSP) then
+
+          ! No homogeneous
+          homogeneous = .False.
+          exit
+
+        end if ! Check 
+
+      end do ! Rest of heights
+
+      ! If no homogeneous, then there was intent in the input
+      if (.not.homogeneous) then
+
+        ! Verbose
+        write(umsg, '(A)') ' - The input says to guess the '// &
+          'polarity, but the input magnetic field is not '// &
+          'homogeneous'
+        call verboseI(2)
+        return
+
+      end if
+
+      !
+      ! If here, that means that the magnetic field is homogeneous
+      ! and we can proceed with our guess
+      !
+
+      ! Find limits in omega
+      ill = minloc(abs(Sol%omega_input - Input%gp_l))
+      il0 = ill(1)
+      ill = minloc(abs(Sol%omega_input - Input%gp_r))
+      il1 = ill(1)
+
+      ! Move indexes
+      if (Sol%omega_input(il0).lt.Input%gp_l) il0 = il0 + 1
+      if (Sol%omega_input(il1).gt.Input%gp_r) il1 = il1 + 1
+
+      ! Sanity
+      if (il1 - il0.lt.3) then
+        ! Verbose
+        write(umsg, '(A)') ' - Not enough wavelengths to guess '// &
+          'the polarity'
+        call verboseI(3)
+        return
+      end if
+ 
+      ! Allocate derivative
+      allocate(Ider(il0:il1))
+
+      ! First point derivative
+      Ider(il0) = 0.5*(Inf_Stokes%Stokes_Ob(0,il0+1) - &
+                       Inf_Stokes%Stokes_Ob(0,il0))/ &
+                  (Sol%omega_input(il0+1) - Sol%omega_input(il0))
+
+      ! Intermediate points
+      do il=il0+1,il1-1
+
+        ! Derivative
+        Ider(il) = 0.5*(Inf_Stokes%Stokes_Ob(0,il+1) - &
+                        Inf_Stokes%Stokes_Ob(0,il-1))/ &
+                   (Sol%omega_input(il+1) - Sol%omega_input(il-1))
+
+      end do
+
+      ! Last point derivative
+      Ider(il1) = 0.5*(Inf_Stokes%Stokes_Ob(0,il1-1) - &
+                       Inf_Stokes%Stokes_Ob(0,il1))/ &
+                  (Sol%omega_input(il1-1) - Sol%omega_input(il1))
+
+      ! If guessing strength as well
+      if (Input%gp_g.gt.-1d85) then
+
+        ! Scale derivative
+        ! 1d1 = 1d-1 derivate in A * (1e1)^2 wavelength in A
+        Ider = Ider*1d1*Input%gp_w*Input%gp_w*Input%gp_g
+
+        ! If fractional, scale by intensity
+        if (Sol%Fractional) &
+          Ider = Ider/Inf_Stokes%Stokes_Ob(0,il0:il1)
+
+        ! Guess Blos
+        Blos = -1d0*(1d0/wfac)*sum(Ider* &
+                                   Inf_Stokes%Stokes_ob(3,il0:il1))/ &
+                               sum(Ider*Ider)
+
+        ! Allocate auxiliars
+        allocate(aBl(1),aBtr(1),aBa(1),aBm(1),aBth(1),aBp(1))
+
+        ! Get values from input
+        aBm(1) = Bfield%Bstrength(1)
+        aBth(1) = Bfield%Btheta(1)
+        aBp(1) = Bfield%Bphi(1)
+
+        ! Transform into LOS
+        call B2Blos(1,GeomI%L_mu(1),GeomI%L_phi(1), &
+                    aBm,aBth,aBp,aBl,aBtr,aBa)
+
+        ! Change Blos
+        aBl(1) = Blos
+
+        ! Transform back
+        call Bconversion(1,GeomI%L_mu(1),GeomI%L_phi(1), &
+                         aBl,aBtr,aBa,aBm,aBth,aBp)
+
+        ! Copy
+        Bfield%Bstrength = aBm(1)
+        Bfield%Btheta = aBth(1)
+        Bfield%Bphi = aBp(1)
+
+        ! Deallocate auxialiars
+        deallocate(aBl,aBtr,aBa,aBm,aBth,aBp)
+
+      ! If only guessing polarity
+      else
+
+        ! Sign
+        sig = -1d0*sign(1d0,sum(Ider/Inf_Stokes%Stokes_Ob(3,il0:il1)))
+
+        ! If positive polarity and negative sign
+        if (Bfield%Btheta(1).lt.0.5*PI.and.sig.lt.0d0) then
+
+          ! Switch
+          Bfield%Btheta = PI-Bfield%Btheta
+
+        ! If positive polarity and negative sign
+        else if (Bfield%Btheta(1).gt.0.5*PI.and.sig.gt.0d0) then
+
+          ! Switch
+          Bfield%Btheta = PI-Bfield%Btheta
+
+        end if ! Non-coincident polarities
+      end if ! What are we guessing
+
+      end subroutine guess_polarity
 
 !#####################################################################
 !#####################################################################

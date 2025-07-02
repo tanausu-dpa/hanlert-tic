@@ -2003,7 +2003,7 @@ class invi_class():
 
             # Constant LOS?
             if self.__ilos == 0:
-                f.write(struct.pack('dd', *self.__los))
+                f.write(struct.pack('dd', *(self.__los.ravel())))
 
             # Unpolarized
             if istk == 0:

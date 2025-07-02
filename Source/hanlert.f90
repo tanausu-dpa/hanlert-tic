@@ -11,15 +11,16 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     06/06/2025 V4.0.3
+!     02/07/2025 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     06/06/2025:    V4.0.3 - Added the size of a new logical in
-!                             commons to the misc. counter (TdPA)
+!     02/07/2025:    V4.0.4 - Bugfix: Missing a factor two when
+!                             estimating the maximum number for Racah
+!                             algebra with only LTE lines (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -419,8 +420,8 @@
       do ia=1,nLTEl
 
         ! Update size
-        nxdim = max(nxdim,nint(4*Input%LTEline(ia)%Ju), &
-                          nint(4*Input%LTEline(ia)%Jl))
+        nxdim = max(nxdim,nint(8*Input%LTEline(ia)%Ju), &
+                          nint(8*Input%LTEline(ia)%Jl))
 
       end do
 

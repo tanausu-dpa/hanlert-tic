@@ -11,15 +11,15 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     30/06/2025 V4.0.9
+!     02/07/2025 V4.0.10
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     30/06/2025:    V4.0.9 - Bugfix: Forgot to nullify Red%ao at
-!                             subroutine entry level (TdPA)
+!     02/07/2025:   V4.0.10 - Added conditionals for new type of
+!                             inversion scheduling (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -2446,7 +2446,8 @@
           ! If we need to initialize intensity
         if (Input%Type_Inversion.eq.0.or. &
             (Input%Type_Inversion.eq.3.and.Input%force.eq.'I').or. &
-            (Input%Type_Inversion.eq.4.and.Input%force.eq.'I')) then
+            (Input%Type_Inversion.eq.4.and.Input%force.eq.'I').or. &
+            (Input%Type_Inversion.eq.5.and.Input%force.eq.'I')) then
 
           ! If keeping Stokes parameters
           if (KSTK) then
@@ -2537,7 +2538,8 @@
         if (Input%Type_inversion.eq.1.or. &
             Input%Type_inversion.eq.2.or. &
             (Input%Type_Inversion.eq.3.and.Input%force.eq.'N').or. &
-            (Input%Type_Inversion.eq.4.and.Input%force.eq.'N')) then
+            (Input%Type_Inversion.eq.4.and.Input%force.eq.'N').or. &
+            (Input%Type_Inversion.eq.5.and.Input%force.eq.'N')) then
 
           ! If keeping Stokes paramaters
           if (KSTK) then

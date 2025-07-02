@@ -10,16 +10,16 @@
 !  Start:
 !     22/02/2023
 !  Last version:
-!     15/05/2025 V4.0.2
+!     02/07/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.2 - Generalized declarations of Atom to
-!                             allow for empty arrays for any of
-!                             them (TdPA)
+!     02/07/2025:    V4.0.3 - Added call to new guess_polarity
+!                             subroutine (TdPA)
+!                           - Added a new schedule (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -203,6 +203,10 @@
 
       end if
 
+      ! If guessing the polarity for a non-thermal inversion
+      if (Input%guess_polarity_l.and.Input%Type_Inversion.ne.0) &
+        call guess_polarity(Input,GeomI,Inf_Stokes,Sol,Bfield)
+
       ! If Asymmetry not allocated
       if (.not.allocated(Atmo%JKQin)) then
 
@@ -308,7 +312,7 @@
       ! Set regulatization constant for diffuse light
       Inf_Nodes%Const(Inf_Nodes%index_f) = Input%f_diff
 
-      ! If retoring and not masking
+      ! If restoring and not masking
       if (trim(Input%Inv_init).ne.'INIT'.and.imask.eq.0) then
 
         ! Magnetic field inclination index
@@ -825,8 +829,7 @@
             if(pid.eq.0) then
 
               ! Verbose
-              umsg = " - Fitting the thermal, dynamical, "// &
-                     "and magnetic parameters together"
+              umsg = " - Fitting the, magnetic parameters"
               call verboseI(1)
 
             end if ! Master
@@ -846,6 +849,177 @@
                      Inf_Nodes,Sol,imask,.True.)
 
           end if ! There are magnetic nodes
+
+        ! Fit all, first intensity, then magnetic, then all
+        case(5)
+
+          ! If thermal nodes
+          if (Inf_Nodes%Num_Thermal.gt.0) then
+
+            ! Allocate magnetic field quantities
+            allocate(Bfield0%Bstrength(Atmo%nZ))
+            allocate(Bfield0%Btheta(Atmo%nZ))
+            allocate(Bfield0%Bphi(Atmo%nZ))
+            allocate(Bfield0%Blos(Atmo%nZ))
+            allocate(Bfield0%Bpos(Atmo%nZ))
+            allocate(Bfield0%Azimuth(Atmo%nZ))
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Bstrength)
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Btheta)
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Bphi)
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Blos)
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Bpos)
+            MRAMc = MRAMc + 1d-6*sizeof(Bfield0%Azimuth)
+
+            ! Initialize magnetic field
+            Bfield0%Bstrength = 0d0
+            Bfield0%Btheta = 0d0
+            Bfield0%Bphi = 0d0
+            Bfield0%Blos = 0d0
+            Bfield0%Bpos = 0d0
+            Bfield0%Azimuth = 0d0
+
+            ! Master
+            if(pid.eq.0) then
+
+              ! Verbose
+              umsg = " - Fitting the thermal and dynamical parameters"
+              call verboseI(3)
+
+            end if ! Master
+
+            ! Force inputs
+            Inf_Nodes%Nodes_type = 0
+            Input%force = 'I'
+
+            ! If not masked, interpolate nodes into the atmosphere
+            if (imask.eq.0) &
+              call Intpol_Atmo_all(Inf_Nodes,Atmo,Bfield,Atom, &
+                                   Atomb,Mol,Input,fudge)
+
+            ! Fit the profiles
+            call Fit(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge, &
+                     kurucz,MPID,Atmo,Bfield0,Input,Inf_Stokes, &
+                     Inf_Nodes,Sol,imask,.False.)
+
+            ! Deallocate magnetic field quantities
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Bstrength)
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Btheta)
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Bphi)
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Blos)
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Bpos)
+            MRAMc = MRAMc - 1d-6*sizeof(Bfield0%Azimuth)
+            deallocate(Bfield0%Bstrength,Bfield0%Btheta,Bfield0%Bphi)
+            deallocate(Bfield0%Blos,Bfield0%Bpos,Bfield0%Azimuth)
+
+          end if ! There are thermal nodes
+
+          ! Verbose merit function
+          umsg = ' * '
+          call verboseI(0)
+          if (vlevel.eq.0) call verboseI(3)
+
+          ! Verbose merit function
+          write(umsg,'(A,i4,2(3x,A,es15.4))')  &
+              ' * Thermal cycle ended, starting only magnetic cycle'
+
+          ! If global master
+          if (gpid.eq.0) then
+
+            ! Verbose
+            call verboseI(0)
+            call verboseI(4)
+
+          ! Everyone else
+          else
+
+            ! Verbose
+            call verboseI(0)
+            if (vlevel.eq.0) call verboseI(3)
+
+          end if ! Global master or other
+
+          ! There are magnetic nodes
+          if (Inf_Nodes%Num_Mag.gt.0.and..not.laborted) then
+
+            ! Master
+            if(pid.eq.0) then
+
+              ! Verbose
+              umsg = " - Fitting the magnetic parameters"
+              call verboseI(3)
+
+            end if ! Master
+
+            ! Force inputs
+            Inf_Nodes%Nodes_type = 1
+            Input%force = 'N'
+
+            ! If not masked, interpolate nodes into the atmosphere
+            if (imask.eq.0) &
+              call Intpol_Atmo_all(Inf_Nodes,Atmo,Bfield,Atom, &
+                                   Atomb,Mol,Input,fudge)
+
+            ! Fit profiles
+            call Fit(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge, &
+                     kurucz,MPID,Atmo,Bfield,Input,Inf_Stokes, &
+                     Inf_Nodes,Sol,imask,.False.)
+
+          end if ! There are magnetic nodes
+
+          ! Verbose merit function
+          umsg = ' * '
+          call verboseI(0)
+          if (vlevel.eq.0) call verboseI(3)
+
+          ! Verbose merit function
+          write(umsg,'(A,i4,2(3x,A,es15.4))')  &
+              ' * Magnetic cycle ended, starting full cycle'
+
+          ! Global master
+          if (gpid.eq.0) then
+
+            ! Verbose
+            call verboseI(0)
+            call verboseI(4)
+
+          ! Slaves
+          else
+
+            ! Verbose
+            call verboseI(0)
+            if (vlevel.eq.0) call verboseI(3)
+
+          end if ! Global master or other
+
+          ! There are both thermal and magnetic nodes
+          if (Inf_Nodes%Num_Thermal.gt.0.and. &
+              Inf_Nodes%Num_Mag.gt.0.and..not.laborted) then
+
+            ! Master
+            if (pid.eq.0) then
+
+              ! Verbose
+              umsg = " - Fitting the thermal, dynamical, "// &
+                     "and magnetic parameters together"
+              call verboseI(3)
+
+            end if ! Master
+
+            ! Force inputs
+            Inf_Nodes%Nodes_type = 2
+            Input%force = 'N'
+
+            ! If not masked, interpolate nodes into the atmosphere
+            if (imask.eq.0) &
+              call Intpol_Atmo_all(Inf_Nodes,Atmo,Bfield,Atom, &
+                                   Atomb,Mol,Input,fudge)
+
+            ! Fit the profiles
+            call Fit(Atom,Atomb,Mol,Geom,GeomI,Flgsg,Frec,fudge, &
+                     kurucz,MPID,Atmo,Bfield,Input,Inf_Stokes, &
+                     Inf_Nodes,Sol,imask,.True.)
+
+          end if ! There are both thermal and magnetic nodes
 
       end select ! Type of inversion
 
