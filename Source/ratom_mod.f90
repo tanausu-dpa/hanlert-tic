@@ -10,15 +10,17 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     30/06/2025 V4.0.6
+!     18/08/2025 V4.0.7
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     30/06/2025:    V4.0.6 - Initialize the components counters to
-!                             zero (TdPA)
+!     18/08/2025:    V4.0.7 - The non-magnetic indexes need to be
+!                             initialized even if all heights have
+!                             a magnetic field if we are using the
+!                             two step solution (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -3384,6 +3386,8 @@
 
       ! Local
 
+      logical:: nfield2
+
       integer:: ia,iterm,iM,jtran,iti,itran,minto,maxto
       integer:: fjtran,ffjtran,ffktran,fitran,ffitran
       integer:: iMf,mF,iMu,iU,iMu1,iU1,iMl,iL,iMl1,iL1
@@ -3397,6 +3401,9 @@
       double precision:: rJumax,rJfmax,rJlmax,rMf,rMu,rMl,rMu1,rMl1
       double precision:: rJf,rJu,rJl,rJu1,rJl1,q,p,q1,p1,QQ,PP
 
+
+      ! Correct no field accounting for two-step
+      nfield2 = nfield.or.Input%two_step_pol
 
       ! For each atom
       do ia=1,nA
@@ -3678,7 +3685,7 @@
           !
           ! If we expect points without magnetic fields
           !
-          if (nfield) then
+          if (nfield2) then
 
             !
             ! Transiton indexing

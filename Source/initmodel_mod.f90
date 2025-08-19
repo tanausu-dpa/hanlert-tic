@@ -9,18 +9,17 @@
 !  Start:
 !     16/06/2023
 !  Last version:
-!     06/06/2025 V4.0.3
+!     14/08/2025 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     06/06/2025:    V4.0.3 - Added the argument to control the
-!                             keeping of the input H- number density
-!                             and to ensure the compatibility of
-!                             the call to getztau with the new
-!                             input (TdPA)
+!     14/08/2025:    V4.0.4 - Bugfix: Improved the error management
+!                             in setup_Atmo_ininv() and
+!                             setup_Atmo_ouinv() to correctly free
+!                             memory in case of failure (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1095,19 +1094,19 @@
       call prepareatomol(Atom,Atomb,Mol,Input%nM)
 
       ! If error, skip
-      if (laborted) return
+      if (laborted) goto 1000
 
       ! Revise H populations
       call reviseH_init(Atom,Atomb,Atmo)
 
       ! If error, skip
-      if (laborted) return
+      if (laborted) goto 1000
 
       ! Eq. of state
       call eqstate(Atmo,Atom,Atomb,nlte,depar)
 
       ! If error, skip
-      if (laborted) return
+      if (laborted) goto 1000
 
       ! If model not in tau scale
       if (Atmo%scal.ne.'T') then
@@ -1125,7 +1124,7 @@
         call chemical(Atom,Atomb,dummy,Mol,Atmo_tmp,Input)
 
         ! If error, skip
-        if (laborted) return
+        if (laborted) goto 1000
 
         ! Allocate chi500
         if (.not.allocated(Atmo_tmp%chi500)) then
@@ -1192,18 +1191,6 @@
       Atmo%nha = 0d0
       Atmo%nhm = 0d0
 
-      ! Free mass density if allocated
-      if (allocated(Atmo%rho)) then
-        MRAMc = MRAMc - 1d-6*sizeof(Atmo%rho)
-        deallocate(Atmo%rho)
-      end if
-
-      ! Free electron pressure if allocated
-      if (allocated(Atmo%Pe)) then
-        MRAMc = MRAMc - 1d-6*sizeof(Atmo%Pe)
-        deallocate(Atmo%Pe)
-      end if
-
       ! Restore nz to the original value
       nz = ii
 
@@ -1248,6 +1235,18 @@
 
         end if ! Still 0 optical depth
       end if ! 0 or negative optical depth
+
+      ! Free mass density if allocated
+1000  if (allocated(Atmo%rho)) then
+        MRAMc = MRAMc - 1d-6*sizeof(Atmo%rho)
+        deallocate(Atmo%rho)
+      end if
+
+      ! Free electron pressure if allocated
+      if (allocated(Atmo%Pe)) then
+        MRAMc = MRAMc - 1d-6*sizeof(Atmo%Pe)
+        deallocate(Atmo%Pe)
+      end if
 
       ! Free local variables
       call free_local_Atom(Atom)
@@ -1299,19 +1298,19 @@
       call prepareatomol(Atom,Atomb,Mol,Input%nM)
 
       ! If error, skip
-      if (laborted) return
+      if (laborted) goto 1000
 
       ! Revise H populations
       call reviseH_init(Atom,Atomb,Atmo)
 
       ! If error, skip
-      if (laborted) return
+      if (laborted) goto 1000
 
       ! Eq. of state
       call eqstate(Atmo,Atom,Atomb,nlte,depar)
 
       ! If error, skip
-      if (laborted) return
+      if (laborted) goto 1000
 
       ! Initialize LTE populations
       call setlte(Atom,Atomb,Atmo,Input)
@@ -1323,7 +1322,7 @@
       call chemical(Atom,Atomb,dummy,Mol,Atmo,Input)
 
       ! If error, skip
-      if (laborted) return
+      if (laborted) goto 1000
 
       ! Allocate chi500
       if (.not.allocated(Atmo%chi500)) then
@@ -1336,7 +1335,7 @@
                     Atmo%tfreq,Atmo%chi500,1,nz,nproc.gt.1)
 
       ! Free memory
-      call free_lpop(Atom,Atomb)
+1000  call free_lpop(Atom,Atomb)
       call free_mol(Mol)
       call free_local_Atom(Atom)
       call free_gpop(Atom,Atomb,Mol)

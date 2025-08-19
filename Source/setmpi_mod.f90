@@ -9,23 +9,17 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     26/06/2025 V4.0.3
+!     19/08/2025 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     26/06/2025:    V4.0.3 - Added the painters, painters_check, and
-!                             painters_sol subroutines. These allow
-!                             to split tasks from an array of weights
-!                             in such a way that the optimal solution
-!                             for the minimum-maximum sum of weights
-!                             in a single CPU. This solution is fed
-!                             into the brute-force and heuristic
-!                             algorithm to further distribute tasks
-!                             while still keeping the optimal maximum
-!                             sum of weights (TdPA)
+!     19/08/2025:    V4.0.4 - Bugfix: It was possible to ask for an
+!                             out of bounds array position in a
+!                             conditional that included the condition
+!                             of the index being positive (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -977,7 +971,8 @@
         coun = 0
 
         ! Try collecting as many elements as possible
-        do while (ii.ge.1.and.suma+work(ii).le.max_W.and.ii+1.gt.jj-1)
+        do while (ii.ge.1.and.ii+1.gt.jj-1)
+          if (suma+work(ii).gt.max_W) exit
           suma = suma + work(ii)
           coun = coun + 1
           ii = ii - 1

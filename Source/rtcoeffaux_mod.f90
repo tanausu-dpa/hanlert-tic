@@ -12,22 +12,16 @@
 !  Start:
 !     27/04/2017
 !  Last version:
-!     30/06/2025 V4.0.3
+!     18/08/2025 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     30/06/2025:    V4.0.3 - Bugfix: The coherent scattering for the
-!                             magnetic case angle-averaged was
-!                             pointing to the wrong radiative transfer
-!                             tensors (TdPA)
-!                           - Bugfix: Wrong index for the Stokes
-!                             parameters in the magnetic case angle-
-!                             dependent. This bug was introduced in
-!                             V4.0.2 (previous week) and thus has not
-!                             affected anything (TdPA)
+!     18/08/2025:    V4.0.4 - Implemented the ad-hoc radiation field
+!                             tensors as a flat contribution in the
+!                             angle-dependent problem (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1076,7 +1070,7 @@
 
       ! Local
 
-      logical:: PRDc,LPRAM,cohIn,conj
+      logical:: PRDc,LPRAM,cohIn,conj,asym
 
       integer:: ith1,iph1,ish1,iterml,itran,iti,icom,jdir,idir
       integer:: mF,iU,iU1,iL,iL1,iifreq,iran,ifreq,iR,ishift
@@ -1101,6 +1095,7 @@
       complex(kind=8), dimension(if0:if1,Geom%njdir):: tmp2
       complex(kind=8), dimension(if0:if1,Geom%njdir):: tmp3
       complex(kind=8), dimension(-2:2,0:2):: Jrad
+      complex(kind=8), dimension(-2:2,0:2):: JKQadd
       complex(kind=8), dimension(:), allocatable, target:: Warr2
       complex(kind=8), dimension(:), allocatable:: Warr2xW
       complex(kind=8), dimension(:), allocatable:: intergrin
@@ -1140,6 +1135,22 @@
         ! Free pointer
         nullify(TKQo)
 
+      ! If angle-dependent
+      else if (.not.AV) then
+
+        ! Check if ad-hoc asymmetries
+        asym = size(JKQa).gt.10
+
+        ! Initialize to zero
+        JKQadd = cZero
+
+        ! If there are ad-hoc asymmetries
+        if (asym) then
+
+          ! Translate
+          JKQadd(:,1:2) = JKQa(:,:,iz-Rz0+1)
+
+        end if ! Ad-hoc asymmetries
       end if ! Dynamic and AA
 
       !
@@ -1927,8 +1938,14 @@
               kkfreq0 = kkfreq0 + p_mfreq*(Geom%nScatt-nfs)
 
               ! Subtract the flat spectrum part due to just
-              ! radiative excitation
-              PRD(ifreq,jdir) = PRDin - Jrad(iQ,K)
+              ! radiative excitation and add the flat asymmetry
+              ! part if it proceeds
+              if (asym) then
+                PRD(ifreq,jdir) = PRDin - Jrad(iQ,K) + &
+                                  JKQadd(iQ,K)*dble(Jrad(0,0))
+              else
+                PRD(ifreq,jdir) = PRDin - Jrad(iQ,K)
+              end if
 
             end do ! output frequencies
           end do ! output frequencies ranges
@@ -3254,7 +3271,7 @@
 
       ! Local
 
-      logical:: PRDc,LPRAM,lNCHLT,cohIn,conj
+      logical:: PRDc,LPRAM,lNCHLT,cohIn,conj,asym
 
       integer:: itran,iterml,ith1,iph1,ish1,jdir,idir
       integer:: ifreq,iifreq,iti,iran,ishift,nfs
@@ -3262,7 +3279,7 @@
       integer:: nMl,nMu,nMf,iMl,iMl1,iMu,iMu1,iMf
       integer:: indF,indU,indU1,indL,indL1,indK,icom
       integer:: jjfreq0,jjfreq,kkfreq0,kkfreq0b,kkfreq,kwfreq0
-      integer:: llfreq0,nmfreq,iL,iL1,iU,iU1,mF,i0,i1
+      integer:: llfreq0,nmfreq,iL,iL1,iU,iU1,mF
 
       double precision:: omegai,rLl,rLu,rLf,S,rJlmax,rJumax,rJfmax
       double precision:: rMl,rMl1,rMu,rMu1,rMf
@@ -3281,6 +3298,7 @@
       complex(kind=8), dimension(Geom%njdir,if0:if1):: tmp2
       complex(kind=8), dimension(Geom%njdir,if0:if1):: tmp3
       complex(kind=8), dimension(-2:2,0:2):: Jrad
+      complex(kind=8), dimension(-2:2,0:2,1):: JKQadd
       complex(kind=8), dimension(:), allocatable:: tmpK
       complex(kind=8), dimension(:), allocatable, target:: Warr2
       complex(kind=8), dimension(:), allocatable:: Warr2xW
@@ -3343,6 +3361,27 @@
                           Flgsg,Bfield%Btheta(iz), &
                           Bfield%Bphi(iz),1)
 
+      ! If angle-dependent
+      else
+
+        ! Check if ad-hoc asymmetries
+        asym = size(JKQa).gt.10
+
+        ! Initialize to zero
+        JKQadd = cZero
+
+        ! If there are ad-hoc asymmetries
+        if (asym) then
+
+          ! Translate
+          JKQadd(:,1:2,1) = JKQa(:,:,iz-Rz0+1)
+
+          ! Needs to be rotated
+          if (Bfield%Bstrength(iz).gt.TINYB) &
+            call fieldB_alt(JKQadd,1,Flgsg,Bfield%Btheta(iz), &
+                            Bfield%Bphi(iz),1)
+
+        end if ! Ad-hoc asymmetries
       end if ! Dynamics
 
 
@@ -4164,8 +4203,14 @@
                   kkfreq0 = kkfreq0 + p_mfreq*(Geom%nScatt-nfs)
 
                   ! Subtract the flat spectrum part due to just
-                  ! radiative excitation
-                  PRD = PRD - Jrad(iPP,K1)
+                  ! radiative excitation and add the flat asymmetry
+                  ! part if it proceeds
+                  if (asym) then
+                    PRD = PRD - Jrad(iPP,K1) + &
+                          JKQadd(iPP,K1,1)*dble(Jrad(0,0))
+                  else
+                    PRD = PRD - Jrad(iPP,K1)
+                  end if
 
                   ! Scale with CRD profile, completing the
                   ! normalization

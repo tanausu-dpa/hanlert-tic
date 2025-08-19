@@ -11,19 +11,18 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     26/06/2025 V4.0.5
+!     19/08/2025 V4.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     26/06/2025:    V4.0.5 - Changed the parallelization scheme for
-!                             the redistribution (TdPA)
-!                           - The output frequencies to calculate
-!                             PRD do not depend on height anymore. The
-!                             Doppler width used to set-up the
-!                             frequency axis is used instead (TdPA)
+!     19/08/2025:    V4.0.6 - Bugfix: The frequency counter to
+!                             allocate the redistribution could
+!                             overflow to the point of returning
+!                             positive numbers that were considered
+!                             valid (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -4378,7 +4377,7 @@
       integer:: iz,ia,jtran,iti,itran
       integer:: nn,iYNF,iYYF,iNF,iDF,iDFR
 
-      double precision:: RAM,SRAM
+      double precision:: RAM,SRAM,dnn
 
 
       ! Initialize RAM counters
@@ -4559,9 +4558,14 @@
 
               ! Predict size of next block
               nn = sum(Red%zao(indx)%trani(iti)%mfreq)*iDFR
+              dnn = dble(sum(Red%zao(indx)%trani(iti)%mfreq))* &
+                    dble(iDFR)
 
               ! Skip if no size
               if (nn.le.0) cycle
+
+              ! Skip if overflown
+              if (dnn - dble(nn).gt.0.9d0) cycle
 
               ! Correct if AD
               if (.not.AV) then
@@ -4571,15 +4575,20 @@
 
                   ! Scattering angles to consider
                   nn = nn*(Geom%nScatt-1)
+                  dnn = dnn*dble(Geom%nScatt-1)
 
                 ! Not Rayleigh
                 else
 
                   ! Full scattering angles
                   nn = nn*Geom%nScatt
+                  dnn = dnn*dble(Geom%nScatt)
 
                 end if ! Rayleigh scattering
               end if ! Angle-dependent
+
+              ! Skip if overflown
+              if (dnn - dble(nn).gt.0.9d0) cycle
 
               ! Get size in MB (single precision) + logical
               SRAM = 8d-6*dble(nn) + 4d-6*iDF

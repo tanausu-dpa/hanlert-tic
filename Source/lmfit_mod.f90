@@ -10,15 +10,16 @@
 !  Start:
 !     22/03/2023
 !  Last version:
-!     02/07/2025 V4.0.3
+!     14/08/2025 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     02/07/2025:    V4.0.3 - Added conditionals for new type of
-!                             inversion scheduling (TdPA)
+!     14/08/2025:    V4.0.4 - Improved error handling to correctly
+!                             free memory in LMFIT() and
+!                             Trial_Synthesis() (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -312,7 +313,7 @@
                'zeros in the "sigma" values in the data'
         urou = 'LMFIT'
         call aborted
-        return
+        goto 2000
 
       end if ! NaN chi^2
 
@@ -493,7 +494,7 @@
                                 GeomI,Flgsg,Frec,fudge,kurucz, &
                                 MPID,Atmo,Bfield,Inf_Nodes,Sol, &
                                 SolF,LM_Stru)
-          if (laborted) return
+          if (laborted) exit
 
           ! Flag Jacobian
           Flag_Jac = .True.
@@ -557,7 +558,7 @@
                                    Mol,Geom,GeomI,Flgsg,Frec, &
                                    fudge,kurucz,MPID,Input, &
                                    Sol,SolF)
-              if (laborted) return
+              if (laborted) exit
 
               ! Get merit function
               call Merit_function(Inf_Stokes, Sol%Stokes_out, &
@@ -910,6 +911,9 @@
 
       end do ! Iterations
 
+      ! If error
+      if (laborted) goto 2000
+
       ! If last iteration was accepted and the type of error
       ! is Hessian
       if (LM_Stru%accepted.and.Input%Err_Type.ge.1) then
@@ -965,7 +969,7 @@
 
 
       ! If thermal inversion
-      if (Inf_Nodes%Nodes_Type.eq.0) then
+2000  if (Inf_Nodes%Nodes_Type.eq.0) then
 
         ! Deallocate intensity quantities
         MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%ResidualI)
@@ -1005,7 +1009,8 @@
       end if
 
       ! If regularizing, free memory
-      if (Inf_Nodes%Regul_Flag) then
+      if (Inf_Nodes%Regul_Flag.and. &
+          allocated(LM_Stru%Rgl%Regul_H)) then
         MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%Rgl%Regul_H)
         MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%Rgl%Regul_F)
         deallocate(LM_Stru%Rgl%Regul_H)
@@ -1794,7 +1799,7 @@
       ! SVD solution
       call SVD_Solve(Hessian_new, Jacfvec_new, Solution, &
                      LM_Stru%Num, Inf_Nodes_tmp, Input%SVD_Type)
-      if (laborted) return
+      if (laborted) goto 2000
 
       ! Modify the nodes with the LM solution
       call Nodes_Modify(Solution, Inf_Nodes_tmp)
@@ -1829,7 +1834,7 @@
 
         ! Generate new stratification
         call Intpol_Bfield(Inf_Nodes_tmp, Atmo, Tmp_Bfield)
-        if (laborted) return
+        if (laborted) goto 2000
 
         ! Get Stokes profiles
         call HanleRTTIC(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec,fudge, &
@@ -1862,12 +1867,11 @@
         umsg = 'The index of the node type is not correct'
         urou = 'Trial_Synthesis'
         call aborted
-        return
 
       end if ! Type of inversion
 
       ! Deallocate auxiliar Hessian and Jacobian
-      MRAMc = MRAMc - 1d-6*sizeof(Hessian_new)
+2000  MRAMc = MRAMc - 1d-6*sizeof(Hessian_new)
       MRAMc = MRAMc - 1d-6*sizeof(Hessian_new)
       deallocate(Hessian_new,Jacfvec_new)
 

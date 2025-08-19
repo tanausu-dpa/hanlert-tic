@@ -10,14 +10,15 @@
 !  Start:
 !     17/02/2023
 !  Last version:
-!     06/06/2025 V4.0.3
+!     14/08/2025 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     06/06/2025:    V4.0.3 - Removed unused declared variables (TdPA)
+!     14/08/2025:    V4.0.4 - Added sanity check for non-positive
+!                             weights (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -482,6 +483,23 @@
 
         ! Abort
         umsg = 'Found a negative weight for the inversion'
+        urou = 'inversion_weights'
+        call aborted
+        return
+
+      end if
+
+
+      !
+      ! Sanity check
+      !
+      if (maxval(Inf_Stokes%weight).le.0d0) then
+
+        ! Abort
+        umsg = 'There are not non-negative weights. This is '// &
+               'likely due to the wavelengths in the data '// &
+               'file and the ranges to setup the weights '// &
+               'not overlapping'
         urou = 'inversion_weights'
         call aborted
         return

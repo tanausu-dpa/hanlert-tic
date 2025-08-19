@@ -1299,8 +1299,8 @@ ITER_2ORD
 
   * Description: Account for partial frequency redistribution effects.
 
-ITER_NB
--------
+TWO_STEP_B
+----------
 
   * OPTIONAL
 

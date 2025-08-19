@@ -121,7 +121,7 @@
         ! Get chi^2
         LM_Stru%Chisq_og = sum(LM_Stru%ResidualI* &
                                LM_Stru%ResidualI* &
-                               LM_STru%WeightI)
+                               LM_Stru%WeightI)
       ! Non-thermal
       else
 

@@ -6,8 +6,7 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an (IAC)
 # Hao Li (IAC/NSSCC)
 #
-# 02/07/2025: V4.0.10 - Added an option to TYPE_INVERSION (TdPA)
-#                     - Added GUESS_POLARITY (TdPA)
+# 18/08/2025: V4.0.11 - Renamed ITER_NB to TWO_STEP_B (TdPA)
 #
 #####################
 
@@ -3900,11 +3899,11 @@ def rInput():
   else:
     f.write('N\n')
 
-  # ITER_NB
+  # TWO_STEP_B
   if rmode >= -1 and rmode <= 1:
     check = 0
-    if 'ITER_NB' in Dictionary:
-      val = Dictionary['ITER_NB'][0]
+    if 'TWO_STEP_B' in Dictionary:
+      val = Dictionary['TWO_STEP_B'][0]
       if val == 'Y' or val == 'YE' or val == 'YES' or \
          val == 'S' or val =='SI':
         f.write('Y\n')
