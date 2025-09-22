@@ -11,15 +11,19 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     02/07/2025 V4.0.10
+!     28/08/2025 V4.0.13
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     02/07/2025:   V4.0.10 - Added conditionals for new type of
-!                             inversion scheduling (TdPA)
+!     28/08/2025:   V4.0.13 - Allow to start from previous solutions
+!                             in trials if thermodynamics are not
+!                             being changed (TdPA)
+!                           - Changed a bool argument (RF) in
+!                             prepare_buffers into an integer (typo)
+!                             argument (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -175,7 +179,7 @@
       type(Continuum_class):: Cont
       type(Rhoc_class), allocatable, dimension(:):: Rho_old
 
-      logical:: rlimw = .True.
+      logical:: rlimw = .True., asym
       logical:: csize,twostepI
       logical:: rback,rdyn,raxial,rAV,rAVI
       logical:: l1, l2, ofram, liel, lpel
@@ -535,7 +539,7 @@
       if (lp.or.lpe) then
 
         ! Initialize extra asymmetry radiation field tensors
-        call initialize_asym(Input,Flgsg,JKQin,JKQ_asym)
+        call initialize_asym(Input,Flgsg,JKQin,JKQ_asym,asym)
 
         !
         ! Update radiation RAM if coming from intensity
@@ -624,9 +628,10 @@
           ! If intensity was static or axial
           if (Input%static_int.or.axiali) then
 
-            ! Check axial velocity
+            ! Check axial velocity and no JKQ
             if (maxval(abs(Atmo%vx)).le.0d0.and. &
-                maxval(abs(Atmo%vy)).le.0d0) then
+                maxval(abs(Atmo%vy)).le.0d0.and. &
+                .not.asym) then
 
               ! And fake it
               axial = .True.
@@ -654,7 +659,7 @@
                                     Cont,Rho_old, &
                                     StokesI,J00,J00S,J00C,J00P, &
                                     Stokes,JKQ,JKQS,JKQC, &
-                                    JKQ_asym_fake,rnPh,.False., &
+                                    JKQ_asym_fake,asym,rnPh,.False., &
                                     lload,lio,lp,.False., &
                                     rlimw,ofram)
 
@@ -677,10 +682,15 @@
                                     Cont,Rho_old, &
                                     StokesI,J00,J00S,J00C,J00P, &
                                     Stokes,JKQ,JKQS,JKQC,JKQ_asym, &
-                                    rnPh,.False., &
+                                    asym,rnPh,.False., &
                                     lload,lio,lp,.False., &
                                     rlimw,ofram)
+
+
           end if
+
+          ! Free magnetic part
+          call free_mag_Atom(Atom)
 
           ! Restore the geometry variables
           axial = raxial
@@ -696,13 +706,18 @@
             MPID%size5 = MPID%size5*rnPh
           end if
 
+          ! We need to rotate the tensors here because they
+          ! are written in the zero-field (vertical) reference
+          ! frame
+          call rotatesol(Atom,Bfield,Flgsg,JKQ,JKQS)
+
           ! Solve the actual polarization problem
           call hanle_polarization(Atom,LTElines,Atmo,MPID,Input, &
                                   Geom,Bfield,Frec,Flgsg,SolF, &
                                   Cont,Rho_old, &
                                   StokesI,J00,J00S,J00C,J00P, &
                                   Stokes,JKQ,JKQS,JKQC,JKQ_asym, &
-                                  Geom%nPh,.True., &
+                                  asym,Geom%nPh,.True., &
                                   lload,.False.,lp,lpel, &
                                   rlimw,ofram)
 
@@ -715,7 +730,7 @@
                                   Cont,Rho_old, &
                                   StokesI,J00,J00S,J00C,J00P, &
                                   Stokes,JKQ,JKQS,JKQC,JKQ_asym, &
-                                  Geom%nPh,.True., &
+                                  asym,Geom%nPh,.True., &
                                   lload,lio,lp,lpel,rlimw,ofram)
 
         end if ! Zero field first step solution
@@ -728,14 +743,17 @@
         !
         if (Input%two_step_AD.and.lp.and..not.rAV.and..not.lload) then
 
+          ! Free magnetic part
+          call free_mag_Atom(Atom)
+
           ! Solve the polarization problem
           call hanle_polarization(Atom,LTElines,Atmo,MPID,Input, &
                                   Geom,Bfield,Frec,Flgsg,SolF, &
                                   Cont,Rho_old, &
                                   StokesI,J00,J00S,J00C,J00P, &
                                   Stokes,JKQ,JKQS,JKQC,JKQ_asym, &
-                                  Geom%nPh,.True., &
-                                  lload,lio,lp,lpe,rlimw,ofram)
+                                  asym,Geom%nPh,.True., &
+                                  lload,.False.,lp,lpe,rlimw,ofram)
 
         end if ! two-step AD
       end if ! Polarization
@@ -1882,6 +1900,8 @@
       !!                              frequency dependence\n
       !!   JKQ_asym(dcomplex(:,:,:)): Extra asymmetry for the
       !!                              radiation field tensors\n
+      !!               asym(logical): If it is known that there are
+      !!                              ad-hoc JKQ tensors\n
       !!               rnPh(integer): Allocation size for Stokes in
       !!                              the azimuth dimension\n
       !!             saving(logical): If generating a solution file\n
@@ -1903,7 +1923,7 @@
                                     Cont,Rho_old, &
                                     StokesI,J00,J00S,J00C,J00P, &
                                     Stokes,JKQ,JKQS,JKQC,JKQ_asym, &
-                                    rnPh,saving, &
+                                    asym,rnPh,saving, &
                                     lload,lio,lp,lpe,rlimw,ofram)
           
       ! I/O
@@ -1923,7 +1943,7 @@
       type(Continuum_class), intent(in):: Cont
       type(Rhoc_class), dimension(:), &
                         allocatable, intent(inout):: Rho_old
-      logical, intent(in):: saving,lload,lio,lp,lpe
+      logical, intent(in):: saving,lload,lio,lp,lpe,asym
       logical, intent(inout):: rlimw,ofram
       integer, intent(in):: rnPh
       double precision, dimension(:,:,:,:), &
@@ -1972,8 +1992,9 @@
       field = maxval(Bfield%Bstrength).gt.TINYB
 
       ! Check RT axiality
-      RTaxial = axial.and. &
+      RTaxial = axial.and..not.asym.and. &
                 maxval(Bfield%Bstrength).le.TINYB
+
 
       !
       ! Prepare geometrical tensors
@@ -2375,14 +2396,17 @@
       !!                          corresponding emergent profiles,
       !!                          contribution function, and height
       !!                          for optical depth equal to one\n
+      !!     Sol(Solution_class): Structure with the frequency and
+      !!                          synthetic Stokes parameters in the
+      !!                          frequency range of the inverted
+      !!                          data\n
       !!      Input(Input_class): Structure with configuration data\n
       !!     Atom(Atom_class(:)): Structures with atomic data\n
       !!   GeomI(Geometry_class): Structure with geometric data for
       !!                          the intensity problem\n
       !!    Geom(Geometry_class): Structure with geometric data\n
-      !!             RF(logical): If solving the NLTE problem to
-      !!                          calculate the response function
-      subroutine prepare_buffers(SolF,Input,Atom,GeomI,Geom,RF)
+      !!           typo(integer): Type of calculation
+      subroutine prepare_buffers(SolF,Sol,Input,Atom,GeomI,Geom,typo)
 
       ! I/O
 
@@ -2390,8 +2414,9 @@
                         allocatable, intent(in):: Atom
       type(Geometry_class), intent(in):: GeomI, Geom
       type(Input_class), intent(inout):: Input
+      type(Solution_class), intent(in):: Sol
       type(Solution_F_class), intent(inout):: SolF
-      logical, intent(in):: RF
+      integer, intent(in):: typo
 
       ! Local
 
@@ -2403,7 +2428,7 @@
       !
 
       ! If run if to compute a response function
-      if (RF) then
+      if (typo.eq.2) then
 
         ! If initializing from existing density matrix
         if (Input%popuinit) then
@@ -2425,8 +2450,38 @@
       ! If the run is a trial
       else
 
-        ! Start from scratch
-        Input%mode = 'W'
+        ! If allowed to start from previous and
+        ! at least T and P are fixed
+        if (Sol%fix_tp.and.Input%trialinit.and.typo.eq.1) then
+
+          ! If fixed thermodynamic
+          if (Sol%fix_th) then
+
+            ! Read and calculate mode
+            Input%mode = 'B'
+
+          ! If fixed T and P and allowed to restart
+          ! from previous in this case
+          else if (Sol%fix_tp.and.Input%trialtpinit) then
+
+            ! Read and calculate mode
+            Input%mode = 'B'
+
+          ! Default
+          else
+
+            ! Start from scratch
+            Input%mode = 'W'
+
+          end if ! Fixed
+
+        ! Cannot restart
+        else
+
+          ! Start from scratch
+          Input%mode = 'W'
+
+        end if ! Could restart
 
         ! And keep the full solution
         SolF%keep_solution = .True.

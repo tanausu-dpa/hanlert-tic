@@ -9,16 +9,16 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     15/05/2025 V4.0.1
+!     22/08/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.1 - Initialize frequency integrated
-!                             radiation field quantities only if
-!                             there are active atoms (TdPA)
+!     22/08/2025:    V4.0.3 - Added asym argument, which informs
+!                             the caller if there are ad-hoc JKQ
+!                             tensors (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -481,13 +481,15 @@
       !!                         J-symbols\n
       !!       JKQin(double(:)): Data with ad-hoc JKQ tensors\n
       !!  JKQa(dcomplex(:,:,:)): Extra asymmetry for the radiation
-      !!                         field tensors
-      subroutine initialize_asym(Input,Flgsg,JKQin,JKQa)
+      !!                         field tensors\n
+      !!          asym(logical): If the are ad-hoc JKQ tensors
+      subroutine initialize_asym(Input,Flgsg,JKQin,JKQa,asym)
 
       ! I/O
 
       type(Input_class), intent(in):: Input
       type(Fctsg_class), intent(in):: Flgsg
+      logical, intent(out):: asym
       double precision, dimension(:), allocatable, intent(in):: JKQin
       complex(kind=8), dimension(:,:,:), &
                        allocatable, intent(out):: JKQa
@@ -501,12 +503,15 @@
       double precision:: daux1,daux2
 
 
+      ! Initialize
+      asym = Input%nasym.gt.0
+
       ! If a slave CPU or no inputs
       if (pid.gt.0.or.Input%nasym.le.0) then
 
         ! If there are inputs (so this is a slave) and there is PRD
-        ! PRD and dynamics
-        if (Input%nasym.ge.1.and.dyn.and.PRD) then
+        ! PRD and either dynamics or angle-dependent
+        if (Input%nasym.ge.1.and.(dyn.or..not.AV).and.PRD) then
 
           ! Allocate asymmetry input
           allocate(JKQa(-2:2,1:2,Rz0:Rz1))
@@ -518,7 +523,8 @@
           call MPI_BCAST(JKQa(-2,1,Rz0),iz,MPI_DOUBLE_COMPLEX,0, &
                          MPI_COMM_RT,ios)
 
-        ! There is no input, it is static, or not even PRD
+        ! There is no input, it is static or angle-averaged, or
+        ! not even PRD
         else
 
           ! Allocate dummy variable
@@ -527,7 +533,7 @@
         end if ! Need to share
 
         ! Memory count
-        RRAMc = RRAMc + 1d-6*sizeof(JKQa)
+        if (allocated(JKQa)) RRAMc = RRAMc + 1d-6*sizeof(JKQa)
 
         ! Control and leave
         call control
@@ -764,8 +770,8 @@
 
       end if ! Type of run
 
-      ! If MPI, PRD, and dynamic
-      if (dyn.and.PRD.and.nproc.gt.1) then
+      ! If MPI, PRD, and dynamic or angle-dependent
+      if ((dyn.or..not.AV).and.PRD.and.nproc.gt.1) then
 
         ! Size
         iz = 5*2*Rnz

@@ -9,16 +9,15 @@
 !  Start:
 !     22/03/2019
 !  Last version:
-!     15/05/2025 V4.0.1
+!     20/08/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.1 - Generalized declarations of Atom and
-!                             Atomb to allow for empty arrays for
-!                             any of them (TdPA)
+!     20/08/2025:    V4.0.2 - Added the possibility of a CPU not
+!                             having work to do (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -126,6 +125,17 @@
       !
       lfac = 1d0 - kdif
       ufac = 1d0 + kdif
+
+      ! If no frequencies
+      if (MPID%nf(pid).lt.1) then
+
+        ! No transitions
+        kurucz%ntran = 0
+
+        ! Return
+        return
+
+      end if
 
       !
       ! Get omega limits

@@ -10,16 +10,16 @@
 !  Start:
 !     16/02/2023
 !  Last version:
-!     10/06/2025 V4.0.6
+!     28/08/2025 V4.0.7
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     10/06/2025:    V4.0.6 - Added control calls after trying to
-!                             generate the frequency axis in order to
-!                             exit in case of failure (TdPA)
+!     28/08/2025:    V4.0.7 - Initialize the JKQ tensors if the
+!                             result being restored had them even if
+!                             not inverting them (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1025,8 +1025,8 @@
       end if ! File not specified
 
       ! If nodes in JKQin
-      if ((Inf_Nodes%Num_Asymmetry.gt.0.or.s_jkq_buffer.gt.0).and. &
-          (gpid.gt.0.or..not.MPID%mpi15d)) then
+      if ((Inf_Nodes%Num_Asymmetry.gt.0.or.s_jkq_buffer.gt.0.or. &
+           atmojkq).and.(gpid.gt.0.or..not.MPID%mpi15d)) then
 
         ! Allocate and initialize
         allocate(Atmo_in%JKQin(8*nz))

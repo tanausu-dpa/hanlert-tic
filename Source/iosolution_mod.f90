@@ -11,19 +11,18 @@
 !  Start:
 !     20/04/2016
 !  Last version:
-!     15/05/2025 V4.0.3
+!     25/08/2025 V4.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.3 - Generalized declarations of Atom to
-!                             allow for empty arrays for any of
-!                             them (TdPA)
-!                           - Skip reading or writing atomic
-!                             quantities if there are no active atoms
-!                             in the run (TdPA)
+!     25/08/2025:    V4.0.5 - Added subroutine rototatesol to rotate
+!                             the relevant irreducible spherical
+!                             tensors from the vertical to the
+!                             magnetic reference frame between step
+!                             solutions in hanle (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -55,6 +54,11 @@
 !  writesolI
 !    Save the self-consistent solution for the intensity problem in a
 !  file
+!
+!  rotatesol
+!    Rotate the irreducible spherical tensors to the magnetic field
+!  reference frame. This is expected to be called in two-step
+!  solutions
 !
 !  writestk
 !    Save the emergent Stokes parameters in a file
@@ -6296,6 +6300,247 @@
 !#####################################################################
 !#####################################################################
 
+      !> Rotate the irreducible spherical tensors to the magnetic
+      !! field reference frame. This is expected to be called in
+      !! two-step solutions\n
+      !!        Atom(Atom_class(:)): Structures with atomic data\n
+      !!       Bfield(Bfield_class): Structure with magnetic field
+      !!                             data\n
+      !!         Flgsg(Fctsg_class): Structure with factorials, signs,
+      !!                             and J-symbols\n
+      !!     JKQ(dcomplex(:,:,:,:)): Radiation field tensors
+      !!                             integrated over the absorption
+      !!                             profile\n
+      !!    JKQS(dcomplex(:,:,:,:)): Radiation field tensors
+      !!                             integrated over the emission
+      !!                             profile
+      subroutine rotatesol(Atom,Bfield,Flgsg,JKQ,JKQS)
+
+      ! I/O
+
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+      type(Fctsg_class), intent(inout):: Flgsg
+      type(Bfield_class), intent(in):: Bfield
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(inout):: JKQ
+      complex(kind=8), dimension(:,:,:,:), &
+                       allocatable, intent(inout):: JKQS
+
+      ! Local
+
+      integer:: ia,it,iJ,iJ1,K,iQ,iz,iR,iR0,iR1,itran,jtran
+
+      double precision:: rJ,rJ1,rho0
+
+      complex(kind=8), dimension(-2:2,0:2,Rz0:Rz1):: JKQaux
+      complex(kind=8), dimension(-nkx:nkx,Rz0:Rz1):: rhoKQaux
+
+
+      !
+      ! Rotate rhoKQ
+      !
+
+      ! For each atom
+      do ia=1,nA
+
+        ! For each term
+        do it=1,Atom(ia)%nMulti
+
+          ! For each level
+          do iJ=1,Atom(ia)%nJ(it)!,1,-1
+
+            ! Get J
+            rJ = Atom(ia)%rJval(iJ,it)
+
+            ! Get the rho00 indexes
+            iR0 = Atom(ia)%irho(it)%Jrho(iJ,iJ)%kq(0,0)
+
+            ! For each level
+            do iJ1=1,Atom(ia)%nJ(it)
+
+              ! Get J'
+              rJ1 = Atom(ia)%rJval(iJ1,it)
+
+              ! Get the rho00 indexes
+              iR1 = Atom(ia)%irho(it)%Jrho(iJ1,iJ1)%kq(0,0)
+
+              ! For each K
+              do K=nint(abs(rJ-rJ1)),nint(rJ+rJ1)
+
+                ! Skip non-used K
+                if (K.gt.Atom(ia)%Kcut(it)) cycle
+
+                ! For each Q
+                do iQ=-K,K
+
+                  ! Get index
+                  iR = Atom(ia)%irho(it)%Jrho(iJ1,iJ)%kq(iQ,K)
+
+                  ! For each height
+                  do iz=Rz0,Rz1
+
+                    ! Auxiliar variable for rotation
+                    rhoKQaux(iQ,iz) = Atom(ia)%crho(iR,iz)
+
+                  end do ! heights
+                end do ! Q
+
+                !
+                ! Rotate rhoKQ
+                !
+
+                ! For each height in the CPU domain
+                do iz=Rz0,Rz1
+
+                  ! If there is magnetic field
+                  if (Bfield%Bstrength(iz).gt.TINYB) then
+
+                    ! Rotate the rhoKQ in the auxiliar variable
+                    call rhoB(rhoKQaux(-K:K,iz),1,K,Flgsg, &
+                              Bfield%Btheta(iz), &
+                              Bfield%Bphi(iz),1)
+
+                    ! Get the inverse of rho00
+                    rho0 = 1d0/sqrt(abs(Atom(ia)%crho(iR0,iz))* &
+                                    abs(Atom(ia)%crho(iR1,iz)))
+
+                    ! For each Q
+                    do iQ=-K,K
+
+                      ! Get index
+                      iR = Atom(ia)%irho(it)%Jrho(iJ1,iJ)%kq(iQ,K)
+
+                      ! Store the rotated result in the rhoKQ
+                      ! array
+                      Atom(ia)%crho(iR,iz) = rhoKQaux(iQ,iz)
+
+                      ! If rhoKQ/rho00 is lesser than double precision
+                      ! flag null
+                      Atom(ia)%rhonull(iR,iz) = &
+                               abs(Atom(ia)%crho(iR,iz)*rho0).lt.TINYR
+
+                    end do ! Q
+
+                  end if ! There is B field
+
+                end do ! heights
+              end do ! K
+            end do ! J'
+          end do ! J
+        end do ! terms
+      end do ! Atoms
+
+      !
+      ! Rotate radiation field tensors
+      !
+
+      ! For each atom
+      do ia=1,nA
+
+        ! For each transition
+        do itran=1,Atom(ia)%ntran
+
+          ! Atomic shift
+          jtran = itran + Atom(ia)%tshift
+
+          ! For each K
+          do K=0,2
+
+            ! In K cut
+            if (K.gt.Atom(ia)%Krad(itran)) cycle
+
+            ! For each Q
+            do iQ=-K,K
+
+              ! For each height
+              do iz=Rz0,Rz1
+
+                ! Save in auxiliary
+                JKQaux(iQ,K,iz) = JKQ(iQ,K,jtran,iz)
+
+              end do ! heights
+            end do ! Q
+          end do ! K
+
+          ! For each height
+          do iz=Rz0,Rz1
+
+            ! If there is magnetic field
+            if (Bfield%Bstrength(iz).gt.TINYB) then
+
+              ! Rotate
+              call fieldB(JKQaux(:,:,iz),1,Flgsg, &
+                          Bfield%Btheta(iz), &
+                          Bfield%Bphi(iz),1)
+
+              ! Save included K
+              JKQ(:,0:Atom(ia)%Krad(itran),jtran,iz) = &
+                                   JKQaux(:,0:Atom(ia)%Krad(itran),iz)
+
+            end if ! If magnetic field
+
+          end do ! Heights
+        end do ! transitions
+
+        ! Stimulated emission
+        if (stm) then
+
+          ! For each transition
+          do itran=1,nxtran
+
+            ! Atomic shift
+            jtran = itran + Atom(ia)%tshift
+
+            ! For each K
+            do K=0,2
+
+              ! In K cut
+              if (K.gt.Atom(ia)%Krad(itran)) cycle
+
+              ! For each Q
+              do iQ=-K,K
+
+                ! For each height
+                do iz=Rz0,Rz1
+
+                  ! Save in auxiliary
+                  JKQaux(iQ,K,iz) = JKQS(iQ,K,jtran,iz)
+
+                end do ! heights
+              end do ! Q
+            end do ! K
+
+            ! For each height
+            do iz=Rz0,Rz1
+
+              ! If there is magnetic field
+              if (Bfield%Bstrength(iz).gt.TINYB) then
+
+                ! Rotate
+                call fieldB(JKQaux(:,:,iz),1,Flgsg, &
+                            Bfield%Btheta(iz), &
+                            Bfield%Bphi(iz),1)
+
+                ! Save if included K
+                JKQS(:,0:Atom(ia)%Krad(itran),jtran,iz) = &
+                                   JKQaux(:,0:Atom(ia)%Krad(itran),iz)
+
+              end if ! If magnetic field
+
+            end do ! Heights
+          end do ! Transitions
+
+        end if ! Stimulated emission
+
+      end do ! Atoms
+
+      end subroutine rotatesol
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
       !> Save the emergent Stokes parameters in a file\n
       !!    filename(character(:)): Name of the file to write\n
       !!              iph(integer): Index of the LOS azimuth
@@ -9503,6 +9748,9 @@
           ! For each process
           do iproc=1,nproc-1
 
+            ! Skip if empty
+            if (MPID%nf(iproc).le.0) continue
+
             ! Size of this process
             nfl = MPID%nf(iproc)
             ndl = ndir(iproc)
@@ -9548,8 +9796,8 @@
           ! Free
           deallocate(dbuffer)
 
-        ! Slaves
-        else
+        ! Slaves with information
+        else if (MPID%nf(pid).ge.1) then
 
           ! Compute size of data to send
           psize = nz*MPID%nf(pid)*3*Cont%ndir

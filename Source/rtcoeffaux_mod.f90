@@ -12,16 +12,20 @@
 !  Start:
 !     27/04/2017
 !  Last version:
-!     18/08/2025 V4.0.4
+!     20/08/2025 V4.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/08/2025:    V4.0.4 - Implemented the ad-hoc radiation field
-!                             tensors as a flat contribution in the
-!                             angle-dependent problem (TdPA)
+!     20/08/2025:    V4.0.5 - Changed the implementation of the
+!                             ad-hoc radiation field tensors from a
+!                             flat contribution into an
+!                             angle-averaged contribution (TdPA)
+!                           - Bugfix: Ensure good transition limits in
+!                             getJKQinnu (TdPA)
+!                           - Added getJKQADasym (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -137,6 +141,10 @@
 !    Calculate the frequency dependent JKQ for the angle-averaged
 !  second order emissivity in the presence of velocities in the
 !  comoving frame
+!
+!  getJKQADasym
+!    Calculate the frequency dependent JKQ for the angle-dependent
+!  second order emissivity
 !
 !  getStkinnu
 !    Interpolate the Stokes parameters into the requested frequency
@@ -1095,7 +1103,6 @@
       complex(kind=8), dimension(if0:if1,Geom%njdir):: tmp2
       complex(kind=8), dimension(if0:if1,Geom%njdir):: tmp3
       complex(kind=8), dimension(-2:2,0:2):: Jrad
-      complex(kind=8), dimension(-2:2,0:2):: JKQadd
       complex(kind=8), dimension(:), allocatable, target:: Warr2
       complex(kind=8), dimension(:), allocatable:: Warr2xW
       complex(kind=8), dimension(:), allocatable:: intergrin
@@ -1141,14 +1148,17 @@
         ! Check if ad-hoc asymmetries
         asym = size(JKQa).gt.10
 
-        ! Initialize to zero
-        JKQadd = cZero
-
         ! If there are ad-hoc asymmetries
         if (asym) then
 
-          ! Translate
-          JKQadd(:,1:2) = JKQa(:,:,iz-Rz0+1)
+          ! Point to correct tensors
+          TKQo => Geom%TS
+
+          ! Get JKQ correction for asymmetry
+          call getJKQADasym(Red,Geom,iz,Atom%ntran,Atom%tif0, &
+                            Atom%tif1,DwT,vx,vy,vz, &
+                            .False.,0d0,0d0,omega,Flgsg, &
+                            TKQo,Stokes,JKQC,JKQa,JKQinMV)
 
         end if ! Ad-hoc asymmetries
       end if ! Dynamic and AA
@@ -1290,6 +1300,11 @@
           ! Get interpolated intensity
           call getStkin(Geom,p_red,Fed,Red,Mif0,Mif1,omega, &
                         vx,vy,vz,lvel,Stokesin,Stokes)
+
+          ! If asymmetries, get input radiation field
+          if (asym) &
+            call getJKQin(p_red,Fed,Red,Mif0,Mif1,nmfreq,omega, &
+                          JradC,JKQinMV)
 
         end if ! AA/AD
 
@@ -1746,10 +1761,26 @@
         ! Check if dynamic or with shift
         cohIn = lvel.or.abs(wlf).gt.0d0
 
+        ! If asymmetries
+        if (asym) then
+
+          ! Check if conjugated
+          conj = iQ.lt.0
+          sig = Flgsg%sg(iQ)
+
+          ! Just point
+          if (conj) then
+            p_JKQC(Red%ggf0:Red%ggf1) => JKQinMV(-iQ,K,:)
+          else
+            p_JKQC(Red%ggf0:Red%ggf1) => JKQinMV(iQ,K,:)
+          end if
+        end if ! Asymmetries
+
         ! For each output directions
         do jdir=1,Geom%njdir
 
           ! Initialize frequency indexes
+          jjfreq = 0 ! Only for asymmetries
           jjfreq0 = 0
           llfreq0 = 0
           kkfreq0 = 0
@@ -1862,6 +1893,22 @@
 
                       end if ! Axiality
 
+                      ! Asymmetry
+                      if (asym) then
+
+                        ! Get interpolated JKQ
+                        ishift = 1 - Red%ggf0
+                        y0 = getJKQinnu(omega(Red%ggf0:Red%ggf1), &
+                                        p_JKQC, &
+                                        ifreq+ishift, &
+                                        Atom%tif0(itran)+ishift, &
+                                        Atom%tif1(itran)+ishift, &
+                                        omegai)
+                        ! Conjugate
+                        if (conj) y0 = sig*conjg(y0)
+
+                      end if ! Asymmetry
+
                     ! Fully coherent
                     else
 
@@ -1872,11 +1919,25 @@
                         StokesM = Stokes(:,ifreq,iph1,ith1)
                       end if
 
+                      ! Asymmetry
+                      if (asym) then
+
+                        ! Get value
+                        y0 = p_JKQC(ifreq)
+
+                        ! Conjugate
+                        if (conj) y0 = sig*conjg(y0)
+
+                      end if ! Asymmetry
+
                     end if ! Full coherence
 
                     ! Sum over Stokes parameters
                     intgr = sum(Geom%TS(:,iQ,K,idir)* &
                                 StokesM)
+
+                    ! Asymmetry
+                    if (asym) intgr = intgr + y0
 
                     ! Add to integral
                     PRDin = PRDin + intgr*Geom%W_mu(ith1)* &
@@ -1910,6 +1971,34 @@
                               Stokesin(jjfreq0+1:jjfreq0+p_mfreq,3)* &
                               Geom%TS(3,iQ,K,idir)
 
+                      ! If asymmetry
+                      if (asym) then
+
+                        ! Conjugate
+                        if (conj) then
+
+                          ! Point to positive Q
+                          p_JKQ => &
+                                  JradC(jjfreq+1:jjfreq+p_mfreq,-iQ,K)
+
+                          ! Add
+                          intergrin(1:p_mfreq) = &
+                                      intergrin(1:p_mfreq) + &
+                                      sig*conjg(p_JKQ)
+
+                        ! Not conjugate
+                        else
+
+                          ! Point to positive Q
+                          p_JKQ => JradC(jjfreq+1:jjfreq+p_mfreq,iQ,K)
+
+                          ! Add
+                          intergrin(1:p_mfreq) = &
+                                          intergrin(1:p_mfreq) + p_JKQ
+
+                        end if ! Conjugate
+                      end if ! Asymmetry
+
                       ! Normalize to the first order profile
                       ! and add the directional weights (the
                       ! normalization will be completed later
@@ -1936,16 +2025,11 @@
               ! Update llfreq and kkfreq
               llfreq0 = llfreq0 + p_mfreq
               kkfreq0 = kkfreq0 + p_mfreq*(Geom%nScatt-nfs)
+              jjfreq = jjfreq + p_mfreq ! Asymmetries
 
               ! Subtract the flat spectrum part due to just
-              ! radiative excitation and add the flat asymmetry
-              ! part if it proceeds
-              if (asym) then
-                PRD(ifreq,jdir) = PRDin - Jrad(iQ,K) + &
-                                  JKQadd(iQ,K)*dble(Jrad(0,0))
-              else
-                PRD(ifreq,jdir) = PRDin - Jrad(iQ,K)
-              end if
+              ! radiative excitation
+              PRD(ifreq,jdir) = PRDin - Jrad(iQ,K)
 
             end do ! output frequencies
           end do ! output frequencies ranges
@@ -3298,7 +3382,6 @@
       complex(kind=8), dimension(Geom%njdir,if0:if1):: tmp2
       complex(kind=8), dimension(Geom%njdir,if0:if1):: tmp3
       complex(kind=8), dimension(-2:2,0:2):: Jrad
-      complex(kind=8), dimension(-2:2,0:2,1):: JKQadd
       complex(kind=8), dimension(:), allocatable:: tmpK
       complex(kind=8), dimension(:), allocatable, target:: Warr2
       complex(kind=8), dimension(:), allocatable:: Warr2xW
@@ -3340,7 +3423,7 @@
                         TKQo,Stokes,JKQa,JKQinMV)
 
         ! If ad-hoc asymmetries, JradC needs to be rotated
-        if (size(JKQa).ge.10.and.Bfield%Bstrength(iz).gt.TINYB) &
+        if (size(JKQa).ge.10) &
           call fieldB_alt(JKQinMV,Red%ggf1-Red%ggf0+1, &
                           Flgsg,Bfield%Btheta(iz), &
                           Bfield%Bphi(iz),1)
@@ -3367,19 +3450,18 @@
         ! Check if ad-hoc asymmetries
         asym = size(JKQa).gt.10
 
-        ! Initialize to zero
-        JKQadd = cZero
-
         ! If there are ad-hoc asymmetries
         if (asym) then
 
-          ! Translate
-          JKQadd(:,1:2,1) = JKQa(:,:,iz-Rz0+1)
+          ! Point to correct tensors
+          TKQo => Geom%TB(:,:,:,:,iz)
 
-          ! Needs to be rotated
-          if (Bfield%Bstrength(iz).gt.TINYB) &
-            call fieldB_alt(JKQadd,1,Flgsg,Bfield%Btheta(iz), &
-                            Bfield%Bphi(iz),1)
+          ! Get JKQ correction for asymmetry
+          call getJKQADasym(Red,Geom,iz,Atom%ntran,Atom%tif0, &
+                            Atom%tif1,DwT,vx,vy,vz, &
+                            .True.,Bfield%Btheta(iz), &
+                            Bfield%Bphi(iz),omega,Flgsg, &
+                            TKQo,Stokes,JKQC,JKQa,JKQinMV)
 
         end if ! Ad-hoc asymmetries
       end if ! Dynamics
@@ -3514,6 +3596,11 @@
           ! Get interpolated intensity
           call getStkin(Geom,p_red,Fed,Red,Mif0,Mif1,omega, &
                         vx,vy,vz,lvel,Stokesin,Stokes)
+
+          ! If asymmetries, get input radiation field
+          if (asym) &
+            call getJKQin(p_red,Fed,Red,Mif0,Mif1,nmfreq,omega, &
+                          JradC,JKQinMV)
 
         end if ! AA or AD
 
@@ -4013,10 +4100,27 @@
             ! Check if dynamic or with shift
             cohIn = lvel.or.abs(wlf).gt.0d0
 
+            ! If asymmetries
+            if (asym) then
+
+              !
+              ! Check if conjugated
+              conj = iPP.lt.0
+              sig = Flgsg%sg(iPP)
+
+              ! Just point
+              if (conj) then
+                p_JKQC(Red%ggf0:Red%ggf1) => JKQinMV(-iPP,K1,:)
+              else
+                p_JKQC(Red%ggf0:Red%ggf1) => JKQinMV(iPP,K1,:)
+              end if
+            end if ! Asymmetries
+
             ! For each output direction
             do jdir=1,Geom%njdir
 
               ! Initialize frequency indexes
+              jjfreq = 0 ! Only for asymmetries
               jjfreq0 = 0
               llfreq0 = 0
               kkfreq0 = 0
@@ -4128,6 +4232,22 @@
 
                           end if ! Axiality
 
+                          ! Asymmetry
+                          if (asym) then
+
+                            ! Get interpolated JKQ
+                            ishift = 1 - Red%ggf0
+                            y0 = getJKQinnu(omega(Red%ggf0:Red%ggf1),&
+                                            p_JKQC, &
+                                            ifreq+ishift, &
+                                            Atom%tif0(itran)+ishift, &
+                                            Atom%tif1(itran)+ishift, &
+                                            omegai)
+                            ! Conjugate
+                            if (conj) y0 = sig*conjg(y0)
+
+                          end if ! Asymmetry
+
                         ! Fully coherent
                         else
 
@@ -4138,11 +4258,25 @@
                             StokesM = Stokes(:,ifreq,iph1,ith1)
                           end if
 
+                          ! Asymmetry
+                          if (asym) then
+
+                            ! Get value
+                            y0 = p_JKQC(ifreq)
+
+                            ! Conjugate
+                            if (conj) y0 = sig*conjg(y0)
+
+                          end if ! Asymmetry
+
                         end if ! Full coherence
 
                         ! Sum over Stokes parameters
                         intgr = sum(StokesM* &
                                     Geom%TB(:,iPP,K1,idir,iz))
+
+                        ! Asymmetry
+                        if (asym) intgr = intgr + y0
 
                         ! Add to PRD contribution
                         PRD = PRD + &
@@ -4176,6 +4310,35 @@
                               Stokesin(jjfreq0+1:jjfreq0+p_mfreq,3)* &
                               Geom%TB(3,iPP,K1,idir,iz)
 
+                          ! If asymmetry
+                          if (asym) then
+
+                            ! Conjugate
+                            if (conj) then
+
+                              ! Point to positive Q
+                              p_JKQ => &
+                                JradC(jjfreq+1:jjfreq+p_mfreq,-iPP,K1)
+
+                              ! Add
+                              intergrin(1:p_mfreq) = &
+                                          intergrin(1:p_mfreq) + &
+                                          sig*conjg(p_JKQ)
+
+                            ! Not conjugate
+                            else
+
+                              ! Point to positive Q
+                              p_JKQ => &
+                                 JradC(jjfreq+1:jjfreq+p_mfreq,iPP,K1)
+
+                              ! Add
+                              intergrin(1:p_mfreq) = &
+                                          intergrin(1:p_mfreq) + p_JKQ
+
+                            end if ! Conjugate
+                          end if ! asymmetry
+
                           ! Normalize to the first order profile
                           ! and add the directional weights (the
                           ! product with CRD happens later)
@@ -4201,16 +4364,11 @@
                   ! Update jjfreq
                   llfreq0 = llfreq0 + p_mfreq
                   kkfreq0 = kkfreq0 + p_mfreq*(Geom%nScatt-nfs)
+                  jjfreq = jjfreq + p_mfreq ! Asymmetries
 
                   ! Subtract the flat spectrum part due to just
-                  ! radiative excitation and add the flat asymmetry
-                  ! part if it proceeds
-                  if (asym) then
-                    PRD = PRD - Jrad(iPP,K1) + &
-                          JKQadd(iPP,K1,1)*dble(Jrad(0,0))
-                  else
-                    PRD = PRD - Jrad(iPP,K1)
-                  end if
+                  ! radiative excitation
+                  PRD = PRD - Jrad(iPP,K1)
 
                   ! Scale with CRD profile, completing the
                   ! normalization
@@ -4233,6 +4391,10 @@
                 end do ! output frequencies
               end do ! output frequencies ranges
             end do ! Output directions
+
+            ! Clean JKQ
+            nullify(p_JKQ)
+            nullify(p_JKQC)
 
           end if ! AA/AD (Integral)
 
@@ -6410,7 +6572,7 @@
       end if ! Are there ad-hoc asymmetries or not
 
       ! If not axial 
-      if (.not.axial) then
+      if (.not.axial.or.force_asym) then
 
         ! For every dependent multipole
         do K=1,Krad
@@ -6425,6 +6587,318 @@
       end if ! Not axial
 
       end subroutine getJKQstar
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Calculate the frequency dependent JKQ for the angle-dependent
+      !! second order emissivity\n
+      !!          Red(Redb_class): Structure with redistribution input
+      !!                           frequency data\n
+      !!     Geom(Geometry_class): Structure with geometric data\n
+      !!              iz(integer): Height index\n
+      !!           ntran(integer): Number of transitions in the atom\n
+      !!         tif0(integer(:)): Lower limit to search in Stokes
+      !!                           interpolation\n
+      !!         tif1(integer(:)): Upper limit to search in Stokes
+      !!                           interpolation\n
+      !!              DwT(double): Thermal part of the Doppler width\n
+      !!               vx(double): Velocity vector along X\n
+      !!               vy(double): Velocity vector along Y\n
+      !!               vz(double): Velocity vector along Z\n
+      !!          lfield(logical): If magnetic field\n
+      !!           Btheta(double): Magnetic field polar angle\n
+      !!             Bphi(double): Magnetic field azimuth angle\n
+      !!         omega(double(:)): Frequency array\n
+      !!       Flgsg(Fctsg_class): Structure with factorials, signs,
+      !!                           and J-symbols\n
+      !!  Stokes(double(:,:,:,:)): Stokes parameters\n
+      !!    JKQC(dcomplex(:,:,:)): Radiation field tensors with
+      !!                           frequency dependence\n
+      !!    JKQa(dcomplex(:,:,:)): Extra asymmetry for the radiation
+      !!                           field tensors\n
+      !!   JRadC(dcomplex(:,:,:)): Frequency dependent JKQ in the
+      !!                           comoving frame
+      subroutine getJKQADasym(Red,Geom,iz,ntran,tif0,tif1,DwT,vx,vy, &
+                              vz,lfield,Btheta,Bphi,omega,Flgsg, &
+                              TKQo,Stokes,JKQC,JKQa,JradC)
+
+      ! I/O
+
+      type(Redb_class), intent(in):: Red
+      type(Geometry_class), intent(in):: Geom
+      type(Fctsg_class), intent(in):: Flgsg
+      logical, intent(in):: lfield
+      integer, intent(in):: iz,ntran
+      integer, dimension(:), intent(in):: tif0,tif1
+      double precision, intent(in):: DwT,vx,vy,vz,Btheta,Bphi
+      double precision, dimension(:), intent(in):: omega
+      double precision, dimension(0:3,nfreq,Geom%nPh,Geom%nTh), &
+                        intent(in):: Stokes
+      complex(kind=8), dimension(:,:,:), intent(in):: JKQa
+      complex(kind=8), dimension(-2:2,0:2,nfreq), &
+                       target, intent(in):: JKQC
+      complex(kind=8), dimension(:,:,:), &
+                       allocatable, intent(out):: JradC
+      complex(kind=8), dimension(0:3,-2:2,0:2,1:Geom%nth*Geom%nph2), &
+                       intent(in):: TKQo
+
+      ! Local
+
+      logical:: shift
+
+      integer:: ifreq,ith1,K,iph1,iQ,jz,jdir,jtran,if0,if1
+
+      double precision:: vfac1,omegao,cost,sint,cosc,sinc
+      double precision, dimension(0:3):: StokesM
+      complex(kind=8), dimension(:,:,:), pointer:: JradCp
+
+
+      ! If velocity is above threshold
+      shift = (vx*vx + vy*vy + vz*vz)*1d6*c.ge.vrfrac*DwT
+
+      ! Allocate
+      allocate(JradC(-2:2,0:2,Red%ggf0:Red%ggf1))
+      JradC = cZero
+      if (lfield.or.shift) then
+        allocate(JradCp(-2:2,0:2,Red%ggf0:Red%ggf1))
+        JradCp = cZero
+      end if
+
+      ! Height for JKQa
+      jz = iz - Rz0 + 1
+
+      ! If dynamic
+      if (shift) then
+
+        ! Initialize
+        vfac1 = 1d0
+
+        ! For each frequency, get JKQ
+        do ifreq=Red%ggf0,Red%ggf1
+
+          ! Initialize
+          if0 = 1
+          if1 = nfreq
+
+          ! Find transition for frequency limits
+          do jtran=1,ntran
+
+            ! If out of limits, skip
+            if (ifreq.lt.tif0(jtran)) cycle
+            if (ifreq.gt.tif1(jtran)) cycle
+
+            ! Found
+            if0 = tif0(jtran)
+            if1 = tif1(jtran)
+            exit
+
+          end do
+
+          ! Initialize directions
+          jdir = 0
+
+          ! For each polar direction
+          do ith1=1,Geom%nTh
+
+            ! Get director cosin
+            cost = Geom%V_mu(ith1)
+
+            ! If axial symmetric
+            if (axial) then
+
+              ! Advance direction
+              jdir = jdir + 1
+
+              ! Get shift
+              vfac1 = 1d0 + vz*cost
+
+              ! Target frequency
+              omegao = omega(ifreq)*vfac1
+
+              ! Interpolate
+              StokesM = getStkinnu(omega, &
+                                   Stokes(:,:,1,ith1), &
+                                   ifreq,if0,if1,omegao)
+
+              ! Value
+              StokesM = Stokes(:,ifreq,1,ith1)
+
+              ! For every multipole
+              do K=0,Krad
+
+                ! Add to integral
+                JradC(0,K,ifreq) = JradC(0,K,ifreq) + &
+                                   Geom%W_mu(ith1)* &
+                                   sum(StokesM*Geom%TS(:,iQ,K,jdir))
+                JradCp(0,K,ifreq) = JradCp(0,K,ifreq) + &
+                                    Geom%W_mu(ith1)* &
+                                    sum(StokesM*TKQo(:,0,K,jdir))
+              end do ! Multipoles
+
+              ! Advance non-used directions
+              jdir = jdir + Geom%nPh2 - 1
+
+            ! Non axial symmetric
+            else
+
+              ! If there is shift, get sin
+              sint = sqrt(1d0 - cost*cost)
+
+              ! For each azimuth
+              do iph1=1,Geom%nPh
+
+                ! Advance direction
+                jdir = jdir + 1
+
+                ! Get Doppler shift (inverse)
+                cosc = Geom%v_mux(iph1)
+                sinc = Geom%v_muy(iph1)* &
+                       sqrt(1d0 - cosc*cosc)
+                vfac1 = 1d0 + vx*sint*cosc + &
+                              vy*sint*sinc + &
+                              vz*cost
+
+                ! Target frequency
+                omegao = omega(ifreq)*vfac1
+
+                ! Interpolate
+                StokesM = getStkinnu(omega, &
+                                     Stokes(:,:,iph1,ith1), &
+                                     ifreq,if0,if1,omegao)
+
+                ! For every independent multipole
+                do K=0,Krad
+                  do iQ=0,K
+
+                    ! Add to integral
+                    JradC(iQ,K,ifreq) = JradC(iQ,K,ifreq) + &
+                                          Geom%W_mu(ith1)* &
+                                          Geom%W_mux2(iph1)* &
+                                          sum(StokesM* &
+                                              Geom%TS(:,iQ,K,jdir))
+                    JradCp(iQ,K,ifreq) = JradCp(iQ,K,ifreq) + &
+                                         Geom%W_mu(ith1)* &
+                                         Geom%W_mux2(iph1)* &
+                                         sum(StokesM* &
+                                             TKQo(:,iQ,K,jdir))
+                  end do ! K
+                end do ! Q
+              end do ! Azimuth
+
+            end if ! Axial symmetry
+
+          end do ! Polar
+        end do ! Frequencies
+
+        ! Force asymmetry
+        if (force_asym) JradC(1:2,:,:) = cZero
+
+        ! For each frequency
+        do ifreq=Red%ggf0,Red%ggf1
+
+          ! Add ad-hoc
+          JradC(0:2,1:2,ifreq) = JradC(0:2,1:2,ifreq) + &
+                                 JKQa(3:5,:,jz)*dble(JradC(0,0,ifreq))
+
+        end do ! Relevant frequencies
+
+        ! Ensure relations for every dependent multipole
+        do K=1,Krad
+          do iQ=0,K
+
+            ! Use relations
+            JradC(-iQ,K,:) = Flgsg%sg(iQ)*conjg(JradC(iQ,K,:))
+            JradCp(-iQ,K,:) = Flgsg%sg(iQ)*conjg(JradCp(iQ,K,:))
+
+          end do ! Q
+        end do ! K
+
+        ! If magnetic field, rotate
+        if (lfield) &
+          call fieldB_alt(JradC,Red%ggf1-Red%ggf0+1, &
+                          Flgsg,Btheta,Bphi,1)
+
+        ! Get difference
+        JradC = JradC - JradCp
+
+        ! Free
+        deallocate(JradCp)
+        nullify(JradCp)
+
+      ! If static
+      else
+
+        ! Initialize
+        JradC = JKQC(:,:,Red%ggf0:Red%ggf1)
+
+        ! Force asymmetry
+        if (force_asym) JradC(1:2,:,:) = cZero
+
+        ! For each frequency
+        do ifreq=Red%ggf0,Red%ggf1
+
+          ! Add ad-hoc
+          JradC(0:2,1:2,ifreq) = JradC(0:2,1:2,ifreq) + &
+                                 JKQa(3:5,:,jz)*dble(JradC(0,0,ifreq))
+
+        end do ! Relevant frequencies
+
+        ! Ensure relations for every dependent multipole
+        do K=1,Krad
+          do iQ=0,K
+
+            ! Use relations
+            JradC(-iQ,K,:) = Flgsg%sg(iQ)*conjg(JradC(iQ,K,:))
+
+          end do ! Q
+        end do ! K
+
+        ! If magnetic field
+        if (lfield) then
+
+          ! Copy
+          JradCp = JKQC(:,:,Red%ggf0:Red%ggf1)
+
+          ! Rotate both
+          call fieldB_alt(JradC,Red%ggf1-Red%ggf0+1, &
+                          Flgsg,Btheta,Bphi,1)
+          call fieldB_alt(JradCp,Red%ggf1-Red%ggf0+1, &
+                          Flgsg,Btheta,Bphi,1)
+
+        ! No magnetic field
+        else
+
+          ! Point
+          JradCp(-2:2,0:2,Red%ggf0:Red%ggf1) => &
+                                          JKQC(:,:,Red%ggf0:Red%ggf1)
+        end if
+
+        ! Get difference
+        JradC = JradC - JradCp
+
+        !
+        ! Free
+        !
+
+        ! Magnetic
+        if (lfield) then
+
+          ! Deallocate and nullify
+          deallocate(JradCp)
+          nullify(JradCp)
+
+        ! No magnetic field
+        else
+
+          ! Nullify
+          nullify(JradCp)
+
+        end if ! Magnetic or not
+      end if ! Dynamic or static
+
+      end subroutine getJKQADasym
 
 !#####################################################################
 !#####################################################################
@@ -7272,16 +7746,16 @@
       !!    kfreq(integer): Frequency index of the output frequency
       !!                    associated to the requested input
       !!                    frequency (shifted to limited vector)\n
-      !!      if0(integer): Lower limit to search in Stokes
+      !!      jf0(integer): Lower limit to search in Stokes
       !!                    interpolation\n
-      !!      if1(integer): Upper limit to search in Stokes
+      !!      jf1(integer): Upper limit to search in Stokes
       !!                    interpolation\n
       !!         x(double): Frequency to interpolate into
-      function getJKQinnu(omega,JKQ,kfreq,if0,if1,x)
+      function getJKQinnu(omega,JKQ,kfreq,jf0,jf1,x)
 
       ! I/O
 
-      integer, intent(in):: kfreq,if0,if1
+      integer, intent(in):: kfreq,jf0,jf1
       double precision, intent(in):: x
       double precision, dimension(:), intent(in):: omega
       complex(kind=8), dimension(:), intent(in):: JKQ
@@ -7290,12 +7764,20 @@
 
       ! Local
 
-      integer:: jfreq,ifreq
+      integer:: jfreq,ifreq,if0,if1
 
       double precision:: dxs
 
       complex(kind=8):: dys
 
+
+      ! Copy line limits
+      if0 = jf0
+      if1 = jf1
+
+      ! Fix line limits
+      if (if0.lt.1) if0 = 1
+      if (if1.gt.size(omega)) if1 = size(omega)
 
       !
       ! Check limits

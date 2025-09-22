@@ -9,17 +9,16 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     19/08/2025 V4.0.4
+!     20/08/2025 V4.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     19/08/2025:    V4.0.4 - Bugfix: It was possible to ask for an
-!                             out of bounds array position in a
-!                             conditional that included the condition
-!                             of the index being positive (TdPA)
+!     20/08/2025:    V4.0.5 - Added the possibility of a CPU not
+!                             having work to do if not in the CLE
+!                             running mode (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -311,10 +310,15 @@
         iaux = nfreq/nnd
 
         ! We need at least one frequency per processor
-        if(iaux.lt.1)then
+        if (iaux.lt.1.and..not.PRD.and..not.run_mode.eq.2) then
           umsg = 'Too many processors for this frequency grid'
           call aborted
           return
+        else if (iaux.lt.1.and.gpid.eq.1) then
+          umsg = '## Warning: Too many processors for this '// &
+                 'frequency grid, the code will continue assuming '// &
+                 'this is intentional'
+          call verbose
         end if
 
         ! Compute Maximum weight
@@ -323,59 +327,102 @@
         ! Split frequencies between CPUs
         iaux = nfreq/nnd
 
-        ! Determine number of frequencies per CPU
-        MPID%nf(0) = 0
-        do iproc=1,nnd
-          MPID%nf(iproc) = iaux
-        enddo
+        ! Special case of more CPU than frequency
+        if (iaux.lt.1) then
 
-        ! Complex splitting if they do not coincide in size
-        if(iaux*nnd.ne.nfreq)then
-          iaux = nfreq - iaux*nnd
-          do ifbl=1,iaux
-            MPID%nf(ifbl) = MPID%nf(ifbl) + 1
-          end do
-        end if
+          ! Number of real slaves is same as frequencies
+          nnd = nfreq
+          MPID%nnd = nfreq
 
-        ! Determine the frequency limits for each processor in
-        ! one group
+          ! Determine number of frequencies per CPU
+          MPID%nf = 0
+          do iproc=1,nnd
+            MPID%nf(iproc) = 1
+          enddo
 
-        ! First CPU
-        MPID%if0(1) = 1
-        MPID%if1(1) = MPID%nf(1)
+          ! Initialize limits
+          MPID%if0 = 1
+          MPID%if1 = 1
 
-        ! For each group
-        do ifbl=2,nnd
-          MPID%if0(ifbl) = MPID%if1(ifbl-1) + 1
-          MPID%if1(ifbl) = MPID%if0(ifbl) + MPID%nf(ifbl) - 1
-        end do
+          ! Determine the frequency limits for each processor in
+          ! one group
 
-        ! Only the master
-        if (pid.eq.0) then
-
-          ! Now optimize how they are distributed
-          call weighted_split(nproc-1,maxcoun,IW_freq, &
-                              MPID%if0(1:nproc-1), &
-                              MPID%if1(1:nproc-1), &
-                              MPID%nf(1:nproc-1))
-
-          ! Master have everything
+          ! Master
           MPID%if0(0) = 1
           MPID%if1(0) = nfreq
           MPID%nf(0) = nfreq
 
-        end if ! Master
+          ! First CPU
+          MPID%if0(1) = 1
+          MPID%if1(1) = MPID%nf(1)
 
-        ! Send to everyone
-        call MPI_BCAST(MPID%nf(0), nproc, MPI_INTEGER, 0, &
-                       MPI_COMM_RT, ierr)
-        call MPI_BCAST(MPID%if0(0), nproc, MPI_INTEGER, 0, &
-                       MPI_COMM_RT, ierr)
-        call MPI_BCAST(MPID%if1(0), nproc, MPI_INTEGER, 0, &
-                       MPI_COMM_RT, ierr)
+          ! For each group
+          do ifbl=2,nnd
+            MPID%if0(ifbl) = MPID%if1(ifbl-1) + 1
+            MPID%if1(ifbl) = MPID%if0(ifbl) + MPID%nf(ifbl) - 1
+          end do
 
-        ! Maximum number of frequencies that a processor have
-        MPID%nxfreq = maxval(MPID%nf(1:nproc-1))
+          ! Maximum number of frequencies that a processor have
+          MPID%nxfreq = 1
+
+        ! Normal case
+        else
+
+          ! Determine number of frequencies per CPU
+          MPID%nf(0) = 0
+          do iproc=1,nnd
+            MPID%nf(iproc) = iaux
+          enddo
+
+          ! Complex splitting if they do not coincide in size
+          if(iaux*nnd.ne.nfreq)then
+            iaux = nfreq - iaux*nnd
+            do ifbl=1,iaux
+              MPID%nf(ifbl) = MPID%nf(ifbl) + 1
+            end do
+          end if
+
+          ! Determine the frequency limits for each processor in
+          ! one group
+
+          ! First CPU
+          MPID%if0(1) = 1
+          MPID%if1(1) = MPID%nf(1)
+
+          ! For each group
+          do ifbl=2,nnd
+            MPID%if0(ifbl) = MPID%if1(ifbl-1) + 1
+            MPID%if1(ifbl) = MPID%if0(ifbl) + MPID%nf(ifbl) - 1
+          end do
+
+          ! Only the master
+          if (pid.eq.0) then
+
+            ! Now optimize how they are distributed
+            call weighted_split(nproc-1,maxcoun,IW_freq, &
+                                MPID%if0(1:nproc-1), &
+                                MPID%if1(1:nproc-1), &
+                                MPID%nf(1:nproc-1))
+
+            ! Master have everything
+            MPID%if0(0) = 1
+            MPID%if1(0) = nfreq
+            MPID%nf(0) = nfreq
+
+          end if ! Master
+
+          ! Send to everyone
+          call MPI_BCAST(MPID%nf(0), nproc, MPI_INTEGER, 0, &
+                         MPI_COMM_RT, ierr)
+          call MPI_BCAST(MPID%if0(0), nproc, MPI_INTEGER, 0, &
+                         MPI_COMM_RT, ierr)
+          call MPI_BCAST(MPID%if1(0), nproc, MPI_INTEGER, 0, &
+                         MPI_COMM_RT, ierr)
+
+          ! Maximum number of frequencies that a processor have
+          MPID%nxfreq = maxval(MPID%nf(1:nproc-1))
+
+        end if ! Type of split
 
       !
       ! If there is only one slave

@@ -10,16 +10,15 @@
 !  Start:
 !     17/02/2023
 !  Last version:
-!     15/05/2025 V4.0.1
+!     29/08/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.2 - Generalized declarations of Atom to
-!                             allow for empty arrays for any of
-!                             them (TdPA)
+!     29/08/2025:    V4.0.3 - The extrapolation parameter is now an
+!                             input and it is not hard-coded (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -177,7 +176,8 @@
           call Intpol(Inf_Nodes%Node(indx)%H, &
                       Inf_Nodes%Node(indx)%Var, &
                       Inf_Nodes%Num_Nodes(indx), z, o_var, nn, &
-                      Inf_Nodes%Interpolation, 3)
+                      Inf_Nodes%Interpolation, &
+                      Inf_Nodes%extrapolation(indx))
 
         ! If contain corrections
         else
@@ -186,7 +186,8 @@
           call Intpol(Inf_Nodes%Node(indx)%H, &
                       Inf_Nodes%Node(indx)%Var, &
                       Inf_Nodes%Num_Nodes(indx), z, i_var, nn, &
-                      Inf_Nodes%Interpolation, 3)
+                      Inf_Nodes%Interpolation, &
+                      Inf_Nodes%extrapolation(indx))
 
           ! Add correction
           o_var = o_var + i_var

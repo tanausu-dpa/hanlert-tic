@@ -11,18 +11,15 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     19/08/2025 V4.0.6
+!     20/08/2025 V4.0.7
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     19/08/2025:    V4.0.6 - Bugfix: The frequency counter to
-!                             allocate the redistribution could
-!                             overflow to the point of returning
-!                             positive numbers that were considered
-!                             valid (TdPA)
+!     20/08/2025:    V4.0.7 - Added the possibility of a CPU not
+!                             having work to do (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -5279,9 +5276,9 @@
         end do ! CPU
 
       !
-      ! If slave
+      ! If slave with jobs
       !
-      else
+      else if (MPID%nf(pid).ge.1) then
 
         ! Store MPI scope limits in short variables
         if0 = MPID%if0(pid)
@@ -5464,6 +5461,48 @@
           end if ! Line presence
 
         end do ! LTE lines
+
+      !
+      ! If slave without job
+      !
+      else
+
+        ! Free weights
+        deallocate(Frec%W_freq)
+        allocate(Frec%W_freq(1))
+
+        ! Reset number of frequencies for profiles
+        Frec%ntfreq = 1
+        Frec%ntfreqi = 1
+        Frec%npfreq = 1
+
+        ! For each atom
+        do ia=1,nA
+
+          ! For each bound-bound transition
+          do itran=1,Atom(ia)%ntran
+
+            ! Flag absent
+            Atom(ia)%fflag(itran)%absent = .True.
+            Atom(ia)%if0(itran) = 0
+            Atom(ia)%if1(itran) = -1
+            Atom(ia)%W0(itran) = 0d0
+            Atom(ia)%W1(itran) = 0d0
+
+          end do ! bound-bound Transition
+
+          ! For each bound-free transition
+          do itran=1,Atom(ia)%nphot
+
+            ! Set empty data
+            Atom(ia)%phot(itran)%absent = .True.
+            Atom(ia)%phot(itran)%if0 = 0
+            Atom(ia)%phot(itran)%if1 = -1
+            Atom(ia)%phot(itran)%W0 = 0d0
+            Atom(ia)%phot(itran)%W1 = 0d0
+
+          end do ! bound-free Transition
+        end do ! Atom
 
       end if ! Needs resize
 

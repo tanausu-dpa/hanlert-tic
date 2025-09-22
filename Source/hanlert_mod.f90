@@ -10,16 +10,18 @@
 !  Start:
 !     22/06/2022
 !  Last version:
-!     10/06/2025 V4.0.4
+!     28/08/2025 V4.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     10/06/2025:    V4.0.4 - Added control calls after trying to
-!                             generate the frequency axis in order to
-!                             exit in case of failure (TdPA)
+!     28/08/2025:    V4.0.5 - Added Sol argument to prepare_buffers()
+!                             call (TdPA)
+!                           - Changed a bool argument (RF) in
+!                             prepare_buffers into an integer (typo)
+!                             argument (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1784,11 +1786,10 @@
       !!                          profiles, contribution function,
       !!                          and height for optical depth
       !!                          equal to one\n
-      !!             RF(logical): If solving the NLTE problem to
-      !!                          calculate the response function
+      !!           typo(integer): Type of calculation
       subroutine HanleRTTIC(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec, &
                             fudge,kurucz,MPID,Atmo,Bfield,Input, &
-                            Sol,SolF,RF)
+                            Sol,SolF,typo)
 
       ! I/O
 
@@ -1809,7 +1810,7 @@
       type(Bfield_class), intent(inout):: Bfield
       type(Solution_class), intent(inout):: Sol
       type(Solution_F_class), intent(inout):: SolF
-      logical, intent(in):: RF
+      integer, intent(in):: typo
 
       ! Local
 
@@ -1871,7 +1872,7 @@
 
       !
       ! Prepare Input and prepare the buffers to store solution
-      call prepare_buffers(SolF,Input,Atom,GeomI,Geom,RF)
+      call prepare_buffers(SolF,Sol,Input,Atom,GeomI,Geom,typo)
 
       !
       ! Define the flags to route the code
@@ -1902,7 +1903,7 @@
 
       ! If calculating response function
       ! (that means we do not need tau and contribution)
-      if (RF) then
+      if (typo.eq.2) then
 
         ! Copy to local
         tau1_local = Input%out_tau1
@@ -1913,7 +1914,6 @@
         Input%out_contr = .False.
 
       end if
-
 
       !
       ! Solve the NLTE problem
@@ -2033,7 +2033,7 @@
       IRAM = IRAM_Local
 
       ! If doing response function
-      if (RF) then
+      if (typo.eq.2) then
 
         ! Restore variables
         Input%out_tau1 = tau1_local

@@ -9,19 +9,15 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     06/06/2025 V4.0.4
+!     03/09/2025 V4.0.8
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     06/06/2025:    V4.0.4 - Manage what maximum number of iterations
-!                             and MRC criteria is used based on the
-!                             twostepAD flag (TdPA)
-!                           - Bugfix: When the main scale is optical
-!                             depth, the MRC data needs to be scaled
-!                             differently to the heights (TdPA)
+!     03/09/2025:    V4.0.8 - Added error handling after the call to
+!                             comoving_emiss2ord() (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -182,7 +178,7 @@
 
       character(LEN=20):: iterS
 
-      logical:: doNG,goout,gooutprd,ADD,RPRAM,lp_exu,NGP
+      logical:: doNG,goout,gooutprd,ADD,RPRAM,lp_exu,NGP,first
 
       integer:: iter_min,iter_max
       integer:: NG_dim,NG_entry,if0,if1,npz,ntpz,nsend,iter,iterr,ia
@@ -248,7 +244,7 @@
       ! Choose iteration parameters
       if (.not.AV.and.twostepAD) then
         iter_min = 1
-        iter_max = Input%iteriad_max
+        iter_max = Input%iterad_max
         mrci_val = Input%mrc_adi
         mrcp_val = Input%mrc_adp
       else
@@ -257,6 +253,9 @@
         mrci_val = Input%mrc_i
         mrcp_val = Input%mrc_p
       end if
+
+      ! Initialize for message
+      first = .True.
 
       !
       ! Start iterations
@@ -294,12 +293,20 @@
           if (pid.eq.0.and.PRD.and.Input%iter_prd.gt.1) &
             JKQC_old = JKQC(0:2,:,:,:)
 
-          ! Compute second order emissivity
-          if (PRD) &
+          ! If PRD
+          if (PRD) then
+
+            ! Compute second order emissivity
             call comoving_emiss2ord(Atom,Atmo,Geom,Frec,Red, &
                                     Flgsg,Bfield,Stokes,JKQ_asym, &
                                     JKQ,JKQC,0,0,Input%PRD_int_mode, &
                                     .False.)
+
+            ! Control
+            call control
+            if (laborted) goto 2000
+
+          end if ! PRD
 
           ! If MPI and master
           if (MPID%mpi.and.pid.eq.0) then
@@ -307,18 +314,17 @@
             ! Call manager
             call solve_manager(Atom,Atmo,Frec,Geom,Bfield,MPID, &
                                Input,Flgsg,nsend,iter,npz,ntpz, &
-                               Stokes_r,Prof_r,JKQ_asym,Stokes, &
+                               Stokes_r,Prof_r,Stokes, &
                                JKQ,JKQS,JKQC,J00P)
 
-          ! Serial or slave
-          else
+          ! Serial or slave with work
+          else if (MPID%nf(pid).ge.1) then
   
             ! Solve RTE
             call solve_RT(Atom,LTElines,Atmo,Cont,Frec,Red,Bfield, &
-                          Geom,MPID,Input,Flgsg,lp_exu,if0,if1, &
+                          Geom,MPID,Flgsg,lp_exu,if0,if1, &
                           Stokes_s,Prof_s,data1M,data1O,data2O, &
-                          p_exu,JKQ_asym,Stokes,JKQ,JKQS,JKQC, &
-                          JKQC_n,J00P)
+                          p_exu,Stokes,JKQ,JKQS,JKQC,JKQC_n,J00P)
 
           end if ! Manage or compute
 
@@ -331,29 +337,55 @@
           !
           if (pid.eq.0) then
 
+            ! Add the Ad-hoc asymmetries
+            if (Input%nasym.gt.0) &
+              call addJKQasym(Bfield,Flgsg,JKQ_asym,JKQ,JKQS,JKQC)
+
             ! Calculate MRC for J if PRD
             if (PRD.and.Input%iter_prd.gt.1) then
 
               ! Call the routine
               call MRCJKQ_sb(JKQC,JKQC_old,Input%anisotropy_only,MRC)
 
-              ! Convert cm into km
-              MRC%values(1,1) = Atmo%z(MRC%indexes(2,1))*1d-5
-              MRC%values(1,2) = Atmo%z(MRC%indexes(2,2))*1d-5
+              ! Convert cm into km or tau to log10
+              if (ztau) then
+                MRC%values(1,1)= log10(Atmo%z(MRC%indexes(2,1))+VTINY)
+                MRC%values(1,2)= log10(Atmo%z(MRC%indexes(2,2))+VTINY)
+              else
+                MRC%values(1,1) = Atmo%z(MRC%indexes(2,1))*1d-5
+                MRC%values(1,2) = Atmo%z(MRC%indexes(2,2))*1d-5
+              end if
 
               ! Global Máster talks
               if (gpid.eq.0) then
 
-                ! If first PRD iteration and second actual
-                ! iteration
-                if (iterr.eq.1.and.iter.eq.1) then
-                  umsg = '         PRD            MRC(J^0_0)'// &
-                         ' Freq_index  Wavelength '// &
-                         'Height_index Height(km)'// &
-                         '  MRC(J^K_Q)'// &
-                         ' Freq_index  Wavelength '// &
-                         'Height_index Height(km)  K  Q'
+                ! If first time here
+                if (first) then
+
+                  ! Flag
+                  first = .False.
+
+                  ! Tau scale
+                  if (ztau) then
+                    umsg = '  PRD it:  it            MRC(J^0_0)'// &
+                           ' Freq_index  Wavelength '// &
+                           'logtau_index   log(tau)'// &
+                           '  MRC(J^K_Q)'// &
+                           ' Freq_index  Wavelength '// &
+                           'logtau_index   log(tau)  K  Q'
+                  ! Height scale
+                  else
+                    umsg = '  PRD it:  it            MRC(J^0_0)'// &
+                           ' Freq_index  Wavelength '// &
+                           'Height_index Height(km)'// &
+                           '  MRC(J^K_Q)'// &
+                           ' Freq_index  Wavelength '// &
+                           'Height_index Height(km)  K  Q'
+                  end if ! Scale
+
+                  ! Write
                   call verbose
+
                 end if
 
                 ! Write in stdout
@@ -731,8 +763,8 @@
           TRAMc = TRAMc + 16d-6*dble(15*2*nxtran*Geom%nph* &
                                                  Geom%nth*Rnz)
 
-        ! Slave
-        else
+        ! Slave with work
+        else if (MPID%nf(pid).ge.1) then
 
           ! M and O pointers for RT coeff
           TRAMc = TRAMc + 8d-6*dble(2*4*mfreq*6)
@@ -1004,8 +1036,8 @@
 
           end if ! Type of MPI
 
-        ! Slave
-        else
+        ! Slave with work
+        else if (MPID%nf(pid).ge.1) then
 
           ! Allocate M and O pointers for RT coeff
           allocate(data1M(4,MPID%nf(pid),6))
@@ -1076,11 +1108,21 @@
       ! Global Master
       if (gpid.eq.0) then
 
+        ! Tau scale
+        if (ztau) then
+          umsg = '   Iteration          MRC(rho^0_0) Atom_index '// &
+                 'Term_index    2J  logtau_index   log(tau) |   '// &
+                 '       MRC(rho^K_Q) Atom_index Term_index '// &
+                 "   2J   2J' logtau_index   log(tau)  K  Q"
+        ! Height scale
+        else
+          umsg = '   Iteration          MRC(rho^0_0) Atom_index '// &
+                 'Term_index    2J  Height_index Height(km) |   '// &
+                 '       MRC(rho^K_Q) Atom_index Term_index '// &
+                 "   2J   2J' Height_index Height(km)  K  Q"
+        end if ! Scale
+
         ! Announce we are starting
-        umsg = '   Iteration          MRC(rho^0_0) Atom_index '// &
-               'Term_index    2J  Height_index Height(km) |   '// &
-               '       MRC(rho^K_Q) Atom_index Term_index '// &
-               "   2J   2J' Height_index Height(km)  K  Q"
         call verbose
       end if
 
@@ -1111,14 +1153,31 @@
           open(800, file=trim(Input%folder)//'/MRC', &
                action='write',iostat=ios,err=1000)
 
-          ! Write header
-          write(800,'(A)',err=1100) &
-                       '!  Iteration          MRC(rho^0_0) '// &
-                       'Atom_index Term_index    2J  '// &
-                       'Height_index Height(km) |   '// &
-                       '       MRC(rho^K_Q) Atom_index '// &
-                       'Term_index    2J   2J'// &
-                       "' Height_index Height(km)  K  Q"
+          ! Tau scale
+          if (ztau) then
+
+            ! Write header
+            write(800,'(A)',err=1100) &
+                         '!  Iteration          MRC(rho^0_0) '// &
+                         'Atom_index Term_index    2J  '// &
+                         'logtau_index   log(tau) |   '// &
+                         '       MRC(rho^K_Q) Atom_index '// &
+                         'Term_index    2J   2J'// &
+                         "' logtau_index   log(tau)  K  Q"
+
+          ! Height scale
+          else
+
+            ! Write header
+            write(800,'(A)',err=1100) &
+                         '!  Iteration          MRC(rho^0_0) '// &
+                         'Atom_index Term_index    2J  '// &
+                         'Height_index Height(km) |   '// &
+                         '       MRC(rho^K_Q) Atom_index '// &
+                         'Term_index    2J   2J'// &
+                         "' Height_index Height(km)  K  Q"
+
+          end if ! Scale
 
           ! Close file
           close(800)
@@ -1161,8 +1220,6 @@
       !!              ntpz(integer): Size in theta and phi\n
       !!        Stokes_r(double(:)): Receiver buffer for Stokes\n
       !!          Prof_r(double(:)): Receiver buffer for profiles\n
-      !!  JKQ_asym(dcomplex(:,:,:)): Extra asymmetry for the radiation
-      !!                             tensors\n
       !!  Stokes(double(:,:,:,:,:)): Stokes parameters\n
       !!     JKQ(dcomplex(:,:,:,:)): Radiation field tensors
       !!                             integrated over the absorption
@@ -1176,7 +1233,7 @@
       !!                             photoionization rates
       subroutine solve_manager(Atom,Atmo,Frec,Geom,Bfield,MPID, &
                                Input,Flgsg,nsend,iter,npz,ntpz, &
-                               Stokes_r,Prof_r,JKQ_asym,Stokes, &
+                               Stokes_r,Prof_r,Stokes, &
                                JKQ,JKQS,JKQC,J00P)
 
       ! I/O
@@ -1200,7 +1257,6 @@
              target, intent(out):: Stokes
       double precision, dimension(nxphot,2,Rz0:Rz1), &
                         intent(out):: J00P
-      complex(kind=8), dimension(:,:,:), intent(in):: JKQ_asym
       complex(kind=8), dimension(:,:,:,:), &
                        allocatable, intent(inout):: JKQ
       complex(kind=8), dimension(:,:,:,:), &
@@ -1642,12 +1698,6 @@
         end do ! Atom
       end if ! Not axial
 
-      !
-      ! Add the Ad-hoc asymmetries
-      !
-      if (Input%nasym.gt.0) &
-        call addJKQasym(Bfield,Flgsg,JKQ_asym,JKQ,JKQS,JKQC)
-
       ! Clean pointers
       nullify(TSo,TKQo)
 
@@ -1674,8 +1724,6 @@
       !!                               data\n
       !!         Geom(Geometry_class): Structure with geometric data\n
       !!              MPID(MPI_class): Structure with MPI data\n
-      !!           Input(Input_class): Structure with configuration
-      !!                               data\n
       !!           Flgsg(Fctsg_class): Structure with factorials,
       !!                               signs, and J-symbols\n
       !!              lp_exu(logical): If available pre-computed
@@ -1689,8 +1737,6 @@
       !!          data2O(double(:,:)): Profiles point O\n
       !!             p_exu(double(:)): Pointer to pre-calculated
       !!                               exponential\n
-      !!    JKQ_asym(dcomplex(:,:,:)): Extra asymmetry for the
-      !!                               radiation tensors\n
       !!    Stokes(double(:,:,:,:,:)): Stokes parameters\n
       !!       JKQ(dcomplex(:,:,:,:)): Radiation field tensors
       !!                               integrated over the absorption
@@ -1705,10 +1751,9 @@
       !!          J00P(double(:,:,:)): Intensity integrals in the
       !!                               photoionization rates
       subroutine solve_RT(Atom,LTElines,Atmo,Cont,Frec,Red,Bfield, &
-                          Geom,MPID,Input,Flgsg,lp_exu,if0,if1, &
+                          Geom,MPID,Flgsg,lp_exu,if0,if1, &
                           Stokes_s,Prof_s,data1M,data1O,data2O, &
-                          p_exu,JKQ_asym,Stokes,JKQ,JKQS,JKQC, &
-                          JKQC_n,J00P)
+                          p_exu,Stokes,JKQ,JKQS,JKQC,JKQC_n,J00P)
 
       ! I/O
 
@@ -1722,7 +1767,6 @@
       type(Red_class), intent(in):: Red
       type(Bfield_class), intent(in):: Bfield
       type(Geometry_class), intent(in):: Geom
-      type(Input_class), intent(in):: Input
       type(MPI_class), intent(in):: MPID
       type(Fctsg_class), intent(inout):: Flgsg
       logical, intent(in):: lp_exu
@@ -1736,7 +1780,6 @@
           intent(out):: Stokes
       double precision, dimension(nxphot,2,Rz0:Rz1), &
                        intent(out):: J00P
-      complex(kind=8), dimension(:,:,:):: JKQ_asym
       complex(kind=8), dimension(:,:,:,:), &
                        allocatable, intent(inout):: JKQ
       complex(kind=8), dimension(:,:,:,:), &
@@ -2343,13 +2386,6 @@
             end do ! Transition
           end do ! Atom
         end if ! Not axial
-
-        !
-        ! Add the Ad-hoc asymmetries
-        !
-        if (Input%nasym.gt.0) &
-          call addJKQasym(Bfield,Flgsg,JKQ_asym,JKQ,JKQS,JKQC)
-
       end if ! Normal MPI/serial
 
       ! Clean pointers
@@ -2512,14 +2548,13 @@
       !
 
       ! Check if doing NG acceleration
-      if(NGP.and.iter.gt.Input%NG_delay)then
-
-        ! Advance ntry. The master does not need it if
-        ! if accelerated the intensity
-        NG_entry = NG_entry + 1
+      if (NGP.and.iter.gt.Input%NG_delay) then
 
         ! If Master
         if (pid.eq.0) then
+
+          ! Advance ntry
+          NG_entry = NG_entry + 1
 
           ! Initialize index
           o = 0
@@ -2604,36 +2639,15 @@
           end if ! PRD
 
           ! Call NG and check if it should be processed
-          call NG(NG_dim,p,Input%NGI_ord,NG_scratch,NG_entry,doNG)
+          call NG(NG_dim,p,Input%NGI_ord,NG_scratch, &
+                  NG_entry,doNG,.True.)
 
-        ! Slave
-        else
+        end if ! Master
 
-          ! If wrong order
-          if (Input%NG_ord.lt.1.or.Input%NG_ord.gt.5) then
-
-            ! Do not do
-            doNG = .False.
-
-          ! Valid order
-          else
-
-            ! Check if Master is in NG step
-            if (NG_entry.gt.(Input%NG_ord+1)) then
-
-              ! Do step
-              doNG = .True.
-
-            ! Not a NG step
-            else
-
-              ! Not a NG step
-              doNG = .False.
-
-            end if ! NG step
-          end if ! order
-
-        end if ! Master of slave
+        ! Share doing
+        if (nproc.gt.1) &
+          call MPI_BCAST(doNG, 1, MPI_LOGICAL, 0, &
+                         MPI_COMM_RT, ierr)
 
         ! If communication is needed
         if (doNG) then
@@ -2986,14 +3000,18 @@
           ! If PRD
           if (PRD) then
 
-              ! If AD, get geometry
-              if (.not.AV) call get_scattering_los(Geom,ith,iph)
+            ! If AD, get geometry
+            if (.not.AV) call get_scattering_los(Geom,ith,iph)
 
-              ! Compute emiss2ord
-              call comoving_emiss2ord(Atom,Atmo,Geom,Frec,Red,Flgsg, &
-                                      Bfield,Stokes,JKQ_asym, &
-                                      JKQ,JKQC,ith,iph, &
-                                      Input%PRD_int_mode,.True.)
+            ! Compute emiss2ord
+            call comoving_emiss2ord(Atom,Atmo,Geom,Frec,Red,Flgsg, &
+                                    Bfield,Stokes,JKQ_asym, &
+                                    JKQ,JKQC,ith,iph, &
+                                    Input%PRD_int_mode,.True.)
+            ! Failure
+            call control
+            if (laborted) goto 1999
+
           end if
 
           ! If manager
@@ -3004,8 +3022,8 @@
                                   ith,iph,Stokes_r,Contr_r,tau1, &
                                   ContrG)
 
-          ! Slave or serial
-          else
+          ! Slave with work or serial
+          else if (MPID%nf(pid).ge.1) then
 
             ! Call RT
             call emergent_RT(Atom,LTElines,Atmo,Cont,Frec,Red, &
@@ -3017,7 +3035,7 @@
           end if
 
           ! Free LOS geometrical tensors
-          call free_los_geom(Geom)
+1999      call free_los_geom(Geom)
 
           ! If dynamic, free LOS norms
           if (dyn) call free_norm(Red,.False.)
@@ -3126,8 +3144,8 @@
                                           Input%lim_ctr%nn)
           end if ! Inversion
 
-        ! Slave
-        else
+        ! Slave with work
+        else if (MPID%nf(pid).ge.1) then
 
           ! M and O pointers for RT coeff
           TRAMc = TRAMc + 8d-6*dble(6*mfreq*6)
@@ -3291,8 +3309,8 @@
                                 Geom%nPhLOS,Geom%nThLOS))
           end if ! Inversion
 
-        ! Slave
-        else
+        ! Slave with work
+        else if (MPID%nf(pid).ge.1) then
 
           ! Allocate M and O pointers for RT coeff
           allocate(data1M(4,MPID%nf(pid),6))
@@ -3620,13 +3638,7 @@
       !!                              one sender buffer\n
       !!            etaIM(double(:)): Absorptivity point M\n
       !!         data1M(double(:,:)): RT coeff point M\n
-      !!         data1O(double(:,:)): RT coeff point O
-      !!   JKQ_asym(dcomplex(:,:,:)): Extra asymmetry for the
-      !!                              radiation tensors\n
-      !!   Stokes(double(:,:,:,:,:)): Stokes parameters\n
-      !!      JKQ(dcomplex(:,:,:,:)): Radiation field tensors
-      !!                              integrated over the absorption
-      !!                              profile\n
+      !!         data1O(double(:,:)): RT coeff point O\n
       !!     JKQC(dcomplex(:,:,:,:)): Radiation field tensors with
       !!                              frequency dependence
       subroutine emergent_RT(Atom,LTElines,Atmo,Cont,Frec,Red, &

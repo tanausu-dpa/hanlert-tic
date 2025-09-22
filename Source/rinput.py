@@ -6,7 +6,7 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an (IAC)
 # Hao Li (IAC/NSSCC)
 #
-# 18/08/2025: V4.0.11 - Renamed ITER_NB to TWO_STEP_B (TdPA)
+# 29/08/2025: V4.0.13 - Added NODES_X_EXTRAPOLATION (TdPA)
 #
 #####################
 
@@ -5760,6 +5760,50 @@ def rInput():
         f.write('0\n')
         f.write('0\n')
 
+    # NODES_X_EXTRAPOLATION
+    # For each variable
+    base = 4
+    for var in varis:
+      check = 0
+      # Skip 'F'
+      if var == 'F':
+        f.write('0\n')
+        check = 1
+      else:
+        if 'NODES_'+var+'_EXTRAPOLATION' in Dictionary:
+          vals = Dictionary['NODES_'+var+'_EXTRAPOLATION']
+          if len(vals) == 1: vals = vals + [vals[0]]
+          if 'no' in vals[0].lower():
+              num0 = 0
+          elif 'ze' in vals[0].lower():
+              num0 = 1
+          elif 'co' in vals[0].lower():
+              num0 = 2
+          elif 'li' in vals[0].lower():
+              num0 = 3
+          else:
+              msg = ' # Error: Extrapolation mode for top ' + \
+                    'vals[0] not recognized'
+              verbose(msg, ofolder, verbosity)
+              abort(f, filename)
+          if 'no' in vals[1].lower():
+              num1 = 0
+          elif 'ze' in vals[1].lower():
+              num1 = 1
+          elif 'co' in vals[1].lower():
+              num1 = 2
+          elif 'li' in vals[1].lower():
+              num1 = 3
+          else:
+              msg = ' # Error: Extrapolation mode for bottom ' + \
+                    'vals[0] not recognized'
+              verbose(msg, ofolder, verbosity)
+              abort(f, filename)
+          f.write('{0}\n'.format(base*num0 + num1))
+          check = 1
+      if check == 0:
+        f.write('0\n')
+
     # BTYPE
     check = 0
     if 'BTYPE' in Dictionary:
@@ -6844,6 +6888,32 @@ def rInput():
         check = 1
     if check == 0:
       f.write('Y\n')
+
+    # TRIAL_INITSOL
+    check = 0
+    if 'TRIAL_INITSOL' in Dictionary:
+      val = Dictionary['TRIAL_INITSOL'][0]
+      if val in 'YES' or val in 'SI':
+        f.write('Y\n')
+        check = 1
+      elif val in 'NO':
+        f.write('N\n')
+        check = 1
+    if check == 0:
+      f.write('Y\n')
+
+    # TRIAL_INITSOL_TP
+    check = 0
+    if 'TRIAL_INITSOL_TP' in Dictionary:
+      val = Dictionary['TRIAL_INITSOL_TP'][0]
+      if val in 'YES' or val in 'SI':
+        f.write('Y\n')
+        check = 1
+      elif val in 'NO':
+        f.write('N\n')
+        check = 1
+    if check == 0:
+      f.write('N\n')
 
     # INV_NEGL_SIGMA
     check = 0

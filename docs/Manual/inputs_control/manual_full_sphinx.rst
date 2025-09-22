@@ -3292,6 +3292,162 @@ NODES_J22I_LOCATION
 
   * Description: Positions of the nodes, in the decimal logarithm of the optical depth, for the imaginary part of the J22 radiation field tensor. Mutually exclusive with NODES_J22I_NUM.
 
+NODES_B_EXTRAPOLATION
+---------------------
+
+  * OPTIONAL
+
+  * Modes: INV
+
+  * Formats:
+    
+    - string*2: none, zero, constant, linear; default: none none
+
+  * Description: Type of extrapolation for the magnetic field strength toward the top and the bottom, respectively, of the model atmosphere when the extrema nodes are not at the extremes of the model. The first string defined the top and the second the bottom. If only one string is specified, both are consider equal. "none" means no extrapolation (kept the same than in the initial model), "zero" means to always set the values to zero, "constant" means to extent the values of the extrema nodes, and linear means linear interpolation.
+
+NODES_BT_EXTRAPOLATION
+----------------------
+
+  * OPTIONAL
+
+  * Modes: INV
+
+  * Formats:
+    
+    - string*2: none, zero, constant, linear; default: none none
+
+  * Description: Type of extrapolation for the magnetic field inclination or transversal component toward the top and the bottom, respectively, of the model atmosphere when the extrema nodes are not at the extremes of the model. The first string defined the top and the second the bottom. If only one string is specified, both are consider equal. "none" means no extrapolation (kept the same than in the initial model), "zero" means to always set the values to zero, "constant" means to extent the values of the extrema nodes, and linear means linear interpolation.
+
+NODES_BP_EXTRAPOLATION
+----------------------
+
+  * OPTIONAL
+
+  * Modes: INV
+
+  * Formats:
+    
+    - string*2: none, zero, constant, linear; default: none none
+
+  * Description: Type of extrapolation for the magnetic field azimuth toward the top and the bottom, respectively, of the model atmosphere when the extrema nodes are not at the extremes of the model. The first string defined the top and the second the bottom. If only one string is specified, both are consider equal. "none" means no extrapolation (kept the same than in the initial model), "zero" means to always set the values to zero, "constant" means to extent the values of the extrema nodes, and linear means linear interpolation.
+
+NODES_T_EXTRAPOLATION
+---------------------
+
+  * OPTIONAL
+
+  * Modes: INV
+
+  * Formats:
+    
+    - string*2: none, zero, constant, linear; default: none none
+
+  * Description: Type of extrapolation for the temperature toward the top and the bottom, respectively, of the model atmosphere when the extrema nodes are not at the extremes of the model. The first string defined the top and the second the bottom. If only one string is specified, both are consider equal. "none" means no extrapolation (kept the same than in the initial model), "zero" means to always set the values to zero, "constant" means to extent the values of the extrema nodes, and linear means linear interpolation.
+
+NODES_VX_EXTRAPOLATION
+----------------------
+
+  * OPTIONAL
+
+  * Modes: INV
+
+  * Formats:
+    
+    - string*2: none, zero, constant, linear; default: none none
+
+  * Description: Type of extrapolation for the velocity x component or transversal component toward the top and the bottom, respectively, of the model atmosphere when the extrema nodes are not at the extremes of the model. The first string defined the top and the second the bottom. If only one string is specified, both are consider equal. "none" means no extrapolation (kept the same than in the initial model), "zero" means to always set the values to zero, "constant" means to extent the values of the extrema nodes, and linear means linear interpolation.
+
+NODES_VY_EXTRAPOLATION
+----------------------
+
+  * OPTIONAL
+
+  * Modes: INV
+
+  * Formats:
+    
+    - string*2: none, zero, constant, linear; default: none none
+
+  * Description: Type of extrapolation for the velocity y component or azimuth toward the top and the bottom, respectively, of the model atmosphere when the extrema nodes are not at the extremes of the model. The first string defined the top and the second the bottom. If only one string is specified, both are consider equal. "none" means no extrapolation (kept the same than in the initial model), "zero" means to always set the values to zero, "constant" means to extent the values of the extrema nodes, and linear means linear interpolation.
+
+NODES_VZ_EXTRAPOLATION
+----------------------
+
+  * OPTIONAL
+
+  * Modes: INV
+
+  * Formats:
+    
+    - string*2: none, zero, constant, linear; default: none none
+
+  * Description: Type of extrapolation for the velocity vertical or longitudinal component toward the top and the bottom, respectively, of the model atmosphere when the extrema nodes are not at the extremes of the model. The first string defined the top and the second the bottom. If only one string is specified, both are consider equal. "none" means no extrapolation (kept the same than in the initial model), "zero" means to always set the values to zero, "constant" means to extent the values of the extrema nodes, and linear means linear interpolation.
+
+NODES_PG_EXTRAPOLATION
+----------------------
+
+  * OPTIONAL
+
+  * Modes: INV
+
+  * Formats:
+    
+    - string*2: none, zero, constant, linear; default: none none
+
+  * Description: Type of extrapolation for the gas pressure toward the top and the bottom, respectively, of the model atmosphere when the extrema nodes are not at the extremes of the model. The first string defined the top and the second the bottom. If only one string is specified, both are consider equal. "none" means no extrapolation (kept the same than in the initial model), "zero" means to always set the values to zero, "constant" means to extent the values of the extrema nodes, and linear means linear interpolation.
+
+NODES_J21R_EXTRAPOLATION
+------------------------
+
+  * OPTIONAL, ADVANCED
+
+  * Modes: INV
+
+  * Formats:
+    
+    - string*2: none, zero, constant, linear; default: none none
+
+  * Description: Type of extrapolation for the real part of the J21 radiation field tensor toward the top and the bottom, respectively, of the model atmosphere when the extrema nodes are not at the extremes of the model. The first string defined the top and the second the bottom. If only one string is specified, both are consider equal. "none" means no extrapolation (kept the same than in the initial model), "zero" means to always set the values to zero, "constant" means to extent the values of the extrema nodes, and linear means linear interpolation.
+
+NODES_J21I_EXTRAPOLATION
+------------------------
+
+  * OPTIONAL, ADVANCED
+
+  * Modes: INV
+
+  * Formats:
+    
+    - string*2: none, zero, constant, linear; default: none none
+
+  * Description: Type of extrapolation for the imaginary part of the J21 randiation field tensor toward the top and the bottom, respectively, of the model atmosphere when the extrema nodes are not at the extremes of the model. The first string defined the top and the second the bottom. If only one string is specified, both are consider equal. "none" means no extrapolation (kept the same than in the initial model), "zero" means to always set the values to zero, "constant" means to extent the values of the extrema nodes, and linear means linear interpolation.
+
+NODES_J22R_EXTRAPOLATION
+------------------------
+
+  * OPTIONAL, ADVANCED
+
+  * Modes: INV
+
+  * Formats:
+    
+    - string*2: none, zero, constant, linear; default: none none
+
+  * Description: Type of extrapolation for the real part of the J22 radiation field tensor toward the top and the bottom, respectively, of the model atmosphere when the extrema nodes are not at the extremes of the model. The first string defined the top and the second the bottom. If only one string is specified, both are consider equal. "none" means no extrapolation (kept the same than in the initial model), "zero" means to always set the values to zero, "constant" means to extent the values of the extrema nodes, and linear means linear interpolation.
+
+NODES_J22I_EXTRAPOLATION
+------------------------
+
+  * OPTIONAL, ADVANCED
+
+  * Modes: INV
+
+  * Formats:
+    
+    - string*2: none, zero, constant, linear; default: none none
+
+  * Description: Type of extrapolation for the imaginary part of the J22 randiation field tensor toward the top and the bottom, respectively, of the model atmosphere when the extrema nodes are not at the extremes of the model. The first string defined the top and the second the bottom. If only one string is specified, both are consider equal. "none" means no extrapolation (kept the same than in the initial model), "zero" means to always set the values to zero, "constant" means to extent the values of the extrema nodes, and linear means linear interpolation.
+
 BTYPE
 -----
 
@@ -4956,6 +5112,32 @@ RF_INITSOL
     - string: Yes, No; default: Yes
 
   * Description: Initialize the calculation of the response function with the solution of the reference profile.
+
+TRIAL_INITSOL
+-------------
+
+  * OPTIONAL, ADVANCED
+
+  * Modes: INV
+
+  * Formats:
+    
+    - string: Yes, No; default: Yes
+
+  * Description: Allow trials to start from the last solution if the thermal parameters are fixed.
+
+TRIAL_INITSOL_TP
+----------------
+
+  * OPTIONAL, ADVANCED
+
+  * Modes: INV
+
+  * Formats:
+    
+    - string: Yes, No; default: No
+
+  * Description: Allow trials to start from the last solution if temperature and gas pressure are fixed. Requires TRIAL_INITSOL = Yes to activate.
 
 INV_NEGL_SIGMA
 --------------

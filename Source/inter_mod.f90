@@ -10,14 +10,15 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     11/12/2024 V4.0.0
+!     29/08/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     11/12/2024:    V4.0.0 - Revised headers (TdPA)
+!     29/08/2025:    V4.0.1 - The way of extrapolating in Intpol can
+!                             be different for top and bottom (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -937,9 +938,9 @@
 
       logical:: Increased
 
-      integer:: i, mini, maxi
+      integer:: i,mini,maxi,extrap_top,extrap_bot
 
-      double precision:: a0, b0, a1, b1, xmin, xmax, ymin, ymax
+      double precision:: aa,bb,xmin,xmax,ymin,ymax
 
 
       ! Choose the interpolation type
@@ -997,11 +998,15 @@
       if (n.eq.1) return
 
       ! If not extrapolating, return already
-      if (Indx_Extrapol.eq.3) return
+      if (Indx_Extrapol.eq.0) return
 
       !
       ! Extrapolation
       !
+
+      ! Get type for each boundary
+      extrap_top = indx_extrapol/4
+      extrap_bot = mod(indx_extrapol,4)
 
       ! Initialize
       mini = 0d0
@@ -1022,46 +1027,119 @@
         ymax = y(1)
       end if
 
+      !
+      ! Top boundary
+      !
+
+      ! If extrapolation
+      if (extrap_top.gt.0.and.extrap_top.lt.4) then
+
+        ! Type of extrapolation
+        select case(extrap_top)
+
+          ! Zero out
+          case(1)
+
+            ! Check out of bounds
+            do i=1,nn
+              if (xx(i).lt.xmin) yy(i) = 0d0
+            end do
+
+          ! Extend extremes as constant
+          case(2)
+
+            ! Check out bounds
+            do i=1,nn
+              if (xx(i).lt.xmin) yy(i) = ymin
+            end do
+
+          ! Linear extrapolation
+          case(3)
+
+            ! If increasing
+            if (increased) then
+
+              ! Look for the minimum point in range
+              do i=1,nn
+
+                ! If found a point in range
+                if (xx(i).ge.x(1)) then
+
+                  ! Select and exit
+                  mini = i
+                  exit
+
+                end if
+
+              end do ! All points
+
+              ! Coefficients for linear interpolation between extremes
+              aa = (yy(mini+1) - yy(mini))/(xx(mini+1) - xx(mini))
+              bb = yy(mini) - aa*xx(mini)
+
+            ! If decreasing
+            else
+
+              ! Look for the minimum point in range
+              do i=1,nn
+
+                ! If found a point in range
+                if (xx(i).le.x(1)) then
+
+                  ! Select and exit
+                  mini = i
+                  exit
+
+                end if
+
+              end do ! All points
+
+              ! Get linear interpolation coefficients at both extremes
+              aa = (yy(mini) - yy(mini-1))/(xx(mini) - xx(mini-1))
+              bb = yy(mini) - aa*xx(mini)
+
+            end if ! Increasing or decreasing
+
+            ! Extrapolate
+            do i=1,nn
+              if (xx(i).lt.xmin) yy(i) = aa*xx(i) + bb
+            end do
+
+        end select ! Type of extrapolation
+
+      end if ! Extrapolation top
+
+      !
+      ! Bottom boundary
+      !
+
+      ! If extrapolation
+      if (extrap_bot.gt.0.and.extrap_bot.lt.4) then
+
       ! Type of extrapolation
-      select case(indx_extrapol)
+      select case(extrap_bot)
 
         ! Zero out
-        case(0)
+        case(1)
 
           ! Check out of bounds
           do i=1,nn
-            if (xx(i).lt.xmin) yy(i) = 0d0
             if (xx(i).gt.xmax) yy(i) = 0d0
           end do
 
         ! Extend extremes as constant
-        case(1)
+        case(2)
 
           ! Check out bounds
           do i=1,nn
-            if (xx(i).lt.xmin) yy(i) = ymin
             if (xx(i).gt.xmax) yy(i) = ymax
           end do
 
         ! Linear extrapolation
-        case(2)
+        case(3)
 
           ! If increasing
           if (increased) then
-
-            ! Look for the minimum point in range
-            do i=1,nn
-
-              ! If found a point in range
-              if (xx(i).ge.x(1)) then
-
-                ! Select and exit
-                mini = i
-                exit
-
-              end if
-
-            end do ! All points
 
             ! Look for the maximum point in range
             do i=nn,1,-1
@@ -1078,27 +1156,11 @@
             end do ! All points
 
             ! Coefficients for linear interpolation between extremes
-            a0 = (yy(mini+1) - yy(mini))/(xx(mini+1) - xx(mini))
-            b0 = yy(mini) - a0*xx(mini)
-            a1 = (yy(maxi) - yy(maxi-1))/(xx(maxi) - xx(maxi-1))
-            b1 = yy(maxi) - a1*xx(maxi)
+            aa = (yy(maxi) - yy(maxi-1))/(xx(maxi) - xx(maxi-1))
+            bb = yy(maxi) - aa*xx(maxi)
 
           ! If decreasing
           else
-
-            ! Look for the minimum point in range
-            do i=1,nn
-
-              ! If found a point in range
-              if (xx(i).le.x(1)) then
-
-                ! Select and exit
-                mini = i
-                exit
-
-              end if
-
-            end do ! All points
 
             ! Look for the maximum point in range
             do i=nn,1,-1
@@ -1115,31 +1177,19 @@
             end do ! All points
 
             ! Get linear interpolation coefficients at both extremes
-            a0 = (yy(mini) - yy(mini-1))/(xx(mini) - xx(mini-1))
-            b0 = yy(mini) - a0*xx(mini)
-            a1 = (yy(maxi+1) - yy(maxi))/(xx(maxi+1) - xx(maxi))
-            b1 = yy(maxi) - a1*xx(maxi)
+            aa = (yy(maxi+1) - yy(maxi))/(xx(maxi+1) - xx(maxi))
+            bb = yy(maxi) - aa*xx(maxi)
 
           end if ! Increasing or decreasing
 
           ! Extrapolate
           do i=1,nn
-            if (xx(i).lt.xmin) yy(i) = a0*xx(i) + b0
-            if (xx(i).gt.xmax) yy(i) = a1*xx(i) + b1
+            if (xx(i).gt.xmax) yy(i) = aa*xx(i) + bb
           end do
 
-        ! No extrapolation
-        case(3)
+        end select ! Type of extrapolation
 
-          return
-
-        ! Error
-        case default
-
-          ! Return zero
-          yy = 0d0
-
-      end select ! Type of extrapolation
+      end if ! Extrapolating bottom
 
       return
 

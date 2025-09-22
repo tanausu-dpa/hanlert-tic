@@ -10,16 +10,17 @@
 !  Start:
 !     22/03/2023
 !  Last version:
-!     14/08/2025 V4.0.4
+!     28/08/2025 V4.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     14/08/2025:    V4.0.4 - Improved error handling to correctly
-!                             free memory in LMFIT() and
-!                             Trial_Synthesis() (TdPA)
+!     28/08/2025:    V4.0.5 - Determine if the thermal parameters
+!                             or T and Pg are fixed (TdPA)
+!                           - Changed an argument in HanleRTTIC()
+!                             calls to adapt to its change (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -166,13 +167,13 @@
 
       type(Solution_F_class):: SolF
 
-      logical:: Flag_Convg, Flag_Jac
+      logical:: Flag_Convg,Flag_Jac
 
-      integer:: indx_iter, indx_rej, i, Num_Broyden, max_iters
+      integer:: indx_iter,indx_rej,i,Num_Broyden,max_iters
 
-      double precision:: Chisq_old, Ratio
+      double precision:: Chisq_old,Ratio
       double precision, dimension(:), allocatable:: Lam_track
-      double precision, dimension(:), allocatable:: Solution, Errors
+      double precision, dimension(:), allocatable:: Solution,Errors
       double precision, dimension(:,:), allocatable:: Stokes_Min
       double precision, dimension(:,:), allocatable:: Stokes_best
 
@@ -243,6 +244,45 @@
 
       end if ! Type of inversion
 
+      !
+      ! Determine if trials change thermodynamics
+      !
+
+
+      ! If just magnetic
+      if (Inf_Nodes%Nodes_Type.eq.1) then
+
+        ! Fixed thermodynamics
+        Sol%fix_th = .True.
+        Sol%fix_tp = .True.
+
+      ! Not just magnetic
+      else
+
+        ! Initialize as fixed thermodynamics
+        Sol%fix_th = .True.
+
+        ! Check all thermal variables
+        do i=Inf_Nodes%index_T,Inf_Nodes%index_J21R-1
+
+          ! Check if not fixed
+          if (Inf_Nodes%Nodes_Flags(i)) then
+
+            ! Flag not fixed and leave
+            Sol%fix_th = .False.
+            exit
+
+          end if ! Non-fixed
+
+        end do ! Thermal variables
+
+        ! Determine if trials change temperature or gas pressure
+        Sol%fix_tp = &
+                (.not.Inf_Nodes%Nodes_Flags(Inf_Nodes%index_T)).and. &
+                (.not.Inf_Nodes%Nodes_Flags(Inf_Nodes%index_Pg))
+
+      end if ! Type of inversion
+
       ! Initialize ratio for the first iteration
       Ratio = 0.1d0
 
@@ -295,7 +335,7 @@
 
       ! Get first synthesis
       call HanleRTTIC(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec,fudge, &
-                      kurucz,MPID,Atmo,Bfield,Input,Sol,SolF,.False.)
+                      kurucz,MPID,Atmo,Bfield,Input,Sol,SolF,0)
 
       ! Set the first solution as current best
       call set_best(SolF,.True.,.False.)
@@ -1821,7 +1861,7 @@
         ! Get Stokes profiles
         call HanleRTTIC(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec,fudge, &
                         kurucz,MPID,Tmp_Atmo,Bfield,Input, &
-                        Sol,SolF,.False.)
+                        Sol,SolF,1)
 
         ! Wipe Tmp_Atmo
         call free_Atmo(Tmp_Atmo,.True.)
@@ -1839,7 +1879,7 @@
         ! Get Stokes profiles
         call HanleRTTIC(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec,fudge, &
                         kurucz,MPID,Atmo,Tmp_Bfield,Input, &
-                        Sol,SolF,.False.)
+                        Sol,SolF,1)
 
       ! If inverting all
       else if (Inf_Nodes%Nodes_Type.eq.2) then
@@ -1855,7 +1895,7 @@
         ! Get Stokes profiles
         call HanleRTTIC(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec,fudge, &
                         kurucz,MPID,Tmp_Atmo,Tmp_Bfield, &
-                        Input,Sol,SolF,.False.)
+                        Input,Sol,SolF,1)
 
         ! Wipe Tmp_Atmo
         call free_Atmo(Tmp_Atmo,.True.)

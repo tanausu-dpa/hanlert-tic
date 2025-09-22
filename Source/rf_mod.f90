@@ -10,16 +10,15 @@
 !  Start:
 !     27/02/2023
 !  Last version:
-!     15/05/2025 V4.0.2
+!     29/08/2025 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.2 - Generalized declarations of Atom to
-!                             allow for empty arrays for any of
-!                             them (TdPA)
+!     29/08/2025:    V4.0.4 - The extrapolation parameter is now an
+!                             input and it is not hard-coded (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -324,7 +323,7 @@
         ! Call the synthesis
         call HanleRTTIC(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec, &
                         fudge,kurucz,MPID,Tmp_Atmo,Bfield,Input, &
-                        Sol,SolF,.True.)
+                        Sol,SolF,2)
         if (laborted) return
 
         ! Save Stokes in intensity "up"
@@ -372,7 +371,7 @@
         ! Call the synthesis
         call HanleRTTIC(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec, &
                         fudge,kurucz,MPID,Tmp_Atmo,Bfield,Input, &
-                        Sol,SolF,.True.)
+                        Sol,SolF,2)
         if (laborted) return
 
         ! Save Stokes in intensity "up"
@@ -402,7 +401,7 @@
         ! Call the synthesis
         call HanleRTTIC(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec, &
                         fudge,kurucz,MPID,Tmp_Atmo,Bfield,Input, &
-                        Sol,SolF,.True.)
+                        Sol,SolF,2)
         if (laborted) return
 
         ! Save Stokes in intensity "down"
@@ -638,7 +637,7 @@
         ! Call the synthesis
         call HanleRTTIC(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec,fudge, &
                         kurucz,MPID,Atmo,Tmp_Bfield,Input, &
-                        Sol,SolF,.True.)
+                        Sol,SolF,2)
         if (laborted) return
 
         ! Save Stokes "up"
@@ -685,7 +684,7 @@
         ! Call the synthesis
         call HanleRTTIC(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec,fudge, &
                         kurucz,MPID,Atmo,Tmp_Bfield,Input, &
-                        Sol,SolF,.True.)
+                        Sol,SolF,2)
         if (laborted) return
 
         ! Save Stokes "up"
@@ -715,7 +714,7 @@
         ! Call the synthesis
         call HanleRTTIC(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec,fudge, &
                         kurucz,MPID,Atmo,Tmp_Bfield,Input, &
-                        Sol,SolF,.True.)
+                        Sol,SolF,2)
         if (laborted) return
 
 
@@ -984,7 +983,7 @@
         ! Call the synthesis
         call HanleRTTIC(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec, &
                         fudge,kurucz,MPID,Tmp_Atmo,Tmp_Bfield, &
-                        Input,Sol,SolF,.True.)
+                        Input,Sol,SolF,2)
         if (laborted) return
 
         ! Save Stokes "up"
@@ -1032,7 +1031,7 @@
         ! Call the synthesis
         call HanleRTTIC(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec, &
                         fudge,kurucz,MPID,Tmp_Atmo,Tmp_Bfield, &
-                        Input,Sol,SolF,.True.)
+                        Input,Sol,SolF,2)
         if (laborted) return
 
         ! Save Stokes "up"
@@ -1063,7 +1062,7 @@
         ! Call the synthesis
         call HanleRTTIC(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec, &
                         fudge,kurucz,MPID,Tmp_Atmo,Tmp_Bfield, &
-                        Input,Sol,SolF,.True.)
+                        Input,Sol,SolF,2)
         if (laborted) return
 
         ! Save Stokes "down"
@@ -1783,7 +1782,8 @@
           ! Interpolate
           call Intpol(Inf_Nodes%Node(indx)%H, Var, &
                       Inf_Nodes%Num_Nodes(indx), z, o_var, nn, &
-                      Inf_Nodes%Interpolation, 3)
+                      Inf_Nodes%Interpolation, &
+                      Inf_Nodes%extrapolation(indx))
 
       ! If by correction
       else
@@ -1791,7 +1791,8 @@
           ! Interpolate
           call Intpol(Inf_Nodes%Node(indx)%H, Var, &
                       Inf_Nodes%Num_Nodes(indx), z, i_var, nn, &
-                      Inf_Nodes%Interpolation, 3)
+                      Inf_Nodes%Interpolation, &
+                      Inf_Nodes%extrapolation(indx))
 
           ! Get new value
           o_var = o_var + i_var

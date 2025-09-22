@@ -9,14 +9,15 @@
 !  Start:
 !     06/29/2022 V3.0.0
 !  Last version:
-!     13/12/2024 V4.0.0
+!     22/08/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     13/12/2024:    V4.0.0 - Revised headers (TdPA)
+!     22/08/2025:    V4.0.1 - Added the option to sanity check the
+!                             output for non-negativity (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -56,10 +57,12 @@
       !!    ntry(integer): Current step in the acceleration\n
       !!    doit(logical): Indicates if acceleration is ready to be
       !!                   applied\n
-      subroutine NG(M,L,N,YY,ntry,doit)
+      !!  sanity(logical): If need to ensure positivity
+      subroutine NG(M,L,N,YY,ntry,doit,sanity)
 
       ! I/O
 
+      logical, intent(in):: sanity
       logical, intent(out):: doit
       integer, intent(in):: M,L,N
       integer, intent(inout):: ntry
@@ -183,6 +186,29 @@
         end do
 
       end if ! Radiation
+
+      !
+      ! Sanity check
+      !
+      if (sanity) then
+
+        ! If negative
+        if (minval(YY(:,ntry)).lt.0d0) then
+
+          ! Move data back
+          do i=1,ntry-2
+            YY(:,i) = YY(:,i+1)
+          end do
+          YY(:,ntry-1) = Y
+
+          ! Revert count
+          ntry = ntry - 1
+
+          ! And signal not doing
+          doit = .False.
+
+        end if ! Negative
+      end if ! sanity checking for positivity
 
       return
 

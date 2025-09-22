@@ -10,16 +10,14 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     02/07/2025 V4.0.7
+!     29/08/2025 V4.0.10
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     02/07/2025:    V4.0.7 - Read Input%guess_polarity_l, Input%gp_l,
-!                             Input%gp_r, Input%gp_g, and Input%gp_w
-!                             variables (TdPA)
+!     29/08/2025:   V4.0.10 - Read Input%extrapolation (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -490,8 +488,10 @@
         read(100,*,err=1100) Input%nasym_fil
 
         ! If files, allocate space
-        if (Input%nasym_fil.gt.0) &
+        if (Input%nasym_fil.gt.0) then
           allocate(Input%asym_fil(Input%nasym_fil))
+          MRAMc = MRAMc + 1d-6*sizeof(Input%asym_fil(ia))
+        end if
 
         ! Initialize indexes for numerical and files
         i2 = 0
@@ -499,9 +499,6 @@
 
         ! For each entry
         do i1=1,Input%nasym
-
-          ! Memory count
-          MRAMc = MRAMc + 1d-6*sizeof(Input%asym_fil(ia))
 
           ! Read character
           read(100,'(A)',err=1100) cdump
@@ -1372,6 +1369,7 @@
         allocate(Input%Node_type(Input%nvar))
         allocate(Input%Node(Input%nvar))
         allocate(Input%Num_nodes(Input%nvar))
+        allocate(Input%extrapolation(Input%nvar))
         allocate(Input%Nodes_flags(Input%nvar))
         allocate(Input%Nodes_Regul(Input%nvar))
         allocate(Input%Indx_regul(Input%nvar))
@@ -1382,6 +1380,7 @@
         MRAMc = MRAMc + 1d-6*(sizeof(Input%Node_type) + &
                               sizeof(Input%Node) + &
                               sizeof(Input%Num_nodes) + &
+                              sizeof(Input%extrapolation) + &
                               sizeof(Input%Nodes_flags) + &
                               sizeof(Input%Nodes_Regul) + &
                               sizeof(Input%Indx_regul) + &
@@ -1517,6 +1516,9 @@
           end if ! Explicit locations
 
         end do ! For each variable
+
+        ! Read extrapolation for each variable
+        read(100,*,err=1100) Input%extrapolation
 
         ! Type of magnetic field vector
         read(100,*,err=1100) Input%btype
@@ -1837,6 +1839,16 @@
         ! response functions
         read(100,'(A)',err=1100) cdump
         Input%Popuinit = cdump.eq.'Y'
+
+        ! Initialize from previous solution when computing
+        ! trials if thermo is fixed
+        read(100,'(A)',err=1100) cdump
+        Input%trialinit = cdump.eq.'Y'
+
+        ! Initialize from previous solution when computing
+        ! trials if T and Pg are fixed
+        read(100,'(A)',err=1100) cdump
+        Input%trialtpinit = cdump.eq.'Y'
 
         ! Neglect sigma
         read(100,'(A)',err=1100) cdump

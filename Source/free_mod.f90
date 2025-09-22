@@ -9,15 +9,14 @@
 !  Start:
 !     28/06/2022
 !  Last version:
-!     26/06/2025 V4.0.3
+!     22/08/2025 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     26/06/2025:    V4.0.3 - Updated due to changes in the Red_class
-!                             and Redb_class structures (TdPA)
+!     22/08/2025:    V4.0.4 - Added free_mag_Atom subroutine (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -36,6 +35,9 @@
 !
 !  free_local_Atom
 !    Deallocate quantities in Atom_class generated in a hanle call
+!
+!  free_mag_Atom
+!    Deallocate quantities in Atom_class related to magnetic fields
 !
 !  free_los_geom
 !    Deallocate LOS quantities in Geometry_class generated in a hanle
@@ -228,6 +230,92 @@
       return
 
       end subroutine free_local_Atom
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Deallocate quantities in Atom_class related to magnetic
+      !! fields\n
+      !!  Atom(Atom_class(:)): Structures with atomic data
+      subroutine free_mag_Atom(Atom)
+
+      ! I/O
+
+      type(Atom_class), dimension(:), &
+                        allocatable, intent(inout):: Atom
+
+      ! Local
+
+      integer:: ii,jj,kk
+
+
+      !
+      ! Atom
+      !
+
+      ! For each active atom
+      do ii=1,nA
+
+        ! Eigenvalues
+        if (allocated(Atom(ii)%eval)) then
+          MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%eval)
+          deallocate(Atom(ii)%eval)
+        end if
+
+        ! Eigenvectors
+        if (allocated(Atom(ii)%evec)) then
+          MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%evec)
+          deallocate(Atom(ii)%evec)
+        end if
+
+        ! Dipole strength energy eigenbasis
+        if (allocated(Atom(ii)%rdipev)) then
+
+          ! For each element
+          do jj=lbound(Atom(ii)%rdipev,1),ubound(Atom(ii)%rdipev,1)
+
+            ! Energy representation dipole strength
+            if (allocated(Atom(ii)%rdipev(jj)%rdipev)) then
+
+              ! For each element
+              do kk=lbound(Atom(ii)%rdipev(jj)%rdipev,1), &
+                    ubound(Atom(ii)%rdipev(jj)%rdipev,1)
+
+                ! Dipole strength
+                if (allocated(Atom(ii)%rdipev(jj)% &
+                                       rdipev(kk)%rdip)) then
+                  MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%rdipev(jj)% &
+                                                  rdipev(kk)%rdip)
+                  deallocate(Atom(ii)%rdipev(jj)%rdipev(kk)%rdip)
+                end if
+
+                ! Free element space
+                MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%rdipev(jj)% &
+                                                     rdipev(kk))
+
+              end do ! Elements
+
+              ! Array
+              deallocate(Atom(ii)%rdipev(jj)%rdipev)
+
+            end if ! Dipole strength
+
+            ! Free element space
+            MRAMc = MRAMc - 1d-6*sizeof(Atom(ii)%rdipev(jj))
+
+          end do ! Elements
+
+          ! Array
+          deallocate(Atom(ii)%rdipev)
+
+        end if
+
+      end do ! Atoms
+
+      return
+
+      end subroutine free_mag_Atom
 
 !#####################################################################
 !#####################################################################

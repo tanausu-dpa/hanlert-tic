@@ -10,18 +10,16 @@
 !  Start:
 !     23/02/2023
 !  Last version:
-!     02/07/2025 V4.0.3
+!     29/08/2025 V4.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     02/07/2025:    V4.0.3 - Added a new type of schedule to the
-!                             verbosity (TdPA)
-!                           - Added guess_polarity, to estimate the
-!                             initial field with WFA based on some
-!                             new inputs (TdPA)
+!     29/08/2025:    V4.0.5 - Made changes to accomodate the new
+!                             input to determine the extrapolation
+!                             mode (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -164,7 +162,7 @@
       end do ! Variables
 
       ! Copy flags, regularization data, scaling, perturbation size,
-      ! and minimum relative perturbation
+      ! minimum relative perturbation, extrapolation
       Inf_Nodes%Nodes_flags = Input%Nodes_flags
       Inf_Nodes%Nodes_Regul = Input%Nodes_Regul
       Inf_Nodes%Indx_regul = Input%Indx_regul
@@ -172,6 +170,7 @@
       Inf_Nodes%Scal = Input%Scal
       Inf_Nodes%Perturb = Input%Perturb
       Inf_Nodes%min_rel_Pert = Input%min_rel_Pert
+      Inf_Nodes%extrapolation = Input%extrapolation
 
       ! Free the already copied information from the input
       deallocate(Input%Node_type)
@@ -184,6 +183,7 @@
       deallocate(Input%Scal)
       deallocate(Input%Perturb)
       deallocate(Input%min_rel_Pert)
+      deallocate(Input%extrapolation)
 
       ! Copy type of interpolation, type of magnetic field vector,
       ! type of velocity vector, if correcting node position, the
@@ -1187,6 +1187,74 @@
 
           end if ! Regularization
 
+          ! If extrapolating this variable
+          if (Inf_Nodes%extrapolation(ii).gt.0) then
+
+            if (Inf_Nodes%extrapolation(ii)/4.gt.0) then
+
+              select case (Inf_Nodes%extrapolation(ii)/4)
+
+                ! Zero
+                case(1)
+
+                  ! Verbose
+                  write(umsg,'(A)') &
+                      '     + Setting to zero toward the top'
+
+                ! Constant
+                case(2)
+
+                  ! Verbose
+                  write(umsg,'(A)') &
+                      '     + Extending value toward the top'
+
+                ! Linear
+                case(3)
+
+                  ! Verbose
+                  write(umsg,'(A)') &
+                      '     + Linear extrapolation toward the top'
+
+              end select ! Top case
+
+              ! Write message
+              call verboseI(1)
+
+            end if ! Extrapolating top
+
+            if (mod(Inf_Nodes%extrapolation(ii),4).gt.0) then
+
+              select case (mod(Inf_Nodes%extrapolation(ii),4))
+
+                ! Zero
+                case(1)
+
+                  ! Verbose
+                  write(umsg,'(A)') &
+                      '     + Setting to zero toward the bottom'
+
+                ! Constant
+                case(2)
+
+                  ! Verbose
+                  write(umsg,'(A)') &
+                      '     + Extending value toward the bottom'
+
+                ! Linear
+                case(3)
+
+                  ! Verbose
+                  write(umsg,'(A)') &
+                      '     + Linear extrapolation toward the bottom'
+
+              end select ! Top case
+
+              ! Write message
+              call verboseI(1)
+
+            end if ! Extrapolating top
+          end if ! Extrapolating variable
+
         end do ! Variables
 
         ! Total number of variable nodes
@@ -1372,6 +1440,19 @@
           write(umsg,'(A)') '   o Do not initialize RF with solution'
         end if
         call verboseI(1)
+
+        ! If initialize from last solution when calculating trials
+        if (Input%trialinit) then
+          if (Input%trialtpinit) then
+            write(umsg,'(A)') '   o Initialize Trials with '// &
+                                'solution if T and Pg are fixed'
+          else
+            write(umsg,'(A)') '   o Initialize Trials with '// &
+                                'solution if thermal '// &
+                                'parameters are fixed'
+          end if
+          call verboseI(1)
+        end if
 
         ! If fractional polarization profiles
         if (Input%Fractional) then
@@ -2303,7 +2384,7 @@
 
       end if ! Correct position
 
-      ! If indexing if allocated
+      ! If indexing is allocated
       if (allocated(Inf_Nodes%Inf_Inv)) then
 
         ! Free indexing
@@ -2520,40 +2601,40 @@
 
       ! Temperature
       call Intpol(LTAUI, Atmo_in%T, Atmo_in%nZ, &
-                  Atmo%z, Atmo%T, Atmo%nZ, 2, 1)
+                  Atmo%z, Atmo%T, Atmo%nZ, 2, 10)
 
       ! Pgas
       call Intpol(LTAUI, Atmo_in%Pg, Atmo_in%nZ, &
-                  Atmo%z, Atmo%Pg, Atmo%nZ, 2, 1)
+                  Atmo%z, Atmo%Pg, Atmo%nZ, 2, 10)
 
       ! Micro
       call Intpol(LTAUI, Atmo_in%vmi, Atmo_in%nZ, &
-                  Atmo%z, Atmo%vmi, Atmo%nZ, 2, 1)
+                  Atmo%z, Atmo%vmi, Atmo%nZ, 2, 10)
 
       ! vx
       call Intpol(LTAUI, Atmo_in%vx, Atmo_in%nZ, &
-                  Atmo%z, Atmo%vx, Atmo%nZ, 2, 1)
+                  Atmo%z, Atmo%vx, Atmo%nZ, 2, 10)
 
       ! vy
       call Intpol(LTAUI, Atmo_in%vy, Atmo_in%nZ, &
-                  Atmo%z, Atmo%vy, Atmo%nZ, 2, 1)
+                  Atmo%z, Atmo%vy, Atmo%nZ, 2, 10)
 
       ! vz
       call Intpol(LTAUI, Atmo_in%vz, Atmo_in%nZ, &
-                  Atmo%z, Atmo%vz, Atmo%nZ, 2, 1)
+                  Atmo%z, Atmo%vz, Atmo%nZ, 2, 10)
 
       ! If magnetic field
       if (maxval(Bfield_in%Bstrength).gt.TINYB) then
 
         ! B
         call Intpol(LTAUI, Bfield_in%Bstrength, Atmo_in%nZ, &
-                    Atmo%z, Bfield%Bstrength, Atmo%nZ, 2, 1)
+                    Atmo%z, Bfield%Bstrength, Atmo%nZ, 2, 10)
         ! Btheta
         call Intpol(LTAUI, Bfield_in%Btheta, Atmo_in%nZ, &
-                    Atmo%z, Bfield%Btheta, Atmo%nZ, 2, 1)
+                    Atmo%z, Bfield%Btheta, Atmo%nZ, 2, 10)
         ! Bphi
         call Intpol(LTAUI, Bfield_in%Bphi, Atmo_in%nZ, &
-                    Atmo%z, Bfield%Bphi, Atmo%nZ, 2, 1)
+                    Atmo%z, Bfield%Bphi, Atmo%nZ, 2, 10)
 
         !
         ! Sanity
@@ -2611,7 +2692,7 @@
                       Atmo_in%JKQin(4*Atmo_in%nz+1:5*Atmo_in%nz), &
                       Atmo_in%nZ, Atmo%z, &
                       Atmo%JKQin(4*Atmo%nz+1:5*Atmo%nz), &
-                      Atmo%nZ, 2, 1)
+                      Atmo%nZ, 2, 10)
 
         ! If there is J21I
         if (maxval(abs(Atmo_in%JKQin(5*Atmo_in%nz+1: &
@@ -2622,7 +2703,7 @@
                       Atmo_in%JKQin(5*Atmo_in%nz+1:6*Atmo_in%nz), &
                       Atmo_in%nZ, Atmo%z, &
                       Atmo%JKQin(5*Atmo%nz+1:6*Atmo%nz), &
-                      Atmo%nZ, 2, 1)
+                      Atmo%nZ, 2, 10)
 
         ! If there is J22R
         if (maxval(abs(Atmo_in%JKQin(6*Atmo_in%nz+1: &
@@ -2633,7 +2714,7 @@
                       Atmo_in%JKQin(6*Atmo_in%nz+1:7*Atmo_in%nz), &
                       Atmo_in%nZ, Atmo%z, &
                       Atmo%JKQin(6*Atmo%nz+1:7*Atmo%nz), &
-                      Atmo%nZ, 2, 1)
+                      Atmo%nZ, 2, 10)
 
         ! If there is J22I
         if (maxval(abs(Atmo_in%JKQin(7*Atmo_in%nz+1: &
@@ -2644,7 +2725,7 @@
                       Atmo_in%JKQin(7*Atmo_in%nz+1:8*Atmo_in%nz), &
                       Atmo_in%nZ, Atmo%z, &
                       Atmo%JKQin(7*Atmo%nz+1:8*Atmo%nz), &
-                      Atmo%nZ, 2, 1)
+                      Atmo%nZ, 2, 10)
 
       end if ! Ad-hoc JKQ
 
@@ -2693,7 +2774,7 @@
           call Intpol(tau, var, nn, &
                       Inf_Nodes%Node(indx)%H, &
                       Inf_Nodes%Node(indx)%Var, &
-                      Inf_Nodes%Num_Nodes(indx), 2, 1)
+                      Inf_Nodes%Num_Nodes(indx), 2, 10)
 
           ! Check boundaries
           call CheckBounds(Inf_Nodes%Node(indx), &

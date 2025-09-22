@@ -9,15 +9,15 @@
 !  Start:
 !     24/10/2024
 !  Last version:
-!     26/06/2025 V4.0.4
+!     29/08/2025 V4.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     26/06/2025:    V4.0.4 - Updated due to changes in the Red_class
-!                             and Redb_class structures (TdPA)
+!     29/08/2025:    V4.0.5 - Updated due to changes in Input_class
+!                             structure (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1745,6 +1745,10 @@
       ! Num_nodes
       if (allocated(Input%Num_nodes)) &
         num = num + 1d-6*sizeof(Input%Num_nodes)
+
+      ! extrapolation
+      if (allocated(Input%extrapolation)) &
+        num = num + 1d-6*sizeof(Input%extrapolation)
 
       ! Indx_regul
       if (allocated(Input%Indx_regul)) &

@@ -1265,6 +1265,94 @@ NODES_PG_LOCATION
 
   * Description: Positions of the nodes, in the decimal logarithm of the optical depth, for the gas pressure. Mutually exclusive with NODES_PG_NUM.
 
+NODES_B_EXTRAPOLATION
+---------------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string*2: none, zero, constant, linear; default: none none
+
+  * Description: Type of extrapolation for the magnetic field strength toward the top and the bottom, respectively, of the model atmosphere when the extrema nodes are not at the extremes of the model. The first string defined the top and the second the bottom. If only one string is specified, both are consider equal. "none" means no extrapolation (kept the same than in the initial model), "zero" means to always set the values to zero, "constant" means to extent the values of the extrema nodes, and linear means linear interpolation.
+
+NODES_BT_EXTRAPOLATION
+----------------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string*2: none, zero, constant, linear; default: none none
+
+  * Description: Type of extrapolation for the magnetic field inclination or transversal component toward the top and the bottom, respectively, of the model atmosphere when the extrema nodes are not at the extremes of the model. The first string defined the top and the second the bottom. If only one string is specified, both are consider equal. "none" means no extrapolation (kept the same than in the initial model), "zero" means to always set the values to zero, "constant" means to extent the values of the extrema nodes, and linear means linear interpolation.
+
+NODES_BP_EXTRAPOLATION
+----------------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string*2: none, zero, constant, linear; default: none none
+
+  * Description: Type of extrapolation for the magnetic field azimuth toward the top and the bottom, respectively, of the model atmosphere when the extrema nodes are not at the extremes of the model. The first string defined the top and the second the bottom. If only one string is specified, both are consider equal. "none" means no extrapolation (kept the same than in the initial model), "zero" means to always set the values to zero, "constant" means to extent the values of the extrema nodes, and linear means linear interpolation.
+
+NODES_T_EXTRAPOLATION
+---------------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string*2: none, zero, constant, linear; default: none none
+
+  * Description: Type of extrapolation for the temperature toward the top and the bottom, respectively, of the model atmosphere when the extrema nodes are not at the extremes of the model. The first string defined the top and the second the bottom. If only one string is specified, both are consider equal. "none" means no extrapolation (kept the same than in the initial model), "zero" means to always set the values to zero, "constant" means to extent the values of the extrema nodes, and linear means linear interpolation.
+
+NODES_VX_EXTRAPOLATION
+----------------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string*2: none, zero, constant, linear; default: none none
+
+  * Description: Type of extrapolation for the velocity x component or transversal component toward the top and the bottom, respectively, of the model atmosphere when the extrema nodes are not at the extremes of the model. The first string defined the top and the second the bottom. If only one string is specified, both are consider equal. "none" means no extrapolation (kept the same than in the initial model), "zero" means to always set the values to zero, "constant" means to extent the values of the extrema nodes, and linear means linear interpolation.
+
+NODES_VY_EXTRAPOLATION
+----------------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string*2: none, zero, constant, linear; default: none none
+
+  * Description: Type of extrapolation for the velocity y component or azimuth toward the top and the bottom, respectively, of the model atmosphere when the extrema nodes are not at the extremes of the model. The first string defined the top and the second the bottom. If only one string is specified, both are consider equal. "none" means no extrapolation (kept the same than in the initial model), "zero" means to always set the values to zero, "constant" means to extent the values of the extrema nodes, and linear means linear interpolation.
+
+NODES_VZ_EXTRAPOLATION
+----------------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string*2: none, zero, constant, linear; default: none none
+
+  * Description: Type of extrapolation for the velocity vertical or longitudinal component toward the top and the bottom, respectively, of the model atmosphere when the extrema nodes are not at the extremes of the model. The first string defined the top and the second the bottom. If only one string is specified, both are consider equal. "none" means no extrapolation (kept the same than in the initial model), "zero" means to always set the values to zero, "constant" means to extent the values of the extrema nodes, and linear means linear interpolation.
+
+NODES_PG_EXTRAPOLATION
+----------------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string*2: none, zero, constant, linear; default: none none
+
+  * Description: Type of extrapolation for the gas pressure toward the top and the bottom, respectively, of the model atmosphere when the extrema nodes are not at the extremes of the model. The first string defined the top and the second the bottom. If only one string is specified, both are consider equal. "none" means no extrapolation (kept the same than in the initial model), "zero" means to always set the values to zero, "constant" means to extent the values of the extrema nodes, and linear means linear interpolation.
+
 BTYPE
 -----
 

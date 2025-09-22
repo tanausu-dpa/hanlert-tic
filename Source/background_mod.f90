@@ -9,16 +9,15 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     15/05/2025 V4.0.2
+!     20/08/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.2 - Generalized declarations of Atom, Atomb,
-!                             and Mol to allow for empty arrays for
-!                             any of them (TdPA)
+!     20/08/2025:    V4.0.3 - Added the possibility of a CPU not
+!                             having work to do (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -122,6 +121,19 @@
 
       ! Routine name
       urou = 'background'
+
+      ! If no work
+      if (MPID%nf(pid).le.0) then
+
+        ! Dummy allocation
+        allocate(Cont%c(1:1,1,1,1))
+        Cont%ndir = 0
+
+        ! And control
+        call control
+        return
+
+      end if ! No work
 
       ! The master does not care about the continuum
       ! unless it is in CLE mode

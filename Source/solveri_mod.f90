@@ -9,15 +9,15 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     26/06/2025 V4.0.9
+!     19/09/2025 V4.0.13
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     26/06/2025:    V4.0.9 - Removed Atmo as argument for RAM
-!                             predictors (TdPA)
+!     19/09/2025:   V4.0.13 - Moved position of label for error
+!                             handling (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -209,7 +209,7 @@
       character(LEN=20):: iterS
 
       logical:: doNG,goout,gooutprd,force_ALI,PRDl,ADD,ADT,RIRAM
-      logical:: lp_exu,lALI,NGI
+      logical:: lp_exu,lALI,NGI,first
 
       integer:: ierr,iter,iterr,ia,if0,if1,npz,ntpz,nsend
       integer:: NG_dim,NG_entry,iter_min,iter_max
@@ -291,6 +291,9 @@
         mrc_val = Input%mrci_i
       end if
 
+      ! Initialize for message
+      first = .True.
+
       !
       ! Start iterations
       !
@@ -326,11 +329,20 @@
         ! Internal PRD iterations
         do iterr=1,Input%iteri_prd
 
-          ! Compute second order emissivity
-          if (PRD) &
+          ! If PRD
+          if (PRD) then
+
+            ! Compute second order emissivity
             call comoving_emissI2ord(Atom,Atmo,Geom,Frec,Red, &
                                      Stokes,J00,J00C,0,0, &
                                      Input%PRD_int_mode,.False.)
+            ! Failure
+            call control
+            if (laborted) then
+              gooutprd = .True.
+              goto 1999
+            end if
+          end if ! PRD
 
           ! Master
           if (pid.eq.0) then
@@ -356,8 +368,8 @@
                                 LambdaP_r,Prof_r,LambdaL,LambdaP, &
                                 Stokes,J00C_n,J00,J00S,J00P)
 
-          ! Serial or slave
-          else
+          ! Serial or slave with work
+          else if (MPID%nf(pid).ge.1) then
 
             ! Solve RTE
             call solveI_RT(Atom,LTElines,Atmo,Cont,Frec,Red,Geom, &
@@ -380,19 +392,37 @@
               ! Call the routine
               call MRCJ_sb(J00C_n,J00C,MRC)
 
-              ! Convert cm into km
-              MRC%values(1,1) = Atmo%z(MRC%indexes(2,1))*1d-5
+              ! Convert cm into km or tau to log10
+              if (ztau) then
+                MRC%values(1,1) =log10(Atmo%z(MRC%indexes(2,1))+VTINY)
+              else
+                MRC%values(1,1) = Atmo%z(MRC%indexes(2,1))*1d-5
+              end if
 
               ! Global Máster talks
               if (gpid.eq.0) then
 
-                ! If first PRD iteration and second actual
-                ! iteration
-                if (iterr.eq.1.and.iter.eq.2) then
-                  umsg = '         PRD            MRC(J^0_0)'// &
-                         ' Freq_index  Wavelength '// &
-                         'Height_index Height(km)'
+                ! If first time here
+                if (first) then
+
+                  ! Flag
+                  first = .False.
+
+                  ! Tau scale
+                  if (ztau) then
+                    umsg = '  PRD it:  it            MRC(J^0_0)'// &
+                           ' Freq_index  Wavelength '// &
+                           'logtau_index   log(tau)'
+                  ! Height scale
+                  else
+                    umsg = '  PRD it:  it            MRC(J^0_0)'// &
+                           ' Freq_index  Wavelength '// &
+                           'Height_index Height(km)'
+                  end if
+
+                  ! Write
                   call verbose
+
                 end if
 
                 ! Write in stdout
@@ -434,7 +464,7 @@
           end if ! Master
 
           ! If MPI
-          if (MPID%mpi) then
+1999      if (MPID%mpi) then
 
             ! Master, overwrite
             if (pid.eq.0) J00C = J00C_n
@@ -828,6 +858,13 @@
       end if ! NG
 
       !
+      ! Fixed
+      !
+
+      ! Lambda operators
+      TRAMc = TRAMc + 8d-6*dble(nxb*Rnz*(nxt + nxphot*2))
+
+      !
       ! Allocations
       !
 
@@ -900,8 +937,8 @@
           ! New J00C
           TRAMc = TRAMc + 8d-6*dble(Rnz*nfreq)
 
-        ! Slave
-        else
+        ! Slave with work
+        else if (MPID%nf(pid).ge.1) then
 
           ! Alternative
           if (MPID%alternI) then
@@ -1259,8 +1296,8 @@
           ! New J00C
           allocate(J00C_n(nfreq,Rz0:Rz1))
 
-        ! Slave
-        else
+        ! Slave with work
+        else if (MPID%nf(pid).ge.1) then
 
           ! Alternative
           if (MPID%alternI) then
@@ -1346,9 +1383,19 @@
       ! Global Master
       if (gpid.eq.0) then
 
+        ! Tau scale
+        if (ztau) then
+          umsg = '    Iteration          MRC(rho^0_0) '// &
+                 'Atom_index Level_index logtau_index '// &
+                 '  log(tau)'
+        ! Height scale
+        else
+          umsg = '    Iteration          MRC(rho^0_0) '// &
+                 'Atom_index Level_index Height_index '// &
+                 'Height(km)'
+        end if ! Scale
+
         ! Announce we are starting
-        umsg = '    Iteration          MRC(rho^0_0) Atom_index '// &
-               'Level_index Height_index Height(km)'
         call verbose
 
       end if ! Global master
@@ -1384,11 +1431,25 @@
           open(800, file=trim(Input%folder)//'/MRCI', &
                action='write',iostat=ios,err=1000)
 
-          ! Write header
-          write(800,'(A)',err=1100) &
-                       '!   Iteration          MRC(rho^0_0) '// &
-                       'Atom_index Level_index Height_index '// &
-                       'Height(km)'
+          ! Tau scale
+          if (ztau) then
+
+            ! Write header
+            write(800,'(A)',err=1100) &
+                         '!   Iteration          MRC(rho^0_0) '// &
+                         'Atom_index Level_index logtau_index '// &
+                         '  log(tau)'
+
+          ! Height scale
+          else
+
+            ! Write header
+            write(800,'(A)',err=1100) &
+                         '!   Iteration          MRC(rho^0_0) '// &
+                         'Atom_index Level_index Height_index '// &
+                         'Height(km)'
+
+          end if ! Scale
 
           ! Close
           close(800)
@@ -3015,14 +3076,13 @@
       !
 
       ! Check if doing NG acceleration
-      if(NGI.and.iter.gt.Input%NGI_delay)then
-
-        ! Advance ntry. The master does not need it if
-        ! if accelerated the intensity
-        NG_entry = NG_entry + 1
+      if (NGI.and.iter.gt.Input%NGI_delay) then
 
         ! If Master
         if (pid.eq.0) then
+
+          ! Advance ntry
+          NG_entry = NG_entry + 1
 
           ! Initialize index
           o = 0
@@ -3107,36 +3167,15 @@
           end if ! PRD
 
           ! Call NG and check if it should be processed
-          call NG(NG_dim,p,Input%NGI_ord,NG_scratch,NG_entry,doNG)
+          call NG(NG_dim,p,Input%NGI_ord,NG_scratch, &
+                  NG_entry,doNG,.True.)
 
-        ! Slave
-        else
+        end if ! Master
 
-          ! If wrong order
-          if (Input%NGI_ord.lt.1.or.Input%NGI_ord.gt.5) then
-
-            ! Do not do
-            doNG = .False.
-
-          ! Valid order
-          else
-
-            ! Check if Master is in NG step
-            if (NG_entry.gt.(Input%NGI_ord+1)) then
-
-              ! Do step
-              doNG = .True.
-
-            ! Not a NG step
-            else
-
-              ! Do not do
-              doNG = .False.
-
-            end if ! NG step
-          end if ! order
-
-        end if ! Master of slave
+        ! Share doing
+        if (nproc.gt.1) &
+          call MPI_BCAST(doNG, 1, MPI_LOGICAL, 0, &
+                         MPI_COMM_RT, ierr)
 
         ! If communication is needed
         if (doNG) then
@@ -3476,6 +3515,10 @@
             call comoving_emissI2ord(Atom,Atmo,Geom,Frec,Red, &
                                      Stokes,J00,J00C,ith,iph, &
                                      Input%PRD_int_mode,.True.)
+            ! Failure
+            call control
+            if (laborted) goto 1999
+
           end if ! PRD
 
           ! If dynamic, normalize for this LOS
@@ -3491,8 +3534,8 @@
                                    ith,iph,Stokes_r,Contr_r,tau1, &
                                    ContrG)
 
-          ! Slave or serial
-          else
+          ! Slave or serial with work
+          else if (MPID%nf(pid).ge.1) then
 
             ! Call RT
             call emergentI_RT(Atom,LTElines,Atmo,Cont,Frec,Red, &
@@ -3503,12 +3546,11 @@
           end if
 
           ! If dynamic, free LOS norms
-          if (dyn) call free_norm(Red,.False.)
+1999      if (dyn) call free_norm(Red,.False.)
 
           ! Failure
           call control
           if (laborted) goto 2000
-
 
         end do ! Azimuth
       end do ! Polar
@@ -3618,8 +3660,8 @@
 
           end if ! Inversion
 
-        ! Slave
-        else
+        ! Slave with work
+        else if (MPID%nf(pid).ge.1) then
 
           ! Allocate M and O pointers for RT coeff
           TRAMc = TRAMc + 8d-6*dble(mfreq*6)
@@ -3789,8 +3831,8 @@
                                 Geom%nPhLOS,Geom%nThLOS))
           end if ! Inversion
 
-        ! Slave
-        else
+        ! Slave with work
+        else if (MPID%nf(pid).ge.1) then
 
           ! Allocate M and O pointers for RT coeff
           allocate(data1M(MPID%nf(pid),3))
@@ -4797,8 +4839,8 @@
           call solveJ_manager(Geom,MPID,npz,ntpz,nsend, &
                               Stokes_r,Stokes,J00C_n)
 
-        ! Serial or slave
-        else
+        ! Serial or slave with work
+        else if (MPID%nf(pid).ge.1) then
 
           ! Call formal solution
           call solveJ_RT(Atom,Atmo,LTElines,Cont,Frec,Red,Geom,MPID, &
@@ -4821,8 +4863,12 @@
           ! Call the routine
           call MRCJ_sb(J00C_n,J00C,MRC)
 
-          ! Convert cm into km
-          MRC%values(1,1) = Atmo%z(MRC%indexes(2,1))*1d-5
+          ! Convert cm into km or tau to log10
+          if (ztau) then
+            MRC%values(1,1) = log10(Atmo%z(MRC%indexes(2,1))+VTINY)
+          else
+            MRC%values(1,1) = Atmo%z(MRC%indexes(2,1))*1d-5
+          end if
 
           ! Write in stdout
           if (gpid.eq.0) then
@@ -4936,10 +4982,23 @@
 
       ! Announce we are starting
       if (gpid.eq.0) then
-        umsg = '   Iteration            MRC(J^0_0) Freq_index  '// &
-               'Wavelength Height_index Height(km)'
+
+        ! If tau scale
+        if (ztau) then
+          umsg = '   Iteration            MRC(J^0_0) '// &
+                 'Freq_index  Wavelength logtau_index '// &
+                 '  log(tau)'
+        ! If height scale
+        else
+          umsg = '   Iteration            MRC(J^0_0) '// &
+                 'Freq_index  Wavelength Height_index '// &
+                 'Height(km)'
+        end if ! Scale
+
+        ! Verbose
         call verbose
-      end if
+
+      end if ! Global master
 
       ! Initialize angle depended flag
       AD = .not.AVI
@@ -4990,8 +5049,8 @@
           ! Allocate new J00C
           allocate(J00C_n(nfreq,Rz0:Rz1))
 
-        ! Slave
-        else
+        ! Slave with work
+        else if (MPID%nf(pid).ge.1) then
 
           ! Alternative
           if (MPID%alternJ) then
@@ -5924,8 +5983,8 @@
                               ntpz,nsend,psize,Norm,BStk, &
                               Prof_r,Stokes0,J00C,JKQ,JKQS)
 
-        ! Serial or slave
-        else
+        ! Serial or slave with work
+        else if (MPID%nf(pid).ge.1) then
 
           ! Get profile data
           call JKQgen_RT(Atom,Atmo,Frec,Red,Geom,MPID,Flgsg,Bfield, &
@@ -6044,8 +6103,12 @@
             ! Calculate MRC
             call MRC_sb(Atom,Rho_old,Input%anisotropy_only,MRC)
 
-            ! Convert cm into km
-            MRC%values(1,1) = Atmo%z(MRC%indexes(2,1))*1d-5
+            ! Convert cm into km or tau to log10
+            if (ztau) then
+              MRC%values(1,1) = log10(Atmo%z(MRC%indexes(2,1))+VTINY)
+            else
+              MRC%values(1,1) = Atmo%z(MRC%indexes(2,1))*1d-5
+            end if
 
             ! Write in stdout
             if (gpid.eq.0) then
@@ -6080,7 +6143,8 @@
             Stokes(0,:,iph,:,:) = Stokes0(:,1,:,:)
           end do
         else
-          Stokes(0,:,:,:,:) = Stokes0
+          Stokes(0,:,lbound(Stokes0,2):ubound(Stokes0,2),:,:) = &
+                                                               Stokes0
         end if
       end if
 
@@ -6269,8 +6333,8 @@
             ! Number of communications
             nsend = nTh*nPh*MPID%nnd
 
-          ! Slave
-          else
+          ! Slave with work
+          else if (MPID%nf(pid).ge.1) then
 
             ! Allocate O pointers
             allocate(data2O(Frec%ntfreq,2))
@@ -6312,8 +6376,8 @@
             ! Number of communications
             nsend = MPID%nnd
 
-          ! Slave
-          else
+          ! Slave with work
+          else if (MPID%nf(pid).ge.1) then
 
             ! Allocate O pointers
             allocate(data2O(Frec%ntfreq,2))

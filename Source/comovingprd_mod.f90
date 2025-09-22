@@ -9,16 +9,14 @@
 !  Start:
 !     08/10/2024
 !  Last version:
-!     26/06/2025 V4.1.0
+!     22/09/2025 V4.1.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     26/06/2025:    V4.1.0 - Changed the parallelization strategy
-!                             to calculate the PRD emissivity (TdPA)
-!                             array (TdPA)
+!     22/09/2025:    V4.1.2 - Bugfix: Solved the deadlock issue (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -56,6 +54,9 @@
 !  comoving_emissI2ord
 !    Compute second order emissivity for intensity
 !
+!  share_emiss
+!    Share emissivity data in one height of the model atmosphere
+!
 !#####################################################################
 !#####################################################################
 !#####################################################################
@@ -67,6 +68,11 @@
       use rtcoeffiaux_mod
       use rtcoeffaux_mod
       use types_mod
+
+      ! Deadlock preventers
+      integer, parameter:: W_minimal = 4
+      integer, parameter:: W_nominal = 8
+      double precision, parameter:: mem_limit = 50d6
 
       contains
 
@@ -582,13 +588,18 @@
       type(MPI_request), dimension(:), allocatable:: requests
 #endif
 
-      logical:: lfield, lvel
+      logical:: lfield,lvel,first
 
-      integer:: iz0,iz1,Mif0,Mif1,jndx,jj,kk,ll,iran,iproc
-      integer:: iz,ia,jtran,itermu,itermf,indx,t0,t1,i0,i1,jz0,jz1
+      integer:: iz0,iz1,Mif0,Mif1,jndx,jj,kk,ll,iran
+      integer:: iz,ia,jtran,itermu,itermf,indx,t0,t1,i0,i1
       integer:: if0l2,if1l2,if0tl2,if1tl2,if0Il2,if1Il2,ifreq,nf,nfl
-      integer:: ndir,idir,ierr,iph,ith,nth,nph,nsend,lnz
-      integer, dimension(:), allocatable:: nf_s,disp
+      integer:: ndir,idir,ierr,iph,ith,nth,nph,lnz
+#ifndef oldmpi
+      integer:: ntest,W_max,W_load,lgiz
+      integer, dimension(:), allocatable:: done_index
+#endif
+      integer, dimension(:), allocatable:: nsend
+      integer, dimension(:,:), allocatable:: nf_s,disp
 
       double precision:: vel,DwT,Dw,ct,st,cc,sc,vfac
       double precision, dimension(:), allocatable:: omega
@@ -622,14 +633,22 @@
 #ifndef oldmpi
         ! Initialize requests
         allocate(requests(Rz0:Rz1_PRD))
+        allocate(done_index(Rz0:Rz1_PRD))
+        ntest = 0
         do iz=Rz0,Rz1_PRD
           requests(iz) = MPI_REQUEST_NULL
+          done_index(iz) = 0
         end do
-#endif
         ! Allocate frequency size for output
-        allocate(nf_s(0:nproc-1))
-        allocate(disp(0:nproc-1))
-
+        allocate(nsend(Rz0:Rz1_PRD))
+        allocate(nf_s(0:nproc-1,Rz0:Rz1_PRD))
+        allocate(disp(0:nproc-1,Rz0:Rz1_PRD))
+#else
+        ! Allocate frequency size for output
+        allocate(nsend(1)
+        allocate(nf_s(0:nproc-1,1))
+        allocate(disp(0:nproc-1,1))
+#endif
       end if ! MPI
 
       ! If no atoms, leave
@@ -685,6 +704,9 @@
           ! If no output, skip
           if ((if1tl2-if0tl2).lt.0) cycle
 
+          ! Initialize first communication
+          first = .True.
+
           ! Allocate emissivity to collect
           allocate(eps0(ndir,if0tl2:if1tl2))
           allocate(eps1(ndir,if0tl2:if1tl2))
@@ -698,9 +720,34 @@
           ! Number of frequencies
           nf = if1tl2 - if0tl2 + 1
 
-          ! Allocate emissivity to receive
-          if (nproc.gt.1) &
+          ! If doing MPI
+          if (nproc.gt.1) then
+
+            ! Allocate emissivity to receive
             allocate(eps20123_r(ndir,4,nf*lnz))
+#ifndef oldmpi
+            ! Initialize requests
+            ntest = 0
+            do iz=Rz0,Rz1_PRD
+              requests(iz) = MPI_REQUEST_NULL
+              done_index(iz) = 0
+            end do
+
+            ! Calculate maximum working load
+            W_max = min(W_nominal,max(W_minimal, &
+                                    nint(mem_limit/ &
+                        dble(nf*sizeof(eps20123_r(:,:,1))))))
+
+            ! Initialize last height index sent and load
+            lgiz = Rz0 - 1
+            W_load = 0
+
+            ! Initialize MPI data
+            nsend = 0
+            nf_s = 0
+            disp = 0
+#endif
+          end if ! MPI
 
           ! Has work to do
           if (p_fed%nn(pid).gt.0) then
@@ -941,81 +988,49 @@
 
             ! If MPI
             if (nproc.gt.1) then
+#ifndef oldmpi
+              ! If not first call
+              if (.not.first) then
 
-              ! Initialize
-              nsend = 0
-              nf_s = 0
-              disp = 0
-              i0 = 1
+                ! Check finished
+                call MPI_TESTSOME(size(done_index),requests, &
+                                  ntest,done_index, &
+                                  MPI_STATUSES_IGNORE,ierr)
 
-              ! For each CPU
-              do iproc=0,nproc-1
+                ! Update load
+                W_load = W_load - ntest
 
-                ! Get height limits
-                jz0 = Rz0 + (p_fed%Mi0(iproc)-1)/p_fed%nfreq
-                jz1 = Rz0 + (p_fed%Mi1(iproc)-1)/p_fed%nfreq
+              end if
 
-                ! In range
-                if (iz.ge.jz0.and.iz.le.jz1) then
+              ! Not the first anymore
+              first = .False.
 
-                  ! Get left frequency indexes
-                  if (iz.eq.jz0) then
-                    Mif0 = p_fed%Mi0(iproc) - (jz0-Rz0)*p_fed%nfreq
-                  else
-                    Mif0 = 1
-                  end if
+              ! Send while we can afford
+              do while (W_load.lt.W_max.and.lgiz.lt.iz)
 
-                  ! Get right frequency index
-                  if (iz.eq.jz1) then
-                    Mif1 = p_fed%Mi1(iproc) - (jz1-Rz0)*p_fed%nfreq
-                  else
-                    Mif1 = p_fed%nfreq
-                  end if
+                ! Advance
+                W_load = W_load + 1
+                lgiz = lgiz + 1
 
-                  ! Save receiving
-                  nf_s(iproc) = Mif1 - Mif0 + 1
-                  disp(iproc) = Mif0 - 1
+                ! Share
+                call share_emiss(p_fed,lgiz,ll,nf,ndir*4, &
+                                 nsend(lgiz),nf_s(:,lgiz), &
+                                 disp(:,lgiz),requests(lgiz), &
+                                 eps20123_r,eps20123_s)
 
-                  ! If this is the CPU
-                  if (pid.eq.iproc) then
+                ! Check finished
+                call MPI_TESTSOME(size(done_index),requests, &
+                                  ntest,done_index, &
+                                  MPI_STATUSES_IGNORE,ierr)
 
-                    ! Save number of sends
-                    nsend = nf_s(pid)
+                ! Update load
+                W_load = W_load - ntest
 
-                    ! Advance index
-                    ll = ll + 1
-
-                    ! Save initial point
-                    i0 = ll
-
-                    ! Advance rest
-                    ll = ll + Mif1 - Mif0
-
-                  end if ! This is the CPU
-                end if ! In height range
-
-              end do ! CPUs
-
-              ! Scale
-              nsend = nsend*ndir*4
-              nf_s = nf_s*ndir*4
-              disp = disp*ndir*4
-#ifdef oldmpi
-              ! Share
-              call MPI_ALLGATHERV(eps20123_s(1,1,i0),nsend, &
-                                  MPI_DOUBLE_PRECISION, &
-                                  eps20123_r(1,1,1+(iz-Rz0)*nf), &
-                                  nf_s,disp, &
-                                  MPI_DOUBLE_PRECISION, &
-                                  MPI_COMM_RT,ierr)
+              end do ! Send jobs till load is full or we are done
 #else
-              ! Share
-              call MPI_IALLGATHERV(eps20123_s(1,1,i0),nsend, &
-                                   MPI_DOUBLE_PRECISION, &
-                                   eps20123_r(1,1,1+(iz-Rz0)*nf), &
-                                   nf_s,disp, &
-                                   MPI_DOUBLE_PRECISION, &
-                                   MPI_COMM_RT,requests(iz),ierr)
+              call share_emiss(p_fed,iz,ll,nf,ndir*4,nsend(1), &
+                               nf_s(:,1),disp(:,1), &
+                               eps20123_r,eps20123_s)
 #endif
             end if ! MPI
 
@@ -1029,7 +1044,6 @@
           ! If serial, just point
           if (nproc.eq.1) eps20123_r => eps20123_s
 
-
           !
           ! Get what is needed
           !
@@ -1040,6 +1054,63 @@
             ! Get zao index
             indx = Red%izao(jtran,ia,iz)
 
+#ifndef oldmpi
+            ! If we are not done with sharing
+            if (lgiz.lt.Rz1_PRD) then
+
+              ! Check finished
+              call MPI_TESTSOME(size(done_index),requests, &
+                                ntest,done_index, &
+                                MPI_STATUSES_IGNORE,ierr)
+
+              ! Update load
+              W_load = W_load - ntest
+
+              ! Send while we can afford
+              do while (W_load.lt.W_max.and.lgiz.lt.Rz1_PRD)
+
+                ! Advance
+                W_load = W_load + 1
+                lgiz = lgiz + 1
+
+                ! Share
+                call share_emiss(p_fed,lgiz,ll,nf,ndir*4, &
+                                 nsend(lgiz),nf_s(:,lgiz), &
+                                 disp(:,lgiz),requests(lgiz), &
+                                 eps20123_r,eps20123_s)
+
+              end do ! Send jobs till load is full or we are done
+
+              ! If we actually need this data now
+              do while (lgiz.lt.iz)
+
+                ! Check finished
+                call MPI_TESTSOME(size(done_index),requests, &
+                                  ntest,done_index, &
+                                  MPI_STATUSES_IGNORE,ierr)
+
+                ! Update load
+                W_load = W_load - ntest
+
+                ! Send while we can afford
+                do while (W_load.lt.W_max.and.lgiz.lt.Rz1_PRD)
+
+                  ! Advance
+                  W_load = W_load + 1
+                  lgiz = lgiz + 1
+
+                  ! Share
+                  call share_emiss(p_fed,lgiz,ll,nf,ndir*4, &
+                                   nsend(lgiz),nf_s(:,lgiz), &
+                                   disp(:,lgiz),requests(lgiz), &
+                                   eps20123_r,eps20123_s)
+
+                end do ! Send jobs till load is full or we are done
+
+              end do ! We need this data, now
+
+            end if ! While we still need to communicate
+#endif
             ! If the CPU allocated eps20
             if (allocated(Red%zao(indx)%eps20)) then
 
@@ -1109,9 +1180,15 @@
               i0 = 1 + (iz-Rz0)*nf
               i1 = i0 + nf - 1
 #ifndef oldmpi
-              ! Check request
-              if (nproc.gt.1) &
+              ! If MPI and request was not completed
+              if (nproc.gt.1.and. &
+                  requests(iz).ne.MPI_REQUEST_NULL) then
+
+                ! Check request
                 call MPI_WAIT(requests(iz),MPI_STATUS_IGNORE,ierr)
+                W_load = W_load - 1
+
+              end if
 #endif
               ! Point to relevant data
               eps20 => eps20123_r(:,1,i0:i1)
@@ -1308,11 +1385,13 @@
 
               end if ! Dynamic
 #ifndef oldmpi
-            ! No data but MPI
-            else if (nproc.gt.1) then
+            ! No data but MPI and request not completed
+            else if (nproc.gt.1.and. &
+                     requests(iz).ne.MPI_REQUEST_NULL) then
 
               ! Check reception
               call MPI_WAIT(requests(iz),MPI_STATUS_IGNORE,ierr)
+              W_load = W_load - 1
 #endif
             end if ! If need to take anything
 
@@ -1324,7 +1403,14 @@
           nullify(eps20123_r)
           deallocate(eps20123_s)
 
+          ! Error
+          if (laborted) exit
+
         end do ! Output transition
+
+        ! Error
+        if (laborted) exit
+
       end do ! Atoms
 
       ! Nullify pointers
@@ -1384,14 +1470,19 @@
       type(MPI_request), dimension(:), allocatable:: requests
 #endif
 
-      logical:: lvel
+      logical:: lvel,first
 
-      integer:: iz0,iz1,jz0,jz1,Mif0,Mif1,jndx,jj,kk,ll,iran,iproc
+      integer:: iz0,iz1,Mif0,Mif1,jndx,jj,kk,ll,iran
       integer:: iz,ia,jtran,itermu,itermf,indx,jdir,t0,t1,i0,i1
       integer:: if0l2,if1l2,if0tl2,if1tl2,if0Il2,if1Il2,ifreq,nf,nfl
       integer:: if0jl2,if1jl2,ffjtran,ffktran,ffltran,fjtran,lnz
-      integer:: iJf,iJu,ndir,njdir,idir,ierr,iph,ith,nth,nph,nsend
-      integer, dimension(:), allocatable:: nf_s,disp
+      integer:: iJf,iJu,ndir,njdir,idir,ierr,iph,ith,nth,nph
+#ifndef oldmpi
+      integer:: ntest,W_max,W_load,lgiz
+      integer, dimension(:), allocatable:: done_index
+#endif
+      integer, dimension(:), allocatable:: nsend
+      integer, dimension(:,:), allocatable:: nf_s,disp
 
       double precision:: vel,DwT,Dw,ct,st,cc,sc,vfac,Dfreq
       double precision, dimension(:), allocatable:: omega
@@ -1418,14 +1509,22 @@
 #ifndef oldmpi
         ! Initialize requests
         allocate(requests(Rz0:Rz1_PRD))
+        allocate(done_index(Rz0:Rz1_PRD))
+        ntest = 0
         do iz=Rz0,Rz1_PRD
           requests(iz) = MPI_REQUEST_NULL
+          done_index(iz) = 0
         end do
-#endif
         ! Allocate frequency size for output
-        allocate(nf_s(0:nproc-1))
-        allocate(disp(0:nproc-1))
-
+        allocate(nsend(Rz0:Rz1_PRD))
+        allocate(nf_s(0:nproc-1,Rz0:Rz1_PRD))
+        allocate(disp(0:nproc-1,Rz0:Rz1_PRD))
+#else
+        ! Allocate frequency size for output
+        allocate(nsend(1)
+        allocate(nf_s(0:nproc-1,1))
+        allocate(disp(0:nproc-1,1))
+#endif
       end if ! MPI
 
       ! If no atoms, leave
@@ -1516,15 +1615,43 @@
             ! If no output, skip
             if ((if1tl2-if0tl2).lt.0) cycle
 
+            ! Initialize first communication
+            first = .True.
+
             ! Allocate emissivity to collect
             allocate(eps0(if0tl2:if1tl2))
 
             ! Number of frequencies
             nf = if1tl2 - if0tl2 + 1
 
-            ! Allocate emissivity to receive
-            if (nproc.gt.1) &
+            ! If doing MPI
+            if (nproc.gt.1) then
+
+              ! Allocate emissivity to receive
               allocate(eps20rpf_r(njdir,2,nf*lnz))
+#ifndef oldmpi
+              ! Initialize requests
+              ntest = 0
+              do iz=Rz0,Rz1_PRD
+                requests(iz) = MPI_REQUEST_NULL
+                done_index(iz) = 0
+              end do
+
+              ! Calculate maximum working load
+              W_max = min(W_nominal,max(W_minimal, &
+                                      nint(mem_limit/ &
+                          dble(nf*sizeof(eps20rpf_r(:,:,1))))))
+
+              ! Initialize last height index sent and load
+              lgiz = Rz0 - 1
+              W_load = 0
+
+              ! Initialize MPI data
+              nsend = 0
+              nf_s = 0
+              disp = 0
+#endif
+            end if ! MPI
 
             ! Has work to do
             if (p_fed%nn(pid).gt.0) then
@@ -1726,82 +1853,49 @@
 
               ! If MPI
               if (nproc.gt.1) then
+#ifndef oldmpi
+                ! If not first call
+                if (.not.first) then
 
-                ! Initialize
-                nsend = 0
-                nf_s = 0
-                disp = 0
-                i0 = 1
+                  ! Check finished
+                  call MPI_TESTSOME(size(done_index),requests, &
+                                    ntest,done_index, &
+                                    MPI_STATUSES_IGNORE,ierr)
 
-                ! For each CPU
-                do iproc=0,nproc-1
+                  ! Update load
+                  W_load = W_load - ntest
 
-                  ! Get height limits
-                  jz0 = Rz0 + (p_fed%Mi0(iproc)-1)/p_fed%nfreq
-                  jz1 = Rz0 + (p_fed%Mi1(iproc)-1)/p_fed%nfreq
+                end if
 
-                  ! In range
-                  if (iz.ge.jz0.and.iz.le.jz1) then
+                ! Not the first anymore
+                first = .False.
 
-                    ! Get left frequency indexes
-                    if (iz.eq.jz0) then
-                      Mif0 = p_fed%Mi0(iproc) - (jz0-Rz0)*p_fed%nfreq
-                    else
-                      Mif0 = 1
-                    end if
+                ! Send while we can afford
+                do while (W_load.lt.W_max.and.lgiz.lt.iz)
 
-                    ! Get right frequency index
-                    if (iz.eq.jz1) then
-                      Mif1 = p_fed%Mi1(iproc) - (jz1-Rz0)*p_fed%nfreq
-                    else
-                      Mif1 = p_fed%nfreq
-                    end if
+                  ! Advance
+                  W_load = W_load + 1
+                  lgiz = lgiz + 1
 
-                    ! Save receiving
-                    nf_s(iproc) = Mif1 - Mif0 + 1
-                    disp(iproc) = Mif0 - 1
+                  ! Share
+                  call share_emiss(p_fed,lgiz,ll,nf,njdir*2, &
+                                   nsend(lgiz),nf_s(:,lgiz), &
+                                   disp(:,lgiz),requests(lgiz), &
+                                   eps20rpf_r,eps20rpf_s)
 
-                    ! If this is the CPU
-                    if (pid.eq.iproc) then
+                  ! Check finished
+                  call MPI_TESTSOME(size(done_index),requests, &
+                                    ntest,done_index, &
+                                    MPI_STATUSES_IGNORE,ierr)
 
-                      ! Save number of sends
-                      nsend = nf_s(pid)
+                  ! Update load
+                  W_load = W_load - ntest
 
-                      ! Advance index
-                      ll = ll + 1
-
-                      ! Save initial point
-                      i0 = ll
-
-                      ! Advance rest
-                      ll = ll + Mif1 - Mif0
-
-                    end if ! This is the CPU
-                  end if ! In height range
-
-                end do ! CPUs
-
-                ! Scale
-                nsend = nsend*njdir*2
-                nf_s = nf_s*njdir*2
-                disp = disp*njdir*2
-#ifdef oldmpi
-                ! Share
-                call MPI_ALLGATHERV(eps20rpf_s(1,1,i0),nsend, &
-                                    MPI_DOUBLE_PRECISION, &
-                                    eps20rpf_r(1,1,1+(iz-Rz0)*nf), &
-                                    nf_s,disp, &
-                                    MPI_DOUBLE_PRECISION, &
-                                    MPI_COMM_RT,ierr)
+                end do ! Send jobs till load is full or we are done
 #else
-
-                ! Share
-                call MPI_IALLGATHERV(eps20rpf_s(1,1,i0),nsend, &
-                                     MPI_DOUBLE_PRECISION, &
-                                     eps20rpf_r(1,1,1+(iz-Rz0)*nf), &
-                                     nf_s,disp, &
-                                     MPI_DOUBLE_PRECISION, &
-                                     MPI_COMM_RT,requests(iz),ierr)
+                call share_emiss(p_fed,iz,ll,nf,njdir*2,nsend(1), &
+                                 nf_s(:,1),disp(:,1), &
+                                 eps20rpf_r,eps20rpf_s)
 #endif
               end if ! MPI
 
@@ -1823,7 +1917,63 @@
 
               ! Get index
               indx = Red%izao(ffjtran,ia,iz)
+#ifndef oldmpi
+              ! If we are not done with sharing
+              if (lgiz.lt.Rz1_PRD) then
 
+                ! Check finished
+                call MPI_TESTSOME(size(done_index),requests, &
+                                  ntest,done_index, &
+                                  MPI_STATUSES_IGNORE,ierr)
+
+                ! Update load
+                W_load = W_load - ntest
+
+                ! Send while we can afford
+                do while (W_load.lt.W_max.and.lgiz.lt.Rz1_PRD)
+
+                  ! Advance
+                  W_load = W_load + 1
+                  lgiz = lgiz + 1
+
+                  ! Share
+                  call share_emiss(p_fed,lgiz,ll,nf,njdir*2, &
+                                   nsend(lgiz),nf_s(:,lgiz), &
+                                   disp(:,lgiz),requests(lgiz), &
+                                   eps20rpf_r,eps20rpf_s)
+
+                end do ! Send jobs till load is full or we are done
+
+                ! If we actually need this data now
+                do while (lgiz.lt.iz)
+
+                  ! Check finished
+                  call MPI_TESTSOME(size(done_index),requests, &
+                                    ntest,done_index, &
+                                    MPI_STATUSES_IGNORE,ierr)
+
+                  ! Update load
+                  W_load = W_load - ntest
+
+                  ! Send while we can afford
+                  do while (W_load.lt.W_max.and.lgiz.lt.Rz1_PRD)
+
+                    ! Advance
+                    W_load = W_load + 1
+                    lgiz = lgiz + 1
+
+                    ! Share
+                    call share_emiss(p_fed,lgiz,ll,nf,njdir*2, &
+                                     nsend(lgiz),nf_s(:,lgiz), &
+                                     disp(:,lgiz),requests(lgiz), &
+                                     eps20rpf_r,eps20rpf_s)
+
+                  end do ! Send jobs till load is full or we are done
+
+                end do ! We need this data, now
+
+              end if ! While we still need to communicate
+#endif
               ! If emissivity is allocated
               if (allocated(Red%zao(indx)%eps20)) then
 
@@ -1888,9 +2038,15 @@
                 i0 = 1 + (iz-Rz0)*nf
                 i1 = i0 + nf - 1
 #ifndef oldmpi
-                ! Check request
-                if (nproc.gt.1) &
+                ! If MPI and request not completed yet
+                if (nproc.gt.1.and. &
+                    requests(iz).ne.MPI_REQUEST_NULL) then
+
+                  ! Check request
                   call MPI_WAIT(requests(iz),MPI_STATUS_IGNORE,ierr)
+                  W_load = W_load - 1
+
+                end if
 #endif
                 ! Point to relevant data
                 eps20 => eps20rpf_r(:,1,i0:i1)
@@ -2051,11 +2207,13 @@
 
                 end if ! Dynamic
 #ifndef oldmpi
-              ! No data but MPI
-              else if (nproc.gt.1) then
+              ! No data but MPI and request not completed
+              else if (nproc.gt.1.and. &
+                       requests(iz).ne.MPI_REQUEST_NULL) then
 
                 ! Check reception
                 call MPI_WAIT(requests(iz),MPI_STATUS_IGNORE,ierr)
+                W_load = W_load - 1
 #endif
               end if ! If need to take anything
 
@@ -2075,6 +2233,132 @@
       nullify(p_fed,p_red,p_rwarr,p_Norm,eps20rpf_r)
 
       end subroutine comoving_emissI2ord
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Share emissivity data in one height of the model atmosphere\n
+      !!       p_fed(Reda_class): Structure with redistribution output
+      !!                          frequency data\n
+      !!             iz(integer): Height index to share\n
+      !!             ll(integer): Counter for contiguous array\n
+      !!             nf(integer): Number of frequencies for CPU\n
+      !!             nn(integer): Direction and Stokes factor\n
+      !!          nsend(integer): Amount of data to send\n
+      !!        nf_s(integer(:)): Amount of data to receive\n
+      !!        disp(integer(:)): Displacement in receiver buffer\n
+      !!   request(MPI_requests): Request for non-blocking
+      !!                          communication\n
+      !!  datum_r(double(:,:,:)): Receiver buffer\n
+      !!  datum_s(double(:,:,:)): Sender buffer
+#ifndef oldmpi
+      subroutine share_emiss(p_fed,iz,ll,nf,nn,nsend,nf_s,disp, &
+                             request,datum_r,datum_s)
+#else
+      subroutine share_emiss(p_fed,iz,ll,nf,nn,nsend,nf_s,disp, &
+                             datum_r,datum_s)
+#endif
+
+      ! I/O
+
+      type(Reda_class), intent(in):: p_fed
+#ifndef oldmpi
+      type(MPI_request), intent(inout):: request
+#endif
+      integer, intent(in):: iz,nf,nn
+      integer, intent(inout):: ll,nsend
+      integer, dimension(0:nproc-1), intent(inout):: nf_s,disp
+      double precision, dimension(:,:,:), &
+                        allocatable, intent(in):: datum_s
+      double precision, dimension(:,:,:), &
+                        pointer, intent(inout):: datum_r
+
+      ! Local
+
+      integer:: i0,iproc,jz0,jz1,Mif0,Mif1,ierr
+
+
+      ! Initialize
+      nsend = 0
+      nf_s = 0
+      disp = 0
+      i0 = 1
+
+      ! For each CPU
+      do iproc=0,nproc-1
+
+        ! Get height limits
+        jz0 = Rz0 + (p_fed%Mi0(iproc)-1)/p_fed%nfreq
+        jz1 = Rz0 + (p_fed%Mi1(iproc)-1)/p_fed%nfreq
+
+        ! In range
+        if (iz.ge.jz0.and.iz.le.jz1) then
+
+          ! Get left frequency indexes
+          if (iz.eq.jz0) then
+            Mif0 = p_fed%Mi0(iproc) - &
+                   (jz0-Rz0)*p_fed%nfreq
+          else
+            Mif0 = 1
+          end if
+
+          ! Get right frequency index
+          if (iz.eq.jz1) then
+            Mif1 = p_fed%Mi1(iproc) - &
+                   (jz1-Rz0)*p_fed%nfreq
+          else
+            Mif1 = p_fed%nfreq
+          end if
+
+          ! Save receiving
+          nf_s(iproc) = Mif1 - Mif0 + 1
+          disp(iproc) = Mif0 - 1
+
+          ! If this is the CPU
+          if (pid.eq.iproc) then
+
+            ! Save number of sends
+            nsend = nf_s(pid)
+
+            ! Advance index
+            ll = ll + 1
+
+            ! Save initial point
+            i0 = ll
+
+            ! Advance rest
+            ll = ll + Mif1 - Mif0
+
+          end if ! This is the CPU
+        end if ! In height range
+
+      end do ! CPUs
+
+      ! Scale
+      nsend = nsend*nn
+      nf_s = nf_s*nn
+      disp = disp*nn
+
+#ifdef oldmpi
+      ! Share
+      call MPI_ALLGATHERV(datum_s(1,1,i0),nsend, &
+                          MPI_DOUBLE_PRECISION, &
+                          datum_r(1,1,1+(iz-Rz0)*nf), &
+                          nf_s,disp, &
+                          MPI_DOUBLE_PRECISION, &
+                          MPI_COMM_RT,ierr)
+#else
+      ! Share
+      call MPI_IALLGATHERV(datum_s(1,1,i0),nsend, &
+                           MPI_DOUBLE_PRECISION, &
+                           datum_r(1,1,1+(iz-Rz0)*nf), &
+                           nf_s,disp, &
+                           MPI_DOUBLE_PRECISION, &
+                           MPI_COMM_RT,request,ierr)
+#endif
+
+      end subroutine share_emiss
 
 !#####################################################################
 !#####################################################################

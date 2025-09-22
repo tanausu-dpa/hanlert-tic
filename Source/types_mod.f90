@@ -11,15 +11,15 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     02/07/2025 V4.0.9
+!     29/08/2025 V4.0.11
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     02/07/2025:    V4.0.9 - Added guess_polarity_l, gp_l, gp_r,
-!                             gp_g, and gp_w to Input_class (TdPA)
+!     29/08/2025:   V4.0.11 - Added extrapolation to Input_class and
+!                             Nodes_class (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1388,11 +1388,14 @@
         ! for RF calculation keep the response functions, if JKQ
         ! (assymetries) must be in the output, if tracking the
         ! value of lambda between iterations in backtracking,
-        ! if storing incomplete inversion results
+        ! if storing incomplete inversion results, if starting
+        ! from last solution in trials if thermo is fix, if
+        ! starting from last solution in trials if T and Pg is
+        ! fix
         logical:: Broyden,FITSFILE,Sigma_neglect,auto_weight, &
                   centered,Pos_Correction,hydroeq,Fractional, &
                   Projection,Popuinit,Keep_RF,out_jkqa, &
-                  l_Lam_track,storeinv
+                  l_Lam_track,storeinv,trialinit,trialtpinit
 
         ! Flag to modify variable in the inversion, flag for
         ! the regularization of each variable
@@ -1431,9 +1434,9 @@
 
         ! Type of node value, number of nodes, index of the
         ! regularization for each variable the regulatization
-        ! for each variable
+        ! for each variable, type of extrapolation of node variables
         integer, dimension(:), allocatable:: Node_Type,Num_nodes, &
-                                             Indx_regul
+                                             Indx_regul, extrapolation
 
         ! Threshold in chi2, threshold for the fractional chi2,
         ! ratio limit for the regulatizations with respect to the
@@ -1882,9 +1885,11 @@
         ! Type of node value for each variable, number of nodes for
         ! each variable, number of nodes that can change for each
         ! variable, index of the regularization for each variable,
-        ! final number the regulatization "points"
+        ! final number the regulatization "points", extrapolation
+        ! mode for node variables
         integer, dimension(nvar_inv):: Node_Type,Num_Nodes,Num_Vary, &
-                                       Indx_regul,Num_regul
+                                       Indx_regul,Num_regul, &
+                                       extrapolation
 
         ! Indexes of the first and last nodes that can change for each
         ! variable
@@ -1919,6 +1924,10 @@
 
         ! If can issue warning for wrong memory count
         logical:: warning
+
+        ! If thermodynamics are fixed, if temperature and gas pressure
+        ! are fixed
+        logical:: fix_th,fix_tp
 
         ! If interpolating frequencies, if return fractional
         ! polarization, if project the magnetic field, if

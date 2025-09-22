@@ -10,16 +10,16 @@
 !  Start:
 !     22/02/2023
 !  Last version:
-!     30/05/2025 V4.0.3
+!     26/08/2025 V4.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     30/04/2025:    V4.0.3 - Bugfix: The text record was overflown
-!                             when the number of nodes was larger
-!                             than 32 (TdPA)
+!     26/08/2025:    V4.0.5 - Bugfix: Turns out JKQ tensors were
+!                             allocated outside before calling
+!                             set_up_atmo_frombuffer (TdPA)
 !
 !#####################################################################
 !#####################################################################
