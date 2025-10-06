@@ -10,14 +10,14 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     29/08/2025 V4.0.10
+!     24/09/2025 V4.0.11
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     29/08/2025:   V4.0.10 - Read Input%extrapolation (TdPA)
+!     24/09/2025:   V4.0.11 - Read Input%Const_regul (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1373,6 +1373,7 @@
         allocate(Input%Nodes_flags(Input%nvar))
         allocate(Input%Nodes_Regul(Input%nvar))
         allocate(Input%Indx_regul(Input%nvar))
+        allocate(Input%Const_regul(Input%nvar))
         allocate(Input%Regul_weight(Input%nvar))
         allocate(Input%Scal(Input%nvar))
         allocate(Input%Perturb(Input%nvar))
@@ -1384,6 +1385,7 @@
                               sizeof(Input%Nodes_flags) + &
                               sizeof(Input%Nodes_Regul) + &
                               sizeof(Input%Indx_regul) + &
+                              sizeof(Input%Const_regul) + &
                               sizeof(Input%Regul_weight) + &
                               sizeof(Input%Scal) + &
                               sizeof(Input%Perturb) + &
@@ -1551,6 +1553,10 @@
 
             ! Read
             read(100,*,err=1100) Input%Regul_weight(i1)
+
+            ! If constant, real value
+            if (Input%Indx_regul(i1).eq.2) &
+              read(100,*,err=1100) Input%Const_regul(i1)
 
           ! No regularization
           else

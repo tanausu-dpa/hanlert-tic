@@ -9,18 +9,16 @@
 !  Start:
 !     29/06/2022
 !  Last version:
-!     15/05/2025 V4.0.2
+!     03/10/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.2 - Generalized declarations of Atom to
-!                             allow for empty arrays for any of
-!                             them (TdPA)
-!                           - Skip atomic quantities for output when
-!                             there are not active atoms (TdPA)
+!     03/10/2025:    V4.0.3 - Bugfix: In get_lims, if the model was
+!                             in single precision, it was not being
+!                             considered (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1454,7 +1452,11 @@
             allocate(buffer(sizeA))
 
             ! Specify amount to jump to skip columns
-            jump = sizeA*8
+            if (double) then
+              jump = sizeA*8
+            else
+              jump = sizeA*4
+            end if
 
             ! For each X
             do ix=1,dims(1)

@@ -9,16 +9,14 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     12/03/2025 V4.0.1
+!     03/10/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2025:    V4.0.1 - Explicitly nullify the pointers in
-!                             Geometry_class for the intensity problem
-!                             structure (TdPA)
+!     03/10/2025:    V4.0.2 - Added setTS subroutine (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -39,6 +37,10 @@
 !    Generate the necessary directional quadratures, organize the
 !  lines of sight, and initialize the geometrical tensors in the
 !  vertical reference frame is necessary
+!
+!  setTS
+!    Calculate the geometrical irreducible spherical tensors in
+!  the vertical reference frame
 !
 !  setTB
 !    Calculate the geometrical irreducible spherical tensors in the
@@ -707,7 +709,58 @@
 !#####################################################################
 !#####################################################################
 
-      !> Set the magnetic field geometrical tensors\n
+      !> Calculate the geometrical irreducible spherical tensors in
+      !! the vertical reference frame\n
+      !!  Geom(Geometry_class): Structure with geometric data\n
+      !!    Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                        J-symbols
+      subroutine setTS(Geom,Flgsg)
+
+      ! I/O
+
+      type(Fctsg_class), intent(in):: Flgsg
+      type(Geometry_class), intent(inout):: Geom
+
+      ! Local
+
+      integer:: ii,jj,kk
+
+      complex(kind=8):: TS(0:3,-2:2,0:2)
+
+
+      ! TKQ in the vertical reference frame
+      allocate(Geom%TS(0:3,-2:2,0:2,Geom%nPh2*Geom%nTh))
+      MRAMc = MRAMc + 1d-6*sizeof(Geom%TS)
+
+      ! The gamma angle is taken as 0 (Q>0 radial)
+      Geom%gam = 0d0
+
+      ! Initialize directional index
+      kk = 0
+
+      ! For each polar direction
+      do ii=1,Geom%nTh
+
+        ! For each azimuthal direction
+        do jj=1,Geom%nPh2
+
+          ! Advance direction index
+          kk = kk + 1
+
+          ! Get geometrical tensor
+          call Stens(Geom%V_theta(ii),Geom%V_phi(jj),Geom%gam, &
+                     Flgsg,TS)
+          Geom%TS(:,:,:,kk) = TS
+
+        end do ! Azimuthal direction
+      end do ! Polar direction
+
+      end subroutine setTS
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
       !> Calculate the geometrical irreducible spherical tensors in
       !! the magnetic field reference frame from the ones in the
       !! vertical reference frame. It also checks the axiallity of

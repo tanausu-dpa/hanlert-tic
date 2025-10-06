@@ -6,7 +6,8 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an (IAC)
 # Hao Li (IAC/NSSCC)
 #
-# 29/08/2025: V4.0.13 - Added NODES_X_EXTRAPOLATION (TdPA)
+# 24/09/2025: V4.0.14 - Added a possible third field to REGUL_X when
+#                       the type is constant (TdPA)
 #
 #####################
 
@@ -5894,8 +5895,13 @@ def rInput():
           elif val[0] in 'CONSTANT':
             val[1] = interpret(val[1])
             weig = float(val[1])
+            if len(val) < 3:
+                num = -1e199
+            else:
+                num = float(val[2])
             f.write('2\n')
             f.write('{0}\n'.format(weig))
+            f.write('{0}\n'.format(num))
             check = 1
           elif 'F' in val[0] and 'D' in val[0]:
             val[1] = interpret(val[1])

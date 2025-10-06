@@ -9,18 +9,17 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     10/06/2025 V4.0.3
+!     03/10/2025 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     10/06/2025:    V4.0.3 - Bugfix: Wrong labels when writing
-!                             the equivalent damping parameters (TdPA)
-!                           - Bugfix: There was missing conditionals
-!                             for the newest VdW modes for lines in
-!                             LTE (TdPA)
+!     03/10/2025:    V4.0.4 - Barklem Van der Waals broadenings can
+!                             proceed without a continuum level, they
+!                             just neglect the helium contribution
+!                             with Unsold (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -97,6 +96,8 @@
 
       ! Local
 
+      logical:: get_C6
+
       integer:: iz,itermc,i1
 
       double precision:: aryd, Z, sigma, alpha, Ahe
@@ -143,17 +144,41 @@
 
       end do ! Terms above upper term
 
+      ! Do we need to get C6? If not parametric
+      get_C6 = Atom%broad_type(itran).ne.2.and. &
+               Atom%broad_type(itran).ne.4
+
+      ! Initialize C6
+      C6 = 0d0
+
       ! If we did not find the continuum
       if (itermc.lt.0.and.Atom%broad_type(itran).ne.2.and. &
           Atom%broad_type(itran).ne.4) then
 
-        ! Notify error and return
-        umsg = 'Could not find continuum in atom '// &
-               Atom%Element//' and Van der Waals '// &
-               'broadening not set to parametric nor Kurucz.'
-        call aborted
-        return
+        ! If Unsold
+        if (Atom%broad_type(itran).eq.1) then
 
+          ! Notify error and return
+          umsg = 'Could not find continuum in atom '// &
+                 Atom%Element//' and Van der Waals '// &
+                 'broadening is Unsold'
+          call aborted
+          return
+
+        ! Barklem
+        else
+
+          ! Notify issue
+          umsg = 'Could not find continuum in atom '// &
+                 Atom%Element//' and Van der Waals '// &
+                 'broadening is Barklem, neglecting '// &
+                 'helium contribution'
+          call abortedS(umsg,urou,.False.,.True.)
+
+          ! Do not get C6
+          get_C6 = .False.
+
+        end if ! Type of broadening
       end if ! Continuum not found
 
 
@@ -161,9 +186,8 @@
       ! Calculate the Van der Waals cross section C6
       !
 
-      ! If not parametric
-      if (Atom%broad_type(itran).ne.2.and. &
-          Atom%broad_type(itran).ne.4) then
+      ! If C6 needed
+      if (get_C6) then
 
         ! Energy part
         d1 = ryd*ryd/(Atom%TRfreq(itermc) - &
@@ -182,7 +206,7 @@
         C6 = 8.08d0*((5d0*qel*qel*a4pieps0*pi* &
              Z*Z*rb*rb*d1/pi4eps0/hplanck)**.4d0)*1d6
 
-      end if ! Not parametric
+      end if ! C6 needed
 
 
       !

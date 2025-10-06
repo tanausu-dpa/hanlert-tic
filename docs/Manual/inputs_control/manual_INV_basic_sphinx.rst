@@ -1505,7 +1505,7 @@ REGUL_B
     
     - string: None, mean, constant, first derivative, second derivative; + float; default: none
 
-  * Description: Type of regulatization and associated weight for the magnetic field strength or longitudinal component.
+  * Description: Type of regulatization and associated weight for the magnetic field strength or longitudinal component. If the type of regularization is constant, a second float can be added to choose the value for the comparison; if not provided, the value will be the average of the initial values of the nodes.
 
 REGUL_BT
 --------
@@ -1516,7 +1516,7 @@ REGUL_BT
     
     - string: None, mean, constant, first derivative, second derivative; + float; default: none
 
-  * Description: Type of regulatization and associated weight for the magnetic field inclination or longitudinal component.
+  * Description: Type of regulatization and associated weight for the magnetic field inclination or longitudinal component. If the type of regularization is constant, a second float can be added to choose the value for the comparison; if not provided, the value will be the average of the initial values of the nodes.
 
 REGUL_BP
 --------
@@ -1527,7 +1527,7 @@ REGUL_BP
     
     - string: None, mean, constant, first derivative, second derivative; + float; default: none
 
-  * Description: Type of regulatization and associated weight for the magnetic field azimuth.
+  * Description: Type of regulatization and associated weight for the magnetic field azimuth. If the type of regularization is constant, a second float can be added to choose the value for the comparison; if not provided, the value will be the average of the initial values of the nodes.
 
 REGUL_F
 -------
@@ -1538,7 +1538,7 @@ REGUL_F
     
     - string: None, mean, constant, first derivative, second derivative; + float; default: none
 
-  * Description: Type of regulatization and associated weight for the diffuse light factor.
+  * Description: Type of regulatization and associated weight for the diffuse light factor. If the type of regularization is constant, a second float can be added to choose the value for the comparison; if not provided, the value will be the average of the initial values of the nodes.
 
 REGUL_T
 -------
@@ -1549,7 +1549,7 @@ REGUL_T
     
     - string: None, mean, constant, first derivative, second derivative; + float; default: none
 
-  * Description: Type of regulatization and associated weight for the temperature.
+  * Description: Type of regulatization and associated weight for the temperature. If the type of regularization is constant, a second float can be added to choose the value for the comparison; if not provided, the value will be the average of the initial values of the nodes.
 
 REGUL_VX
 --------
@@ -1560,7 +1560,7 @@ REGUL_VX
     
     - string: None, mean, constant, first derivative, second derivative; + float; default: none
 
-  * Description: Type of regulatization and associated weight for the velocity x or transversal component.
+  * Description: Type of regulatization and associated weight for the velocity x or transversal component. If the type of regularization is constant, a second float can be added to choose the value for the comparison; if not provided, the value will be the average of the initial values of the nodes.
 
 REGUL_VY
 --------
@@ -1571,7 +1571,7 @@ REGUL_VY
     
     - string: None, mean, constant, first derivative, second derivative; + float; default: none
 
-  * Description: Type of regulatization and associated weight for the velocity y component or azimuth.
+  * Description: Type of regulatization and associated weight for the velocity y component or azimuth. If the type of regularization is constant, a second float can be added to choose the value for the comparison; if not provided, the value will be the average of the initial values of the nodes.
 
 REGUL_VZ
 --------
@@ -1582,7 +1582,7 @@ REGUL_VZ
     
     - string: None, mean, constant, first derivative, second derivative; + float; default: none
 
-  * Description: Type of regulatization and associated weight for the velocity vertical or longitudinal component.
+  * Description: Type of regulatization and associated weight for the velocity vertical or longitudinal component. If the type of regularization is constant, a second float can be added to choose the value for the comparison; if not provided, the value will be the average of the initial values of the nodes.
 
 REGUL_VT
 --------
@@ -1593,7 +1593,7 @@ REGUL_VT
     
     - string: None, mean, constant, first derivative, second derivative; + float; default: none
 
-  * Description: Type of regulatization and associated weight for the micro-turbulent velocity.
+  * Description: Type of regulatization and associated weight for the micro-turbulent velocity. If the type of regularization is constant, a second float can be added to choose the value for the comparison; if not provided, the value will be the average of the initial values of the nodes.
 
 REGUL_PG
 --------
@@ -1604,7 +1604,7 @@ REGUL_PG
     
     - string: None, mean, constant, first derivative, second derivative; + float; default: none
 
-  * Description: Type of regulatization and associated weight for the gas pressure.
+  * Description: Type of regulatization and associated weight for the gas pressure. If the type of regularization is constant, a second float can be added to choose the value for the comparison; if not provided, the value will be the average of the initial values of the nodes.
 
 THRH_CHI2
 ---------

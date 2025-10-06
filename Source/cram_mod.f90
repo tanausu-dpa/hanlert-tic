@@ -9,14 +9,14 @@
 !  Start:
 !     24/10/2024
 !  Last version:
-!     29/08/2025 V4.0.5
+!     24/09/2025 V4.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     29/08/2025:    V4.0.5 - Updated due to changes in Input_class
+!     24/09/2025:    V4.0.6 - Updated due to changes in Input_class
 !                             structure (TdPA)
 !
 !#####################################################################
@@ -1753,6 +1753,10 @@
       ! Indx_regul
       if (allocated(Input%Indx_regul)) &
         num = num + 1d-6*sizeof(Input%Indx_regul)
+
+      ! Const_regul
+      if (allocated(Input%Const_regul)) &
+        num = num + 1d-6*sizeof(Input%Const_regul)
 
       ! Scal
       if (allocated(Input%Scal)) &

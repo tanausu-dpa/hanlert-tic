@@ -10,14 +10,16 @@
 !  Start:
 !     24/02/2023
 !  Last version:
-!     17/12/2024 V4.0.0
+!     24/09/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     17/12/2024:    V4.0.0 - Updated headers (TdPA)
+!     24/09/2025:    V4.0.1 - Bugfix: Wrong limits in the loop to
+!                             initialize regularizations, it left out
+!                             the JKQ tensors (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -89,7 +91,7 @@
 
 
       ! For each variable
-      do i=1,11
+      do i=1,14
 
         ! If regularizing the variable
         if (Inf_Nodes%Nodes_Regul(i)) then

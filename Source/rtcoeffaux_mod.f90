@@ -12,20 +12,17 @@
 !  Start:
 !     27/04/2017
 !  Last version:
-!     20/08/2025 V4.0.5
+!     03/10/2025 V4.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/08/2025:    V4.0.5 - Changed the implementation of the
-!                             ad-hoc radiation field tensors from a
-!                             flat contribution into an
-!                             angle-averaged contribution (TdPA)
-!                           - Bugfix: Ensure good transition limits in
-!                             getJKQinnu (TdPA)
-!                           - Added getJKQADasym (TdPA)
+!     03/10/2025:    V4.0.6 - Bugfix: Wrong index in the integral
+!                             of JKQC with ad-hoc JKQ (TdPA)
+!                           - Bugfix: The Q index started from 0 when
+!                             applying the JKQ symmetries (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -6731,7 +6728,7 @@
                 ! Add to integral
                 JradC(0,K,ifreq) = JradC(0,K,ifreq) + &
                                    Geom%W_mu(ith1)* &
-                                   sum(StokesM*Geom%TS(:,iQ,K,jdir))
+                                   sum(StokesM*Geom%TS(:,0,K,jdir))
                 JradCp(0,K,ifreq) = JradCp(0,K,ifreq) + &
                                     Geom%W_mu(ith1)* &
                                     sum(StokesM*TKQo(:,0,K,jdir))
@@ -6806,7 +6803,7 @@
 
         ! Ensure relations for every dependent multipole
         do K=1,Krad
-          do iQ=0,K
+          do iQ=1,K
 
             ! Use relations
             JradC(-iQ,K,:) = Flgsg%sg(iQ)*conjg(JradC(iQ,K,:))
@@ -6847,7 +6844,7 @@
 
         ! Ensure relations for every dependent multipole
         do K=1,Krad
-          do iQ=0,K
+          do iQ=1,K
 
             ! Use relations
             JradC(-iQ,K,:) = Flgsg%sg(iQ)*conjg(JradC(iQ,K,:))

@@ -11,19 +11,26 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     28/08/2025 V4.0.13
+!     03/10/2025 V4.0.14
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     28/08/2025:   V4.0.13 - Allow to start from previous solutions
-!                             in trials if thermodynamics are not
-!                             being changed (TdPA)
-!                           - Changed a bool argument (RF) in
-!                             prepare_buffers into an integer (typo)
-!                             argument (TdPA)
+!     03/10/2025:   V4.0.14 - Bugfix: only apply the approximations
+!                             about velocity in intensity if actually
+!                             solving for intensity (TdPA)
+!                           - Bugfix: The two-step magnetic solution
+!                             for polarization can only be performed
+!                             if not reading or if solved for
+!                             intensity before (TdPA)
+!                           - Bugfix: JKQgen needs the correct
+!                             information of the quadrature in
+!                             intensity when the azimuths are not
+!                             the same (TdPA)
+!                           - Added GeomI argument to the call to
+!                             hanle_polarization (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -265,7 +272,7 @@
         Atmo%vz => Atmo%zeros
 
       ! If axial intensity and not polarization
-      else if (axiali.and..not.axial) then
+      else if (lio.and.axiali.and..not.axial) then
 
         ! Cheat the velocities by pointing to the array of zeros
         Atmo%vxa => Atmo%vx
@@ -520,7 +527,7 @@
 
       ! If axial intensity and not polarization, un-cheat
       ! the velocities
-      else if (axiali.and..not.axial) then
+      else if (lio.and.axiali.and..not.axial) then
 
         ! Point the velocities back to original data
         Atmo%vx => Atmo%vxa
@@ -594,7 +601,7 @@
         ! If there is a magnetic field, and doing a two-step
         ! calculation
         if (maxval(Bfield%Bstrength).gt.TINYB.and. &
-            Input%two_step_pol) then
+            Input%two_step_pol.and.(.not.lload.or.lio)) then
 
           ! Set zero field structure
           allocate(Bfield0%Bstrength(nz))
@@ -655,8 +662,8 @@
             ! Call polarization solution WITHOUT field or
             ! emergence with fake and dummy JKQ
             call hanle_polarization(Atom,LTElines,Atmo,MPID,Input, &
-                                    Geom,Bfield0,Frec,Flgsg,SolF, &
-                                    Cont,Rho_old, &
+                                    GeomI,Geom,Bfield0,Frec,Flgsg, &
+                                    SolF,Cont,Rho_old, &
                                     StokesI,J00,J00S,J00C,J00P, &
                                     Stokes,JKQ,JKQS,JKQC, &
                                     JKQ_asym_fake,asym,rnPh,.False., &
@@ -678,8 +685,8 @@
 
             ! Call polarization solution WITHOUT field
             call hanle_polarization(Atom,LTElines,Atmo,MPID,Input, &
-                                    Geom,Bfield0,Frec,Flgsg,SolF, &
-                                    Cont,Rho_old, &
+                                    GeomI,Geom,Bfield0,Frec,Flgsg, &
+                                    SolF,Cont,Rho_old, &
                                     StokesI,J00,J00S,J00C,J00P, &
                                     Stokes,JKQ,JKQS,JKQC,JKQ_asym, &
                                     asym,rnPh,.False., &
@@ -713,8 +720,8 @@
 
           ! Solve the actual polarization problem
           call hanle_polarization(Atom,LTElines,Atmo,MPID,Input, &
-                                  Geom,Bfield,Frec,Flgsg,SolF, &
-                                  Cont,Rho_old, &
+                                  GeomI,Geom,Bfield,Frec,Flgsg, &
+                                  SolF,Cont,Rho_old, &
                                   StokesI,J00,J00S,J00C,J00P, &
                                   Stokes,JKQ,JKQS,JKQC,JKQ_asym, &
                                   asym,Geom%nPh,.True., &
@@ -726,8 +733,8 @@
 
           ! Solve the polarization problem
           call hanle_polarization(Atom,LTElines,Atmo,MPID,Input, &
-                                  Geom,Bfield,Frec,Flgsg,SolF, &
-                                  Cont,Rho_old, &
+                                  GeomI,Geom,Bfield,Frec,Flgsg, &
+                                  SolF,Cont,Rho_old, &
                                   StokesI,J00,J00S,J00C,J00P, &
                                   Stokes,JKQ,JKQS,JKQC,JKQ_asym, &
                                   asym,Geom%nPh,.True., &
@@ -748,8 +755,8 @@
 
           ! Solve the polarization problem
           call hanle_polarization(Atom,LTElines,Atmo,MPID,Input, &
-                                  Geom,Bfield,Frec,Flgsg,SolF, &
-                                  Cont,Rho_old, &
+                                  GeomI,Geom,Bfield,Frec,Flgsg, &
+                                  SolF,Cont,Rho_old, &
                                   StokesI,J00,J00S,J00C,J00P, &
                                   Stokes,JKQ,JKQS,JKQC,JKQ_asym, &
                                   asym,Geom%nPh,.True., &
@@ -1864,6 +1871,8 @@
       !!             MPID(MPI_class): Structure with MPI data\n
       !!          Input(Input_class): Structure with configuration
       !!                              data\n
+      !!       GeomI(Geometry_class): Structure with geometric data
+      !!                              for the intensity problem\n
       !!        Geom(Geometry_class): Structure with geometric data\n
       !!        Bfield(Bfield_class): Structure with magnetic field
       !!       Frec(Frequency_class): Structure with frequency data\n
@@ -1919,8 +1928,8 @@
       !!                              reaching the RAM limit\n
       !!              ofram(logical): If we have reached the RAM limit
       subroutine hanle_polarization(Atom,LTElines,Atmo,MPID,Input, &
-                                    Geom,Bfield,Frec,Flgsg,SolF, &
-                                    Cont,Rho_old, &
+                                    GeomI,Geom,Bfield,Frec,Flgsg, &
+                                    SolF,Cont,Rho_old, &
                                     StokesI,J00,J00S,J00C,J00P, &
                                     Stokes,JKQ,JKQS,JKQC,JKQ_asym, &
                                     asym,rnPh,saving, &
@@ -1936,7 +1945,7 @@
       type(Bfield_class), intent(in):: Bfield
       type(Fctsg_class), intent(inout):: Flgsg
       type(Frequency_class), intent(in):: Frec
-      type(Geometry_class), intent(inout):: Geom
+      type(Geometry_class), target, intent(inout):: GeomI,Geom
       type(Input_class), intent(in):: Input
       type(MPI_class), intent(inout):: MPID
       type(Solution_F_class), intent(inout):: SolF
@@ -1975,9 +1984,13 @@
 
       integer:: ia
 
+      ! Pointer
+
+      type(Geometry_class), pointer:: Geom_p
+
 
       ! Initialize redistribution pointers
-      nullify(Red%dzao,Red%rzao,Red%pzao,Red%zao,Red%ao)
+      nullify(Red%dzao,Red%rzao,Red%pzao,Red%zao,Red%ao,Geom_p)
 
       ! Initialize memory in Red structure
       FRAMc = FRAMc + 1d-6*sizeof(Red)
@@ -2165,11 +2178,51 @@
         ! Save the NCHLT variable and set it temporally to false
         l1 = NCHLT
         if (NCHLT) NCHLT = .False.
+
+        !
+        ! Choose the correct geometry
+        !
+
+        ! If intensity was not axial, and the number of
+        ! angles is different
+        if (.not.axiali.and.(GeomI%nTh.ne.Geom%nTh.or. &
+                             GeomI%nPh.ne.Geom%nPh)) then
+
+          ! Point to Intensity
+          Geom_p => GeomI
+          call setTS(Geom_p,Flgsg)
+          if (field) call setTB(Geom_p,Flgsg,Bfield)
+
+        ! Otherwise
+        else
+
+          ! Point to polarization
+          Geom_p => Geom
+
+        end if
+
         ! Correct the JKQ tensors
-        call JKQgen(Atom,Rho_old,Atmo,Frec,Red,Geom, &
+        call JKQgen(Atom,Rho_old,Atmo,Frec,Red,Geom,Geom_p, &
                     MPID,Input,Flgsg,Input%Pcorr,Bfield, &
                     rnPh,StokesI,J00,J00S,J00C, &
                     Stokes,JKQ,JKQS,JKQC,J00P)
+
+        ! Clean tensors
+        if (.not.axiali.and.(GeomI%nTh.ne.Geom%nTh.or. &
+                             GeomI%nPh.ne.Geom%nPh)) then
+          ! Clean TB
+          call free_local_geom(Geom_p)
+          ! Clean TS
+          MRAMc = MRAMc - 1d-6*sizeof(Geom_p%TS)
+          deallocate(Geom_p%TS)
+          nullify(Geom_p%TS)
+
+        end if ! Need to clean tensors
+
+        ! Clean pointer
+        nullify(Geom_p)
+
+        ! Error
         if (laborted) goto 1000
 
         ! Only if synthesis

@@ -9,14 +9,15 @@
 !  Start:
 !     08/10/2024
 !  Last version:
-!     22/09/2025 V4.1.2
+!     03/10/2025 V4.1.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     22/09/2025:    V4.1.2 - Bugfix: Solved the deadlock issue (TdPA)
+!     03/10/2025:    V4.1.3 - Bugfix: Some new MPI logic as being
+!                             called in serial cases (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1055,34 +1056,11 @@
             indx = Red%izao(jtran,ia,iz)
 
 #ifndef oldmpi
-            ! If we are not done with sharing
-            if (lgiz.lt.Rz1_PRD) then
+            ! If MPI
+            if (nproc.gt.1) then
 
-              ! Check finished
-              call MPI_TESTSOME(size(done_index),requests, &
-                                ntest,done_index, &
-                                MPI_STATUSES_IGNORE,ierr)
-
-              ! Update load
-              W_load = W_load - ntest
-
-              ! Send while we can afford
-              do while (W_load.lt.W_max.and.lgiz.lt.Rz1_PRD)
-
-                ! Advance
-                W_load = W_load + 1
-                lgiz = lgiz + 1
-
-                ! Share
-                call share_emiss(p_fed,lgiz,ll,nf,ndir*4, &
-                                 nsend(lgiz),nf_s(:,lgiz), &
-                                 disp(:,lgiz),requests(lgiz), &
-                                 eps20123_r,eps20123_s)
-
-              end do ! Send jobs till load is full or we are done
-
-              ! If we actually need this data now
-              do while (lgiz.lt.iz)
+              ! If we are not done with sharing
+              if (lgiz.lt.Rz1_PRD) then
 
                 ! Check finished
                 call MPI_TESTSOME(size(done_index),requests, &
@@ -1107,9 +1085,35 @@
 
                 end do ! Send jobs till load is full or we are done
 
-              end do ! We need this data, now
+                ! If we actually need this data now
+                do while (lgiz.lt.iz)
 
-            end if ! While we still need to communicate
+                  ! Check finished
+                  call MPI_TESTSOME(size(done_index),requests, &
+                                    ntest,done_index, &
+                                    MPI_STATUSES_IGNORE,ierr)
+
+                  ! Update load
+                  W_load = W_load - ntest
+
+                  ! Send while we can afford
+                  do while (W_load.lt.W_max.and.lgiz.lt.Rz1_PRD)
+
+                    ! Advance
+                    W_load = W_load + 1
+                    lgiz = lgiz + 1
+
+                    ! Share
+                    call share_emiss(p_fed,lgiz,ll,nf,ndir*4, &
+                                     nsend(lgiz),nf_s(:,lgiz), &
+                                     disp(:,lgiz),requests(lgiz), &
+                                     eps20123_r,eps20123_s)
+
+                  end do ! Send jobs till load is full or we are done
+                end do ! We need this data, now
+
+              end if ! While we still need to communicate
+            end if ! MPI
 #endif
             ! If the CPU allocated eps20
             if (allocated(Red%zao(indx)%eps20)) then
@@ -1918,34 +1922,11 @@
               ! Get index
               indx = Red%izao(ffjtran,ia,iz)
 #ifndef oldmpi
-              ! If we are not done with sharing
-              if (lgiz.lt.Rz1_PRD) then
+              ! If MPI
+              if (nproc.gt.1) then
 
-                ! Check finished
-                call MPI_TESTSOME(size(done_index),requests, &
-                                  ntest,done_index, &
-                                  MPI_STATUSES_IGNORE,ierr)
-
-                ! Update load
-                W_load = W_load - ntest
-
-                ! Send while we can afford
-                do while (W_load.lt.W_max.and.lgiz.lt.Rz1_PRD)
-
-                  ! Advance
-                  W_load = W_load + 1
-                  lgiz = lgiz + 1
-
-                  ! Share
-                  call share_emiss(p_fed,lgiz,ll,nf,njdir*2, &
-                                   nsend(lgiz),nf_s(:,lgiz), &
-                                   disp(:,lgiz),requests(lgiz), &
-                                   eps20rpf_r,eps20rpf_s)
-
-                end do ! Send jobs till load is full or we are done
-
-                ! If we actually need this data now
-                do while (lgiz.lt.iz)
+                ! If we are not done with sharing
+                if (lgiz.lt.Rz1_PRD) then
 
                   ! Check finished
                   call MPI_TESTSOME(size(done_index),requests, &
@@ -1970,9 +1951,35 @@
 
                   end do ! Send jobs till load is full or we are done
 
-                end do ! We need this data, now
+                  ! If we actually need this data now
+                  do while (lgiz.lt.iz)
 
-              end if ! While we still need to communicate
+                    ! Check finished
+                    call MPI_TESTSOME(size(done_index),requests, &
+                                      ntest,done_index, &
+                                      MPI_STATUSES_IGNORE,ierr)
+
+                    ! Update load
+                    W_load = W_load - ntest
+
+                    ! Send while we can afford
+                    do while (W_load.lt.W_max.and.lgiz.lt.Rz1_PRD)
+
+                      ! Advance
+                      W_load = W_load + 1
+                      lgiz = lgiz + 1
+
+                      ! Share
+                      call share_emiss(p_fed,lgiz,ll,nf,njdir*2, &
+                                       nsend(lgiz),nf_s(:,lgiz), &
+                                       disp(:,lgiz),requests(lgiz), &
+                                       eps20rpf_r,eps20rpf_s)
+
+                    end do ! Send jobs till full or we are done
+                  end do ! We need this data, now
+
+                end if ! While we still need to communicate
+              end if ! MPI
 #endif
               ! If emissivity is allocated
               if (allocated(Red%zao(indx)%eps20)) then

@@ -11,18 +11,17 @@
 !  Start:
 !     20/04/2016
 !  Last version:
-!     25/08/2025 V4.0.5
+!     03/10/2025 V4.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     25/08/2025:    V4.0.5 - Added subroutine rototatesol to rotate
-!                             the relevant irreducible spherical
-!                             tensors from the vertical to the
-!                             magnetic reference frame between step
-!                             solutions in hanle (TdPA)
+!     03/10/2025:    V4.0.6 - Bugfix: When a solution in inversion
+!                             mode, the density matrix was being saved
+!                             in the magnetic field reference frame,
+!                             and not in the vertical (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -2346,7 +2345,7 @@
       urou = 'getsol'
 
       !
-      ! If there is a polarization solution
+      ! If we need to start with intensity
       !
       if (intensity) then
 
@@ -2618,7 +2617,9 @@
           end do ! terms
         end do ! Atoms
 
+      !
       ! Polarization
+      !
       else
 
         ! If storing Stokes parameters
@@ -3229,8 +3230,7 @@
                       iR = Atom(ia)%irho(it)%Jrho(iJ1,iJ)%kq(iQ,K)
 
                       ! Save
-                      SolF%i_rhoes(ia)%crho(iR,:) = &
-                                                   Atom(ia)%crho(iR,:)
+                      SolF%i_rhoes(ia)%crho(iR,:) = rhoKQaux(iQ,:)
 
                     end do ! Q
 

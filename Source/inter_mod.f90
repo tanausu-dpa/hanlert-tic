@@ -10,15 +10,14 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     29/08/2025 V4.0.1
+!     03/10/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     29/08/2025:    V4.0.1 - The way of extrapolating in Intpol can
-!                             be different for top and bottom (TdPA)
+!     03/10/2025:    V4.0.2 - Added linear_circle routine (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -48,6 +47,10 @@
 !    One-dimensional linear interpolation. Out of boundary values are
 !  taken as extended from the tabulation data as constant. Admits a
 !  single output coordinate
+!
+!  linear_circle
+!    One-dimensional linear interpolation. Assumes interpolation
+!  in angles in a circunference. Admits an array of output coordinates
 !
 !  spline
 !    Calculate the coefficients for one-dimensional cubic spline
@@ -109,6 +112,7 @@
 
       ! Use
       use commons_mod
+      use parameters_mod , only : PI
 
       contains
 
@@ -430,7 +434,6 @@
 !#####################################################################
 !#####################################################################
 
-      !> Linear interpolator\n
       !> One-dimensional linear interpolation. Out of boundary values
       !! are taken as extended from the tabulation data as constant.
       !! Admits a single output coordinate\n
@@ -499,6 +502,125 @@
       end if ! If within or out of which boundary
 
       end subroutine linear
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> One-dimensional linear interpolation. Assumes interpolation
+      !! in angles in a circunference. Admits an array of output
+      !! coordinates\n
+      !!     x(double(:)): Input x axis\n
+      !!     y(double(:)): Input y axis\n
+      !!     z(double(:)): Output x value\n
+      !!  yout(double(:)): Interpolated value
+      subroutine linear_circle(x,y,z,yout)
+
+      ! I/O
+
+      double precision, dimension(:), intent(out):: yout
+      double precision, dimension(:), intent(in):: x,y,z
+
+      ! Local
+
+      logical:: search
+
+      integer:: n,m,jj,ii,i0,i1,li
+
+      double precision:: xleft,xright,yleft,yright
+      double precision:: y0,y1,x0,x1,dx
+
+
+      ! Size of tabulation and output
+      n = size(x)
+      m = size(z)
+
+      ! Define beyond boundaries
+      xleft = x(n) - 2d0*PI
+      yleft = y(n)
+      xright = x(1) + 2d0*PI
+      yright = y(1)
+
+      ! Last checked i
+      li = 0
+
+      ! For each output
+      do jj=1,m
+
+        ! If not the first
+        if (li.gt.0) then
+
+          ! Check if need to search
+          search = .not.(z(jj).gt.x(n))
+
+        ! First
+        else
+
+          ! Check if to the left
+          search = z(jj).ge.x(1)
+
+        end if ! First check
+
+        ! If we need to search
+        if (search) then
+
+          ! For every input coordinate
+          do ii=li,n-1
+
+            ! Check if output in current range
+            if (z(jj).ge.x(ii).and.z(jj).le.x(ii+1)) then
+
+              ! Take indexes and data for interpolation
+              i0 = ii
+              i1 = ii+1
+              x0 = x(i0)
+              x1 = x(i1)
+              y0 = y(i0)
+              y1 = y(i1)
+              dx = 1d0/(x1 - x0)
+              li = ii
+
+              ! Finish search
+              exit
+
+            end if ! If within current range
+
+          end do ! Input coordinates
+
+        ! If not searching
+        else
+
+          ! Not first
+          if (li.gt.0) then
+
+            ! Take indexes and data for interpolation
+            x0 = x(n)
+            x1 = xright
+            y0 = y(n)
+            y1 = yright
+            dx = 1d0/(x1 - x0)
+            li = n
+
+          ! First
+          else
+
+            ! Take indexes and data for interpolation
+            x0 = xleft
+            x1 = x(1)
+            y0 = yleft
+            y1 = y(1)
+            dx = 1d0/(x1 - x0)
+            li = 0
+
+          end if ! First or last
+        end if ! Searching or not
+
+        ! Linear interpolation
+        yout(jj) = ((y1 - y0)*z(jj) + y0*x1 - y1*x0)*dx
+
+      end do ! Outputs
+
+      end subroutine linear_circle
 
 !#####################################################################
 !#####################################################################

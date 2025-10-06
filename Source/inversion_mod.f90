@@ -10,16 +10,16 @@
 !  Start:
 !     22/02/2023
 !  Last version:
-!     02/07/2025 V4.0.3
+!     24/09/2025 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     02/07/2025:    V4.0.3 - Added call to new guess_polarity
-!                             subroutine (TdPA)
-!                           - Added a new schedule (TdPA)
+!     24/09/2025:    V4.0.4 - Added the possibility to setup the value
+!                             for the constant regularization via the
+!                             input file (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -124,7 +124,8 @@
       type(Atmo_class):: Atmo
       type(Bfield_class):: Bfield,Bfield0
 
-      integer:: i
+      integer:: i,j
+      double precision:: num,den
 
       double precision, dimension(Input%nvar):: TMP_Weight
 
@@ -303,14 +304,66 @@
       ! Initialize node values
       call Initialize_Nodes(Atmo,Bfield,Inf_Nodes)
 
-      ! Set regularization constant for gas pressure
-      if (Inf_Nodes%Nodes_Flags(Inf_Nodes%index_Pg).and. &
-          Inf_Nodes%hydroeq) &
-        Inf_Nodes%Const(Inf_Nodes%index_Pg) = &
-                             Inf_Nodes%Node(Inf_Nodes%index_Pg)%Var(1)
 
-      ! Set regulatization constant for diffuse light
-      Inf_Nodes%Const(Inf_Nodes%index_f) = Input%f_diff
+      !
+      ! Prepare values for constant regularizations
+      !
+
+      ! For all variables
+      do i=1,Inf_Nodes%nvar
+
+        ! Skip if not inverting
+        if (.not.Inf_Nodes%Nodes_Flags(i)) cycle
+
+        ! If non-diffuse light
+        if (i.ne.Inf_Nodes%index_f) then
+
+          ! If value
+          if (Input%Const_regul(i).gt.-1d198) then
+
+            ! Setup
+            Inf_Nodes%Const(i) = Input%Const_regul(i)
+
+          ! Automatic
+          else
+
+            ! If pressure in hydrostatic equilibrium
+            if (i.eq.Inf_Nodes%index_Pg.and.Inf_Nodes%hydroeq) then
+
+              ! Set to boundary
+              Inf_Nodes%Const(i) = Inf_Nodes%Node(i)%Var(1)
+
+            ! Any other
+            else
+
+              ! Take average
+              num = 0d0
+              den = 0d0
+
+              ! For each node
+              do j=1,Inf_Nodes%Num_Nodes(i)
+
+                ! Contributions
+                num = num + Inf_Nodes%Node(i)%Var(j)
+                den = den + 1d0
+
+              end do
+
+              ! Set average
+              Inf_Nodes%Const(i) = num/den
+
+            end if ! Type of variable
+          end if ! Provided value
+
+        ! Diffuse light
+        else
+
+          ! Set regulatization constant for diffuse light
+          Inf_Nodes%Const(Inf_Nodes%index_f) = Input%f_diff
+
+        end if ! Variable
+
+      end do ! All variables
 
       ! If restoring and not masking
       if (trim(Input%Inv_init).ne.'INIT'.and.imask.eq.0) then

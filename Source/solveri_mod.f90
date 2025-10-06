@@ -9,15 +9,19 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     19/09/2025 V4.0.13
+!     03/10/2025 V4.0.14
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     19/09/2025:   V4.0.13 - Moved position of label for error
-!                             handling (TdPA)
+!     03/10/2025:   V4.0.14 - Bugfix: Added logic in JKQgen to account
+!                             for different azimuth axes between the
+!                             intensity and the polarization problems,
+!                             as well as the need to consider
+!                             intensity profiles instead of the mean
+!                             intensity (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -120,6 +124,7 @@
       use comovingprd_mod
       use fieldb_mod
       use free_mod
+      use inter_mod
       use iosolution_mod
       use jcalci_mod
       use mrc_mod
@@ -5867,6 +5872,8 @@
       !!                             and profile or normalization
       !!                             data\n
       !!       Geom(Geometry_class): Structure with geometric data\n
+      !!     Geom_p(Geometry_class): Geometry for the weights that
+      !!                             need to be considered\n
       !!            MPID(MPI_class): Structure with MPI data\n
       !!         Input(Input_class): Structure with configuration
       !!                             data\n
@@ -5895,9 +5902,10 @@
       !!                             frequency dependence\n
       !!        J00P(double(:,:,:)): Intensity integrals in the
       !!                             photoionization rates
-      subroutine JKQgen(Atom,Rho_old,Atmo,Frec,Red,Geom,MPID,Input, &
-                        Flgsg,Pcorr,Bfield,rnPh,Stokes0,J00,J00S, &
-                        J00C,Stokes,JKQ,JKQS,JKQC,J00P)
+      subroutine JKQgen(Atom,Rho_old,Atmo,Frec,Red,Geom,Geom_p,MPID, &
+                        Input,Flgsg,Pcorr,Bfield,rnPh, &
+                        Stokes0,J00,J00S,J00C, &
+                        Stokes,JKQ,JKQS,JKQC,J00P)
 
       ! I/O
 
@@ -5911,7 +5919,7 @@
       type(Input_class), intent(in):: Input
       type(Fctsg_class), intent(inout):: Flgsg
       type(MPI_class), intent(in):: MPID
-      type(Geometry_class), intent(in):: Geom
+      type(Geometry_class), intent(in):: Geom,Geom_p
       type(Bfield_class), intent(in):: Bfield
       logical, intent(in):: Pcorr
       integer, intent(in):: rnPh
@@ -5938,9 +5946,9 @@
 
       type(MRC_class):: MRC
 
-      logical:: ADD
+      logical:: ADD,doStk
 
-      integer:: if0,if1,ifreq,iph,nth,nph,npz,ntpz,nsend,ierr
+      integer:: if0,if1,ifreq,ith,iph,nth,nph,npz,ntpz,nsend,ierr
       integer:: iz,ia,itran,jtran,ftran,fftran,jftran
       integer, dimension(:), allocatable:: psize
 
@@ -5965,11 +5973,14 @@
       ! If there are atoms
       if (nA.gt.0) then
 
+        ! Initialize to do Stokes
+        doStk = size(Stokes0(1,1,1,:)).eq.Rnz
+
         ! Initialize
-        call JKQgen_init(Atom,Rho_old,Frec,Geom,MPID,ADD,if0,if1, &
-                         nth,nph,npz,ntpz,nsend,psize,Norm,BStk, &
-                         LambdaL,LambdaP,JKQ,JKQS,Prof_r,Prof_s, &
-                         data2O)
+        call JKQgen_init(Atom,Rho_old,Frec,Geom_p,MPID,ADD,doStk, &
+                         if0,if1,nth,nph,npz,ntpz,nsend,psize, &
+                         Norm,BStk,LambdaL,LambdaP,JKQ,JKQS, &
+                         Prof_r,Prof_s,data2O)
 
         ! Control
         call control
@@ -5979,17 +5990,17 @@
         if (MPID%mpi.and.pid.eq.0) then
 
           ! Call manager
-          call JKQgen_manager(Atom,Frec,Geom,MPID,ADD,nth,nph,npz, &
-                              ntpz,nsend,psize,Norm,BStk, &
+          call JKQgen_manager(Atom,Frec,Geom_p,MPID,ADD,doStk,nth, &
+                              nph,npz,ntpz,nsend,psize,Norm,BStk, &
                               Prof_r,Stokes0,J00C,JKQ,JKQS)
 
         ! Serial or slave with work
         else if (MPID%nf(pid).ge.1) then
 
           ! Get profile data
-          call JKQgen_RT(Atom,Atmo,Frec,Red,Geom,MPID,Flgsg,Bfield, &
-                         ADD,nth,nph,if0,if1,psize,data2O,Prof_s, &
-                         Stokes0,J00C,JKQ,JKQS)
+          call JKQgen_RT(Atom,Atmo,Frec,Red,Geom_p,MPID,Flgsg, &
+                         Bfield,ADD,doStk,nth,nph,if0,if1,psize, &
+                         data2O,Prof_s,Stokes0,J00C,JKQ,JKQS)
 
         end if
 
@@ -6138,15 +6149,51 @@
 
       ! Get the intensity from the intensity array
       if (KSTK) then
+
+        ! Intensity was axial but polarization is not
         if (axiali.and..not.axial) then
+
+          ! Copy axial Stokes
           do iph=1,Geom%nPh
             Stokes(0,:,iph,:,:) = Stokes0(:,1,:,:)
           end do
+
+        ! Same axiality
         else
-          Stokes(0,:,lbound(Stokes0,2):ubound(Stokes0,2),:,:) = &
-                                                               Stokes0
-        end if
-      end if
+
+          ! Different number of azimuths
+          if (rnPh.ne.Geom_p%nPh) then
+
+            !
+            ! We need to interpolate
+            !
+
+            ! For each z
+            do iz=Rz0,Rz1
+              ! For each inclination
+              do ith=1,Geom%nTh
+                ! For each frequency
+                do ifreq=1,nfreq
+
+                  ! Linear interpolation
+                  call linear_circle(Geom_p%V_phi, &
+                                     Stokes0(ifreq,:,ith,iz), &
+                                     Geom%V_phi, &
+                                     Stokes(0,ifreq,:,ith,iz))
+
+                end do ! Frequencies
+              end do ! Inclinations
+            end do ! Heights
+
+          ! Same number of azimuths
+          else
+
+            ! Just copy
+            Stokes(0,:,:,:,:) = Stokes0
+
+          end if ! Number of azimuths
+        end if ! Types of axiality
+      end if ! Need to keep Stokes parameters
 
       ! Deallocate the intensity array (memory discounted in hanle)
       deallocate(Stokes0)
@@ -6200,9 +6247,13 @@
       !!    Rho_old(Rhoc_class(:)): Structure to store the density
       !!                            matrix of the previous iteration\n
       !!     Frec(Frequency_class): Structure with frequency data\n
-      !!      Geom(Geometry_class): Structure with geometric data\n
+      !!      Geom(Geometry_class): Geometry for the weights that
+      !!                            need to be considered\n
       !!           MPID(MPI_class): Structure with MPI data\n
       !!              ADD(logical): If Stokes needed for PRD-AD\n
+      !!            doStk(logical): If we need Stokes for polarization
+      !!                            and we can actually have them for
+      !!                            intensity\n
       !!              if0(integer): Initial frequency index\n
       !!              if1(integer): Final frequency index\n
       !!              nth(integer): Number of polar directions to do\n
@@ -6224,10 +6275,10 @@
       !!         Prof_r(double(:)): Receiver buffer for profiles\n
       !!   Prof_s(double(:,:,:,:)): Sender buffer for profiles\n
       !!       data2O(double(:,:)): Profiles point O
-      subroutine JKQgen_init(Atom,Rho_old,Frec,Geom,MPID,ADD,if0, &
-                             if1,nth,nph,npz,ntpz,nsend,psize,Norm, &
-                             BStk,LambdaL,LambdaP,JKQ,JKQS,Prof_r, &
-                             Prof_s,data2O)
+      subroutine JKQgen_init(Atom,Rho_old,Frec,Geom,MPID,ADD,doStk, &
+                             if0,if1,nth,nph,npz,ntpz,nsend,psize, &
+                             Norm,BStk,LambdaL,LambdaP,JKQ,JKQS, &
+                             Prof_r,Prof_s,data2O)
 
       ! I/O
 
@@ -6238,6 +6289,7 @@
       type(Frequency_class), intent(in):: Frec
       type(Geometry_class), intent(in):: Geom
       type(MPI_class), intent(in):: MPID
+      logical, intent(inout):: doStk
       logical, intent(out):: ADD
       integer, intent(out):: if0,if1,nth,nph,npz,ntpz,nsend
       integer, dimension(:), allocatable, intent(out):: psize
@@ -6274,8 +6326,11 @@
       AD = .not.AV
       ADD = AD.or.dyn
 
+      ! If doing Stokes
+      doStk = doStk.and.((PRD.and.ADD).or.dyn)
+
       ! Select the angular limits
-      if ((PRD.and.ADD).or.dyn) then
+      if (doStk) then
         nth = Geom%nTh
         nph = Geom%nPh
       else
@@ -6434,6 +6489,9 @@
       !!      Geom(Geometry_class): Structure with geometric data\n
       !!           MPID(MPI_class): Structure with MPI data\n
       !!              ADD(logical): If Stokes needed for PRD-AD\n
+      !!            doStk(logical): If we need Stokes for polarization
+      !!                            and we can actually have them for
+      !!                            intensity\n
       !!              nth(integer): Number of polar directions to do\n
       !!              nph(integer): Number of azimuth to do\n
       !!              npz(integer): Size in z and phi\n
@@ -6451,8 +6509,8 @@
       !!                            over the absorption profile\n
       !!   JKQS(dcomplex(:,:,:,:)): Radiation field tensors integrated
       !!                            over the emission profile
-      subroutine JKQgen_manager(Atom,Frec,Geom,MPID,ADD,nth,nph,npz, &
-                                ntpz,nsend,psize,Norm,BStk, &
+      subroutine JKQgen_manager(Atom,Frec,Geom,MPID,ADD,doStk,nth, &
+                                nph,npz,ntpz,nsend,psize,Norm,BStk, &
                                 Prof_r,Stokes0,J00C,JKQ,JKQS)
 
       ! I/O
@@ -6462,7 +6520,7 @@
       type(Frequency_class), intent(in):: Frec
       type(Geometry_class), intent(in):: Geom
       type(MPI_class), intent(in):: MPID
-      logical, intent(in):: ADD
+      logical, intent(in):: ADD,doStk
       integer, intent(in):: nth,nph,npz,ntpz,nsend
       integer, dimension(:), allocatable, intent(in):: psize
       double precision, dimension(:), &
@@ -6552,7 +6610,7 @@
             !
             ! Calculate frequency integral
             !
-            if ((PRD.and.ADD).or.dyn) then
+            if (doStk) then
               if (axiali) then
                 call FJgInt(Atom,MPID,Frec%W_freq,info_b, &
                             Stokes0(:,1,ith,iz), &
@@ -6633,7 +6691,7 @@
             !
             ! Calculate frequency integral
             !
-            if ((PRD.and.ADD).or.dyn) then
+            if (doStk) then
               if (axiali) then
                 call FJgInt(Atom,MPID,Frec%W_freq,info_b, &
                             Stokes0(:,1,ith,iz), &
@@ -6675,7 +6733,7 @@
           do iph=1,nph
 
             ! Get the angular integral weight
-            if ((PRD.and.ADD).or.dyn) then
+            if (doStk) then
               WA = Geom%W_mu(ith)*Geom%W_mux(iph)
             else
               WA = 1d0
@@ -6747,6 +6805,9 @@
       !!      Bfield(Bfield_blass): Structure with magnetic field
       !!                            data\n
       !!              ADD(logical): If Stokes needed for PRD-AD\n
+      !!            doStk(logical): If we need Stokes for polarization
+      !!                            and we can actually have them for
+      !!                            intensity\n
       !!              nth(integer): Number of polar directions to do\n
       !!              nph(integer): Number of azimuth to do\n
       !!              if0(integer): Initial frequency index\n
@@ -6762,8 +6823,8 @@
       !!   JKQS(dcomplex(:,:,:,:)): Radiation field tensors integrated
       !!                            over the emission profile
       subroutine JKQgen_RT(Atom,Atmo,Frec,Red,Geom,MPID,Flgsg, &
-                           Bfield,ADD,nth,nph,if0,if1,psize,data2O, &
-                           Prof_s,Stokes0,J00C,JKQ,JKQS)
+                           Bfield,ADD,doStk,nth,nph,if0,if1,psize, &
+                           data2O,Prof_s,Stokes0,J00C,JKQ,JKQS)
 
       ! I/O
 
@@ -6776,7 +6837,7 @@
       type(MPI_class), intent(in):: MPID
       type(Fctsg_class), intent(inout):: Flgsg
       type(Bfield_class), intent(in):: Bfield
-      logical, intent(in):: ADD
+      logical, intent(in):: ADD,doStk
       integer, intent(in):: nth,nph,if0,if1
       integer, dimension(:), allocatable, intent(in):: psize
       double precision, dimension(:,:,:,:), &
@@ -6886,7 +6947,7 @@
             if (pid.eq.0) then
 
               ! If PRD and angle-dependent or dynamic
-              if ((PRD.and.ADD).or.dyn) then
+              if (doStk) then
 
                 ! If intensity axially symmetric
                 if (axiali) then

@@ -11,15 +11,14 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     29/08/2025 V4.0.11
+!     24/09/2025 V4.0.12
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     29/08/2025:   V4.0.11 - Added extrapolation to Input_class and
-!                             Nodes_class (TdPA)
+!     24/09/2025:   V4.0.12 - Added Const_regul to Input_class (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1436,7 +1435,8 @@
         ! regularization for each variable the regulatization
         ! for each variable, type of extrapolation of node variables
         integer, dimension(:), allocatable:: Node_Type,Num_nodes, &
-                                             Indx_regul, extrapolation
+                                             Indx_regul, &
+                                             extrapolation
 
         ! Threshold in chi2, threshold for the fractional chi2,
         ! ratio limit for the regulatizations with respect to the
@@ -1464,8 +1464,10 @@
         ! Tau ranges to consider, LM lambda ranges to consider
         double precision, dimension(2):: Tau_Range,Lam_Range
 
-        ! Weight of the regularization function for each variable
-        double precision, dimension(:), allocatable:: Regul_weight
+        ! Weight of the regularization function for each variable,
+        ! Constant for regularization with constant value
+        double precision, dimension(:), allocatable:: Regul_weight, &
+                                                      Const_regul
 
         ! Made-up stratification from inputs
         double precision, dimension(:), allocatable:: Atmo_strat_done
