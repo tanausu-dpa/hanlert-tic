@@ -329,10 +329,12 @@ def rInput():
       # VdW
       alfa = float(cols[-2])
       sigma = float(cols[-1])
+      Rbohr = 5.29177210544e-9 # cm
+      Rbohr2 = Rbohr*Rbohr
       # Barklem and O'Mara
       if abs(sigma) > 0. and abs(alfa) > 0.:
           lout.append(3)
-          lout.append(sigma*1e16)
+          lout.append(sigma/Rbohr2)
           lout.append(alfa)
           lout.append(0.)
           lout.append(0.)
