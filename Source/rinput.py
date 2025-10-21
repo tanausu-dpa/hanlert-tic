@@ -40,6 +40,25 @@ def order_float(vec):
     except:
       return []
 
+# Convert single wavelength from air to vacuum
+def airtovacuum(wave,limit=None):
+    ''' Convert from air to vacuum, VALD3
+        http://www.astro.uu.se/valdwiki/Air-to-vacuum%20conversion
+    '''
+
+    if limit is None:
+        limit = 2000.0
+
+    # If beyond limit
+    if wave <= limit: return wave
+
+    s = 1e4/wave
+    s2 = s*s
+    ff = 1.0 + 8.336624212083e-5 + \
+               2.408926869968e-2/(130.10659245522 - s2) + \
+               1.599740894897e-4/(38.92568793293 - s2)
+    return wave*ff
+
 # Order 2D ranges by its first dimension avoiding duplicates
 def process_pixels(pixels):
     ''' Order pixels by first dimension and avoid duplicates
@@ -237,6 +256,12 @@ def rInput():
       stage = int(cols[i])
       lout.append(stage)
 
+      # Get wavelength in A
+      wave = float(interpret(cols[2]))
+
+      # Transform to vacuum
+      wave = airtovacuum(wave)
+
       # Lower level energy
       i = 4
       E1 = float(interpret(cols[i]))*evtcm*1e-5
@@ -258,7 +283,6 @@ def rInput():
                'M': 10.}
 
       # Process configuration
-      
       conf = ' '.join(cols[6:-2])
       down, up = conf.split('-')
       CU, JU = up.split()
@@ -304,7 +328,7 @@ def rInput():
 
       # VdW
       alfa = float(cols[-2])
-      sigma = float(cols[-1])*1e14
+      sigma = float(cols[-1])
       # Barklem and O'Mara
       if abs(sigma) > 0. and abs(alfa) > 0.:
           lout.append(3)
