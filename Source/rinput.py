@@ -6,8 +6,11 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an (IAC)
 # Hao Li (IAC/NSSCC)
 #
-# 24/09/2025: V4.0.14 - Added a possible third field to REGUL_X when
-#                       the type is constant (TdPA)
+# 21/10/2025: V4.0.15 - Bugfix: Fixed SIR format for LTE_LINE (TdPA)
+#                     - Bugfix: The mrcii and mrcp variables were
+#                       strings instead of integers (TdPA)
+#                     - Bugfix: Wrong reference when checking
+#                       ITERI_MRC_ADI and ITER_MRC_ADP keywords (TdPA)
 #
 #####################
 
@@ -225,7 +228,7 @@ def rInput():
 
       # Atom is always character
       i = 0
-      atom = cols[i].split()[0]
+      atom = cols[i].split('=')[1]
       if atom == 'XX': atom = 'FE'
       lout.append(atom)
 
@@ -239,7 +242,7 @@ def rInput():
       E1 = float(interpret(cols[i]))*evtcm*1e-5
 
       # Upper level energy
-      E2 = E1 + 1e8/float(interpret(cols[2]))
+      E2 = E1 + 1e3/float(interpret(cols[2]))
 
       # J dic
       dic_J = {'S':  0., \
@@ -255,8 +258,9 @@ def rInput():
                'M': 10.}
 
       # Process configuration
-      conf = cols[6:-2].join(' ')
-      up, down = conf.split('-')
+      
+      conf = ' '.join(cols[6:-2])
+      down, up = conf.split('-')
       CU, JU = up.split()
       SU = 0.5*(float(CU[:-1]) - 1.)
       LU = dic_J[CU[-1]]
@@ -265,10 +269,6 @@ def rInput():
       SL = 0.5*(float(CL[:-1]) - 1.)
       LL = dic_J[CL[-1]]
       JL = float(JL)
-
-      a = J
-      b = S
-      c = L
 
       # Get Land\'e factors LS
       if JU < .4:
@@ -285,7 +285,7 @@ def rInput():
       # Add quantities
       lout.append(E1)
       lout.append(JL)
-      lout.append(gL)
+      lout.append(gl)
       lout.append(E2)
       lout.append(JU)
       lout.append(gu)
@@ -328,7 +328,7 @@ def rInput():
       lout.append(0.)
 
       # Radiative
-      lout.append(Aul)
+      lout.append(Aul*1e8)
 
       # Frequencies
       lout.append(41)
@@ -3959,7 +3959,7 @@ def rInput():
       try:
         val = interpret(val)
         f.write('{0:22.16e}\n'.format(float(val)))
-        mrcii = val
+        mrcii = float(val)
         check = 1
       except:
         pass
@@ -3977,7 +3977,7 @@ def rInput():
       try:
         val = interpret(val)
         f.write('{0:22.16e}\n'.format(float(val)))
-        mrcp = val
+        mrcp = float(val)
         check = 1
       except:
         pass
@@ -4006,8 +4006,8 @@ def rInput():
   # ITERI_MRC_ADI
   if rmode >= -1 and rmode <= 1:
     check = 0
-    if 'ITERI_MRC_I' in Dictionary:
-      val = Dictionary['ITERI_MRC_I'][0]
+    if 'ITERI_MRC_ADI' in Dictionary:
+      val = Dictionary['ITERI_MRC_ADI'][0]
       try:
         val = interpret(val)
         f.write('{0:22.16e}\n'.format(float(val)))
@@ -4022,8 +4022,8 @@ def rInput():
   # ITER_MRC_ADP
   if rmode >= -1 and rmode <= 1:
     check = 0
-    if 'ITER_MRC_P' in Dictionary:
-      val = Dictionary['ITER_MRC_P'][0]
+    if 'ITER_MRC_ADP' in Dictionary:
+      val = Dictionary['ITER_MRC_ADP'][0]
       try:
         val = interpret(val)
         f.write('{0:22.16e}\n'.format(float(val)))

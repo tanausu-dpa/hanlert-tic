@@ -4326,7 +4326,7 @@ class _atmo_15D():
     def _get_dims(self):
         ''' Get number of positions in x, y, and height axes
         '''
-        return self.__get_nxyz()
+        return self._get_nxyz()
 
     def _get_vars(self):
         ''' Get variables in model atmosphere

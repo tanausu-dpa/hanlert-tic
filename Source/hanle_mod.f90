@@ -11,26 +11,16 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     03/10/2025 V4.0.14
+!     21/10/2025 V4.0.15
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     03/10/2025:   V4.0.14 - Bugfix: only apply the approximations
-!                             about velocity in intensity if actually
-!                             solving for intensity (TdPA)
-!                           - Bugfix: The two-step magnetic solution
-!                             for polarization can only be performed
-!                             if not reading or if solved for
-!                             intensity before (TdPA)
-!                           - Bugfix: JKQgen needs the correct
-!                             information of the quadrature in
-!                             intensity when the azimuths are not
-!                             the same (TdPA)
-!                           - Added GeomI argument to the call to
-!                             hanle_polarization (TdPA)
+!     21/10/2025:   V4.0.15 - Bugfix: When doing a two-step solution,
+!                             the sizes should not change if the run
+!                             is serial (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -648,10 +638,21 @@
               Geom%V_muy(1) = 1d0
               Geom%W_mux(1) = 1d0
 
-              ! Fake sizes for messages
-              csize = .True.
-              MPID%size4 = MPID%size4/rnPh
-              MPID%size5 = MPID%size5/rnPh
+              ! If MPI
+              if (MPID%mpi) then
+
+                ! Fake sizes for messages
+                csize = .True.
+                MPID%size4 = MPID%size4/rnPh
+                MPID%size5 = MPID%size5/rnPh
+
+              ! No MPI
+              else
+
+                ! Never touch sizes (they do not exist)
+                csize = .False.
+
+              end if
 
             end if ! No horizontal velocity
           end if ! Intensity was axial or static
