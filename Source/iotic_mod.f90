@@ -10,16 +10,16 @@
 !  Start:
 !     22/02/2023
 !  Last version:
-!     26/08/2025 V4.0.5
+!     04/11/2025 V4.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     26/08/2025:    V4.0.5 - Bugfix: Turns out JKQ tensors were
-!                             allocated outside before calling
-!                             set_up_atmo_frombuffer (TdPA)
+!     04/11/2025:    V4.0.6 - Bugfix: the setup of the model when the
+!                             input is a 1.5D model for synthesis was
+!                             just plainly wrong (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -2089,14 +2089,14 @@
         if (tauscal) then
 
           ! Point to tau
-          Atmo%z   => buffer( 2*lnz+1:3*lnz)
+          Atmo%z   => buffer( 1*lnz+1:2*lnz)
           ztau = .True.
 
         ! Height scale
         else
 
           ! Point to z
-          Atmo%z   => buffer(   lnz+1:2*lnz)
+          Atmo%z   => buffer(       1:1*lnz)
           ztau = .False.
 
         end if ! Type of scale
@@ -2112,6 +2112,14 @@
         Atmo%vy  => buffer(10*lnz+1:11*lnz)
         Atmo%vz  => buffer(11*lnz+1:12*lnz)
 
+        ! If not full density, initialize
+        if (Atmo%typo.ne.0) then
+          Atmo%nht = 0d0
+          Atmo%nha = 0d0
+          Atmo%nH = 0d0
+          Atmo%nhm = 0d0
+        end if
+
         ! Type of atmosphere
         if (Atmo%typo.eq.0.or.Atmo%typo.eq.1) then
 
@@ -2119,8 +2127,17 @@
           Atmo%ne = buffer(14*lnz+1:15*lnz)
 
           ! Full density
-          if (Atmo%typo.eq.0) &
-            Atmo%nH = reshape(buffer(18*nz+1:24*nz), (/ nz, 6 /))
+          if (Atmo%typo.eq.0) then
+
+            ! Get individual
+            Atmo%nH = reshape(buffer(18*lnz+1:24*lnz), (/ lnz, 6 /))
+
+            ! Compute derivates
+            Atmo%nht = sum(Atmo%nH,2)
+            Atmo%nha = Atmo%nht
+            Atmo%nhm = 0d0
+
+          end if ! Full density
 
         ! Electron pressure
         else if (Atmo%typo.eq.2) then
@@ -2194,9 +2211,9 @@
       MRAMc = MRAMc + 1d-6*sizeof(Bfield%Bphi)
 
       ! Point to buffer
-      Atmo%Bx => buffer( 3*lnz+1:7*lnz)
-      Atmo%By => buffer( 4*lnz+1:8*lnz)
-      Atmo%Bz => buffer( 5*lnz+1:9*lnz)
+      Atmo%Bx => buffer( 6*lnz+1:7*lnz)
+      Atmo%By => buffer( 7*lnz+1:8*lnz)
+      Atmo%Bz => buffer( 8*lnz+1:9*lnz)
 
       ! Compute module and angles for B at each height
       do iz=1,lnz

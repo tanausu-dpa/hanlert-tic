@@ -10,16 +10,16 @@
 !  Start:
 !     16/02/2023
 !  Last version:
-!     28/08/2025 V4.0.7
+!     04/11/2025 V4.0.8
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     28/08/2025:    V4.0.7 - Initialize the JKQ tensors if the
-!                             result being restored had them even if
-!                             not inverting them (TdPA)
+!     04/11/2025:    V4.0.8 - Bugfix: there were issues when the
+!                             input model atmosphere had the 1.5D
+!                             format (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -741,12 +741,11 @@
             ! Flag initialized
             Input%atmoin_type = 0
 
+            ! Send by the global master
+            call MPI_BCAST(Atmo_in%nz,1,MPI_INTEGER,0, &
+                           MPI_COMM_WORLD,ierr)
+
           end if ! No 3D
-
-          ! send to the global master
-          call MPI_BCAST(Atmo_in%nz,1,MPI_INTEGER,0, &
-                         MPI_COMM_WORLD,ierr)
-
         end if ! Input atmosphere
       end if ! Restore
 
@@ -864,6 +863,9 @@
                        MPI_COMM_WORLD,ierr)
         call MPI_BCAST(dims_atmo(1),3,MPI_INTEGER,0, &
                        MPI_COMM_WORLD,ierr)
+
+        ! Save nz dimension
+        Atmo_in%nz = dims_atmo(3)
 
         ! If inversion result, get if JKQ data
         if (Input%atmoin_type.eq.2) atmojkq = aindex.gt.7
@@ -1806,7 +1808,8 @@
               ! Initialize diffuse light
               if (Input%f_diff.gt.0d0) then
                 Atmo_in%f_diff = Input%f_diff
-              else
+              ! If input model 1.5D
+              else if (Input%atmoin_type.eq.1) then
                 Atmo_in%f_diff = 0d0
               end if
 
@@ -2123,7 +2126,8 @@
             ! Initialize diffuse light
             if (Input%f_diff.gt.0d0) then
               Atmo_in%f_diff = Input%f_diff
-            else
+            ! If input model 1.5D
+            else if (Input%atmoin_type.eq.1) then
               Atmo_in%f_diff = 0d0
             end if
 

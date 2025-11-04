@@ -9,17 +9,18 @@
 !  Start:
 !     16/06/2023
 !  Last version:
-!     14/08/2025 V4.0.4
+!     04/11/2025 V4.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     14/08/2025:    V4.0.4 - Bugfix: Improved the error management
-!                             in setup_Atmo_ininv() and
-!                             setup_Atmo_ouinv() to correctly free
-!                             memory in case of failure (TdPA)
+!     04/11/2025:    V4.0.5 - Bugfix: in setup_Atmo_ininv, an error
+!                             in optical depth setup could make the
+!                             routine to return prematurely (not
+!                             freeing all memory) and thus producing
+!                             an even worse error (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1205,7 +1206,7 @@
                  'negative optical depths'
           urou = 'setup_Atmo'
           call aborted
-          return
+          goto 1000
 
         end if ! Minimum optical depth is negative
 

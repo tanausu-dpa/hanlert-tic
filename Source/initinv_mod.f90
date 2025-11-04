@@ -10,16 +10,15 @@
 !  Start:
 !     23/02/2023
 !  Last version:
-!     29/08/2025 V4.0.5
+!     04/11/2025 V4.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     29/08/2025:    V4.0.5 - Made changes to accomodate the new
-!                             input to determine the extrapolation
-!                             mode (TdPA)
+!     04/11/2025:    V4.0.6 - Bugfix: wrong message about the type of
+!                             error in the inversion (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1343,14 +1342,14 @@
         if (Input%Err_type.eq.0) then
 
           ! Verbose
-          write(umsg,'(A)') '   o Error from Hessian'
+          write(umsg,'(A)') '   o Error not from Hessian'
           call verboseI(1)
 
         ! If non-Hessian error
         else if (Input%Err_type.eq.1) then
 
           ! Verbose
-          write(umsg,'(A)') '   o Error not from Hessian'
+          write(umsg,'(A)') '   o Error from Hessian'
           call verboseI(1)
 
         ! If error from response function
