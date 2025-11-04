@@ -21,6 +21,9 @@
 !                             routine to return prematurely (not
 !                             freeing all memory) and thus producing
 !                             an even worse error (TdPA)
+!                           - Changed atmosphere in argument for
+!                             setlte in the initialization of the
+!                             model atmosphere for inversions (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1116,7 +1119,7 @@
         call cAtmo(Atmo,Atmo_tmp)
 
         ! Initialize LTE populations
-        call setlte(Atom,Atomb,Atmo,Input)
+        call setlte(Atom,Atomb,Atmo_tmp,Input)
 
         ! Initialize populations
         call setuppopu(Atom,Atomb,Atmo_tmp)
@@ -1252,7 +1255,6 @@
       ! Free local variables
       call free_local_Atom(Atom)
       call free_gpop(Atom,Atomb,Mol)
-
 
       end subroutine setup_Atmo_ininv
 

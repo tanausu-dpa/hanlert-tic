@@ -2191,6 +2191,9 @@
       MRAMc = MRAMc + 1d-6*sizeof(Atmo%nhe)
       Atmo%nhe(1,1) = -1
 
+      ! Height to cm
+      if (.not.ztau) Atmo%z = Atmo%z*1d5
+
       ! Divide velocities by c (1d5*1d-11/cbar)
       Atmo%vx = Atmo%vx*1d-6/c
       Atmo%vy = Atmo%vy*1d-6/c
