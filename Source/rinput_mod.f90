@@ -10,14 +10,15 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     24/09/2025 V4.0.11
+!     06/11/2025 V4.0.12
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     24/09/2025:   V4.0.11 - Read Input%Const_regul (TdPA)
+!     06/11/2025:   V4.0.12 - Bugfix: Initialize Input%Const_regul
+!                             when it is not read (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1555,8 +1556,11 @@
             read(100,*,err=1100) Input%Regul_weight(i1)
 
             ! If constant, real value
-            if (Input%Indx_regul(i1).eq.2) &
+            if (Input%Indx_regul(i1).eq.2) then
               read(100,*,err=1100) Input%Const_regul(i1)
+            else
+              Input%Const_regul(i1) = -1d200
+            end if
 
           ! No regularization
           else

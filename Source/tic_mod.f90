@@ -10,16 +10,16 @@
 !  Start:
 !     16/02/2023
 !  Last version:
-!     04/11/2025 V4.0.8
+!     06/11/2025 V4.0.9
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     04/11/2025:    V4.0.8 - Bugfix: there were issues when the
-!                             input model atmosphere had the 1.5D
-!                             format (TdPA)
+!     06/11/2025:    V4.0.9 - Bugfix: Correctly nullify the transfer
+!                             buffer. This is just for consistency,
+!                             did not have any effect (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -135,6 +135,9 @@
                             sizeof(Inf_Stokes) + &
                             sizeof(Inf_Nodes) + &
                             sizeof(Sol))
+
+      ! Initialize pointer
+      nullify(p_transfer_buffer)
 
       ! Initialize miscellaneous memory warning
       Sol%warning = .True.
@@ -2282,6 +2285,10 @@
 
       ! Switch off inversion mode
       ninv_mode = .True.
+
+      ! Free buffer pointer
+      deallocate(p_transfer_buffer)
+      nullify(p_transfer_buffer)
 
       end subroutine TIC
 

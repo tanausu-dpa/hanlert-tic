@@ -9,19 +9,17 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     03/10/2025 V4.0.14
+!     06/11/2025 V4.0.15
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     03/10/2025:   V4.0.14 - Bugfix: Added logic in JKQgen to account
-!                             for different azimuth axes between the
-!                             intensity and the polarization problems,
-!                             as well as the need to consider
-!                             intensity profiles instead of the mean
-!                             intensity (TdPA)
+!     06/11/2025:   V4.0.15 - Bugfix: The error status was not
+!                             being shared in solveI (TdPA)
+!                           - Skip calculating the integrals if in
+!                             fail status (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -385,6 +383,10 @@
                            J00C,J00P,J00C_n)
 
           end if ! Manage or compute
+
+          ! Control
+          call control
+          if (laborted) goto 2000
 
           !
           ! Master
@@ -1916,6 +1918,9 @@
 
       ! Nullify pointers
       nullify(p_MStk,p_MProf,p_MrLine,p_MrPhot)
+
+      ! If aborting, do not bother
+      if (laborted) return
 
       !
       ! Apply weights to J00, J00S, and Lambda operator

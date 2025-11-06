@@ -10,17 +10,16 @@
 !  Start:
 !     22/03/2023
 !  Last version:
-!     28/08/2025 V4.0.5
+!     06/11/2025 V4.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     28/08/2025:    V4.0.5 - Determine if the thermal parameters
-!                             or T and Pg are fixed (TdPA)
-!                           - Changed an argument in HanleRTTIC()
-!                             calls to adapt to its change (TdPA)
+!     06/11/2025:    V4.0.6 - When the lambda parameter overshoots
+!                             the stablished boundaries, force the
+!                             boundary value without repeats (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -2356,9 +2355,26 @@
 
           end if ! Improvement or not
 
-          ! If Lambda went beyond limits, leave
-          if (Lambda_array(indx+1).lt.LM_Stru%Lambda_bounds(1).or. &
-              Lambda_array(indx+1).gt.LM_Stru%Lambda_bounds(2)) exit
+          ! If Lambda below limit
+          if (Lambda_array(indx+1).lt.LM_Stru%Lambda_bounds(1)) then
+
+            ! If previous was already at limit, exit
+            if (Lambda_array(indx).le.LM_Stru%Lambda_bounds(1)) exit
+
+            ! If not put to limit
+            Lambda_array(indx+1) = LM_Stru%Lambda_bounds(1)
+
+          ! If lambda above limit
+          else if (Lambda_array(indx+1).gt. &
+                   LM_Stru%Lambda_bounds(2)) then
+
+            ! If previous was already at limit, exit
+            if (Lambda_array(indx).ge.LM_Stru%Lambda_bounds(2)) exit
+
+            ! If not put to limit
+            Lambda_array(indx+1) = LM_Stru%Lambda_bounds(2)
+
+          end if ! Lambda in bounds
 
         end do ! Try up to Length steps
 
