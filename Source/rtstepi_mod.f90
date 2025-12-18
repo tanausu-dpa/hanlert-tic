@@ -9,14 +9,14 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     19/12/2024 V4.0.0
+!     18/12/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     19/12/2024:    V4.0.0 - Removed OpenMP directives (TdPA)
+!     18/12/2025:    V4.0.1 - NaN checks now use ieee (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -156,7 +156,7 @@
         !
 
         ! If NaN
-        if(isnan(StkO(ifreq)))then
+        if(ieee_is_nan(StkO(ifreq)))then
 
           ! Issue error
           write(umsg,'(A,3(i4,","),i5,A,'// &
@@ -332,7 +332,7 @@
         if (abs(Contr(ifreq)).lt.TINYCI) Contr(ifreq) = 0d0
 
         ! Control NaN
-        if (isnan(Contr(ifreq))) then
+        if (ieee_is_nan(Contr(ifreq))) then
 
           ! Issue error
           write(umsg,'(2(A,1x,es9.2),'// &

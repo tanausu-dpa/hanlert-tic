@@ -2,7 +2,7 @@
 ######################################################################
 #
 #  Last version:
-#    03/10/2025 V4.0.3
+#    18/12/2025 V4.0.4
 #
 ######################################################################
 ######################################################################
@@ -288,7 +288,8 @@ Prof = $(obj_dir)backgroundaux_mod.o $(obj_dir)jcalccle_mod.o \
 	   $(obj_dir)kurucz_mod.o $(obj_dir)normalizer_mod.o \
 	   $(obj_dir)rtcoeffaux_mod.o $(obj_dir)rtcoeffiaux_mod.o
 PSF = $(obj_dir)hanlert_mod.o $(obj_dir)tic_mod.o
-Qsort = $(obj_dir)fieldb_mod.o $(obj_dir)omegabuild_mod.o
+Qsort = $(obj_dir)fieldb_mod.o $(obj_dir)jacobian_mod.o \
+		$(obj_dir)omegabuild_mod.o
 Rdmat = $(obj_dir)btens_mod.o $(obj_dir)fieldb_mod.o
 Reg = $(obj_dir)inversion_mod.o $(obj_dir)lmfit_mod.o
 RF = $(obj_dir)jacobian_mod.o
@@ -314,7 +315,7 @@ Stens = $(obj_dir)gauss_mod.o $(obj_dir)getrtcle_mod.o \
 		$(obj_dir)jcalccle_mod.o
 Strength = $(obj_dir)getrtcle_mod.o $(obj_dir)hanle_mod.o \
 		   $(obj_dir)hanlert.o
-SVD = $(obj_dir)lmfit_mod.o
+SVD = $(obj_dir)jacobian_mod.o $(obj_dir)lmfit_mod.o
 TIC = $(obj_dir)hanlert.o
 Types = $(obj_dir)hanlert.o $(obj_dir)background_mod.o \
 		$(obj_dir)backgroundaux_mod.o $(obj_dir)boundary_mod.o \

@@ -3486,7 +3486,7 @@ LM_LAM_BIG_TEST
 
   * Formats:
     
-    - float; default: 0.1
+    - float; default: 0.051
 
   * Description: Value that the minimum lambda in trials must surpass to be considered in the big regime in the backtracking when LM_BACKTRACKING_MODE is desperate. Must be within the limits specified in LM_LAMBDA_RANG.
 
@@ -3497,7 +3497,7 @@ LM_LAM_SMALL_TEST
 
   * Formats:
     
-    - float; default: 10.
+    - float; default: 9.9
 
   * Description: Value that the maximum lambda in trials must not surpass to be considered in the small regime in the backtracking when LM_BACKTRACKING_MODE is desperate. Must be within the limits specified in LM_LAMBDA_RANG.
 
@@ -3555,6 +3555,17 @@ LM_LAMBDA_ACCEPT
     - float; default: 5
 
   * Description: Factor dividing the lambda coefficient in the Levenberg-Marquardt algorithm when the previous lambda value was accepted.
+
+ALLOW_REDUCED_MODE
+------------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string: Yes/No; default: No
+
+  * Description: Allow a last iteration in which the weights are changed to try to focus on the worst fit regions.
 
 LM_LAMBDA_REJECT
 ----------------

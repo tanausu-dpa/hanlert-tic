@@ -6,11 +6,11 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an (IAC)
 # Hao Li (IAC/NSSCC)
 #
-# 21/10/2025: V4.0.15 - Bugfix: Fixed SIR format for LTE_LINE (TdPA)
-#                     - Bugfix: The mrcii and mrcp variables were
-#                       strings instead of integers (TdPA)
-#                     - Bugfix: Wrong reference when checking
-#                       ITERI_MRC_ADI and ITER_MRC_ADP keywords (TdPA)
+# 18/12/2025: V4.0.17 - Bugfix: there was a typo when informing that
+#                       a population file could not be found (TdPA)
+#                     - Changed defaults for LM_LAMBDA_BIG_TEST and
+#                       LM_LAM_SMALL_TEST (TdPA)
+#                     - Added ALLOW_REDUCED_MODE (TdPA)
 #
 #####################
 
@@ -1559,7 +1559,7 @@ def rInput():
         f2=open(cols[0])
         f2.close()
       except:
-        verbose(' # ATOM_POPU file not found '+atom, \
+        verbose(' # ATOM_POPU file not found '+cols[0], \
                 ofolder, verbosity)
         abort(f, filename)
 
@@ -6773,7 +6773,7 @@ def rInput():
         verbose(msg, ofolder, verbosity)
         abort(f, filename)
     if check == 0:
-      f.write('0.1\n')
+      f.write('0.051\n')
 
     # LM_LAM_SMALL_TEST
     check = 0
@@ -6788,7 +6788,7 @@ def rInput():
         verbose(msg, ofolder, verbosity)
         abort(f, filename)
     if check == 0:
-      f.write('10.\n')
+      f.write('9.9\n')
 
     # LM_LAM_BIG_PROVE
     check = 0
@@ -6818,7 +6818,7 @@ def rInput():
         verbose(msg, ofolder, verbosity)
         abort(f, filename)
     if check == 0:
-      f.write('0.1\n')
+      f.write('0.05\n')
 
     # LM_LAMBDA_TRACK
     check = 0
@@ -6894,6 +6894,19 @@ def rInput():
         abort(f, filename)
     if check == 0:
       f.write('5d0\n')
+
+    # ALLOW_REDUCED_MODE
+    check = 0
+    if 'ALLOW_REDUCED_MODE' in Dictionary:
+      val = Dictionary['ALLOW_REDUCED_MODE'][0]
+      if val in 'YES' or val in 'SI':
+        f.write('Y\n')
+        check = 1
+      elif val in 'NO':
+        f.write('N\n')
+        check = 1
+    if check == 0:
+      f.write('N\n')
 
     # INV_B_PROJECTION
     check = 0

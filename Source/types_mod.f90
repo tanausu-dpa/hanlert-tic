@@ -11,14 +11,18 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     24/09/2025 V4.0.12
+!     18/12/2025 V4.0.13
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     24/09/2025:   V4.0.12 - Added Const_regul to Input_class (TdPA)
+!     18/12/2025:   V4.0.13 - Added nLambda, perc, ff_max, ff_contr,
+!                             pred, step_norm, WeightI_mod, and
+!                             Weight_mod to LMFIT_class (TdPA)
+!                           - Added allow_RD_mode to
+!                             Input_class (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1390,11 +1394,12 @@
         ! if storing incomplete inversion results, if starting
         ! from last solution in trials if thermo is fix, if
         ! starting from last solution in trials if T and Pg is
-        ! fix
+        ! fix, allow for reduced mode iteration
         logical:: Broyden,FITSFILE,Sigma_neglect,auto_weight, &
                   centered,Pos_Correction,hydroeq,Fractional, &
                   Projection,Popuinit,Keep_RF,out_jkqa, &
-                  l_Lam_track,storeinv,trialinit,trialtpinit
+                  l_Lam_track,storeinv,trialinit,trialtpinit, &
+                  allow_RD_mode
 
         ! Flag to modify variable in the inversion, flag for
         ! the regularization of each variable
@@ -2078,35 +2083,43 @@
         ! Jacobian, if the inversion step was accepted
         logical:: Flag_weight,Flag_Jac,accepted
 
-        ! Number of Jacobian elements
-        integer:: Num
+        ! Number of Jacobian elements, number of lambdas in memory
+        integer:: Num, nLambda
 
         ! Factor to reduce lambda when accepted, factor to enhance
         ! lambda when rejected, parameter for the Levenberg-Marquardt,
-        ! current chi^2, older chi^2, initial chi^2
+        ! current chi^2, older chi^2, initial chi^2, current selection
+        ! percentile to adjust weights, maximum enhancement for
+        ! adjusted weights, contribution of chi^2 to include when
+        ! adjusting weights, predicted reduction for Trial, norm (max)
+        ! of the absolute step in a trial
         double precision:: factoraccept,factorreject,Lambda,Chisq, &
-                           Chisq_og,Chisq_0
+                           Chisq_og,Chisq_0,perc,ff_max,ff_contr, &
+                           pred,step_norm
 
         ! Limits for the Levenberg-Marquardt lambda parameter
         double precision, dimension(2):: Lambda_bounds
 
         ! Residual for the intensity, weight for the L2 of the
         ! intensity, Jacobian vector, old Jacobian vector, diagonal
-        ! of the Hessian
+        ! of the Hessian, modified weight for the L2 of the intensity
         double precision, dimension(:), allocatable:: ResidualI, &
                                                       WeightI, &
                                                       Jacfvec, &
                                                       Jacfvec_og, &
-                                                      Diag
+                                                      Diag, &
+                                                      WeightI_mod
 
         ! Residual for Stokes parameters, weight for the L2 of the
         ! Stokes parameters, Hessian, old Hessian, Jacobian for the
-        ! intensity
+        ! intensity, modified weight for the L2 of the Stokes
+        ! parameters
         double precision, dimension(:,:), allocatable:: Residual, &
                                                         Weight, &
                                                         Hessian, &
                                                         Hessian_og, &
-                                                        JacobianI
+                                                        JacobianI, &
+                                                        Weight_mod
 
         ! Jacobian for the Stokes parameters
         double precision, dimension(:,:,:), allocatable:: Jacobian

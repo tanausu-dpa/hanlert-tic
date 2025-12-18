@@ -10,16 +10,37 @@
 !  Start:
 !     22/03/2023
 !  Last version:
-!     06/11/2025 V4.0.6
+!     18/12/2025 V4.0.9
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     06/11/2025:    V4.0.6 - When the lambda parameter overshoots
-!                             the stablished boundaries, force the
-!                             boundary value without repeats (TdPA)
+!     18/12/2025:    V4.0.9 - Added reduced mode, a last chance
+!                             iteration which modifies the weights
+!                             to try compensating for a bad initial
+!                             weighting. It is optional (TdPA)
+!                           - NaN checks now use ieee (TdPA)
+!                           - Added a tracker for the lambda
+!                             prediction to make it not depend on the
+!                             particular iteration index (TdPA)
+!                           - Added verbosity to highlight the change
+!                             of chi^2 after the update of the
+!                             regularization weight (TdPA)
+!                           - Modified calls of routines that have
+!                             changed their argument list (TdPA)
+!                           - Added logic to stop the Backtracking
+!                             when in gradient descend regime with
+!                             little hope to improve the fit (TdPA)
+!                           - In backtracking, if the chi^2 is a
+!                             disaster, the lambda parameter is
+!                             enhanced more than once (TdPA)
+!                           - Added verbosity when leaving the
+!                             backtracking (TdPA)
+!                           - Bugfix: there was a typo in which some
+!                             cycle instances were written as
+!                             continue instead (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -166,11 +187,11 @@
 
       type(Solution_F_class):: SolF
 
-      logical:: Flag_Convg,Flag_Jac
+      logical:: Flag_Convg,Flag_Jac,Flag_RDmode,skip_Jac
 
       integer:: indx_iter,indx_rej,i,Num_Broyden,max_iters
 
-      double precision:: Chisq_old,Ratio
+      double precision:: Chisq_old,Ratio,Chisq_RD0,frac
       double precision, dimension(:), allocatable:: Lam_track
       double precision, dimension(:), allocatable:: Solution,Errors
       double precision, dimension(:,:), allocatable:: Stokes_Min
@@ -192,6 +213,10 @@
           deallocate(LM_Stru%WeightI)
           deallocate(LM_Stru%JacobianI)
         end if
+        if (allocated(LM_Stru%WeightI_mod)) then
+          MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%WeightI_mod)
+          deallocate(LM_Stru%WeightI_mod)
+        end if
 
         ! Free residual for polarization if allocated
         if (allocated(LM_Stru%Residual)) then
@@ -201,6 +226,10 @@
           deallocate(LM_Stru%Residual)
           deallocate(LM_Stru%Weight)
           deallocate(LM_Stru%Jacobian)
+        end if
+        if (allocated(LM_Stru%Weight_mod)) then
+          MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%Weight_mod)
+          deallocate(LM_Stru%Weight_mod)
         end if
 
         ! Free memory
@@ -294,6 +323,12 @@
       ! Flag solution buffer not initialized
       SolF%no_initialized = .True.
 
+      ! Flag not in reduced mode
+      Flag_RDmode = .False.
+
+      ! Do not skip computing Jacobian
+      skip_Jac = .False.
+
       ! Allocate solution and Hessian quantities
       allocate(Solution(LM_Stru%Num),Errors(LM_Stru%Num))
       allocate(LM_Stru%Jacfvec(LM_Stru%Num),LM_Stru%diag(LM_Stru%Num))
@@ -344,7 +379,7 @@
                           Inf_Nodes%Nodes_Type,LM_Stru)
 
       ! Check NaN
-      if (isnan(LM_Stru%Chisq)) then
+      if (ieee_is_nan(LM_Stru%Chisq)) then
 
         ! Issue error
         umsg = 'The first value of the merit function (without '// &
@@ -414,7 +449,7 @@
         ! Verbose merit function if in output
         umsg = ' * '
         call verboseI(0)
-        if (vlevel.eq.0) call verboseI(3)
+        if (vlevel.gt.0) call verboseI(3)
 
         ! Verbose merit function
         write(umsg,'(A,i4,3x,A,es15.4)')  &
@@ -424,10 +459,10 @@
         ! Verbose depending on the MPI regime
         if (gpid.eq.0) then
           call verboseI(0)
-          call verboseI(4)
+          if (vlevel.gt.0) call verboseI(3)
         else
           call verboseI(0)
-          if (vlevel.eq.0) call verboseI(3)
+          if (vlevel.gt.0) call verboseI(3)
         end if
 
         ! Save first chi2
@@ -469,11 +504,16 @@
           LM_Stru%Lambda = 1d-1*Input%factoraccept
       end select
       LM_Stru%Lambda_bounds = Input%Lam_Range
+      LM_Stru%nLambda = 0
       LM_Stru%Flag_weight = .False.
       LM_Stru%factorreject = Input%factorreject
       LM_Stru%factoraccept = Input%factoraccept
       LM_Stru%accepted = .True.
+      LM_Stru%perc = 0.25d0
+      LM_Stru%ff_max = 25d0
+      LM_Stru%ff_contr = 0.35d0
       Stokes_best = Sol%Stokes_out
+
 
       ! If masked
       if (imask.eq.1) then
@@ -509,7 +549,7 @@
 
         ! Predict lambda for LM
         if (Input%l_Lam_track) &
-          call predict_lambda(indx_iter,Lam_track, \
+          call predict_lambda(Lam_track, \
                               Input%Lam_track,LM_Stru)
 
         ! If after the first iteration the accepted flag is on,
@@ -517,32 +557,55 @@
         if (Input%Broyden.and.LM_Stru%accepted.and. &
             Num_Broyden.lt.3.and.indx_iter.gt.1) then
 
-          ! Call Broyden
-          call Broyden_Rank1(Stokes_best, Stokes_Min, &
-                             Inf_Stokes%Num_Wavelength, &
-                             Solution, Inf_Nodes, LM_Stru)
-          ! Deflag Jacobian
-          Flag_Jac = .False.
+          ! If skipping
+          if (skip_Jac) then
+
+            ! Flag false
+            skip_Jac = .False.
+
+          ! Normal
+          else
+
+            ! Call Broyden
+            call Broyden_Rank1(Stokes_best, Stokes_Min, &
+                               Inf_Stokes%Num_Wavelength, &
+                               Solution, Inf_Nodes, LM_Stru)
+            ! Deflag Jacobian
+            Flag_Jac = .False.
+
+          end if
 
         ! First iteration, not accepted LM, not doing Broyden,
         ! or already three Broyden
         else
 
-          ! Get Jabocian
-          call Jacobian_Compute(Input,Atom,Atomb,Mol,Geom, &
-                                GeomI,Flgsg,Frec,fudge,kurucz, &
-                                MPID,Atmo,Bfield,Inf_Nodes,Sol, &
-                                SolF,LM_Stru)
-          if (laborted) exit
+          ! If skipping Jacobian (last iteration failed and
+          ! now reduced mode is active)
+          if (skip_Jac) then
+
+            ! Flag false
+            skip_Jac = .False.
+
+          ! Normal
+          else
+
+            ! Get Jabocian
+            call Jacobian_Compute(Input,Atom,Atomb,Mol,Geom, &
+                                  GeomI,Flgsg,Frec,fudge,kurucz, &
+                                  MPID,Atmo,Bfield,Inf_Nodes,Sol, &
+                                  SolF,LM_Stru)
+            if (laborted) exit
+
+          end if ! If Jacobian is actually computed or not
 
           ! Flag Jacobian
           Flag_Jac = .True.
 
-        end if
+        end if ! Broyden or Jacobian
 
         ! Compute Hessian
         call Hessian_Compute(Inf_Nodes%Nodes_Type, &
-                             LM_Stru)
+                             LM_Stru,Flag_RDmode)
 
         ! If regularizing
         if (Inf_Nodes%Regul_Flag) then
@@ -659,7 +722,6 @@
 
                 ! Reject the step
                 LM_Stru%accepted = .False.
-                Sol%Stokes_out = Stokes_best
 
                 ! If the linear method to stimate the Jacobian
                 ! is not working, leave to calculate it
@@ -742,22 +804,9 @@
               call Intpol_Atmo_all(Inf_Nodes,Atmo,Bfield, &
                                    Atom,Atomb,Mol,Input,fudge)
 
-              ! If Jacobi flagged
-              if (Flag_Jac) then
+              ! If Jacobi not flagged, overflow Broyden index
+              if (.not.Flag_Jac) Num_Broyden = 10
 
-                ! Revert Stokes
-                Sol%Stokes_out = Stokes_best
-
-                ! Leave iterations
-                exit
-
-              ! Otherwise
-              else
-
-                ! Overflow Broyden index
-                Num_Broyden = 10
-
-              end if ! Jacobi flagged
             end if ! Improved chi2
 
         end select ! LM method
@@ -778,7 +827,7 @@
             ! Verbose merit function if in output
             umsg = ' * '
             call verboseI(0)
-            if (vlevel.eq.0) call verboseI(3)
+            if (vlevel.gt.0) call verboseI(3)
 
             ! Verbose merit function
             write(umsg,'(A,i4,2(3x,A,es15.4))')  &
@@ -789,10 +838,10 @@
             ! Verbose depending on MPI regime
             if (gpid.eq.0) then
               call verboseI(0)
-              call verboseI(4)
+              if (vlevel.gt.0) call verboseI(3)
             else
               call verboseI(0)
-              if (vlevel.eq.0) call verboseI(3)
+              if (vlevel.gt.0) call verboseI(3)
             end if
 
             ! If regularizing
@@ -816,8 +865,8 @@
           end if
 
           ! Check convergence
-          call Convergence_Check(Input, Chisq_old, &
-                                 LM_Stru%Chisq, Flag_Convg)
+          call Convergence_Check(Input,Chisq_old, &
+                                 LM_Stru%Chisq,Flag_Convg)
 
           ! If converged
           if (Flag_Convg) then
@@ -831,7 +880,7 @@
                 ! Verbose merit function if in output
                 umsg = ' * '
                 call verboseI(0)
-                if (vlevel.eq.0) call verboseI(3)
+                if (vlevel.gt.0) call verboseI(3)
 
                 ! Verbose
                 write(umsg,'(A,es15.4)') &
@@ -840,16 +889,16 @@
                 ! Verbose depending on the MPI regime
                 if (gpid.eq.0) then
                   call verboseI(0)
-                  call verboseI(4)
+                  if (vlevel.gt.0) call verboseI(3)
                 else
                   call verboseI(0)
-                  if (vlevel.eq.0) call verboseI(3)
+                  if (vlevel.gt.0) call verboseI(3)
                 end if
 
               end if ! Master
 
-              ! Leave iterations, we are done
-              exit
+              ! If in reduced mode, or not allowed, leave iterations
+              if (Flag_RDmode.or..not.Input%allow_RD_mode) exit
 
             ! Not flagged Jacobian
             else
@@ -873,17 +922,17 @@
               ! Verbose depending on the MPI regime
               if (gpid.eq.0) then
                 call verboseI(0)
-                call verboseI(4)
+                if (vlevel.gt.0) call verboseI(3)
               else
                 call verboseI(0)
-                if (vlevel.eq.0) call verboseI(3)
+                if (vlevel.gt.0) call verboseI(3)
               end if ! MPI regime
             end if ! Master
 
             ! Exit loop
             exit
 
-          end if ! Master
+          end if ! Last iteration
 
           ! If regularizing and the regularization ratio is larger
           ! than 1
@@ -923,30 +972,156 @@
                 ! Verbose
                 write(umsg,'(A)') ' - Updated regularization ratio:'
                 call verboseI(3)
-                write(umsg,'(A,es15.4,4(3x,A,es15.4))') &
+                write(umsg,'(A,es15.4,2(3x,A,es15.4))') &
                   '   New scaled penalty = ', &
                   LM_Stru%Rgl%Penalty*LM_Stru%Rgl%Ratio,  &
-                  'New Chi2 (total) = ', &
-                  LM_Stru%Chisq, &
-                  'Chi2 (no regulatization) = ', &
-                  LM_Stru%Chisq_og, &
                   'Ratio = ',LM_Stru%Rgl%Ratio, &
                   'Penalty = ',LM_Stru%Rgl%Penalty
+                call verboseI(3)
+                write(umsg,'(A,es15.4,3x,A,es15.4)') &
+                  ' * New Chi2 (total) = ', &
+                  LM_Stru%Chisq, &
+                  'Chi2 (no regulatization) = ', &
+                  LM_Stru%Chisq_og
                 call verboseI(3)
 
               end if ! Master
             end if ! Lower ratio, but acceptable
           end if ! Regularizing and ratio larger than 1
 
+          ! If not converged and in reduced mode
+          if (.not.Flag_Convg.and.Flag_RDmode) then
+
+            ! Get fraction from last
+            frac = (Chisq_RD0 - LM_Stru%chisq)/ &
+                   LM_Stru%chisq
+
+            ! If at least 10% difference
+            if (frac.ge.0.1d0) then
+
+              ! Deactivate and recalculate weights
+              Flag_RDmode = .False.
+
+              ! Refresh Lambda track
+              LM_Stru%nLambda = 0
+              LM_Stru%Lambda = 1d-1*Input%factoraccept
+
+              ! If thermal inversion
+              if (Inf_Nodes%Nodes_Type.eq.0) then
+
+                ! If modified weights
+                if (allocated(LM_Stru%WeightI_mod)) then
+                  MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%WeightI_mod)
+                  deallocate(LM_Stru%WeightI_mod)
+                end if
+
+              ! If magnetic
+              else
+
+                ! If modified weights
+                if (allocated(LM_Stru%Weight_mod)) then
+                  MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%Weight_mod)
+                  deallocate(LM_Stru%Weight_mod)
+                end if
+
+              end if ! Type of inversion
+
+              ! Master
+              if (pid.eq.0) then
+
+                ! Verbose
+                write(umsg,'(A)') ' +'
+                call verboseI(3)
+                write(umsg,'(A,3(1x,f6.3))') &
+                           ' + Deactivated Reduced Mode'
+                call verboseI(3)
+
+              end if ! Master
+            end if ! At least 10% difference
+          end if ! Not converged and reduced mode
+
           ! Update chi2
           Chisq_old = LM_Stru%Chisq
 
         end if ! Accepted step
 
-        ! Predict lambda
-        if (Input%l_Lam_track) &
+        ! If converged because RC
+        if ((Flag_Convg.and. &
+             LM_Stru%chisq.ge.Input%Threshold_chisq).or. &
+            .not.LM_Stru%accepted) then
+             
+          ! If not in RD mode
+          if (.not.Flag_RDmode) then
+
+            ! Activate
+            Flag_RDmode = .True.
+
+            ! Redefine the weights
+            call adjust_weights(LM_Stru,Inf_Nodes, &
+                                Inf_Stokes,Input)
+
+            ! If not accepted, keep Jacobian
+            if (.not.LM_Stru%accepted) skip_Jac = .True.
+
+            ! Refresh Lambda track
+            LM_Stru%nLambda = 0
+            LM_Stru%Lambda = 1d-1*Input%factoraccept
+
+            ! Save current chi^2
+            Chisq_RD0 = LM_Stru%chisq
+
+            ! Master
+            if (pid.eq.0) then
+
+              ! Verbose
+              write(umsg,'(A)') ' +'
+              call verboseI(3)
+              write(umsg,'(A,3(1x,f6.3))') &
+                                ' + Activate Reduced Mode: ', &
+                                LM_Stru%perc,LM_Stru%ff_max, &
+                                LM_Stru%ff_contr
+              call verboseI(3)
+
+            end if ! Master
+
+            ! And cycle
+            cycle
+
+          ! Already in RD mode
+          else
+
+            ! If not accepted and master
+            if (.not.LM_Stru%accepted.and.pid.eq.0) then
+
+              ! Verbose
+              umsg = ' * '
+              call verboseI(0)
+              if (vlevel.gt.0) call verboseI(3)
+
+              ! Verbose
+              write(umsg,'(A)') ' * Could not improve more'
+
+              ! Verbose depending on the MPI regime
+              if (gpid.eq.0) then
+                call verboseI(0)
+                if (vlevel.gt.0) call verboseI(3)
+              else
+                call verboseI(0)
+                if (vlevel.gt.0) call verboseI(3)
+              end if
+
+            end if ! Master and not accepted
+
+            ! Just leave
+            exit
+
+          end if ! If in RD mode or not
+        end if ! If failed
+
+        ! Predict lambda if in accepted step
+        if (Input%l_Lam_track.and.LM_Stru%accepted) &
           call update_lambda(Lam_track,Input%Lam_track, &
-                             LM_Stru%Lambda)
+                             LM_Stru%nLambda,LM_Stru%Lambda)
 
       end do ! Iterations
 
@@ -971,12 +1146,16 @@
         if (Input%Err_Type.eq.1.or.Input%Err_Type.eq.3) then
 
           ! Get Hessian
-          call Hessian_Compute(Inf_Nodes%Nodes_Type, LM_Stru)
+          call Hessian_Compute(Inf_Nodes%Nodes_Type,LM_Stru,.False.)
 
         end if
 
       ! Not accepted last step or error not from Hessian
       else
+
+        ! If in reduced mode, recalculate Hessian
+        if (Flag_RDmode) &
+          call Hessian_Compute(Inf_Nodes%Nodes_Type,LM_Stru,.False.)
 
         ! If regularizing
         if (Inf_Nodes%Regul_Flag) then
@@ -1018,6 +1197,12 @@
         deallocate(LM_Stru%WeightI)
         deallocate(LM_Stru%JacobianI)
 
+        ! If modified weights
+        if (allocated(LM_Stru%WeightI_mod)) then
+          MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%WeightI_mod)
+          deallocate(LM_Stru%WeightI_mod)
+        end if
+
       ! If magnetic
       else
 
@@ -1028,6 +1213,12 @@
         deallocate(LM_Stru%Residual)
         deallocate(LM_Stru%Weight)
         deallocate(LM_Stru%Jacobian)
+
+        ! If modified weights
+        if (allocated(LM_Stru%Weight_mod)) then
+          MRAMc = MRAMc - 1d-6*sizeof(LM_Stru%Weight_mod)
+          deallocate(LM_Stru%Weight_mod)
+        end if
 
       end if ! Type of inversion
 
@@ -1836,9 +2027,17 @@
       end do
 
       ! SVD solution
-      call SVD_Solve(Hessian_new, Jacfvec_new, Solution, &
-                     LM_Stru%Num, Inf_Nodes_tmp, Input%SVD_Type)
+      call SVD_Solve(Hessian_new,Jacfvec_new,Solution, &
+                     LM_Stru%Num,Inf_Nodes_tmp,Input%SVD_Type, &
+                     .True.)
       if (laborted) goto 2000
+
+      ! Predict improvement and check step
+      call predict_improvement(LM_Stru%Hessian,LM_Stru%Jacfvec, &
+                               Solution,LM_Stru%pred)
+
+      ! Save norm (max)
+      LM_Stru%step_norm = maxval(abs(Solution))
 
       ! Modify the nodes with the LM solution
       call Nodes_Modify(Solution, Inf_Nodes_tmp)
@@ -2009,14 +2208,15 @@
       ! Local
 
       logical:: Bracketed,up_first,converged,changed
-      logical:: second_lap,early_exit
+      logical:: second_lap,early_exit,could_be_gd
 
       integer, parameter:: Length = 10
       integer, parameter:: Max_fail = 3
       integer:: indx,jndx,kndx,Chisq_indx,nfail
 
-      double precision:: Chisq_old, Chisq_best, daux
-      double precision:: Lambda_TMP, Penalty_TMP
+      double precision:: Chisq_old,Chisq_best,daux,rel,last_norm
+      double precision:: last_best,relb
+      double precision:: Lambda_TMP,Penalty_TMP
       double precision, dimension(:), allocatable:: Lambda_array
       double precision, dimension(:), allocatable:: Chisq_array
       double precision, dimension(:), allocatable:: Penalty_array
@@ -2045,7 +2245,7 @@
       early_exit = .False.
       Penalty_TMP = LM_Stru%Rgl%Penalty
       Chisq_indx = -1
-      chisq_old = LM_Stru%Chisq
+      Chisq_old = LM_Stru%Chisq
       up_first = .True.
       Chisq_best = chisq_old
       jndx = 1
@@ -2064,31 +2264,41 @@
       ! Fake loop
       do while (.True.)
 
+        ! No GD candidate
+        could_be_gd = .False.
+
+        ! Reset last registered norm
+        last_norm = 1e9
+
         ! For the hard-coded length
         do indx=jndx,Length
-
-          ! Master
-          if (pid.eq.0) then
-
-            ! Verbose
-            if (gpid.eq.0) then
-              umsg = '------------------------------------'
-              call verbose
-              umsg = '| Trial synthesis for backtracking |'
-              call verbose
-              umsg = '------------------------------------'
-              call verbose
-            end if
-            umsg = ' - Trial synthesis for backtracking'
-            call verboseI(3)
-
-          end if ! Master
 
           ! Initialize failures
           nfail = 0
 
           ! Fake loop
           do while (.True.)
+
+            ! Master
+            if (pid.eq.0) then
+
+              ! Verbose
+              write(umsg,'(A,i2)') ' +'
+              call verboseI(3)
+              write(umsg,'(A,i2)') ' + Trial ',indx
+              call verboseI(3)
+              if (gpid.eq.0) then
+                umsg = '------------------------------------'
+                call verbose
+                umsg = '| Trial synthesis for backtracking |'
+                call verbose
+                umsg = '------------------------------------'
+                call verbose
+              end if
+              umsg = ' - Trial synthesis for backtracking'
+              call verboseI(3)
+
+            end if ! Master
 
             ! Try new solution
             call Trial_Synthesis(LM_Stru,Inf_Nodes, &
@@ -2097,8 +2307,35 @@
                                  GeomI,Flgsg,Frec,fudge,kurucz, &
                                  MPID,Input,Sol,SolF)
 
-            ! If there was an issue with the trial
-            if (laborted) then
+            ! If the Trial did not fail, calculate here the
+            ! merit function
+            if (.not.laborted) then
+
+              ! Get merit function
+              call Merit_function(Inf_Stokes, Sol%Stokes_out, &
+                                  Inf_Nodes%Nodes_Type, LM_Stru)
+
+              ! If the merit function is not a number, consider
+              ! it a failure
+              if (.not.ieee_is_finite(LM_Stru%Chisq)) then
+
+                ! Flag
+                laborted = .True.
+
+                ! Verbose
+                if (gpid.eq.0) then
+                  umsg = ' # Trial synthesis lead to a '// &
+                         'non-sensical merit function'
+                  call verbose
+                end if
+                umsg = ' # Trial synthesis lead to a '// &
+                       'non-sensical merit function'
+                call verboseI(3)
+
+              end if ! The merit function is wrong
+
+            ! If the trial failed
+            else
 
               ! Verbose
               if (gpid.eq.0) then
@@ -2107,6 +2344,11 @@
               end if
               umsg = ' # Trial synthesis failed'
               call verboseI(3)
+
+            end if ! The trial did not fail
+
+            ! If there was an issue with the trial
+            if (laborted) then
 
               ! Cancel the failure
               laborted = .False.
@@ -2138,32 +2380,74 @@
                 end do ! Check older lambda
 
                 ! Loop again?
-                if (changed) continue
+                if (changed) cycle
 
                 ! Leave
                 exit
 
               end do ! Check repetition
 
-              ! If Lambda went beyond limits, leave
+              ! If lambda below limits
               if (Lambda_array(indx).lt. &
-                  LM_Stru%Lambda_bounds(1).or. &
-                  Lambda_array(indx).gt. &
+                  LM_Stru%Lambda_bounds(1)) then
+
+                ! If there is previous
+                if (indx.gt.1) then
+
+                  ! If already was below limit
+                  if (Lambda_array(indx-1).le. &
+                      LM_Stru%Lambda_bounds(1)) then
+
+                    ! Verbose
+                    if (gpid.eq.0) then
+                      umsg = ' # Could not find new lambda to '// \
+                             'try with'
+                      call verbose
+                    end if
+                    umsg = ' # Could not find new lambda to try with'
+                    call verboseI(3)
+
+                    ! Exit trials
+                    early_exit = .True.
+                    exit
+
+                  end if ! Already was below limits
+                end if ! Not the first
+
+                ! Force limit
+                Lambda_array(indx) = LM_Stru%Lambda_bounds(1)
+
+              ! If Lambda above limits
+              else if (Lambda_array(indx).gt. &
                   LM_Stru%Lambda_bounds(2)) then
-                  
-                ! Verbose
-                if (gpid.eq.0) then
-                  umsg = ' # Could not find new lambda to try with'
-                  call verbose
-                end if
-                umsg = ' # Could not find new lambda to try with'
-                call verboseI(3)
 
-                ! Exit trials
-                early_exit = .True.
-                exit
+                ! If there is previous
+                if (indx.gt.1) then
 
-              end if
+                  ! If already was above limit
+                  if (Lambda_array(indx-1).ge. &
+                      LM_Stru%Lambda_bounds(2)) then
+
+                    ! Verbose
+                    if (gpid.eq.0) then
+                      umsg = ' # Could not find new lambda to '// &
+                             'try with'
+                      call verbose
+                    end if
+                    umsg = ' # Could not find new lambda to try with'
+                    call verboseI(3)
+
+                    ! Exit trials
+                    early_exit = .True.
+                    exit
+
+                  end if ! Already was below limits
+                end if ! Not the first
+
+                ! Force limit
+                Lambda_array(indx) = LM_Stru%Lambda_bounds(2)
+
+              end if ! If Lambda beyond limits
 
               ! Add to count
               nfail = nfail + 1
@@ -2180,7 +2464,7 @@
               call verboseI(3)
 
               ! Try again
-              continue
+              cycle
 
             end if ! Failed the Trial
 
@@ -2221,21 +2505,25 @@
           if (pid.eq.0) then
 
             ! Verbose
-            write(umsg,'(A,i2)') ' +'
-            call verboseI(3)
-            write(umsg,'(A,i2)') ' + Trial ',indx
-            call verboseI(3)
             write(umsg,'(4(3x,A,es15.4))') &
               'chi2 = ',LM_Stru%Chisq, &
               'lambda = ',Lambda_array(indx), &
               'Penalty = ',LM_Stru%Rgl%Penalty, &
               'Ratio = ',LM_Stru%Rgl%Ratio
             call verboseI(3)
+            write(umsg,'(A,es15.4)') '   Improvement ratio ', &
+                                     (Chisq_old - LM_Stru%Chisq)/ &
+                                     LM_Stru%pred
+            call verboseI(3)
 
           end if ! Master
 
           ! If larger than best
           if (Chisq_array(indx).gt.Chisq_best) then
+
+            ! Get relative change
+            rel = (Chisq_array(indx) - Chisq_old) / &
+                   Chisq_old
 
             ! If first worse
             if (up_first) then
@@ -2272,6 +2560,10 @@
                 ! Move best to second position
                 Chisq_indx = indx
 
+                ! Check how bad it was
+                daux = (Chisq_array(indx-1) - Chisq_best) / &
+                        Chisq_best
+
               ! Not any of the first two
               else
 
@@ -2281,9 +2573,31 @@
 
               end if ! Index
 
-              ! Get next lambda
-              Lambda_array(indx+1) = Lambda_array(indx)* &
-                                     LM_Stru%factorreject
+              ! If too wrong
+              if (rel.gt.1e4) then
+
+                  ! Get next lambda
+                  Lambda_array(indx+1) = Lambda_array(indx)* &
+                                         LM_Stru%factorreject* &
+                                         LM_Stru%factorreject* &
+                                         LM_Stru%factorreject
+
+              ! If quite wrong
+              else if (rel.gt.1e2) then
+
+                  ! Get next lambda
+                  Lambda_array(indx+1) = Lambda_array(indx)* &
+                                         LM_Stru%factorreject* &
+                                         LM_Stru%factorreject
+
+              ! Normal
+              else
+
+                  ! Get next lambda
+                  Lambda_array(indx+1) = Lambda_array(indx)* &
+                                         LM_Stru%factorreject
+
+              end if ! How wrong was it
 
             ! Is the worse result
             else
@@ -2340,18 +2654,86 @@
               Lambda_array(indx+1) = Lambda_array(indx)/ &
                                      LM_Stru%factoraccept
 
+              ! Flag
+              could_be_gd = .False.
+
             ! First already found
             else
+
+              ! Update best index and chi2
+              Chisq_indx = indx
+              Chisq_best = Chisq_array(indx)
+
+              ! Not the first
+              if (indx.gt.1) then
+
+                ! Larger lambda
+                if (Lambda_array(indx).gt.Lambda_array(indx-1)) then
+
+                  ! We had one potential GD
+                  if (could_be_gd) then
+
+                    ! GD regime
+                    if (LM_Stru%step_norm/last_norm.gt..9d0) then
+
+                      ! Check convergence
+                      rel = (last_best - Chisq_best)/last_best
+
+                      ! If too small an improvement
+                      if (rel.lt.1d-2) then
+
+                        ! Master
+                        if (pid.eq.0) then
+
+                          ! Verbose
+                          write(umsg,'(A,es15.4)') &
+                               ' # Seems like it is exploring '// &
+                               'the GD regime without gain'
+                          call verboseI(3)
+                          write(umsg,'(A,es15.4,A,es15.4)') &
+                              '   chi2 changed only from ',last_best, &
+                              ' to ',Chisq_best
+                          call verboseI(3)
+                          write(umsg,'(A,es15.4,A,es15.4)') &
+                              '   step norm changed only '// &
+                              'from ',last_norm, &
+                              ' to ',LM_Stru%step_norm
+                          call verboseI(3)
+                          write(umsg,'(A,es15.4,A,es15.4)') &
+                              '   stop Backtracking'
+                          call verboseI(3)
+
+                        end if ! Master
+
+                        ! Leave
+                        exit
+
+                      end if ! GD regime
+
+                    ! There was improvement
+                    else
+
+                      ! Keep this new chi2
+                      last_best = Chisq_best
+
+                    end if
+
+                  ! No potential GD yet
+                  else
+
+                    ! Flag
+                    could_be_gd = .True.
+                    last_best = Chisq_best
+
+                  end if ! GD flagged
+                end if ! Larger lambda
+              end if ! Not the first
 
               ! Increment
               Lambda_array(indx+1) = Lambda_array(indx)* &
                                      LM_Stru%factorreject
 
             end if ! Found the first worse result
-
-            ! Update best index and chi2
-            Chisq_indx = indx
-            Chisq_best = Chisq_array(indx)
 
           end if ! Improvement or not
 
@@ -2376,8 +2758,10 @@
 
           end if ! Lambda in bounds
 
-        end do ! Try up to Length steps
+          ! Save last step norm
+          last_norm = LM_Stru%step_norm
 
+        end do ! Try up to Length steps
 
         ! If variation is bracketed
         if (Bracketed) then
@@ -2557,7 +2941,7 @@
 
               ! If the minimum lambda was rather big, restart
               ! with something smaller
-              if (minval(Lambda_array(1:indx)).gt. &
+              if (minval(Lambda_array(1:2)).gt. &
                   Input%LM_lam_big_test) then
 
                 ! Next lambda
@@ -2576,7 +2960,7 @@
                   call verboseI(3)
                   write(umsg,'(A,i2)') ' + Trial ',1
                   call verboseI(3)
-                  write(umsg,'(4(3x,A,es15.4))') &
+                  write(umsg,'(3(3x,A,es15.4))') &
                     'chi2 = ',Chisq_array(1), &
                     'lambda = ',Lambda_array(1), &
                     'Penalty = ',Penalty_array(1)
@@ -2592,7 +2976,7 @@
 
               ! If the maximum lambda was rather small, restart
               ! with something larger
-              if (maxval(Lambda_array(1:indx)).lt. &
+              if (maxval(Lambda_array(1:2)).lt. &
                   Input%LM_lam_small_test) then
 
                 ! Next lambda
@@ -2632,6 +3016,20 @@
         exit
 
       end do
+
+      ! Master
+      if (pid.eq.0) then
+
+        ! Verbose
+        write(umsg,'(A,i2)') ' +'
+        call verboseI(3)
+        write(umsg,'(A,2(3x,A,es15.4))') &
+          ' + Leave backtracking with:', &
+          'chi2 = ',LM_Stru%Chisq, &
+          'lambda = ',LM_Stru%Lambda
+        call verboseI(3)
+
+      end if ! Master
 
       ! Free memory
 1000  MRAMc = MRAMc - 1d-6*sizeof(Lambda_array)
@@ -2683,16 +3081,15 @@
 
       !> Propose the value of the Levenberg-Marquardt lambda parameter
       !! for the next iteration\n
-      !!         iter(integer): Current iteration\n
       !!      track(double(:)): Lambda parameter history\n
       !!       ntrack(integer): Size of history stored\n
       !!  LM_Stru(LMFIT_class): Structure with data for the
       !!                        Levenberg–Marquardt
-      subroutine predict_lambda(iter,track,ntrack,LM_Stru)
+      subroutine predict_lambda(track,ntrack,LM_Stru)
 
       ! I/O
 
-      integer, intent(in):: iter,ntrack
+      integer, intent(in):: ntrack
       double precision, dimension(:), intent(in):: track
       type(LMFIT_class), intent(inout):: LM_Stru
 
@@ -2703,7 +3100,7 @@
 
 
       ! If first iteration, skip
-      if (iter.eq.1) return
+      if (LM_Stru%nLambda.lt.1) return
 
       ! Cases
       select case (ntrack)
@@ -2723,11 +3120,9 @@
 
             ! Verbose depending on MPI regime
             if (gpid.eq.0) then
-              call verboseI(0)
-              call verboseI(4)
+              call verboseI(3)
             else
-              call verboseI(0)
-              if (vlevel.eq.0) call verboseI(3)
+              call verboseI(3)
             end if
           end if
 
@@ -2741,7 +3136,7 @@
         case (2)
 
           ! One one iteration
-          if (iter.lt.3) then
+          if (LM_Stru%nLambda.lt.2) then
 
             ! Get new lambda
             LM_Stru%Lambda = track(2)
@@ -2754,11 +3149,9 @@
                 ' - Tracking lambda:',track(2)
 
               if (gpid.eq.0) then
-                call verboseI(0)
-                call verboseI(4)
+                call verboseI(3)
               else
-                call verboseI(0)
-                if (vlevel.eq.0) call verboseI(3)
+                call verboseI(3)
               end if
             end if
 
@@ -2778,11 +3171,9 @@
 
               ! Verbose depending on MPI regime
               if (gpid.eq.0) then
-                call verboseI(0)
-                call verboseI(4)
+                call verboseI(3)
               else
-                call verboseI(0)
-                if (vlevel.eq.0) call verboseI(3)
+                call verboseI(3)
               end if
             end if
 
@@ -2798,7 +3189,7 @@
         case (3)
 
           ! One one iteration
-          if (iter.lt.3) then
+          if (LM_Stru%nLambda.lt.2) then
 
             ! Get new lambda
             LM_Stru%Lambda = track(3)
@@ -2812,11 +3203,9 @@
 
               ! Verbose depending on MPI regime
               if (gpid.eq.0) then
-                call verboseI(0)
-                call verboseI(4)
+                call verboseI(3)
               else
-                call verboseI(0)
-                if (vlevel.eq.0) call verboseI(3)
+                call verboseI(3)
               end if
             end if
 
@@ -2826,7 +3215,7 @@
                 LM_Stru%Lambda = track(3)
 
           ! Only two iterations
-          else if (iter.lt.4) then
+          else if (LM_Stru%nLambda.lt.3) then
 
             ! Get new lambda
             LM_Stru%Lambda = 2*track(3) - track(2)
@@ -2841,11 +3230,9 @@
 
               ! Verbose depending on MPI regime
               if (gpid.eq.0) then
-                call verboseI(0)
-                call verboseI(4)
+                call verboseI(3)
               else
-                call verboseI(0)
-                if (vlevel.eq.0) call verboseI(3)
+                call verboseI(3)
               end if
             end if
 
@@ -2874,11 +3261,9 @@
 
               ! Verbose depending on MPI regime
               if (gpid.eq.0) then
-                call verboseI(0)
-                call verboseI(4)
+                call verboseI(3)
               else
-                call verboseI(0)
-                if (vlevel.eq.0) call verboseI(3)
+                call verboseI(3)
               end if
             end if
 
@@ -2930,11 +3315,9 @@
 
         ! Verbose depending on MPI regime
         if (gpid.eq.0) then
-          call verboseI(0)
-          call verboseI(4)
+          call verboseI(3)
         else
-          call verboseI(0)
-          if (vlevel.eq.0) call verboseI(3)
+          call verboseI(3)
         end if
       end if
 
@@ -2949,11 +3332,13 @@
       !> Update history of Levenberg-Marquardt lambda parameter\n
       !!  track(double(:)): Lambda parameter history\n
       !!   ntrack(integer): Size of history stored\n
+      !!  nlambda(integer): Number of updates\n
       !!    lambda(double): Levenberg-Marquardt lambda parameter
-      subroutine update_lambda(track,ntrack,lambda)
+      subroutine update_lambda(track,ntrack,nlambda,lambda)
 
       ! I/O
       integer, intent(in):: ntrack
+      integer, intent(inout):: nlambda
       double precision, intent(in):: Lambda
       double precision, dimension(:), intent(inout):: track
 
@@ -2967,6 +3352,7 @@
 
       ! Add
       track(ntrack) = lambda
+      nlambda = nlambda + 1
 
       return
 

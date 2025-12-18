@@ -5133,7 +5133,7 @@ class _inversion_in():
             f = open(self.__filename,'rb')
 
             # Seek first data point
-            f.seek(self.__jump_to_data,0)
+            f.seek(self.__to_data,0)
 
             # For each column
             for ix in range(self.__nx):

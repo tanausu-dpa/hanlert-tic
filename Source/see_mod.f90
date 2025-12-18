@@ -10,15 +10,14 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     18/02/2025 V4.0.1
+!     18/12/2025 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/02/2025:    V4.0.1 - Bugfix: fixed the implementation of the
-!                             zero_ion option (TdPA)
+!     18/12/2025:    V4.0.2 - NaN checks now use ieee (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1281,8 +1280,8 @@
               iR1 = Atom%irho(it)%Jrho(iJ1,iJ1)%kq(0,0)
 
               ! Check NaN
-              if (isnan(rho(iR0)).or. &
-                  isnan(rho(iR1))) then
+              if (ieee_is_nan(rho(iR0)).or. &
+                  ieee_is_nan(rho(iR1))) then
 
                 ! Issue error
                 write(umsg,'(A,i4,3(",",i4),A,2(1x,es11.4))') &
@@ -1324,7 +1323,7 @@
               iR0 = Atom%irho(it)%Jrho(iJ1,iJ)%kq(0,0)
 
               ! Check NaN
-              if (isnan(rho(iR0))) then
+              if (ieee_is_nan(rho(iR0))) then
 
                 ! Issue error
                 write(umsg,'(A,i4,2(",",i4),A,1x,es11.4)') &
@@ -1380,7 +1379,8 @@
                 tsgn = Flgsg%sg(nint(rJ-rJ1)-iQ)
 
                 ! Check NaN
-                if (isnan(rho(iR)).or.isnan(rho(iI))) then
+                if (ieee_is_nan(rho(iR)).or. &
+                    ieee_is_nan(rho(iI))) then
 
                   ! Issue error
                   write(umsg,'(A,i4,3(",",i4),",",i1,",",i2,'// &

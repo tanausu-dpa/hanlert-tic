@@ -1871,6 +1871,17 @@ LM_METHOD
 
   * Description: Type of Levenberg-Marquardt method for the inversion minimization.
 
+ALLOW_REDUCED_MODE
+------------------
+
+  * OPTIONAL
+
+  * Formats:
+    
+    - string: Yes/No; default: No
+
+  * Description: Allow a last iteration in which the weights are changed to try to focus on the worst fit regions.
+
 KEEP_RF
 -------
 

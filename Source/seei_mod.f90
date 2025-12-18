@@ -10,18 +10,16 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     18/03/2025 V4.0.2
+!     18/12/2025 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/03/2025:    V4.0.2 - Added the option to not apply ALI to
-!                             bound-free transitions (TdPA)
-!                           - Added the option to not allow switching
-!                             off ALI if negative populations are
-!                             found (TdPA)
+!     18/12/2025:    V4.0.3 - NaN checks now use ieee (TdPA)
+!                           - Only notify of negative populations in
+!                             SEE if in synthesis mode (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1081,10 +1079,12 @@
             ! If can swith if off
             if (ALIao) then
 
-              ! Issue warning
-              write(umsg,'(A)') 'Negative population in SEEI '// &
-                                'solution, will try without ALI'
-              call abortedS(umsg,urou,.False.,.True.)
+              ! Issue warning only if synthesis
+              if (run_mode.ne.-1) then
+                write(umsg,'(A)') 'Negative population in SEEI '// &
+                                  'solution, will try without ALI'
+                call abortedS(umsg,urou,.False.,.True.)
+              end if
 
               ! Flag and go back
               try_no_ALI = .True.
@@ -1165,7 +1165,7 @@
           iR = Atom%irho(it)%Jrho(iJ,iJ)%kq(0,0)
 
           ! Check NaN
-          if(isnan(rho(i)))then
+          if(ieee_is_nan(rho(i)))then
 
             ! Issue error
             write(umsg,'(A,i4,",",i4,A,1x,es11.4)') &

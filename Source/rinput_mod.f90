@@ -10,15 +10,14 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     06/11/2025 V4.0.12
+!     18/12/2025 V4.0.13
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     06/11/2025:   V4.0.12 - Bugfix: Initialize Input%Const_regul
-!                             when it is not read (TdPA)
+!     18/12/2025:   V4.0.13 - Read Input%allow_RD_mode (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1839,6 +1838,10 @@
 
         ! Rejected lambda factor
         read(100,*,err=1100) Input%factorreject
+
+        ! Allow for reduced mode
+        read(100,'(A)',err=1100) cdump
+        Input%allow_RD_mode = cdump.eq.'Y'
 
         ! Project the B vector (negative strength values become
         ! negative polarity)

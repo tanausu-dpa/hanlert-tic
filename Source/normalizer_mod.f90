@@ -9,16 +9,15 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     30/06/2025 V4.0.8
+!     18/12/2025 V4.0.9
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     30/06/2025:    V4.0.8 - Bugfix: The initialization of norms in
-!                             CLE assumed that there will always be
-!                             a magnetic field (TdPA)
+!     18/12/2025:    V4.0.9 - Moved the verbosity of the issues with
+!                             norm values to a debug option (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -78,7 +77,11 @@
       use types_mod
 
       ! To output the normalization problems
+#ifdef DEBUGBADNORM
       logical:: obadnorm = .True.
+#else
+      logical:: obadnorm = .False.
+#endif
 
       ! CPU threshold to ask the master for permission
       integer:: cpulimit = 16
@@ -1251,7 +1254,7 @@
 
 
         ! Master
-        if (pid.eq.0) then
+        if (pid.eq.0.and.obadnorm) then
 
           ! Check bad limits
           if (maxval(outofbound).gt.0) then
@@ -3027,7 +3030,7 @@
         end if ! MPI
 
         ! Master
-        if (pid.eq.0) then
+        if (pid.eq.0.and.obadnorm) then
 
           ! Check bad limits
           if (maxval(outofbound).gt.0) then

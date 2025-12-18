@@ -10,14 +10,15 @@
 !  Start:
 !     27/02/2023
 !  Last version:
-!     20/12/2024 V4.0.0
+!     18/12/2025 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/12/2024:    V4.0.0 - Revised headers (TdPA)
+!     18/12/2025:    V4.0.1 - Added an argument to SVD_Solve to
+!                             control its verbosity (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -66,12 +67,14 @@
       !!            B(double(:)): Independent term\n
       !!            X(double(:)): Solution\n
       !!  Inf_Nodes(Nodes_class): Structure with inversion node data\n
-      !!       SVD_type(integer): Type of SVD solution
-      subroutine SVD_Solve(A,B,X,N,Inf_Nodes,SVD_type)
+      !!       SVD_type(integer): Type of SVD solution\n
+      !!       can_talk(logical): If information can be printed
+      subroutine SVD_Solve(A,B,X,N,Inf_Nodes,SVD_type,can_talk)
 
       ! I/O
 
       type(Nodes_class), intent(inout):: Inf_Nodes
+      logical, intent(in):: can_talk
       integer, intent(in):: N,SVD_type
       double precision, dimension(:), intent(in):: B
       double precision, dimension(:), intent(inout):: X
@@ -94,24 +97,29 @@
       ! Master
       if (pid.eq.0) then
 
-        ! Verbose
-        umsg = ' - SVD solution'
-        call verboseI(3)
+        ! Can Talk
+        if (can_talk) then
 
-        ! Prepare format
-        n_in = n
-        if (n_in*15.gt.471) then
-          do while(n_in*15.gt.467)
-            n_in = n_in - 1
-          end do
-          write(length, "(i3)") n_in
-          fmt = '(A,'//trim(adjustl(length))//'es15.4," ...")'
-          fmt = trim(adjustl(fmt))
-        else
-          write(length, "(i3)") n
-          fmt = '(A,'//trim(adjustl(length))//'es15.4)'
-          fmt = trim(adjustl(fmt))
-        end if
+          ! Verbose
+          umsg = ' - SVD solution'
+          call verboseI(3)
+
+          ! Prepare format
+          n_in = n
+          if (n_in*15.gt.471) then
+            do while(n_in*15.gt.467)
+              n_in = n_in - 1
+            end do
+            write(length, "(i3)") n_in
+            fmt = '(A,'//trim(adjustl(length))//'es15.4," ...")'
+            fmt = trim(adjustl(fmt))
+          else
+            write(length, "(i3)") n
+            fmt = '(A,'//trim(adjustl(length))//'es15.4)'
+            fmt = trim(adjustl(fmt))
+          end if
+
+        end if ! Can talk
 
         ! Initialize DGESV
         INFO = 0
@@ -131,8 +139,10 @@
         V = transpose(VT)
 
         ! Verbose
-        write(umsg, fmt=fmt) "   W(original) = ",(W0(i),i=1,N_in)
-        call verboseI(3)
+        if (can_talk) then
+          write(umsg, fmt=fmt) "   W(original) = ",(W0(i),i=1,N_in)
+          call verboseI(3)
+        end if
 
         ! Get current threshold
         TMP_Threshold_Svd = Inf_Nodes%Threshold_Svd
@@ -174,10 +184,16 @@
 
           ! If step value within bounds or too large threshold
           if ((maxval(X).lt.Inf_Nodes%Max_Step.and. &
-              minval(X).gt.-Inf_Nodes%Max_Step).or. &
-              Inf_Nodes%Threshold_Svd.gt.1d-3) then
-
+              minval(X).gt.-Inf_Nodes%Max_Step)) then
+              
             ! Break from the loop
+            exit
+
+          ! If Threshold already too large
+          else if (Inf_Nodes%Threshold_Svd.gt.1d-3) then
+
+            ! Reduce step and leave
+            X = X*Inf_Nodes%Max_Step/maxval(abs(X))
             exit
 
           ! Too large of a step with room to increase threshold
@@ -192,14 +208,19 @@
 
  
 
-        ! Verbose
-        write(umsg,'(A,es15.4)') '   Threshold = ', &
-                                 Inf_Nodes%Threshold_Svd
-        call verboseI(3)
-        write(umsg, FMT=fmt) '   W (modified) = ',(W(i),i=1,N_in)
-        call verboseI(3)
-        write(umsg, FMT=fmt) '   SVD solution = ',(X(i),i=1,N_in)
-        call verboseI(3)
+        ! Can talk
+        if (can_talk) then
+
+          ! Verbose
+          write(umsg,'(A,es15.4)') '   Threshold = ', &
+                                   Inf_Nodes%Threshold_Svd
+          call verboseI(3)
+          write(umsg, FMT=fmt) '   W (modified) = ',(W(i),i=1,N_in)
+          call verboseI(3)
+          write(umsg, FMT=fmt) '   SVD solution = ',(X(i),i=1,N_in)
+          call verboseI(3)
+
+        end if ! Can talk
 
         ! Recover threshold
         Inf_Nodes%Threshold_Svd = TMP_Threshold_Svd
@@ -292,12 +313,12 @@
 
           end if ! Inverting variable
 
-        end do ! Movel parameters
+        end do ! Model parameters
 
         ! Update iteration
         wi(ido,:) = ww
 
-      end do ! Iterate wtice
+      end do ! Iterate twice
 
       ! For each element
       do j=1,N
