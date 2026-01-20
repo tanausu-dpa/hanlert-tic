@@ -10,37 +10,22 @@
 !  Start:
 !     22/03/2023
 !  Last version:
-!     18/12/2025 V4.0.9
+!     20/01/2026 V4.0.10
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/12/2025:    V4.0.9 - Added reduced mode, a last chance
-!                             iteration which modifies the weights
-!                             to try compensating for a bad initial
-!                             weighting. It is optional (TdPA)
-!                           - NaN checks now use ieee (TdPA)
-!                           - Added a tracker for the lambda
-!                             prediction to make it not depend on the
-!                             particular iteration index (TdPA)
-!                           - Added verbosity to highlight the change
-!                             of chi^2 after the update of the
-!                             regularization weight (TdPA)
-!                           - Modified calls of routines that have
-!                             changed their argument list (TdPA)
-!                           - Added logic to stop the Backtracking
-!                             when in gradient descend regime with
-!                             little hope to improve the fit (TdPA)
-!                           - In backtracking, if the chi^2 is a
-!                             disaster, the lambda parameter is
-!                             enhanced more than once (TdPA)
-!                           - Added verbosity when leaving the
-!                             backtracking (TdPA)
-!                           - Bugfix: there was a typo in which some
-!                             cycle instances were written as
-!                             continue instead (TdPA)
+!     20/01/2026:   V4.0.10 - Verbose the step norm for the variables
+!                             during Backtracking (TdPA)
+!                           - Was missing an update of the best chi^2
+!                             in the backtracking for some edge
+!                             cases (TdPA)
+!                           - The GD regime identifier not only relies
+!                             in the step size ratio, but also in
+!                             its expected ratio and the chi^2
+!                             convergence rate (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -2215,7 +2200,7 @@
       integer:: indx,jndx,kndx,Chisq_indx,nfail
 
       double precision:: Chisq_old,Chisq_best,daux,rel,last_norm
-      double precision:: last_best,relb
+      double precision:: last_best,relb,relc
       double precision:: Lambda_TMP,Penalty_TMP
       double precision, dimension(:), allocatable:: Lambda_array
       double precision, dimension(:), allocatable:: Chisq_array
@@ -2515,6 +2500,9 @@
                                      (Chisq_old - LM_Stru%Chisq)/ &
                                      LM_Stru%pred
             call verboseI(3)
+            write(umsg,'(A,es15.4)') '   Step norm ', &
+                                     LM_Stru%step_norm
+            call verboseI(3)
 
           end if ! Master
 
@@ -2639,6 +2627,7 @@
                 if ((Chisq_best-Chisq_array(indx))/ &
                     Chisq_best.lt.1d-2) then
 
+
                   ! Update best index and chi2
                   Chisq_indx = indx
                   Chisq_best = Chisq_array(indx)
@@ -2649,6 +2638,10 @@
 
                 end if ! Small maximum relative change
               end if ! Tried already two steps
+
+              ! Update best index and chi2
+              Chisq_indx = indx
+              Chisq_best = Chisq_array(indx)
 
               ! Reduce lambda
               Lambda_array(indx+1) = Lambda_array(indx)/ &
@@ -2673,45 +2666,46 @@
                   ! We had one potential GD
                   if (could_be_gd) then
 
+                    ! Check convergence
+                    rel = abs(last_best - Chisq_best)/last_best
+                    relb = Lambda_array(indx-1)/Lambda_array(indx)
+                    relc = LM_Stru%step_norm/last_norm
+
                     ! GD regime
-                    if (LM_Stru%step_norm/last_norm.gt..9d0) then
+                    if ((relc.gt..9d0.or. &
+                         abs(relc - relb).lt.relc*5d-2).and. &
+                        rel.lt.1d-2) then
 
-                      ! Check convergence
-                      rel = (last_best - Chisq_best)/last_best
+                      ! Master
+                      if (pid.eq.0) then
 
-                      ! If too small an improvement
-                      if (rel.lt.1d-2) then
+                        ! Verbose
+                        write(umsg,'(A,es15.4)') &
+                             ' # Seems like it is exploring '// &
+                             'the GD regime without gain'
+                        call verboseI(3)
+                        write(umsg,'(A,es15.4,A,es15.4)') &
+                            '   chi2 changed only from ',last_best, &
+                            ' to ',Chisq_best
+                        call verboseI(3)
+                        write(umsg,'(A,es15.4,A,es15.4)') &
+                            '   step norm changed only '// &
+                            'from ',last_norm, &
+                            ' to ',LM_Stru%step_norm
+                        call verboseI(3)
+                        write(umsg,'(A,es15.4,A,es15.4)') &
+                            '   stop Backtracking'
+                        call verboseI(3)
 
-                        ! Master
-                        if (pid.eq.0) then
+                      end if ! Master
 
-                          ! Verbose
-                          write(umsg,'(A,es15.4)') &
-                               ' # Seems like it is exploring '// &
-                               'the GD regime without gain'
-                          call verboseI(3)
-                          write(umsg,'(A,es15.4,A,es15.4)') &
-                              '   chi2 changed only from ',last_best, &
-                              ' to ',Chisq_best
-                          call verboseI(3)
-                          write(umsg,'(A,es15.4,A,es15.4)') &
-                              '   step norm changed only '// &
-                              'from ',last_norm, &
-                              ' to ',LM_Stru%step_norm
-                          call verboseI(3)
-                          write(umsg,'(A,es15.4,A,es15.4)') &
-                              '   stop Backtracking'
-                          call verboseI(3)
+                      ! Leave
+                      exit
 
-                        end if ! Master
-
-                        ! Leave
-                        exit
-
-                      end if ! GD regime
+                    end if ! GD regime
 
                     ! There was improvement
-                    else
+                    if (Chisq_best.gt.last_best) then
 
                       ! Keep this new chi2
                       last_best = Chisq_best
