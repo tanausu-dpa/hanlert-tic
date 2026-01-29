@@ -928,7 +928,6 @@
 
       end if ! Master
 
-
       ! If inversion is only thermal
       if (Inf_Nodes%Nodes_Type.eq.0) then
 

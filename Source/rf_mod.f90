@@ -10,15 +10,18 @@
 !  Start:
 !     27/02/2023
 !  Last version:
-!     29/08/2025 V4.0.4
+!     29/01/2026 V4.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     29/08/2025:    V4.0.4 - The extrapolation parameter is now an
-!                             input and it is not hard-coded (TdPA)
+!     29/01/2026:    V4.0.5 - When the relative perturbation is
+!                             smaller than the specified minimum,
+!                             calculate the exact enhancement factor
+!                             necessary instead of scaling until it
+!                             is larger (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -217,7 +220,7 @@
       ! Otherwise
       else
 
-        ! No valud
+        ! No value
         Pg = 0d0
 
       end if ! If need to compute hydrostatic equilibrium
@@ -277,14 +280,14 @@
 
           ! If perturbation is less than the minimum relative
           ! perturbation
-          do while (Inf_Nodes%Perturb(Indx_Para)*factor*daux.lt. &
-                    Inf_Nodes%min_rel_Pert(Indx_Para))
+          if (Inf_Nodes%Perturb(Indx_Para)*factor*daux.lt. &
+              Inf_Nodes%min_rel_Pert(Indx_Para)) then
 
             ! Enhance factor
-            factor = factor*2d0
+            factor = Inf_Nodes%min_rel_Pert(Indx_Para)/ &
+                     (daux*Inf_Nodes%Perturb(Indx_Para))
 
-          end do ! Too small relative perturbation
-
+          end if ! Too small relative perturbation
         end if ! Value larger than zero
       end if ! Correct perturbation
 
@@ -591,14 +594,14 @@
 
           ! If perturbation is less than the minimum relative
           ! perturbation
-          do while (Inf_Nodes%Perturb(Indx_Para)*factor*daux.lt. &
-                    Inf_Nodes%min_rel_Pert(Indx_Para))
+          if (Inf_Nodes%Perturb(Indx_Para)*factor*daux.lt. &
+              Inf_Nodes%min_rel_Pert(Indx_Para)) then
 
             ! Enhance factor
-            factor = factor*2d0
+            factor = Inf_Nodes%min_rel_Pert(Indx_Para)/ &
+                     (daux*Inf_Nodes%Perturb(Indx_Para))
 
-          end do ! Too small relative perturbation
-
+          end if ! Too small relative perturbation
         end if ! Value larger than zero
       end if ! Correct perturbation
 
@@ -933,14 +936,14 @@
           daux = 1d0/daux
 
           ! If perturbation is less than the minimum relative
-          do while (Inf_Nodes%Perturb(Indx_Para)*factor*daux.lt. &
-                    Inf_Nodes%min_rel_Pert(Indx_Para))
+          if (Inf_Nodes%Perturb(Indx_Para)*factor*daux.lt. &
+              Inf_Nodes%min_rel_Pert(Indx_Para)) then
 
             ! Enhance factor
-            factor = factor*2d0
+            factor = Inf_Nodes%min_rel_Pert(Indx_Para)/ &
+                     (daux*Inf_Nodes%Perturb(Indx_Para))
 
-          end do ! Too small relative perturbation
-
+          end if ! Too small relative perturbation
         end if ! Value larger than zero
       end if ! Correct perturbation
 

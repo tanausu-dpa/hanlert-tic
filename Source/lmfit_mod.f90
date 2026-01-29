@@ -10,22 +10,15 @@
 !  Start:
 !     22/03/2023
 !  Last version:
-!     20/01/2026 V4.0.10
+!     29/01/2026 V4.0.11
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/01/2026:   V4.0.10 - Verbose the step norm for the variables
-!                             during Backtracking (TdPA)
-!                           - Was missing an update of the best chi^2
-!                             in the backtracking for some edge
-!                             cases (TdPA)
-!                           - The GD regime identifier not only relies
-!                             in the step size ratio, but also in
-!                             its expected ratio and the chi^2
-!                             convergence rate (TdPA)
+!     29/01/2026:   V4.0.11 - Only activate the reduced mode if
+!                             allowed via inputs (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1035,8 +1028,9 @@
              LM_Stru%chisq.ge.Input%Threshold_chisq).or. &
             .not.LM_Stru%accepted) then
              
-          ! If not in RD mode
-          if (.not.Flag_RDmode) then
+          ! If not in RD mode and it is allowed
+          if (.not.Flag_RDmode.and. &
+              Input%allow_RD_mode) then
 
             ! Activate
             Flag_RDmode = .True.

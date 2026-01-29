@@ -16,9 +16,9 @@ ATMO_INPUT
 
   * Formats:
     
-    - string: file path, HCC (only INV), HCP (only INV); default: HCC (only INV)
+    - string: file path, HCC (only INV), HCP (only INV), HCA (only INV), HCF (only INV), HCX (only INV); default: HCC (only INV)
 
-  * Description: Path, absolute or relative to the running directory, of the model atmosphere file. In inversion mode this specifies the initial model atmosphere and HCC or HCP can be specified to indicate the C or P models of Fontenla et al. (1993).
+  * Description: Path, absolute or relative to the running directory, of the model atmosphere file. In inversion mode this specifies the initial model atmosphere and HCC, HCP, HCA, HCF, and HCX can be specified to indicate the C, P, A, or F models of Fontenla et al. (1993) or the MCO (a.k.a. FALX) model of Ayres (1986), respectively.
 
 ATMO_CHAR
 ---------

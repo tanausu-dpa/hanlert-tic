@@ -16,9 +16,9 @@ ATMO_INPUT
 
   * Formats:
     
-    - string: file path, HCC (only INV), HCP (only INV); default: HCC (only INV)
+    - string: file path, HCC (only INV), HCP (only INV), HCA (only INV), HCF (only INV), HCX (only INV); default: HCC (only INV)
 
-  * Description: Path, absolute or relative to the running directory, of the model atmosphere file. In inversion mode this specifies the initial model atmosphere and HCC or HCP can be specified to indicate the C or P models of Fontenla et al. (1993).
+  * Description: Path, absolute or relative to the running directory, of the model atmosphere file. In inversion mode this specifies the initial model atmosphere and HCC, HCP, HCA, HCF, and HCX can be specified to indicate the C, P, A, or F models of Fontenla et al. (1993) or the MCO (a.k.a. FALX) model of Ayres (1986), respectively.
 
 DATA_FILE
 ---------
@@ -3222,7 +3222,7 @@ MIN_REL_PERTURB_B
 
   * Formats:
     
-    - float; default: 0
+    - float; default: 0.02
 
   * Description: Minimum relative perturbation to compute the response function for the magnetic field strengths or longitudinal component can take in the inversion.
 
@@ -3233,7 +3233,7 @@ MIN_REL_PERTURB_BT
 
   * Formats:
     
-    - float; default: 0
+    - float; default: 0.02
 
   * Description: Minimum relative perturbation to compute the response function for the magnetic field inclination or transversal component can take in the inversion.
 
@@ -3244,7 +3244,7 @@ MIN_REL_PERTURB_BP
 
   * Formats:
     
-    - float; default: 0
+    - float; default: 0.02
 
   * Description: Minimum relative perturbation to compute the response function for the magnetic field azimuth can take in the inversion.
 
@@ -3255,7 +3255,7 @@ MIN_REL_PERTURB_F
 
   * Formats:
     
-    - float; default: 0
+    - float; default: 0.02
 
   * Description: Minimum relative perturbation to compute the response function for the diffuse light factor can take in the inversion.
 
@@ -3266,7 +3266,7 @@ MIN_REL_PERTURB_VX
 
   * Formats:
     
-    - float; default: 0
+    - float; default: 0.02
 
   * Description: Minimum relative perturbation to compute the response function for the velocity x or transversal component can take in the inversion.
 
@@ -3277,7 +3277,7 @@ MIN_REL_PERTURB_VY
 
   * Formats:
     
-    - float; default: 0
+    - float; default: 0.02
 
   * Description: Minimum relative perturbation to compute the response function for the velocity y component or azimuth can take in the inversion.
 
@@ -3288,7 +3288,7 @@ MIN_REL_PERTURB_VZ
 
   * Formats:
     
-    - float; default: 0
+    - float; default: 0.02
 
   * Description: Minimum relative perturbation to compute the response function for the velocity vertical or longitudinal component can take in the inversion.
 
@@ -3299,7 +3299,7 @@ MIN_REL_PERTURB_VT
 
   * Formats:
     
-    - float; default: 0
+    - float; default: 0.02
 
   * Description: Minimum relative perturbation to compute the response function for the micro-turbulent velocity can take in the inversion.
 
@@ -3310,7 +3310,7 @@ MIN_REL_PERTURB_PG
 
   * Formats:
     
-    - float; default: 0
+    - float; default: 0.02
 
   * Description: Minimum relative perturbation to compute the response function for the gas pressure can take in the inversion.
 
@@ -3321,7 +3321,7 @@ MIN_REL_PERTURB_J21R
 
   * Formats:
     
-    - float; default: 0
+    - float; default: 0.02
 
   * Description: Minimum relative perturbation to compute the response function for the real part of the J21 radiation field tensor can take in the inversion.
 
@@ -3332,7 +3332,7 @@ MIN_REL_PERTURB_J21I
 
   * Formats:
     
-    - float; default: 0
+    - float; default: 0.02
 
   * Description: Minimum relative perturbation to compute the response function for the imaginary part of the J21 radiation field tensor can take in the inversion.
 
@@ -3343,7 +3343,7 @@ MIN_REL_PERTURB_J22R
 
   * Formats:
     
-    - float; default: 0
+    - float; default: 0.02
 
   * Description: Minimum relative perturbation to compute the response function for the real part of the J22 radiation field tensor can take in the inversion.
 
@@ -3354,7 +3354,7 @@ MIN_REL_PERTURB_J22I
 
   * Formats:
     
-    - float; default: 0
+    - float; default: 0.02
 
   * Description: Minimum relative perturbation to compute the response function for the imaginary part of the J22 radiation field tensor can take in the inversion.
 

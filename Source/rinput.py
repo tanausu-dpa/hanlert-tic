@@ -6,11 +6,10 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an (IAC)
 # Hao Li (IAC/NSSCC)
 #
-# 18/12/2025: V4.0.17 - Bugfix: there was a typo when informing that
-#                       a population file could not be found (TdPA)
-#                     - Changed defaults for LM_LAMBDA_BIG_TEST and
-#                       LM_LAM_SMALL_TEST (TdPA)
-#                     - Added ALLOW_REDUCED_MODE (TdPA)
+# 26/01/2026: V4.0.18 - Added HCA, HCX, and HXF as possible options
+#                       in ATMO_INPUT (TdPA)
+#                     - Set the default value of the minimum relative
+#                       perturbation to 0.02, i.e., 2% (TdPA)
 #
 #####################
 
@@ -6111,6 +6110,12 @@ def rInput():
         f.write('$$C$$\n')
       elif val.upper() == 'HCP':
         f.write('$$P$$\n')
+      elif val.upper() == 'HCA':
+        f.write('$$A$$\n')
+      elif val.upper() == 'HCX':
+        f.write('$$X$$\n')
+      elif val.upper() == 'HCF':
+        f.write('$$F$$\n')
       else:
         try:
           f2=open(val)
@@ -6516,7 +6521,7 @@ def rInput():
           verbose(msg, ofolder, verbosity)
           abort(f, filename)
       if check == 0:
-        f.write('0d0\n')
+        f.write('0.02d0\n')
 
     # INI_BPOS
     check = 0

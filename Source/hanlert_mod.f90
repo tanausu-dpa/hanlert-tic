@@ -10,18 +10,20 @@
 !  Start:
 !     22/06/2022
 !  Last version:
-!     28/08/2025 V4.0.5
+!     29/01/2026 V4.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     28/08/2025:    V4.0.5 - Added Sol argument to prepare_buffers()
-!                             call (TdPA)
-!                           - Changed a bool argument (RF) in
-!                             prepare_buffers into an integer (typo)
-!                             argument (TdPA)
+!     29/01/2026:    V4.0.6 - When computing a response function for
+!                             TIC starting from the solution which
+!                             corresponds to the reference, the
+!                             ALI_force parameter must be set to true
+!                             to avoid false lambda iteration
+!                             convergence and non-significant response
+!                             functions (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1817,7 +1819,7 @@
       type(LTEline_class), dimension(:), allocatable:: LTElines
 
       logical:: PRAM_local, IRAM_local,tau1_local, contr_local
-      logical:: lio,lie,lp,lpe,lporlpe,lload
+      logical:: lio,lie,lp,lpe,lporlpe,lload,ALI_force_local
 
       integer:: ia,nfreq_local
 
@@ -1913,7 +1915,15 @@
         Input%out_tau1 = .False.
         Input%out_contr = .False.
 
-      end if
+        ! If initializing from previous
+        if (Input%popuinit) then
+
+          ! Copy and force
+          ALI_force_local = Input%ALI_force
+          Input%ALI_force = .True.
+
+        end if ! Initialize from previous
+      end if ! Response function
 
       !
       ! Solve the NLTE problem
@@ -2039,7 +2049,14 @@
         Input%out_tau1 = tau1_local
         Input%out_contr = contr_local
 
-      end if
+        ! If initializing from previous
+        if (Input%popuinit) then
+
+          ! Restore
+          Input%ALI_force = ALI_force_local
+
+        end if ! Initializing from reference
+      end if ! Response function
 
       ! Free memory
       call free_mol(Mol)

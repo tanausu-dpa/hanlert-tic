@@ -10,14 +10,16 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     18/12/2025 V4.0.13
+!     29/01/2026 V4.0.14
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/12/2025:   V4.0.13 - Read Input%allow_RD_mode (TdPA)
+!     29/01/2026:   V4.0.14 - Added more options for particular
+!                             triggers in Input%atmo to ask for
+!                             specific hard-coded models (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1620,6 +1622,24 @@
           ! FALP hardcoded
           Input%atmo = 'NONE'
           Input%Init_Thermal = 1
+
+        else if (trim(Input%atmo).eq.'$$A$$') then
+
+          ! FALA hardcoded
+          Input%atmo = 'NONE'
+          Input%Init_Thermal = 2
+
+        else if (trim(Input%atmo).eq.'$$X$$') then
+
+          ! FALX (MCO) hardcoded
+          Input%atmo = 'NONE'
+          Input%Init_Thermal = 3
+
+        else if (trim(Input%atmo).eq.'$$F$$') then
+
+          ! FALF hardcoded
+          Input%atmo = 'NONE'
+          Input%Init_Thermal = 4
 
         end if ! Hard-coded initializations
 
