@@ -9,14 +9,16 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     03/10/2025 V4.0.2
+!     09/02/2026 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     03/10/2025:    V4.0.2 - Added setTS subroutine (TdPA)
+!     09/02/2026:    V4.0.3 - The magnetic field is checked for lack
+!                             of axial symmetry only if multipoles
+!                             other than K=0 are allowed (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -963,22 +965,27 @@
 
       end if ! Horizontal velocity
 
-      ! For each height
-      do iz=1,nz
+      ! If multipoles
+      if (Kcut.gt.0.or.Krad.gt.0) then
 
-        ! If magnetic field is not vertical
-        if (t(iz).gt.0d0.and.t(iz).lt.PI) then
+        ! For each height
+        do iz=1,nz
 
-          ! Error message
-          umsg = 'You specified axial symmetry in '// &
-                 'input, but there are non-vertical '// &
-                 'magnetic fields'
-          urou = 'hanlert'
-          call aborted
+          ! If magnetic field is not vertical
+          if (t(iz).gt.0d0.and.t(iz).lt.PI) then
 
-        end if ! Non-vertical magnetic field
+            ! Error message
+            umsg = 'You specified axial symmetry in '// &
+                   'input, but there are non-vertical '// &
+                   'magnetic fields'
+            urou = 'hanlert'
+            call aborted
 
-      end do ! Heights
+          end if ! Non-vertical magnetic field
+
+        end do ! Heights
+
+      end if ! Actually including multipoles
 
       end subroutine check_axial
 

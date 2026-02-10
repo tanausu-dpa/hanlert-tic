@@ -10,15 +10,15 @@
 !  Start:
 !     23/02/2023
 !  Last version:
-!     04/11/2025 V4.0.6
+!     09/02/2026 V4.0.7
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     04/11/2025:    V4.0.6 - Bugfix: wrong message about the type of
-!                             error in the inversion (TdPA)
+!     09/02/2026:    V4.0.7 - Bugfix: wrong sign when counting memory
+!                             removed by a deallocation (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -2263,7 +2263,7 @@
             if (allocated(Inf_Nodes%Node(i)%H)) then
 
               ! Free locations
-              MRAMc = MRAMc + 1d-6*sizeof(Inf_Nodes%Node(i)%H)
+              MRAMc = MRAMc - 1d-6*sizeof(Inf_Nodes%Node(i)%H)
               deallocate(Inf_Nodes%Node(i)%H)
 
             end if ! Allocated locations
