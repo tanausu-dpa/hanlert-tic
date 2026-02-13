@@ -10,16 +10,17 @@
 !  Start:
 !     22/02/2023
 !  Last version:
-!     04/11/2025 V4.0.6
+!     13/02/2026 V4.0.7
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     04/11/2025:    V4.0.6 - Bugfix: the setup of the model when the
-!                             input is a 1.5D model for synthesis was
-!                             just plainly wrong (TdPA)
+!     13/02/2026:    V4.0.7 - Bugfix: The magnetic field pointers were
+!                             pointing to the wrong buffer positions
+!                             when initializing from an inversion
+!                             result (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -2213,10 +2214,23 @@
       MRAMc = MRAMc + 1d-6*sizeof(Bfield%Btheta)
       MRAMc = MRAMc + 1d-6*sizeof(Bfield%Bphi)
 
-      ! Point to buffer
-      Atmo%Bx => buffer( 6*lnz+1:7*lnz)
-      Atmo%By => buffer( 7*lnz+1:8*lnz)
-      Atmo%Bz => buffer( 8*lnz+1:9*lnz)
+      ! If from inversion file
+      if (finv) then
+
+        ! Point to buffer
+        Atmo%Bx => buffer( 3*lnz+1:4*lnz)
+        Atmo%By => buffer( 4*lnz+1:5*lnz)
+        Atmo%Bz => buffer( 5*lnz+1:6*lnz)
+
+      ! Not inversion file
+      else
+
+        ! Point to buffer
+        Atmo%Bx => buffer( 6*lnz+1:7*lnz)
+        Atmo%By => buffer( 7*lnz+1:8*lnz)
+        Atmo%Bz => buffer( 8*lnz+1:9*lnz)
+
+      end if
 
       ! Compute module and angles for B at each height
       do iz=1,lnz

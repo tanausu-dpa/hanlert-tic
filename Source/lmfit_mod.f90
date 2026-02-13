@@ -10,15 +10,19 @@
 !  Start:
 !     22/03/2023
 !  Last version:
-!     29/01/2026 V4.0.11
+!     13/02/2026 V4.0.12
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     29/01/2026:   V4.0.11 - Only activate the reduced mode if
-!                             allowed via inputs (TdPA)
+!     13/02/2026:   V4.0.12 - Added call to free_Atmo_extrasinv in
+!                             write_result_inv so it returns with the
+!                             same RAM count than at entry (TdPA)
+!                           - Added calls to free_B in Trial_Synthesis
+!                             that is necessary to get a correct RAM
+!                             count (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1316,6 +1320,9 @@
         ! Get a copy of model atmosphere
         call cAtmo(Atmo_in,Atmo)
 
+        ! Free extras
+        call free_Atmo_extrasinv(Atmo_in)
+
       ! If not final
       else
 
@@ -2058,6 +2065,9 @@
                         kurucz,MPID,Atmo,Tmp_Bfield,Input, &
                         Sol,SolF,1)
 
+        ! Wipe Tmp_Bfield
+        call free_B(Tmp_Bfield)
+
       ! If inverting all
       else if (Inf_Nodes%Nodes_Type.eq.2) then
 
@@ -2074,8 +2084,9 @@
                         kurucz,MPID,Tmp_Atmo,Tmp_Bfield, &
                         Input,Sol,SolF,1)
 
-        ! Wipe Tmp_Atmo
+        ! Wipe Tmp_Atmo and Tmp_Bfield
         call free_Atmo(Tmp_Atmo,.True.)
+        call free_B(Tmp_Bfield)
 
       ! Error
       else
@@ -2100,7 +2111,7 @@
       if (laborted) return
 
       ! If regularizing, get regulatization
-      IF (Inf_Nodes%Regul_Flag) &
+      if (Inf_Nodes%Regul_Flag) &
         call Get_Regl_all(Inf_Nodes_tmp, .False., LM_Stru%Rgl)
 
       ! Factorize

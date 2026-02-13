@@ -10,20 +10,16 @@
 !  Start:
 !     22/06/2022
 !  Last version:
-!     29/01/2026 V4.0.6
+!     13/02/2026 V4.0.7
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     29/01/2026:    V4.0.6 - When computing a response function for
-!                             TIC starting from the solution which
-!                             corresponds to the reference, the
-!                             ALI_force parameter must be set to true
-!                             to avoid false lambda iteration
-!                             convergence and non-significant response
-!                             functions (TdPA)
+!     13/02/2026:    V4.0.7 - Add a call to free_Atmo_extasinv in
+!                             HanleRTTIC so it does exit with the
+!                             same RAM count that at entry (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -2066,6 +2062,7 @@
       call free_lpop(Atom,Atomb)
       call free_cols(Atom)
       call free_LTElines_full(LTElines)
+      call free_Atmo_extrasinv(Atmo)
 
       end subroutine HanleRTTIC
 

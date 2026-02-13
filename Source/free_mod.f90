@@ -9,14 +9,14 @@
 !  Start:
 !     28/06/2022
 !  Last version:
-!     22/08/2025 V4.0.4
+!     13/02/2026 V4.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     22/08/2025:    V4.0.4 - Added free_mag_Atom subroutine (TdPA)
+!     13/02/2026:    V4.0.5 - Added free_Atmo_extrasinv (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -54,6 +54,10 @@
 !    Deallocate quantities in Atom_class, Continuum_class,
 !  Geometry_class, and Frequency_class generated during a call to
 !  hanle
+!
+!  free_Atmo_extrasinv
+!    Deallocate data in the atmospheric model that is allocated in
+!  some inversion steps but that are not needed for long term use
 !
 !  free_Atmo
 !    Deallocate the model atmosphere, partially or completely
@@ -499,6 +503,49 @@
       return
 
       end subroutine free_local
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Deallocate data in the atmospheric model that is allocated
+      !! in some inversion steps but that are not needed for long term
+      !! use\n
+      !!  Atmo(Atmo_class): Structure with atmospheric data
+      subroutine free_Atmo_extrasinv(Atmo)
+
+      ! I/O
+
+      type(Atmo_class), intent(inout):: Atmo
+
+
+      ! Electron pressure
+      if (allocated(Atmo%Pe)) then
+        MRAMc = MRAMc - 1d-6*sizeof(Atmo%Pe)
+        deallocate(Atmo%Pe)
+      end if
+
+      ! Mass density
+      if (allocated(Atmo%rho)) then
+        MRAMc = MRAMc - 1d-6*sizeof(Atmo%rho)
+        deallocate(Atmo%rho)
+      end if
+
+      ! Alternative height scale
+      if (allocated(Atmo%zalt)) then
+        MRAMc = MRAMc - 1d-6*sizeof(Atmo%zalt)
+        deallocate(Atmo%zalt)
+      end if
+
+      ! Opacity at reference wavelength
+      if (allocated(Atmo%chi500)) then
+        MRAMc = MRAMc - 1d-6*sizeof(Atmo%chi500)
+        deallocate(Atmo%chi500)
+      end if
+
+      return
+
+      end subroutine free_Atmo_extrasinv
 
 !#####################################################################
 !#####################################################################
