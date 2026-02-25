@@ -10,15 +10,16 @@
 !  Start:
 !     23/02/2023
 !  Last version:
-!     09/02/2026 V4.0.7
+!     20/02/2026 V4.0.8
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     09/02/2026:    V4.0.7 - Bugfix: wrong sign when counting memory
-!                             removed by a deallocation (TdPA)
+!     20/02/2026:    V4.0.8 - Initialize errors to zero in case nodes
+!                             are setup as invertible in a type of
+!                             inversion where they cannot (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -2255,6 +2256,9 @@
           allocate(Inf_Nodes%Node(i)%Errors(Inf_Nodes%Num_Nodes(i)))
           MRAMc = MRAMc + 1d-6*sizeof(Inf_Nodes%Node(i)%Var)
           MRAMc = MRAMc + 1d-6*sizeof(Inf_Nodes%Node(i)%Errors)
+
+          ! Initialize errors
+          Inf_Nodes%Node(i)%Errors = 0d0
 
           ! If variable is gas pressure and using hydrostatic Eq.
           if ((i.eq.Inf_Nodes%index_Pg).and.Inf_Nodes%hydroeq) then

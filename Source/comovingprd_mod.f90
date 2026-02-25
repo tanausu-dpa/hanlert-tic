@@ -9,15 +9,21 @@
 !  Start:
 !     08/10/2024
 !  Last version:
-!     03/10/2025 V4.1.3
+!     25/02/2026 V4.1.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     03/10/2025:    V4.1.3 - Bugfix: Some new MPI logic as being
-!                             called in serial cases (TdPA)
+!     25/02/2026:    V4.1.4 - Added safety measures for when the
+!                             spline interpolation in extreme cases
+!                             introduces negative emissivities for the
+!                             intensity (TdPA)
+!                           - Bugfix: for linear interpolation, there
+!                             was a typo that made the circular
+!                             polarization emissivity to be not
+!                             defined (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -594,7 +600,7 @@
       integer:: iz0,iz1,Mif0,Mif1,jndx,jj,kk,ll,iran
       integer:: iz,ia,jtran,itermu,itermf,indx,t0,t1,i0,i1
       integer:: if0l2,if1l2,if0tl2,if1tl2,if0Il2,if1Il2,ifreq,nf,nfl
-      integer:: ndir,idir,ierr,iph,ith,nth,nph,lnz
+      integer:: ndir,idir,ierr,iph,ith,nth,nph,lnz,lint_mode
 #ifndef oldmpi
       integer:: ntest,W_max,W_load,lgiz
       integer, dimension(:), allocatable:: done_index
@@ -1263,110 +1269,130 @@
                     ! Get new omega
                     omega = Frec%omega(if0l2:if1l2)*vfac
 
-                    !
-                    ! Splines
-                    !
-                    if (int_mode.eq.1) then
+                    ! Initialize interpolation mode
+                    lint_mode = int_mode
 
-                      ! Interpolate with splines
-                      call spline(Frec%omega(if0tl2:if1tl2), &
-                                  eps20(idir,:), &
-                                  splin(:,1), &
-                                  splin(:,2), &
-                                  splin(:,3), nf)
-                      do ifreq=if0l2,if1l2
-                        Red%zao(indx)%eps20(idir,ifreq) = &
+                    ! Fake loop
+                    do while (.True.)
+
+                      !
+                      ! Splines
+                      !
+                      if (lint_mode.eq.1) then
+
+                        ! Interpolate with splines
+                        call spline(Frec%omega(if0tl2:if1tl2), &
+                                    eps20(idir,:), &
+                                    splin(:,1), &
+                                    splin(:,2), &
+                                    splin(:,3), nf)
+                        do ifreq=if0l2,if1l2
+                          Red%zao(indx)%eps20(idir,ifreq) = &
                                   ispline(omega(ifreq), &
                                           Frec%omega(if0tl2:if1tl2), &
                                           eps20(idir,:), &
                                           splin(:,1),splin(:,2), &
                                           splin(:,3),nf)
-                      end do
+                        end do
 
-                      ! Interpolate with splines
-                      call spline(Frec%omega(if0tl2:if1tl2), &
-                                  eps21(idir,:), &
-                                  splin(:,1), &
-                                  splin(:,2), &
-                                  splin(:,3), nf)
-                      do ifreq=if0l2,if1l2
-                        Red%zao(indx)%eps21(idir,ifreq) = &
+                        ! Check physical
+                        if (minval(Red%zao(indx)% &
+                                 eps20(idir,if0l2:if1l2)).lt.0d0) then
+
+                          ! Change to linear and cycle
+                          lint_mode = 0
+                          cycle
+
+                        end if ! Check physical
+
+                        ! Interpolate with splines
+                        call spline(Frec%omega(if0tl2:if1tl2), &
+                                    eps21(idir,:), &
+                                    splin(:,1), &
+                                    splin(:,2), &
+                                    splin(:,3), nf)
+                        do ifreq=if0l2,if1l2
+                          Red%zao(indx)%eps21(idir,ifreq) = &
                                   ispline(omega(ifreq), &
                                           Frec%omega(if0tl2:if1tl2), &
                                           eps21(idir,:), &
                                           splin(:,1),splin(:,2), &
                                           splin(:,3),nf)
-                      end do
+                        end do
 
-                      ! Interpolate with splines
-                      call spline(Frec%omega(if0tl2:if1tl2), &
-                                  eps22(idir,:), &
-                                  splin(:,1), &
-                                  splin(:,2), &
-                                  splin(:,3), nf)
-                      do ifreq=if0l2,if1l2
-                        Red%zao(indx)%eps22(idir,ifreq) = &
+                        ! Interpolate with splines
+                        call spline(Frec%omega(if0tl2:if1tl2), &
+                                    eps22(idir,:), &
+                                    splin(:,1), &
+                                    splin(:,2), &
+                                    splin(:,3), nf)
+                        do ifreq=if0l2,if1l2
+                          Red%zao(indx)%eps22(idir,ifreq) = &
                                   ispline(omega(ifreq), &
                                           Frec%omega(if0tl2:if1tl2), &
                                           eps22(idir,:), &
                                           splin(:,1),splin(:,2), &
                                           splin(:,3),nf)
-                      end do
+                        end do
 
-                      ! Interpolate with splines
-                      call spline(Frec%omega(if0tl2:if1tl2), &
-                                  eps23(idir,:), &
-                                  splin(:,1), &
-                                  splin(:,2), &
-                                  splin(:,3), nf)
-                      do ifreq=if0l2,if1l2
-                        Red%zao(indx)%eps23(idir,ifreq) = &
+                        ! Interpolate with splines
+                        call spline(Frec%omega(if0tl2:if1tl2), &
+                                    eps23(idir,:), &
+                                    splin(:,1), &
+                                    splin(:,2), &
+                                    splin(:,3), nf)
+                        do ifreq=if0l2,if1l2
+                          Red%zao(indx)%eps23(idir,ifreq) = &
                                   ispline(omega(ifreq), &
                                           Frec%omega(if0tl2:if1tl2), &
                                           eps23(idir,:), &
                                           splin(:,1),splin(:,2), &
                                           splin(:,3),nf)
-                      end do
+                        end do
 
-                    !
-                    ! Linear interpolation
-                    !
-                    else if (int_mode.eq.0) then
+                      !
+                      ! Linear interpolation
+                      !
+                      else if (lint_mode.eq.0) then
 
-                      ! Interpolate linear
-                      call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
-                                      eps20(idir,:),nf, &
-                                      omega(if0l2:if1l2), &
-                                      Red%zao(indx)% &
-                                          eps20(idir,if0l2:if1l2), &
-                                      nfl)
+                        ! Interpolate linear
+                        call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
+                                        eps20(idir,:),nf, &
+                                        omega(if0l2:if1l2), &
+                                        Red%zao(indx)% &
+                                            eps20(idir,if0l2:if1l2), &
+                                        nfl)
 
-                      ! Interpolate linear
-                      call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
-                                      eps21(idir,:),nf, &
-                                      omega(if0l2:if1l2), &
-                                      Red%zao(indx)% &
-                                          eps21(idir,if0l2:if1l2), &
-                                      nfl)
+                        ! Interpolate linear
+                        call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
+                                        eps21(idir,:),nf, &
+                                        omega(if0l2:if1l2), &
+                                        Red%zao(indx)% &
+                                            eps21(idir,if0l2:if1l2), &
+                                        nfl)
 
-                      ! Interpolate linear
-                      call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
-                                      eps22(idir,:),nf, &
-                                      omega(if0l2:if1l2), &
-                                      Red%zao(indx)% &
-                                          eps22(idir,if0l2:if1l2), &
-                                      nfl)
+                        ! Interpolate linear
+                        call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
+                                        eps22(idir,:),nf, &
+                                        omega(if0l2:if1l2), &
+                                        Red%zao(indx)% &
+                                            eps22(idir,if0l2:if1l2), &
+                                        nfl)
 
-                      ! Interpolate linear
-                      call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
-                                      eps22(idir,:),nf, &
-                                      omega(if0l2:if1l2), &
-                                      Red%zao(indx)% &
-                                          eps22(idir,if0l2:if1l2), &
-                                      nfl)
+                        ! Interpolate linear
+                        call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
+                                        eps23(idir,:),nf, &
+                                        omega(if0l2:if1l2), &
+                                        Red%zao(indx)% &
+                                            eps23(idir,if0l2:if1l2), &
+                                        nfl)
 
-                    end if ! Type of interpolation
+                      end if ! Type of interpolation
 
+                      ! Break fake loop
+                      exit
+
+                    end do ! Fake while loop
                   end do ! Azimuth angle
                 end do ! Polar angle
 
@@ -1476,7 +1502,7 @@
 
       logical:: lvel,first
 
-      integer:: iz0,iz1,Mif0,Mif1,jndx,jj,kk,ll,iran
+      integer:: iz0,iz1,Mif0,Mif1,jndx,jj,kk,ll,iran,lint_mode
       integer:: iz,ia,jtran,itermu,itermf,indx,jdir,t0,t1,i0,i1
       integer:: if0l2,if1l2,if0tl2,if1tl2,if0Il2,if1Il2,ifreq,nf,nfl
       integer:: if0jl2,if1jl2,ffjtran,ffktran,ffltran,fjtran,lnz
@@ -2136,64 +2162,84 @@
                       ! Get new omega
                       omega = Frec%omega(if0l2:if1l2)*vfac
 
-                      !
-                      ! Splines
-                      !
-                      if (int_mode.eq.1) then
+                      ! Initialize interpolation mode
+                      lint_mode = int_mode
 
-                        ! Interpolate with splines
-                        call spline(Frec%omega(if0tl2:if1tl2), &
-                                    eps20(jdir,:), &
-                                    splin(:,1), &
-                                    splin(:,2), &
-                                    splin(:,3), nf)
-                        do ifreq=if0l2,if1l2
-                          Red%zao(indx)%eps20(idir,ifreq) = &
+                      ! Fake loop
+                      do while (.True.)
+
+                        !
+                        ! Splines
+                        !
+                        if (lint_mode.eq.1) then
+
+                          ! Interpolate with splines
+                          call spline(Frec%omega(if0tl2:if1tl2), &
+                                      eps20(jdir,:), &
+                                      splin(:,1), &
+                                      splin(:,2), &
+                                      splin(:,3), nf)
+                          do ifreq=if0l2,if1l2
+                            Red%zao(indx)%eps20(idir,ifreq) = &
                                   ispline(omega(ifreq), &
                                           Frec%omega(if0tl2:if1tl2), &
                                           eps20(jdir,:), &
                                           splin(:,1),splin(:,2), &
                                           splin(:,3),nf)
-                        end do
+                          end do
 
-                        ! Interpolate with splines
-                        call spline(Frec%omega(if0tl2:if1tl2), &
-                                    rpf(jdir,:), &
-                                    splin(:,1), &
-                                    splin(:,2), &
-                                    splin(:,3), nf)
-                        do ifreq=if0l2,if1l2
-                          Red%zao(indx)%rpf(idir,ifreq) = &
+                          ! Check physical
+                          if (minval(Red%zao(indx)% &
+                                 eps20(idir,if0l2:if1l2)).lt.0d0) then
+
+                            ! Change to linear and cycle
+                            lint_mode = 0
+                            cycle
+
+                          end if ! Check physical
+
+                          ! Interpolate with splines
+                          call spline(Frec%omega(if0tl2:if1tl2), &
+                                      rpf(jdir,:), &
+                                      splin(:,1), &
+                                      splin(:,2), &
+                                      splin(:,3), nf)
+                          do ifreq=if0l2,if1l2
+                            Red%zao(indx)%rpf(idir,ifreq) = &
                                   ispline(omega(ifreq), &
                                           Frec%omega(if0tl2:if1tl2), &
                                           rpf(jdir,:), &
                                           splin(:,1),splin(:,2), &
                                           splin(:,3),nf)
-                        end do
+                          end do
 
-                      !
-                      ! Linear
-                      !
-                      else if (int_mode.eq.0) then
+                        !
+                        ! Linear
+                        !
+                        else if (lint_mode.eq.0) then
 
-                        ! Interpolate linear
-                        call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
-                                        eps20(jdir,:),nf, &
-                                        omega(if0l2:if1l2), &
-                                        Red%zao(indx)% &
+                          ! Interpolate linear
+                          call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
+                                          eps20(jdir,:),nf, &
+                                          omega(if0l2:if1l2), &
+                                          Red%zao(indx)% &
                                             eps20(idir,if0l2:if1l2), &
-                                        nfl)
+                                          nfl)
 
-                        ! Interpolate linear
-                        call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
-                                        rpf(jdir,:),nf, &
-                                        omega(if0l2:if1l2), &
-                                        Red%zao(indx)% &
-                                            rpf(idir,if0l2:if1l2), &
-                                        nfl)
+                          ! Interpolate linear
+                          call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
+                                          rpf(jdir,:),nf, &
+                                          omega(if0l2:if1l2), &
+                                          Red%zao(indx)% &
+                                              rpf(idir,if0l2:if1l2), &
+                                          nfl)
 
-                      end if ! Type of interpolation
+                        end if ! Type of interpolation
 
+                        ! Break fake loop
+                        exit
+
+                      end do ! Fake loop
                     end do ! Azimuth
                   end do ! Polar
 

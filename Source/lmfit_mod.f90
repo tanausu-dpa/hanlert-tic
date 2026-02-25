@@ -10,19 +10,21 @@
 !  Start:
 !     22/03/2023
 !  Last version:
-!     13/02/2026 V4.0.12
+!     20/02/2026 V4.0.13
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     13/02/2026:   V4.0.12 - Added call to free_Atmo_extrasinv in
-!                             write_result_inv so it returns with the
-!                             same RAM count than at entry (TdPA)
-!                           - Added calls to free_B in Trial_Synthesis
-!                             that is necessary to get a correct RAM
-!                             count (TdPA)
+!    20/02/2026:    V4.0.13 - Changed verbosity preferences to ensure
+!                             important messages are both in the main
+!                             and extra verbosity files (TdPA)
+!                           - Bugfix: The check of the allocation of
+!                             some variable of the solution were
+!                             being stored in interchanged variables
+!                             with respect to what was going to be
+!                             checked (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -431,7 +433,7 @@
         ! Verbose merit function if in output
         umsg = ' * '
         call verboseI(0)
-        if (vlevel.gt.0) call verboseI(3)
+        if (vlevel.lt.3) call verboseI(3)
 
         ! Verbose merit function
         write(umsg,'(A,i4,3x,A,es15.4)')  &
@@ -441,10 +443,10 @@
         ! Verbose depending on the MPI regime
         if (gpid.eq.0) then
           call verboseI(0)
-          if (vlevel.gt.0) call verboseI(3)
+          if (vlevel.lt.3) call verboseI(3)
         else
           call verboseI(0)
-          if (vlevel.gt.0) call verboseI(3)
+          if (vlevel.lt.3) call verboseI(3)
         end if
 
         ! Save first chi2
@@ -809,7 +811,7 @@
             ! Verbose merit function if in output
             umsg = ' * '
             call verboseI(0)
-            if (vlevel.gt.0) call verboseI(3)
+            if (vlevel.lt.3) call verboseI(3)
 
             ! Verbose merit function
             write(umsg,'(A,i4,2(3x,A,es15.4))')  &
@@ -820,10 +822,10 @@
             ! Verbose depending on MPI regime
             if (gpid.eq.0) then
               call verboseI(0)
-              if (vlevel.gt.0) call verboseI(3)
+              if (vlevel.lt.3) call verboseI(3)
             else
               call verboseI(0)
-              if (vlevel.gt.0) call verboseI(3)
+              if (vlevel.lt.3) call verboseI(3)
             end if
 
             ! If regularizing
@@ -862,7 +864,7 @@
                 ! Verbose merit function if in output
                 umsg = ' * '
                 call verboseI(0)
-                if (vlevel.gt.0) call verboseI(3)
+                if (vlevel.lt.3) call verboseI(3)
 
                 ! Verbose
                 write(umsg,'(A,es15.4)') &
@@ -871,10 +873,10 @@
                 ! Verbose depending on the MPI regime
                 if (gpid.eq.0) then
                   call verboseI(0)
-                  if (vlevel.gt.0) call verboseI(3)
+                  if (vlevel.lt.3) call verboseI(3)
                 else
                   call verboseI(0)
-                  if (vlevel.gt.0) call verboseI(3)
+                  if (vlevel.lt.3) call verboseI(3)
                 end if
 
               end if ! Master
@@ -904,10 +906,10 @@
               ! Verbose depending on the MPI regime
               if (gpid.eq.0) then
                 call verboseI(0)
-                if (vlevel.gt.0) call verboseI(3)
+                if (vlevel.lt.3) call verboseI(3)
               else
                 call verboseI(0)
-                if (vlevel.gt.0) call verboseI(3)
+                if (vlevel.lt.3) call verboseI(3)
               end if ! MPI regime
             end if ! Master
 
@@ -1079,7 +1081,7 @@
               ! Verbose
               umsg = ' * '
               call verboseI(0)
-              if (vlevel.gt.0) call verboseI(3)
+              if (vlevel.lt.3) call verboseI(3)
 
               ! Verbose
               write(umsg,'(A)') ' * Could not improve more'
@@ -1087,10 +1089,10 @@
               ! Verbose depending on the MPI regime
               if (gpid.eq.0) then
                 call verboseI(0)
-                if (vlevel.gt.0) call verboseI(3)
+                if (vlevel.lt.3) call verboseI(3)
               else
                 call verboseI(0)
-                if (vlevel.gt.0) call verboseI(3)
+                if (vlevel.lt.3) call verboseI(3)
               end if
 
             end if ! Master and not accepted
@@ -3492,8 +3494,8 @@
 
         ! Existence flags
         ex1 = allocated(Sol%e_Stk_b)
-        ex2 = allocated(Sol%e_tau1_b)
-        ex3 = allocated(Sol%e_Ctr_b)
+        ex2 = allocated(Sol%e_Ctr_b)
+        ex3 = allocated(Sol%e_tau1_b)
 
         ! If copying
         if (copy) then
@@ -3543,8 +3545,8 @@
 
         ! Existence flags
         ex1 = allocated(Sol%e_Stk_t)
-        ex2 = allocated(Sol%e_tau1_t)
-        ex3 = allocated(Sol%e_Ctr_t)
+        ex2 = allocated(Sol%e_Ctr_t)
+        ex3 = allocated(Sol%e_tau1_t)
 
         ! Copy what is allocated
         if (allocated(Sol%i_J00)) Sol%i_J00_t = Sol%i_J00

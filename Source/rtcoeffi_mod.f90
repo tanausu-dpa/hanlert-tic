@@ -11,15 +11,15 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     26/06/2025 V4.0.3
+!     20/02/2026 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     26/06/2025:    V4.0.3 - Updated due to changes in the Red_class
-!                             and Redb_class structures (TdPA)
+!     20/02/2026:    V4.0.4 - Bugfix: the render limit of LTE lines
+!                             was not being accounted for (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -172,6 +172,9 @@
 
         ! Skip if absent
         if (LTElines(ia)%absent) cycle
+
+        ! Skip if limited
+        if (iz.lt.LTElines(ia)%Rz0) cycle
 
         ! Thermal part of the Doppler width
         DwT = LTElines(ia)%cDopp*sqrt(Atmo%T(iz))
@@ -693,6 +696,9 @@
 
         ! Skip if absent
         if (LTElines(ia)%absent) cycle
+
+        ! Skip if limited
+        if (iz.lt.LTElines(ia)%Rz0) cycle
 
         ! Thermal part of the Doppler width
         DwT = LTElines(ia)%cDopp*sqrt(Atmo%T(iz))

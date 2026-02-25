@@ -11,15 +11,15 @@
 !  Start:
 !     27/04/2017
 !  Last version:
-!     26/06/2025 V4.0.2
+!     20/02/2026 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     26/06/2025:    V4.0.2 - Updated due to changes in the Red_class
-!                             and Redb_class structures (TdPA)
+!     20/02/2026:    V4.0.3 - Bugfix: the render limit of LTE lines
+!                             was not being accounted for (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -236,6 +236,9 @@
 
         ! If this CPU does not have frequencies in this line, skip
         if (LTElines(ia)%absent) cycle
+
+        ! Skip if limited
+        if (iz.lt.LTElines(ia)%Rz0) cycle
 
         ! Thermal part of the Doppler width
         DwT = LTElines(ia)%cDopp*sqrt(Atmo%T(iz))
@@ -1078,6 +1081,9 @@
 
         ! If this CPU does not have frequencies in this line, skip
         if (LTElines(ia)%absent) cycle
+
+        ! Skip if limited
+        if (iz.lt.LTElines(ia)%Rz0) cycle
 
         ! Thermal part of the Doppler width
         DwT = LTElines(ia)%cDopp*sqrt(Atmo%T(iz))

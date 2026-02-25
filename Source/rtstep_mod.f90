@@ -10,14 +10,17 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     18/12/2025 V4.0.1
+!     25/02/2026 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/12/2025:    V4.0.1 - NaN checks now use ieee (TdPA)
+!     25/02/2026:    V4.0.2 - Added the length of the path along the
+!                             los to the debugging information when
+!                             the output Stokes parameters are non
+!                             physical (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -223,11 +226,14 @@
 
               ! Issue error
               write(umsg,'(A,3(i4,","),i5,A,'// &
+                         '2(A,1x,es8.1),'// &
                          '2(A,4(1x,es9.2)),'// &
                          '6(A,2(1x,es9.2)))') &
               'Error in RTStep: NaN in Stokes'// &
               new_line('A')//'(ith,iph,iz,ifreq)=(', &
               ith,iph,iz,ifreq,')', &
+              new_line('A')//'ds(M):',ds1, &
+              new_line('A')//'ds(P):',ds2, &
               new_line('A')//'Stk(M):',StkM(:,ifreq), &
               new_line('A')//'Stk(O):',StkO(:,ifreq), &
               new_line('A')//'etaI(M),SI(M):', &
@@ -257,11 +263,14 @@
 
             ! Write message
             write(umsg,'(A,3(i4,","),i5,A,'// &
+                       '2(A,1x,es8.1),'// &
                        '2(A,4(1x,es9.2)),'// &
                        '6(A,2(1x,es9.2)),A)') &
             'Non-phys. Stokes'// &
             new_line('A')//'(ith,iph,iz,ifreq)=(', &
             ith,iph,iz,ifreq,')', &
+            new_line('A')//'ds(M):',ds1, &
+            new_line('A')//'ds(P):',ds2, &
             new_line('A')//'Stk(M):',StkM(:,ifreq), &
             new_line('A')//'Stk(O):',StkO(:,ifreq), &
             new_line('A')//'etaI(M),SI(M):', &
@@ -309,11 +318,14 @@
 
               ! Issue error
               write(umsg,'(A,3(i4,","),i5,A,'// &
+                         '2(A,1x,es8.1),'// &
                          '2(A,4(1x,es9.2)),'// &
                          '6(A,2(1x,es9.2)))') &
               'Non-phys. Stokes'// &
               new_line('A')//'(ith,iph,iz,ifreq)=(', &
               ith,iph,iz,ifreq,')', &
+              new_line('A')//'ds(M):',ds1, &
+              new_line('A')//'ds(P):',ds2, &
               new_line('A')//'Stk(M):',StkM(:,ifreq), &
               new_line('A')//'Stk(O):',StkO(:,ifreq), &
               new_line('A')//'etaI(M),SI(M):', &
@@ -446,11 +458,14 @@
 
               ! Issue error
               write(umsg,'(A,3(i4,","),i5,A,'// &
+                         '2(A,1x,es8.1),'// &
                          '2(A,4(1x,es8.1)),'// &
                          '3(A,5(1x,es8.1)))') &
               'NaN in Stokes'// &
               new_line('A')//'(ith,iph,iz,ifreq)=(', &
               ith,iph,iz,ifreq,')', &
+              new_line('A')//'ds(M):',ds1, &
+              new_line('A')//'ds(P):',ds2, &
               new_line('A')//'Stk(M):',StkM(:,ifreq), &
               new_line('A')//'Stk(O):',StkO(:,ifreq), &
               new_line('A')//'etaI(M),S(M):', &
@@ -490,11 +505,14 @@
 
               ! Issue warning
               write(umsg,'(A,3(i4,","),i5,A,'// &
+                         '2(A,1x,es8.1),'// &
                          '2(A,4(1x,es8.1)),'// &
                          '3(A,5(1x,es8.1)))') &
                 'Non-phys. Stokes'// &
                 new_line('A')//'(ith,iph,iz,ifreq)=(', &
                 ith,iph,iz,ifreq,')', &
+                new_line('A')//'ds(M):',ds1, &
+                new_line('A')//'ds(P):',ds2, &
                 new_line('A')//'Stk(M):',StkM(:,ifreq), &
                 new_line('A')//'Stk(O):',StkO(:,ifreq), &
                 new_line('A')//'etaI(M),S(M):', &
@@ -525,11 +543,14 @@
 
               ! Issue error
               write(umsg,'(A,3(i4,","),i5,A,'// &
+                         '2(A,1x,es8.1),'// &
                          '2(A,4(1x,es8.1)),'// &
                          '2(A,5(1x,es8.1)))') &
                 'Non-phys. Stokes'// &
                 new_line('A')//'(ith,iph,iz,ifreq)=(', &
                 ith,iph,iz,ifreq,')', &
+                new_line('A')//'ds(M):',ds1, &
+                new_line('A')//'ds(P):',ds2, &
                 new_line('A')//'Stk(M):',StkM(:,ifreq), &
                 new_line('A')//'Stk(O):',StkO(:,ifreq), &
                 new_line('A')//'etaI(M),S(M):', &
@@ -568,11 +589,14 @@
 
               ! Issue error
               write(umsg,'(A,3(i4,","),i5,A,'// &
+                         '2(A,1x,es8.1),'// &
                          '2(A,4(1x,es8.1)),'// &
                          '2(A,5(1x,es8.1)))') &
                 'Non-phys. Stokes'// &
                 new_line('A')//'(ith,iph,iz,ifreq)=(', &
                 ith,iph,iz,ifreq,')', &
+                new_line('A')//'ds(M):',ds1, &
+                new_line('A')//'ds(P):',ds2, &
                 new_line('A')//'Stk(M):',StkM(:,ifreq), &
                 new_line('A')//'Stk(O):',StkO(:,ifreq), &
                 new_line('A')//'etaI(M),S(M):', &

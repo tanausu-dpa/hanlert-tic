@@ -10,16 +10,17 @@
 !  Start:
 !     16/02/2023
 !  Last version:
-!     06/11/2025 V4.0.9
+!     20/02/2026 V4.0.10
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     06/11/2025:    V4.0.9 - Bugfix: Correctly nullify the transfer
-!                             buffer. This is just for consistency,
-!                             did not have any effect (TdPA)
+!     20/02/2026:   V4.0.10 - Bugfix: initialized auxiliar variables
+!                             in the serial branch of TIC (TdPA)
+!                           - Free the input atmospheric model just
+!                             for cleaniness (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1981,6 +1982,10 @@
         ! Initialize indexes and sizes
         ix = 1
         iy = 0
+        ix1 = -1
+        iy1 = -1
+        ix2 = -1
+        iy2 = -1
         inod = 0
         NLOSr = 0
         NLOS = out_dims(1)*out_dims(2)
@@ -2289,6 +2294,9 @@
       ! Free buffer pointer
       deallocate(p_transfer_buffer)
       nullify(p_transfer_buffer)
+
+      ! Free atmosphere
+      call free_Atmo(Atmo_in,.True.)
 
       end subroutine TIC
 

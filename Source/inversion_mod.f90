@@ -10,15 +10,16 @@
 !  Start:
 !     22/02/2023
 !  Last version:
-!     17/11/2025 V4.0.5
+!     20/02/2026 V4.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     17/11/2025:    V4.0.5 - Changed priorities for verbosity
-!                             messages (TdPA)
+!     20/02/2026:    V4.0.6 - Changed verbosity preferences to ensure
+!                             important messages are both in the main
+!                             and extra verbosity files (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -150,7 +151,7 @@
                                  '; iy = ',  &
                                  icoords(2)
         call verboseI(0)
-        if (vlevel.gt.0) call verboseI(3)
+        if (vlevel.lt.3) call verboseI(3)
 
       end if ! Master
 
@@ -735,7 +736,7 @@
           ! Verbose merit function
           umsg = ' * '
           call verboseI(0)
-          if (vlevel.gt.0) call verboseI(3)
+          if (vlevel.lt.3) call verboseI(3)
 
           ! Verbose merit function
           write(umsg,'(A,i4,2(3x,A,es15.4))')  &
@@ -746,14 +747,14 @@
 
             ! Verbose
             call verboseI(0)
-            if (vlevel.gt.0) call verboseI(3)
+            if (vlevel.lt.3) call verboseI(3)
 
           ! Slaves
           else
 
             ! Verbose
             call verboseI(0)
-            if (vlevel.eq.0) call verboseI(3)
+            if (vlevel.lt.3) call verboseI(3)
 
           end if ! Global master or other
 
@@ -852,7 +853,7 @@
           ! Verbose merit function
           umsg = ' * '
           call verboseI(0)
-          if (vlevel.gt.0) call verboseI(3)
+          if (vlevel.lt.3) call verboseI(3)
 
           ! Verbose merit function
           write(umsg,'(A,i4,2(3x,A,es15.4))')  &
@@ -863,14 +864,14 @@
 
             ! Verbose
             call verboseI(0)
-            if (vlevel.gt.0) call verboseI(3)
+            if (vlevel.lt.3) call verboseI(3)
 
           ! Everyone else
           else
 
             ! Verbose
             call verboseI(0)
-            if (vlevel.gt.0) call verboseI(3)
+            if (vlevel.lt.3) call verboseI(3)
 
           end if ! Global master or other
 
@@ -968,7 +969,7 @@
           ! Verbose merit function
           umsg = ' * '
           call verboseI(0)
-          if (vlevel.gt.0) call verboseI(3)
+          if (vlevel.lt.3) call verboseI(3)
 
           ! Verbose merit function
           write(umsg,'(A,i4,2(3x,A,es15.4))')  &
@@ -979,14 +980,14 @@
 
             ! Verbose
             call verboseI(0)
-            if (vlevel.gt.0) call verboseI(3)
+            if (vlevel.lt.3) call verboseI(3)
 
           ! Everyone else
           else
 
             ! Verbose
             call verboseI(0)
-            if (vlevel.gt.0) call verboseI(3)
+            if (vlevel.lt.3) call verboseI(3)
 
           end if ! Global master or other
 
@@ -1021,7 +1022,7 @@
           ! Verbose merit function
           umsg = ' * '
           call verboseI(0)
-          if (vlevel.gt.0) call verboseI(3)
+          if (vlevel.lt.3) call verboseI(3)
 
           ! Verbose merit function
           write(umsg,'(A,i4,2(3x,A,es15.4))')  &
@@ -1032,14 +1033,14 @@
 
             ! Verbose
             call verboseI(0)
-            if (vlevel.gt.0) call verboseI(3)
+            if (vlevel.lt.3) call verboseI(3)
 
           ! Slaves
           else
 
             ! Verbose
             call verboseI(0)
-            if (vlevel.gt.0) call verboseI(3)
+            if (vlevel.lt.3) call verboseI(3)
 
           end if ! Global master or other
 
@@ -1102,7 +1103,7 @@
 
           ! Verbose
           call verboseI(0)
-          if (vlevel.gt.0) call verboseI(3)
+          if (vlevel.lt.3) call verboseI(3)
 
         ! Normal master
         else

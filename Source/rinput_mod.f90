@@ -10,16 +10,15 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     29/01/2026 V4.0.14
+!     20/02/2026 V4.0.15
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     29/01/2026:   V4.0.14 - Added more options for particular
-!                             triggers in Input%atmo to ask for
-!                             specific hard-coded models (TdPA)
+!     20/02/2026:   V4.0.15 - Initialize constant regularization for
+!                             those variables not using it (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1392,6 +1391,9 @@
                               sizeof(Input%Scal) + &
                               sizeof(Input%Perturb) + &
                               sizeof(Input%min_rel_Pert))
+
+        ! Initialize constant
+        Input%Const_regul = 0d0
 
         ! Verbosity level
         read(100,*,err=1100) vlevel

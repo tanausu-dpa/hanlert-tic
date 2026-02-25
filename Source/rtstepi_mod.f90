@@ -9,14 +9,16 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     18/12/2025 V4.0.1
+!     25/02/2026 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/12/2025:    V4.0.1 - NaN checks now use ieee (TdPA)
+!     25/02/2026:    V4.0.2 - Added the length of the path along the
+!                             los to the debugging information when
+!                             the intensity is non physical (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -160,11 +162,14 @@
 
           ! Issue error
           write(umsg,'(A,3(i4,","),i5,A,'// &
+                     '2(A,1x,es8.1),'// &
                      '2(A,1x,es9.2),'// &
                      '3(A,2(1x,es9.2)))') &
           'Error in RTStepI: NaN in intensity'// &
           new_line('A')//'(ith,iph,iz,ifreq)=(', &
           ith,iph,iz,ifreq,')', &
+          new_line('A')//'ds(M):',ds1, &
+          new_line('A')//'ds(P):',ds2, &
           new_line('A')//'Stokes(M):',StkM(ifreq), &
           new_line('A')//'Stokes(O):',StkO(ifreq), &
           new_line('A')//'eta(M),S(M):',KM(ifreq),SM(ifreq), &
