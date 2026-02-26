@@ -10,21 +10,15 @@
 !  Start:
 !     22/03/2023
 !  Last version:
-!     20/02/2026 V4.0.13
+!     26/02/2026 V4.0.14
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!    20/02/2026:    V4.0.13 - Changed verbosity preferences to ensure
-!                             important messages are both in the main
-!                             and extra verbosity files (TdPA)
-!                           - Bugfix: The check of the allocation of
-!                             some variable of the solution were
-!                             being stored in interchanged variables
-!                             with respect to what was going to be
-!                             checked (TdPA)
+!    26/02/2026:    V4.0.14 - Added error message for when the first
+!                             synthesis just fails (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -354,6 +348,17 @@
       ! Get first synthesis
       call HanleRTTIC(Atom,Atomb,Mol,GeomI,Geom,Flgsg,Frec,fudge, &
                       kurucz,MPID,Atmo,Bfield,Input,Sol,SolF,0)
+
+      ! Check synthesis
+      if (laborted) then
+
+        ! Issue error
+        umsg = 'The first synthesis ended with an error status'
+        urou = 'LMFIT'
+        call aborted
+        goto 2000
+
+      end if ! First synthesis failed
 
       ! Set the first solution as current best
       call set_best(SolF,.True.,.False.)

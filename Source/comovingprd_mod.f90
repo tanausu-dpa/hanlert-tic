@@ -9,21 +9,20 @@
 !  Start:
 !     08/10/2024
 !  Last version:
-!     25/02/2026 V4.1.4
+!     26/02/2026 V4.1.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     25/02/2026:    V4.1.4 - Added safety measures for when the
+!     26/02/2026:    V4.1.5 - Added safety measures for when the
 !                             spline interpolation in extreme cases
-!                             introduces negative emissivities for the
-!                             intensity (TdPA)
-!                           - Bugfix: for linear interpolation, there
-!                             was a typo that made the circular
-!                             polarization emissivity to be not
-!                             defined (TdPA)
+!                             introduces emissivities that are not
+!                             physical. These and the ones for
+!                             positive emissivities only trigger if
+!                             the emissivities before interpolating
+!                             were fine (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1299,10 +1298,14 @@
                         if (minval(Red%zao(indx)% &
                                  eps20(idir,if0l2:if1l2)).lt.0d0) then
 
-                          ! Change to linear and cycle
-                          lint_mode = 0
-                          cycle
+                          ! If physical before interpolation
+                          if (minval(eps20(idir,:)).ge.0d0) then
 
+                            ! Change to linear and cycle
+                            lint_mode = 0
+                            cycle
+
+                          end if ! Physical before
                         end if ! Check physical
 
                         ! Interpolate with splines
@@ -1320,6 +1323,23 @@
                                           splin(:,3),nf)
                         end do
 
+                        ! Check physical
+                        if (maxval(abs(Red%zao(indx)% &
+                                 eps21(idir,if0l2:if1l2))/ &
+                                 Red%zao(indx)% &
+                                 eps20(idir,if0l2:if1l2)).gt.1d0) then
+
+                          ! Check physical before
+                          if (maxval(abs(eps21(idir,:))/ &
+                                     eps20(idir,:)).le.1d0) then
+
+                            ! Change to linear and cycle
+                            lint_mode = 0
+                            cycle
+
+                          end if ! Physical before
+                        end if ! Check physical
+
                         ! Interpolate with splines
                         call spline(Frec%omega(if0tl2:if1tl2), &
                                     eps22(idir,:), &
@@ -1335,6 +1355,23 @@
                                           splin(:,3),nf)
                         end do
 
+                        ! Check physical
+                        if (maxval(abs(Red%zao(indx)% &
+                                 eps22(idir,if0l2:if1l2))/ &
+                                 Red%zao(indx)% &
+                                 eps20(idir,if0l2:if1l2)).gt.1d0) then
+
+                          ! Check physical before
+                          if (maxval(abs(eps22(idir,:))/ &
+                                     eps20(idir,:)).le.1d0) then
+
+                            ! Change to linear and cycle
+                            lint_mode = 0
+                            cycle
+
+                          end if ! Physical before
+                        end if ! Check physical
+
                         ! Interpolate with splines
                         call spline(Frec%omega(if0tl2:if1tl2), &
                                     eps23(idir,:), &
@@ -1349,6 +1386,23 @@
                                           splin(:,1),splin(:,2), &
                                           splin(:,3),nf)
                         end do
+
+                        ! Check physical
+                        if (maxval(abs(Red%zao(indx)% &
+                                 eps23(idir,if0l2:if1l2))/ &
+                                 Red%zao(indx)% &
+                                 eps20(idir,if0l2:if1l2)).gt.1d0) then
+
+                          ! Check physical before
+                          if (maxval(abs(eps23(idir,:))/ &
+                                     eps20(idir,:)).le.1d0) then
+
+                            ! Change to linear and cycle
+                            lint_mode = 0
+                            cycle
+
+                          end if ! Physical before
+                        end if ! Check physical
 
                       !
                       ! Linear interpolation
