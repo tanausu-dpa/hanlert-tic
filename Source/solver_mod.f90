@@ -212,11 +212,10 @@
 
 
 #ifdef DEBUGRHOKQ
-      if (pid.eq.0) call dump_rho(Atom,Input%folder,-2)
+      call dump_rho(Atom,Input%folder,-2)
 #endif
 #ifdef DEBUGJKQ
-      if (pid.eq.0) call dump_jkq(Atom,Bfield,Flgsg,JKQ,JKQS, &
-                                  Input%folder,-2)
+      call dump_jkq(Atom,Bfield,Flgsg,JKQ,JKQS,Input%folder,-2)
 #endif
 
       ! Nullify pointers
@@ -582,11 +581,10 @@
 
 
 #ifdef DEBUGRHOKQ
-      if (pid.eq.0) call dump_rho(Atom,Input%folder,-1)
+      call dump_rho(Atom,Input%folder,-1)
 #endif
 #ifdef DEBUGJKQ
-      if (pid.eq.0) call dump_jkq(Atom,Bfield,Flgsg,JKQ,JKQS, &
-                                  Input%folder,-1)
+      call dump_jkq(Atom,Bfield,Flgsg,JKQ,JKQS,Input%folder,-1)
 #endif
 
       ! Done
@@ -2508,8 +2506,7 @@
 
 
 #ifdef DEBUGJKQ
-      if (pid.eq.0) call dump_jkq(Atom,Bfield,Flgsg,JKQ,JKQS, &
-                                  Input%folder,iter)
+      call dump_jkq(Atom,Bfield,Flgsg,JKQ,JKQS,Input%folder,iter)
 #endif
 
       ! For each atom
@@ -2535,7 +2532,7 @@
         end do ! heights
       end do ! atoms
 #ifdef DEBUGRHOKQ
-      if (pid.eq.0) call dump_rho(Atom,Input%folder,iter)
+      call dump_rho(Atom,Input%folder,iter)
 #endif
 
       ! Control

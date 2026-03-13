@@ -10730,13 +10730,14 @@
       ! Get file name for 1D
       if (run_mode.eq.0) then
 
-        filename = trim(folder)//'/debug_rho00'
+        write(filename,'(A,I0.5)') &
+            trim(folder)//'/debug_rho00_',gpid
 
       ! Get file name for rest
       else
 
-        write(filename,'(A,I0.7)') trim(folder)//'/debug_rho00_', &
-                                   icoords(3)
+        write(filename,'(A,I0.7,A,I0.5)') &
+            trim(folder)//'/debug_rho00_',icoords(3),'_',gpid
 
       end if
 
@@ -10824,12 +10825,14 @@
       if (run_mode.eq.0) then
 
         filename = trim(folder)//'/debug_j00'
+        write(filename,'(A,I0.5)') &
+            trim(folder)//'/debug_j00_',gpid
 
       ! Get file name for rest
       else
 
-        write(filename,'(A,I0.7)') trim(folder)//'/debug_j00_', &
-                                   icoords(3)
+        write(filename,'(A,I0.7,A,I0.5)') &
+            trim(folder)//'/debug_j00_',icoords(3),'_',gpid
 
       end if
 
@@ -10920,13 +10923,14 @@
       ! Get file name for 1D
       if (run_mode.eq.0) then
 
-        filename = trim(folder)//'/debug_lambda'
+        write(filename,'(A,I0.5)') &
+            trim(folder)//'/debug_lambda_',gpid
 
       ! Get file name for rest
       else
 
-        write(filename,'(A,I0.7)') trim(folder)//'/debug_lambda_', &
-                                   icoords(3)
+        write(filename,'(A,I0.7,A,I0.5)') &
+            trim(folder)//'/debug_lambda_',icoords(3),'_',gpid
 
       end if
 
@@ -11001,13 +11005,14 @@
       ! Get file name for 1D
       if (run_mode.eq.0) then
 
-        filename = trim(folder)//'/debug_rho'
+        write(filename,'(A,I0.5)') &
+            trim(folder)//'/debug_rho_',gpid
 
       ! Get file name for rest
       else
 
-        write(filename,'(A,I0.7)') trim(folder)//'/debug_rho_', &
-                                   icoords(3)
+        write(filename,'(A,I0.7,A,I0.5)') &
+            trim(folder)//'/debug_rho_',icoords(3),'_',gpid
 
       end if
 
@@ -11120,13 +11125,14 @@
       ! Get file name for 1D
       if (run_mode.eq.0) then
 
-        filename = trim(folder)//'/debug_jkq'
+        write(filename,'(A,I0.5)') &
+            trim(folder)//'/debug_jkq_',gpid
 
       ! Get file name for rest
       else
 
-        write(filename,'(A,I0.7)') trim(folder)//'/debug_jkq_', &
-                                   icoords(3)
+        write(filename,'(A,I0.7,A,I0.5)') &
+            trim(folder)//'/debug_jkq_',icoords(3),'_',gpid
 
       end if
 
@@ -11243,13 +11249,14 @@
       ! Get file name for 1D
       if (run_mode.eq.0) then
 
-        filename = trim(folder)//'/debug_atmo'
+        write(filename,'(A,I0.5)') &
+            trim(folder)//'/debug_atmo_',gpid
 
       ! Get file name for rest
       else
 
-        write(filename,'(A,I0.7)') trim(folder)//'/debug_atmo_', &
-                                   icoords(3)
+        write(filename,'(A,I0.7,A,I0.5)') &
+            trim(folder)//'/debug_atmo_',icoords(3),'_',gpid
 
       end if
 

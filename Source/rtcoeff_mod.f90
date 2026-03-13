@@ -11,15 +11,16 @@
 !  Start:
 !     27/04/2017
 !  Last version:
-!     20/02/2026 V4.0.3
+!     12/03/2026 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/02/2026:    V4.0.3 - Bugfix: the render limit of LTE lines
-!                             was not being accounted for (TdPA)
+!     12/03/2026:    V4.0.4 - Made the necessary changes to consider
+!                             that comoving2ord now provides source
+!                             functions, and not emissivities (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -588,19 +589,35 @@
                   if (size(Red%zao(indx)%eps20,1).eq.1) then
 
                     ! Get values from corresponding direction
-                    estmp0(if0l2:if1l2) = Red%zao(indx)%eps20(1,:)
-                    estmp1(if0l2:if1l2) = Red%zao(indx)%eps21(1,:)
-                    estmp2(if0l2:if1l2) = Red%zao(indx)%eps22(1,:)
-                    estmp3(if0l2:if1l2) = Red%zao(indx)%eps23(1,:)
+                    estmp0(if0l2:if1l2) = Red%zao(indx)%eps20(1,:)* &
+                                          (etmp0(if0l2:if1l2) + &
+                                           vacuum)
+                    estmp1(if0l2:if1l2) = Red%zao(indx)%eps21(1,:)* &
+                                          (etmp0(if0l2:if1l2) + &
+                                           vacuum)
+                    estmp2(if0l2:if1l2) = Red%zao(indx)%eps22(1,:)* &
+                                          (etmp0(if0l2:if1l2) + &
+                                           vacuum)
+                    estmp3(if0l2:if1l2) = Red%zao(indx)%eps23(1,:)* &
+                                          (etmp0(if0l2:if1l2) + &
+                                           vacuum)
 
                   ! If this height has more than one direction
                   else
 
                     ! Get values from corresponding direction
-                    estmp0(if0l2:if1l2) = Red%zao(indx)%eps20(jdir,:)
-                    estmp1(if0l2:if1l2) = Red%zao(indx)%eps21(jdir,:)
-                    estmp2(if0l2:if1l2) = Red%zao(indx)%eps22(jdir,:)
-                    estmp3(if0l2:if1l2) = Red%zao(indx)%eps23(jdir,:)
+                    estmp0(if0l2:if1l2) = &
+                                    Red%zao(indx)%eps20(jdir,:)* &
+                                    (etmp0(if0l2:if1l2) + vacuum)
+                    estmp1(if0l2:if1l2) = &
+                                    Red%zao(indx)%eps21(jdir,:)* &
+                                    (etmp0(if0l2:if1l2) + vacuum)
+                    estmp2(if0l2:if1l2) = &
+                                    Red%zao(indx)%eps22(jdir,:)* &
+                                    (etmp0(if0l2:if1l2) + vacuum)
+                    estmp3(if0l2:if1l2) = &
+                                    Red%zao(indx)%eps23(jdir,:)* &
+                                    (etmp0(if0l2:if1l2) + vacuum)
 
                   end if ! Number of directions
                 end if ! Valid range
@@ -830,19 +847,35 @@
                   if (size(Red%zao(indx)%eps20,1).eq.1) then
 
                     ! Get values from corresponding direction
-                    estmp0(if0l2:if1l2) = Red%zao(indx)%eps20(1,:)
-                    estmp1(if0l2:if1l2) = Red%zao(indx)%eps21(1,:)
-                    estmp2(if0l2:if1l2) = Red%zao(indx)%eps22(1,:)
-                    estmp3(if0l2:if1l2) = Red%zao(indx)%eps23(1,:)
+                    estmp0(if0l2:if1l2) = Red%zao(indx)%eps20(1,:)* &
+                                          (etmp0(if0l2:if1l2) + &
+                                           vacuum)
+                    estmp1(if0l2:if1l2) = Red%zao(indx)%eps21(1,:)* &
+                                          (etmp0(if0l2:if1l2) + &
+                                           vacuum)
+                    estmp2(if0l2:if1l2) = Red%zao(indx)%eps22(1,:)* &
+                                          (etmp0(if0l2:if1l2) + &
+                                           vacuum)
+                    estmp3(if0l2:if1l2) = Red%zao(indx)%eps23(1,:)* &
+                                          (etmp0(if0l2:if1l2) + &
+                                           vacuum)
 
                   ! If this height has more than one direction
                   else
 
                     ! Get values from corresponding direction
-                    estmp0(if0l2:if1l2) = Red%zao(indx)%eps20(jdir,:)
-                    estmp1(if0l2:if1l2) = Red%zao(indx)%eps21(jdir,:)
-                    estmp2(if0l2:if1l2) = Red%zao(indx)%eps22(jdir,:)
-                    estmp3(if0l2:if1l2) = Red%zao(indx)%eps23(jdir,:)
+                    estmp0(if0l2:if1l2) = &
+                                    Red%zao(indx)%eps20(jdir,:)* &
+                                    (etmp0(if0l2:if1l2) + vacuum)
+                    estmp1(if0l2:if1l2) = &
+                                    Red%zao(indx)%eps21(jdir,:)* &
+                                    (etmp0(if0l2:if1l2) + vacuum)
+                    estmp2(if0l2:if1l2) = &
+                                    Red%zao(indx)%eps22(jdir,:)* &
+                                    (etmp0(if0l2:if1l2) + vacuum)
+                    estmp3(if0l2:if1l2) = &
+                                    Red%zao(indx)%eps23(jdir,:)* &
+                                    (etmp0(if0l2:if1l2) + vacuum)
 
                   end if ! Number of directions
                 end if ! Valid ranges

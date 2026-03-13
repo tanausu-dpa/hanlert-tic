@@ -9,20 +9,27 @@
 !  Start:
 !     08/10/2024
 !  Last version:
-!     26/02/2026 V4.1.5
+!     12/03/2026 V4.2.0
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     26/02/2026:    V4.1.5 - Added safety measures for when the
-!                             spline interpolation in extreme cases
-!                             introduces emissivities that are not
-!                             physical. These and the ones for
-!                             positive emissivities only trigger if
-!                             the emissivities before interpolating
-!                             were fine (TdPA)
+!     12/03/2026:    V4.2.0 - Instead of interpolating the emissivity,
+!                             we now interpolate the line source
+!                             function. This improves the consistency
+!                             between the second order emissivity and
+!                             the first order absorptivity without
+!                             increasing the toll on RAM (TdPA)
+!                           - When running with a single CPU, there
+!                             was a conditional which checked an
+!                             element of the request array, not
+!                             allocated in such a case (TdPA)
+!                           - Added check_physics subroutine to
+!                             change the interpolation approach in
+!                             those wavelengths where the source
+!                             function is non-physical (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -63,6 +70,12 @@
 !  share_emiss
 !    Share emissivity data in one height of the model atmosphere
 !
+!  check_physics
+!    Checks that the interpolated source function fulfills the physics
+!  physics contraints. If the interpolation fails somewhere, but the
+!  the original did not have issues, recalculate the faulty
+!  wavelengths with a different interpolation algorithm
+!
 !#####################################################################
 !#####################################################################
 !#####################################################################
@@ -70,7 +83,7 @@
       ! Use
       use commons_mod
       use inter_mod
-      use parameters_mod , only : c , TINYB , TINYVEL
+      use parameters_mod , only : c , TINYB , TINYVEL , convF , vacuum
       use rtcoeffiaux_mod
       use rtcoeffaux_mod
       use types_mod
@@ -157,7 +170,7 @@
             lTRAMc = 8d-6*dble(ndir*4*lnz*nf)
 
           ! Check auxiliar top
-          lTRAMbc = lTRAMc + 8d-6*dble(nf*8*ndir)
+          lTRAMbc = lTRAMc + 8d-6*dble(nf*9*ndir)
           if (lTRAMbc.gt.MTRAMc) MTRAMc = lTRAMbc
 
           ! Check auxiliar bottom
@@ -296,7 +309,7 @@
               lTRAMc = 8d-6*dble(ndir*2*lnz*nf)
 
             ! Check auxiliar top
-            lTRAMbc = lTRAMc + 8d-6*dble(nf*(1 + 2*ndir))
+            lTRAMbc = lTRAMc + 8d-6*dble(nf*(2 + 2*ndir))
             if (lTRAMbc.gt.MTRAMc) MTRAMc = lTRAMbc
 
             ! Check auxiliar bottom
@@ -594,12 +607,12 @@
       type(MPI_request), dimension(:), allocatable:: requests
 #endif
 
-      logical:: lfield,lvel,first
+      logical:: lfield,lvel,first,moded
 
       integer:: iz0,iz1,Mif0,Mif1,jndx,jj,kk,ll,iran
       integer:: iz,ia,jtran,itermu,itermf,indx,t0,t1,i0,i1
       integer:: if0l2,if1l2,if0tl2,if1tl2,if0Il2,if1Il2,ifreq,nf,nfl
-      integer:: ndir,idir,ierr,iph,ith,nth,nph,lnz,lint_mode
+      integer:: ndir,idir,ierr,iph,ith,nth,nph,lnz
 #ifndef oldmpi
       integer:: ntest,W_max,W_load,lgiz
       integer, dimension(:), allocatable:: done_index
@@ -607,9 +620,10 @@
       integer, dimension(:), allocatable:: nsend
       integer, dimension(:,:), allocatable:: nf_s,disp
 
-      double precision:: vel,DwT,Dw,ct,st,cc,sc,vfac
+      double precision:: vel,DwT,Dw,ct,st,cc,sc,vfac,absK
       double precision, dimension(:), allocatable:: omega
       double precision, dimension(:,:), allocatable:: splin
+      double precision, dimension(:,:), allocatable:: eta0
       double precision, dimension(:,:), allocatable:: eps0
       double precision, dimension(:,:), allocatable:: eps1
       double precision, dimension(:,:), allocatable:: eps2
@@ -691,6 +705,9 @@
           itermu = Atom(ia)%fst(jtran)%itermu
           itermf = Atom(ia)%fst(jtran)%iterml
 
+          ! Photon energy (cgs) and convertion factor
+          absK = 1d21*(2d0*c)*Atom(ia)%Dfreq(jtran)**2d0
+
           ! Transition ranges
           t0 = Atom(ia)%tshift + 1
           t1 = t0 + Atom(ia)%ntran - 1
@@ -714,6 +731,7 @@
           first = .True.
 
           ! Allocate emissivity to collect
+          allocate(eta0(ndir,if0tl2:if1tl2))
           allocate(eps0(ndir,if0tl2:if1tl2))
           allocate(eps1(ndir,if0tl2:if1tl2))
           allocate(eps2(ndir,if0tl2:if1tl2))
@@ -898,13 +916,14 @@
                 if (lfield) then
 
                   ! Call first order emissivity
-                  call emiss(Atom(ia),TKQo,Frec%omega,Flgsg,jtran, &
-                             itermu,itermf,iz,if0Il2,if1Il2, &
-                             ndir,p_Norm,Dw, &
-                             eps0(:,if0Il2:if1Il2), &
-                             eps1(:,if0Il2:if1Il2), &
-                             eps2(:,if0Il2:if1Il2), &
-                             eps3(:,if0Il2:if1Il2))
+                  call sour(Atom(ia),TKQo,Frec%omega,Flgsg,jtran, &
+                            itermu,itermf,iz,if0Il2,if1Il2, &
+                            ndir,p_Norm,Dw,absK, &
+                            eta0(:,if0Il2:if1Il2), &
+                            eps0(:,if0Il2:if1Il2), &
+                            eps1(:,if0Il2:if1Il2), &
+                            eps2(:,if0Il2:if1Il2), &
+                            eps3(:,if0Il2:if1Il2))
 
                   ! Call second order emissivity
                   call emiss2ord(Atom(ia),Geom,Atmo%vx(iz), &
@@ -926,13 +945,14 @@
                 else
 
                   ! Call first order emissivity
-                  call emissNB(Atom(ia),TKQo,Frec%omega,Flgsg,jtran, &
-                               itermu,itermf,iz,if0Il2,if1Il2, &
-                               ndir,p_Norm,Dw, &
-                               eps0(:,if0Il2:if1Il2), &
-                               eps1(:,if0Il2:if1Il2), &
-                               eps2(:,if0Il2:if1Il2), &
-                               eps3(:,if0Il2:if1Il2))
+                  call sourNB(Atom(ia),TKQo,Frec%omega,Flgsg,jtran, &
+                              itermu,itermf,iz,if0Il2,if1Il2, &
+                              ndir,p_Norm,Dw,absK, &
+                              eta0(:,if0Il2:if1Il2), &
+                              eps0(:,if0Il2:if1Il2), &
+                              eps1(:,if0Il2:if1Il2), &
+                              eps2(:,if0Il2:if1Il2), &
+                              eps3(:,if0Il2:if1Il2))
 
                   ! Call second order emissivity
                   call emiss2ordNB(Atom(ia),Geom,Atmo%vx(iz), &
@@ -953,15 +973,28 @@
 
                 end if ! Magnetic-field
 
-                ! Combine to get total emissivity
-                eps20(:,if0Il2:if1Il2) = eps20(:,if0Il2:if1Il2) + &
-                                         eps0(:,if0Il2:if1Il2)
-                eps21(:,if0Il2:if1Il2) = eps21(:,if0Il2:if1Il2) + &
-                                         eps1(:,if0Il2:if1Il2)
-                eps22(:,if0Il2:if1Il2) = eps22(:,if0Il2:if1Il2) + &
-                                         eps2(:,if0Il2:if1Il2)
-                eps23(:,if0Il2:if1Il2) = eps23(:,if0Il2:if1Il2) + &
-                                         eps3(:,if0Il2:if1Il2)
+                ! If there is stimulated emission
+                if (stm) &
+                  eta0(:,if0Il2:if1Il2) = eta0(:,if0Il2:if1Il2) - &
+                                          eps0(:,if0Il2:if1Il2)/absK
+
+                ! Combine to get total source function
+                eps20(:,if0Il2:if1Il2) = (eps20(:,if0Il2:if1Il2) + &
+                                          eps0(:,if0Il2:if1Il2))/ &
+                                         (eta0(:,if0Il2:if1Il2) + &
+                                          vacuum)
+                eps21(:,if0Il2:if1Il2) = (eps21(:,if0Il2:if1Il2) + &
+                                          eps1(:,if0Il2:if1Il2))/ &
+                                         (eta0(:,if0Il2:if1Il2) + &
+                                          vacuum)
+                eps22(:,if0Il2:if1Il2) = (eps22(:,if0Il2:if1Il2) + &
+                                          eps2(:,if0Il2:if1Il2))/ &
+                                         (eta0(:,if0Il2:if1Il2) + &
+                                          vacuum)
+                eps23(:,if0Il2:if1Il2) = (eps23(:,if0Il2:if1Il2) + &
+                                          eps3(:,if0Il2:if1Il2))/ &
+                                         (eta0(:,if0Il2:if1Il2) + &
+                                          vacuum)
 
                 ! Second rolling index
                 kk = 0
@@ -1043,7 +1076,7 @@
           end do ! Heights
 
           ! Free
-          deallocate(eps0,eps1,eps2,eps3)
+          deallocate(eta0,eps0,eps1,eps2,eps3)
           deallocate(eps20,eps21,eps22,eps23)
           nullify(eps20,eps21,eps22,eps23)
 
@@ -1190,13 +1223,14 @@
               i1 = i0 + nf - 1
 #ifndef oldmpi
               ! If MPI and request was not completed
-              if (nproc.gt.1.and. &
-                  requests(iz).ne.MPI_REQUEST_NULL) then
+              if (nproc.gt.1) then
+                if (requests(iz).ne.MPI_REQUEST_NULL) then
 
-                ! Check request
-                call MPI_WAIT(requests(iz),MPI_STATUS_IGNORE,ierr)
-                W_load = W_load - 1
+                  ! Check request
+                  call MPI_WAIT(requests(iz),MPI_STATUS_IGNORE,ierr)
+                  W_load = W_load - 1
 
+                end if
               end if
 #endif
               ! Point to relevant data
@@ -1268,185 +1302,183 @@
                     ! Get new omega
                     omega = Frec%omega(if0l2:if1l2)*vfac
 
-                    ! Initialize interpolation mode
-                    lint_mode = int_mode
+                    !
+                    ! Splines
+                    !
+                    if (int_mode.eq.1) then
 
-                    ! Fake loop
-                    do while (.True.)
+                      ! Interpolate with splines
+                      call spline(Frec%omega(if0tl2:if1tl2), &
+                                  eps20(idir,:), &
+                                  splin(:,1), &
+                                  splin(:,2), &
+                                  splin(:,3), nf)
+                      do ifreq=if0l2,if1l2
+                        Red%zao(indx)%eps20(idir,ifreq) = &
+                                ispline(omega(ifreq), &
+                                        Frec%omega(if0tl2:if1tl2), &
+                                        eps20(idir,:), &
+                                        splin(:,1),splin(:,2), &
+                                        splin(:,3),nf)
+                      end do
 
-                      !
-                      ! Splines
-                      !
-                      if (lint_mode.eq.1) then
+                      ! Interpolate with splines
+                      call spline(Frec%omega(if0tl2:if1tl2), &
+                                  eps21(idir,:), &
+                                  splin(:,1), &
+                                  splin(:,2), &
+                                  splin(:,3), nf)
+                      do ifreq=if0l2,if1l2
+                        Red%zao(indx)%eps21(idir,ifreq) = &
+                                ispline(omega(ifreq), &
+                                        Frec%omega(if0tl2:if1tl2), &
+                                        eps21(idir,:), &
+                                        splin(:,1),splin(:,2), &
+                                        splin(:,3),nf)
+                      end do
 
-                        ! Interpolate with splines
-                        call spline(Frec%omega(if0tl2:if1tl2), &
-                                    eps20(idir,:), &
-                                    splin(:,1), &
-                                    splin(:,2), &
-                                    splin(:,3), nf)
-                        do ifreq=if0l2,if1l2
-                          Red%zao(indx)%eps20(idir,ifreq) = &
-                                  ispline(omega(ifreq), &
-                                          Frec%omega(if0tl2:if1tl2), &
-                                          eps20(idir,:), &
-                                          splin(:,1),splin(:,2), &
-                                          splin(:,3),nf)
-                        end do
+                      ! Interpolate with splines
+                      call spline(Frec%omega(if0tl2:if1tl2), &
+                                  eps22(idir,:), &
+                                  splin(:,1), &
+                                  splin(:,2), &
+                                  splin(:,3), nf)
+                      do ifreq=if0l2,if1l2
+                        Red%zao(indx)%eps22(idir,ifreq) = &
+                                ispline(omega(ifreq), &
+                                        Frec%omega(if0tl2:if1tl2), &
+                                        eps22(idir,:), &
+                                        splin(:,1),splin(:,2), &
+                                        splin(:,3),nf)
+                      end do
 
-                        ! Check physical
-                        if (minval(Red%zao(indx)% &
-                                 eps20(idir,if0l2:if1l2)).lt.0d0) then
+                      ! Interpolate with splines
+                      call spline(Frec%omega(if0tl2:if1tl2), &
+                                  eps23(idir,:), &
+                                  splin(:,1), &
+                                  splin(:,2), &
+                                  splin(:,3), nf)
+                      do ifreq=if0l2,if1l2
+                        Red%zao(indx)%eps23(idir,ifreq) = &
+                                ispline(omega(ifreq), &
+                                        Frec%omega(if0tl2:if1tl2), &
+                                        eps23(idir,:), &
+                                        splin(:,1),splin(:,2), &
+                                        splin(:,3),nf)
+                      end do
 
-                          ! If physical before interpolation
-                          if (minval(eps20(idir,:)).ge.0d0) then
+                    !
+                    ! Cubic Hermite interpolation
+                    !
+                    else if (int_mode.eq.2) then
 
-                            ! Change to linear and cycle
-                            lint_mode = 0
-                            cycle
+                      ! Interpolate with CH
+                      call Intpol(Frec%omega(if0tl2:if1tl2), &
+                                  eps20(idir,:), &
+                                  nf, &
+                                  omega(if0l2:if1l2), &
+                                  Red%zao(indx)% &
+                                      eps20(idir,if0l2:if1l2), &
+                                  nfl,2,10)
 
-                          end if ! Physical before
-                        end if ! Check physical
+                      ! Interpolate with CH
+                      call Intpol(Frec%omega(if0tl2:if1tl2), &
+                                  eps21(idir,:), &
+                                  nf, &
+                                  omega(if0l2:if1l2), &
+                                  Red%zao(indx)% &
+                                      eps21(idir,if0l2:if1l2), &
+                                  nfl,2,10)
 
-                        ! Interpolate with splines
-                        call spline(Frec%omega(if0tl2:if1tl2), &
-                                    eps21(idir,:), &
-                                    splin(:,1), &
-                                    splin(:,2), &
-                                    splin(:,3), nf)
-                        do ifreq=if0l2,if1l2
-                          Red%zao(indx)%eps21(idir,ifreq) = &
-                                  ispline(omega(ifreq), &
-                                          Frec%omega(if0tl2:if1tl2), &
-                                          eps21(idir,:), &
-                                          splin(:,1),splin(:,2), &
-                                          splin(:,3),nf)
-                        end do
+                      ! Interpolate with CH
+                      call Intpol(Frec%omega(if0tl2:if1tl2), &
+                                  eps22(idir,:), &
+                                  nf, &
+                                  omega(if0l2:if1l2), &
+                                  Red%zao(indx)% &
+                                      eps22(idir,if0l2:if1l2), &
+                                  nfl,2,10)
 
-                        ! Check physical
-                        if (maxval(abs(Red%zao(indx)% &
-                                 eps21(idir,if0l2:if1l2))/ &
-                                 Red%zao(indx)% &
-                                 eps20(idir,if0l2:if1l2)).gt.1d0) then
+                      ! Interpolate with CH
+                      call Intpol(Frec%omega(if0tl2:if1tl2), &
+                                  eps23(idir,:), &
+                                  nf, &
+                                  omega(if0l2:if1l2), &
+                                  Red%zao(indx)% &
+                                      eps23(idir,if0l2:if1l2), &
+                                  nfl,2,10)
 
-                          ! Check physical before
-                          if (maxval(abs(eps21(idir,:))/ &
-                                     eps20(idir,:)).le.1d0) then
+                    !
+                    ! Linear interpolation
+                    !
+                    else if (int_mode.eq.0) then
 
-                            ! Change to linear and cycle
-                            lint_mode = 0
-                            cycle
+                      ! Interpolate linear
+                      call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
+                                      eps20(idir,:),nf, &
+                                      omega(if0l2:if1l2), &
+                                      Red%zao(indx)% &
+                                          eps20(idir,if0l2:if1l2), &
+                                      nfl)
 
-                          end if ! Physical before
-                        end if ! Check physical
+                      ! Interpolate linear
+                      call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
+                                      eps21(idir,:),nf, &
+                                      omega(if0l2:if1l2), &
+                                      Red%zao(indx)% &
+                                          eps21(idir,if0l2:if1l2), &
+                                      nfl)
 
-                        ! Interpolate with splines
-                        call spline(Frec%omega(if0tl2:if1tl2), &
-                                    eps22(idir,:), &
-                                    splin(:,1), &
-                                    splin(:,2), &
-                                    splin(:,3), nf)
-                        do ifreq=if0l2,if1l2
-                          Red%zao(indx)%eps22(idir,ifreq) = &
-                                  ispline(omega(ifreq), &
-                                          Frec%omega(if0tl2:if1tl2), &
-                                          eps22(idir,:), &
-                                          splin(:,1),splin(:,2), &
-                                          splin(:,3),nf)
-                        end do
+                      ! Interpolate linear
+                      call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
+                                      eps22(idir,:),nf, &
+                                      omega(if0l2:if1l2), &
+                                      Red%zao(indx)% &
+                                          eps22(idir,if0l2:if1l2), &
+                                      nfl)
 
-                        ! Check physical
-                        if (maxval(abs(Red%zao(indx)% &
-                                 eps22(idir,if0l2:if1l2))/ &
-                                 Red%zao(indx)% &
-                                 eps20(idir,if0l2:if1l2)).gt.1d0) then
+                      ! Interpolate linear
+                      call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
+                                      eps23(idir,:),nf, &
+                                      omega(if0l2:if1l2), &
+                                      Red%zao(indx)% &
+                                          eps23(idir,if0l2:if1l2), &
+                                      nfl)
 
-                          ! Check physical before
-                          if (maxval(abs(eps22(idir,:))/ &
-                                     eps20(idir,:)).le.1d0) then
+                    end if ! Type of interpolation
 
-                            ! Change to linear and cycle
-                            lint_mode = 0
-                            cycle
+                    ! Check physics
+                    call check_physics(Frec%omega(if0tl2:if1tl2), &
+                                       eps20(idir,:),eps21(idir,:), &
+                                       eps22(idir,:),eps23(idir,:), &
+                                       nf,omega(if0l2:if1l2), &
+                                       Red%zao(indx)% &
+                                           eps20(idir,if0l2:if1l2), &
+                                       Red%zao(indx)% &
+                                           eps21(idir,if0l2:if1l2), &
+                                       Red%zao(indx)% &
+                                           eps22(idir,if0l2:if1l2), &
+                                       Red%zao(indx)% &
+                                           eps23(idir,if0l2:if1l2), &
+                                       nfl,int_mode,.True.,moded)
 
-                          end if ! Physical before
-                        end if ! Check physical
-
-                        ! Interpolate with splines
-                        call spline(Frec%omega(if0tl2:if1tl2), &
-                                    eps23(idir,:), &
-                                    splin(:,1), &
-                                    splin(:,2), &
-                                    splin(:,3), nf)
-                        do ifreq=if0l2,if1l2
-                          Red%zao(indx)%eps23(idir,ifreq) = &
-                                  ispline(omega(ifreq), &
-                                          Frec%omega(if0tl2:if1tl2), &
-                                          eps23(idir,:), &
-                                          splin(:,1),splin(:,2), &
-                                          splin(:,3),nf)
-                        end do
-
-                        ! Check physical
-                        if (maxval(abs(Red%zao(indx)% &
-                                 eps23(idir,if0l2:if1l2))/ &
-                                 Red%zao(indx)% &
-                                 eps20(idir,if0l2:if1l2)).gt.1d0) then
-
-                          ! Check physical before
-                          if (maxval(abs(eps23(idir,:))/ &
-                                     eps20(idir,:)).le.1d0) then
-
-                            ! Change to linear and cycle
-                            lint_mode = 0
-                            cycle
-
-                          end if ! Physical before
-                        end if ! Check physical
-
-                      !
-                      ! Linear interpolation
-                      !
-                      else if (lint_mode.eq.0) then
-
-                        ! Interpolate linear
-                        call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
-                                        eps20(idir,:),nf, &
-                                        omega(if0l2:if1l2), &
+                    ! If it was moded and original was splines,
+                    ! check again
+                    if (moded.and.int_mode.eq.1) &
+                     call check_physics(Frec%omega(if0tl2:if1tl2), &
+                                        eps20(idir,:),eps21(idir,:), &
+                                        eps22(idir,:),eps23(idir,:), &
+                                        nf,omega(if0l2:if1l2), &
                                         Red%zao(indx)% &
                                             eps20(idir,if0l2:if1l2), &
-                                        nfl)
-
-                        ! Interpolate linear
-                        call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
-                                        eps21(idir,:),nf, &
-                                        omega(if0l2:if1l2), &
                                         Red%zao(indx)% &
                                             eps21(idir,if0l2:if1l2), &
-                                        nfl)
-
-                        ! Interpolate linear
-                        call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
-                                        eps22(idir,:),nf, &
-                                        omega(if0l2:if1l2), &
                                         Red%zao(indx)% &
                                             eps22(idir,if0l2:if1l2), &
-                                        nfl)
-
-                        ! Interpolate linear
-                        call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
-                                        eps23(idir,:),nf, &
-                                        omega(if0l2:if1l2), &
                                         Red%zao(indx)% &
                                             eps23(idir,if0l2:if1l2), &
-                                        nfl)
+                                        nfl,2,.True.,moded)
 
-                      end if ! Type of interpolation
-
-                      ! Break fake loop
-                      exit
-
-                    end do ! Fake while loop
                   end do ! Azimuth angle
                 end do ! Polar angle
 
@@ -1470,12 +1502,14 @@
               end if ! Dynamic
 #ifndef oldmpi
             ! No data but MPI and request not completed
-            else if (nproc.gt.1.and. &
-                     requests(iz).ne.MPI_REQUEST_NULL) then
+            else if (nproc.gt.1) then
+              if (requests(iz).ne.MPI_REQUEST_NULL) then
 
-              ! Check reception
-              call MPI_WAIT(requests(iz),MPI_STATUS_IGNORE,ierr)
-              W_load = W_load - 1
+                ! Check reception
+                call MPI_WAIT(requests(iz),MPI_STATUS_IGNORE,ierr)
+                W_load = W_load - 1
+
+              end if
 #endif
             end if ! If need to take anything
 
@@ -1554,9 +1588,9 @@
       type(MPI_request), dimension(:), allocatable:: requests
 #endif
 
-      logical:: lvel,first
+      logical:: lvel,first,moded
 
-      integer:: iz0,iz1,Mif0,Mif1,jndx,jj,kk,ll,iran,lint_mode
+      integer:: iz0,iz1,Mif0,Mif1,jndx,jj,kk,ll,iran
       integer:: iz,ia,jtran,itermu,itermf,indx,jdir,t0,t1,i0,i1
       integer:: if0l2,if1l2,if0tl2,if1tl2,if0Il2,if1Il2,ifreq,nf,nfl
       integer:: if0jl2,if1jl2,ffjtran,ffktran,ffltran,fjtran,lnz
@@ -1569,8 +1603,10 @@
       integer, dimension(:,:), allocatable:: nf_s,disp
 
       double precision:: vel,DwT,Dw,ct,st,cc,sc,vfac,Dfreq
+      double precision:: pE,absK
+      double precision, dimension(:), allocatable:: y3,y4,yy3,yy4
       double precision, dimension(:), allocatable:: omega
-      double precision, dimension(:), allocatable:: eps0
+      double precision, dimension(:), allocatable:: eps0,eta0
       double precision, dimension(:,:), allocatable:: splin
       double precision, dimension(:,:,:), &
                         allocatable, target:: eps20rpf_s
@@ -1681,6 +1717,10 @@
             Dfreq = Atom(ia)%FSfreq(iJu,itermu) - &
                     Atom(ia)%FSfreq(iJf,itermf)
 
+            ! Photon energy (cgs) and convertion factor
+            pE = convF*Dfreq
+            absK = 1d21*(2d0*c)*Dfreq**2d0
+
             ! Real index in trano
             ffltran = Atom(ia)%itrano(ffjtran)
 
@@ -1704,6 +1744,7 @@
 
             ! Allocate emissivity to collect
             allocate(eps0(if0tl2:if1tl2))
+            allocate(eta0(if0tl2:if1tl2))
 
             ! Number of frequencies
             nf = if1tl2 - if0tl2 + 1
@@ -1864,6 +1905,7 @@
 
                 ! Initialize
                 eps0 = 0d0
+                eta0 = 0d0
                 eps20 = 0d0
                 rpf = 0d0
 
@@ -1876,10 +1918,16 @@
                   if (IRAM) p_rwarr => Red%rzao(indx)
 
                   ! First order
-                  call emissI(Atom(ia),Frec%omega,jtran, &
-                              itermu,itermf,iJu,iJf,iz, &
-                              if0Il2,if1Il2, &
-                              p_Norm,Dw,eps0(if0Il2:if1Il2))
+                  call sourI(Atom(ia),Frec%omega,jtran, &
+                             itermu,itermf,iJu,iJf,iz, &
+                             if0Il2,if1Il2,p_Norm,Dw,pE, &
+                             eta0(if0Il2:if1Il2), &
+                             eps0(if0Il2:if1Il2))
+
+                  ! Stimulated emission
+                  if (stm) &
+                    eta0(if0Il2:if1Il2) = eta0(if0Il2:if1Il2) - &
+                                          eps0(if0Il2:if1Il2)/absK
 
                   ! Second order
                   call emissI2ord(Atom(ia),Geom,Atmo%vx(iz), &
@@ -1901,6 +1949,14 @@
                     eps20(idir,if0Il2:if1Il2) = &
                                              eps0(if0Il2:if1Il2) + &
                                              eps20(idir,if0Il2:if1Il2)
+                    eps20(idir,if0Il2:if1Il2) = &
+                                          eps20(idir,if0Il2:if1Il2)/ &
+                                          (eta0(if0Il2:if1Il2) + &
+                                           vacuum)
+                    rpf(idir,if0Il2:if1Il2) = &
+                                          rpf(idir,if0Il2:if1Il2)/ &
+                                          (eta0(if0Il2:if1Il2) + &
+                                           vacuum)
                   end do
 
                   ! Second rolling index
@@ -1986,7 +2042,7 @@
             end do ! Heights
 
             ! Free
-            deallocate(eps0)
+            deallocate(eps0,eta0)
 
             ! If serial, just point
             if (nproc.eq.1) eps20rpf_r => eps20rpf_s
@@ -2126,13 +2182,14 @@
                 i1 = i0 + nf - 1
 #ifndef oldmpi
                 ! If MPI and request not completed yet
-                if (nproc.gt.1.and. &
-                    requests(iz).ne.MPI_REQUEST_NULL) then
+                if (nproc.gt.1) then
+                  if (requests(iz).ne.MPI_REQUEST_NULL) then
 
-                  ! Check request
-                  call MPI_WAIT(requests(iz),MPI_STATUS_IGNORE,ierr)
-                  W_load = W_load - 1
+                    ! Check request
+                    call MPI_WAIT(requests(iz),MPI_STATUS_IGNORE,ierr)
+                    W_load = W_load - 1
 
+                  end if
                 end if
 #endif
                 ! Point to relevant data
@@ -2216,84 +2273,113 @@
                       ! Get new omega
                       omega = Frec%omega(if0l2:if1l2)*vfac
 
-                      ! Initialize interpolation mode
-                      lint_mode = int_mode
+                      !
+                      ! Splines
+                      !
+                      if (int_mode.eq.1) then
 
-                      ! Fake loop
-                      do while (.True.)
+                        ! Interpolate with splines
+                        call spline(Frec%omega(if0tl2:if1tl2), &
+                                    eps20(jdir,:), &
+                                    splin(:,1), &
+                                    splin(:,2), &
+                                    splin(:,3), nf)
+                        do ifreq=if0l2,if1l2
+                          Red%zao(indx)%eps20(idir,ifreq) = &
+                                ispline(omega(ifreq), &
+                                        Frec%omega(if0tl2:if1tl2), &
+                                        eps20(jdir,:), &
+                                        splin(:,1),splin(:,2), &
+                                        splin(:,3),nf)
+                        end do
 
-                        !
-                        ! Splines
-                        !
-                        if (lint_mode.eq.1) then
+                        ! Interpolate with splines
+                        call spline(Frec%omega(if0tl2:if1tl2), &
+                                    rpf(jdir,:), &
+                                    splin(:,1), &
+                                    splin(:,2), &
+                                    splin(:,3), nf)
+                        do ifreq=if0l2,if1l2
+                          Red%zao(indx)%rpf(idir,ifreq) = &
+                                ispline(omega(ifreq), &
+                                        Frec%omega(if0tl2:if1tl2), &
+                                        rpf(jdir,:), &
+                                        splin(:,1),splin(:,2), &
+                                        splin(:,3),nf)
+                        end do
 
-                          ! Interpolate with splines
-                          call spline(Frec%omega(if0tl2:if1tl2), &
-                                      eps20(jdir,:), &
-                                      splin(:,1), &
-                                      splin(:,2), &
-                                      splin(:,3), nf)
-                          do ifreq=if0l2,if1l2
-                            Red%zao(indx)%eps20(idir,ifreq) = &
-                                  ispline(omega(ifreq), &
-                                          Frec%omega(if0tl2:if1tl2), &
-                                          eps20(jdir,:), &
-                                          splin(:,1),splin(:,2), &
-                                          splin(:,3),nf)
-                          end do
+                      !
+                      ! Cubic hermite
+                      !
+                      else if (int_mode.eq.2) then
 
-                          ! Check physical
-                          if (minval(Red%zao(indx)% &
-                                 eps20(idir,if0l2:if1l2)).lt.0d0) then
+                        ! Interpolate with CH
+                        call Intpol(Frec%omega(if0tl2:if1tl2), &
+                                    eps20(jdir,:), &
+                                    nf, &
+                                    omega(if0l2:if1l2), &
+                                    Red%zao(indx)% &
+                                        eps20(idir,if0l2:if1l2), &
+                                    nfl,2,10)
 
-                            ! Change to linear and cycle
-                            lint_mode = 0
-                            cycle
+                        ! Interpolate with CH
+                        call Intpol(Frec%omega(if0tl2:if1tl2), &
+                                    rpf(jdir,:), &
+                                    nf, &
+                                    omega(if0l2:if1l2), &
+                                    Red%zao(indx)% &
+                                        rpf(idir,if0l2:if1l2), &
+                                    nfl,2,10)
 
-                          end if ! Check physical
+                      !
+                      ! Linear
+                      !
+                      else if (int_mode.eq.0) then
 
-                          ! Interpolate with splines
-                          call spline(Frec%omega(if0tl2:if1tl2), &
-                                      rpf(jdir,:), &
-                                      splin(:,1), &
-                                      splin(:,2), &
-                                      splin(:,3), nf)
-                          do ifreq=if0l2,if1l2
-                            Red%zao(indx)%rpf(idir,ifreq) = &
-                                  ispline(omega(ifreq), &
-                                          Frec%omega(if0tl2:if1tl2), &
-                                          rpf(jdir,:), &
-                                          splin(:,1),splin(:,2), &
-                                          splin(:,3),nf)
-                          end do
+                        ! Interpolate linear
+                        call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
+                                        eps20(jdir,:),nf, &
+                                        omega(if0l2:if1l2), &
+                                        Red%zao(indx)% &
+                                          eps20(idir,if0l2:if1l2), &
+                                        nfl)
 
-                        !
-                        ! Linear
-                        !
-                        else if (lint_mode.eq.0) then
+                        ! Interpolate linear
+                        call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
+                                        rpf(jdir,:),nf, &
+                                        omega(if0l2:if1l2), &
+                                        Red%zao(indx)% &
+                                            rpf(idir,if0l2:if1l2), &
+                                        nfl)
 
-                          ! Interpolate linear
-                          call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
-                                          eps20(jdir,:),nf, &
+                      end if ! Type of interpolation
+
+                      ! Check physics
+                      call check_physics(Frec%omega(if0tl2:if1tl2), &
+                                         eps20(jdir,:),rpf(jdir,:), &
+                                         y3,y4,nf, &
+                                         omega(if0l2:if1l2), &
+                                         Red%zao(indx)% &
+                                            eps20(idir,if0l2:if1l2), &
+                                         Red%zao(indx)% &
+                                             rpf(idir,if0l2:if1l2), &
+                                         yy3,yy4,nfl,int_mode, &
+                                         .False.,moded)
+
+                      ! If it was moded and original was splines,
+                      ! check again
+                      if (moded.and.int_mode.eq.1) &
+                       call check_physics(Frec%omega(if0tl2:if1tl2), &
+                                          eps20(jdir,:),rpf(jdir,:), &
+                                          splin(:,1),splin(:,2),nf, &
                                           omega(if0l2:if1l2), &
                                           Red%zao(indx)% &
                                             eps20(idir,if0l2:if1l2), &
-                                          nfl)
-
-                          ! Interpolate linear
-                          call Intpol_Lin(Frec%omega(if0tl2:if1tl2), &
-                                          rpf(jdir,:),nf, &
-                                          omega(if0l2:if1l2), &
                                           Red%zao(indx)% &
-                                              rpf(idir,if0l2:if1l2), &
-                                          nfl)
+                                             rpf(idir,if0l2:if1l2), &
+                                          eps0,eta0,nfl,2, &
+                                          .False.,moded)
 
-                        end if ! Type of interpolation
-
-                        ! Break fake loop
-                        exit
-
-                      end do ! Fake loop
                     end do ! Azimuth
                   end do ! Polar
 
@@ -2315,12 +2401,14 @@
                 end if ! Dynamic
 #ifndef oldmpi
               ! No data but MPI and request not completed
-              else if (nproc.gt.1.and. &
-                       requests(iz).ne.MPI_REQUEST_NULL) then
+              else if (nproc.gt.1) then
+                if (requests(iz).ne.MPI_REQUEST_NULL) then
 
-                ! Check reception
-                call MPI_WAIT(requests(iz),MPI_STATUS_IGNORE,ierr)
-                W_load = W_load - 1
+                  ! Check reception
+                  call MPI_WAIT(requests(iz),MPI_STATUS_IGNORE,ierr)
+                  W_load = W_load - 1
+
+                end if
 #endif
               end if ! If need to take anything
 
@@ -2466,6 +2554,297 @@
 #endif
 
       end subroutine share_emiss
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Checks that the interpolated source function fulfills the
+      !! physics contraints. If the interpolation fails somewhere, but
+      !! the original did not have issues, recalculate the faulty
+      !! wavelengths with a different interpolation algorithm\n
+      !!    x(double(:)): Original wavelength array\n
+      !!   y1(double(:)): Original intensity source function\n
+      !!   y2(double(:)): Original Stokes Q source function if in the
+      !!                  polarized case or the ratio between 2nd and
+      !!                  1st order intensity source functions
+      !!                  otherwise\n
+      !!   y3(double(:)): Original Stokes U source function if in the
+      !!                  polarized case or a dummy array otherwise\n
+      !!   y4(double(:)): Original Stokes V source function if in the
+      !!                  polarized case or a dummy array otherwise\n
+      !!      n(integer): Size of original arrays\n
+      !!   xx(double(:)): Final wavelength array\n
+      !!  yy1(double(:)): Final intensity source function\n
+      !!  yy2(double(:)): Final Stokes Q source function if in the
+      !!                  polarized case or the ratio between 2nd and
+      !!                  1st order intensity source functions
+      !!                  otherwise\n
+      !!  yy3(double(:)): Final Stokes U source function if in the
+      !!                  polarized case or a dummy array otherwise\n
+      !!  yy4(double(:)): Final Stokes V source function if in the
+      !!                  polarized case or a dummy array otherwise\n
+      !!     nn(integer): Size of final arrays\n
+      !!   mode(integer): Indicates the interpolation method that
+      !!                  produced the final arrays\n
+      !!    pol(logical): Indicated if in the polarization case\n
+      !!  moded(logical): Return if any of the final arrays was
+      !!                  modified
+      subroutine check_physics(x,y1,y2,y3,y4,n, &
+                               xx,yy1,yy2,yy3,yy4,nn, &
+                               mode,pol,moded)
+      ! I/O
+
+      logical, intent(in):: pol
+      logical, intent(out):: moded
+      integer, intent(in):: n,nn,mode
+      double precision, dimension(:), intent(in):: x,y1,y2,y3,y4,xx
+      double precision, dimension(:), intent(inout):: yy1,yy2,yy3,yy4
+
+      ! Local
+
+      logical:: cond1,cond2,cond3,cond4
+      logical, dimension(:), allocatable:: cond
+
+      integer:: ii
+
+      double precision, dimension(n):: a,b,c
+
+
+      ! Initialize
+      moded = .False.
+
+      ! Skip if linear
+      if (mode.eq.0) return
+
+      ! If polarization
+      if (pol) then
+
+        ! Check physics interpolation
+        cond1 = minval(yy1).lt.0
+        cond2 = maxval(yy2/yy1).gt.1d0
+        cond3 = maxval(yy3/yy1).gt.1d0
+        cond4 = maxval(yy4/yy1).gt.1d0
+
+        ! If anything not physical
+        if (cond1.or.cond2.or.cond3.or.cond4) then
+
+          ! Check physics original
+          cond1 = minval(y1).lt.0
+          cond2 = maxval(y2/y1).gt.1d0
+          cond3 = maxval(y3/y1).gt.1d0
+          cond4 = maxval(y4/y1).gt.1d0
+
+          ! If original was fine
+          if (.not.(cond1.and.cond2.and.cond3.and.cond4)) then
+
+            ! Allocate
+            allocate(cond(nn))
+
+            ! Flag
+            moded = .True.
+
+            ! Go over indexes
+            do ii=1,nn
+
+              ! Initialize
+              cond(ii) = .False.
+
+              ! Check
+              if (yy1(ii).lt.0) then
+
+                ! Flag
+                cond(ii) = .True.
+                cycle
+
+              end if
+
+              ! Check
+              if (abs(yy2(ii)).gt.yy1(ii)) then
+
+                ! Flag
+                cond(ii) = .True.
+                cycle
+
+              end if
+
+              ! Check
+              if (abs(yy3(ii)).gt.yy1(ii)) then
+
+                ! Flag
+                cond(ii) = .True.
+                cycle
+
+              end if
+
+              ! Check
+              if (abs(yy4(ii)).gt.yy1(ii)) then
+
+                ! Flag
+                cond(ii) = .True.
+                cycle
+
+              end if
+
+            end do ! Indexes
+
+            ! If it was splines
+            if (mode.eq.1) then
+
+              !
+              ! Do y1
+
+              ! Call Cubic Hermite coefficients
+              call Cubic_Hermite(x,y1,a,b,c,n)
+
+              ! Run
+              do ii=1,nn
+                if (cond(ii)) then
+                  yy1(ii) = isCH(xx(ii),x,y1,a,b,c,n)
+                end if
+              end do
+
+              !
+              ! Do y2
+
+              ! Call Cubic Hermite coefficients
+              call Cubic_Hermite(x,y2,a,b,c,n)
+
+              ! Run
+              do ii=1,nn
+                if (cond(ii)) then
+                  yy2(ii) = isCH(xx(ii),x,y2,a,b,c,n)
+                end if
+              end do
+
+              !
+              ! Do y3
+
+              ! Call Cubic Hermite coefficients
+              call Cubic_Hermite(x,y3,a,b,c,n)
+
+              ! Run
+              do ii=1,nn
+                if (cond(ii)) then
+                  yy3(ii) = isCH(xx(ii),x,y3,a,b,c,n)
+                end if
+              end do
+
+              !
+              ! Do y4
+
+              ! Call Cubic Hermite coefficients
+              call Cubic_Hermite(x,y4,a,b,c,n)
+
+              ! Run
+              do ii=1,nn
+                if (cond(ii)) then
+                  yy4(ii) = isCH(xx(ii),x,y4,a,b,c,n)
+                end if
+              end do
+
+            ! If mode was cubic Hermite
+            else if (mode.eq.2) then
+
+              ! Frequencies
+              do ii=1,nn
+                if (cond(ii)) then
+                  call Intpol_Lin(x,y1,n,xx(ii:ii),yy1(ii:ii),1)
+                  call Intpol_Lin(x,y2,n,xx(ii:ii),yy2(ii:ii),1)
+                  call Intpol_Lin(x,y3,n,xx(ii:ii),yy3(ii:ii),1)
+                  call Intpol_Lin(x,y4,n,xx(ii:ii),yy4(ii:ii),1)
+                end if
+              end do ! Frequencies
+
+            end if ! Interpolation mode
+          end if ! Original was fine
+        end if ! Interpolated is not fine
+
+      ! No polarization
+      else
+
+        ! Check physics interpolation
+        cond1 = minval(yy1).lt.0
+
+        ! If anything not physical
+        if (cond1) then
+
+          ! Check physics original
+          cond1 = minval(y1).lt.0
+
+          ! If original was fine
+          if (.not.cond1) then
+
+            ! Allocate
+            allocate(cond(nn))
+
+            ! Flag
+            moded = .True.
+
+            ! Go over indexes
+            do ii=1,nn
+
+              ! Initialize
+              cond(ii) = .False.
+
+              ! Check
+              if (yy1(ii).lt.0) then
+
+                ! Flag
+                cond(ii) = .True.
+                cycle
+
+              end if
+
+            end do ! Indexes
+
+            ! If it was splines
+            if (mode.eq.1) then
+
+              !
+              ! Do y1
+
+              ! Call Cubic Hermite coefficients
+              call Cubic_Hermite(x,y1,a,b,c,n)
+
+              ! Run
+              do ii=1,nn
+                if (cond(ii)) then
+                  yy1(ii) = isCH(xx(ii),x,y1,a,b,c,n)
+                end if
+              end do
+
+              !
+              ! Do y2
+
+              ! Call Cubic Hermite coefficients
+              call Cubic_Hermite(x,y2,a,b,c,n)
+
+              ! Run
+              do ii=1,nn
+                if (cond(ii)) then
+                  yy2(ii) = isCH(xx(ii),x,y2,a,b,c,n)
+                end if
+              end do
+
+            ! If mode was cubic Hermite
+            else if (mode.eq.2) then
+
+              ! Frequencies
+              do ii=1,nn
+                if (cond(ii)) then
+                  call Intpol_Lin(x,y1,n,xx(ii:ii),yy1(ii:ii),1)
+                  call Intpol_Lin(x,y2,n,xx(ii:ii),yy2(ii:ii),1)
+                end if
+              end do ! Frequencies
+
+            end if ! Interpolation mode
+          end if ! Original was fine
+        end if ! Interpolated is not fine
+
+      end if ! Polarized
+
+      end subroutine check_physics
 
 !#####################################################################
 !#####################################################################

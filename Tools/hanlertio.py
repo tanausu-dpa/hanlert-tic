@@ -5502,7 +5502,8 @@ class _inversion_in():
                         else:
 
                             # Zero
-                            out[j][ix,iy] = 0.0
+                            if j in indx:
+                                out[j][ix,iy] = 0.0
 
                         # Manage units
                         if fractional and j in indx:

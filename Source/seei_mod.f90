@@ -215,15 +215,13 @@
       call SEbuildI(Atom,JRad,JRadS,Jphot,STcoeff,iz)
 
 #ifdef DEBUGSEE
-      if (pid.eq.0) call dump_see(Atom,STcoeff,INPUT%folder, &
-                                  iz,.False.)
+      call dump_see(Atom,STcoeff,INPUT%folder,iz,.False.)
 #endif
-
       ! Add the contributions due to Lambda operator
       if (lALI) call ALIbuildI(Atom,Atom0,LamL,LamP,STcoeff,iz,ALIp)
 
 #ifdef DEBUGSEE
-      if (lALI.and.pid.eq.0) &
+      if (lALI) &
         call dump_see(Atom,STcoeff,INPUT%folder,iz,.True.)
 #endif
 
@@ -1223,14 +1221,15 @@
       if (run_mode.eq.0) then
 
         ! Get file name
-        filename = trim(folder)//'/debug_see'
+        write(filename,'(A,I0.5)') &
+            trim(folder)//'/debug_see_',gpid
 
       ! Get file name for rest
       else
 
         ! Get file name
-        write(filename,'(A,I0.7)') trim(folder)//'/debug_see_', &
-                                   icoords(3)
+        write(filename,'(A,I0.7,A,I0.5)') &
+            trim(folder)//'/debug_see_',icoords(3),'_',gpid
 
       end if ! Run mode
 

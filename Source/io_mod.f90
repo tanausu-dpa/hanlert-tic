@@ -9,16 +9,15 @@
 !  Start:
 !     29/06/2022
 !  Last version:
-!     03/10/2025 V4.0.3
+!     12/03/2026 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     03/10/2025:    V4.0.3 - Bugfix: In get_lims, if the model was
-!                             in single precision, it was not being
-!                             considered (TdPA)
+!     12/03/2026:    V4.0.4 - Added necessary compatibility with
+!                             inversion results to get_lims (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1427,7 +1426,7 @@
           nullify(p_T,p_vx,p_vy,p_vz)
 
           ! If 1.5D or inversion with 1.5D model
-          if (run_mode.eq.1.or.(run_mode.eq.-1.and.mode.lt.0)) then
+          if ((run_mode.eq.1.or.run_mode.eq.-1).and.mode.lt.0) then
 
             ! If 1.5D synthesis
             if (run_mode.eq.1) then
@@ -1529,8 +1528,28 @@
               end do ! Y
             end do ! X
 
-          ! If inversion and previous solution
-          else if (run_mode.eq.-1) then
+          ! If inversion and previous solution or synthesis
+          ! with inverted model
+          else if ((run_mode.eq.-1.or.run_mode.eq.1).and. &
+                   mode.ge.0) then
+
+            ! If 1.5D synthesis
+            if (run_mode.eq.1) then
+
+              ! Get copy of solution box and fix wildcard indexes
+              sol_box = Input%sol_box
+              if (sol_box(1).lt.1) sol_box(1) = 1
+              if (sol_box(2).lt.1) sol_box(2) = dims(1)
+              if (sol_box(3).lt.1) sol_box(3) = 1
+              if (sol_box(4).lt.1) sol_box(4) = dims(2)
+
+            ! Otherwise
+            else
+
+              ! Set box from dimension
+              sol_box = (/ 1, dims(1), 1, dims(2) /)
+
+            end if ! Type of run
 
             ! If jkq
             if (mode.gt.7) then
@@ -1547,44 +1566,81 @@
             end if
 
             ! Allocate column buffer
-            jump = sizeA*8
+            if (double) then
+              jump = sizeA*8
+            else
+              jump = sizeA*4
+            end if
             allocate(buffer(sizeA))
 
             ! For each X
             do ix=1,dims(1)
 
+              ! Check error
+              if (aborting) exit
+
+              ! Read?
+              readx = ix.ge.sol_box(1).and.ix.le.sol_box(2)
+
+              ! If below lower limit
+              if (ix.lt.sol_box(1)) then
+
+                ! Skip full line
+                call fseek(unitA,jump*dims(2),1)
+                cycle
+
+              end if ! Below X lower limit
+
+              ! If beyond limit, stop already
+              if (ix.gt.sol_box(2)) exit
+
               ! For each Y
               do iy=1,dims(2)
 
-                ! Get column
-                call get_column(unitA,buffer,double,check)
+                ! Read?
+                readxy = readx.and. &
+                         iy.ge.sol_box(3).and.iy.le.sol_box(4)
 
-                ! Check could read
-                if (.not.check) then
+                ! If reading
+                if (readxy) then
 
-                  ! Issue error
-                  aborting = .True.
-                  exit
+                  ! Get column
+                  call get_column(unitA,buffer,double,check)
 
-                end if
+                  ! Check could read
+                  if (.not.check) then
 
-                ! Point to temperature and update limits
-                p_T => buffer(  dims(3)+1:2*dims(3))
-                minT = min(minT,minval(p_T))
-                maxT = max(maxT,maxval(p_T))
+                    ! Issue error
+                    aborting = .True.
+                    exit
 
-                ! If non-static
-                if (.not.Input%static) then
+                  end if
 
-                  ! Point to velocity and update limit
-                  p_vx => buffer(6*dims(3)+1:7*dims(3))
-                  p_vy => buffer(7*dims(3)+1:8*dims(3))
-                  p_vz => buffer(8*dims(3)+1:9*dims(3))
-                  maxV = max(maxV,maxval(sqrt(p_vx*p_vx + &
-                                              p_vy*p_vy + &
-                                              p_vz*p_vz)))
+                  ! Point to temperature and update limits
+                  p_T => buffer(  dims(3)+1:2*dims(3))
+                  minT = min(minT,minval(p_T))
+                  maxT = max(maxT,maxval(p_T))
 
-                end if ! Non-static
+                  ! If non-static
+                  if (.not.Input%static) then
+
+                    ! Point to velocity and update limit
+                    p_vx => buffer(6*dims(3)+1:7*dims(3))
+                    p_vy => buffer(7*dims(3)+1:8*dims(3))
+                    p_vz => buffer(8*dims(3)+1:9*dims(3))
+                    maxV = max(maxV,maxval(sqrt(p_vx*p_vx + &
+                                                p_vy*p_vy + &
+                                                p_vz*p_vz)))
+
+                  end if ! Non-static
+
+                ! Not reading
+                else
+
+                  ! Skip column
+                  call fseek(unitA,jump,1)
+
+                end if ! Reasing column
 
               end do ! Y
             end do ! X

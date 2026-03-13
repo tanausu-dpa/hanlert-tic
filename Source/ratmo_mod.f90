@@ -10,15 +10,15 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     29/01/2026 V4.0.3
+!     12/03/2026 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     29/01/2026:    V4.0.3 - Added FALA, FALF and MCO models to the
-!                             hard-coded models in gAtmo (TdPA)
+!     12/03/2026:    V4.0.4 - Added support for inversion results to
+!                             rAtmo_frombuffer (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -2148,14 +2148,16 @@
       !!    Input(Input_class): Structure with configuration data\n
       !!      Atmo(Atmo_class): Structure with atmospheric data\n
       !!  Bfield(Bfield_class): Structure with magnetic field data\n
+      !!         mode(integer): Information about the model\n
       !!      dims(integer(:)): Grid dimensions (X,Y,Z)
-      subroutine rAtmo_frombuffer(buffer,Input,Atmo,Bfield,dims)
+      subroutine rAtmo_frombuffer(buffer,Input,Atmo,Bfield,mode,dims)
 
       ! I/O
 
       type(Input_class), intent(in):: Input
       type(Atmo_class), intent(inout):: Atmo
       type(Bfield_class), intent(out):: Bfield
+      integer, intent(in):: mode
       integer, dimension(:), intent(in):: dims
       double precision, dimension(:), target, intent(inout):: buffer
 
@@ -2170,7 +2172,7 @@
       ikbcgs = 1d-7/kb
 
       ! Initialize zero if not allocated
-      allocate(Atmo%zeros(nz))
+      allocate(Atmo%zeros(dims(3)))
       MRAMc = MRAMc + 1d-6*sizeof(Atmo%zeros)
       Atmo%zeros = 0d0
 
@@ -2179,147 +2181,237 @@
       Atmo%tfreq = Input%omega_ref
       Atmo%nz = dims(3)
 
-      !
-      ! Identify type of scale and point to proper height
-      !
+      ! If 1.5DS model
+      if (mode.lt.0) then
 
-      ! Tau scale
-      if (Atmo%scal.eq.'T') then
-
-        ! Set to tau scale and point to its position
-        ztau = .True.
-        Atmo%z => buffer(nz+1:2*nz)
-
-      ! Geometrical scale
-      else
-
-        ! Set to geometrical scale and point to its position
-        ztau = .False.
-        Atmo%z => buffer(1:nz)
-
-      end if ! Vertical scale
-
-      ! If respecting the alternative scale
-      if (Input%respect_zalt) then
-
-        ! Allocate array
-        allocate(Atmo%zalt(nZ))
-        MRAMc = MRAMc + 1d-6*sizeof(Atmo%zalt)
+        !
+        ! Identify type of scale and point to proper height
+        !
 
         ! Tau scale
         if (Atmo%scal.eq.'T') then
 
-          ! Read height
-          Atmo%zalt = buffer(1:nz)
+          ! Set to tau scale and point to its position
+          ztau = .True.
+          Atmo%z => buffer(nz+1:2*nz)
 
         ! Geometrical scale
         else
 
-          ! Read tau scale
-          Atmo%zalt = buffer(nz+1:2*nz)
+          ! Set to geometrical scale and point to its position
+          ztau = .False.
+          Atmo%z => buffer(1:nz)
 
         end if ! Vertical scale
-      end if ! Respecting alternative scale
 
-      ! Temperature
-      Atmo%T => buffer(3*nz+1:4*nz)
+        ! If respecting the alternative scale
+        if (Input%respect_zalt) then
 
-      ! Microturbulence
-      Atmo%vmi => buffer(12*nz+1:13*nz)
+          ! Allocate array
+          allocate(Atmo%zalt(nZ))
+          MRAMc = MRAMc + 1d-6*sizeof(Atmo%zalt)
 
-      ! If forced microturbulence
-      if (Input%fvmicro.ge.0d0) Atmo%vmi = Input%fvmicro
+          ! Tau scale
+          if (Atmo%scal.eq.'T') then
 
-      ! If static
-      if (Input%static) then
+            ! Read height
+            Atmo%zalt = buffer(1:nz)
 
-        ! Zero velocity
-        Atmo%vx => Atmo%zeros
-        Atmo%vy => Atmo%zeros
-        Atmo%vz => Atmo%zeros
+          ! Geometrical scale
+          else
 
-      ! Dynamic
-      else
+            ! Read tau scale
+            Atmo%zalt = buffer(nz+1:2*nz)
 
-        ! Point to positions
-        Atmo%vx => buffer(9*nz+1:10*nz)
-        Atmo%vy => buffer(10*nz+1:11*nz)
-        Atmo%vz => buffer(11*nz+1:12*nz)
+          end if ! Vertical scale
+        end if ! Respecting alternative scale
 
-      end if
+        ! Temperature
+        Atmo%T => buffer(3*nz+1:4*nz)
 
-      ! Type of atmosphere
-      Atmo%typo = Input%atmo_char
+        ! Microturbulence
+        Atmo%vmi => buffer(12*nz+1:13*nz)
 
-      ! Allocate nH and ne
-      allocate(Atmo%nH(nz,6),Atmo%ne(nz))
-      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nH)
-      MRAMc = MRAMc + 1d-6*sizeof(Atmo%ne)
+        ! If forced microturbulence
+        if (Input%fvmicro.ge.0d0) Atmo%vmi = Input%fvmicro
 
-      ! H^- density
-      allocate(Atmo%nhm(nZ))
-      MRAMc = MRAMc + 1d-6*sizeof(Atmo%nhm)
+        ! If static
+        if (Input%static) then
 
-      !
-      ! Depending on type of scale
-      !
+          ! Zero velocity
+          Atmo%vx => Atmo%zeros
+          Atmo%vy => Atmo%zeros
+          Atmo%vz => Atmo%zeros
 
-      ! Density (full)
-      if (Atmo%typo.eq.0) then
+        ! Dynamic
+        else
 
-        ! Copy from buffer
-        Atmo%ne = buffer(14*nz+1:15*nz)
-        Atmo%nH = reshape(buffer(18*nz+1:24*nz), (/ nz, 6 /))
+          ! Point to positions
+          Atmo%vx => buffer(9*nz+1:10*nz)
+          Atmo%vy => buffer(10*nz+1:11*nz)
+          Atmo%vz => buffer(11*nz+1:12*nz)
 
-        ! H^-
-        Atmo%nhm = buffer(17*nz+1:18*nz)
+        end if
 
-      else
+        ! Type of atmosphere
+        Atmo%typo = Input%atmo_char
 
-        ! To zero
-        Atmo%nH = 0d0
-        Atmo%nhm = 0d0
+        ! Allocate nH and ne
+        allocate(Atmo%nH(nz,6),Atmo%ne(nz))
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo%nH)
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo%ne)
 
-        ! Only electron density
-        if (Atmo%typo.eq.1) then
+        ! H^- density
+        allocate(Atmo%nhm(nZ))
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo%nhm)
+
+        !
+        ! Depending on type of scale
+        !
+
+        ! Density (full)
+        if (Atmo%typo.eq.0) then
 
           ! Copy from buffer
           Atmo%ne = buffer(14*nz+1:15*nz)
+          Atmo%nH = reshape(buffer(18*nz+1:24*nz), (/ nz, 6 /))
 
-        ! Electron pressure
-        else if (Atmo%typo.eq.2) then
+          ! H^-
+          Atmo%nhm = buffer(17*nz+1:18*nz)
+
+        else
+
+          ! To zero
+          Atmo%nH = 0d0
+          Atmo%nhm = 0d0
+
+          ! Only electron density
+          if (Atmo%typo.eq.1) then
+
+            ! Copy from buffer
+            Atmo%ne = buffer(14*nz+1:15*nz)
+
+          ! Electron pressure
+          else if (Atmo%typo.eq.2) then
+
+            ! Copy from buffer
+            Atmo%ne = buffer(13*nz+1:14*nz)
+
+            ! Transform to electron number density
+            Atmo%ne = Atmo%ne*ikbcgs/Atmo%T
+            Atmo%typo = 1
+
+          ! Gas pressure
+          else if (Atmo%typo.eq.4) then
+
+            ! Allocate
+            allocate(Atmo%Pg(nz))
+            MRAMc = MRAMc + 1d-6*sizeof(Atmo%Pg)
+
+            ! Copy from buffer
+            Atmo%Pg = buffer(4*nz+1:5*nz)
+            Atmo%ne = 0d0
+
+          ! Mass density
+          else if (Atmo%typo.eq.5) then
+
+            ! Allocate
+            allocate(Atmo%rho(nz))
+            MRAMc = MRAMc + 1d-6*sizeof(Atmo%rho)
+
+            ! Copy from buffer
+            Atmo%rho = buffer(5*nz+1:6*nz)
+            Atmo%ne = 0d0
+
+          end if ! Type of atmospheric model
+        end if ! No full number density atmospheric model
+
+      ! Inversion model
+      else
+
+        ! Set to tau scale and point to its position
+        ztau = .True.
+        Atmo%z => buffer(1:nz)
+
+        ! Temperature
+        Atmo%T => buffer(nz+1:2*nz)
+
+        ! Microturbulence
+        Atmo%vmi => buffer(9*nz+1:10*nz)
+
+        ! If forced microturbulence
+        if (Input%fvmicro.ge.0d0) Atmo%vmi = Input%fvmicro
+
+        ! If static
+        if (Input%static) then
+
+          ! Zero velocity
+          Atmo%vx => Atmo%zeros
+          Atmo%vy => Atmo%zeros
+          Atmo%vz => Atmo%zeros
+
+        ! Dynamic
+        else
+
+          ! Point to positions
+          Atmo%vx => buffer(6*nz+1:7*nz)
+          Atmo%vy => buffer(7*nz+1:8*nz)
+          Atmo%vz => buffer(8*nz+1:9*nz)
+
+        end if
+
+        ! Type of atmosphere
+        Atmo%typo = Input%atmo_char
+
+        ! Allocate nH and ne
+        allocate(Atmo%nH(nz,6),Atmo%ne(nz))
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo%nH)
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo%ne)
+
+        ! H^- density
+        allocate(Atmo%nhm(nZ))
+        MRAMc = MRAMc + 1d-6*sizeof(Atmo%nhm)
+
+        !
+        ! Depending on type of scale
+        !
+
+        ! Density (full)
+        if (Atmo%typo.eq.0) then
 
           ! Copy from buffer
-          Atmo%ne = buffer(13*nz+1:14*nz)
+          Atmo%ne = buffer(10*nz+1:11*nz)
+          Atmo%nH = reshape(buffer(13*nz+1:19*nz), (/ nz, 6 /))
 
-          ! Transform to electron number density
-          Atmo%ne = Atmo%ne*ikbcgs/Atmo%T
-          Atmo%typo = 1
+          ! H^-
+          Atmo%nhm = 0d0
 
-        ! Gas pressure
-        else if (Atmo%typo.eq.4) then
+        else
 
-          ! Allocate
-          allocate(Atmo%Pg(nz))
-          MRAMc = MRAMc + 1d-6*sizeof(Atmo%Pg)
+          ! To zero
+          Atmo%nH = 0d0
+          Atmo%nhm = 0d0
 
-          ! Copy from buffer
-          Atmo%Pg = buffer(4*nz+1:5*nz)
-          Atmo%ne = 0d0
+          ! Only electron density
+          if (Atmo%typo.eq.1) then
 
-        ! Mass density
-        else if (Atmo%typo.eq.5) then
+            ! Copy from buffer
+            Atmo%ne = buffer(10*nz+1:11*nz)
 
-          ! Allocate
-          allocate(Atmo%rho(nz))
-          MRAMc = MRAMc + 1d-6*sizeof(Atmo%rho)
+          ! Gas pressure
+          else if (Atmo%typo.eq.4) then
 
-          ! Copy from buffer
-          Atmo%rho = buffer(5*nz+1:6*nz)
-          Atmo%ne = 0d0
+            ! Allocate
+            allocate(Atmo%Pg(nz))
+            MRAMc = MRAMc + 1d-6*sizeof(Atmo%Pg)
 
-        end if ! Type of atmospheric model
-      end if ! No full number density atmospheric model
+            ! Copy from buffer
+            Atmo%Pg = buffer(4*nz+1:5*nz)
+            Atmo%ne = 0d0
+
+          end if ! Type of atmospheric model
+        end if ! No full number density atmospheric model
+      end if ! Type of model
 
       ! Total hydrogen density
       allocate(Atmo%nht(nZ))
@@ -2408,10 +2500,23 @@
       ! Yes magnetic field
       else
 
-        ! Get from buffer
-        Atmo%Bx => buffer(6*nz+1:7*nz)
-        Atmo%By => buffer(7*nz+1:8*nz)
-        Atmo%Bz => buffer(8*nz+1:9*nz)
+        ! If 1.5DS model
+        if (mode.lt.0) then
+
+          ! Get from buffer
+          Atmo%Bx => buffer(6*nz+1:7*nz)
+          Atmo%By => buffer(7*nz+1:8*nz)
+          Atmo%Bz => buffer(8*nz+1:9*nz)
+
+        ! If inversion model
+        else
+
+          ! Get from buffer
+          Atmo%Bx => buffer(3*nz+1:4*nz)
+          Atmo%By => buffer(4*nz+1:5*nz)
+          Atmo%Bz => buffer(5*nz+1:6*nz)
+
+        end if ! Type of model
 
         ! Compute module and angles for B at each height
         do iz=1,nz

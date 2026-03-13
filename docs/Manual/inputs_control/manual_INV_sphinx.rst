@@ -612,7 +612,7 @@ RED_INT_MODE
 
   * Formats:
     
-    - string: Linear, Splines; default: Splines
+    - string: Linear, Cubic Hermite, Splines; default: Splines
 
   * Description: Type of interpolation of the second order emissivity when transforming from the comoving to the observer's reference frame.
 

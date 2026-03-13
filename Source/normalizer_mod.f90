@@ -9,15 +9,17 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     18/12/2025 V4.0.9
+!     12/03/2026 V4.0.10
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/12/2025:    V4.0.9 - Moved the verbosity of the issues with
-!                             norm values to a debug option (TdPA)
+!     12/03/2026:   V4.0.10 - Bugfix: The Master was freeing the
+!                             normalization data for all active atoms
+!                             after finishing with the first atom,
+!                             crashing any multi-atom run (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1099,20 +1101,8 @@
         allocate(outofbound(Atom(ia)%ntran))
         outofbound = 0
 
-        ! If MPI, master does not need this
-        if (MPID%mpi.and.pid.eq.0) then
-
-          ! Run over indexes
-          do indx=1,Red%ndzaoA
-
-            ! Deallocate
-            if (allocated(Red%dzao(indx)%Norm)) &
-              deallocate(Red%dzao(indx)%Norm)
-
-          end do
-
         ! Serial or slave
-        else
+        if (.not.MPID%mpi.or.pid.ne.0) then
 
           ! For each height
           do iz=Rz0,Rz1
@@ -1288,6 +1278,21 @@
         if (allocated(checkram)) deallocate(checkram)
 
       end do ! Atoms
+
+      ! If MPI, master does not need this
+      if (MPID%mpi.and.pid.eq.0) then
+
+        ! Run over indexes
+        do indx=1,Red%ndzaoA
+
+          ! Deallocate
+          if (allocated(Red%dzao(indx)%Norm)) &
+            deallocate(Red%dzao(indx)%Norm)
+
+        end do
+
+      end if ! Master in MPI
+
 
       !
       ! LTE lines
@@ -2907,19 +2912,8 @@
         allocate(outofbound(Atom(ia)%nftran))
         outofbound = 0
 
-        ! If MPI, master does not need this
-        if (MPID%mpi.and.pid.eq.0) then
-
-          ! Run over indexes
-          do indx=1,Red%ndzaoA
-
-            ! Deallocate
-            deallocate(Red%dzao(indx)%Norm)
-
-          end do
-
         ! Serial or slave
-        else
+        if (.not.MPID%mpi.or.pid.ne.0) then
 
           ! For each height
           do iz=Rz0,Rz1
@@ -3068,6 +3062,20 @@
         if (allocated(checkram)) deallocate(checkram)
 
       end do ! Atoms
+
+      ! If MPI, master does not need this
+      if (MPID%mpi.and.pid.eq.0) then
+
+        ! Run over indexes
+        do indx=1,Red%ndzaoA
+
+          ! Deallocate
+          if (allocated(Red%dzao(indx)%Norm)) &
+            deallocate(Red%dzao(indx)%Norm)
+
+        end do
+
+      end if ! Master with MPI
 
       !
       ! LTE lines

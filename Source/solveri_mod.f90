@@ -9,17 +9,16 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     06/11/2025 V4.0.15
+!     12/03/2026 V4.0.16
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     06/11/2025:   V4.0.15 - Bugfix: The error status was not
-!                             being shared in solveI (TdPA)
-!                           - Skip calculating the integrals if in
-!                             fail status (TdPA)
+!     12/03/2026:   V4.0.16 - Initialize to zero the Lambda operators
+!                             to avoid writing undefined during
+!                             debugging runs (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -251,11 +250,15 @@
 
 
 #ifdef DEBUGRHO00
-      if (pid.eq.0) call dump_rho00(Atom,Input%folder,-2)
+      call dump_rho00(Atom,Input%folder,-2)
 #endif
 #ifdef DEBUGJ00
-      if (pid.eq.0) call dump_j00(Atom,J00,J00S,J00P,Input%folder,-2)
+      call dump_j00(Atom,J00,J00S,J00P,Input%folder,-2)
 #endif
+
+      ! Initialize lambda operators
+      LambdaL = 0d0
+      LambdaP = 0d0
 
       ! Nullify pointers
       nullify(data1M,data1O,data2O,rLineO,rPhotO,p_exu)
@@ -661,10 +664,10 @@
       end if ! Save MRC
 
 #ifdef DEBUGRHO00
-      if (pid.eq.0) call dump_rho00(Atom,Input%folder,-1)
+      call dump_rho00(Atom,Input%folder,-1)
 #endif
 #ifdef DEBUGJ00
-      if (pid.eq.0) call dump_j00(Atom,J00,J00S,J00P,Input%folder,-1)
+      call dump_j00(Atom,J00,J00S,J00P,Input%folder,-1)
 #endif
 
       !
@@ -3034,12 +3037,10 @@
 
 
 #ifdef DEBUGJ00
-      if (pid.eq.0) call dump_j00(Atom,J00,J00S,J00P, &
-                                  Input%folder,iter)
+      call dump_j00(Atom,J00,J00S,J00P,Input%folder,iter)
 #endif
 #ifdef DEBUGLAMBDA
-      if (pid.eq.0) call dump_lambda(Atom,LambdaL,LambdaP, &
-                                     Input%folder,iter)
+      call dump_lambda(Atom,LambdaL,LambdaP,Input%folder,iter)
 #endif
 
       ! For each atom
@@ -3074,7 +3075,7 @@
         end do ! heights
       end do ! atoms
 #ifdef DEBUGRHO00
-      if (pid.eq.0) call dump_rho00(Atom,Input%folder,iter)
+      call dump_rho00(Atom,Input%folder,iter)
 #endif
 
       ! Control

@@ -12,17 +12,14 @@
 !  Start:
 !     27/04/2017
 !  Last version:
-!     03/10/2025 V4.0.6
+!     12/03/2026 V4.0.7
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     03/10/2025:    V4.0.6 - Bugfix: Wrong index in the integral
-!                             of JKQC with ad-hoc JKQ (TdPA)
-!                           - Bugfix: The Q index started from 0 when
-!                             applying the JKQ symmetries (TdPA)
+!     12/03/2026:    V4.0.7 - Added subroutines sourNB and sour (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -68,6 +65,12 @@
 !  line and thus calculates the emissivity in the comoving frame for
 !  all directions
 !
+!  sourNB
+!    Calculate the emissivity of a given atomic line in the absence of
+!  magnetic field. This one is used to get the emissivity of a PRD
+!  line and thus calculates the aborptivity and emissivity in the
+!  comoving frame for all directions
+!
 !  emiss2ordNB
 !    Calculate the second order emissivity of a given atomic line in
 !  the absence of magnetic field. This subroutine only computes the
@@ -88,6 +91,12 @@
 !  of a magnetic field. This one is used to get the emissivity of a
 !  PRD line and thus calculates the emissivity in the comoving frame
 !  for all directions
+!
+!  sour
+!    Calculate the emissivity of a given atomic line in the presence
+!  of a magnetic field. This one is used to get the emissivity of a
+!  PRD line and thus calculates the absorptivity and emissivity in the
+!  comoving frame for all directions
 !
 !  emiss2ord
 !    Calculate the second order emissivity of a given atomic line in
@@ -989,6 +998,319 @@
       return
 
       end subroutine emissNB
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Calculate the emissivity of a given atomic line in the
+      !! absence of magnetic field. This one is used to get the
+      !! emissivity of a PRD line and thus calculates the aborptivity
+      !! and emissivity in the comoving frame for all directions\n
+      !!      Atom(Atom_class): Structure with atomic data\n
+      !!  TS(dcomplx(:,:,:,:)): Geometrical tensors in the vertical
+      !!                        reference frame\n
+      !!      omega(double(:)): Frequency array\n
+      !!    Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                        J-symbols\n
+      !!        itran(integer): Index of transition to compute\n
+      !!       itermu(integer): Upper term of the transition\n
+      !!       iterml(integer): Lower term of the transition\n
+      !!           iz(integer): Height index\n
+      !!          if0(integer): First frequency index for this
+      !!                        transition\n
+      !!          if1(integer): Last frequency index for this
+      !!                        transition\n
+      !!        njdir(integer): Number of directions\n
+      !!     Norma(Prof_class): Normalization factors for Voigt
+      !!                        profiles or Voigt profiles\n
+      !!            Dw(double): Doppler width of the transition\n
+      !!          absK(double): Unit transformation factor\n
+      !!     eta0(double(:,:)): Intensity absorptivity\n
+      !!     eps0(double(:,:)): Intensity emissivity\n
+      !!     eps1(double(:,:)): Q emissivity\n
+      !!     eps2(double(:,:)): U emissivity\n
+      !!     eps3(double(:,:)): V emissivity
+      subroutine sourNB(Atom,TS,omega,Flgsg,itran,itermu, &
+                        iterml,iz,if0,if1,njdir,Norma,Dw, &
+                        absK,eta0,eps0,eps1,eps2,eps3)
+
+      ! I/O
+
+      type(Atom_class), intent(in):: Atom
+      type(Fctsg_class), intent(in):: Flgsg
+      type(Prof_class), intent(in):: Norma
+      integer, intent(in):: itran,itermu,iterml,iz,if0,if1,njdir
+      double precision, intent(in):: Dw,absK
+      double precision, dimension(:), intent(in):: omega
+      double precision, dimension(njdir,if0:if1), intent(out):: eta0
+      double precision, dimension(njdir,if0:if1), intent(out):: eps0
+      double precision, dimension(njdir,if0:if1), intent(out):: eps1
+      double precision, dimension(njdir,if0:if1), intent(out):: eps2
+      double precision, dimension(njdir,if0:if1), intent(out):: eps3
+      complex(kind=8), dimension(0:3,-2:2,0:2,njdir), intent(in):: TS
+
+      ! Local
+
+      integer:: ifreq,K,iQ,iL,iL1,iU,iU1,iR
+      integer:: Kmin,Kmax,indU,indL,indK,jdir
+
+      double precision:: rLl,rLu,S,rJl,rJl1,rJu,rJu1,rK
+      double precision:: f61,f62a,f62e,f63,f64
+      double precision:: el,eu,al,au,aul,tempR,iDw,at,Dfreq
+
+      complex(kind=8), dimension(if0:if1):: prof, profK
+
+
+      !
+      ! Initialize variables
+      !
+
+      eta0 = 0d0
+      eps0 = 0d0
+      eps1 = 0d0
+      eps2 = 0d0
+      eps3 = 0d0
+
+      ! Inverse Doppler width
+      iDw = 1d0/Dw
+
+      !
+      ! Get terms and transition quantities
+      !
+
+      ! Damping parameters
+      au = Atom%damp(itermu,iz)
+      al = Atom%damp(iterml,iz)
+      aul = Atom%ldamp(itran,iz)
+      at = (au + al + aul)*iDw
+
+      ! Spin
+      S = Atom%Sval(itermu)
+
+      ! Orbital angular momentum
+      rLu = Atom%rLval(itermu)
+      rLl = Atom%rLval(iterml)
+
+
+      !
+      ! Compute emissivity
+      !
+
+      ! For each Jl
+      do iL=1,Atom%nJ(iterml)
+
+        ! Get eigenvalue lower level
+        el = Atom%FSfreq(iL,iterml)
+
+        ! Jl
+        rJl = Atom%rJval(iL,iterml)
+
+        ! Jl factor
+        f61 = 2d0*rJl+1d0
+
+        ! Get index
+        indL = Atom%irho(iterml)%irho_ij(iL)
+
+        ! For each Ju
+        do iU=1,Atom%nJ(itermu)
+
+          ! Ju
+          rJu = Atom%rJval(iU,itermu)
+
+          ! 6-J
+          f62e = fun6j(rLu,rLl,1d0,rJl,rJu,S,Flgsg)
+
+          ! Small J-symbol
+          if (abs(f62e).lt.TINYJS) cycle
+
+          ! Complete factor absorption
+          f62a = f62e*(2d0*rJu + 1)*sqrt(f61)* &
+                 Flgsg%sg(nint(1d0+rJu+rJl))
+
+          ! Complete factor emission
+          f62e = f62e*f61*sqrt(2d0*rJu+1d0)
+
+          ! Get eigenvalue upper level
+          eu = Atom%FSfreq(iU,itermu)
+
+          ! Get indexes
+          indU = Atom%irho(itermu)%irho_ij(iU)
+          indK = Atom%trano(itran)%indNB(indL,indU)
+
+          !
+          ! Compute profile
+          !
+
+          ! If stored
+          if (Norma%VRAM) then
+
+            ! Copy stored profile
+            prof = Norma%cp(:,indK)
+
+          ! Not stored
+          else
+
+            ! Shift term
+            Dfreq = eu - el
+
+            ! For each frequency
+            do ifreq=if0,if1
+
+              ! Calculate profile
+              call voigt((Dfreq - omega(ifreq))*iDw,at,prof(ifreq))
+
+            end do ! frequencies
+
+            ! Normalize
+            prof = dcmplx(dble(prof)*Norma%Norm(indK), &
+                          dimag(prof))
+
+          end if ! Storing
+
+          !
+          ! Emission
+          !
+
+          ! For each Ju'
+          do iU1=1,Atom%nJ(itermu)
+
+            ! Ju'
+            rJu1 = Atom%rJval(iU1,itermu)
+
+            ! 6-J
+            f63 = fun6j(rLu,rLl,1d0,rJl,rJu1,S,Flgsg)
+
+            ! Small J-symbol
+            if (abs(f63).lt.TINYJS) cycle
+
+            ! Complete factor
+            f63 = f63*f62e*sqrt(2d0*rJu1+1d0)* &
+                  Flgsg%sg(nint(1d0+rJl+rJu1))
+
+            ! Determine the limits in K
+            Kmin = nint(abs(rJu-rJu1))
+            Kmax = min(nint(rJu+rJu1),Atom%Kcut(itermu),2)
+
+            ! For each K
+            do K=Kmin,Kmax
+
+              ! Get the real number
+              rK = dble(K)
+
+              ! For each Q
+              do iQ=-K,K
+
+                ! Get the SEE index
+                iR = Atom%irho(itermu)%Jrho(iU,iU1)%kq(iQ,K)
+
+                ! If flagged as small, skip
+                if (iR.le.0.or.Atom%rhonull(iR,iz)) cycle
+
+                ! 6-J
+                f64 = fun6j(1d0,1d0,rK,rJu,rJu1,rJl,Flgsg)
+
+                ! Everything but geometric tensor
+                profk = f64*f63*prof*Atom%crho(iR,iz)
+
+                ! Directions
+                do jdir=1,njdir
+
+                  ! Emissivity
+                  eps0(jdir,:) = eps0(jdir,:) + &
+                                 dble(TS(0,iQ,K,jdir)*profK)
+                  eps1(jdir,:) = eps1(jdir,:) + &
+                                 dble(TS(1,iQ,K,jdir)*profK)
+                  eps2(jdir,:) = eps2(jdir,:) + &
+                                 dble(TS(2,iQ,K,jdir)*profK)
+                  eps3(jdir,:) = eps3(jdir,:) + &
+                                 dble(TS(3,iQ,K,jdir)*profK)
+
+                end do ! Directions
+              end do ! Q
+            end do ! K
+          end do ! iU1
+
+          ! End emission
+
+          !
+          ! Absorption
+          !
+
+          ! For each Jl'
+          do iL1=1,Atom%nJ(iterml)
+
+            ! Jl'
+            rJl1 = Atom%rJval(iL1,iterml)
+
+            ! 6-J
+            f63 = fun6j(rLu,rLl,1d0,rJl1,rJu,S,Flgsg)
+
+            ! Small J-symbol
+            if (abs(f63).lt.TINYJS) cycle
+
+            ! Complete factor
+            f63 = f63*f62a*sqrt(2d0*rJl1+1d0)
+
+            ! Determine the limits in K
+            Kmin = nint(abs(rJl-rJl1))
+            Kmax = min(nint(rJl+rJl1),Atom%Kcut(iterml),2)
+
+            ! For each K
+            do K=Kmin,Kmax
+
+              ! Skip K = 1, does not contribute to intensity
+              if (K.eq.1) cycle
+
+              ! Get the real number
+              rK = dble(K)
+
+              ! For each Q
+              do iQ=-K,K
+
+                ! Get the SEE index
+                iR = Atom%irho(iterml)%Jrho(iL1,iL)%kq(iQ,K)
+
+                ! If flagged as small, skip
+                if (iR.le.0.or.Atom%rhonull(iR,iz)) cycle
+
+                ! 6-J
+                f64 = fun6j(1d0,1d0,rK,rJl1,rJl,rJu,Flgsg)
+
+                ! Everything but geometric tensor
+                profk = f64*f63*Flgsg%sg(K)*prof*Atom%crho(iR,iz)
+
+                ! Directions
+                do jdir=1,njdir
+
+                  ! Emissivity
+                  eta0(jdir,:) = eta0(jdir,:) + &
+                                 dble(TS(0,iQ,K,jdir)*profK)
+
+                end do ! Directions
+              end do ! Q
+            end do ! K
+          end do ! iL1
+
+          ! End absorption
+
+        end do ! iU
+      end do ! iL
+
+      ! Factor for emissivity
+      tempR = 1d3*sqrt3*IPI41*(2d0*rLu+1d0)* &
+              Atom%Ecoeff(itermu,iterml)*iDw
+
+      ! Final values
+      eps0 = tempR*eps0
+      eps1 = tempR*eps1
+      eps2 = tempR*eps2
+      eps3 = tempR*eps3
+      eta0 = tempR*eta0/absK
+
+      return
+
+      end subroutine sourNB
 
 !#####################################################################
 !#####################################################################
@@ -3264,6 +3586,358 @@
       return
 
       end subroutine emiss
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Calculate the emissivity of a given atomic line in the
+      !! presence of a magnetic field. This one is used to get the
+      !! emissivity of a PRD line and thus calculates the absorptivity
+      !! and emissivity in the comoving frame for all directions\n
+      !!      Atom(Atom_class): Structure with atomic data\n
+      !!  TB(dcomplx(:,:,:,:)): Geometrical tensors in the magnetic
+      !!                        field reference frame\n
+      !!      omega(double(:)): Frequency array\n
+      !!    Flgsg(Fctsg_class): Structure with factorials, signs, and
+      !!                        J-symbols\n
+      !!        itran(integer): Index of transition to compute\n
+      !!       itermu(integer): Upper term of the transition\n
+      !!       iterml(integer): Lower term of the transition\n
+      !!           iz(integer): Height index\n
+      !!          if0(integer): First frequency index for this
+      !!                        transition\n
+      !!          if1(integer): Last frequency index for this
+      !!                        transition\n
+      !!        njdir(integer): Number of directions\n
+      !!     Norma(Prof_class): Normalization factors for Voigt
+      !!                        profiles or Voigt profiles\n
+      !!            Dw(double): Doppler width of the transition\n
+      !!          absK(double): Unit transformation factor\n
+      !!     eta0(double(:,:)): Intensity absorptivity\n
+      !!     eps0(double(:,:)): Intensity emissivity\n
+      !!     eps1(double(:,:)): Q emissivity\n
+      !!     eps2(double(:,:)): U emissivity\n
+      !!     eps3(double(:,:)): V emissivity
+      subroutine sour(Atom,TB,omega,Flgsg,itran,itermu, &
+                      iterml,iz,if0,if1,njdir,Norma,Dw, &
+                      absK,eta0,eps0,eps1,eps2,eps3)
+
+      ! I/O
+
+      type(Atom_class), intent(in):: Atom
+      type(Fctsg_class), intent(in):: Flgsg
+      type(Prof_class), intent(in):: Norma
+      integer, intent(in):: itran,itermu,iterml,iz,if0,if1,njdir
+      double precision, intent(in):: Dw,absK
+      double precision, dimension(:), intent(in):: omega
+      double precision, dimension(njdir,if0:if1), intent(out):: eta0
+      double precision, dimension(njdir,if0:if1), intent(out):: eps0
+      double precision, dimension(njdir,if0:if1), intent(out):: eps1
+      double precision, dimension(njdir,if0:if1), intent(out):: eps2
+      double precision, dimension(njdir,if0:if1), intent(out):: eps3
+      complex(kind=8), dimension(0:3,-2:2,0:2,njdir), intent(in):: TB
+
+      ! Local
+
+      logical:: lNCHLT
+
+      integer:: ifreq,K,iq,iq1,iQQ,jdir,indU,indL,indK
+      integer:: nMl,nMu,iMl,iMu,iMu1,iMl1,iL,iU
+
+      double precision:: rLl,rLu,S,rJlmax,rJumax
+      double precision:: rMl,rMl1,rMu,rMu1,el,eu
+      double precision:: rK,QQ,q,q1,al,au,aul,ftmp,tempR,iDw,at,Dfreq
+
+      complex(kind=8):: tK
+      complex(kind=8), dimension(if0:if1):: prof, profK
+
+
+      !
+      ! Initialize variables
+      !
+
+      eta0 = 0d0
+      eps0 = 0d0
+      eps1 = 0d0
+      eps2 = 0d0
+      eps3 = 0d0
+
+      ! If to consider non-coherent lower term and this atom has the
+      ! data allocated
+      if (NCHLT.and.allocated(Atom%NCHLT)) then
+
+        ! Check if this transition has non-coherent lower term for
+        ! this height
+        lNCHLT = Atom%NCHLT(iz,itran)
+
+      ! Coherent lower term
+      else
+
+        ! Flag non-coherent as false
+        lNCHLT = .False.
+
+      end if ! non-coherent lower term
+
+      ! Inverse Doppler width
+      iDw = 1d0/Dw
+
+      !
+      ! Get terms and transition quantities
+      !
+
+      ! Damping parameters
+      au = Atom%damp(itermu,iz)
+      al = Atom%damp(iterml,iz)
+      aul = Atom%ldamp(itran,iz)
+      at = (au + al + aul)*iDw
+
+      ! Spin
+      S = Atom%Sval(itermu)
+
+      ! Orbital angular momentum
+      rLu = Atom%rLval(itermu)
+      rLl = Atom%rLval(iterml)
+
+      ! Determine the maximum angular momentum and the number
+      ! of magnetic sublevels for that maximum momentum
+      rJumax = rLu+S
+      nMu = nint(2d0*rJumax+1d0)
+      rJlmax = rLl + S
+      nMl = nint(2d0*rJlmax+1d0)
+
+      ! Doppler shift in doppler units
+      iDw = 1d0/Dw
+
+
+      !
+      ! Common part
+      !
+
+      ! For each Ml
+      do iMl=1,nMl
+
+        ! Value of Ml
+        rMl = -rJlmax + dble(iMl-1)
+
+        ! For each mu_l
+        do iL=1,Atom%nblk(iMl,iterml)
+
+          ! Get eigenvalue lower level
+          el = Atom%eval(iL,iMl,iterml,iz)/Dw
+
+          ! Level index
+          indL = Atom%irho(iterml)%jM(iL,iMl)
+
+          ! For each Mu
+          do iMu=1,nMu
+
+            ! Value of Mu
+            rMu = -rJumax + dble(iMu-1)
+
+            ! If not pi nor sigma, skip
+            if (nint(abs(rMu-rMl)).gt.1) cycle
+
+            ! Get difference between M momentums in integer
+            q = rMu-rMl
+            iq = nint(q)
+
+            ! For each mu_u
+            do iU=1,Atom%nblk(iMu,itermu) ! sum over mu_u
+
+              ! Get eigenvalue upper level
+              eu = Atom%eval(iU,iMu,itermu,iz)/Dw
+
+              ! Get indexes
+              indU = Atom%irho(itermu)%jM(iU,iMu)
+              indK = Atom%trano(itran)%indB(indL,indU)
+
+              !
+              ! Compute profile
+              !
+
+              ! If stored
+              if (Norma%VRAM) then
+
+                ! Copy stored profile
+                prof = Norma%cp(:,indK)
+
+              ! Not stored
+              else
+
+                ! Shift term
+                Dfreq = eu - el + Atom%Dfreq(itran)
+
+                ! For each frequency
+                do ifreq=if0,if1
+
+                  ! Calculate profile
+                  call voigt((Dfreq - omega(ifreq))*iDw,at, &
+                             prof(ifreq))
+
+                end do ! frequencies
+
+                ! Normalize
+                prof = dcmplx(dble(prof)*Norma%Norm(indK), &
+                              dimag(prof))
+
+              end if ! Storing
+
+              !
+              ! Emission
+              !
+
+              ! For each Mu'
+              do iMu1=1,nMu
+
+                ! Value of Mu'
+                rMu1 = -rJumax + dble(iMu1-1)
+
+                ! If not pi nor sigma, skip
+                if (nint(abs(rMu1-rMl)).gt.1) cycle
+
+                ! Get the difference between M momentums
+                q1 = rMu1-rMl
+                QQ = q1-q
+
+                ! Make the difference integers
+                iq1 = nint(q1)
+                iQQ = nint(QQ)
+
+                ! For each K
+                do K=abs(iQQ),2
+
+                  ! Get the real number
+                  rK = dble(K)
+
+                  ! Racah algebra
+                  ftmp = fun3j(1d0,1d0,rK,-q,q1,-QQ,Flgsg)
+
+                  ! If not allowed (3j-sym=0) skip
+                  if (abs(ftmp).lt.TINYJS) cycle
+
+                  ! Complete factor
+                  ftmp = ftmp*Flgsg%sg(iq1+1)*sqrt(2d0*rK+1d0)
+
+                  ! Call inner atomic loop
+                  call emi_inner_atomic_loop(Atom,Flgsg, &
+                                             itermu,iMu,iU,iMu1, &
+                                             iterml,iMl,iL, &
+                                             iz,itran, &
+                                             iq,iq1, &
+                                             rMu,rMu1, &
+                                             ftmp,tk)
+
+                  ! Add the profile
+                  profK = prof*tK
+
+                  ! For each direction
+                  do jdir=1,njdir
+
+                    ! Emissivity
+                    eps0(jdir,:) = eps0(jdir,:) + &
+                                   dble(TB(0,iQQ,K,jdir)*profK)
+                    eps1(jdir,:) = eps1(jdir,:) + &
+                                   dble(TB(1,iQQ,K,jdir)*profK)
+                    eps2(jdir,:) = eps2(jdir,:) + &
+                                   dble(TB(2,iQQ,K,jdir)*profK)
+                    eps3(jdir,:) = eps3(jdir,:) + &
+                                   dble(TB(3,iQQ,K,jdir)*profK)
+
+                  end do ! Directions
+                end do ! K
+              end do ! Mu1
+
+              ! End emission
+
+              !
+              ! Absorption
+              !
+
+              ! For each Ml'
+              do iMl1=1,nMl
+
+                ! If non-coherent lower term, skip if not diagonal
+                if (lNCHLT) then
+                  if (iMl1.ne.iMl) cycle
+                end if
+
+                ! Value of Mu'
+                rMl1 = -rJlmax + dble(iMl1-1)
+
+                ! If not pi nor sigma, skip
+                if (nint(abs(rMu-rMl1)).gt.1) cycle
+
+                ! Get the difference between M momentums
+                q1 = rMu-rMl1
+                QQ = q1-q
+
+                ! Make the difference integers
+                iq1 = nint(q1)
+                iQQ = nint(QQ)
+
+                ! For each K
+                do K=abs(iQQ),2
+
+                  ! Skip K=1 (no contribution to eta0)
+                  if (K.eq.1) cycle
+
+                  ! Get the real number
+                  rK = dble(K)
+
+                  ! Racah algebra
+                  ftmp = fun3j(1d0,1d0,rK,-q,q1,-QQ,Flgsg)
+
+                  ! If not allowed (3j-sym=0) skip
+                  if (abs(ftmp).lt.TINYJS) cycle
+
+                  ! Complete factor
+                  ftmp = ftmp*Flgsg%sg(iq1+1)*sqrt(2d0*rK+1d0)
+
+                  ! Call inner atomic loop
+                  call abs_inner_atomic_loop(Atom,Flgsg, &
+                                             itermu,iMu,iU, &
+                                             iterml,iMl,iL,iMl1, &
+                                             iz,itran, &
+                                             iq,iq1, &
+                                             rMl,rMl1, &
+                                             ftmp,tk)
+
+                  ! Add the profile
+                  profK = prof*tK
+
+                  ! For each direction
+                  do jdir=1,njdir
+
+                    ! Emissivity
+                    eta0(jdir,:) = eta0(jdir,:) + &
+                                   dble(TB(0,iQQ,K,jdir)*profK)
+
+                  end do ! Directions
+                end do ! K
+              end do ! Ml1
+
+              ! End absorption
+
+            end do ! iU
+          end do ! Mu
+        end do ! iL
+      end do ! Ml
+
+      ! Constant factor
+      tempR = 1d3*sqrt3*IPI41*(2d0*rLu+1d0)* &
+              Atom%Ecoeff(itermu,iterml)*iDw
+
+      ! Final values
+      eps0 = tempR*eps0
+      eps1 = tempR*eps1
+      eps2 = tempR*eps2
+      eps3 = tempR*eps3
+      eta0 = tempR*eta0/absK
+
+      return
+
+      end subroutine sour
 
 !#####################################################################
 !#####################################################################

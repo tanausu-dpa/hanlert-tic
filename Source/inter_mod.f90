@@ -10,14 +10,15 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     03/10/2025 V4.0.2
+!     12/03/2026 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     03/10/2025:    V4.0.2 - Added linear_circle routine (TdPA)
+!     12/03/2026:    V4.0.3 - Added subroutine Cubic_Hermite and isCH
+!                             function (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -65,6 +66,15 @@
 !  spline_2d
 !    Two-dimensional cubic spline interpolation. Admits a single set
 !  of output coordinates 
+!
+!  Cubic_Hermite
+!    Calculate the coefficients for one-dimensional cubic hermite
+!  interpolation
+!
+!  isCH
+!    Evaluate the cubic Hermite interpolation given the coefficients.
+!  Out of boundary values are taken as extended from the tabulation
+!  data as constant. Admits a single output coordinate
 !
 !  Intpol
 !    General interpolation routine for the model atmospheres in the
@@ -1029,6 +1039,184 @@
              (dx1*dx1/6d0)
 
       end subroutine spline_2d
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Calculate the coefficients for one-dimensional cubic hermite
+      !! interpolation\n
+      !!   x(double(:)): Input x axis\n
+      !!   y(double(:)): Input y axis\n
+      !!   a(double(:)): Coefficient of CH interpolation\n
+      !!   b(double(:)): Coefficient of CH interpolation\n
+      !!   c(double(:)): Coefficient of CH interpolation\n
+      !!     n(integer): Size of x,y,a,b,c
+      !! Reference: Auer (2003)
+      subroutine Cubic_Hermite(x,y,a,b,c,n)
+
+      ! I/O
+
+      integer, intent(in):: n
+      double precision, dimension(n), intent(in):: x,y
+      double precision, dimension(n), intent(out):: a,b,c
+
+      ! Local
+
+      integer:: indx,i
+
+      double precision:: D0,D1,H0,H1,YP0,YP1
+
+      ! Step and slope
+      H0 = x(2) - x(1)
+      D0 = (y(2) - y(1))/H0
+      YP0 = D0
+
+      ! Initialize search index
+      indx = 1
+
+      ! Initial
+      a(1) = 0d0
+      b(1) = 0d0
+      c(1) = 0d0
+
+      ! From the second to last point
+      do i=2,n
+
+        ! If not the last
+        if (i.lt.n) then
+
+          ! Step and slope
+          H1 = x(i+1) - x(i)
+          D1 = (y(i+1) - y(i))/H1
+
+          ! Get derivative
+          YP1 = DERIV(H0, H1, D0, D1)
+
+        ! Last point
+        else
+
+          ! First order derivative
+          YP1 = (y(i) - y(i-1))/(x(i) - x(i-1))
+
+        end if ! Last point or not
+
+        ! Save
+        a(i) = H0
+        b(i) = YP0*H0
+        c(i) = YP1*H0
+
+        ! Update left values
+        D0 = D1
+        H0 = H1
+        YP0 = YP1
+
+      end do ! From second to last point
+
+      return
+
+      end subroutine Cubic_Hermite
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Evaluate the cubic Hermite interpolation given the
+      !! coefficients. Out of boundary values are taken as extended
+      !! from the tabulation data as constant. Admits a single output
+      !! coordinate\n
+      !!     z(double): Output x value\n
+      !!  x(double(:)): Input x axis\n
+      !!  y(double(:)): Input y axis\n
+      !!  b(double(:)): Coefficient of CH interpolation\n
+      !!  c(double(:)): Coefficient of CH interpolation\n
+      !!  d(double(:)): Coefficient of CH interpolation\n
+      !!    n(integer): Size of x,y,b,c,d
+      !! Reference: Auer (2003)
+      double precision function isCH(z,x,y,a,b,c,n)
+
+      ! I/O
+
+      integer, intent(in):: n
+      double precision, intent(in):: z
+      double precision, dimension(n), intent(in):: x,y,a,b,c
+
+      ! Local
+
+      integer:: i,j,k
+
+      double precision:: U,UU,UUU
+
+
+      ! If below bottom boundary
+      if (z.le.x(1)) then
+
+        ! Extend constant
+        isCH = y(1)
+
+        ! And return
+        return
+
+      end if ! Below bottom boundary
+
+      ! If above upper boundary
+      if (z.ge.x(n)) then
+
+        ! Extend constant
+        isCH = y(n)
+
+        ! And return
+        return
+
+      end if ! Above upper boundary
+
+      !
+      ! Binary search for for i, such that x(i) <= u <= x(i+1)
+      !
+
+      ! Initialize
+      i = 1
+      j = n + 1
+
+      ! While not found
+      do while (j.gt.i+1)
+
+        ! Get middle index
+        k = (i+j)/2
+
+        ! If output coordinate below this one
+        if (z.lt.x(k)) then
+
+          ! New j value
+          j=k
+
+        ! If output coordinate above this one
+        else
+
+          ! New i value
+          i=k
+
+        end if ! Middle index coordinate value above or below output
+
+      end do ! While not found
+
+      ! We need the right, not the left index
+      i = i + 1
+
+      ! Get scaled distance and its powers
+      U = (z - x(i-1))/a(i)
+      UU = U*U
+      UUU = UU*U
+
+      ! Cubic hermite interpolation
+      isCH = (1d0 - 3d0*UU + 2d0*UUU)*y(i-1) + &
+             (3d0*UU - 2d0*UUU)*y(i) + &
+             (UUU - 2d0*UU + U)*b(i) + (UUU - UU)*c(i)
+
+      ! And return
+      return
+
+      end function isCH
 
 !#####################################################################
 !#####################################################################

@@ -10,18 +10,16 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     26/06/2025 V4.0.1
+!     12/03/2026 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     26/06/2025:    V4.0.1 - Updated due to changes in the Red_class
-!                             and Redb_class structures (TdPA)
-!                           - Optimized the frequency checks in the
-!                             interpolation to the input frequency
-!                             axis (TdPA)
+!     12/03/2026:    V4.0.2 - Bugfix: Added a missing normalization
+!                             factor in rt1ordI (TdPA)
+!                           - Added the sourI subroutine (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -64,6 +62,10 @@
 !  emissI
 !    Calculate the emissivity for the intensity for a given atomic
 !  line in the comoving frame
+!
+!  sourI
+!    Calculate the emissivity and absorptivity for the intensity for
+!  a given atomic line in the comoving frame
 !
 !  emissI2ord
 !    Calculate the second order emissivity of a given atomic line.
@@ -248,6 +250,7 @@
         Dfreqw = (eu - el)*iDw
         vfacw = vfac*iDw
         feps = feps*Norma%Norm(1)
+        feta = feta*Norma%Norm(1)
 
         ! For each frequency
         do ifreq=if0,if1
@@ -485,6 +488,135 @@
       return
 
       end subroutine emissI
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Calculate the emissivity and absorptivity for the intensity
+      !! for a given atomic line in the comoving frame\n
+      !!   Atom(Atom_class): Structure with atomic data\n
+      !!   omega(double(:)): Frequency array\n
+      !!     itran(integer): Index of transition to compute\n
+      !!    itermu(integer): Upper term of the transition\n
+      !!    iterml(integer): Lower term of the transition\n
+      !!       iJu(integer): Upper level of the transition\n
+      !!       iJl(integer): Lower level of the transition\n
+      !!        iz(integer): Height index\n
+      !!       if0(integer): First frequency index for this
+      !!                     transition\n
+      !!       if1(integer): Last frequency index for this
+      !!                     transition\n
+      !!  Norma(Prof_class): Normalization factors for Voigt profiles
+      !!                     or Voigt profiles\n
+      !!         Dw(double): Doppler width of the transition\n
+      !!         pE(double): Unit transformation factor\n
+      !!     eta(double(:)): Intensity absorptivity\n
+      !!     eps(double(:)): Intensity emissivity
+      subroutine sourI(Atom,omega,itran,itermu,iterml, &
+                       iJu,iJl,iz,if0,if1,Norma,Dw,pE,eta,eps)
+
+      ! I/O
+
+      type(Atom_class), intent(in):: Atom
+      type(Prof_class), intent(in):: Norma
+      integer, intent(in):: itran,itermu,iterml,iJu,iJl,iz
+      integer, intent(in):: if0,if1
+      double precision, intent(in):: Dw,pE
+      double precision, dimension(:), intent(in):: omega
+      double precision, dimension(if0:if1), intent(out):: eps,eta
+
+      ! Local
+
+      integer:: ifreq,i
+
+      double precision:: el,eu,al,au,aul,rho,at,iDw,Dfreqw,prof
+      double precision:: feps,feta
+
+
+      ! Inverse Doppler width
+      iDw = 1d0/Dw
+
+      !
+      ! Get population factor
+      !
+
+      !
+      ! Lower
+
+      ! Level index
+      i = Atom%irho(iterml)%irho_ij(iJl)
+
+      ! Population
+      rho = Atom%popu(i,iz)
+
+      ! Absorptibity factor
+      feta = rho*1d3*IPI41*Atom%fst(itran)%Blu(iJl,iJu)*pE*iDw
+
+      !
+      ! Upper
+
+      ! Level index
+      i = Atom%irho(itermu)%irho_ij(iJu)
+
+      ! Population
+      rho = Atom%popu(i,iz)
+
+      ! Emissivity factor
+      feps = rho*1d3*IPI41*Atom%fst(itran)%Aul(iJu,iJl)*iDw
+
+      ! If stored
+      if (Norma%VRAM) then
+
+        ! Get profile
+        eps = feps*Norma%p(if0:if1)
+        eta = feta*Norma%p(if0:if1)
+
+      ! Not stored
+      else
+
+        ! Transition quantities
+
+        ! Damping parameter
+        aul = Atom%ldamp(itran,iz)
+
+        ! Level quantities
+
+        ! Damping parameter
+        au = Atom%damp(itermu,iz)
+
+        ! Energy
+        eu = Atom%FSfreq(iJu,itermu)
+
+        ! Damping parameter
+        al = Atom%damp(iterml,iz)
+
+        ! Energy
+        el = Atom%FSfreq(iJl,iterml)
+
+        ! Intermediate quantities
+        at = (au+al+aul)*iDw
+        Dfreqw = (eu - el)*iDw
+        feps = feps*Norma%Norm(1)
+        feta = feta*Norma%Norm(1)
+
+        ! For each frequency
+        do ifreq=if0,if1
+
+          ! Calculate profile
+          call voigtI(Dfreqw - omega(ifreq)*iDw,at,prof)
+
+          ! Save contribution
+          eps(ifreq) = feps*prof
+          eta(ifreq) = feta*prof
+
+        end do ! frequencies
+
+      end if ! Type of profile calculation
+
+      return
+
+      end subroutine sourI
 
 !#####################################################################
 !#####################################################################

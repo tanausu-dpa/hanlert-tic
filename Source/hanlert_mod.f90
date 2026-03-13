@@ -10,16 +10,15 @@
 !  Start:
 !     22/06/2022
 !  Last version:
-!     13/02/2026 V4.0.7
+!     12/03/2026 V4.0.8
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     13/02/2026:    V4.0.7 - Add a call to free_Atmo_extasinv in
-!                             HanleRTTIC so it does exit with the
-!                             same RAM count that at entry (TdPA)
+!     12/03/2026:    V4.0.8 - Added compatibility with inversion
+!                             results to HanleRT15D (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -442,7 +441,7 @@
 
 #ifdef DEBUGATMO
       ! Write in an ASCII file the model atmosphere
-      if (pid.eq.0) call dump_atmo(Atmo,Bfield,Input%folder,0)
+      call dump_atmo(Atmo,Bfield,Input%folder,0)
 #endif
 
       ! Prepare model atmosphere for synthesis
@@ -522,7 +521,7 @@
 
       integer:: unitA,unitC,unitJ
       integer:: ix1,iy1,sizeA,sizeJ
-      integer:: ia,ix0,iy0,ix,iy,inod,NLOSr,NLOS,ip,iproc
+      integer:: ia,ix0,iy0,ix,iy,inod,NLOSr,NLOS,ip,iproc,mode
       integer, dimension(3):: dims,out_dims,int_buff
       integer, dimension(:), allocatable:: cpu_free
 
@@ -713,7 +712,7 @@
 
         ! Open files (ia and nz are a dummy variable here)
         call open_atm_and_cache(Input,1,unitA,unitC,aborting,dims, &
-                                ia,double,nz,cache,lcache)
+                                mode,double,nz,cache,lcache)
 
         ! The master does not need the background atoms or
         ! molecules if just managing
@@ -726,7 +725,7 @@
         laborted = aborting
 
         ! Open JKQ asymmetry file
-        if (Input%nasym.gt.0.and..not.laborted) then
+        if (Input%nasym.gt.0.and..not.laborted.and.mode.le.7) then
 
           ! Open asymmetry file
           call open_asymm(Input,unitJ,aborting,dims)
@@ -740,8 +739,63 @@
       ! Check if aborting
       call gcontrol
 
-      ! Share model dimensions
+      ! Share model dimensions and mode
       call MPI_BCAST(dims(1),3,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_BCAST(mode,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+
+      ! Check atmospheric configuration for inversion model
+      if (mode.ge.0) then
+
+        ! If not tau scale
+        if (Input%atm_scale.ne.'T') then
+
+          ! If master
+          if (gpid.eq.0) then
+            umsg = ' # Warning: An inversion model only '// &
+                   'allows for optical depth scale. The '// &
+                   'input has been forcibly changed'
+            call verbose
+          end if
+
+          ! Force
+          Input%atm_scale = 'T'
+
+        end if ! If not tau scale
+
+        ! If not 500 nm reference
+        if (abs(Input%omega_ref - 0.2d0).gt.1d-5) then
+
+          ! If master
+          if (gpid.eq.0) then
+            umsg = ' # Warning: An inversion model only '// &
+                   'allows for 500 nm as reference '// &
+                   'wavelength. The input has been '// &
+                   'forcibly changed'
+            call verbose
+          end if
+
+          ! Force
+          Input%omega_ref = 0.2d0
+
+        end if ! If not 500 reference
+
+        ! If electron pressure or density
+        if (Input%atmo_char.eq.2.or.Input%atmo_char.eq.5) then
+
+          ! If master
+          if (gpid.eq.0) then
+            umsg = ' # Warning: An inversion model does not '// &
+                   'allow for electron pressure or mass density '// &
+                   'as main inputs. The input has been '// &
+                   'forcibly changed to gas pressure'
+            call verbose
+          end if
+
+          ! Force
+          Input%atmo_char = 4
+
+        end if ! Type of density input
+      end if ! Check atmospheric configuration
 
       ! Save z axis dimension into common variable
       nz = dims(3)
@@ -868,19 +922,57 @@
       ! Check if aborting
       call gcontrol
 
+      !
       ! Prepare buffer atmosphere
-      sizeA = dims(3)*24
-      allocate(buffer_atmo(sizeA))
-      MRAMc = MRAMc + 1d-6*sizeof(buffer_atmo)
+      !
 
-      ! If asymmetry data
-      if (Input%nasym.gt.0) then
-        sizeJ = dims(3)*8
-        allocate(buffer_JKQ(sizeJ))
-        MRAMc = MRAMc + 1d-6*sizeof(buffer_JKQ)
+      ! If 1.5DS model
+      if (mode.lt.0) then
+
+        ! Allocate column data
+        sizeA = dims(3)*24
+        allocate(buffer_atmo(sizeA))
+        MRAMc = MRAMc + 1d-6*sizeof(buffer_atmo)
+
+        ! If asymmetry data
+        if (Input%nasym.gt.0) then
+          sizeJ = dims(3)*8
+          allocate(buffer_JKQ(sizeJ))
+          MRAMc = MRAMc + 1d-6*sizeof(buffer_JKQ)
+        else
+          sizeJ = 0
+        end if
+
+      ! If inverstion model
       else
-        sizeJ = 0
-      end if
+
+        ! The size of the atmosphere itself
+        sizeA = dims(3)*19
+
+        ! If JKQ are included
+        if (mode.gt.7) then
+
+          ! Add size of JKQ and diffuse light
+          allocate(buffer_atmo(sizeA + dims(3)*8 + 1))
+
+        ! If JKQ not included
+        else
+
+          ! Add size of diffuse light
+          allocate(buffer_atmo(sizeA + 1))
+
+        end if ! JKQ included
+
+        ! If asymmetry data
+        if (Input%nasym.gt.0.or.mode.gt.7) then
+          sizeJ = dims(3)*8
+          allocate(buffer_JKQ(sizeJ))
+          MRAMc = MRAMc + 1d-6*sizeof(buffer_JKQ)
+        else
+          sizeJ = 0
+        end if
+
+      end if ! Type of model
 
       ! Initialize buffer sizes for IO
       call set_io_buffers(Input,0,Atom,Frec)
@@ -1084,9 +1176,30 @@
                 ! Get column from atmosphere
                 call get_column(unitA, buffer_atmo, double, check)
 
-                ! If JKQ data, read
-                if (sizeJ.gt.0) &
-                  call get_column(unitJ, buffer_JKQ, .True., check)
+                ! If 1.5D model
+                if (mode.lt.0) then
+
+                  ! If JKQ data, read
+                  if (sizeJ.gt.0) &
+                    call get_column(unitJ, buffer_JKQ, .True., check)
+
+                ! If inversion model
+                else
+
+                  ! If JKQ data in model
+                  if (mode.gt.7) then
+
+                    ! Copy
+                    buffer_JKQ = buffer_atmo(dims(3)*19+1:dims(3)*27)
+
+                  ! If JKQ data not in model
+                  else if (sizeJ.gt.0) then
+
+                    ! Read
+                    call get_column(unitJ, buffer_JKQ, .True., check)
+
+                  end if ! If any kind of JKQ data
+                end if ! Type of model
 
                 ! Store last read
                 ix1 = ix
@@ -1443,15 +1556,15 @@
             if (aborting) exit
 
             ! Build actual model atmosphere from buffer
-            call rAtmo_frombuffer(buffer_atmo, Input, &
-                                  Atmo, Bfield, dims)
+            call rAtmo_frombuffer(buffer_atmo,Input, &
+                                  Atmo,Bfield,mode,dims)
 
             ! Initialize aborting flag
             laborted = .False.
 
 #ifdef DEBUGATMO
             ! RT master write ASCII file with model atmosphere
-            if (pid.eq.0) call dump_atmo(Atmo,Bfield,Input%folder,0)
+            call dump_atmo(Atmo,Bfield,Input%folder,0)
 #endif
             ! Prepare model atmosphere for synthesis
             call prepare_syn(Atom,Atomb,LTElines,Mol,Atmo,Input,Flgsg)
@@ -1598,9 +1711,30 @@
             ! Get model atmosphere for this pixel
             call get_column(unitA, buffer_atmo, double, check)
 
-            ! If JKQ data, get data for pixel
-            if (sizeJ.gt.0) &
-              call get_column(unitJ, buffer_JKQ, .True., check)
+            ! If 1.5D model
+            if (mode.lt.0) then
+
+              ! If JKQ data, read
+              if (sizeJ.gt.0) &
+                call get_column(unitJ, buffer_JKQ, .True., check)
+
+            ! If inversion model
+            else
+
+              ! If JKQ data in model
+              if (mode.gt.7) then
+
+                ! Copy
+                buffer_JKQ = buffer_atmo(dims(3)*19+1:dims(3)*27)
+
+              ! If JKQ data not in model
+              else if (sizeJ.gt.0) then
+
+                ! Read
+                call get_column(unitJ, buffer_JKQ, .True., check)
+
+              end if ! If any kind of JKQ data
+            end if ! Type of model
 
             ! Store last read
             ix1 = ix
@@ -1632,15 +1766,15 @@
           end if
 
           ! Build atmospheric model from buffer
-          call rAtmo_frombuffer(buffer_atmo, Input, &
-                                Atmo, Bfield, dims)
+          call rAtmo_frombuffer(buffer_atmo,Input, &
+                                Atmo,Bfield,mode,dims)
 
           ! Initialize aborting flag
           laborted = .False.
 
 #ifdef DEBUGATMO
           ! RT master write atmospheric model in ASCII
-          if (pid.eq.0) call dump_atmo(Atmo,Bfield,Input%folder,0)
+          call dump_atmo(Atmo,Bfield,Input%folder,0)
 #endif
           ! Prepare atmospheric model for synthesis
           call prepare_syn(Atom,Atomb,LTElines,Mol,Atmo,Input,Flgsg)
@@ -1834,7 +1968,7 @@
 
 #ifdef DEBUGATMO
       ! RT master write model atmosphere in ASCII
-      if (pid.eq.0) call dump_atmo(Atmo,Bfield,Input%folder,0)
+      call dump_atmo(Atmo,Bfield,Input%folder,0)
 #endif
 
       ! Prepare the models for synthesis

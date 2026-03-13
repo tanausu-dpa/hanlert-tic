@@ -324,7 +324,7 @@
 
 #ifdef DEBUGATMO
       ! Dump current model atmosphere in ASCII file
-      if (pid.eq.0) call dump_atmo(Atmo,Bfield,Input%folder,1)
+      call dump_atmo(Atmo,Bfield,Input%folder,1)
 #endif
 
       !
@@ -2170,7 +2170,7 @@
       end if ! Iterating or non dynamic
 
 #ifdef DEBUGRHOKQ
-      if (pid.eq.0) call dump_rho(Atom,Input%folder,-3)
+      call dump_rho(Atom,Input%folder,-3)
 #endif
       ! If we need to correct the JKQ to multi-term from the
       ! multi-level solution

@@ -11,15 +11,16 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     20/02/2026 V4.0.4
+!     12/03/2026 V4.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/02/2026:    V4.0.4 - Bugfix: the render limit of LTE lines
-!                             was not being accounted for (TdPA)
+!     12/03/2026:    V4.0.5 - Made the necessary changes to consider
+!                             that comoving2ordI now provides source
+!                             functions, and not emissivities (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -298,7 +299,6 @@
                          if0l,if1l,p_Norm,Dw,vfac,pE, &
                          etmp(if0l:if1l),estmp(if0l:if1l),rhou)
 
-
             !
             ! Store absorption profile
             !
@@ -427,21 +427,29 @@
                   if (size(Red%zao(indx)%eps20,1).eq.1) then
 
                     ! Get values from direction 1
-                    estmp(if0l2:if1l2) = Red%zao(indx)%eps20(1,:)
+                    estmp(if0l2:if1l2) = Red%zao(indx)%eps20(1,:)* &
+                                         (etmp(if0l2:if1l2) + &
+                                          vacuum)
 
                     ! If self-consistent solution, get correction
                     if (iterating) &
-                      rpf(if0l2:if1l2) = Red%zao(indx)%rpf(1,:)
+                      rpf(if0l2:if1l2) = Red%zao(indx)%rpf(1,:)* &
+                                         (etmp(if0l2:if1l2) + &
+                                          vacuum)
 
                   ! If this height has more than one direction
                   else
 
                     ! Get values from corresponding direction
-                    estmp(if0l2:if1l2) = Red%zao(indx)%eps20(jdir,:)
+                    estmp(if0l2:if1l2) = Red%zao(indx)%eps20(jdir,:)*&
+                                         (etmp(if0l2:if1l2) + &
+                                          vacuum)
 
                     ! If self-consistent solution, get correction
                     if (iterating) &
-                      rpf(if0l2:if1l2) = Red%zao(indx)%rpf(jdir,:)
+                      rpf(if0l2:if1l2) = Red%zao(indx)%rpf(jdir,:)* &
+                                         (etmp(if0l2:if1l2) + &
+                                          vacuum)
 
                   end if ! Number of directions
 

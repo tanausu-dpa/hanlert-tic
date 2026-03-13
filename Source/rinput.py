@@ -6,10 +6,10 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an (IAC)
 # Hao Li (IAC/NSSCC)
 #
-# 26/01/2026: V4.0.18 - Added HCA, HCX, and HXF as possible options
-#                       in ATMO_INPUT (TdPA)
-#                     - Set the default value of the minimum relative
-#                       perturbation to 0.02, i.e., 2% (TdPA)
+# 12/03/2026: V4.0.20 - Added Cubic Hermite as an option for
+#                       RED_INT_MODE (TdPA)
+#                     - Bugfix: The wavelength from the SIR input were
+#                       not being save in vacuum (TdPA)
 #
 #####################
 
@@ -240,7 +240,7 @@ def rInput():
       # Split in spaces
       cols = entry.upper().split()
 
-      # CODATA 2019 voncertion:
+      # CODATA 2019 convertion:
       # 1 eV = 8065.54429 cm^-1
       evtcm = 8065.54429
 
@@ -250,7 +250,7 @@ def rInput():
       if atom == 'XX': atom = 'FE'
       lout.append(atom)
 
-      # Stage if always integer
+      # Stage is always integer
       i = 1
       stage = int(cols[i])
       lout.append(stage)
@@ -266,7 +266,7 @@ def rInput():
       E1 = float(interpret(cols[i]))*evtcm*1e-5
 
       # Upper level energy
-      E2 = E1 + 1e3/float(interpret(cols[2]))
+      E2 = E1 + 1e3/float(wave)
 
       # J dic
       dic_J = {'S':  0., \
@@ -361,7 +361,7 @@ def rInput():
       lout.append(10.)
       lout.append(5.)
       lout.append('1')
-      lout.append('-1e0')
+      lout.append('-1e90')
       lout.append('1e90')
       lout.append('F')
 
@@ -474,7 +474,7 @@ def rInput():
       lout.append(10.)
       lout.append(5.)
       lout.append('1')
-      lout.append('-1e0')
+      lout.append('-1e90')
       lout.append('1e90')
       lout.append('F')
 
@@ -508,13 +508,13 @@ def rInput():
     elif len(cols) < 22:
 
       # Add fake limits
-      cols += ['e1','-1e0','1e90','F']
+      cols += ['e1','-1e90','1e90','F']
 
     # No Tlim or taulim or nowave
     elif len(cols) < 23:
 
       # Add fake limits and nowave
-      cols += ['-1e0','1e90','F']
+      cols += ['-1e90','1e90','F']
 
     # No Tlim or nowave
     elif len(cols) < 24:
@@ -3206,6 +3206,9 @@ def rInput():
       check = 1
     elif 'SPL' in val:
       f.write('1\n')
+      check = 1
+    elif 'C' and 'H' in val:
+      f.write('2\n')
       check = 1
   if check == 0:
     f.write('1\n')
