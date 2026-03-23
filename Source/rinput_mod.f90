@@ -10,15 +10,15 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     20/02/2026 V4.0.15
+!     23/03/2026 V4.0.16
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/02/2026:   V4.0.15 - Initialize constant regularization for
-!                             those variables not using it (TdPA)
+!     23/03/2026:   V4.0.16 - Read W_minimal, W_nominal, and mem_limit
+!                             into Input (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -872,6 +872,11 @@
       Input%redi_pars(10) = ddump
       read(100,*,err=1100) ddump
       Input%redi_pars(11) = ddump
+
+      ! Manage works in comoving2ord
+      read(100,*,err=1100) Input%W_minimal
+      read(100,*,err=1100) Input%W_nominal
+      read(100,*,err=1100) Input%mem_limit
 
       ! Type of Doppler width to build output frequency axis
       read(100,*,err=1100) Input%dws

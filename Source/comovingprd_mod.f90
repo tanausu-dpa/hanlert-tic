@@ -9,27 +9,17 @@
 !  Start:
 !     08/10/2024
 !  Last version:
-!     12/03/2026 V4.2.0
+!     23/03/2026 V4.2.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2026:    V4.2.0 - Instead of interpolating the emissivity,
-!                             we now interpolate the line source
-!                             function. This improves the consistency
-!                             between the second order emissivity and
-!                             the first order absorptivity without
-!                             increasing the toll on RAM (TdPA)
-!                           - When running with a single CPU, there
-!                             was a conditional which checked an
-!                             element of the request array, not
-!                             allocated in such a case (TdPA)
-!                           - Added check_physics subroutine to
-!                             change the interpolation approach in
-!                             those wavelengths where the source
-!                             function is non-physical (TdPA)
+!     23/03/2026:    V4.2.1 - The parameters controlling the amount
+!                             of communications are now inputs (TdPA)
+!                           - Introduced a credit system to avoid
+!                             assymetric loads in MPI (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -87,11 +77,6 @@
       use rtcoeffiaux_mod
       use rtcoeffaux_mod
       use types_mod
-
-      ! Deadlock preventers
-      integer, parameter:: W_minimal = 4
-      integer, parameter:: W_nominal = 8
-      double precision, parameter:: mem_limit = 50d6
 
       contains
 
@@ -569,17 +554,24 @@
       !!                            over the absorption profile\n
       !!    JKQC(dcmplex(:,:,:,:)): Radiation field tensors with
       !!                            frequency dependence
-      !!         int_mode(integer): Interpolation mode\n
       !!              lth(integer): Current index for polar direction
       !!                            if doing los formal solution\n
       !!              lph(integer): Current index for azimuth
       !!                            direction if doing los formal
       !!                            solution\n
+      !!        W_minimal(integer): Minimum number of simultaneous
+      !!                            communications\n
+      !!        W_nominal(integer): Maximum number of simultaneous
+      !!                            communications\n
+      !!         mem_limit(double): Maximum memory to have in
+      !!                            communications\n
+      !!         int_mode(integer): Interpolation mode\n
       !!              los(logical): If performing last formal
       !!                            solution
       subroutine comoving_emiss2ord(Atom,Atmo,Geom,Frec,Red, &
                                     Flgsg,Bfield,Stokes,JKQa, &
-                                    JKQ,JKQC,lth,lph,int_mode,los)
+                                    JKQ,JKQC,lth,lph,W_minimal, &
+                                    W_nominal,mem_limit,int_mode,los)
 
       ! I/O
 
@@ -591,7 +583,8 @@
       type(Fctsg_class), intent(in):: Flgsg
       type(Bfield_class), intent(in):: Bfield
       logical, intent(in):: los
-      integer, intent(in):: lth,lph,int_mode
+      integer, intent(in):: lth,lph,int_mode,W_minimal,W_nominal
+      double precision, intent(in):: mem_limit
       double precision, dimension(0:3,nfreq,Geom%nPh, &
                                   Geom%nTh,giz0:giz1), &
                         intent(in):: Stokes
@@ -614,7 +607,7 @@
       integer:: if0l2,if1l2,if0tl2,if1tl2,if0Il2,if1Il2,ifreq,nf,nfl
       integer:: ndir,idir,ierr,iph,ith,nth,nph,lnz
 #ifndef oldmpi
-      integer:: ntest,W_max,W_load,lgiz
+      integer:: ntest,W_max,W_load,lgiz,ncredit
       integer, dimension(:), allocatable:: done_index
 #endif
       integer, dimension(:), allocatable:: nsend
@@ -765,6 +758,9 @@
             ! Initialize last height index sent and load
             lgiz = Rz0 - 1
             W_load = 0
+
+            ! Initialize credits
+            ncredit = 0
 
             ! Initialize MPI data
             nsend = 0
@@ -1022,6 +1018,9 @@
                   end do
                 end do
 
+                ! Add credit
+                ncredit = ncredit + 1
+
               end if ! Local calculation
             end if ! Within own height limits
 
@@ -1039,17 +1038,22 @@
                 ! Update load
                 W_load = W_load - ntest
 
+                ! Add credits
+                ncredit = ncredit + ntest
+
               end if
 
-              ! Not the first anymore
-              first = .False.
+              ! If first and have credits, not the first anymore
+              if (first.and.ncredit.gt.0) first = .False.
 
               ! Send while we can afford
-              do while (W_load.lt.W_max.and.lgiz.lt.iz)
+              do while (W_load.lt.W_max.and.lgiz.lt.iz.and. &
+                        ncredit.gt.0)
 
                 ! Advance
                 W_load = W_load + 1
                 lgiz = lgiz + 1
+                ncredit = ncredit - 1
 
                 ! Share
                 call share_emiss(p_fed,lgiz,ll,nf,ndir*4, &
@@ -1064,6 +1068,9 @@
 
                 ! Update load
                 W_load = W_load - ntest
+
+                ! Add credits
+                ncredit = ncredit + ntest
 
               end do ! Send jobs till load is full or we are done
 #else
@@ -1556,16 +1563,23 @@
       !!                           absorption profile\n
       !!        JKQC(double(:,:)): Mean intensity with frequency
       !!                           dependence
-      !!        int_mode(integer): Interpolation mode\n
       !!             lth(integer): Current index for polar direction
       !!                           if doing los formal solution\n
       !!             lph(integer): Current index for azimuth direction
       !!                           if doing los formal solution\n
+      !!       W_minimal(integer): Minimum number of simultaneous
+      !!                           communications\n
+      !!       W_nominal(integer): Maximum number of simultaneous
+      !!                           communications\n
+      !!        mem_limit(double): Maximum memory to have in
+      !!                           communications\n
+      !!        int_mode(integer): Interpolation mode\n
       !!             los(logical): If performing last formal
       !!                           solution
       subroutine comoving_emissI2ord(Atom,Atmo,Geom,Frec,Red, &
                                      Stokes,JKQ,JKQC,lth,lph, &
-                                     int_mode,los)
+                                     W_minimal,W_nominal, &
+                                     mem_limit,int_mode,los)
 
       ! I/O
 
@@ -1575,7 +1589,8 @@
       type(Red_class), intent(inout):: Red
       type(Geometry_class), intent(in):: Geom
       logical, intent(in):: los
-      integer, intent(in):: lth,lph,int_mode
+      integer, intent(in):: lth,lph,int_mode,W_minimal,W_nominal
+      double precision, intent(in):: mem_limit
       double precision, dimension(nfreq,Geom%nPh, &
                                   Geom%nTh,giz0:giz1), &
                         intent(in):: Stokes
@@ -1596,7 +1611,7 @@
       integer:: if0jl2,if1jl2,ffjtran,ffktran,ffltran,fjtran,lnz
       integer:: iJf,iJu,ndir,njdir,idir,ierr,iph,ith,nth,nph
 #ifndef oldmpi
-      integer:: ntest,W_max,W_load,lgiz
+      integer:: ntest,W_max,W_load,lgiz,ncredit
       integer, dimension(:), allocatable:: done_index
 #endif
       integer, dimension(:), allocatable:: nsend
@@ -1770,6 +1785,9 @@
               ! Initialize last height index sent and load
               lgiz = Rz0 - 1
               W_load = 0
+
+              ! Initialize credits
+              ncredit = 0
 
               ! Initialize MPI data
               nsend = 0
@@ -1983,6 +2001,9 @@
                     end do
                   end do
 
+                  ! Add credit
+                  ncredit = ncredit + 1
+
                 end if ! Local calculation
 
                 ! Free
@@ -2005,17 +2026,22 @@
                   ! Update load
                   W_load = W_load - ntest
 
+                  ! Add credits
+                  ncredit = ncredit + ntest
+
                 end if
 
-                ! Not the first anymore
-                first = .False.
+                ! If first and have credits, not the first anymore
+                if (first.and.ncredit.gt.0) first = .False.
 
                 ! Send while we can afford
-                do while (W_load.lt.W_max.and.lgiz.lt.iz)
+                do while (W_load.lt.W_max.and.lgiz.lt.iz.and. &
+                          ncredit.gt.0)
 
                   ! Advance
                   W_load = W_load + 1
                   lgiz = lgiz + 1
+                  ncredit = ncredit - 1
 
                   ! Share
                   call share_emiss(p_fed,lgiz,ll,nf,njdir*2, &
@@ -2030,6 +2056,9 @@
 
                   ! Update load
                   W_load = W_load - ntest
+
+                  ! Add credits
+                  ncredit = ncredit + ntest
 
                 end do ! Send jobs till load is full or we are done
 #else

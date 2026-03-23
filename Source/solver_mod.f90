@@ -9,15 +9,15 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     03/09/2025 V4.0.8
+!     23/03/2026 V4.0.9
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     03/09/2025:    V4.0.8 - Added error handling after the call to
-!                             comoving_emiss2ord() (TdPA)
+!     23/03/2026:    V4.0.9 - Added new arguments to the call to
+!                             comoving_emiss2ord (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -298,8 +298,9 @@
             ! Compute second order emissivity
             call comoving_emiss2ord(Atom,Atmo,Geom,Frec,Red, &
                                     Flgsg,Bfield,Stokes,JKQ_asym, &
-                                    JKQ,JKQC,0,0,Input%PRD_int_mode, &
-                                    .False.)
+                                    JKQ,JKQC,0,0,Input%W_minimal, &
+                                    Input%W_nominal,Input%mem_limit, &
+                                    Input%PRD_int_mode,.False.)
 
             ! Control
             call control
@@ -3004,6 +3005,9 @@
             call comoving_emiss2ord(Atom,Atmo,Geom,Frec,Red,Flgsg, &
                                     Bfield,Stokes,JKQ_asym, &
                                     JKQ,JKQC,ith,iph, &
+                                    Input%W_minimal, &
+                                    Input%W_nominal, &
+                                    Input%mem_limit, &
                                     Input%PRD_int_mode,.True.)
             ! Failure
             call control

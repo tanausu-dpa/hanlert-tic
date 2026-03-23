@@ -9,16 +9,15 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     12/03/2026 V4.0.16
+!     23/03/2026 V4.0.17
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2026:   V4.0.16 - Initialize to zero the Lambda operators
-!                             to avoid writing undefined during
-!                             debugging runs (TdPA)
+!     23/03/2026:   V4.0.17 - Added new arguments to the call to
+!                             comoving_emissI2ord (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -341,6 +340,9 @@
             ! Compute second order emissivity
             call comoving_emissI2ord(Atom,Atmo,Geom,Frec,Red, &
                                      Stokes,J00,J00C,0,0, &
+                                     Input%W_minimal, &
+                                     Input%W_nominal, &
+                                     Input%mem_limit, &
                                      Input%PRD_int_mode,.False.)
             ! Failure
             call control
@@ -3525,6 +3527,9 @@
             ! Compute emiss2ord
             call comoving_emissI2ord(Atom,Atmo,Geom,Frec,Red, &
                                      Stokes,J00,J00C,ith,iph, &
+                                     Input%W_minimal, &
+                                     Input%W_nominal, &
+                                     Input%mem_limit, &
                                      Input%PRD_int_mode,.True.)
             ! Failure
             call control

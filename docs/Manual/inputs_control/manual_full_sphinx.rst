@@ -1483,6 +1483,45 @@ REDI_MSTP_CORE
 
   * Description: Multiplicative factor to apply to RED_FST to determine the sampling in Doppler widths of the input frequency axis for the redistribution integral for frequencies between RED_RANG and RED_VLAR Doppler widths from the transition and redistribution resonances, for frequencies in a line core in the only intensity problem.
 
+MPI_CV_W_MINIMAL
+----------------
+
+  * OPTIONAL, ADVANCED
+
+  * Modes: 1D, 15D, CLE, INV
+
+  * Formats:
+    
+    - integer; default: 4
+
+  * Description: Minimum number of simultaneous communications to hold in comoving2ord.
+
+MPI_CV_W_NOMINAL
+----------------
+
+  * OPTIONAL, ADVANCED
+
+  * Modes: 1D, 15D, CLE, INV
+
+  * Formats:
+    
+    - integer; default: 8
+
+  * Description: Expected number of simultaneous communications to hold in comoving2ord.
+
+MPI_CV_W_MEM_LIMIT
+------------------
+
+  * OPTIONAL, ADVANCED
+
+  * Modes: 1D, 15D, CLE, INV
+
+  * Formats:
+    
+    - float; default: 50e6
+
+  * Description: Limit of memory to keep in a shared MPI pool in comoving2ord.
+
 DOP_WIDTH
 ---------
 

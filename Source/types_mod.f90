@@ -11,18 +11,15 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     18/12/2025 V4.0.13
+!     23/03/2026 V4.0.14
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/12/2025:   V4.0.13 - Added nLambda, perc, ff_max, ff_contr,
-!                             pred, step_norm, WeightI_mod, and
-!                             Weight_mod to LMFIT_class (TdPA)
-!                           - Added allow_RD_mode to
-!                             Input_class (TdPA)
+!     23/03/2026:   V4.0.14 - Added W_minimal, W_nominal, and
+!                             mem_limit to Input_class (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1302,7 +1299,8 @@
         ! PRD to transform into the observer reference frame, number
         ! of internal PRD iterations, maximum number of AD iterations,
         ! maximum number of AD iterations in intensity, type of CLV
-        ! in CLE run
+        ! in CLE run, number of minimal simultaneous works in
+        ! comoving, number of nominal simultaneous works in comoving
         integer:: iter_min,iter_max,iter_ord,store_step,nA,nAb,nM, &
                   iteri_min,iteri_max,storei_step,iteri_prd,iter_j, &
                   NG_ord,NG_delay,ALI_delay,NK,allownphys_stk, &
@@ -1311,7 +1309,8 @@
                   nasym_fil,nasym,MIT_input,run_mode,rt_group_n, &
                   atmo_char,nTh,nPh,nThI,nPhI,nThAA,nThAAI,nThLOS, &
                   nPhLOS,nLTE,nexcl,allownphys_pop,PRD_int_mode, &
-                  iter_prd,iterad_max,iteriad_max,clv_type
+                  iter_prd,iterad_max,iteriad_max,clv_type, &
+                  W_minimal,W_nominal
 
         ! Box to solve in 1.5D synthesis problem
         integer, dimension(:), allocatable:: sol_box
@@ -1334,11 +1333,12 @@
         ! temperature to consider from the top, maximum temperature
         ! to consider from the bottom, left and right wavelenghts
         ! limits to guess the polarity, effective Lande factor and
-        ! wavelength to guess Blos as well
+        ! wavelength to guess Blos as well, shared memory limit to
+        ! hold in comoving
         double precision:: dw,MIT_node,dcohw,dcohwi,minT,maxT,maxV, &
                            omega_ref,T_rad,R_star,r0tc,r1tc,r0z,r1z, &
                            fvmicro,r1tc_prd,r1z_prd,r0tt,r1tt, &
-                           gp_l,gp_r,gp_g,gp_w
+                           gp_l,gp_r,gp_g,gp_w,mem_limit
 
         ! LOS polar mus, LOS azimuthal angles
         double precision, dimension(:), allocatable:: L_mu,L_phi

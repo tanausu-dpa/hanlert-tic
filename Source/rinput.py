@@ -6,10 +6,8 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an (IAC)
 # Hao Li (IAC/NSSCC)
 #
-# 12/03/2026: V4.0.20 - Added Cubic Hermite as an option for
-#                       RED_INT_MODE (TdPA)
-#                     - Bugfix: The wavelength from the SIR input were
-#                       not being save in vacuum (TdPA)
+# 23/03/2026: V4.0.21 - Added MPI_CV_W_MINIMAL, MPI_CV_W_NOMINAL, and
+#                       MPI_CV_MEM_LIMIT (TdPA)
 #
 #####################
 
@@ -3624,6 +3622,45 @@ def rInput():
       pass
   if check == 0:
     f.write('{0:22.16e}\n'.format(mstpi))
+
+  # MPI_CV_W_MINIMAL
+  check = 0
+  if 'MPI_CV_W_MINIMAL' in Dictionary:
+    val = Dictionary['MPI_CV_W_MINIMAL'][0]
+    try:
+      val = interpret(val)
+      f.write('{0:7d}\n'.format(int(val)))
+      check = 1
+    except:
+      pass
+  if check == 0:
+    f.write('{0:7d}\n'.format(4))
+
+  # MPI_CV_W_NOMINAL
+  check = 0
+  if 'MPI_CV_W_NOMINAL' in Dictionary:
+    val = Dictionary['MPI_CV_W_NOMINAL'][0]
+    try:
+      val = interpret(val)
+      f.write('{0:7d}\n'.format(int(val)))
+      check = 1
+    except:
+      pass
+  if check == 0:
+    f.write('{0:7d}\n'.format(8))
+
+  # MPI_CV_MEM_LIMIT
+  check = 0
+  if 'MPI_CV_MEM_LIMIT' in Dictionary:
+    val = Dictionary['MPI_CV_MEM_LIMIT'][0]
+    try:
+      val = interpret(val)
+      f.write('{0:22.16e}\n'.format(float(val)))
+      check = 1
+    except:
+      pass
+  if check == 0:
+    f.write('{0:22.16e}\n'.format(50e6))
 
   # DOP_WIDTH
   check = 0
