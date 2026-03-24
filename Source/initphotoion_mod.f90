@@ -9,18 +9,16 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     15/05/2025 V4.0.1
+!     24/03/2026 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.1 - Generalized declarations of Atom to
-!                             allow for empty arrays for any of
-!                             them (TdPA)
-!                           - Removed potentially blocking call to
-!                             control (TdPA)
+!     24/03/2026:    V4.0.2 - When photoionizations get negative, it
+!                             tries Cubic Hermite before trying
+!                             linear interpolation (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -83,7 +81,7 @@
 
       ! Local
 
-      logical:: llinear
+      logical:: llinear,lCH
 
       integer:: nfr,ifreq,iphot,if0,if1,iterm,iterm1
       integer:: ilevel,ilevel1,iJ,iJ1
@@ -106,6 +104,7 @@
 
           ! Initialize logical
           llinear = .False.
+          lCH = .False.
 
           ! Get the transition limits into shorter variables for
           ! convenience
@@ -184,18 +183,61 @@
                              'b-f transition',ilevel,' -->', &
                              ilevel1,' of ', &
                              Atom%Element,' atom gave '// &
-                             'negative value, doing linear.'
+                             'negative value, doing Cubic Hermite.'
                   call verbose
 
                 end if ! Master
 
-                ! Flag to do linear and leave
-                llinear = .True.
+                ! Flag to do Cubic Hermite and leave
+                lCH = .True.
                 exit
 
               end if ! Negative cross-section
 
             end do ! Relevant frequencies
+
+            ! If need to do it Cubic Hermite
+            if (lCH) then
+
+              ! Get the Cubic Hermite coefficients
+              call Cubic_Hermite(sx(1:nfr),sy(1:nfr), &
+                                 sb(1:nfr),sc(1:nfr),sd(1:nfr),nfr)
+
+              ! For the relevant frequencies
+              do ifreq=if0,if1
+
+                ! Calculate the cross section
+                Atom%phot(iphot)%alpha(ifreq) = &
+                  isCH(1d2/freq(ifreq),sx(1:nfr),sy(1:nfr), &
+                       sb(1:nfr),sc(1:nfr),sd(1:nfr),nfr)*1d4
+
+                ! If something negative
+                if (Atom%phot(iphot)%alpha(ifreq).lt.0d0) then
+
+                  ! Master
+                  if (pid.eq.0) then
+
+                    ! Issue warning
+                    write(umsg,'(A,1x,i4,A,1x,i4,1x,A,A,A)') &
+                             ' # Cubic Hermite interpolation of '// &
+                             'ionization cross section of '// &
+                             'b-f transition',ilevel,' -->', &
+                             ilevel1,' of ', &
+                             Atom%Element,' atom gave '// &
+                             'negative value, doing linear.'
+                    call verbose
+
+                  end if ! Master
+
+                  ! Flag to do linear and leave
+                  llinear = .True.
+                  exit
+
+                end if ! Negative cross-section
+
+              end do ! Relevant frequencies
+
+            end if ! Need to interpolate with Cubic Hermite
 
             ! If need to do it linear
             if (llinear) then

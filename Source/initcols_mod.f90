@@ -9,17 +9,17 @@
 !  Start:
 !     25/09/2019
 !  Last version:
-!     18/03/2025 V4.0.2
+!     24/03/2026 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/03/2025:    V4.0.2 - Bugfix: The Clu collisions between the
-!                             levels in the last term of a multi-term
-!                             atom were not being computed due to
-!                             a wrong loop limit (TdPA)
+!     24/03/2026:    V4.0.3 - Made the necessary modifications to
+!                             account for the changes in colinter,
+!                             that can fallback to Cubic Herminte
+!                             interpolation before linear (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -81,7 +81,7 @@
 
       character(len=2):: c2dump
 
-      logical:: lin,free,aout
+      logical:: lin,lcub,free,aout
 
       integer:: ios,iz,it,itt,i,ii,iJ,iJJ,icol,iJ1,ilevel,iterm,jj
       integer:: ilevel1,iterm1,up,low,stagl,stagu,K,minK,maxK
@@ -549,38 +549,68 @@
 
             ! Interpolate in the tabulation
             call colinter(p_T%temp,Culin,p_T%nTmp, &
-                          Atmo%T,CulI,nZ,p_T%flin,lin)
+                          Atmo%T,CulI,nZ,p_T%flin, &
+                          lcub,lin)
 
-            ! If the interpolation ended up being linear and it is
-            ! master
-            if (lin.and.pid.eq.0) then
+            ! If the interpolation ended up being linear or CH
+            ! and it is master
+            if ((lin.or.lcub).and.pid.eq.0) then
 
-              ! If term to term transition
-              if (p_T%col_type.eq.0) then
+              ! Linear
+              if (lin) then
 
-                ! Write message
-                write(umsg,'(A,1x,i4,1x,"-->",i4,1x,A,1x,A,1x,A)') &
+                ! If term to term transition
+                if (p_T%col_type.eq.0) then
+
+                  ! Write message
+                  write(umsg,'(A,1x,i4,1x,"-->",i4,1x,A,1x,A,1x,A)') &
                        ' # Inelastic collisional rate '// &
                        c2dump//' ',up,low,'between terms in atom', &
                        Atom%Element,'was negative with Spline '// &
                        'interpolation, did linear.'
 
-              ! If level to level transition
-              else
+                ! If level to level transition
+                else
 
-                ! Write message
-                write(umsg,'(A,1x,i4,1x,"-->",i4,1x,A,1x,A,1x,A)') &
+                  ! Write message
+                  write(umsg,'(A,1x,i4,1x,"-->",i4,1x,A,1x,A,1x,A)') &
                       ' # Inelastic collisional rate '// &
                       c2dump//' ',up,low,'between levels in atom', &
                       Atom%Element,'was negative with Spline '// &
                       'interpolation, did linear.'
 
-              end if ! Term-term or level-level
+                end if ! Term-term or level-level
+
+              ! CH
+              else
+
+                ! If term to term transition
+                if (p_T%col_type.eq.0) then
+
+                  ! Write message
+                  write(umsg,'(A,1x,i4,1x,"-->",i4,1x,A,1x,A,1x,A)') &
+                       ' # Inelastic collisional rate '// &
+                       c2dump//' ',up,low,'between terms in atom', &
+                       Atom%Element,'was negative with Spline '// &
+                       'interpolation, did Cubic Hermite.'
+
+                ! If level to level transition
+                else
+
+                  ! Write message
+                  write(umsg,'(A,1x,i4,1x,"-->",i4,1x,A,1x,A,1x,A)') &
+                      ' # Inelastic collisional rate '// &
+                      c2dump//' ',up,low,'between levels in atom', &
+                      Atom%Element,'was negative with Spline '// &
+                      'interpolation, did Cubir Hermite.'
+
+                end if ! Term-term or level-level
+              end if ! Linear or CH
 
               ! Verbose warning
               call verbose
 
-            end if ! If had to do linear and is master
+            end if ! If had to do CH or linear and is master
 
             ! If neutral or ion scale mode
             if (p_T%nion.ge.0.and.p_T%nion.le.3) then
@@ -675,21 +705,39 @@
 
             ! Interpolate in the tabulation
             call colinter(p_T%temp,Culin,p_T%nTmp, &
-                          Atmo%T,CulI,nZ,p_T%flin,lin)
+                          Atmo%T,CulI,nZ,p_T%flin, &
+                          lcub,lin)
 
-            ! If the interpolation ended up being linear and it is
-            ! master
-            if (lin.and.pid.eq.0) then
+            ! If the interpolation ended up being linear or CH
+            ! and it is master
+            if ((lin.or.lcub).and.pid.eq.0) then
 
-              ! Write message
-              write(umsg,'(A,1x,i4,1x,"-->",i4,1x,A,1x,A,1x,A)') &
+              ! Linear
+              if (lin) then
+
+                ! Write message
+                write(umsg,'(A,1x,i4,1x,"-->",i4,1x,A,1x,A,1x,A)') &
                   ' # Inelastic collisional rate '//c2dump//' ', &
                   low,up,'between levels in atom', &
                   Atom%Element,'was negative with Spline '// &
                   'interpolation, did linear.'
+
+              ! CH
+              else
+
+                ! Write message
+                write(umsg,'(A,1x,i4,1x,"-->",i4,1x,A,1x,A,1x,A)') &
+                  ' # Inelastic collisional rate '//c2dump//' ', &
+                  low,up,'between levels in atom', &
+                  Atom%Element,'was negative with Spline '// &
+                  'interpolation, did Cubic Hermite.'
+
+              end if ! Linear or CH
+
+              ! Verbose
               call verbose
 
-            end if ! If had to do linear and is master
+            end if ! If had to do CH or linear and is master
 
             ! If any scale mode
             if (p_T%nion.ge.0) then
@@ -795,21 +843,39 @@
 
             ! Interpolate in the tabulation
             call colinter(p_T%temp,Culin,p_T%nTmp, &
-                          Atmo%T,p_Col%C,nZ,p_T%flin,lin)
+                          Atmo%T,p_Col%C,nZ,p_T%flin, &
+                          lcub,lin)
 
-            ! If the interpolation ended up being linear and it is
-            ! master
-            if (lin.and.pid.eq.0) then
+            ! If the interpolation ended up being linear or CH
+            ! and it is master
+            if ((lin.or.lcub).and.pid.eq.0) then
 
-              ! Write message
-              write(umsg,'(A,1x,i4,1x,"-->",i4,1x,A,1x,A,1x,A)') &
+              ! Linear
+              if (lin) then
+
+                ! Write message
+                write(umsg,'(A,1x,i4,1x,"-->",i4,1x,A,1x,A,1x,A)') &
                   ' # Inelastic collisional rate '// &
                   c2dump//' ',up,low,'between levels in atom', &
                   Atom%Element,'was negative with Spline '// &
                   'interpolation, did linear.'
+
+              ! CH
+              else
+
+                ! Write message
+                write(umsg,'(A,1x,i4,1x,"-->",i4,1x,A,1x,A,1x,A)') &
+                  ' # Inelastic collisional rate '// &
+                  c2dump//' ',up,low,'between levels in atom', &
+                  Atom%Element,'was negative with Spline '// &
+                  'interpolation, did Cubic Hermite.'
+
+              end if ! Linear or CH
+
+              ! Verbose
               call verbose
 
-            end if ! If had to do linear and is master
+            end if ! If had to do CH or linear and is master
 
             ! If neutral or ion scale mode
             if (p_T%nion.ge.0.and.p_T%nion.le.3) then

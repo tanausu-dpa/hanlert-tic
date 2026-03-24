@@ -10,15 +10,15 @@
 !  Start:
 !     27/02/2023
 !  Last version:
-!     18/12/2025 V4.0.1
+!     23/03/2026 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/12/2025:    V4.0.1 - Added an argument to SVD_Solve to
-!                             control its verbosity (TdPA)
+!     23/03/2026:    V4.0.2 - Limit what CPUs notify about the failure
+!                             of the SVD solution (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -206,8 +206,6 @@
 
         end do ! While loop
 
- 
-
         ! Can talk
         if (can_talk) then
 
@@ -225,7 +223,16 @@
         ! Recover threshold
         Inf_Nodes%Threshold_Svd = TMP_Threshold_Svd
 
-      end if ! Verbose
+        ! Error
+        if (INFO.gt.0) then
+
+          ! Issue error
+          umsg = 'The SVD algorithm failed to converge'
+          urou = 'SVD_Solve'
+          call aborted
+
+        end if ! Error
+      end if ! Master
 
       ! Share info
 999   call MPI_BCAST(INFO,1,MPI_INTEGER,0,MPI_COMM_RT,ierr)
@@ -234,9 +241,7 @@
       if (INFO.gt.0) then
 
         ! Issue error
-        umsg = 'The SVD algorithm failed to converge'
-        urou = 'SVD_Solve'
-        call aborted
+        laborted = .True.
         return
 
       end if ! Error

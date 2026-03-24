@@ -9,16 +9,17 @@
 !  Start:
 !     12/07/2022
 !  Last version:
-!     15/05/2025 V4.0.2
+!     24/03/2026 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.2 - Generalized declarations of Atom and
-!                             Atomb to allow for empty arrays for
-!                             any of them (TdPA)
+!     24/03/2026:    V4.0.3 - Added checks for physical results when
+!                             interpolating with splines, with the
+!                             possibility to fallback to Cubic Hermite
+!                             and linear interpolation (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -977,6 +978,18 @@
       ! Interpolate with splines the two coefficients
       call spline_2d(n1i,n2i,tab1,nn1,nn2,n1,n2,s)
       call spline_2d(n1i,n2i,tab2,nn1,nn2,n1,n2,a)
+
+      ! Check physics
+      if (s.lt.0) &
+        call Cubic_Hermite_2d(n1i,n2i,tab1,nn1,nn2,n1,n2,s)
+      if (a.lt.0) &
+        call Cubic_Hermite_2d(n1i,n2i,tab2,nn1,nn2,n1,n2,a)
+
+      ! Check physics
+      if (s.lt.0) &
+        call bilinear(n1i,n2i,tab1,n1,n2,s)
+      if (a.lt.0) &
+        call bilinear(n1i,n2i,tab2,n1,n2,a)
 
       ! Flag as success
       ch = .True.

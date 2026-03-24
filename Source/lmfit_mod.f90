@@ -10,15 +10,17 @@
 !  Start:
 !     22/03/2023
 !  Last version:
-!     26/02/2026 V4.0.14
+!     23/03/2026 V4.0.15
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!    26/02/2026:    V4.0.14 - Added error message for when the first
-!                             synthesis just fails (TdPA)
+!    23/03/2026:    V4.0.15 - Limit what CPUs can issue the message
+!                             when a trial synthesis fails of a lambda
+!                             parameter is enforced due to a trial
+!                             failure (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -2339,8 +2341,10 @@
                 umsg = ' # Trial synthesis failed'
                 call verbose
               end if
-              umsg = ' # Trial synthesis failed'
-              call verboseI(3)
+              if (pid.eq.0) then
+                umsg = ' # Trial synthesis failed'
+                call verboseI(3)
+              end if
 
             end if ! The trial did not fail
 
@@ -2457,8 +2461,10 @@
                 umsg = ' # Try new lambda value'
                 call verbose
               end if
-              umsg = ' # Try new lambda value'
-              call verboseI(3)
+              if (pid.eq.0) then
+                umsg = ' # Try new lambda value'
+                call verboseI(3)
+              end if
 
               ! Try again
               cycle

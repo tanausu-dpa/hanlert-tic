@@ -10,15 +10,17 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     12/03/2026 V4.0.3
+!     24/03/2026 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2026:    V4.0.3 - Added subroutine Cubic_Hermite and isCH
-!                             function (TdPA)
+!     24/04/2026:    V4.0.4 - Added subroutine Cubic_Hermite_2d (TdPA)
+!                           - The subroutine colinter now tries
+!                             Cubic Hermite when splines give negative
+!                             rates, before trying linear (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -37,7 +39,8 @@
 !
 !  colinter
 !    Interpolate inelastic collisions using cubic splines and, if
-!  resulting in any negative rate, changing to linear interpolation
+!  resulting in any negative rate, changing to Cubic Hermite, and if
+!  still negative, to linear interpolation
 !
 !  bilinear
 !    Two-dimensional bilinear interpolation. Out of boundary values
@@ -75,6 +78,10 @@
 !    Evaluate the cubic Hermite interpolation given the coefficients.
 !  Out of boundary values are taken as extended from the tabulation
 !  data as constant. Admits a single output coordinate
+!
+!  Cubic_Hermite_2d
+!    Two-dimensional cubic hermite interpolation. Admits a single set
+!  of output coordinates 
 !
 !  Intpol
 !    General interpolation routine for the model atmospheres in the
@@ -131,8 +138,8 @@
 !#####################################################################
 
       !> Interpolate inelastic collisions using cubic splines and, if
-      !! resulting in any negative rate, changing to linear
-      !! interpolation\n
+      !! resulting in any negative rate, changing to Cubic Hermite,
+      !! and if still negative, to linear interpolation\n
       !!    xin(double(:)): Input temperature axis\n
       !!    yin(double(:)): Input collisional rate tabulation\n
       !!      nin(integer): Size of xin and yin\n
@@ -141,14 +148,17 @@
       !!     nout(integer): Size of xout and yout\n
       !!  flinear(logical): Bool to indicate if the interpolation
       !!                    must be linear\n
+      !!     lcub(logical): Bool the indicates if the interpolation
+      !!                    had to be Cubic Hermite\n
       !!  llinear(logical): Bool the indicates if the interpolation
       !!                    had to be linear
-      subroutine colinter(xin,yin,nin,xout,yout,nout,flinear,llinear)
+      subroutine colinter(xin,yin,nin,xout,yout,nout,flinear, &
+                          lcub,llinear)
 
       ! I/O
 
       logical,intent(in):: flinear
-      logical,intent(inout):: llinear
+      logical,intent(inout):: llinear,lcub
       integer, intent(in):: nin, nout
       double precision, dimension(:), intent(in):: xin, yin
       double precision, dimension(:), intent(out):: xout, yout
@@ -160,9 +170,10 @@
       double precision, dimension(nin):: b, c, d
 
 
-      ! Checks if we were forced to use linear when splines
-      ! were requested
+      ! Checks if we were forced to use linear or Cubic Hermite
+      ! when splines were requested
       llinear = .False.
+      lcub = .False.
 
       ! If only one input value
       if (nin.eq.1) then
@@ -207,13 +218,38 @@
           ! If negative result
           if (yout(iout).lt.0) then
 
-            ! Flag linear interpolation and abort splines
-            llinear = .True.
+            ! Flag CH interpolation and abort splines
+            lcub = .True.
             exit
 
           end if ! Negative result
 
         end do ! Output temperatures
+
+        ! If Cubic Hermite
+        if (lcub) then
+
+          ! Prepare spline interpolation
+          call Cubic_Hermite(xin,yin,b,c,d,nin)
+
+          ! For each output temperature
+          do iout=1,nout
+
+            ! Spline interpolation
+            yout(iout) = isCH(xout(iout),xin,yin,b,c,d,nin)
+
+            ! If negative result
+            if (yout(iout).lt.0) then
+
+              ! Flag linear interpolation and abort CH
+              llinear = .True.
+              exit
+
+            end if ! Negative result
+
+          end do ! Output temperatures
+
+        end if ! We need CH interpolation
 
         ! The interpolation has to be linear afterall
         if (llinear) then
@@ -1217,6 +1253,72 @@
       return
 
       end function isCH
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Two-dimensional cubic hermite interpolation. Admits a single
+      !! set of output coordinates 
+      !!     x1(double(:)): Input coordinates axis 1\n
+      !!     x2(double(:)): Input coordinates axis 2\n
+      !!    y(double(:,:)): Data to interpolate\n
+      !!       n1(integer): Size of x1 and second column y\n
+      !!       n2(integet): Size of x2 and first column y\n
+      !!        z1(double): Output coordinates axis 1\n
+      !!        z2(double): Output coordinates axis 2\n
+      !!      yout(double): Interpolated data
+      subroutine Cubic_Hermite_2d(x1,x2,y,n1,n2,z1,z2,yout)
+
+      ! I/O
+
+      integer, intent(in):: n1, n2
+      double precision, intent(in):: z1, z2
+      double precision, intent(out):: yout
+      double precision, dimension(:), intent(in):: x1
+      double precision, dimension(:), intent(in):: x2
+      double precision, dimension(:,:), intent(in):: y ! (n2,n1)
+
+      ! Local
+
+      integer:: i1
+
+      double precision, dimension(n1):: yslice1
+      double precision, dimension(n2):: yslice2
+      double precision, dimension(:), allocatable:: b,c,d
+
+
+      ! Allocate
+      if (n1.gt.n2) then
+        allocate(b(n1),c(n1),d(n1))
+      else
+        allocate(b(n2),c(n2),d(n2))
+      end if
+
+      ! For each position in x1
+      do i1=1,n1
+
+        ! Take a slice of y in the first dimension
+        yslice2 = y(:,i1)
+
+        ! Get cubic Hermite
+        call Cubic_Hermite(x2,yslice2,b(1:n2),c(1:n2),d(1:n2),n2)
+
+        ! Interpolate
+        yslice1(i1) = isCH(z2,x2,yslice2,b(1:n2),c(1:n2),d(1:n2),n2)
+
+      end do ! For each position in axis 1
+
+      ! Calculate coefficients in direction 1
+      call Cubic_Hermite(x1,yslice1,b(1:n1),c(1:n1),d(1:n1),n1)
+
+      ! Interpolate
+      yout = isCH(z1,x1,yslice1,b(1:n1),c(1:n1),d(1:n1),n1)
+
+      ! Free
+      deallocate(b,c,d)
+
+      end subroutine Cubic_Hermite_2d
 
 !#####################################################################
 !#####################################################################
