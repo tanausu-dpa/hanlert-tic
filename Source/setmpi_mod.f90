@@ -9,16 +9,16 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     20/08/2025 V4.0.5
+!     09/04/2026 V4.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/08/2025:    V4.0.5 - Added the possibility of a CPU not
-!                             having work to do if not in the CLE
-!                             running mode (TdPA)
+!     09/04/2026:    V4.0.6 - Bugfix: The intent of Frec in routine
+!                             setmpi_sizes should be inout, not just
+!                             in (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1434,7 +1434,7 @@
 
       type(MPI_class), intent(inout):: MPID
       type(Geometry_class), intent(in):: Geom,GeomI
-      type(Frequency_class), intent(in):: Frec
+      type(Frequency_class), intent(inout):: Frec
       logical, intent(in):: lio,lp,lJ,lGen,reval,ALI_photo
 
       ! Local

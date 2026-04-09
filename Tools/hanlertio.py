@@ -5103,8 +5103,8 @@ class _inversion_in():
             f = open(self.__filename,'rb')
 
             # Seek first data points for this column
-            f.seek(self.__jump_to_data + iy*self.__column + \
-                               self.__ny*ix*self.__column,0)
+            f.seek(self.__to_data + iy*self.__column + \
+                          self.__ny*ix*self.__column,0)
 
             # Jump to los
             if self.__c_to_los > 0: f.seek(self.__c_to_los,1)

@@ -9,16 +9,16 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     22/08/2025 V4.0.3
+!     09/04/2026 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     22/08/2025:    V4.0.3 - Added asym argument, which informs
-!                             the caller if there are ad-hoc JKQ
-!                             tensors (TdPA)
+!     09/04/2026:    V4.0.4 - Changed the call to python to python3
+!                             as some systems do not have just python
+!                             anymore (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -636,7 +636,7 @@
         do ientry=1,Input%nasym_fil
 
           ! Deal with the file in python
-          call system('python '//trim(Input%source)//'rasym.py '// &
+          call system('python3 '//trim(Input%source)//'rasym.py '// &
                        trim(Input%asym_fil(ientry)%str)// &
                       ' '//Input%ID//' '//verbosef)
 

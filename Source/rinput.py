@@ -6,8 +6,8 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an (IAC)
 # Hao Li (IAC/NSSCC)
 #
-# 23/03/2026: V4.0.21 - Added MPI_CV_W_MINIMAL, MPI_CV_W_NOMINAL, and
-#                       MPI_CV_MEM_LIMIT (TdPA)
+# 09/04/2026: V4.0.22 - Bugfix: Missing initialization of number
+#                       of LTE lines (TdPA)
 #
 #####################
 
@@ -2076,6 +2076,7 @@ def rInput():
 
   # LTE_LINE
   if rmode != 2:
+    NL = 0
     if 'LTE_LINE' in Dictionary:
       vals = Dictionary['LTE_LINE']
       NL, out = process_LTEline(vals,ofolder,verbosity)

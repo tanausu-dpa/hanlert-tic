@@ -10,17 +10,16 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     18/08/2025 V4.0.7
+!     09/04/2026 V4.0.8
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/08/2025:    V4.0.7 - The non-magnetic indexes need to be
-!                             initialized even if all heights have
-!                             a magnetic field if we are using the
-!                             two step solution (TdPA)
+!     09/04/2026:    V4.0.8 - Changed the call to python to python3
+!                             as some systems do not have just python
+!                             anymore (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -157,7 +156,7 @@
         call verbose
 
         ! Translate the atomic model in python
-        call system('python '//trim(source)//'ratom.py '// &
+        call system('python3 '//trim(source)//'ratom.py '// &
                     trim(filename)//' '//ID//' '//verbosef)
 
       end if ! Master

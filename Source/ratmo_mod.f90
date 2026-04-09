@@ -10,15 +10,16 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     12/03/2026 V4.0.4
+!     09/04/2026 V4.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     12/03/2026:    V4.0.4 - Added support for inversion results to
-!                             rAtmo_frombuffer (TdPA)
+!     09/04/2026:    V4.0.5 - Changed the call to python to python3
+!                             as some systems do not have just python
+!                             anymore (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -413,7 +414,7 @@
       ikbcgs = 1d-7/kb
 
       ! Python translation of the model
-      if(gpid.eq.0) call system('python '//trim(source)// &
+      if(gpid.eq.0) call system('python3 '//trim(source)// &
                                'ratmo.py '//trim(filename)//' '// &
                                ID//' '//verbosef)
 

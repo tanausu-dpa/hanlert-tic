@@ -160,8 +160,8 @@
       logical,intent(in):: flinear
       logical,intent(inout):: llinear,lcub
       integer, intent(in):: nin, nout
-      double precision, dimension(:), intent(in):: xin, yin
-      double precision, dimension(:), intent(out):: xout, yout
+      double precision, dimension(:), intent(in):: xin, yin, xout
+      double precision, dimension(:), intent(out):: yout
 
       ! Local
 

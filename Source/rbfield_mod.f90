@@ -9,14 +9,16 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     17/12/2024 V4.0.0
+!     09/04/2026 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     17/12/2024:    V4.0.0 - Revised headers (TdPA)
+!     09/04/2026:    V4.0.1 - Changed the call to python to python3
+!                             as some systems do not have just python
+!                             anymore (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -225,7 +227,7 @@
       else
 
         ! Translate the magnetic field file in python
-        if(gpid.eq.0) call system('python '//trim(source)// &
+        if(gpid.eq.0) call system('python3 '//trim(source)// &
                                  'rbfield.py '//trim(filename)// &
                                  ' '//ID//' '//verbosef)
 

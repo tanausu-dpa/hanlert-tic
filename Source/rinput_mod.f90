@@ -10,15 +10,16 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     23/03/2026 V4.0.16
+!     09/04/2026 V4.0.17
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     23/03/2026:   V4.0.16 - Read W_minimal, W_nominal, and mem_limit
-!                             into Input (TdPA)
+!     09/04/2026:   V4.0.17 - Changed the call to python to python3
+!                             as some systems do not have just python
+!                             anymore (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -80,7 +81,7 @@
       ! Translate input with python
       !
 
-      if(pid.eq.0) call system('python '//trim(Input%source)// &
+      if(pid.eq.0) call system('python3 '//trim(Input%source)// &
                                'rinput.py '//trim(Input%input)// &
                                ' '//Input%ID)
 

@@ -51,7 +51,7 @@ ITER_2ORD = Yes
 
 ! Solve from B0 solution
 MODE = Both
-OUT_FOLDER = ../../../Outputs/examples/1D/calcium_8542_iron_6175_FALC_B/Solution
+SOLUTION_INPUT = ../../../Outputs/examples/1D/calcium_8542_iron_6175_FALC_B/Solution
 
 ! Correct randiation field tensors when going to multi-term
 P_CORR = Yes

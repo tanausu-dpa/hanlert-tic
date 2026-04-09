@@ -9,16 +9,16 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     15/05/2025 V4.0.1
+!     09/04/2026 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/05/2025:    V4.0.1 - Generalized declarations of Mol to
-!                             allow for empty arrays for any of
-!                             them (TdPA)
+!     09/04/2026:    V4.0.2 - Changed the call to python to python3
+!                             as some systems do not have just python
+!                             anymore (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -104,7 +104,7 @@
       urou = 'rMol'
 
       ! Master translate the molecule model with python
-      if(pid.eq.0) call system('python '//trim(source)// &
+      if(pid.eq.0) call system('python3 '//trim(source)// &
                                'rmol.py '//trim(filename)//' '// &
                                ID//' '//verbosef)
 

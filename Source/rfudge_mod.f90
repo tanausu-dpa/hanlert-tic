@@ -9,14 +9,16 @@
 !  Start:
 !     27/06/2022
 !  Last version:
-!     17/12/2024 V4.0.0
+!     09/04/2026 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     17/12/2024:    V4.0.0 - Updated headers (TdPA)
+!     09/04/2026:    V4.0.1 - Changed the call to python to python3
+!                             as some systems do not have just python
+!                             anymore (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -71,7 +73,7 @@
       if (trim(filename).ne.'NONE') then
 
         ! Master translate the fudge file with python
-        if (pid.eq.0) call system('python '//trim(source)// &
+        if (pid.eq.0) call system('python3 '//trim(source)// &
                                   'rfudge.py '//trim(filename)// &
                                   ' '//ID//' '//verbosef)
 
