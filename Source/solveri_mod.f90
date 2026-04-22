@@ -9,15 +9,15 @@
 !  Start:
 !     20/04/2017
 !  Last version:
-!     23/03/2026 V4.0.17
+!     22/04/2026 V4.0.18
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     23/03/2026:   V4.0.17 - Added new arguments to the call to
-!                             comoving_emissI2ord (TdPA)
+!     22/04/2026:   V4.0.18 - Solved a potential collision of
+!                             conflicting MPI messages (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -3979,7 +3979,7 @@
 
           ! Receive ID
           call MPI_recv(rpid,1,MPI_INTEGER, &
-                        MPI_ANY_SOURCE, 2, &
+                        MPI_ANY_SOURCE, 1, &
                         MPI_COMM_RT, MPI_STATUS_IGNORE, &
                         ierr)
 
@@ -3990,7 +3990,7 @@
           call MPI_recv(tau1(1,MPID%if0(rpid)), &
                         tau1size, &
                         MPI_DOUBLE_PRECISION, rpid, &
-                        3+rpid, MPI_COMM_RT, &
+                        2*nproc+rpid, MPI_COMM_RT, &
                         MPI_STATUS_IGNORE, ierr)
 
         end do ! Ranges
@@ -4032,7 +4032,7 @@
           ! Receive contribution function data
           call MPI_recv(Contr_r(1), MPID%sizei14(info_b(1)), &
                         MPI_DOUBLE_PRECISION, info_b(1), &
-                        1+info_b(1), MPI_COMM_RT, &
+                        nproc+info_b(1), MPI_COMM_RT, &
                         MPI_STATUS_IGNORE, ierr)
 
           ! Reset shift in index
@@ -4060,7 +4060,7 @@
         ! Receive intensity
         call MPI_recv(Stokes_r(1), MPID%nf(info_b(1)), &
                       MPI_DOUBLE_PRECISION, info_b(1), &
-                      info_b(1), MPI_COMM_RT, &
+                      1+info_b(1), MPI_COMM_RT, &
                       MPI_STATUS_IGNORE, ierr)
 
         ! Rearrange the intensity
@@ -4370,14 +4370,14 @@
           call MPI_WAIT(MPID%request8,MPI_STATUS_IGNORE,ierr)
 
           ! Send indexes
-          call MPI_ISEND(pid,1,MPI_INTEGER,0,2,MPI_COMM_RT, &
+          call MPI_ISEND(pid,1,MPI_INTEGER,0,1,MPI_COMM_RT, &
                          MPID%request7,ierr)
 
           ! Send tau1
           tau1_s = tau1
           call MPI_ISEND(tau1_s(1,if0), tau1size, &
                          MPI_DOUBLE_PRECISION, &
-                         0,3+pid,MPI_COMM_RT, &
+                         0,2*nproc+pid,MPI_COMM_RT, &
                          MPID%request8,ierr)
 
           ! If synthesis, control
@@ -4745,14 +4745,14 @@
           call MPI_ISEND(contr_s(1,Rz0), &
                          MPID%sizei14(pid), &
                          MPI_DOUBLE_PRECISION, &
-                         0, 1+pid, MPI_COMM_RT, &
+                         0, nproc+pid, MPI_COMM_RT, &
                          MPID%request5, ierr)
         end if
 
         ! Send intensity
         Stokes_s = data1O(:,3)
         call MPI_ISEND(Stokes_s(if0), MPID%nf(pid), &
-                       MPI_DOUBLE_PRECISION, 0, pid, &
+                       MPI_DOUBLE_PRECISION, 0, 1+pid, &
                        MPI_COMM_RT, MPID%request4, ierr)
 
       end if ! Serial or slave
