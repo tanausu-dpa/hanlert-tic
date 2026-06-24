@@ -11,15 +11,20 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     20/08/2025 V4.0.7
+!     15/06/2026 V4.0.8
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/08/2025:    V4.0.7 - Added the possibility of a CPU not
-!                             having work to do (TdPA)
+!     15/06/2026:    V4.0.8 - Added the definition of freqR and freqB
+!                             variables in Atom_class for hydrogen and
+!                             helium (TdPA)
+!                           - Bugfix: The wrong variable was being
+!                             checked in order to identify the
+!                             limits of the loop over transitions in
+!                             find_integral_limits (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1083,6 +1088,14 @@
       ! For each atom
       do ia=1,nA
 
+        ! If H or He, allocate freqR and freqB
+        if (Atom(ia)%Element.eq.' H'.or.Atom(ia)%Element.eq.'HE') then
+          allocate(Atom(ia)%freqR(Atom(ia)%ntran))
+          MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%freqR)
+          allocate(Atom(ia)%freqB(Atom(ia)%ntran))
+          MRAMc = MRAMc + 1d-6*sizeof(Atom(ia)%freqB)
+        end if
+
         ! For each b-b transitions
         do itran=1,Atom(ia)%ntran
 
@@ -1152,6 +1165,12 @@
 
           ! If absent, skip
           if (Atom(ia)%fflag(itran)%absent) cycle
+
+          ! If H or He, save freqR and freqB
+          if (Atom(ia)%Element.eq.' H'.or.Atom(ia)%Element.eq.'HE') then
+            Atom(ia)%freqR = Frec%omega(Atom(ia)%if0(itran))
+            Atom(ia)%freqB = Frec%omega(Atom(ia)%if1(itran))
+          end if
 
           ! Compute weights for the limits
           Atom(ia)%W0(itran) = .5d5* &
@@ -3437,7 +3456,7 @@
       double precision:: vfacm,vfacp,dnl,dnlmin,dnlmax,O0,O1
 
       ! For each output transition level
-      do ktran=lbound(Red%ao,1),ubound(Red%ao,1)
+      do ktran=lbound(Red%izao,1),ubound(Red%izao,1)
 
         ! If polarization
         if (pol) then

@@ -9,14 +9,14 @@
 !  Start:
 !     24/10/2024
 !  Last version:
-!     24/09/2025 V4.0.6
+!     15/06/2026 V4.0.7
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     24/09/2025:    V4.0.6 - Updated due to changes in Input_class
+!     15/06/2026:    V4.0.7 - Updated due to changes in Atom_class
 !                             structure (TdPA)
 !
 !#####################################################################
@@ -932,6 +932,14 @@
         ! gL
         if (allocated(Atom(ia)%gL)) &
           num = num + 1d-6*sizeof(Atom(ia)%gL)
+
+        ! freqR
+        if (allocated(Atom(ia)%freqR)) &
+          num = num + 1d-6*sizeof(Atom(ia)%freqR)
+
+        ! freqB
+        if (allocated(Atom(ia)%freqB)) &
+          num = num + 1d-6*sizeof(Atom(ia)%freqB)
 
         ! damp
         if (allocated(Atom(ia)%damp)) &

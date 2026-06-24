@@ -9,14 +9,15 @@
 !  Start:
 !     28/06/2022
 !  Last version:
-!     13/02/2026 V4.0.5
+!     15/06/2026 V4.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     13/02/2026:    V4.0.5 - Added free_Atmo_extrasinv (TdPA)
+!     15/06/2026:    V4.0.6 - Updated due to changes in Atom_class
+!                             structure (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -2518,6 +2519,20 @@
         if (allocated(Atom(ia)%gL)) then
           MRAMc = MRAMc - 1d-6*sizeof(Atom(ia)%gL)
           deallocate(Atom(ia)%gL)
+        end if
+
+        !
+        ! freqR
+        if (allocated(Atom(ia)%freqR)) then
+          MRAMc = MRAMc - 1d-6*sizeof(Atom(ia)%freqR)
+          deallocate(Atom(ia)%freqR)
+        end if
+
+        !
+        ! freqB
+        if (allocated(Atom(ia)%freqB)) then
+          MRAMc = MRAMc - 1d-6*sizeof(Atom(ia)%freqB)
+          deallocate(Atom(ia)%freqB)
         end if
 
         !

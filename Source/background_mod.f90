@@ -9,15 +9,16 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     20/08/2025 V4.0.3
+!     15/06/2026 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/08/2025:    V4.0.3 - Added the possibility of a CPU not
-!                             having work to do (TdPA)
+!     15/06/2026:    V4.0.4 - Changed the index argument in chi_freq
+!                             for the call to rayleigh because the
+!                             variable was undefined (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -862,7 +863,7 @@
       logical:: lH,lHe,lOH,lCH,lH2
 
       integer:: iaH,iabH,iaHe,iabHe,imOH,imCH,imH2
-      integer:: ia,imol,ifreq,lnz
+      integer:: ia,imol,lnz
 
       double precision:: DwT
       double precision, dimension(3):: fudge_fact
@@ -1059,7 +1060,7 @@
         end if
 
         ! Compute proper scattering coefficient
-        call rayleigh(freq,ifreq,Atomb(iabH),DwT,iz0,iz1,0,sig)
+        call rayleigh(freq,-1,Atomb(iabH),DwT,iz0,iz1,0,sig)
         chi(1:lnz) = chi(1:lnz) + sig(iz0:iz1)*fudge_fact(2)
 
       ! If H is active
@@ -1091,7 +1092,7 @@
         end if
 
         ! Compute proper scattering coefficient
-        call rayleigh(freq,ifreq,Atom(iaH),DwT,iz0,iz1,1,sig)
+        call rayleigh(freq,-1,Atom(iaH),DwT,iz0,iz1,1,sig)
         chi(1:lnz) = chi(1:lnz) + sig(iz0:iz1)*fudge_fact(2)
 
       end if ! H active or not
@@ -1117,7 +1118,7 @@
           end if
 
           ! Compute proper scattering coefficient
-          call rayleigh(freq,ifreq,Atomb(iabHe),DwT,iz0,iz1,0,sig)
+          call rayleigh(freq,-1,Atomb(iabHe),DwT,iz0,iz1,0,sig)
           chi(1:lnz) = chi(1:lnz) + sig(iz0:iz1)*fudge_fact(2)
 
         end if
@@ -1135,7 +1136,7 @@
         end if
 
         ! Compute proper scattering coefficient
-        call rayleigh(freq,ifreq,Atom(iaHe),DwT,iz0,iz1,1,sig)
+        call rayleigh(freq,-1,Atom(iaHe),DwT,iz0,iz1,1,sig)
         chi(1:lnz) = chi(1:lnz) + sig(iz0:iz1)*fudge_fact(2)
 
       end if ! He active or not

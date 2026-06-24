@@ -10,22 +10,16 @@
 !  Start:
 !     24/02/2023
 !  Last version:
-!     18/12/2025 V4.0.2
+!     11/06/2026 V4.0.3
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/12/2025:    V4.0.2 - Added routines predict_improvement,
-!                             angle_and_norm,
-!                             get_percentile_and_maximum,
-!                             adjust_weights_hessian,
-!                             adjust_weights_trial, and
-!                             adjust_weights (TdPA)
-!                           - Changed Hessian_compute routine to
-!                             allow for the use of two different
-!                             weight variables (TdPA)
+!     11/06/2026:    V4.0.3 - Automatically assign weight 0 to
+!                             wavelengths with non-positive intensity
+!                             values (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -107,6 +101,8 @@
       double precision, dimension(:,:), &
                         allocatable, intent(in):: Stokes_out
 
+      integer:: il
+
 
       ! Initialize chi
       LM_Stru%Chisq_og = 0d0
@@ -139,6 +135,20 @@
 
           end if ! Frequency dependent sigma
 
+          ! If there are zeros in the intensity profile
+          if (minval(Inf_Stokes%Stokes_Ob(0,:)).le.0d0) then
+
+            ! Check all wavelengths
+            do il=1,size(Inf_Stokes%Stokes_Ob(0,:))
+
+              ! If zero, remove weight
+              if (Inf_Stokes%Stokes_Ob(0,il).le.0d0) &
+                 LM_Stru%WeightI(il) = 0d0
+
+            end do ! Wavelengths
+
+          end if ! If non-positive intensity
+
           ! Flag weight as computed
           LM_Stru%Flag_weight = .True.
 
@@ -169,6 +179,20 @@
                              (Inf_Stokes%Sigma_W*Inf_Stokes%Sigma_W)
 
           end if
+
+          ! If there are zeros in the intensity profile
+          if (minval(Inf_Stokes%Stokes_Ob(0,:)).le.0d0) then
+
+            ! Check all wavelengths
+            do il=1,size(Inf_Stokes%Stokes_Ob(0,:))
+
+              ! If zero, remove weight
+              if (Inf_Stokes%Stokes_Ob(0,il).le.0d0) &
+                 LM_Stru%Weight(:,il) = 0d0
+
+            end do ! Wavelengths
+
+          end if ! If non-positive intensity
 
           ! Flag weight as computed
           LM_Stru%Flag_weight = .True.

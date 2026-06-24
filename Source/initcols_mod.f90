@@ -9,17 +9,15 @@
 !  Start:
 !     25/09/2019
 !  Last version:
-!     24/03/2026 V4.0.3
+!     11/06/2026 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     24/03/2026:    V4.0.3 - Made the necessary modifications to
-!                             account for the changes in colinter,
-!                             that can fallback to Cubic Herminte
-!                             interpolation before linear (TdPA)
+!     11/06/2026:    V4.0.4 - Added the option for charge-transfer
+!                             collisions A + H<->A^+ + H^- (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -507,11 +505,11 @@
             if (Atom%inelas(icol)%col_type.eq.0) then
               c2dump = 'BE'
               p_pop = Atmo%ne
-            ! Collision with neutral hydrogen
+            ! Collision with protons
             else if (Atom%inelas(icol)%col_type.eq.2) then
               c2dump = 'BP'
               p_pop = Atmo%nh(:,6)
-            ! Collision with protons
+            ! Collision with neutral hydrogen
             else if (Atom%inelas(icol)%col_type.eq.3) then
               c2dump = 'BH'
               p_pop = Atmo%nh(:,1)
@@ -602,7 +600,7 @@
                       ' # Inelastic collisional rate '// &
                       c2dump//' ',up,low,'between levels in atom', &
                       Atom%Element,'was negative with Spline '// &
-                      'interpolation, did Cubir Hermite.'
+                      'interpolation, did Cubic Hermite.'
 
                 end if ! Term-term or level-level
               end if ! Linear or CH
@@ -763,7 +761,9 @@
           ! Charge transfer rate
           !
           else if (Atom%inelas(icol)%col_type.eq.5.or. &
-                   Atom%inelas(icol)%col_type.eq.6) then
+                   Atom%inelas(icol)%col_type.eq.6.or. &
+                   Atom%inelas(icol)%col_type.eq.7.or. &
+                   Atom%inelas(icol)%col_type.eq.8) then
 
             ! If not the first non-symmetric collision
             if (associated(Atom%Ccoeff_special)) then
@@ -787,7 +787,7 @@
 
             end if ! First non-symmetric collision
 
-            ! If up-low collision
+            ! If up-low collision (A+ + H)
             if (Atom%inelas(icol)%col_type.eq.5) then
 
               ! Configure
@@ -796,14 +796,32 @@
               c2dump = 'c0'
               p_pop = Atmo%nh(:,1)
 
-            ! If low-up collision
-            else
+            ! If low-up collision (A + H+)
+            else if (Atom%inelas(icol)%col_type.eq.6) then
 
               ! Configure
               p_col%ifrom = low
               p_col%ito = up
               c2dump = 'c+'
               p_pop = Atmo%nh(:,6)
+
+            ! If low-up collision (A + H)
+            else if (Atom%inelas(icol)%col_type.eq.7) then
+
+              ! Configure
+              p_col%ifrom = low
+              p_col%ito = up
+              c2dump = 'cO'
+              p_pop = Atmo%nh(:,1)
+
+            ! If up-low collision (A+ + H-)
+            else if (Atom%inelas(icol)%col_type.eq.8) then
+
+              ! Configure
+              p_col%ifrom = up
+              p_col%ito = low
+              c2dump = 'c-'
+              p_pop = Atmo%nHm
 
             end if ! up->low or low->up
 

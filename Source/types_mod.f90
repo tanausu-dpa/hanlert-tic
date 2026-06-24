@@ -11,15 +11,15 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     23/03/2026 V4.0.14
+!     15/06/2026 V4.0.15
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     23/03/2026:   V4.0.14 - Added W_minimal, W_nominal, and
-!                             mem_limit to Input_class (TdPA)
+!     15/06/2026:   V4.0.15 - Added freqR and freqB to the Atom_class
+!                             structure (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -625,12 +625,15 @@
         ! frequency, Doppler widths to include, Doppler widths for
         ! the core, Frequency of term transition, number density of
         ! the atom in cm-3, Stark broadening, degeneration (terms
-        ! and H custom), lower and upper frequency limit weights
+        ! and H custom), lower and upper frequency limit weights,
+        ! red limit of frequency for each transition for Rayleigh,
+        ! blue limit of frequency for each transition for Rayleigh
         double precision, dimension(:), allocatable:: rLval,Sval, &
                                                       TRfreq,Dwvl, &
                                                       Dwvlc,Dfreq,n, &
                                                       broad_stark, &
-                                                      deg,W0,W1,gL
+                                                      deg,W0,W1,gL, &
+                                                      freqR,freqB
 
         ! Inverse lifetime, level frequency and J values, radiative
         ! transition rates matrix, arguments for the Van der Waals

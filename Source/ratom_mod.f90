@@ -10,16 +10,15 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     09/04/2026 V4.0.8
+!     11/06/2026 V4.0.9
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     09/04/2026:    V4.0.8 - Changed the call to python to python3
-!                             as some systems do not have just python
-!                             anymore (TdPA)
+!     11/06/2026:    V4.0.9 - Added the option for charge-transfer
+!                             collisions A + H<->A^+ + H^- (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1576,7 +1575,8 @@
             !
             ! Charge transfer
             !
-            else if (cind.eq.5.or.cind.eq.6) then
+            else if (cind.eq.5.or.cind.eq.6.or. &
+                     cind.eq.7.or.cind.eq.8) then
 
               ! If term-wise (can only be level wise)
               if (col_type.eq.0) then

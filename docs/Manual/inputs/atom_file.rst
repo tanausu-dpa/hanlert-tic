@@ -515,7 +515,7 @@ them:
       in a bound-bound transition.
     * *FH*. Inelastic collision with Hydrogen atoms in the ground level resulting
       in a bound-free transition.
-    * *C0*. Charge transfer collisional rate with Hydrogen atoms in the ground level.
+    * *C0* (C-zero). Charge transfer collisional rate with Hydrogen atoms in the ground level.
 
       .. math::
 
@@ -527,6 +527,21 @@ them:
       .. math::
 
           I^0 + H^+ \rightarrow I^+ + H^0
+
+
+    * *CO* (C-Capital O). Charge transfer collisional rate with Hydrogen atoms in the ground level.
+
+      .. math::
+
+          I^0 + H^0 \rightarrow I^+ + H^-
+
+
+    * *C-*. Charge transfer collisional rate with Hydrogen minus.
+
+      .. math::
+
+          I^+ + H^- \rightarrow I^0 + H^0
+
 
     .. note::
 

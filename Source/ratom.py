@@ -5,10 +5,8 @@ import sys, math, os
 #
 # Tanaus\'u del Pino Alem\'an (IAC)
 #
-# 15/05/2025:  V4.0.2 - Added 'kurucz' mode to the allowed types
-#                       of broadening (TdPA)
-#                     - Cleaned the processing of radiative
-#                       transitions
+# 11/06/2026:  V4.0.3 - Added the option for charge-transfer
+#                       collisions A + H <-> A^+ + H^- (TdPA)
 #
 #####################
 
@@ -571,8 +569,8 @@ def rAtom():
   try:
     rt = False
     coldic = {'be':'0', 'fe':'1', 'bp':'2', 'bh':'3', 'fh':'4', \
-              'c0':'5', 'c+':'6'}
-    ctype = ['be','fe','bp','bh','fh','c0','c+']
+              'c0':'5', 'c+':'6', 'cO':7, 'c-':8}
+    ctype = ['be','fe','bp','bh','fh','c0','c+','cO','c-']
     nlins = len(lines) - iline - 1
     ncol = 0
     nclin = 0

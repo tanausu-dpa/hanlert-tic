@@ -6935,12 +6935,12 @@ class _inversion_out():
                 i = np.argmin(np.absolute(lam - minl))
                 lam = lam[i:]
                 stokes_ob = stokes_ob[:,i:]
-                stokes_fi = stokes_ob[:,i:]
+                stokes_fi = stokes_fi[:,i:]
             if maxl is not None:
                 i = np.argmin(np.absolute(lam - maxl))
                 lam = lam[:i+1]
                 stokes_ob = stokes_ob[:,:i+1]
-                stokes_fi = stokes_ob[:,:i+1]
+                stokes_fi = stokes_fi[:,:i+1]
 
             # Nodes
             nodes = {}

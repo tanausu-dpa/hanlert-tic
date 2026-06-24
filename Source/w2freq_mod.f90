@@ -10,15 +10,16 @@
 !  Start:
 !     17/02/2023
 !  Last version:
-!     14/08/2025 V4.0.4
+!     11/06/2026 V4.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     14/08/2025:    V4.0.4 - Added sanity check for non-positive
-!                             weights (TdPA)
+!     11/06/2026:    V4.0.5 - If a region has no intensity for a given
+!                             pixel, make the scale 1 to avoid zero
+!                             division (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -782,6 +783,12 @@
               dble(Sol%Range(i,2)-Sol%Range(i,1)+1)*1d-2
 
         end do ! Stokes parameters
+
+        ! If the intensity scale is zero, make all one
+        ! they will be ignored anyways
+        if (Inf_Stokes%Scales(i,0).le.0d0) &
+          Inf_Stokes%Scales(i,:) = 1d0
+
       end do ! Wavelength ranges
 
       ! Store intensity scale

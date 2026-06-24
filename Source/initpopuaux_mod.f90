@@ -9,16 +9,17 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     18/12/2025 V4.0.1
+!     15/06/2026 V4.0.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     18/12/2025:    V4.0.1 - Bugfix: When loading populations form a
-!                             file in 1.5DS mode, missing reading of
-!                             the nx and ny sizes (TdPA)
+!     15/06/2026:    V4.0.2 - Bugfix: Wrong normalization when
+!                             distributing hydrogen populations from
+!                             the model atmosphere into an atom with
+!                             fine structure (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -574,8 +575,8 @@
 
       !> Manage hydrogen populations\n
       !> Set the hydrogen populations in the model atom to the ones in
-      !! the model atmosphere atmosphere, distributed in LTE among
-      !! sublevels of the given principal levels\n
+      !! the model atmosphere, distributed in LTE among sublevels of
+      !! the given principal levels\n
       !!   Atom(Atom_class): Structure with atomic data\n
       !!   Atmo(Atmo_class): Structure with atmospheric data\n
       !!  LJstruct(logical): If the atomic model has LJ structure
@@ -676,7 +677,7 @@
         il = 0
 
         ! Initialize sum
-        SS = 0d0
+        SS = 1d0
 
         ! For each term
         do it=1,Atom%nmulti
@@ -761,7 +762,6 @@
 
           end do ! J level
         end do ! Atomic term
-
       end do ! Heights
 
       ! Check if everything is fine

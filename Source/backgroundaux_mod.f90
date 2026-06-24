@@ -9,15 +9,18 @@
 !  Start:
 !     23/02/2017
 !  Last version:
-!     28/11/2024 V4.0.0
+!     15/06/2026 V4.0.1
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     28/11/2024:    V4.0.0 - Avoid loops when looking for levels
-!                             involved in transitions (TdPA)
+!     15/06/2026:    V4.0.1 - Bugfix: When calling rayleigh for an
+!                             active atom from chi_freq, the input
+!                             index was undefined (TdPA)
+!                           - Improvements in rayleigh function when
+!                             the call is for an active atom (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1218,11 +1221,28 @@
 
         end do ! Upper terms
 
-        ! If the frequency is larger than the larger red wing, no
-        ! contribution
-        if (freq.ge.flimit) return
+      ! If the atom is active
+      else
 
-      end if ! Hard-coded
+        ! For every upper term
+        do iterm1=2,Atom%nMulti
+
+          ! If not connected to ground term
+          if (Atom%irad(1,iterm1).lt.1) cycle
+
+          ! Get transition index
+          itran = Atom%irad(1,iterm1)
+
+          ! Update the limit
+          flimit = max(flimit,Atom%freqR(itran))
+
+        end do ! Upper terms
+
+      end if ! Hard-coded or active
+
+      ! If the frequency is larger than the larger red wing, no
+      ! contribution
+      if (freq.ge.flimit) return
 
       ! Initialize the population of the ground term
       n0 = 0d0
@@ -1268,7 +1288,11 @@
           ! Check that the frequency is lower than the transition
           ! frequency and that the line is absent in this frequency
           if (Atom%fflag(itran)%absent.and.freq.gt.freq0) cycle
-          if (ifreq.ge.Atom%if0(itran)) cycle
+          if (ifreq.gt.0) then
+            if (ifreq.ge.Atom%if0(itran)) cycle
+          else
+            if (freq.ge.Atom%freqR(itran)) cycle
+          end if
 
         end if ! Active or passive atom
 
