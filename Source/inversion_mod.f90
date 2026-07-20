@@ -10,16 +10,17 @@
 !  Start:
 !     22/02/2023
 !  Last version:
-!     20/02/2026 V4.0.6
+!     20/07/2026 V4.0.7
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/02/2026:    V4.0.6 - Changed verbosity preferences to ensure
-!                             important messages are both in the main
-!                             and extra verbosity files (TdPA)
+!     20/07/2026:    V4.0.7 - When checking the initial values of the
+!                             magnetic field or velocity azimuth,
+!                             check not only for 0, but also for pi
+!                             and for 2*pi (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -412,7 +413,9 @@
         if (Inf_Nodes%Nodes_Flags(i)) then
 
           ! If maximum value too small (1d-3)
-          if (maxval(abs(Inf_Nodes%Node(i)%Var)).lt.1d-3) then
+          if (maxval(abs(Inf_Nodes%Node(i)%Var)).lt.1d-3.or. &
+              maxval(abs(Inf_Nodes%Node(i)%Var - 2d0*PI)).lt.1d-3.or.&
+              maxval(abs(Inf_Nodes%Node(i)%Var - PI)).lt.1d-3) then
 
             ! Master
             if (pid.eq.0) then
@@ -477,7 +480,10 @@
           if (Inf_Nodes%vtype.eq.1) then
 
             ! If maximum value too small (1d-3)
-            if (maxval(abs(Inf_Nodes%Node(i)%Var)).lt.1d-3) then
+            if (maxval(abs(Inf_Nodes%Node(i)%Var)).lt.1d-3.or. &
+                maxval(abs(Inf_Nodes%Node(i)%Var - 2d0*PI)).lt. &
+                                                            1d-3.or. &
+                maxval(abs(Inf_Nodes%Node(i)%Var - PI)).lt.1d-3) then
 
               ! Master
               if (pid.eq.0) then

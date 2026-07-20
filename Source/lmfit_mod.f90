@@ -10,17 +10,36 @@
 !  Start:
 !     22/03/2023
 !  Last version:
-!     23/03/2026 V4.0.15
+!     20/07/2026 V4.0.16
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!    23/03/2026:    V4.0.15 - Limit what CPUs can issue the message
-!                             when a trial synthesis fails of a lambda
-!                             parameter is enforced due to a trial
-!                             failure (TdPA)
+!    20/07/2026:    V4.0.16 - Bugfix: After leaving the backtracking,
+!                             the stored residuals are only correct
+!                             if the backtracking resulted in a
+!                             bracketed series whose chi^2 improved
+!                             after interpolation. In general, it is
+!                             necessary not only to update the final
+!                             Stokes parameters, but the residuals.
+!                             Therefore, the computed Hessian was not
+!                             necessarily corresponding to the state
+!                             of the fit, what could deteriorate the
+!                             LM procedure. Hao Li found out about
+!                             this and suggested the fix (TdPA)
+!                           - Bugfix: In the Backtracking, if it
+!                             becomes imposible to compute a trial
+!                             solution, but there were previous
+!                             successful steps, the procedure would
+!                             abort without taking into account the
+!                             changes with respect to the initial
+!                             status at entry. Logic has been added
+!                             to restore or update variables whenever
+!                             it is necessary before leaving the
+!                             Backtracking in case of several failure
+!                             in the trials (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -802,8 +821,10 @@
 
         end select ! LM method
 
-        ! Set Stokes to best
-        Sol%Stokes_out = Stokes_best
+        ! Set best Stokes and update residuals
+        call Update_residuals(LM_Stru,Sol,Inf_Stokes, &
+                              Inf_Nodes%Nodes_Type, &
+                              Stokes_best)
 
         ! If last step was accepted
         if (LM_Stru%accepted) then
@@ -2245,6 +2266,7 @@
       Penalty_TMP = LM_Stru%Rgl%Penalty
       Chisq_indx = -1
       Chisq_old = LM_Stru%Chisq
+      Stokes_Min = Sol%Stokes_out
       up_first = .True.
       Chisq_best = chisq_old
       jndx = 1
@@ -2454,7 +2476,33 @@
               nfail = nfail + 1
 
               ! If beyond saving
-              if (nfail.ge.Max_fail) goto 1000
+              if (nfail.ge.Max_fail) then
+
+                ! If this is not the first step
+                if (indx.gt.1) then
+
+                  ! If could not find a better one
+                  if (Chisq_indx.lt.1) then
+
+                    ! Just take the last
+                    LM_Stru%Rgl%Penalty = Penalty_TMP
+                    LM_Stru%Chisq = chisq_old
+
+                  ! If could find a better one
+                  else
+
+                    ! Just take the best
+                    LM_Stru%Lambda = Lambda_array(Chisq_indx)
+                    LM_Stru%Rgl%Penalty = Penalty_array(Chisq_indx)
+                    LM_Stru%Chisq = Chisq_array(Chisq_indx)
+
+                  end if ! Found a better solution or not
+                end if ! Not the first Backtracking step
+                  
+                ! Go to free memory and leave
+                goto 1000
+
+              end if ! If trials beyond saving
 
               ! Verbose
               if (gpid.eq.0) then

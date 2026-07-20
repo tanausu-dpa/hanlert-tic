@@ -10,16 +10,22 @@
 !  Start:
 !     24/02/2023
 !  Last version:
-!     11/06/2026 V4.0.3
+!     20/07/2026 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     11/06/2026:    V4.0.3 - Automatically assign weight 0 to
-!                             wavelengths with non-positive intensity
-!                             values (TdPA)
+!     20/07/2026:    V4.0.4 - Added subroutine Update_residuals (TdPA)
+!                           - When the synthesis to calculate a
+!                             response function fails, instead of
+!                             stopping the whole process, that
+!                             component of the Jacobian is set to zero
+!                             so the process can continue. If not
+!                             Jacobian component can be computed, then
+!                             the process must stop. This was
+!                             suggested by Hao Li (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -38,6 +44,10 @@
 !
 !  Merit_function
 !    Compute the L2 merit function of Stokes profiles
+!
+!  Update_residuals
+!    Update the Stokes stored in the solution with the best fit and
+!  update residuals
 !
 !  predict_improvement
 !    Predict the improvement for the calculated step
@@ -212,6 +222,58 @@
       return
 
       end subroutine Merit_function
+
+!#####################################################################
+!#####################################################################
+!#####################################################################
+
+      !> Update the Stokes stored in the solution with the best
+      !! fit and update residuals\n
+      !!      LM_Stru(LMFIT_class): Structure with data for the
+      !!                            Levenberg–Marquardt\n
+      !!       Sol(Solution_class): Structure with the frequency and
+      !!                            synthetic Stokes parameters in the
+      !!                            frequency range of the inverted
+      !!                            data\n
+      !!  Inf_Stokes(Stokes_class): Structure with inversion Stokes
+      !!                            parameters data\n
+      !!       Nodes_type(integer): Type of inversion\n
+      !!  Stokes_best(double(:,:)): Currently best Stokes parameters
+      subroutine Update_residuals(LM_Stru,Sol,Inf_Stokes, &
+                                  Nodes_type,Stokes_best)
+
+      ! I/O
+
+      type(LMFIT_class), intent(inout):: LM_Stru
+      type(Solution_class), intent(inout):: Sol
+      type(Stokes_class), intent(in):: Inf_Stokes
+      integer, intent(in):: Nodes_Type
+      double precision, dimension(:,:), &
+                        allocatable, intent(in):: Stokes_best
+
+
+      ! Set Stokes to best
+      Sol%Stokes_out = Stokes_best
+
+      ! If thermal
+      if (Nodes_Type.eq.0) then
+
+        ! Compute difference
+        LM_Stru%ResidualI = Sol%Stokes_out(0,:) - &
+                            Inf_Stokes%Stokes_Ob(0,:)
+
+      ! Non-thermal
+      else
+
+        ! Compute difference
+        LM_Stru%Residual = Sol%Stokes_out - &
+                           Inf_Stokes%Stokes_Ob
+
+      end if ! Type of inversion
+
+      return
+
+      end subroutine Update_residuals
 
 !#####################################################################
 !#####################################################################
@@ -977,7 +1039,22 @@
                          Inf_Nodes,i,LM_Stru%JacobianI(:,j), &
                          Sol,SolF,Input)
 
+          ! If the RF calculation failed
+          if (laborted) then
+
+            ! Make Jacobian zero
+            LM_Stru%JacobianI(:,j) = 0d0
+
+            ! Do not abort
+            laborted = .False.
+
+          end if ! RF calculation failed
+
         end do ! Thermal nodes
+
+        ! If we could not calculate any response function,
+        ! give up
+        if (maxval(abs(LM_Stru%JacobianI)).le.0d0) laborted = .True.
 
       ! If inversion is magnetic
       else if (Inf_Nodes%Nodes_Type.eq.1) then
@@ -1002,7 +1079,22 @@
                       kurucz,MPID,Atmo,Bfield,Inf_Nodes,i, &
                       LM_Stru%Jacobian(:,:,i),Sol,SolF,Input)
 
+          ! If the RF calculation failed
+          if (laborted) then
+
+            ! Make Jacobian zero
+            LM_Stru%Jacobian(:,:,i) = 0d0
+
+            ! Do not abort
+            laborted = .False.
+
+          end if ! RF calculation failed
+
         end do ! Magnetic nodes
+
+        ! If we could not calculate any response function,
+        ! give up
+        if (maxval(abs(LM_Stru%Jacobian)).le.0d0) laborted = .True.
 
       ! If inverting all
       else if (Inf_Nodes%Nodes_Type.eq.2) then
@@ -1015,7 +1107,22 @@
                       kurucz,MPID,Atmo,Bfield,Inf_Nodes,i, &
                       LM_Stru%Jacobian(:,:,i),Sol,SolF,Input)
 
+          ! If the RF calculation failed
+          if (laborted) then
+
+            ! Make Jacobian zero
+            LM_Stru%Jacobian(:,:,i) = 0d0
+
+            ! Do not abort
+            laborted = .False.
+
+          end if ! RF calculation failed
+
         end do ! All nodes
+
+        ! If we could not calculate any response function,
+        ! give up
+        if (maxval(abs(LM_Stru%Jacobian)).le.0d0) laborted = .True.
 
       end if ! Type of inversion
 
