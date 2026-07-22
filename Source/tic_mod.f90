@@ -10,17 +10,21 @@
 !  Start:
 !     16/02/2023
 !  Last version:
-!     20/02/2026 V4.0.10
+!     22/07/2026 V4.0.11
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     20/02/2026:   V4.0.10 - Bugfix: initialized auxiliar variables
-!                             in the serial branch of TIC (TdPA)
-!                           - Free the input atmospheric model just
-!                             for cleaniness (TdPA)
+!     22/07/2026:   V4.0.11 - Bugfix: when starting from a previous
+!                             solution or restoring a calculation, the
+!                             input magnetic field was being freed
+!                             implicitly by the setup routine, and
+!                             not explicitly by free_B. Therefore, the
+!                             freed memory was not being accounted
+!                             for, resulting in the very annoying
+!                             RAM counter error (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1925,8 +1929,10 @@
                            Inf_Nodes,Sol,imask)
 
             ! Clean atmosphere?
-            if (s_atmo_buffer.gt.0.or.restoring) &
+            if (s_atmo_buffer.gt.0.or.restoring) then
               call free_Atmo(Atmo_in,.False.)
+              call free_B(Bfield_in)
+            end if
 
             ! If liutenant, send message to grand master
             if (pid.eq.0) then
@@ -2248,8 +2254,10 @@
                          Inf_Nodes,Sol,imask)
 
           ! Clean Atmo?
-          if (s_atmo_buffer.gt.0.or.restoring) &
+          if (s_atmo_buffer.gt.0.or.restoring) then
             call free_Atmo(Atmo_in,.False.)
+            call free_B(Bfield_in)
+          end if
 
           ! Copy coords
           int_buff(1:3) = icoords
