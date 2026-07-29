@@ -21,7 +21,16 @@ How do you request reveral lines of sight in the same run?
 
 Most of the keywords that admit more than one element per entry expect spaces as separators. Therefore, for several heliocentric angles one would write, e.g., *POLAR_LOS = 0.1 0.5 1.0*.
 
-Why does The code explode when I execute a run with polarization starting from a previous solution?
+How can you check the progress of an inversion/synthesis with more than one pixel?
+----------------------------------------------------------------------------------
+
+It is possible to check the progress in two ways. First, you can try opening any of the output files with the class in *Tools/hanlertio.py*; it allows reading partial files, so by requesting a *plane* slice you will visually see the progress. An easier way is using the tool *Tools/check_cache.py*. By running in your terminal::
+
+    python <path_to_Tools_folder>/check_cache.py  <path_to_the_output_folder>/cache
+
+the current progress will be printed.
+
+Why does the code explode when I execute a run with polarization starting from a previous solution?
 ---------------------------------------------------------------------------------------------------
 
 The most common reason is that there was some compatibility problem with the chosen solution file and the radiation field could not be initialized correctly. If this happens, the following message should be present in the verbosity: *Warning: Number of frequencies in solution file different than in system; ignoring Stokes and J^K_Q(nu)*.
@@ -69,17 +78,12 @@ In the :ref:`Atomic file <atom_file>`, each transition is assigned a range (in D
 I received a message saying that an inelastic collisional rate or cross-section was negative with Spline interpolation. Why?
 ----------------------------------------------------------------------------------------------------------------------------
 
-That means that interpolating the tabulated values of the collisional rates or of the cross-section to the model's temperature resulted in a negative number somewhere. The code assumed that the reason was a problem with the splines and applied a linear interpolation instead. If the code proceeded as normal, the linear interpolation resulted in a positive number. While this warning is not a problem by itself, it is recommended to check what happens to the provided tabulations when applying splines in order to understand the magnitude of the problem and the goodness of both interpolations.
+That means that interpolating the tabulated values of the collisional rates or of the cross-section to the model's temperature resulted in a negative number somewhere. The code assumed that the reason was a problem with the splines and applied a different interpolation instead. If the code proceeded as normal, the new interpolation resulted in a positive number. While this warning is not a problem by itself, it is recommended to check what happens to the provided tabulations when applying splines in order to understand the magnitude of the problem and the goodness of the interpolations.
 
 I received a warning saying that a transition from an atom had bad normalization in a number of heights, directions, and components. What is that about?
 --------------------------------------------------------------------------------------------------------------------------------------------------------
 
-The absorption profiles for each transition need to be normalized for every height, direction (in dynamic cases), and magnetic component to ensure that the energy is exactly conserved in the iterative process. Usually, the integral over the absorption profile is close to one, and the normalization is just taking care of small numerical errors. This message is warning that, for the provided parameters to discretize the wavelengths of the mentioned spectral line, the profile prior to the normalization integrated to something that was clearly different from one (this is controled by the parameters *BADNORM* in the *parameters_mod.f90* source file). If this line is important, it is recommended to improve the assignment of ranges and wavelength numbers for that line. The number is just the count of how many of the individual profiles (for each height, direction, and magnetic component) integrated badly to one before the normalization, giving an idea of how important it is (it may not be necessary to improve the parameters if this happens in a few points and they are expected to be out of the region of formation, for example).
-
-I received a warning saying *# Limit of iterations in task distributer*. Is it important?
------------------------------------------------------------------------------------------
-
-There is a very simple algorithm trying to distribute both the frequency axis and the frequencies for redistribution in each transition among the available CPUs to try to assign similar loads to all of them. Sometimes the algorithm cannot find a definitive optimal distribution and reaches a hard-coded limit of tries. There is nothing to worry about.
+The absorption profiles for each transition need to be normalized for every height, direction (in dynamic cases), and magnetic component to ensure that the energy is exactly conserved in the iterative process. Usually, the integral over the absorption profile is close to one, and the normalization is just taking care of small numerical errors. This message is warning that, for the provided parameters to discretize the wavelengths of the mentioned spectral line, the profile prior to the normalization integrated to something that was clearly different from unity (this is controled by the parameters *BADNORM* in the *parameters_mod.f90* source file). If this line is important, it is recommended to improve the assignment of ranges and wavelength numbers for that line. The number is just the count of how many of the individual profiles (for each height, direction, and magnetic component) integrated badly to unity before the normalization, giving an idea of how important it is (it may not be necessary to improve the parameters if this happens in a few points and they are expected to be out of the region of formation, for example).
 
 I received a warning saying that a processor *reached RAM limit*. What is that about?
 -------------------------------------------------------------------------------------

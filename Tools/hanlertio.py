@@ -25,9 +25,9 @@ def _error(msg,level,ret=False):
 # Numpy integer
 npint = type(np.argmin(np.array([0.])))
 
-################################################################################
-################################################################################
-################################################################################
+######################################################################
+######################################################################
+######################################################################
 
 class _stokes_1D():
     ''' Class to manage emergent Stokes parameters from 1D synthesis
@@ -120,6 +120,8 @@ class _stokes_1D():
         ''' Reads hanlert emergence 1D file head
         '''
         try:
+
+            # Get header data
             f = open(self.__filename,'rb')
             f.seek(2,0)
             self.__nl = struct.unpack('i',f.read(4))[0]
@@ -128,6 +130,19 @@ class _stokes_1D():
             self.__mu = np.cos(np.pi*self.__th/180e0)
             self.__hsize = 22
             f.close()
+
+            # Create memmaps
+            self.__omg = np.memmap(self.__filename, \
+                                   mode='r', \
+                                   offset=self.__hsize, \
+                                   dtype=np.float64, \
+                                   shape=(self.__nl))
+            self.__stk = np.memmap(self.__filename, \
+                                   mode='r', \
+                                   offset=self.__hsize + \
+                                          8*self.__nl, \
+                                   dtype=np.float64, \
+                                   shape=(4,self.__nl))
             return True
         except struct.error:
             raise
@@ -163,62 +178,40 @@ class _stokes_1D():
         ''' Get lambda from file
         '''
         try:
-            f = open(self.__filename,'rb')
-            f.seek(self.__hsize,0)
-            omg = np.array(struct.unpack('d'*self.__nl, \
-                                         f.read(8*self.__nl)))
-            lam = 1e2/omg[::-1]
+            lam = 1e2/self.__omg[::-1]
             if minl is not None:
                 i = np.argmin(np.absolute(lam - minl))
                 lam = lam[i:]
             if maxl is not None:
                 i = np.argmin(np.absolute(lam - maxl))
                 lam = lam[:i+1]
-            f.close()
             return lam
-        except struct.error:
-            raise
         except:
             raise
 
-    def __get_gen_stokes(self,minl=None,maxl=None,fractional=False,indx=[0]):
+    def __get_gen_stokes(self,minl=None,maxl=None, \
+                         fractional=False,indx=[0]):
         ''' Generic read of Stokes parameters
         '''
 
         # Initialize
         out = [None,None,None,None]
-        bsiz = self.__nl*8
 
         try:
 
-            # Open and seek data
-            f = open(self.__filename,'rb')
-            f.seek(self.__hsize,0)
-
             # Get wavelength
-            if fractional or minl is not None or maxl is not None:
-                omg = np.array(struct.unpack('d'*self.__nl, \
-                                             f.read(bsiz)))
-                lam = 1e2/omg[::-1]
-            else:
-                f.seek(bsiz,1)
+            if minl is not None or maxl is not None:
+                lam = 1e2/self.__omg[::-1]
 
             # Intensity
             if 0 in indx or fractional:
 
                 # Get intensity
-                stkI = np.array(struct.unpack('d'*self.__nl, \
-                        f.read(bsiz)))[::-1]
+                stkI = self.__stk[0,::-1]
 
                 # Out?
                 if 0 in indx:
-                    out[0] = stkI
-
-            # No intensity
-            else:
-
-                # Skip
-                f.seek(bsiz,1)
+                    out[0] = stkI.copy()
 
             # Q, U, and V
             for j in range(1,4):
@@ -227,20 +220,11 @@ class _stokes_1D():
                 if j in indx:
 
                     # Read Stokes
-                    out[j] = np.array(struct.unpack('d'*self.__nl, \
-                                                    f.read(bsiz)))[::-1]
-                # Not in output
-                else:
-
-                    # Skip
-                    f.seek(bsiz,1)
+                    out[j] = self.__stk[j,::-1].copy()
 
                 # If fractional and output
                 if fractional and j in indx:
                     out[j] /= stkI
-
-            # Close unit
-            f.close()
 
             # Limits
             if minl is not None:
@@ -259,12 +243,9 @@ class _stokes_1D():
                 if j == 0 or not fractional:
                     out[j] *= self.__unit_trans
 
-
             # Return
             return out
 
-        except struct.error:
-            raise
         except:
             raise
 
@@ -306,9 +287,9 @@ class _stokes_1D():
         iquv = self.__get_gen_stokes(minl,maxl,fractional,[0,1,2,3])
         return np.stack((iquv[0],iquv[1],iquv[2],iquv[3]))
 
-################################################################################
-################################################################################
-################################################################################
+######################################################################
+######################################################################
+######################################################################
 
 class _stokesquad_1D():
     ''' Class to manage emergent Stokes parameters in the quadrature
@@ -404,6 +385,8 @@ class _stokesquad_1D():
         ''' Reads hanlert emergence 1D file head
         '''
         try:
+
+            # Get header data
             f = open(self.__filename,'rb')
             f.seek(2,0)
             self.__nl = struct.unpack('i',f.read(4))[0]
@@ -429,6 +412,18 @@ class _stokesquad_1D():
             self.__mu = np.cos(self.__th*np.pi/180.)
             self.__hsize = 14 + 8*self.__nl
             f.close()
+
+            # Create mamps
+            self.__omg = np.memmap(self.__filename, \
+                                   mode='r', \
+                                   offset=self.__jump_to_lambda, \
+                                   dtype=np.float64, \
+                                   shape=(self.__nl))
+            self.__stk = np.memmap(self.__filename, \
+                                   mode='r', \
+                                   offset=self.__hsize, \
+                                   dtype=np.float64, \
+                                   shape=(self.__nd,4,self.__nl))
             return True
         except struct.error:
             raise
@@ -469,42 +464,30 @@ class _stokesquad_1D():
         ''' Get lambda from file
         '''
         try:
-            f = open(self.__filename,'rb')
-            f.seek(self.__jump_to_lambda,0)
-            omg = np.array(struct.unpack('d'*self.__nl, \
-                                         f.read(8*self.__nl)))
-            lam = 1e2/omg[::-1]
+            lam = 1e2/self.__omg[::-1]
             if minl is not None:
                 i = np.argmin(np.absolute(lam - minl))
                 lam = lam[i:]
             if maxl is not None:
                 i = np.argmin(np.absolute(lam - maxl))
                 lam = lam[:i+1]
-            f.close()
             return lam
-        except struct.error:
-            raise
         except:
             raise
 
-    def __get_gen_stokes(self,minl=None,maxl=None,fractional=False,indx=[0]):
+    def __get_gen_stokes(self,minl=None,maxl=None, \
+                         fractional=False,indx=[0]):
         ''' Generic read of Stokes parameters
         '''
 
         # Initialize
         out = [None,None,None,None]
-        bsiz = self.__nl*8
 
         # If cutting lambda
-        if fractional or minl is not None or maxl is not None:
+        if minl is not None or maxl is not None:
             lam = self._get_lambda()
 
-
         try:
-
-            # Open and seek data
-            f = open(self.__filename,'rb')
-            f.seek(self.__hsize,0)
 
             # Get space
             stk = np.empty((self.__nd,4,self.__nl))
@@ -519,15 +502,11 @@ class _stokesquad_1D():
                 if 0 in indx or fractional:
 
                     # Get intensity
-                    stk[di,0,:] = \
-                            np.array(struct.unpack('d'*self.__nl, \
-                                     f.read(bsiz)))[::-1]
+                    stkI = self.__stk[:,0,::-1]
 
-                # No intensity
-                else:
-
-                    # Skip
-                    f.seek(bsiz,1)
+                    # Out?
+                    if 0 in indx:
+                        out[0] = stkI.copy()
 
                 # Q, U, and V
                 for j in range(1,4):
@@ -536,48 +515,32 @@ class _stokesquad_1D():
                     if j in indx:
 
                         # Read Stokes
-                        stk[di,j,:] = \
-                             np.array(struct.unpack('d'*self.__nl, \
-                                                    f.read(bsiz)))[::-1]
-                    # Not in output
-                    else:
-
-                        # Skip
-                        f.seek(bsiz,1)
+                        out[j] = self.__stk[:,j,::-1].copy()
 
                     # If fractional and output
                     if fractional and j in indx:
-                      stk[di,j,:] /= stk[di,0,:]
-
-            # Close unit
-            f.close()
+                      out[j] /= out[j]/stkI
 
             # Limits
             if minl is not None:
                 i = np.argmin(np.absolute(lam - minl))
                 lam = lam[i:]
-                stk = stk[:,:,i:]
+                for j in indx:
+                    out[j] = out[j][:,i:]
             if maxl is not None:
                 i = np.argmin(np.absolute(lam - maxl))
                 lam = lam[:i+1]
-                stk = stk[:,:,:i+1]
+                for j in indx:
+                    out[j] = out[j][:,:i+1]
 
             # Norm
             for j in indx:
                 if j == 0 or not fractional:
-                    stk[:,j,:] *= self.__unit_trans
-
-            # Translate
-            out = {}
-            for j in range(4):
-                if j in indx:
-                    out[j] = stk[:,j,:]
+                    out[j] *= self.__unit_trans
 
             # Return
             return out
 
-        except struct.error:
-            raise
         except:
             raise
 
@@ -619,9 +582,9 @@ class _stokesquad_1D():
         iquv = self.__get_gen_stokes(minl,maxl,fractional,[0,1,2,3])
         return np.stack((iquv[0],iquv[1],iquv[2],iquv[3]))
 
-################################################################################
-################################################################################
-################################################################################
+######################################################################
+######################################################################
+######################################################################
 
 class _contribution_1D():
     ''' Class to manage the contribution function from 1D synthesis
@@ -664,7 +627,8 @@ class _contribution_1D():
              'Lower boundary for output height', \
             'maxh': \
              'Upper boundary for output height'}, \
-           'Get vertical axis, either heights in [km] or in optical depth'], \
+           'Get vertical axis, either heights in [km] or ' + \
+           'in optical depth'], \
           'get_ctrI': \
           [{'minl': \
              'Lower boundary in wavelength [nm]', \
@@ -726,6 +690,8 @@ class _contribution_1D():
         ''' Reads hanlert 1D contribution function file head
         '''
         try:
+
+            # Get head info
             f = open(self.__filename,'rb')
             f.seek(2,0)
             self.__nl = struct.unpack('i',f.read(4))[0]
@@ -739,7 +705,28 @@ class _contribution_1D():
                               f.read(8*self.__nz))
             self.__zreverse = z[-2] > z[-1]
             f.close()
+
+            # Create memmaps
+            self.__omg = np.memmap(self.__filename, \
+                                   mode='r', \
+                                   offset=self.__hsize, \
+                                   dtype=np.float64, \
+                                   shape=(self.__nl))
+            self.__z = np.memmap(self.__filename, \
+                                 mode='r', \
+                                 offset=self.__hsize + \
+                                        self.__nl*8, \
+                                 dtype=np.float64, \
+                                 shape=(self.__nz))
+            self.__ctr = np.memmap(self.__filename, \
+                                   mode='r', \
+                                   offset=self.__hsize + \
+                                          self.__nl*8 +  \
+                                          self.__nz*8, \
+                                   dtype=np.float64, \
+                                   shape=(4,self.__nz,self.__nl))
             return True
+
         except struct.error:
             raise
         except:
@@ -779,21 +766,14 @@ class _contribution_1D():
         ''' Get lambda from file
         '''
         try:
-            f = open(self.__filename,'rb')
-            f.seek(self.__hsize,0)
-            omg = np.array(struct.unpack('d'*self.__nl, \
-                                         f.read(8*self.__nl)))
-            lam = 1e2/omg[::-1]
+            lam = 1e2/self.__omg[::-1]
             if minl is not None:
                 i = np.argmin(np.absolute(lam - minl))
                 lam = lam[i:]
             if maxl is not None:
                 i = np.argmin(np.absolute(lam - maxl))
                 lam = lam[:i+1]
-            f.close()
             return lam
-        except struct.error:
-            raise
         except:
             raise
 
@@ -807,25 +787,23 @@ class _contribution_1D():
             iminh = minh
             imaxh = maxh
         try:
-            f = open(self.__filename,'rb')
-            f.seek(self.__hsize,0)
-            f.seek(self.__nl*8,1)
-            z = np.array(struct.unpack('d'*self.__nz, \
-                                         f.read(8*self.__nz)))
+            z = self.__z.copy()
+            if self.__zreverse:
+                z = np.log10(z)
+            else:
+                z *= 1e-5
             if iminh is not None:
                 i = np.argmin(np.absolute(z - iminh))
                 z = z[i:]
             if imaxh is not None:
                 i = np.argmin(np.absolute(z - imaxh))
                 z = z[:i+1]
-            f.close()
             return z
-        except struct.error:
-            raise
         except:
             raise
 
-    def __get_gen_ctr(self,minl=None,maxl=None,minh=None,maxh=None,indx=[0]):
+    def __get_gen_ctr(self,minl=None,maxl=None, \
+                      minh=None,maxh=None,indx=[0]):
         ''' Generic read of contribution function
         '''
 
@@ -839,32 +817,21 @@ class _contribution_1D():
 
         # Initialize
         out = [None,None,None,None]
-        bsiz = self.__nl*8
 
         # Get data
         try:
 
-            # Open and seek data
-            f = open(self.__filename,'rb')
-            f.seek(self.__hsize,0)
-
             # Cutting lambda
             if minl is not None or maxl is not None:
-                omg = np.array(struct.unpack('d'*self.__nl, \
-                                             f.read(self.__nl*8)))
-                lam = 1e2/omg[::-1]
-            # No cut
-            else:
-                # Skip
-                f.seek(self.__nl*8,1)
+                lam = 1e2/self.__omg[::-1]
 
             # Cutting height
             if minh is not None or maxh is not None:
-                z = np.array(struct.unpack('d'*self.__nz, \
-                                             f.read(8*self.__nz)))
-            # Not cutting height
-            else:
-                f.seek(self.__nz*8,1)
+                z = self.__z.copy()
+                if self.__zreverse:
+                    z = np.log10(z)
+                else:
+                    z *= 1e-5
 
             # For each Stokes
             for j in range(4):
@@ -872,16 +839,7 @@ class _contribution_1D():
                 # Read
                 if j in indx:
 
-                    out[j] = (np.array( \
-                          struct.unpack('d'*self.__nl*self.__nz, \
-                                        f.read(8*self.__nl*self.__nz))). \
-                             reshape((self.__nz,self.__nl)))[:,::-1]
-
-                # No read
-                else:
-
-                    # Skip
-                    f.seek(self.__nl*self.__nz*8,1)
+                    out[j] = self.__ctr[j,:,::-1].copy()
 
             # Cut
             if minl is not None:
@@ -905,9 +863,6 @@ class _contribution_1D():
                 for j in indx:
                     out[j] = out[j][:i+1,:]
 
-            # Close
-            f.close()
-
             # Units
             for j in indx:
                 out[j] *= self.__unit_trans
@@ -915,8 +870,6 @@ class _contribution_1D():
             # Return
             return out
 
-        except struct.error:
-            raise
         except:
             raise
 
@@ -946,9 +899,9 @@ class _contribution_1D():
         iquv =  self.__get_gen_ctr(minl,maxl,minh,maxh,[0,1,2,3])
         return np.stack((iquv[0],iquv[1],iquv[2],iquv[3]))
 
-################################################################################
-################################################################################
-################################################################################
+######################################################################
+######################################################################
+######################################################################
 
 class _tau_1D():
     ''' Class to manage the height for optical depth equal to 1 from
@@ -997,9 +950,12 @@ class _tau_1D():
         return self.__methods
 
     def __head(self):
-        ''' Reads hanlert 1D height where optical depth is one file head
+        ''' Reads hanlert 1D height where optical depth is one file
+            head
         '''
         try:
+
+            # Get header
             f = open(self.__filename,'rb')
             f.seek(2,0)
             self.__nl = struct.unpack('i',f.read(4))[0]
@@ -1009,6 +965,20 @@ class _tau_1D():
             self.__mu = np.cos(np.pi*self.__th/180e0)
             self.__hsize = 26
             f.close()
+
+            # Create memmaps
+            self.__omg = np.memmap(self.__filename, \
+                                   mode='r', \
+                                   offset=self.__hsize, \
+                                   dtype=np.float64, \
+                                   shape=(self.__nl))
+            self.__tau1 = np.memmap(self.__filename, \
+                                    mode='r', \
+                                    offset=self.__hsize + \
+                                           8*self.__nl, \
+                                    dtype=np.float64, \
+                                    shape=(self.__nl))
+
             return True
         except struct.error:
             raise
@@ -1044,21 +1014,14 @@ class _tau_1D():
         ''' Get lambda from file
         '''
         try:
-            f = open(self.__filename,'rb')
-            f.seek(self.__hsize,0)
-            omg = np.array(struct.unpack('d'*self.__nl, \
-                                         f.read(8*self.__nl)))
-            lam = 1e2/omg[::-1]
+            lam = 1e2/self.__omg[::-1]
             if minl is not None:
                 i = np.argmin(np.absolute(lam - minl))
                 lam = lam[i:]
             if maxl is not None:
                 i = np.argmin(np.absolute(lam - maxl))
                 lam = lam[:i+1]
-            f.close()
             return lam
-        except struct.error:
-            raise
         except:
             raise
 
@@ -1066,14 +1029,11 @@ class _tau_1D():
         ''' Get height for optical depth equal to 1
         '''
         try:
-            f = open(self.__filename,'rb')
-            f.seek(self.__hsize,0)
-            omg = np.array(struct.unpack('d'*self.__nl, \
-                                         f.read(8*self.__nl)))
-            lam = 1e2/omg[::-1]
-            tau1 = np.array(struct.unpack('d'*self.__nl, \
-                                          f.read(8*self.__nl)))
-            tau1 = tau1[::-1]
+
+            if minl is not None or maxl is not None:
+                lam = 1e2/self.__omg[::-1]
+
+            tau1 = self.__tau1[::-1].copy()*1e-5
             if minl is not None:
                 i = np.argmin(np.absolute(lam - minl))
                 lam = lam[i:]
@@ -1082,20 +1042,17 @@ class _tau_1D():
                 i = np.argmin(np.absolute(lam - maxl))
                 lam = lam[:i+1]
                 tau1 = tau1[:i+1]
-            f.close()
             return tau1
-        except struct.error:
-            raise
         except:
             raise
 
-################################################################################
-################################################################################
-################################################################################
+######################################################################
+######################################################################
+######################################################################
 
 class _jkq_1D():
-    ''' Class to manage the frequency integrated radiation field tensors
-        from a 1D synthesis
+    ''' Class to manage the frequency integrated radiation field
+        tensors from a 1D synthesis
     '''
 
     def __init__(self,filename):
@@ -1127,12 +1084,12 @@ class _jkq_1D():
              'Lower boundary for output height', \
             'maxh': \
              'Upper boundary for output height'}, \
-           'Get vertical axis, either heights in [km] or in optical ' + \
-           'depth'], \
+           'Get vertical axis, either heights in [km] or \
+            in optical depth'], \
           'get_jkq': \
           [{'atom': 'Request this particular atom index', \
-            'transition': 'Request this particular transition index. ' + \
-                          'Requires "atom"', \
+            'transition': 'Request this particular transition ' + \
+                          'index. Requires "atom"', \
             'k': 'Request this particular multipole. ' + \
                  'Requires "transition"', \
             'q': 'Request this particular multipolar component. ' + \
@@ -1156,6 +1113,7 @@ class _jkq_1D():
         ''' Reads hanlert 1D JKQ file head
         '''
         try:
+
             # Get actual header
             f = open(self.__filename,'rb')
             f.seek(2,0)
@@ -1165,20 +1123,33 @@ class _jkq_1D():
             self.__na = struct.unpack('i',f.read(4))[0]
             self.__nxtran = struct.unpack('i',f.read(4))[0]
             self.__hsize = 18
-            # Z
+
+            # Check z
             z = struct.unpack('d'*self.__nz, \
                               f.read(8*self.__nz))
             self.__zreverse = z[-2] > z[-1]
+
             # Save atomic data and jump size
             self.__nt = np.zeros((self.__na),dtype=int)
             self.__jump = np.zeros((self.__na),dtype=int)
+
             # For each atom
             for ia in range(self.__na):
                 # Read transitions
                 self.__nt[ia] = struct.unpack('i',f.read(4))[0]
                 self.__jump[ia] = 18*8*self.__nt[ia]*self.__nz
                 f.seek(self.__jump[ia],1)
+
+            # Close file
             f.close()
+
+            # Create memmaps
+            self.__z = np.memmap(self.__filename, \
+                                 mode='r', \
+                                 offset=self.__hsize, \
+                                 dtype=np.float64, \
+                                 shape=(self.__nz))
+
             return True
         except struct.error:
             raise
@@ -1218,20 +1189,18 @@ class _jkq_1D():
             iminh = minh
             imaxh = maxh
         try:
-            f = open(self.__filename,'rb')
-            f.seek(self.__hsize,0)
-            z = np.array(struct.unpack('d'*self.__nz, \
-                                         f.read(8*self.__nz)))
+            z = self.__z.copy()
+            if self.__zreverse:
+                z = np.log10(z)
+            else:
+                z *= 1e-5
             if iminh is not None:
                 i = np.argmin(np.absolute(z - iminh))
                 z = z[i:]
             if imaxh is not None:
                 i = np.argmin(np.absolute(z - imaxh))
                 z = z[:i+1]
-            f.close()
             return z
-        except struct.error:
-            raise
         except:
             raise
 
@@ -1239,6 +1208,7 @@ class _jkq_1D():
                  minh=None,maxh=None,sti=False):
         ''' Get frequency integrated radiation field tensors
         '''
+
         # Manage height limits
         if self.__zreverse:
             iminh = maxh
@@ -1246,20 +1216,26 @@ class _jkq_1D():
         else:
             iminh = minh
             imaxh = maxh
+
         # Check it is possible
         if sti and not self.__sti:
             _error('No stimulated emission in the file',0,True)
             return None
+
+        # Try fetching data
         try:
 
-            f = open(self.__filename,'rb')
-            f.seek(self.__hsize,0)
-            z = np.array(struct.unpack('d'*self.__nz, \
-                                         f.read(8*self.__nz)))
+            # If cutting
+            if minh is not None or maxh is not None:
+                z = self.__z.copy()
+                if self.__zreverse:
+                    z = np.log10(z)
+                else:
+                    z *= 1e-5
 
-            # If asking for stimulated, skip normal
-            if sti:
-                f.seek(np.sum(self.__jump+4),1)
+            # Open file
+            f = open(self.__filename,'rb')
+            f.seek(self.__hsize + self.__nz*8,0)
 
             # No atom specified
             if atom is None:
@@ -1273,8 +1249,11 @@ class _jkq_1D():
                 # For each atom
                 for ia in range(self.__na):
 
+                    # If asking for stimulated, skip normal
+                    if sti:
+                        f.seek(np.sum(self.__jump[ia]+4),1)
                     # Skip transition
-                    if not sti:
+                    else:
                         f.seek(4,1)
 
                     # For each transition
@@ -1292,10 +1271,10 @@ class _jkq_1D():
 
                                 # Read
                                 jkq[ind,K,jQ,:,:] = np.transpose( \
-                                  np.array( \
-                                    struct.unpack('d'*2*self.__nz, \
-                                                f.read(8*2*self.__nz))). \
-                                     reshape((self.__nz,2)), (1,0))
+                             np.array( \
+                              struct.unpack('d'*2*self.__nz, \
+                                            f.read(8*2*self.__nz))). \
+                              reshape((self.__nz,2)), (1,0))
 
                 # Adjust height
                 if iminh is not None:
@@ -1313,14 +1292,13 @@ class _jkq_1D():
 
                 # Jump to atom
                 if atom > 0:
-                    if sti:
-                        f.seek(np.sum(self.__jump[:atom]),1)
-                    else:
-                        f.seek(np.sum(self.__jump[:atom]+4),1)
 
-                # Skip transition
-                if not sti:
-                    f.seek(4,1)
+                    # Jump to current atom
+                    f.seek(np.sum(self.__jump[:atom]) + 4*atom,1)
+
+                    # Skip normal if stimulated
+                    if sti:
+                        f.seek(np.sum(self.__jump[atom]),1)
 
                 # Transition not specified
                 if transition is None:
@@ -1340,10 +1318,10 @@ class _jkq_1D():
 
                                 # Read
                                 jkq[it,K,jQ,:,:] = np.transpose( \
-                                  np.array( \
-                                    struct.unpack('d'*2*self.__nz, \
-                                                  f.read(8*2*self.__nz))). \
-                                     reshape((self.__nz,2)), (1,0))
+                            np.array( \
+                              struct.unpack('d'*2*self.__nz, \
+                                            f.read(8*2*self.__nz))). \
+                              reshape((self.__nz,2)), (1,0))
 
                     # Adjust height
                     if iminh is not None:
@@ -1373,10 +1351,10 @@ class _jkq_1D():
 
                             # Read
                             jkq[K,jQ,:,:] = np.transpose( \
-                              np.array( \
-                                struct.unpack('d'*2*self.__nz, \
-                                              f.read(8*2*self.__nz))). \
-                                 reshape((self.__nz,2)), (1,0))
+                             np.array( \
+                              struct.unpack('d'*2*self.__nz, \
+                                            f.read(8*2*self.__nz))). \
+                              reshape((self.__nz,2)), (1,0))
 
                     # Adjust height
                     if iminh is not None:
@@ -1409,9 +1387,9 @@ class _jkq_1D():
         except:
             raise
 
-################################################################################
-################################################################################
-################################################################################
+######################################################################
+######################################################################
+######################################################################
 
 class _rkq_1D():
     ''' Class to manage the density matrix from a 1D synthesis
@@ -1439,8 +1417,8 @@ class _rkq_1D():
              'Lower boundary for output height', \
             'maxh': \
              'Upper boundary for output height'}, \
-           'Get vertical axis, either heights in [km] or in optical ' + \
-           'depth'], \
+           'Get vertical axis, either heights in [km] ', + \
+           'or in optical depth'], \
           'get_rkq': \
           [{'atom': 'Request this particular atom index', \
             'minh': \
@@ -1459,19 +1437,29 @@ class _rkq_1D():
         ''' Reads hanlert 1D JKQ file head
         '''
         try:
-            # Get actual header
+
+            # Get header data
             f = open(self.__filename,'rb')
             f.seek(2,0)
             self.__nz = struct.unpack('i',f.read(4))[0]
             self.__na = struct.unpack('i',f.read(4))[0]
-            # Z
+            self.__hsize = 10
+
+            # Check z
             z = np.array(struct.unpack('d'*self.__nz, \
                                        f.read(8*self.__nz)))
-            # Check if tau
-            self.__ltau = np.min(z) > 0 and np.max(z) < 1e2
             self.__zreverse = z[-2] > z[-1]
-            self.__hsize = 10
+
+            # Close file
             f.close()
+
+            # Create memmaps
+            self.__z = np.memmap(self.__filename, \
+                                 mode='r', \
+                                 offset=self.__hsize, \
+                                 dtype=np.float64, \
+                                 shape=(self.__nz))
+
             return True
         except struct.error:
             raise
@@ -1503,27 +1491,25 @@ class _rkq_1D():
             iminh = minh
             imaxh = maxh
         try:
-            f = open(self.__filename,'rb')
-            f.seek(self.__hsize,0)
-            z = np.array(struct.unpack('d'*self.__nz, \
-                                       f.read(8*self.__nz)))
-            if not self.__ltau: z *= 1e-5
+            z = self.__z.copy()
+            if self.__zreverse:
+                z = np.log10(z)
+            else:
+                z *= 1e-5
             if iminh is not None:
                 i = np.argmin(np.absolute(z - iminh))
                 z = z[i:]
             if imaxh is not None:
                 i = np.argmin(np.absolute(z - imaxh))
                 z = z[:i+1]
-            f.close()
             return z
-        except struct.error:
-            raise
         except:
             raise
 
     def _get_rkq(self,atom=None,minh=None,maxh=None):
         ''' Get frequency integrated radiation field tensors
         '''
+
         # Manage height limits
         if self.__zreverse:
             iminh = maxh
@@ -1531,6 +1517,8 @@ class _rkq_1D():
         else:
             iminh = minh
             imaxh = maxh
+
+         # Manage atom input
         if atom is None:
             iatoms = list(range(self.__na))
         else:
@@ -1544,13 +1532,20 @@ class _rkq_1D():
                     return None
             iatoms = copy.deepcopy(atom)
 
+        # Try fetching data
         try:
 
+            # If cutting
+            if minh is not None or maxh is not None:
+                z = self.__z.copy()
+                if self.__zreverse:
+                    z = np.log10(z)
+                else:
+                    z *= 1e-5
+
+            # Open file
             f = open(self.__filename,'rb')
-            f.seek(self.__hsize,0)
-            z = np.array(struct.unpack('d'*self.__nz, \
-                                       f.read(8*self.__nz)))
-            if not self.__ltau: z *= 1e-5
+            f.seek(self.__hsize+8*self.__nz,0)
 
             # Adjust height
             if iminh is not None:
@@ -1576,8 +1571,9 @@ class _rkq_1D():
 
                 # Population
                 if keep:
-                    lrkq['n'] = np.array(struct.unpack('d'*self.__nz, \
-                                                       f.read(8*self.__nz)))
+                    lrkq['n'] = \
+                          np.array(struct.unpack('d'*self.__nz, \
+                                                 f.read(8*self.__nz)))
                 else:
                     f.seek(self.__nz*8,1)
 
@@ -1606,10 +1602,12 @@ class _rkq_1D():
                         # Read J combination
                         J1 = struct.unpack('i',f.read(4))[0]
                         if keep:
-                            if J1 not in lrkq[it]['J']: lrkq[it]['J'].append(J1)
+                            if J1 not in lrkq[it]['J']:
+                                lrkq[it]['J'].append(J1)
                         J2 = struct.unpack('i',f.read(4))[0]
                         if keep:
-                            if J2 not in lrkq[it]['J']: lrkq[it]['J'].append(J2)
+                            if J2 not in lrkq[it]['J']:
+                                lrkq[it]['J'].append(J2)
 
                         # Get label
                         if keep:
@@ -1617,7 +1615,8 @@ class _rkq_1D():
                                 ijs1 = f'{int(round(J1*0.5))}'
                             else:
                                 ijs1 = f'{J1}/2'
-                            if ijs1 not in lrkq[it]: lrkq[it][ijs1] = {}
+                            if ijs1 not in lrkq[it]:
+                                lrkq[it][ijs1] = {}
                             if mt:
                                 if J2 % 2 == 0:
                                     ijs2 = f'{int(round(J2*0.5))}'
@@ -1626,8 +1625,8 @@ class _rkq_1D():
                                 lrkq[it][ijs1][ijs2] = {}
 
                         # K limits
-                        kmin = int(np.absolute(int(round(J1 - J2))//2))
-                        kmax = int(np.absolute(int(round(J1 + J2))//2))
+                        kmin = int(np.absolute(int(round(J1-J2))//2))
+                        kmax = int(np.absolute(int(round(J1+J2))//2))
 
                         # Pointer
                         if keep:
@@ -1648,18 +1647,19 @@ class _rkq_1D():
 
                                 # Read
                                 if keep:
-                                    point[K][Q] = np.zeros((self.__nz), \
-                                                           dtype=np.complex_)
+                                    point[K][Q] = \
+                                           np.zeros((self.__nz), \
+                                                    dtype=np.complex_)
                                     for iz in range(self.__nz):
                                         point[K][Q][iz] = \
-                                          struct.unpack('d',f.read(8))[0] + \
-                                       1j*struct.unpack('d',f.read(8))[0]
+                                   struct.unpack('d',f.read(8))[0] + \
+                                   1j*struct.unpack('d',f.read(8))[0]
                                         f.seek(4,1)
                                     point[K][Q] = point[K][Q][i0:i1+1]
+
                                 # Skip
                                 else:
                                     f.seek(self.__nz*20,1)
-
 
                     # Process J
                     if keep:
@@ -1679,13 +1679,13 @@ class _rkq_1D():
         except:
             raise
 
-################################################################################
-################################################################################
-################################################################################
+######################################################################
+######################################################################
+######################################################################
 
 class _jkqnu_1D():
-    ''' Class to manage the frequency dependent radiation field tensors
-        from a 1D synthesis
+    ''' Class to manage the frequency dependent radiation field
+        tensors from a 1D synthesis
     '''
 
     def __init__(self,filename):
@@ -1731,14 +1731,46 @@ class _jkqnu_1D():
         ''' Reads hanlert 1D JKQnu file head
         '''
         try:
-            # Get actual header
+
+            # Get header data
             f = open(self.__filename,'rb')
             f.seek(2,0)
             self.__nz = struct.unpack('i',f.read(4))[0]
             self.__nl = struct.unpack('i',f.read(4))[0]
             f.close()
+
+            # Sizes info
             self.__jump_to_lambda = 10
             self.__hsize = self.__jump_to_lambda + 8*self.__nl
+
+            # File size
+            real_size = os.path.getsize(self.__filename)
+
+            # Check if anisotropy
+            self.__anis =  real_size >= self.__hsize + \
+                                        self.__nz*self.__nl*18*8
+
+            # Create memmaps
+            self.__omg = np.memmap(self.__filename, \
+                                   mode='r', \
+                                   offset=self.__jump_to_lambda, \
+                                   dtype=np.float64, \
+                                   shape=(self.__nl))
+            if self.__anis:
+                self.__jkq = np.memmap(self.__filename, \
+                                       mode='r', \
+                                       offset=self.__hsize, \
+                                       dtype=np.float64, \
+                                       shape=(self.__nz, \
+                                              self.__nl, \
+                                              9,2))[:,::-1,:,:]
+            else:
+                self.__jkq = np.memmap(self.__filename, \
+                                       mode='r', \
+                                       offset=self.__hsize, \
+                                       dtype=np.float64, \
+                                       shape=(self.__nz, \
+                                              self.__nl))[:,::-1]
             return True
         except struct.error:
             raise
@@ -1764,123 +1796,98 @@ class _jkqnu_1D():
         ''' Get lambda from file
         '''
         try:
-            f = open(self.__filename,'rb')
-            f.seek(self.__jump_to_lambda,0)
-            omg = np.array(struct.unpack('d'*self.__nl, \
-                                         f.read(8*self.__nl)))
-            lam = 1e2/omg[::-1]
+            lam = 1e2/self.__omg[::-1]
             if minl is not None:
                 i = np.argmin(np.absolute(lam - minl))
                 lam = lam[i:]
             if maxl is not None:
                 i = np.argmin(np.absolute(lam - maxl))
                 lam = lam[:i+1]
-            f.close()
             return lam
-        except struct.error:
-            raise
         except:
             raise
 
     def _get_jkq(self,minl=None,maxl=None):
         ''' Get frequency integrated radiation field tensors
         '''
+
         # Need lambda?
         if minl is not None or maxl is not None:
-            lam = self._get_lambda()
+            lam = 1e2/self.__omg[::-1]
 
         try:
 
-            # Size
-            size = self.__nl*self.__nz*18
-
-            # Read
-            f = open(self.__filename,'rb')
-            f.seek(self.__hsize,0)
-            data = struct.unpack('d'*size,f.read(size*8))
-            data = np.array(data).reshape((self.__nz, \
-                                           self.__nl, \
-                                           9,2))
-            data = data[:,::-1,:,:]
-            f.close()
-
-            # Adjust wavelength
-            if minl is not None:
-                i = np.argmin(np.absolute(lam - minl))
-                lam = lam[i:]
-                data = data[:,i:,:,:]
-            if maxl is not None:
-                i = np.argmin(np.absolute(lam - maxl))
-                lam = lam[:i+1]
-                data = data[:,:i+1,:,:]
+            # Fetch
+            data = self.__jkq.copy()
 
             # Transform
             data *= self.__unit_trans
 
-            # Get output
-            jkq = {0: {0: data[:,:,0,0]}, \
-                   1: {-1: data[:,:,1,0] + 1j*data[:,:,1,1], \
-                       0: data[:,:,2,0], \
-                       1: data[:,:,3,0] + 1j*data[:,:,3,1]}, \
-                   2: {-2: data[:,:,4,0] + 1j*data[:,:,4,1], \
-                       -1: data[:,:,5,0] + 1j*data[:,:,5,1], \
-                       0: data[:,:,6,0], \
-                       1: data[:,:,7,0] + 1j*data[:,:,7,1], \
-                       2: data[:,:,8,0] + 1j*data[:,:,8,1]}}
-            # Return
-            return jkq
+            # Polarized
+            if self.__anis:
 
-        # Try only intensity
-        except struct.error:
+                # Adjust wavelength
+                if minl is not None:
+                    i = np.argmin(np.absolute(lam - minl))
+                    lam = lam[i:]
+                    data = data[:,i:,:,:]
+                if maxl is not None:
+                    i = np.argmin(np.absolute(lam - maxl))
+                    lam = lam[:i+1]
+                    data = data[:,:i+1,:,:]
 
-            # Size
-            size = self.__nl*self.__nz
+                # Get output
+                jkq = {0: {0: data[:,:,0,0]}, \
+                       1: {-1: data[:,:,1,0] + 1j*data[:,:,1,1], \
+                           0: data[:,:,2,0], \
+                           1: data[:,:,3,0] + 1j*data[:,:,3,1]}, \
+                       2: {-2: data[:,:,4,0] + 1j*data[:,:,4,1], \
+                           -1: data[:,:,5,0] + 1j*data[:,:,5,1], \
+                           0: data[:,:,6,0], \
+                           1: data[:,:,7,0] + 1j*data[:,:,7,1], \
+                           2: data[:,:,8,0] + 1j*data[:,:,8,1]}}
+                # Return
+                return jkq
 
-            # Read
-            f = open(self.__filename,'rb')
-            f.seek(self.__hsize,0)
-            data = struct.unpack('d'*size,f.read(size*8))
-            data = np.array(data).reshape((self.__nz, \
-                                           self.__nl))
-            f.close()
+            # Unpolarized
+            else:
 
-            # Adjust wavelength
-            if minl is not None:
-                i = np.argmin(np.absolute(lam - minl))
-                lam = lam[i:]
-                data = data[:,i:]
-            if maxl is not None:
-                i = np.argmin(np.absolute(lam - maxl))
-                lam = lam[:i+1]
-                data = data[:,:i+1]
+                # Adjust wavelength
+                if minl is not None:
+                    i = np.argmin(np.absolute(lam - minl))
+                    lam = lam[i:]
+                    data = data[:,i:]
+                if maxl is not None:
+                    i = np.argmin(np.absolute(lam - maxl))
+                    lam = lam[:i+1]
+                    data = data[:,:i+1]
 
-            # Transform
-            data *= self.__unit_trans
-            nl = data.shape[1]
-            nz = self.__nz
+                # Get sizes
+                nl = data.shape[1]
+                nz = self.__nz
 
-            # Get output
-            jkq = {0: {0: data}, \
-                   1: {-1: np.zeros((nz,nl)), \
-                       0: np.zeros((nz,nl)), \
-                       1: np.zeros((nz,nl))}, \
-                   2: {-2: np.zeros((nz,nl)), \
-                       -1: np.zeros((nz,nl)), \
-                       0: np.zeros((nz,nl)), \
-                       1: np.zeros((nz,nl)), \
-                       2: np.zeros((nz,nl))}}
-            # Return
-            return jkq
+                # Get output
+                jkq = {0: {0: data}, \
+                       1: {-1: np.zeros((nz,nl)), \
+                           0: np.zeros((nz,nl)), \
+                           1: np.zeros((nz,nl))}, \
+                       2: {-2: np.zeros((nz,nl)), \
+                           -1: np.zeros((nz,nl)), \
+                           0: np.zeros((nz,nl)), \
+                           1: np.zeros((nz,nl)), \
+                           2: np.zeros((nz,nl))}}
+                # Return
+                return jkq
         except:
             raise
 
-################################################################################
-################################################################################
-################################################################################
+######################################################################
+######################################################################
+######################################################################
 
 class _cols_damp_1D():
-    ''' Class to manage the 1D collisions, damping parameter, and elastic
-        rates files
+    ''' Class to manage the 1D collisions, damping parameter, and
+        elastic rates files
     '''
 
     def __init__(self,filename):
@@ -1910,8 +1917,8 @@ class _cols_damp_1D():
             self.__methods['get_nl'] = \
               [None,'Get number of levels or terms']
             self.__methods['get_dims'] = \
-              [None,' Get number of positions in height axis, atoms, ' + \
-                    'and levels/terms']
+              [None,' Get number of positions in height axis, ' + \
+                    'atoms, and levels/terms']
             self.__methods['get_data'] = \
             [{'ia': 'List of atoms to include in the output', \
               'i1': 'Initial level/term in the output', \
@@ -1921,8 +1928,8 @@ class _cols_damp_1D():
             self.__methods['get_nt'] = \
               [None,'Get number of transitions']
             self.__methods['get_dims'] = \
-              [None,' Get number of positions in height axis, atoms, ' + \
-                    'and transitions']
+              [None,' Get number of positions in height axis, ' + \
+                    'atoms, and transitions']
             if self.__damp:
                 self.__methods['get_data'] = \
                   [{'ia': 'List of atoms to include in the output', \
@@ -1944,7 +1951,7 @@ class _cols_damp_1D():
         '''
         try:
 
-            # Get actual header
+            # Get header data
             f = open(self.__filename,'rb')
 
             # Skip 1 first letter
@@ -1972,8 +1979,9 @@ class _cols_damp_1D():
 
                 # Collisions
                 if self.__cols:
-                    self.__siz.append(int(8.*self.__nz*self.__nn[-1]* \
-                                                   self.__nn[-1]))
+                    self.__siz.append(int(8.*self.__nz* \
+                                          self.__nn[-1]* \
+                                          self.__nn[-1]))
                 else:
                     self.__siz.append(int(8.*self.__nz*self.__nn[-1]))
 
@@ -2039,21 +2047,33 @@ class _cols_damp_1D():
         ''' Get collisional rates/dampings for a given pixel
         '''
 
-        # If var is not None
+        # If no particular atom requested
         if ia is None:
+
+            # No trimming data
             trim = False
+
+            # Potential errors
             if self.__cols:
                 if i1 is not None or i2 is not None:
                     _error('Must specify ia to specify i1 or i2',1)
             else:
                 if it is not None:
                     _error('Must specify ia to specify it',1)
+
+        # If selecting an atom
         else:
+
+            # Trimming data
             trim = True
+
+            # Generate a list if it is not
             if not isinstance(ia, list):
                 ivar = [ia]
             else:
                 ivar = ia.copy()
+
+            # Check integers and bounded
             for avar in ivar:
                 if not isinstance(avar, int):
                     _error('The field ia requires integers',1)
@@ -2063,14 +2083,22 @@ class _cols_damp_1D():
                            ' are out of limits, ' + \
                            'check with get_nlevel',1)
                     return None
+
+            # Error handling with collisional requests
             if len(ivar) > 1:
                 if self.__cols:
                     if i1 is not None or i2 is not None:
-                        _error('Must specify only one ia to specify i1 or i2',1)
+                        _error('Must specify only one ia ' + \
+                               'to specify i1 or i2',1)
                 else:
                     if it is not None:
-                        _error('Must specify only one ia to specify it',1)
+                        _error('Must specify only one ia ' + \
+                               'to specify it',1)
+
+        # If the file has collisions
         if self.__cols:
+
+            # Check if requested origin
             if i1 is not None:
                 if not isinstance(i1, int):
                     _error('The field i1 requires an integer',1)
@@ -2080,6 +2108,8 @@ class _cols_damp_1D():
                            ' is out of limits, ' + \
                            'check with get_nl',1)
                     return None
+
+            # Check if requested destiniy
             if i2 is not None:
                 if not isinstance(i2, int):
                     _error('The field i2 requires an integer',1)
@@ -2089,7 +2119,11 @@ class _cols_damp_1D():
                            ' is out of limits, ' + \
                            'check with get_nl',1)
                     return None
+
+        # If damping parameters
         else:
+
+            # Check if requested transition
             if it is not None:
                 if not isinstance(it, int):
                     _error('The field it requires an integer',1)
@@ -2103,7 +2137,7 @@ class _cols_damp_1D():
         # Outputs
         out = {}
 
-        # Try geeting data
+        # Try getting data
         try:
 
             # Open file
@@ -2120,7 +2154,7 @@ class _cols_damp_1D():
 
                 # Reading atom?
                 if trim:
-                    if ia in ivar:
+                    if ia not in ivar:
                         f.seek(self.__siz[ia],1)
                         continue
 
@@ -2142,10 +2176,13 @@ class _cols_damp_1D():
         except:
             raise
 
-        # Check if trimming
+        # Check if trimming levels
         if trim:
+            # Only one atom allowed
             if len(ivar) == 1:
+                # If collisions
                 if self.__cols:
+                    # Based on arguments
                     if i1 is not None or i2 is not None:
                         if i1 is not None and i2 is not None:
                             out = out[ivar[0]][i1,i2,:]
@@ -2153,6 +2190,7 @@ class _cols_damp_1D():
                             out = out[ivar[0]][i1,:,:]
                         elif i2 is not None:
                             out = out[ivar[0]][:,i2,:]
+                # Damping
                 else:
                     if it is not None:
                         out = out[ivar[0]][it,:,:]
@@ -2160,9 +2198,9 @@ class _cols_damp_1D():
         # Return column
         return out
 
-################################################################################
-################################################################################
-################################################################################
+######################################################################
+######################################################################
+######################################################################
 
 class _back_1D():
     ''' Class to manage the 1D background files
@@ -2179,9 +2217,9 @@ class _back_1D():
         if not self.__head(): return None
 
         #  Transformation to SI
-       #self.__unit_trans = 1e0/299792458e3
+        self.__unit_trans = 1e0/299792458e3
         #  Transformation to CGS
-        self.__unit_trans = 1e0/299792458e2
+       #self.__unit_trans = 1e0/299792458e2
 
         # Method
         self.__methods = { \
@@ -2194,11 +2232,13 @@ class _back_1D():
          'get_nl': \
           [None,'Get number of wavelengths'], \
          'get_dims': \
-          [None,'Get number of nodes in the height, direction, and wavelength dimensions'], \
+          [None,'Get number of nodes in the height, direction, ' + \
+                'and wavelength dimensions'], \
          'get_vars': \
           [None,'Get list of continuum variables'], \
          'get_vars_alias': \
-          [None,'Get list of continuum variables with their aliases'], \
+          [None,'Get list of continuum variables with their ' + \
+                'aliases'], \
          'get_vars_units': \
           [None,'Get list of continuum variables with their ' + \
                 'corresponding units'], \
@@ -2214,7 +2254,8 @@ class _back_1D():
             'maxl': \
              'Upper boundary for output wavelength [nm]', \
             'var': \
-             'List of variables to include in the output (see the ' + \
+             'List of variables to include in the output ' + \
+             '(see the ' + \
              'available ones with get_vars_alias()}'}, \
            'Extract the continuum variables at a particular column']}
 
@@ -2226,16 +2267,16 @@ class _back_1D():
     def __head(self):
         ''' Reads hanlert background continuum file head
         '''
-        debug = False
         try:
-            # Get actual header
+
+            # Get header data
             f = open(self.__filename,'rb')
             f.seek(2,0)
-            # Dimensions
             self.__nl = struct.unpack('i',f.read(4))[0]
             f.seek(self.__nl*8,1)
             self.__nz = struct.unpack('i',f.read(4))[0]
             self.__nd = struct.unpack('i',f.read(4))[0]
+            f.close()
 
         except struct.error:
             return False
@@ -2249,12 +2290,28 @@ class _back_1D():
                        r'$\epsilon{\rm c}$']
         self.__alias = ['eta','sig','eps']
         self.__vars_units = ['[m$^{-1}$]','[m$^{-1}$]', \
-                             '[J m$^{-3}$ s$^{-1}$ sr$^{-1}$ Hz$^{-1}$]']
+                             '[J m$^{-3}$ s$^{-1}$' + \
+                             ' sr$^{-1}$ Hz$^{-1}$]']
 
         # Sizes
         self.__jump_to_lambda = 6
         self.__head = self.__jump_to_lambda + self.__nl*8 + 8
         self.__siz = self.__nz*self.__nl*self.__nd*self.__nvar
+
+        # Create memmaps
+        self.__omg = np.memmap(self.__filename, \
+                               mode='r', \
+                               offset=self.__jump_to_lambda, \
+                               dtype=np.float64, \
+                               shape=(self.__nl))
+        self.__data = np.memmap(self.__filename, \
+                                mode='r', \
+                                offset=self.__head, \
+                                dtype=np.float64, \
+                                shape=(self.__nz, \
+                                       self.__nd, \
+                                       self.__nvar,\
+                                       self.__nl))
 
         # Return valid
         return True
@@ -2281,7 +2338,8 @@ class _back_1D():
         return self.__nl
 
     def _get_dims(self):
-        ''' Get number of positions in height, directions, and wavelength axes
+        ''' Get number of positions in height, directions, and
+            wavelength axes
         '''
         return self.__nz, self.__nd, self.__nl
 
@@ -2310,21 +2368,14 @@ class _back_1D():
         ''' Get lambda from file
         '''
         try:
-            f = open(self.__filename,'rb')
-            f.seek(self.__jump_to_lambda,0)
-            omg = np.array(struct.unpack('d'*self.__nl, \
-                                         f.read(8*self.__nl)))
-            lam = 1e2/omg[::-1]
+            lam = 1e2/self.__omg[::-1]
             if minl is not None:
                 i = np.argmin(np.absolute(lam - minl))
                 lam = lam[i:]
             if maxl is not None:
                 i = np.argmin(np.absolute(lam - maxl))
                 lam = lam[:i+1]
-            f.close()
             return lam
-        except struct.error:
-            raise
         except:
             raise
 
@@ -2352,28 +2403,13 @@ class _back_1D():
 
         # Need lambda?
         if minl is not None or maxl is not None:
-            lam = self._get_lambda()
+            lam = 1e2/self.__omg[::-1]
 
-        # Size
-        siz = self.__siz*8
-
-        # Try geeting data
+        # Try getting data
         try:
 
-            # Open file
-            f = open(self.__filename,'rb')
-
-            # Seek first data points for this column
-            f.seek(self.__head,0)
-
-            # Read data
-            col = np.array(struct.unpack('d'*self.__siz, \
-                                         f.read(siz))). \
-                           reshape((self.__nz,self.__nd, \
-                                    self.__nvar,self.__nl))[:,:,:,::-1]
-
-            # Close
-            f.close()
+            # Fetch data
+            col = self.__data[:,:,:,::-1].copy()
 
             # Adjust wavelength
             if minl is not None:
@@ -2385,8 +2421,6 @@ class _back_1D():
                 lam = lam[:i+1]
                 col = col[:,:,:,:i+1]
 
-        except struct.error:
-            raise
         except:
             raise
 
@@ -2401,9 +2435,9 @@ class _back_1D():
 
         return out
 
-################################################################################
-################################################################################
-################################################################################
+######################################################################
+######################################################################
+######################################################################
 
 class _pop_dep_1D():
     ''' Class to manage the 1D population/departure files
@@ -2433,7 +2467,8 @@ class _pop_dep_1D():
          'get_nz': \
           [None,'Get number of heights in the model atmosphere'], \
          'get_dims': \
-          [None,' Get number of positions in height axis and levels'], \
+          [None,' Get number of positions in height axis ' + \
+                'and levels'], \
          'get_data': \
           [{'ie': \
             'List of levels to include in the output'}, \
@@ -2449,7 +2484,7 @@ class _pop_dep_1D():
         '''
         try:
 
-            # Get actual header
+            # Get header data
             f = open(self.__filename,'rb')
 
             # Skip 1 first letter
@@ -2468,8 +2503,13 @@ class _pop_dep_1D():
             # Size of head
             self.__head = 10
 
-            # Size of column
-            self.__column = 8*self.__nz*self.__nn
+            # Create memmap
+            self.__pop = np.memmap(self.__filename, \
+                                   mode='r', \
+                                   offset=self.__head, \
+                                   dtype=np.float64, \
+                                   shape=(self.__nz, \
+                                          self.__nn))
 
         except struct.error:
             return False
@@ -2506,7 +2546,8 @@ class _pop_dep_1D():
         return self.__nz
 
     def _get_dims(self):
-        ''' Get number of positions in x, y, and height axes and entries
+        ''' Get number of positions in x, y, and height axes
+            and entries
         '''
         return self.__nz, self.__nn
 
@@ -2533,25 +2574,11 @@ class _pop_dep_1D():
                            'check with get_nlevel',1)
                     return None
 
-        # Size column
-        size = self.__column//8
-
-        # Try geeting data
+        # Try getting data
         try:
 
-            # Open file
-            f = open(self.__filename,'rb')
-
-            # Seek first data points for this column
-            f.seek(self.__head,0)
-
-            # Read data
-            col = np.array(struct.unpack('d'*size, \
-                                         f.read(self.__column))). \
-                           reshape((self.__nz,self.__nn))
-
-            # Close
-            f.close()
+            # Read data column
+            col = self.__pop.copy()
 
         except:
             raise
@@ -2571,9 +2598,9 @@ class _pop_dep_1D():
         # Return column
         return col
 
-################################################################################
-################################################################################
-################################################################################
+######################################################################
+######################################################################
+######################################################################
 
 class _stokes_15D():
     ''' Class to manage emergent Stokes parameters from 15D synthesis
@@ -2607,7 +2634,8 @@ class _stokes_15D():
          'get_nl': \
           [None,'Get number of wavelengths'], \
          'get_dims': \
-          [None,'Get number of nodes in the x, y, and wavelength dimensions'], \
+          [None,'Get number of nodes in the x, y, and ' + \
+                'wavelength dimensions'], \
          'get_th': \
           [None,'Get LOS heliocentric angle'], \
          'get_ph': \
@@ -2622,9 +2650,11 @@ class _stokes_15D():
            'Get wavelengths in [nm]'], \
          'get_stokesi_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -2632,9 +2662,11 @@ class _stokes_15D():
            'Extract Stokes I at a particular column'], \
          'get_stokesq_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -2644,9 +2676,11 @@ class _stokes_15D():
            'Extract Stokes Q at a particular column'], \
          'get_stokesu_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -2656,9 +2690,11 @@ class _stokes_15D():
            'Extract Stokes U at a particular column'], \
          'get_stokesv_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -2668,21 +2704,26 @@ class _stokes_15D():
            'Extract Stokes V at a particular column'], \
          'get_linear_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
              'Upper boundary for output wavelength [nm]', \
             'fractional': \
              'True to normalize to intensity, [SI] otherwise]'}, \
-           'Extract total linear polarization at a particular column'], \
+           'Extract total linear polarization at a ' + \
+           'particular column'], \
          'get_stokes_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -2692,51 +2733,65 @@ class _stokes_15D():
            'Extract the full Stokes vector at a particular column'], \
           'get_plane_stk': \
           [{'il': \
-             'Coordinate in the wavelength dimension of the Stokes parameters to extract', \
+             'Coordinate in the wavelength dimension of the ' + \
+             'Stokes parameters to extract', \
             'var': \
              'List of variables to include in the output'}, \
-           'Extract Stokes parameters at a given wavelength position for ' + \
+           'Extract Stokes parameters at a given wavelength ' + \
+           'position for ' + \
            'the whole field of view'], \
          'get_stokesi_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract'}, \
-           'Extract Stokes I at a particular wavelength index for ' + \
+           'Extract Stokes I at a particular wavelength ' + \
+           'index for ' + \
            'the whole field of view'], \
          'get_stokesq_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract', \
             'fractional': \
              'True to normalize to intensity, [SI] otherwise]'}, \
-           'Extract Stokes Q at a particular wavelength index for ' + \
-           'the whole field of view'], \
+           'Extract Stokes Q at a particular wavelength ' + \
+           'index for the whole field of view'], \
          'get_stokesu_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract', \
             'fractional': \
              'True to normalize to intensity, [SI] otherwise]'}, \
-           'Extract Stokes U at a particular wavelength index for ' + \
-           'the whole field of view'], \
+           'Extract Stokes U at a particular wavelength ' + \
+           'index for the whole field of view'], \
          'get_stokesv_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract', \
             'fractional': \
              'True to normalize to intensity, [SI] otherwise]'}, \
-           'Extract Stokes V at a particular wavelength index for ' + \
-           'the whole field of view'], \
+           'Extract Stokes V at a particular wavelength ' + \
+           'index for the whole field of view'], \
          'get_linear_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract', \
             'fractional': \
              'True to normalize to intensity, [SI] otherwise]'}, \
-           'Extract total linear polarization at a particular wavelength ' + \
-           'index for the whole field of view'], \
+           'Extract total linear polarization at a ' + \
+           'particular wavelength index for the whole ' + \
+           'field of view'], \
          'get_stokes_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract', \
             'fractional': \
              'True to normalize to intensity, [SI] otherwise]'}, \
-           'Extract the full Stokes vector at a particular wavelength index for ' + \
-           'the whole field of view']}
+           'Extract the full Stokes vector at a particular ' + \
+           'wavelength index for the whole field of view'], \
+          'get_cube': \
+          [None,f'Get a memmap to the whole data. The file must ' + \
+           'be complete to use this method. Note that ' + \
+           'the raw data is not scaled to the SI units and ' + \
+          f'you need to multiply by {self.__unit_trans}. ' + \
+           'You can get this number with the method get_scale()'], \
+          'get_scale': \
+          [None,f'Get the scale factor between the raw data and ' + \
+           'SI units'] \
+           }
 
     def _get_help(self):
         ''' Return methods dictionary
@@ -2746,9 +2801,9 @@ class _stokes_15D():
     def __head(self):
         ''' Reads hanlert 1.5D emergence file head
         '''
-        debug = False
         try:
-            # Get actual header
+
+            # Get header data
             f = open(self.__filename,'rb')
             f.seek(4,0)
             # Wavelength
@@ -2764,6 +2819,7 @@ class _stokes_15D():
             self.__jump_to_lambda = 4*4 + 8*2
             # Head
             self.__head = self.__jump_to_lambda + self.__nl*8
+
         except struct.error:
             raise
         except:
@@ -2846,6 +2902,33 @@ class _stokes_15D():
                 _error(msg,0)
                 raise
 
+        # Create memmaps
+        self.__omg = np.memmap(self.__filename, \
+                               mode='r', \
+                               offset=self.__jump_to_lambda, \
+                               dtype=np.float64, \
+                               shape=(self.__nl))
+        # If complete
+        if self.__complete:
+            # Intensity
+            if self.__mode == 1:
+                self.__data = np.memmap(self.__filename, \
+                                        mode='r', \
+                                        offset=self.__head, \
+                                        dtype=np.float32, \
+                                        shape=(self.__nx, \
+                                               self.__ny, \
+                                               1,self.__nl))
+            # Full Stokes
+            else:
+                self.__data = np.memmap(self.__filename, \
+                                        mode='r', \
+                                        offset=self.__head, \
+                                        dtype=np.float32, \
+                                        shape=(self.__nx, \
+                                               self.__ny, \
+                                               4,self.__nl))
+
         # Return valid
         return True
 
@@ -2899,143 +2982,188 @@ class _stokes_15D():
         '''
         return self.__mu
 
+    def _get_scale(self):
+        ''' Return the multiplicative factor to get SI units
+        '''
+        return self.__unit_trans
+
     def _get_lambda(self,minl=None,maxl=None):
         ''' Get lambda from file
         '''
         try:
-            f = open(self.__filename,'rb')
-            f.seek(self.__jump_to_lambda,0)
-            omg = np.array(struct.unpack('d'*self.__nl, \
-                                          f.read(8*self.__nl)))
-            lam = 1e2/omg[::-1]
+            lam = 1e2/self.__omg[::-1]
             if minl is not None:
                 i = np.argmin(np.absolute(lam - minl))
                 lam = lam[i:]
             if maxl is not None:
                 i = np.argmin(np.absolute(lam - maxl))
                 lam = lam[:i+1]
-            f.close()
             return lam
-        except struct.error:
-            raise
         except:
             raise
 
-    def __get_gen_column(self,ix,iy,minl=None,maxl=None,fractional=False,indx=[0]):
+    def __get_gen_column(self,ix,iy,minl=None,maxl=None, \
+                         fractional=False,indx=[0]):
         ''' Generic read of Stokes parameters column
         '''
 
-        # Get size to read
-        siz = self.__nl
-        bsiz = siz*4
-
-        # Output
+        # Initialize output
         out = [None,None,None,None]
 
         # Need lambda?
         if minl is not None or maxl is not None:
-            lam = self._get_lambda()
+            lam = 1e2/self.__omg[::-1]
 
-        # Try geeting data
-        try:
+        # If the file is complete
+        if self.__complete:
 
-            # Open file
-            f = open(self.__filename,'rb')
+            # Try getting data
+            try:
 
-            # Seek first data points for this column
-            f.seek(self.__head + iy*self.__column_size + \
-                       self.__ny*ix*self.__column_size,0)
+                # Intensity
+                if 0 in indx or fractional:
 
-            # Intensity
-            if 0 in indx or fractional:
+                    # Get intensity
+                    stkI = self.__data[ix,iy,0,::-1].copy()
 
-                # Get intensity
-                stkI = np.array(struct.unpack('f'*siz, \
-                                              f.read(bsiz)))[::-1]
+                    # Out?
+                    if 0 in indx:
+                        out[0] = stkI
 
-                # Out?
-                if 0 in indx:
-                    out[0] = stkI
+                # Q, U, and V
+                for j in range(1,4):
 
-            # No intensity
-            else:
+                    # There is polarization
+                    if self.__mode == 2:
 
-                # Skip
-                f.seek(bsiz,1)
+                        # To output
+                        if j in indx:
 
-            # Q, U, and V
-            for j in range(1,4):
+                            # Read Stokes
+                            out[j] = self.__data[ix,iy,j,::-1].copy()
 
-                # There is polarization
-                if self.__mode == 2:
-
-                    # To output
-                    if j in indx:
-
-                        # Read Stokes
-                        out[j] = np.array(struct.unpack('f'*siz, \
-                                                         f.read(bsiz)))[::-1]
+                    # No pol
                     else:
 
-                        # Skip
-                        f.seek(bsiz,1)
+                        # Zeros
+                        out[j] = np.zeros((self.__nl))
 
-                # No pol
-                else:
+                    # Manage units
+                    if fractional and j in indx:
+                        out[j] /= stkI
 
-                    # Zeros
-                    out[j] = np.zeros((siz))
-
-                # Manage units
-                if fractional and j in indx:
-                    out[j] /= stkI
-
-            # Adjust wavelength
-            if minl is not None:
-                i = np.argmin(np.absolute(lam - minl))
-                lam = lam[i:]
-                for j in indx:
-                    out[j] = out[j][i:]
-            if maxl is not None:
-                i = np.argmin(np.absolute(lam - maxl))
-                lam = lam[:i+1]
-                for j in indx:
-                    out[j] = out[j][:i+1]
-
-            # Units
-            if fractional:
-                if 0 in indx:
-                    out[0] *= self.__unit_trans
-            else:
-                for j in indx:
-                    out[j] *= self.__unit_trans
-
-        # Failed
-        except struct.error:
-
-            # If the file is complete, the error is more severe,
-            # let it crash
-            if self.__complete:
+            # Others
+            except:
                 raise
 
-            # Incomplete file, may be missing data
-            else:
+        # If the file is incomplete
+        else:
 
-                # Warn
-                msg = 'Could not read, may be due to the file being ' + \
-                      'not complete'
-                _error(msg,0)
+            # Get size to read
+            siz = self.__nl
+            bsiz = siz*4
 
-                # Generate zeros
-                for j in indx:
-                    out[j] = np.zeros((self.__nl))
+            # Try getting data
+            try:
 
-        # Others
-        except:
-            raise
+                # Open file
+                f = open(self.__filename,'rb')
 
-        # Close file
-        f.close()
+                # Seek first data points for this column
+                f.seek(self.__head + iy*self.__column_size + \
+                           self.__ny*ix*self.__column_size,0)
+
+                # Intensity
+                if 0 in indx or fractional:
+
+                    # Get intensity
+                    stkI = np.array(struct.unpack('f'*siz, \
+                                                  f.read(bsiz)))[::-1]
+
+                    # Out?
+                    if 0 in indx:
+                        out[0] = stkI
+
+                # No intensity
+                else:
+
+                    # Skip
+                    f.seek(bsiz,1)
+
+                # Q, U, and V
+                for j in range(1,4):
+
+                    # There is polarization
+                    if self.__mode == 2:
+
+                        # To output
+                        if j in indx:
+
+                            # Read Stokes
+                            out[j] = np.array( \
+                                    struct.unpack('f'*siz, \
+                                                  f.read(bsiz)))[::-1]
+                        else:
+
+                            # Skip
+                            f.seek(bsiz,1)
+
+                    # No pol
+                    else:
+
+                        # Zeros
+                        out[j] = np.zeros((siz))
+
+                    # Manage units
+                    if fractional and j in indx:
+                        out[j] /= stkI
+
+            # Failed
+            except struct.error:
+
+                # If the file is complete, the error is more severe,
+                # let it crash
+                if self.__complete:
+                    raise
+
+                # Incomplete file, may be missing data
+                else:
+
+                    # Warn
+                    msg = 'Could not read, may be due to ' + \
+                          'the file being not complete'
+                    _error(msg,0)
+
+                    # Generate zeros
+                    for j in indx:
+                        out[j] = np.zeros((self.__nl))
+
+            # Others
+            except:
+                raise
+
+            # Close file
+            f.close()
+
+        # Adjust wavelength
+        if minl is not None:
+            i = np.argmin(np.absolute(lam - minl))
+            lam = lam[i:]
+            for j in indx:
+                out[j] = out[j][i:]
+        if maxl is not None:
+            i = np.argmin(np.absolute(lam - maxl))
+            lam = lam[:i+1]
+            for j in indx:
+                out[j] = out[j][:i+1]
+
+        # Units
+        if fractional:
+            if 0 in indx:
+                out[0] *= self.__unit_trans
+        else:
+            for j in indx:
+                out[j] *= self.__unit_trans
 
         # Return
         return out
@@ -3057,7 +3185,8 @@ class _stokes_15D():
 
         return self.__get_gen_column(ix,iy,minl,maxl,False,[0])[0]
 
-    def _get_stokesq_column(self,ix,iy,minl=None,maxl=None,fractional=False):
+    def _get_stokesq_column(self,ix,iy,minl=None,maxl=None, \
+                            fractional=False):
         ''' Get Stokes Q profile at a given column
         '''
 
@@ -3076,9 +3205,11 @@ class _stokes_15D():
            _error('The requested column is out of bounds',1)
            return None
 
-        return self.__get_gen_column(ix,iy,minl,maxl,fractional,[1])[1]
+        return self.__get_gen_column(ix,iy,minl,maxl, \
+                                     fractional,[1])[1]
 
-    def _get_stokesu_column(self,ix,iy,minl=None,maxl=None,fractional=False):
+    def _get_stokesu_column(self,ix,iy,minl=None,maxl=None, \
+                            fractional=False):
         ''' Get Stokes U profile at a given column
         '''
 
@@ -3097,9 +3228,11 @@ class _stokes_15D():
            _error('The requested column is out of bounds',1)
            return None
 
-        return self.__get_gen_column(ix,iy,minl,maxl,fractional,[2])[2]
+        return self.__get_gen_column(ix,iy,minl,maxl, \
+                                     fractional,[2])[2]
 
-    def _get_stokesv_column(self,ix,iy,minl=None,maxl=None,fractional=False):
+    def _get_stokesv_column(self,ix,iy,minl=None,maxl=None, \
+                            fractional=False):
         ''' Get Stokes V profile at a given column
         '''
 
@@ -3118,9 +3251,11 @@ class _stokes_15D():
            _error('The requested column is out of bounds',1)
            return None
 
-        return self.__get_gen_column(ix,iy,minl,maxl,fractional,[3])[3]
+        return self.__get_gen_column(ix,iy,minl,maxl, \
+                                     fractional,[3])[3]
 
-    def _get_linear_column(self,ix,iy,minl=None,maxl=None,fractional=False):
+    def _get_linear_column(self,ix,iy,minl=None,maxl=None, \
+                           fractional=False):
         ''' Get Stokes V profile at a given column
         '''
 
@@ -3142,7 +3277,8 @@ class _stokes_15D():
         qu = self.__get_gen_column(ix,iy,minl,maxl,fractional,[1,2])
         return np.sqrt(qu[1]*qu[1] + qu[2]*qu[2])
 
-    def _get_stokes_column(self,ix,iy,minl=None,maxl=None,fractional=False):
+    def _get_stokes_column(self,ix,iy,minl=None,maxl=None, \
+                           fractional=False):
         ''' Get Stokes parameter at a given column
         '''
 
@@ -3162,118 +3298,168 @@ class _stokes_15D():
            _error('The requested column is out of bounds',1)
            return None
 
-        iquv = self.__get_gen_column(ix,iy,minl,maxl,fractional,[0,1,2,3])
+        iquv = self.__get_gen_column(ix,iy,minl,maxl, \
+                                     fractional,[0,1,2,3])
         return np.stack((iquv[0],iquv[1],iquv[2],iquv[3]))
-
 
     def __get_gen_plane(self,il,fractional=False,indx=[0]):
         ''' Generic read of Stokes parameters plane
         '''
 
-        # Get size to read
-        left = il*4
-        right = (self.__nl - il - 1)*4
-        full = self.__nl*4
-        abort = False
-
         # Output
         out = [None,None,None,None]
 
-        # For each index requested
-        for j in indx:
-            out[j] = np.empty((self.__nx,self.__ny))
+        # If file is complete
+        if self.__complete:
 
-        # Open file
-        f = open(self.__filename,'rb')
+            try:
 
-        # Seek to data
-        f.seek(self.__head,0)
+                # Intensity
+                if 0 in indx or fractional:
 
-        # For each column
-        for ix in range(self.__nx):
-            for iy in range(self.__ny):
+                    # Get intensity
+                    stkI = self.__data[:,:,0,il].copy()
 
-                # Try geeting data
-                try:
+                    # Out?
+                    if 0 in indx:
+                        out[0] = stkI
 
-                    # Intensity
-                    if 0 in indx or fractional:
+                # Q, U, and V
+                for j in range(1,4):
 
-                        # Get intensity
-                        if left > 0: f.seek(left,1)
-                        stkI = struct.unpack('f',f.read(4))[0]
-                        if right > 0: f.seek(right,1)
+                    # There is polarization
+                    if self.__mode == 2:
 
-                        # Out?
-                        if 0 in indx:
-                            out[0][ix,iy] = stkI
+                        # To output
+                        if j in indx:
 
-                    # No intensity
+                            # Get Stokes
+                            out[j] = self.__data[:,:,j,il].copy()
+
+                    # No polarization
                     else:
 
-                        # Skip
-                        f.seek(full,1)
+                        # Zero
+                        out[j] = np.zeros((self.__nx,self.__ny))
 
-                    # Q, U, and V
-                    for j in range(1,4):
+                    # Manage units
+                    if fractional and j in indx:
+                        out[j][ix,iy] /= stkI
 
-                        # There is polarization
-                        if self.__mode == 2:
+            except:
+                raise
 
-                            # To output
-                            if j in indx:
+        # Incomplete file
+        else:
 
-                                # Get Stokes
-                                if left > 0: f.seek(left,1)
-                                out[j][ix,iy] = struct.unpack('f',f.read(4))[0]
-                                if right > 0: f.seek(right,1)
+            # Get size to read
+            left = il*4
+            right = (self.__nl - il - 1)*4
+            full = self.__nl*4
+            abort = False
 
-                            # No output
-                            else:
+            # Output
+            out = [None,None,None,None]
 
-                                # Skip
-                                f.seek(full,1)
+            # For each index requested
+            for j in indx:
+                out[j] = np.empty((self.__nx,self.__ny))
 
-                        # No polarization
+            # Open file
+            f = open(self.__filename,'rb')
+
+            # Seek to data
+            f.seek(self.__head,0)
+
+            # For each column
+            for ix in range(self.__nx):
+                for iy in range(self.__ny):
+
+                    # Try getting data
+                    try:
+
+                        # Intensity
+                        if 0 in indx or fractional:
+
+                            # Get intensity
+                            if left > 0: f.seek(left,1)
+                            stkI = struct.unpack('f',f.read(4))[0]
+                            if right > 0: f.seek(right,1)
+
+                            # Out?
+                            if 0 in indx:
+                                out[0][ix,iy] = stkI
+
+                        # No intensity
                         else:
 
-                            # Zero
-                            out[j][ix,iy] = 0.0
+                            # Skip
+                            f.seek(full,1)
 
-                        # Manage units
-                        if fractional and j in indx:
-                            out[j][ix,iy] /= stkI
+                        # Q, U, and V
+                        for j in range(1,4):
 
-                # Reading error
-                except struct.error:
+                            # There is polarization
+                            if self.__mode == 2:
 
-                    # If the file is complete, the error is more severe, let it crash
-                    if self.__complete:
+                                # To output
+                                if j in indx:
+
+                                    # Get Stokes
+                                    if left > 0: f.seek(left,1)
+                                    out[j][ix,iy] = \
+                                       struct.unpack('f',f.read(4))[0]
+                                    if right > 0: f.seek(right,1)
+
+                                # No output
+                                else:
+
+                                    # Skip
+                                    f.seek(full,1)
+
+                            # No polarization
+                            else:
+
+                                # Zero
+                                out[j][ix,iy] = 0.0
+
+                            # Manage units
+                            if fractional and j in indx:
+                                out[j][ix,iy] /= stkI
+
+                    # Reading error
+                    except struct.error:
+
+                        # If the file is complete, the error is
+                        # more severe, let it crash
+                        if self.__complete:
+                            raise
+
+                        # Incomplete file, may be missing data
+                        else:
+
+                            # Warn
+                            msg = 'Could not read, may be due ' + \
+                                  'to the file being not complete'
+                            _error(msg,0)
+
+                            # Generate zeros
+                            for j in indx:
+                                out[j][ix,iy:self.__ny] = 0.0
+                            abort = True
+                            break
+
+                    except:
                         raise
 
-                    # Incomplete file, may be missing data
-                    else:
+                # We are leaving
+                if abort:
+                    for j in indx:
+                        out[j][ix+1:self.__nx,:] = 0.0
+                    break
 
-                        # Warn
-                        msg = 'Could not read, may be due to the file being not complete'
-                        _error(msg,0)
-
-                        # Generate zeros
-                        for j in indx:
-                            out[j][ix,iy:self.__ny] = 0.0
-                        abort = True
-                        break
-
-                except:
-                    raise
-
-            # We are leaving
-            if abort:
-                for j in indx:
-                    out[j][ix+1:self.__nx,:] = 0.0
-                break
-
-
+            # Close file
+            f.close()
 
         # Units
         if fractional:
@@ -3282,9 +3468,6 @@ class _stokes_15D():
         else:
             for j in indx:
                 out[j] *= self.__unit_trans
-
-        # Close file
-        f.close()
 
         # Return
         return out
@@ -3381,9 +3564,20 @@ class _stokes_15D():
         iquv = self.__get_gen_plane(jl,fractional,[0,1,2,3])
         return np.stack((iquv[0],iquv[1],iquv[2],iquv[3]))
 
-################################################################################
-################################################################################
-################################################################################
+    def _get_cube(self):
+        ''' Get Stokes profiles memmap
+        '''
+
+        # If not complete
+        if not self.__complete:
+            _error('The memmap can only be created if the file ' + \
+                   'is complete')
+            return None
+        return self.__data[:,:,:,::-1]
+
+######################################################################
+######################################################################
+######################################################################
 
 class _contribution_15D():
     ''' Class to manage the contribution function from 15D synthesis
@@ -3415,11 +3609,13 @@ class _contribution_15D():
          'get_nxy': \
           [None,'Get number of nodes in the x and y dimensions'], \
          'get_nxyz': \
-          [None,'Get number of nodes in the x, y, and height dimensions'], \
+          [None,'Get number of nodes in the x, y, and height ' + \
+                'dimensions'], \
          'get_nl': \
           [None,'Get number of wavelengths'], \
          'get_dims': \
-          [None,'Get number of nodes in the x, y, height, and wavelength dimensions'], \
+          [None,'Get number of nodes in the x, y, height, and ' + \
+                'wavelength dimensions'], \
          'get_lambda': \
           [{'minl': \
              'Lower boundary for output wavelength [nm]', \
@@ -3428,54 +3624,79 @@ class _contribution_15D():
            'Get wavelengths in [nm]'], \
           'get_ctri_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary in wavelength [nm]', \
             'maxl': \
              'Upper boundary in wavelength [nm]'}, \
-           'Get intensity contribution function [SI] at a given column'], \
+           'Get intensity contribution function [SI] at a ' + \
+           'given column'], \
           'get_ctrq_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column to ' + \
+             'extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column to ' + \
+             'extract', \
             'minl': \
              'Lower boundary in wavelength [nm]', \
             'maxl': \
              'Upper boundary in wavelength [nm]'}, \
-           'Get Stokes Q contribution function [SI] at a given column'], \
+           'Get Stokes Q contribution function [SI] at a ' + \
+           'given column'], \
           'get_ctru_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary in wavelength [nm]', \
             'maxl': \
              'Upper boundary in wavelength [nm]'}, \
-           'Get Stokes U contribution function [SI] at a given column'], \
+           'Get Stokes U contribution function [SI] at a ' + \
+           'given column'], \
           'get_ctrv_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary in wavelength [nm]', \
             'maxl': \
              'Upper boundary in wavelength [nm]'}, \
-           'Get Stokes V contribution function [SI] at a given column'], \
+           'Get Stokes V contribution function [SI] at a ' + \
+           'given column'], \
           'get_ctr_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary in wavelength [nm]', \
             'maxl': \
              'Upper boundary in wavelength [nm]'}, \
-           'Get full Stokes vector contribution function [SI] at a given column']}
+           'Get full Stokes vector contribution function [SI]' + \
+           ' at a given column'], \
+          'get_cube': \
+          [None,f'Get a memmap to the whole data. The file must ' + \
+           'be complete to use this method. Note that ' + \
+           'the raw data is not scaled to the SI units and ' + \
+          f'you need to multiply by {self.__unit_trans}. ' + \
+           'You can get this number with the method get_scale()'], \
+          'get_scale': \
+          [None,f'Get the scale factor between the raw data and ' + \
+           'SI units'] \
+           }
 
     def _get_help(self):
         ''' Return methods dictionary
@@ -3485,25 +3706,31 @@ class _contribution_15D():
     def __head(self):
         ''' Reads hanlert 1.5D contribution function file head
         '''
-        debug = False
         try:
-            # Get actual header
+
+            # Get header data
             f = open(self.__filename,'rb')
             f.seek(4,0)
+
             # Wavelength
             self.__nl = struct.unpack('i',f.read(4))[0]
+
             # Dimensions
             self.__nx = struct.unpack('i',f.read(4))[0]
             self.__ny = struct.unpack('i',f.read(4))[0]
             self.__nz = struct.unpack('i',f.read(4))[0]
+
             # LOS
             self.__th= struct.unpack('d',f.read(8))[0]
             self.__ph = struct.unpack('d',f.read(8))[0]
             self.__mu = np.cos(np.pi*self.__th/180e0)
+
             # Lambda
             self.__jump_to_lambda = 4*5 + 8*2
+
             # Head
             self.__head = self.__jump_to_lambda + self.__nl*8
+
         except struct.error:
             raise
         except:
@@ -3536,6 +3763,22 @@ class _contribution_15D():
                   f'Expected size {expectedsize}, ' + \
                   f'but got {real_size} instead'
             _error(msg,0)
+
+        # Create memmaps
+        self.__omg = np.memmap(self.__filename, \
+                               mode='r', \
+                               offset=self.__jump_to_lambda, \
+                               dtype=np.float64, \
+                               shape=(self.__nl))
+        if self.__complete:
+            self.__data = np.memmap(self.__filename, \
+                                    mode='r', \
+                                    offset=self.__head, \
+                                    dtype=np.float32, \
+                                    shape=(self.__nx, \
+                                           self.__ny, \
+                                           4,self.__nz, \
+                                           self.__nl))
 
         # Return valid
         return True
@@ -3576,7 +3819,8 @@ class _contribution_15D():
         return self.__nl
 
     def _get_dims(self):
-        ''' Get number of positions in x, y, height, and wavelength axes
+        ''' Get number of positions in x, y, height, and
+            wavelength axes
         '''
         return self.__nx, self.__ny, self.__nz, self.__nl
 
@@ -3595,25 +3839,23 @@ class _contribution_15D():
         '''
         return self.__mu
 
+    def _get_scale(self):
+        ''' Return the multiplicative factor to get SI units
+        '''
+        return self.__unit_trans
+
     def _get_lambda(self,minl=None,maxl=None):
         ''' Get lambda from file
         '''
         try:
-            f = open(self.__filename,'rb')
-            f.seek(self.__jump_to_lambda,0)
-            omg = np.array(struct.unpack('d'*self.__nl, \
-                                          f.read(8*self.__nl)))
-            lam = 1e2/omg[::-1]
+            lam = 1e2/self.__omg[::-1]
             if minl is not None:
                 i = np.argmin(np.absolute(lam - minl))
                 lam = lam[i:]
             if maxl is not None:
                 i = np.argmin(np.absolute(lam - maxl))
                 lam = lam[:i+1]
-            f.close()
             return lam
-        except struct.error:
-            raise
         except:
             raise
 
@@ -3621,84 +3863,108 @@ class _contribution_15D():
         ''' Generic read of contribution function column
         '''
 
-        # Get size to read
-        siz = self.__nl*self.__nz
-        bsiz = siz*4
-
-        # Output
+        # Initialize output
         out = [None,None,None,None]
 
         # Need lambda?
         if minl is not None or maxl is not None:
-            lam = self._get_lambda()
+            lam = 1e2/self.__omg[::-1]
 
-        # Try geeting data
-        try:
+        # If complete file
+        if self.__complete:
 
-            # Open file
-            f = open(self.__filename,'rb')
+            # Try getting data
+            try:
 
-            # Seek first data points for this column
-            f.seek(self.__head + iy*self.__column_size + \
-                       self.__ny*ix*self.__column_size,0)
+                # For each stokes parameter
+                for j in range(4):
 
-            # For each stokes parameter
-            for j in range(4):
+                    # To output
+                    if j in indx:
 
-                # To output
-                if j in indx:
+                        # Read Stokes
+                        out[j] = self.__data[ix,iy,j,:,::-1].copy()
 
-                    # Read Stokes
-                    out[j] = (np.array(struct.unpack('f'*siz, \
-                                                    f.read(bsiz))). \
-                                       reshape((self.__nz,self.__nl)))[:,::-1]
-                else:
-
-                    # Skip
-                    f.seek(bsiz,1)
-
-            # Adjust wavelength
-            if minl is not None:
-                i = np.argmin(np.absolute(lam - minl))
-                lam = lam[i:]
-                for j in indx:
-                    out[j] = out[j][:,i:]
-            if maxl is not None:
-                i = np.argmin(np.absolute(lam - maxl))
-                lam = lam[:i+1]
-                for j in indx:
-                    out[j] = out[j][:,:i+1]
-
-            # Units
-            for j in indx:
-                out[j] *= self.__unit_trans
-
-        # Failed
-        except struct.error:
-
-            # If the file is complete, the error is more severe,
-            # let it crash
-            if self.__complete:
+            # Others
+            except:
                 raise
 
-            # Incomplete file, may be missing data
-            else:
+        # Incomplete file
+        else:
 
-                # Warn
-                msg = 'Could not read, may be due to the file being ' + \
-                      'not complete'
-                _error(msg,0)
+            # Get size to read
+            siz = self.__nl*self.__nz
+            bsiz = siz*4
 
-                # Generate zeros
-                for j in indx:
-                    out[j] = np.zeros((self.__nz,self.__nl))
+            # Try getting data
+            try:
 
-        # Others
-        except:
-            raise
+                # Open file
+                f = open(self.__filename,'rb')
 
-        # Close file
-        f.close()
+                # Seek first data points for this column
+                f.seek(self.__head + iy*self.__column_size + \
+                           self.__ny*ix*self.__column_size,0)
+
+                # For each stokes parameter
+                for j in range(4):
+
+                    # To output
+                    if j in indx:
+
+                        # Read Stokes
+                        out[j] = (np.array( \
+                                  struct.unpack('f'*siz, \
+                                                f.read(bsiz))). \
+                                   reshape((self.__nz, \
+                                            self.__nl)))[:,::-1]
+                    else:
+
+                        # Skip
+                        f.seek(bsiz,1)
+
+            # Failed
+            except struct.error:
+
+                # If the file is complete, the error is more severe,
+                # let it crash
+                if self.__complete:
+                    raise
+
+                # Incomplete file, may be missing data
+                else:
+
+                    # Warn
+                    msg = 'Could not read, may be due to the ' + \
+                          'file being not complete'
+                    _error(msg,0)
+
+                    # Generate zeros
+                    for j in indx:
+                        out[j] = np.zeros((self.__nz,self.__nl))
+
+            # Others
+            except:
+                raise
+
+            # Close file
+            f.close()
+
+        # Adjust wavelength
+        if minl is not None:
+            i = np.argmin(np.absolute(lam - minl))
+            lam = lam[i:]
+            for j in indx:
+                out[j] = out[j][:,i:]
+        if maxl is not None:
+            i = np.argmin(np.absolute(lam - maxl))
+            lam = lam[:i+1]
+            for j in indx:
+                out[j] = out[j][:,:i+1]
+
+        # Units
+        for j in indx:
+            out[j] *= self.__unit_trans
 
         # Return
         return out
@@ -3772,7 +4038,8 @@ class _contribution_15D():
         return self.__get_gen_column(ix,iy,minl,maxl,[3])[3]
 
     def _get_ctr_column(self,ix,iy,minl=None,maxl=None):
-        ''' Get full Stokes vector contribution function at a given column
+        ''' Get full Stokes vector contribution function at a
+            given column
         '''
 
         # Valid?
@@ -3789,9 +4056,20 @@ class _contribution_15D():
         iquv =  self.__get_gen_column(ix,iy,minl,maxl,[0,1,2,3])
         return np.stack((iquv[0],iquv[1],iquv[2],iquv[3]))
 
-################################################################################
-################################################################################
-################################################################################
+    def _get_cube(self):
+        ''' Get contribution memmap
+        '''
+
+        # If not complete
+        if not self.__complete:
+            _error('The memmap can only be created if the file ' + \
+                   'is complete')
+            return None
+        return self.__data[:,:,:,:,::-1]
+
+######################################################################
+######################################################################
+######################################################################
 
 class _tau_15D():
     ''' Class to manage the height for optical depth equal to 1 from
@@ -3808,9 +4086,6 @@ class _tau_15D():
         # Get header
         if not self.__head(): return None
 
-        #  Transformation to SI
-        self.__unit_trans = 1e0/299792458e5
-
         # Method
         self.__methods = {
          'get_filename': \
@@ -3824,7 +4099,8 @@ class _tau_15D():
          'get_nl': \
           [None,'Get number of wavelengths'], \
          'get_dims': \
-          [None,'Get number of nodes in the x, y, and wavelength dimensions'], \
+          [None,'Get number of nodes in the x, y, and ' + \
+                'wavelength dimensions'], \
          'get_th': \
           [None,'Get LOS heliocentric angle'], \
          'get_ph': \
@@ -3839,9 +4115,11 @@ class _tau_15D():
            'Get wavelengths in [nm]'], \
          'get_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -3852,8 +4130,12 @@ class _tau_15D():
           [{'il': \
              'Coordinate in the wavelength dimension to extract'}, \
            'Get height for optical depth equal to 1 in [km] or ' + \
-           'in optical depth at a particular wavelength index for ' + \
-           'the whole field of view']}
+           'in optical depth at a particular wavelength ' + \
+           'index for the whole field of view'], \
+          'get_cube': \
+          [None,f'Get a memmap to the whole data. The file must ' + \
+           'be complete to use this method.'] \
+           }
 
     def _get_help(self):
         ''' Return methods dictionary
@@ -3861,27 +4143,33 @@ class _tau_15D():
         return self.__methods
 
     def __head(self):
-        ''' Reads hanlert 1.5D height where optical depth is one file head
+        ''' Reads hanlert 1.5D height where optical depth is one
+            file head
         '''
-        debug = False
         try:
-            # Get actual header
+
+            # Get header data
             f = open(self.__filename,'rb')
             f.seek(4,0)
+
             # Wavelength
             self.__nl = struct.unpack('i',f.read(4))[0]
+
             # Dimensions
             self.__nx = struct.unpack('i',f.read(4))[0]
             self.__ny = struct.unpack('i',f.read(4))[0]
+
             # LOS
             self.__th= struct.unpack('d',f.read(8))[0]
             self.__ph = struct.unpack('d',f.read(8))[0]
             self.__mu = np.cos(np.pi*self.__th/180e0)
+
             # Lambda
             self.__jump_to_lambda = 4*4 + 8*2
+
             # Head
             self.__head = self.__jump_to_lambda + self.__nl*8
-           #print(f'Head size {self.__head}')
+
         except struct.error:
             raise
         except:
@@ -3911,6 +4199,21 @@ class _tau_15D():
                   f'Expected size {expectedsize}, ' + \
                   f'but got {real_size} instead'
             _error(msg,0)
+
+        # Create memmaps
+        self.__omg = np.memmap(self.__filename, \
+                               mode='r', \
+                               offset=self.__jump_to_lambda, \
+                               dtype=np.float64, \
+                               shape=(self.__nl))
+        if self.__complete:
+            self.__data = np.memmap(self.__filename, \
+                                    mode='r', \
+                                    offset=self.__head, \
+                                    dtype=np.float32, \
+                                    shape=(self.__nx, \
+                                           self.__ny, \
+                                           self.__nl))
 
         # Return valid
         return True
@@ -3964,21 +4267,14 @@ class _tau_15D():
         ''' Get lambda from file
         '''
         try:
-            f = open(self.__filename,'rb')
-            f.seek(self.__jump_to_lambda,0)
-            omg = np.array(struct.unpack('d'*self.__nl, \
-                                          f.read(8*self.__nl)))
-            lam = 1e2/omg[::-1]
+            lam = 1e2/self.__omg[::-1]
             if minl is not None:
                 i = np.argmin(np.absolute(lam - minl))
                 lam = lam[i:]
             if maxl is not None:
                 i = np.argmin(np.absolute(lam - maxl))
                 lam = lam[:i+1]
-            f.close()
             return lam
-        except struct.error:
-            raise
         except:
             raise
 
@@ -3997,49 +4293,68 @@ class _tau_15D():
            _error('The requested column is out of bounds',1)
            return None
 
-        # Get size to read
-        siz = self.__nl
-        bsiz = siz*4
-
         # Need lambda?
         if minl is not None or maxl is not None:
-            lam = self._get_lambda()
+            lam = 1e2/self.__omg[::-1]
 
-        # Try geeting data
-        try:
+        # If complete file
+        if self.__complete:
 
-            # Open file
-            f = open(self.__filename,'rb')
+            # Try getting data
+            try:
 
-            # Seek first data points for this column
-            f.seek(self.__head + iy*bsiz + self.__ny*ix*bsiz,0)
+                # Get intensity
+                tau = self.__data[ix,iy,::-1].copy()
 
-            # Get intensity
-            tau = np.array(struct.unpack('f'*siz, \
-                                          f.read(bsiz)))[::-1]
-
-        # Failed
-        except struct.error:
-
-            # If the file is complete, the error is more severe,
-            # let it crash
-            if self.__complete:
+            # Others
+            except:
                 raise
 
-            # Incomplete file, may be missing data
-            else:
+        # Incomplete file
+        else:
 
-                # Warn
-                msg = 'Could not read, may be due to the file being ' + \
-                      'not complete'
-                _error(msg,0)
+            # Get size to read
+            siz = self.__nl
+            bsiz = siz*4
 
-                # Generate zeros
-                tau = np.zeros((self.__nl))
+            # Try getting data
+            try:
 
-        # Others
-        except:
-            raise
+                # Open file
+                f = open(self.__filename,'rb')
+
+                # Seek first data points for this column
+                f.seek(self.__head + iy*bsiz + self.__ny*ix*bsiz,0)
+
+                # Get intensity
+                tau = np.array(struct.unpack('f'*siz, \
+                                              f.read(bsiz)))[::-1]
+
+            # Failed
+            except struct.error:
+
+                # If the file is complete, the error is more severe,
+                # let it crash
+                if self.__complete:
+                    raise
+
+                # Incomplete file, may be missing data
+                else:
+
+                    # Warn
+                    msg = 'Could not read, may be due to the ' + \
+                          'file being not complete'
+                    _error(msg,0)
+
+                    # Generate zeros
+                    tau = np.zeros((self.__nl))
+
+            # Others
+            except:
+                raise
+
+            # Close file
+            f.close()
 
         # Adjust wavelength
         if minl is not None:
@@ -4051,12 +4366,8 @@ class _tau_15D():
             lam = lam[:i+1]
             tau = tau[:i+1]
 
-        # Close file
-        f.close()
-
         # Return
         return tau
-
 
     def _get_plane(self,jl):
         ''' Get height for optical depth equal to 1 for a given
@@ -4074,69 +4385,853 @@ class _tau_15D():
         # Reverse index
         il = self.__nl - jl - 1
 
-        # Get size to read
-        left = il*4
-        right = (self.__nl - il - 1)*4
-        full = self.__nl*4
-        abort = False
+        # If complete file
+        if self.__complete:
 
-        # Output
-        tau = np.empty((self.__nx,self.__ny))
+            # Output
+            tau = self.__data[:,:,il]
 
-        # Open file
-        f = open(self.__filename,'rb')
+        # Incomplete file
+        else:
 
-        # Seek to data
-        f.seek(self.__head,0)
+            # Get size to read
+            left = il*4
+            right = (self.__nl - il - 1)*4
+            full = self.__nl*4
+            abort = False
 
-        # For each column
-        for ix in range(self.__nx):
-            for iy in range(self.__ny):
+            # Output
+            tau = np.empty((self.__nx,self.__ny))
 
-                # Try geeting data
-                try:
+            # Open file
+            f = open(self.__filename,'rb')
 
-                    # Get Stokes
-                    if left > 0: f.seek(left,1)
-                    tau[ix,iy] = struct.unpack('f',f.read(4))[0]
-                    if right > 0: f.seek(right,1)
+            # Seek to data
+            f.seek(self.__head,0)
 
-                # Reading error
-                except struct.error:
+            # For each column
+            for ix in range(self.__nx):
+                for iy in range(self.__ny):
 
-                    # If the file is complete, the error is more severe, let it crash
-                    if self.__complete:
+                    # Try getting data
+                    try:
+
+                        # Get Stokes
+                        if left > 0: f.seek(left,1)
+                        tau[ix,iy] = struct.unpack('f',f.read(4))[0]
+                        if right > 0: f.seek(right,1)
+
+                    # Reading error
+                    except struct.error:
+
+                        # If the file is complete, the error
+                        # is more severe, let it crash
+                        if self.__complete:
+                            raise
+
+                        # Incomplete file, may be missing data
+                        else:
+
+                            # Warn
+                            msg = 'Could not read, may be due ' + \
+                                  'to the file being not complete'
+                            _error(msg,0)
+
+                            # Generate zeros
+                            tau[ix,iy:self.__ny] = 0.0
+                            abort = True
+                            break
+
+                    except:
                         raise
 
-                    # Incomplete file, may be missing data
-                    else:
+                # We are leaving
+                if abort:
+                    tau[ix+1:self.__nx,:] = 0.0
+                    break
 
-                        # Warn
-                        msg = 'Could not read, may be due to the file being not complete'
-                        _error(msg,0)
-
-                        # Generate zeros
-                        tau[ix,iy:self.__ny] = 0.0
-                        abort = True
-                        break
-
-                except:
-                    raise
-
-            # We are leaving
-            if abort:
-                tau[ix+1:self.__nx,:] = 0.0
-                break
-
-        # Close file
-        f.close()
+            # Close file
+            f.close()
 
         # Return
         return tau
 
-################################################################################
-################################################################################
-################################################################################
+    def _get_cube(self):
+        ''' Get Stokes profiles memmap
+        '''
+
+        # If not complete
+        if not self.__complete:
+            _error('The memmap can only be created if the file ' + \
+                   'is complete')
+            return None
+        return self.__data[:,:,::-1]
+
+######################################################################
+######################################################################
+######################################################################
+
+class _atmo_1D():
+    ''' Class to manage the 1D model atmosphere format
+    '''
+
+    def __init__(self,filename):
+        ''' Initialize class
+        '''
+
+        # Store filename
+        self.__filename = filename
+
+        # Get header
+        if not self.__head(): return None
+
+        # Method
+        self.__methods = { \
+         'get_filename': \
+          [None,'Get name of the read file'], \
+         'get_nz': \
+          [None,'Get number of heights in the model atmosphere'], \
+         'get_vars': \
+          [None,'Get list of variables in the model atmosphere'], \
+         'get_vars_units': \
+          [None,'Get list of variables in the model atmosphere ' + \
+                'with their corresponding units'], \
+         'get_vars_alias': \
+          [None,'Get list of variables in the model atmosphere ' + \
+                'with their corresponding alias'], \
+          'get_name': \
+          [None,'Get the name of the model specified in the file'], \
+          'get_comment': \
+          [None,'Get the comment specified in the file'], \
+          'get_wavelength': \
+          [None,'Get the wavelength corresponding to the optical ' + \
+           'depth scale present or to be calculated'], \
+          'get_column': \
+          [{'minz': \
+             'Lower height or optical depth boundary (lower ' + \
+             'limit) for output', \
+            'maxz': \
+             'Upper height or optical depth boundary (upper ' + \
+             'limit) for output', \
+            'var': \
+             'List of variables to include in the output ' + \
+             '(see the available ones with get_vars_alias()}'}, \
+           'Extract the model atmosphere']}
+
+    def _get_help(self):
+        ''' Return methods dictionary
+        '''
+        return self.__methods
+
+    def __head(self):
+        ''' Reads hanlert 1D model atmosphere
+        '''
+        try:
+
+            # Initialize comment and variables
+            self.__comment = ''
+            self.__vars = []
+            self.__alias = []
+            self.__vars_units = []
+            self.__i0 = 0
+            self.__i1 = 0
+            self.__block1 = []
+            self.__block2 = []
+
+            # Number of valid lines counter
+            ival = 0
+
+            # Open file
+            f = open(self.__filename,'r')
+
+            # For each line
+            for iline,line in enumerate(f):
+
+                # Strip comments
+                if '!' in line:
+                    il = line.find('!')
+                    if ival < 1: cc = line[il+1:]
+                    cline = line[:il]
+                elif '*' in line:
+                    il = line.find('*')
+                    if ival < 1: cc = line[il+1:]
+                    cline = line[:il]
+                else:
+                    cline = line
+                    cc = ''
+
+                # Strip spaces
+                cline = cline.strip()
+
+                # Comment
+                if ival < 1:
+                    cc = cc.strip()
+                    if len(cc) > 1:
+                        if self.__comment == '':
+                            self.__comment = cc
+                        else:
+                            self.__comment += ' '+cc
+
+                # If empty, skip
+                if len(cline) < 1: continue
+
+                # There is content
+                ival += 1
+
+                # The first one is the name
+                if ival == 1: self.__name = cline
+
+                # The second valid line is the scale
+                # or tau
+                if ival == 2:
+                    if 'height' in cline.lower():
+                        self.__ztype = 0
+                    elif 'tau' in cline.lower():
+                        self.__ztype = 1
+                    try:
+                        self.__wavelength = float(cline.split()[-1])
+                    except:
+                        self.__wavelength = 500.
+
+                # The third # valid line is a float
+                if ival == 3: self.__logg = float(cline)
+
+                # The fourth valid line is the size
+                if ival == 4: self.__nz = int(cline)
+
+                # The fifth is the first line of the block, we
+                # can check if we have horizontal velocities
+                if ival == 5:
+
+                    # Save line
+                    self.__i0 = iline
+
+                    # Check existence
+                    self.__vx = len(cline.split()) > 5
+                    self.__vy = len(cline.split()) > 6
+
+                # Skip if too early
+                if ival < 5: continue
+
+                # The nz + 5 can be either a label or a list
+                # of numbers, telling us the type
+                if ival == 5+self.__nz:
+
+                    # Save
+                    self.__i1 = iline
+
+                    # 6 Columns?
+                    if len(cline.split()) == 6:
+                        nh = True
+                        for c in cline.split():
+                            try:
+                                c = float(c)
+                            except:
+                                nh = False
+                                break
+                    else:
+                        nh = False
+                    if nh:
+                        self.__etype = 0
+                    elif cline.lower() == 'ne':
+                        self.__etype = 1
+                    elif cline.lower() == 'pg':
+                        self.__etype = 2
+                    elif cline.lower() == 'rho':
+                        self.__etype = 3
+                    elif cline.lower() == 'pe':
+                        self.__etype = 4
+                    elif cline.lower() == 'rhoe':
+                        self.__etype = 5
+                    else:
+                        self.__etype = -1
+
+
+            #
+            # We can now fill the variables completely
+
+            # Vertical axis
+            if self.__ztype == 0:
+                self.__vars.append('h')
+                self.__alias.append('h')
+                self.__vars_units.append('km')
+            else:
+                self.__vars.append(r'$\log{\tau_{\rm c}}$')
+                self.__alias.append('ltau')
+                self.__vars_units.append('')
+
+            # Temperature
+            self.__vars.append('T')
+            self.__alias.append('T')
+            self.__vars_units.append('K')
+
+            # NE variable
+            if self.__etype == 0 or self.__etype == 1:
+                self.__vars.append(r'N$_{\rm e}$')
+                self.__alias.append('ne')
+                self.__vars_units.append(r'cm$^{-3}$')
+            elif self.__etype == 2:
+                self.__vars.append(r'P$_{\rm g}$')
+                self.__alias.append('Pg')
+                self.__vars_units.append(r'dyn cm$^{-2}$')
+            elif self.__etype == 3:
+                self.__vars.append(r'$\rho$')
+                self.__alias.append('rho')
+                self.__vars_units.append(r'g cm$^{-3}$')
+            elif self.__etype == 4:
+                self.__vars.append(r'P$_{\rm e}$')
+                self.__alias.append('Pe')
+                self.__vars_units.append(r'dyn cm$^{-2}$')
+            elif self.__etype == 5:
+                self.__vars.append(r'$\rho_{\rm e}$')
+                self.__alias.append('rhoe')
+                self.__vars_units.append(r'g cm$^{-3}$')
+
+            # Velocity
+            if self.__vx:
+                self.__vars.append(r'v$_{\rm x}')
+                self.__alias.append('vx')
+                self.__vars_units.append(r'km s$^{-1}$')
+            if self.__vy:
+                self.__vars.append(r'v$_{\rm y}')
+                self.__alias.append('vy')
+                self.__vars_units.append(r'km s$^{-1}$')
+            self.__vars.append(r'v$_{\rm z}')
+            self.__alias.append('vz')
+            self.__vars_units.append(r'km s$^{-1}$')
+            self.__vars.append(r'v$_{\rm mi}')
+            self.__alias.append('vmi')
+            self.__vars_units.append(r'km s$^{-1}$')
+
+            # These variables are block 1
+            for var in self.__alias:
+                self.__block1.append(var)
+
+            # Hydrogen
+            if self.__etype == 0:
+                self.__vars.append(r'N$_{\rm H_0}$')
+                self.__vars.append(r'N$_{\rm H_1}$')
+                self.__vars.append(r'N$_{\rm H_2}$')
+                self.__vars.append(r'N$_{\rm H_3}$')
+                self.__vars.append(r'N$_{\rm H_4}$')
+                self.__vars.append(r'N$_{\rm p^+}$')
+                self__alias.append('nH0')
+                self__alias.append('nH1')
+                self__alias.append('nH2')
+                self__alias.append('nH3')
+                self__alias.append('nH4')
+                self__alias.append('np')
+                self.__vars_units.append(r'cm$^{-3}$')
+                self.__vars_units.append(r'cm$^{-3}$')
+                self.__vars_units.append(r'cm$^{-3}$')
+                self.__vars_units.append(r'cm$^{-3}$')
+                self.__vars_units.append(r'cm$^{-3}$')
+                self.__vars_units.append(r'cm$^{-3}$')
+                self__block2.append('nH0')
+                self__block2.append('nH1')
+                self__block2.append('nH2')
+                self__block2.append('nH3')
+                self__block2.append('nH4')
+                self__block2.append('np')
+
+        except:
+            raise
+
+        # Return valid
+        return True
+
+    def _get_filename(self):
+        ''' Get the name of the read file
+        '''
+        return self.__filename
+
+    def _get_name(self):
+        ''' Get the name in the read file
+        '''
+        return self.__name
+
+    def _get_comment(self):
+        ''' Get the comment in the read file
+        '''
+        return self.__name
+
+    def _get_wavelength(self):
+        ''' Get wavelength for the continuum corresponding to
+            the optical depth
+        '''
+        return self.__wavelength
+
+    def _get_nz(self):
+        ''' Get number of heights
+        '''
+        return self.__nz
+
+    def _get_vars(self):
+        ''' Get variables in model atmosphere
+        '''
+        return self.__vars
+
+    def _get_vars_alias(self):
+        ''' Get variables and their alias in model atmosphere
+        '''
+        out = []
+        for var,alias in zip(self.__vars,self.__alias):
+            out.append(var+' -> '+alias)
+        return out
+
+    def _get_vars_units(self):
+        ''' Get variables in model atmosphere with units
+        '''
+        out = []
+        for var,uni in zip(self.__vars,self.__vars_units):
+            out.append(var+' ['+uni+']')
+        return out
+
+    def _get_column(self,minz=None,maxz=None,var=None):
+        ''' Get model atmosphere
+        '''
+
+        # If var is not None
+        if var is None:
+            ivar = self.__alias
+        else:
+            if not isinstance(var, list):
+                ivar = [var]
+            else:
+                ivar = var.copy()
+            for evar in ivar:
+                if not isinstance(evar, str):
+                    _error('The field var requires strings',1)
+                    return None
+                if evar not in self.__alias:
+                    _error('The requested variable ' + evar + \
+                           ' is not available, ' + \
+                           'check with get_vars_alias',1)
+                    return None
+
+        # Initialize variables
+        out = {}
+        for var in ivar:
+            out[var] = np.zeros((self.__nz))
+
+        # Asking for block1?
+        block1 = False
+        for var in ivar:
+            if var in self.__block1:
+                block1 = True
+                break
+
+        # Asking for block2?
+        block2 = False
+        for var in ivar:
+            if var in self.__block2:
+                block2 = True
+                break
+
+        # Initialize
+        needz = 0
+        needne = False
+
+
+        # If asked for ne variable
+        for var in ivar:
+            if 'h' == var:
+                needz = 1
+                zvar = var
+            elif 'ltau' == var:
+                needz = 1
+                zvar = var
+            if 'ne' == var:
+                needne =True
+                nevar = var
+            elif 'pe' == var:
+                needne = True
+                nevar = var
+            elif 'rhoe' == var:
+                needne = True
+                nevar = var
+            elif 'pg' == var:
+                needne = True
+                nevar = var
+            elif 'rho' == var:
+                needne = True
+                nevar = var
+
+        # Complete
+        if minz is not None or maxz is not None: needz += 10
+
+
+        # Try getting data
+        try:
+
+            # Open file
+            with open(self.__filename,'r') as f:
+
+                # Run over lines
+                for iline, line in enumerate(f):
+
+                    # If need block 1
+                    if block1:
+
+                        # If in the block
+                        if iline >= self.__i0 and \
+                           iline < self.__i0+self.__nz:
+
+                            # Strip
+                            if '!' in line:
+                                idx = line.find('!')
+                                cline = line[:idx].strip()
+                            elif '*' in line:
+                                idx = line.find('*')
+                                cline = line[:idx].strip()
+                            else:
+                                cline = line.strip()
+
+                            # Cols
+                            cols = cline.split()
+
+                            # Height index
+                            iz = iline - self.__i0
+
+                            if needz > 0:
+                                out[zvar][iz] = float(cols[0])
+                            if 'T' in ivar:
+                                out['T'][iz] = float(cols[1])
+                            if needne:
+                                out[nevar][iz] = float(cols[2])
+                            if 'vz' in ivar:
+                                out['vz'][iz] = float(cols[3])
+                            if 'vmi' in ivar:
+                                out['vmi'][iz] = float(cols[4])
+                            if 'vx' in ivar:
+                                out['vx'][iz] = float(cols[5])
+                            if 'vy' in ivar:
+                                out['vy'][iz] = float(cols[6])
+
+                    # If need block 2
+                    if block2:
+
+                        # If in the block
+                        if iline >= self.__i1 and \
+                           iline < self.__i1+self.__nz:
+
+                            # Height index
+                            iz = iline - self.__i0
+
+                            # Strip
+                            if '!' in line:
+                                idx = line.find('!')
+                                cline = line[:idx].strip()
+                            elif '*' in line:
+                                idx = line.find('*')
+                                cline = line[:idx].strip()
+                            else:
+                                cline.strip()
+
+                            # Cols
+                            cols = cline.split()
+
+                            for i,v in enumerate(self.__block2):
+                                if v in ivar:
+                                    out[v][iz] = float(cols[i])
+
+            # tau?
+            if self.__ztype == 1 and 'ltau' in out:
+                if out['ltau'][0] <= 0.:
+                    out['ltau'][0] = out['ltau'][1]*1e-3
+                out['ltau'] = np.log10(out['ltau'])
+
+            # Cut in z?
+            if minz is not None:
+                ii = np.argmin(out[zvar] - minz)
+                for v in out:
+                    out[v] = out[v][:ii+1]
+            if maxz is not None:
+                ii = np.argmin(out[zvar] - maxz)
+                for v in out:
+                    out[v] = out[v][ii:]
+
+            # If z was not requested
+            if needz == 10:
+                del out[zvar]
+
+        except:
+            raise
+
+        # Return column
+        return out
+
+######################################################################
+######################################################################
+######################################################################
+
+class _atmo_b_1D():
+    ''' Class to manage the 1D model atmosphere full format
+    '''
+
+    def __init__(self,filename):
+        ''' Initialize class
+        '''
+
+        # Store filename
+        self.__filename = filename
+
+        # Get header
+        if not self.__head(): return None
+
+        # Method
+        self.__methods = { \
+         'get_filename': \
+          [None,'Get name of the read file'], \
+         'get_nz': \
+          [None,'Get number of heights in the model atmosphere'], \
+         'get_vars': \
+          [None,'Get list of variables in the model atmosphere'], \
+         'get_vars_units': \
+          [None,'Get list of variables in the model atmosphere ' + \
+                'with their corresponding units'], \
+         'get_vars_alias': \
+          [None,'Get list of variables in the model atmosphere ' + \
+                'with their corresponding alias'], \
+          'get_column': \
+          [{'minz': \
+             'Lower height or optical depth boundary (lower ' + \
+             'limit) for output', \
+            'maxz': \
+             'Upper height or optical depth boundary (upper ' + \
+             'limit) for output', \
+            'var': \
+             'List of variables to include in the output ' + \
+             '(see the available ones with get_vars_alias()}'}, \
+           'Extract the model atmosphere']}
+
+    def _get_help(self):
+        ''' Return methods dictionary
+        '''
+        return self.__methods
+
+    def __head(self):
+        ''' Reads hanlert 1D model atmosphere
+        '''
+        try:
+
+            # Number of heights
+            self.__nz = 0
+
+            # Open file
+            f = open(self.__filename,'r')
+
+            # For each line
+            for iline,line in enumerate(f):
+
+                # Strip comments
+                if '!' in line:
+                    il = line.find('!')
+                    if ival < 1: cc = line[il+1:]
+                    cline = line[:il]
+                elif '*' in line:
+                    il = line.find('*')
+                    if ival < 1: cc = line[il+1:]
+                    cline = line[:il]
+                else:
+                    cline = line
+                    cc = ''
+
+                # Strip spaces
+                cline = cline.strip()
+
+                # If empty, skip
+                if len(cline) < 1: continue
+
+                # There is content
+                self.__nz += 1
+
+            # Initialize variable names
+            self.__vars = ['h',r'$\log{\tau_{\rm c}}$', \
+                           r'$\chi_{\rm c}$','T',r'P$_{\rm g}$', \
+                           r'$\rho$',r'|B|',r'B$_{\rm t}$', \
+                           r'B$_{\rm p}$', \
+                           r'v$_{\rm x}$',r'v$_{\rm y}$', \
+                           r'v$_{\rm z}$', \
+                           r'v$_{\rm mi}$',r'P$_{\rm e}$', \
+                           r'N$_{\rm e}$',r'N$_{\rm H}$', \
+                           r'N$_{\rm H_{\rm a}}$', \
+                           r'N$_{\rm H^-}$',r'N$_{\rm H_0}$',
+                           r'N$_{\rm H_1}$',r'N$_{\rm H_2}$', \
+                           r'N$_{\rm H_3}$',r'N$_{\rm H_4}$', \
+                           r'N$_{\rm p^+}$']
+            self.__alias = ['h','ltau','chic','T','Pg','rho', \
+                            'B','Bt','Bp','vx','vy','vz', \
+                            'vmi','Pe','ne','nHT','nHa', \
+                            'nH-','nH0','nH1','nH2','nH3','nH4','np']
+            self.__vars_units = ['km','','cm^-1]','K','dyn/cm^2', \
+                                 'g cm^-3','G','rad','rad','km s^-1', \
+                                 'km s^-1','km s^-1','km s^-1',
+                                 'dyn cm^-2','cm^-3','cm^-3','cm^-3', \
+                                 'cm^-3','cm^-3','cm^-3','cm^-3', \
+                                 'cm^-3','cm^-3','cm^-3']
+        except:
+            raise
+
+        # Return valid
+        return True
+
+    def _get_filename(self):
+        ''' Get the name of the read file
+        '''
+        return self.__filename
+
+    def _get_name(self):
+        ''' Get the name in the read file
+        '''
+        return self.__name
+
+    def _get_comment(self):
+        ''' Get the comment in the read file
+        '''
+        return self.__name
+
+    def _get_nz(self):
+        ''' Get number of heights
+        '''
+        return self.__nz
+
+    def _get_vars(self):
+        ''' Get variables in model atmosphere
+        '''
+        return self.__vars
+
+    def _get_wavelength(self):
+        ''' Get wavelength for the continuum corresponding to
+            the optical depth
+        '''
+        return self.__wavelength
+
+    def _get_vars_alias(self):
+        ''' Get variables and their alias in model atmosphere
+        '''
+        out = []
+        for var,alias in zip(self.__vars,self.__alias):
+            out.append(var+' -> '+alias)
+        return out
+
+    def _get_vars_units(self):
+        ''' Get variables in model atmosphere with units
+        '''
+        out = []
+        for var,uni in zip(self.__vars,self.__vars_units):
+            out.append(var+' ['+uni+']')
+        return out
+
+    def _get_column(self,minh=None,maxh=None, \
+                         mint=None,maxt=None,var=None):
+        ''' Get model atmosphere
+        '''
+
+        # If var is not None
+        if var is None:
+            ivar = self.__alias
+        else:
+            if not isinstance(var, list):
+                ivar = [var]
+            else:
+                ivar = var.copy()
+            for evar in ivar:
+                if not isinstance(evar, str):
+                    _error('The field var requires strings',1)
+                    return None
+                if evar not in self.__alias:
+                    _error('The requested variable ' + evar + \
+                           ' is not available, ' + \
+                           'check with get_vars_alias',1)
+                    return None
+
+        # Initialize variables
+        out = {}
+        for var in ivar:
+            out[var] = np.zeros((self.__nz))
+
+        # Try getting data
+        try:
+
+            # Height index
+            iz = -1
+
+            # Open file
+            with open(self.__filename,'r') as f:
+
+                # Run over lines
+                for iline, line in enumerate(f):
+
+                    # Strip
+                    if '!' in line:
+                        idx = line.find('!')
+                        cline = line[:idx].strip()
+                    elif '*' in line:
+                        idx = line.find('*')
+                        cline = line[:idx].strip()
+                    else:
+                        cline = line.strip()
+
+                    # If empty, skip
+                    if len(cline) < 1: continue
+
+                    # Cols
+                    cols = cline.split()
+
+                    # Advance
+                    iz += 1
+
+                    for i,v in enumerate(self.__alias):
+                        if v in ivar:
+                            out[v] = col[i]
+                        elif v == 'h' or v == 'ltau':
+                            if minh is not None or \
+                               maxh is not None:
+                                out['h'] = col[0]
+                            if mint is not None or \
+                               maxt is not None:
+                                out['tau'] = col[1]
+
+            # Log tau
+            if 'ltau' in out:
+                if out['ltau'][0] <= 0.:
+                    out['ltau'][0] = out['ltau'][1]*1e-3
+                out['ltau'] = np.log10(out['ltau'])
+
+            # Cut in z?
+            if minh is not None:
+                ii = np.argmin(out['h'] - minh)
+                for v in out:
+                    out[v] = out[v][:ii+1]
+            if maxh is not None:
+                ii = np.argmin(out['h'] - maxh)
+                for v in out:
+                    out[v] = out[v][ii:]
+            if mint is not None:
+                ii = np.argmin(out['h'] - mint)
+                for v in out:
+                    out[v] = out[v][ii:]
+            if maxt is not None:
+                ii = np.argmin(out['h'] - maxt)
+                for v in out:
+                    out[v] = out[v][:ii+1]
+
+            # Remove not requested
+            if 'h' in out and 'h' not in ivar:
+                del out['h']
+            if 'ltau' in out and 'ltau' not in ivar:
+                del out['ltau']
+
+        except:
+            raise
+
+        # Return column
+        return out
+
+######################################################################
+######################################################################
+######################################################################
 
 class _atmo_15D():
     ''' Class to manage the 3D model atmosphere format
@@ -4157,7 +5252,8 @@ class _atmo_15D():
          'get_filename': \
           [None,'Get name of the read file'], \
          'get_precision': \
-          [None,'Get type of variable in which the variables are stored'], \
+          [None,'Get type of variable in which the variables ' + \
+                'are stored'], \
          'get_nx': \
           [None,'Get number of nodes in the x dimension'], \
          'get_ny': \
@@ -4167,27 +5263,26 @@ class _atmo_15D():
          'get_nxy': \
           [None,'Get number of nodes in the x and y dimensions'], \
          'get_nxyz': \
-          [None,'Get number of nodes in the x, y, and height dimensions'], \
+          [None,'Get number of nodes in the x, y, and height ' + \
+                'dimensions'], \
          'get_dims': \
-          [None,'Get number of nodes in the x, y, and height dimensions'], \
-         'get_vars': \
-          [None,'Get list of variables with available node results'], \
-         'get_vars_units': \
-          [None,'Get list of variables with available node results with their ' + \
-                'corresponding units'], \
+          [None,'Get number of nodes in the x, y, and height ' + \
+                'dimensions'], \
          'get_vars': \
           [None,'Get list of variables in the model atmosphere'], \
          'get_vars_units': \
-          [None,'Get list of variables in the model atmosphere with ' + \
-                'their corresponding units'], \
+          [None,'Get list of variables in the model atmosphere ' + \
+                'with their corresponding units'], \
          'get_vars_alias': \
-          [None,'Get list of variables in the model atmosphere with ' + \
-                'their corresponding alias'], \
+          [None,'Get list of variables in the model atmosphere ' + \
+                'with their corresponding alias'], \
           'get_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minh': \
              'Lower boundary for output height', \
             'maxh': \
@@ -4197,17 +5292,21 @@ class _atmo_15D():
             'maxt': \
              'Upper boundary for output optical depth', \
             'var': \
-             'List of variables to include in the output (see the ' + \
-             'available ones with get_vars_alias()}'}, \
+             'List of variables to include in the output ' + \
+             '(see the available ones with get_vars_alias()}'}, \
            'Extract the model atmosphere for a particular column'], \
           'get_plane': \
           [{'iz': \
-             'Coordinate in the height dimension of the atmospheric parameters to extract', \
+             'Coordinate in the height dimension of the ' + \
+             'atmospheric parameters to extract', \
             'var': \
-             'List of variables to include in the output (see the ' + \
-             'available ones with get_vars_alias()}'}, \
-           'Extract the model atmosphere for a particular height index for ' + \
-           'the whole field of view']}
+             'List of variables to include in the output ' + \
+             '(see the available ones with get_vars_alias()}'}, \
+           'Extract the model atmosphere for a particular ' + \
+           'height index for the whole field of view'], \
+          'get_cube': \
+          [None,f'Get a memmap to the whole data'] \
+          }
 
     def _get_help(self):
         ''' Return methods dictionary
@@ -4219,7 +5318,7 @@ class _atmo_15D():
         '''
         try:
 
-            # Get actual header
+            # Get header data
             f = open(self.__filename,'rb')
             f.seek(4,0)
 
@@ -4250,10 +5349,13 @@ class _atmo_15D():
 
             # Variables
             self.__nvar = 24
-            self.__vars = ['h',r'$\tau_{\rm c}$',r'$\chi_{\rm c}$', \
+            self.__vars = ['h',r'$\log{\tau_{\rm c}}$', \
+                           r'$\chi_{\rm c}$', \
                            'T',r'P$_{\rm g}$',r'$\rho$', \
-                           r'B$_{\rm x}$',r'B$_{\rm y}$',r'B$_{\rm z}$', \
-                           r'v$_{\rm x}$',r'v$_{\rm y}$',r'v$_{\rm z}$', \
+                           r'B$_{\rm x}$',r'B$_{\rm y}$', \
+                           r'B$_{\rm z}$', \
+                           r'v$_{\rm x}$',r'v$_{\rm y}$', \
+                           r'v$_{\rm z}$', \
                            r'v$_{\rm mi}$',r'P$_{\rm e}$', \
                            r'N$_{\rm e}$',r'N$_{\rm H}$', \
                            r'N$_{\rm H_{\rm a}}$', \
@@ -4261,7 +5363,7 @@ class _atmo_15D():
                            r'N$_{\rm H_1}$',r'N$_{\rm H_2}$', \
                            r'N$_{\rm H_3}$',r'N$_{\rm H_4}$', \
                            r'N$_{\rm p^+}$']
-            self.__alias = ['h','tau','chic','T','Pg','rho', \
+            self.__alias = ['h','ltau','chic','T','Pg','rho', \
                             'Bx','By','Bz','vx','vy','vz', \
                             'vmi','Pe','ne','nHT','nHa', \
                             'nH-','nH0','nH1','nH2','nH3','nH4','np']
@@ -4278,6 +5380,16 @@ class _atmo_15D():
                                 r'[cm$^{-3}$]']
             # Size of column
             self.__column = self.__byt*self.__nz*self.__nvar
+
+            # Create memmaps
+            self.__data = np.memmap(self.__filename, \
+                                    mode='r', \
+                                    offset=self.__head, \
+                                    dtype=self.__vtype, \
+                                    shape=(self.__nx, \
+                                           self.__ny, \
+                                           self.__nvar, \
+                                           self.__nz))
 
         except struct.error:
             return False
@@ -4383,26 +5495,11 @@ class _atmo_15D():
                            'check with get_vars_alias',1)
                     return None
 
-        # Size column
-        size = self.__nz*self.__nvar
-
-        # Try geeting data
+        # Try getting data
         try:
 
-            # Open file
-            f = open(self.__filename,'rb')
-
-            # Seek first data points for this column
-            f.seek(self.__head + iy*self.__column + \
-                       self.__ny*ix*self.__column,0)
-
             # Read data
-            col = np.array(struct.unpack(self.__fmt*size, \
-                                         f.read(self.__column))). \
-                           reshape((self.__nvar,self.__nz))
-
-            # Close
-            f.close()
+            col = self.__data[ix,iy,:,:]
 
             # Adjust height
             if minh is not None:
@@ -4418,11 +5515,6 @@ class _atmo_15D():
                 i = np.argmin(np.absolute(col[1,:] - maxt))
                 col = col[:,:i+1]
 
-        except struct.error:
-
-            # Not full data
-            raise
-
         except:
             raise
 
@@ -4430,9 +5522,12 @@ class _atmo_15D():
         out = {}
         for i,v in enumerate(self.__alias):
             if v in ivar:
-                out[v] = col[i,:]
+                out[v] = col[i,:].copy()
+                if v == 'ltau':
+                    if out[v][0] <= 0:
+                        out[v][0] = out[v][1]*1e-3
+                    out[v] = np.log10(out[v])
         return out
-
 
     def _get_plane(self,iz,var=None):
         ''' Get model atmosphere for a given height index
@@ -4465,61 +5560,35 @@ class _atmo_15D():
                            'check with get_vars_alias',1)
                     return None
 
-        # Before and after
-        left = iz*self.__byt
-        right = (self.__nz - iz - 1)*self.__byt
-        full = self.__nz*self.__byt
+        # Try getting data
+        try:
 
-        # Prepare output
+            # Get plane
+            col = self.__data[:,:,:,iz]
+
+        except:
+            raise
+
+        # Return plane
         out = {}
-        for jvar in ivar:
-            out[jvar] = np.empty((self.__nx,self.__ny))
-
-        # Open file
-        f = open(self.__filename,'rb')
-
-        # Seek first data points for this block
-        f.seek(self.__head,0)
-
-        # Run over columns
-        for ix in range(self.__nx):
-            for iy in range(self.__ny):
-
-                # Try geeting data
-                try:
-
-                    # For each variable in the model atmosphere
-                    for ibar,bar in enumerate(self.__alias):
-
-                        # Output
-                        if bar in out:
-
-                            # Skip left
-                            if left > 0: f.seek(left,1)
-
-                            # Read
-                            out[bar][ix,iy] = struct.unpack(self.__fmt, \
-                                                            f.read(self.__byt))[0]
-                            # Skip right
-                            if right > 0: f.seek(right,1)
-
-                        else:
-
-                            # Skip
-                            f.seek(full,1)
-
-                except struct.error:
-                    raise
-                except:
-                    raise
-        # Close
-        f.close()
+        for i,v in enumerate(self.__alias):
+            if v in ivar:
+                out[v] = col[:,:,i].copy()
+                if v == 'ltau':
+                    out[v] = np.where(out[v] <= 0., \
+                                      1e-16,out[v])
+                    out[v] = np.log10(out[v])
 
         return out
 
-################################################################################
-################################################################################
-################################################################################
+    def _get_cube(self):
+        ''' Get whole model
+        '''
+        return self.__data
+
+######################################################################
+######################################################################
+######################################################################
 
 class _inversion_in():
     ''' Class to manage the input data file for the TIC
@@ -4552,7 +5621,8 @@ class _inversion_in():
          'get_nl': \
           [None,'Get number of wavelengths'], \
          'get_dims': \
-          [None,'Get number of nodes in the x, y, and wavelength dimensions'], \
+          [None,'Get number of nodes in the x, y, and ' + \
+                'wavelength dimensions'], \
           'get_lambda': \
           [{'minl': \
              'Lower boundary for output wavelength [nm]', \
@@ -4567,9 +5637,11 @@ class _inversion_in():
           [None,'Get the line of sight for the whole plane'], \
          'get_stokesi_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -4577,9 +5649,11 @@ class _inversion_in():
            'Extract the intensity at a particular column'], \
          'get_stokesq_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column to ' + \
+             'extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column to ' + \
+             'extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -4589,9 +5663,11 @@ class _inversion_in():
            'Extract Stokes Q at a particular column'], \
          'get_stokesu_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -4601,9 +5677,11 @@ class _inversion_in():
            'Extract Stokes U at a particular column'], \
          'get_stokesv_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -4613,9 +5691,11 @@ class _inversion_in():
            'Extract Stokes V at a particular column'], \
          'get_linear_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -4625,9 +5705,11 @@ class _inversion_in():
            'Extract linear polarization at a particular column'], \
          'get_stokes_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column to ' + \
+             'extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column to ' + \
+             'extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -4638,50 +5720,54 @@ class _inversion_in():
          'get_stokesi_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract'}, \
-           'Extract Stokes I at a particular wavelength index for ' + \
-           'the whole field of view'], \
+           'Extract Stokes I at a particular wavelength ' + \
+           'index for the whole field of view'], \
          'get_stokesq_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract', \
             'fractional': \
              'True to normalize to intensity, [SI] otherwise]'}, \
-           'Extract Stokes Q at a particular wavelength index for ' + \
-           'the whole field of view'], \
+           'Extract Stokes Q at a particular wavelength ' + \
+           'index for the whole field of view'], \
          'get_stokesu_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract', \
             'fractional': \
              'True to normalize to intensity, [SI] otherwise]'}, \
-           'Extract Stokes U at a particular wavelength index for ' + \
-           'the whole field of view'], \
+           'Extract Stokes U at a particular wavelength ' + \
+           'index for the whole field of view'], \
          'get_stokesv_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract', \
             'fractional': \
              'True to normalize to intensity, [SI] otherwise]'}, \
-           'Extract Stokes V at a particular wavelength index for ' + \
-           'the whole field of view'], \
+           'Extract Stokes V at a particular wavelength ' + \
+           'index for the whole field of view'], \
          'get_linear_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract', \
             'fractional': \
              'True to normalize to intensity, [SI] otherwise]'}, \
-           'Extract total linear polarization at a particular wavelength ' + \
-           'index for the whole field of view'], \
+           'Extract total linear polarization at a ' + \
+           'particular wavelength index for the whole ' + \
+           'field of view'], \
          'get_stokes_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract', \
             'fractional': \
              'True to normalize to intensity, [SI] otherwise]'}, \
-           'Extract the full Stokes vector at a particular wavelength index for ' + \
+           'Extract the full Stokes vector at a particular ' + \
+           'wavelength index for ' + \
            'the whole field of view'], \
          'get_sigma': \
           [None,'Get the sigma for Stokes parameters'], \
          'get_sigmai_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -4689,9 +5775,11 @@ class _inversion_in():
            'Extract the intensity sigma at a particular column'], \
          'get_sigmaq_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column to ' + \
+             'extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column to ' + \
+             'extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -4699,9 +5787,11 @@ class _inversion_in():
            'Extract the Stokes Q sigma at a particular column'], \
          'get_sigmau_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -4709,9 +5799,11 @@ class _inversion_in():
            'Extract the Stokes U sigma at a particular column'], \
          'get_sigmav_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -4719,9 +5811,11 @@ class _inversion_in():
            'Extract the Stokes V sigma at a particular column'], \
          'get_sigma_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -4730,105 +5824,133 @@ class _inversion_in():
          'get_sigmai_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract'}, \
-           'Extract the intensity sigma at a particular wavelength index for ' + \
+           'Extract the intensity sigma at a particular ' + \
+           'wavelength index for ' + \
            'the whole field of view'], \
          'get_sigmaq_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract'}, \
-           'Extract the Stokes Q sigma at a particular wavelength index for ' + \
+           'Extract the Stokes Q sigma at a particular ' + \
+           'wavelength index for ' + \
            'the whole field of view'], \
          'get_sigmau_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract'}, \
-           'Extract the Stokes U sigma at a particular wavelength index for ' + \
+           'Extract the Stokes U sigma at a particular ' + \
+           'wavelength index for ' + \
            'the whole field of view'], \
          'get_sigmav_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract'}, \
-           'Extract the Stokes V sigma at a particular wavelength index for ' + \
+           'Extract the Stokes V sigma at a particular ' + \
+           'wavelength index for ' + \
            'the whole field of view'], \
          'get_sigma_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract'}, \
-           'Extract the Stokes sigma at a particular wavelength index for ' + \
+           'Extract the Stokes sigma at a particular ' + \
+           'wavelength index for ' + \
            'the whole field of view'], \
          'get_diff': \
           [None,'Get the diffuse light Stokes parameters'], \
          'get_diffi_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
              'Upper boundary for output wavelength [nm]'}, \
-           'Extract the intensity diffuse light at a particular column'], \
+           'Extract the intensity diffuse light at a ' + \
+           'particular column'], \
          'get_diffq_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
              'Upper boundary for output wavelength [nm]'}, \
-           'Extract the Stokes Q diffuse light at a particular column'], \
+           'Extract the Stokes Q diffuse light at a ' + \
+           'particular column'], \
          'get_diffu_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
              'Upper boundary for output wavelength [nm]'}, \
-           'Extract the Stokes U diffuse light at a particular column'], \
+           'Extract the Stokes U diffuse light at a particular ' + \
+           'column'], \
          'get_diffv_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
              'Upper boundary for output wavelength [nm]'}, \
-           'Extract the Stokes V diffuse light at a particular column'], \
+           'Extract the Stokes V diffuse light at a particular ' + \
+           'column'], \
          'get_diff_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
              'Upper boundary for output wavelength [nm]'}, \
-           'Extract the Stokes diffuse light at a particular column'], \
+           'Extract the Stokes diffuse light at a ' + \
+           'particular column'], \
          'get_diffi_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract'}, \
-           'Extract the intensity diffuse light at a particular wavelength index for ' + \
+           'Extract the intensity diffuse light at a ' + \
+           'particular wavelength index for ' + \
            'the whole field of view'], \
          'get_diffq_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract'}, \
-           'Extract the Stokes Q diffuse light at a particular wavelength index for ' + \
+           'Extract the Stokes Q diffuse light at a ' + \
+           'particular wavelength index for ' + \
            'the whole field of view'], \
          'get_diffu_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract'}, \
-           'Extract the Stokes U diffuse light at a particular wavelength index for ' + \
+           'Extract the Stokes U diffuse light at a ' + \
+           'particular wavelength index for ' + \
            'the whole field of view'], \
          'get_diffv_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract'}, \
-           'Extract the Stokes V diffuse light at a particular wavelength index for ' + \
+           'Extract the Stokes V diffuse light at a ' + \
+           'particular wavelength index for ' + \
            'the whole field of view'], \
          'get_diff_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract'}, \
-           'Extract the Stokes diffuse light at a particular wavelength index for ' + \
-           'the whole field of view']}
+           'Extract the Stokes diffuse light at a ' + \
+           'particular wavelength index for ' + \
+           'the whole field of view'], \
+          'get_cube': \
+          [None,f'Get a memmap to the pixel wise data.'] \
+          }
 
     def _get_help(self):
         ''' Return methods dictionary
@@ -4840,7 +5962,7 @@ class _inversion_in():
         '''
         try:
 
-            # Get actual header
+            # Get header data
             f = open(self.__filename,'rb')
             f.seek(4,0)
 
@@ -4859,8 +5981,8 @@ class _inversion_in():
             raise
 
         # Size header
-        self.__jump_to_lambda = 4*8
-        self.__head = self.__jump_to_lambda + self.__nl*8
+        self.__to_lambda = 4*8
+        self.__head = self.__to_lambda + self.__nl*8
         self.__to_data = self.__head
 
         # Sanity
@@ -4881,109 +6003,169 @@ class _inversion_in():
         if self.__info[1] == 0:
             self.__to_los = self.__to_data
             self.__to_data += 16
-            self.__c_to_los = 0
-            self.__c_los = 0
         # Variable LOS
         elif self.__info[1] == 1:
             self.__to_los = 0
-            self.__c_to_los = 0
-            self.__c_los = 16
-
-        # Profiles
-        self.__c_to_stk = self.__c_to_los + self.__c_los
-        # If intensity
-        if self.__info[0] == 0:
-            self.__c_stk = self.__nl*8
-        # If polarization
-        elif self.__info[0] == 1:
-            self.__c_stk = self.__nl*8*4
 
         # No sigma
         if self.__info[2] == 0:
             self.__to_sigma = self.__to_data
-            self.__c_to_sigma = 0
-            self.__c_sigma = 0
         # If constant sigma intensity
         elif self.__info[2] == 1 and self.__info[0] == 0:
             self.__to_sigma = self.__to_data
             self.__to_data += 8
-            self.__c_to_sigma = 0
-            self.__c_sigma = 0
         # If constant sigma polarization
         elif self.__info[2] == 1 and self.__info[0] == 1:
             self.__to_sigma = self.__to_data
             self.__to_data += 8*4
-            self.__c_to_sigma = 0
-            self.__c_sigma = 0
         # If variable sigma intensity
         elif self.__info[2] == 2 and self.__info[0] == 0:
             self.__to_sigma = self.__to_data
             self.__to_data += 8*self.__nl
-            self.__c_to_sigma = 0
-            self.__c_sigma = 0
         # If variable sigma polarization
         elif self.__info[2] == 2 and self.__info[0] == 1:
             self.__to_sigma = self.__to_data
             self.__to_data += 8*self.__nl*4
-            self.__c_to_sigma = 0
-            self.__c_sigma = 0
         # If pixel constant sigma intensity
         elif self.__info[2] == 3 and self.__info[0] == 0:
             self.__to_sigma = 0
-            self.__c_to_sigma = self.__c_to_stk + self.__c_stk
-            self.__c_sigma = 8
         # If pixel constant sigma polarization
         elif self.__info[2] == 3 and self.__info[0] == 1:
             self.__to_sigma = 0
-            self.__c_to_sigma = self.__c_to_stk + self.__c_stk
-            self.__c_sigma = 8*4
         # If pixel variable sigma intensity
         elif self.__info[2] == 4 and self.__info[0] == 0:
             self.__to_sigma = 0
-            self.__c_to_sigma = self.__c_to_stk + self.__c_stk
-            self.__c_sigma = 8*self.__nl
         # If pixel variable sigma polarization
         elif self.__info[2] == 4 and self.__info[0] == 1:
             self.__to_sigma = 0
-            self.__c_to_sigma = self.__c_to_stk + self.__c_stk
-            self.__c_sigma = 8*self.__nl*4
 
         # No diffuse light
         if self.__info[3] == 0:
             self.__to_diff = self.__to_data
-            self.__c_to_diff = 0
-            self.__c_diff = 0
         # If constant diffuse light intensity
         elif self.__info[3] == 1:
             self.__to_diff = self.__to_data
             self.__to_data += 8*self.__nl
-            self.__c_to_diff = 0
-            self.__c_diff = 0
         # If constant diffuse light polarization
         elif self.__info[3] == 2:
             self.__to_diff = self.__to_data
             self.__to_data += 8*4
-            self.__c_to_diff = 0
-            self.__c_diff = 0
         # If pixel diffuse light intensity
         elif self.__info[3] == 3:
             self.__to_diff = 0
-            self.__c_to_diff = self.__c_to_stk + self.__c_stk + \
-                               self.__c_sigma
-            self.__c_diff = self.__nl*8
         # If pixel diffuse light polarization
         elif self.__info[3] == 4:
             self.__to_diff = 0
-            self.__c_to_diff = self.__c_to_stk + self.__c_stk + \
-                               self.__c_sigma
-            self.__c_diff = self.__nl*8*4
 
-        # Size of a column
-        self.__column = self.__c_los + self.__c_stk + self.__c_sigma + self.__c_diff
-        self.__c_from_los = self.__c_stk + self.__c_sigma + self.__c_diff
-        self.__c_from_stk = self.__c_sigma + self.__c_diff
-        self.__c_from_sigma = self.__c_diff
-        self.__c_from_diff = 0
+
+        #
+        # Build type for the data block
+        #
+
+        # Initialize
+        fields = []
+
+        # LOS
+        if self.__info[1] == 1:
+            fields.append(('los',np.float64,(2)))
+
+        # Stokes
+        # Only intensity
+        if self.__info[0] == 0:
+            ns = 1
+        # Polarization
+        else:
+            ns = 4
+        fields.append(('stokes',np.float64,(ns,self.__nl)))
+
+        # Sigma
+        # Constant
+        if self.__info[2] == 3:
+            fields.append(('sigma',np.float64,(ns,1)))
+        # Profile
+        elif self.__info[2] == 4:
+            fields.append(('sigma',np.float64,(ns,self.__nl)))
+
+        # Diffuse light
+        # Intensity
+        if self.__info[3] == 3:
+            fields.append(('diff',np.float64,(1,self.__nl)))
+        # Profile
+        elif self.__info[3] == 4:
+            fields.append(('diff',np.float64,(4,self.__nl)))
+
+        # Data type
+        self.__data_dtype = np.dtype(fields)
+
+
+        #
+        # Create memmaps
+        #
+
+        # Wavelength
+        self.__lam = np.memmap(self.__filename, \
+                               mode='r', \
+                               offset=self.__to_lambda, \
+                               dtype=np.float64, \
+                               shape=(self.__nl))
+        # Constant LOS
+        if self.__info[1] == 0:
+            self.__los_ct = np.memmap(self.__filename, \
+                                      mode='r', \
+                                      offset=self.__to_los, \
+                                      dtype=np.float64, \
+                                      shape=(2))
+
+        # If constant sigma intensity
+        if self.__info[2] == 1 and self.__info[0] == 0:
+            self.__sig_ct = np.memmap(self.__filename, \
+                                      mode='r', \
+                                      offset=self.__to_sigma, \
+                                      dtype=np.float64, \
+                                      shape=(1))
+        # If constant sigma polarization
+        elif self.__info[2] == 1 and self.__info[0] == 1:
+            self.__sig_ct = np.memmap(self.__filename, \
+                                      mode='r', \
+                                      offset=self.__to_sigma, \
+                                      dtype=np.float64, \
+                                      shape=(4))
+        # If constant but profile sigma intensity
+        elif self.__info[2] == 2 and self.__info[0] == 0:
+            self.__sig_ct = np.memmap(self.__filename, \
+                                      mode='r', \
+                                      offset=self.__to_sigma, \
+                                      dtype=np.float64, \
+                                      shape=(self.__nl))
+        # If constant but profile sigma polarization
+        elif self.__info[2] == 1 and self.__info[0] == 1:
+            self.__sig_ct = np.memmap(self.__filename, \
+                                      mode='r', \
+                                      offset=self.__to_sigma, \
+                                      dtype=np.float64, \
+                                      shape=(4,self.__nl))
+
+        # If constant diffuse light intensity
+        if self.__info[3] == 1:
+            self.__dif_ct = np.memmap(self.__filename, \
+                                      mode='r', \
+                                      offset=self.__to_diff, \
+                                      dtype=np.float64, \
+                                      shape=(self.__nl))
+        # If constant diffuse light polarization
+        elif self.__info[3] == 2:
+            self.__dif_ct = np.memmap(self.__filename, \
+                                      mode='r', \
+                                      offset=self.__to_diff, \
+                                      dtype=np.float64, \
+                                      shape=(4,self.__nl))
+
+        # Data
+        self.__data = np.memmap(self.__filename, \
+                                mode='r', \
+                                offset=self.__to_data, \
+                                dtype=self.__data_dtype, \
+                                shape=(self.__nx,self.__ny))
 
         # Return valid
         return True
@@ -5018,11 +6200,13 @@ class _inversion_in():
         if self.__info[3] == 0:
             _verbose('No diffuse light profile',0)
         elif self.__info[3] == 1:
-            _verbose('Constant only intensity diffuse light profile',0)
+            _verbose('Constant only intensity diffuse ' + \
+                     'light profile',0)
         elif self.__info[3] == 2:
             _verbose('Constant full Stokes diffuse light profile',0)
         elif self.__info[3] == 3:
-            _verbose('Pixelwise only intensity diffuse light profile',0)
+            _verbose('Pixelwise only intensity diffuse ' + \
+                     'light profile',0)
         elif self.__info[3] == 4:
             _verbose('Pixelwise full Stokes diffuse light profile',0)
 
@@ -5063,20 +6247,14 @@ class _inversion_in():
         ''' Get lambda from file
         '''
         try:
-            f = open(self.__filename,'rb')
-            f.seek(self.__jump_to_lambda,0)
-            lam = np.array(struct.unpack('d'*self.__nl, \
-                                         f.read(8*self.__nl)))
+            lam = self.__lam.copy()
             if minl is not None:
                 i = np.argmin(np.absolute(lam - minl))
                 lam = lam[i:]
             if maxl is not None:
                 i = np.argmin(np.absolute(lam - maxl))
                 lam = lam[:i+1]
-            f.close()
             return lam
-        except struct.error:
-            raise
         except:
             raise
 
@@ -5084,77 +6262,27 @@ class _inversion_in():
         ''' Get constant los
         '''
         try:
-            f = open(self.__filename,'rb')
-            f.seek(self.__to_los,0)
-            th = struct.unpack('d',f.read(8))[0]
-            ph = struct.unpack('d',f.read(8))[0]
-            f.close()
-        except struct.error:
-            raise
+            los = self.__los_ct.copy()
         except:
             raise
-        return [th,ph]
+        return los
 
     def __get_los_column(self,ix,iy):
         ''' Get los at a column
         '''
         try:
-            # Open file
-            f = open(self.__filename,'rb')
-
-            # Seek first data points for this column
-            f.seek(self.__to_data + iy*self.__column + \
-                          self.__ny*ix*self.__column,0)
-
-            # Jump to los
-            if self.__c_to_los > 0: f.seek(self.__c_to_los,1)
-
-            # Get LOS
-            th = struct.unpack('d',f.read(8))[0]
-            ph = struct.unpack('d',f.read(8))[0]
-
-            f.close()
-
-        except struct.error:
-            raise
+            los = self.__data['los'][ix,iy].copy()
         except:
             raise
-        return [th,ph]
+        return los
 
     def __get_los_plane(self):
         ''' Get los for the plane
         '''
-
-        # Output
-        los = np.empty((self.__nx,self.__ny,2))
-
         try:
-            # Open file
-            f = open(self.__filename,'rb')
-
-            # Seek first data point
-            f.seek(self.__to_data,0)
-
-            # For each column
-            for ix in range(self.__nx):
-                for iy in range(self.__ny):
-
-                    # Jump to los
-                    if self.__c_to_los > 0: f.seek(self.__c_to_los,1)
-
-                    # Get LOS
-                    los[ix,iy,:] = np.array(struct.unpack('dd',f.read(16)))
-
-                    # End column
-                    if self.__c_from_los > 0: f.seek(self.__c_from_los,1)
-
-            f.close()
-
-        except struct.error:
-            raise
+            los = self.__data['los'].copy()
         except:
             raise
-
         return los
 
     def _get_los(self):
@@ -5162,7 +6290,7 @@ class _inversion_in():
         '''
         # Constant
         if self.__info[1] == 0:
-            return np.array(self.__get_los_ct())
+            return self.__get_los_ct()
         else:
             return self.__get_los_plane()
 
@@ -5171,7 +6299,7 @@ class _inversion_in():
         '''
         # Constant
         if self.__info[1] == 0:
-            return np.array(self.__get_los_ct())
+            return self.__get_los_ct()
         # Variable
         else:
             # Valid?
@@ -5184,7 +6312,7 @@ class _inversion_in():
             if ix < 0 or iy < 0 or ix >= self.__nx or iy >= self.__ny:
                _error('The requested column is out of bounds',1)
                return None
-            return np.array(self.__get_los_column(ix,iy))
+            return self.__get_los_column(ix,iy)
 
     def _get_los_plane(self):
         ''' Get LOS for the whole FoV
@@ -5198,10 +6326,12 @@ class _inversion_in():
             return los
         # Variable
         else:
-            return __get_los_plane()
+            return self.__get_los_plane()
 
-    def __get_gen_column(self,ix,iy,ilvar,irvar,pol,minl=None,maxl=None,nl=None,fractional=False,indx=[0]):
-        ''' Generic read of Stokes parameters column
+    def __get_gen_column(self,ix,iy,field,pol, \
+                         minl=None,maxl=None,nl=None, \
+                         fractional=False,indx=[0]):
+        ''' Generic read of a column parameter
         '''
 
         # Output
@@ -5211,39 +6341,18 @@ class _inversion_in():
         if minl is not None or maxl is not None:
             lam = self._get_lambda()
 
-        # Sizes
-        siz = nl
-        bsiz = siz*8
-
-        # Try geeting data
+        # Try getting data
         try:
-
-            # Open file
-            f = open(self.__filename,'rb')
-
-            # Seek first data points for this column
-            f.seek(self.__to_data + iy*self.__column + \
-                          self.__ny*ix*self.__column,0)
-
-            # Skip to the left?
-            if ilvar > 0: f.seek(ilvar,1)
 
             # Intensity
             if 0 in indx or fractional:
 
                 # Get intensity
-                stkI = np.array(struct.unpack('d'*siz, \
-                                              f.read(bsiz)))
+                arrI = self.__data[field][ix,iy,0,:].copy()
 
                 # Out?
                 if 0 in indx:
-                    out[0] = stkI
-
-            # No intensity
-            else:
-
-                # Skip
-                f.seek(bsiz,1)
+                    out[0] = arrI
 
             # Q, U, and V
             for j in range(1,4):
@@ -5255,25 +6364,17 @@ class _inversion_in():
                     if j in indx:
 
                         # Read Stokes
-                        out[j] = np.array(struct.unpack('d'*siz, \
-                                                         f.read(bsiz)))
-                    else:
-
-                        # Skip
-                        f.seek(bsiz,1)
+                        out[j] = self.__data[field][ix,iy,j,:].copy()
 
                 # No pol
                 else:
 
                     # Zeros
-                    out[j] = np.zeros((siz))
+                    out[j] = np.zeros((nl))
 
                 # Manage units
                 if fractional and j in indx:
-                    out[j] /= stkI
-
-            # Skip to the right?
-            if irvar > 0: f.seek(irvar,1)
+                    out[j] /= arrI
 
             # Adjust wavelength
             if minl is not None:
@@ -5287,15 +6388,9 @@ class _inversion_in():
                 for j in indx:
                     out[j] = out[j][:i+1]
 
-        # Failed
-        except struct.error:
-            raise
         # Others
         except:
             raise
-
-        # Close file
-        f.close()
 
         # Return
         return out
@@ -5315,15 +6410,19 @@ class _inversion_in():
            _error('The requested column is out of bounds',1)
            return None
 
-        return self.__get_gen_column(ix,iy,self.__c_to_stk,self.__c_from_stk,self.__info[0]==1,minl,maxl,self.__nl,False,[0])[0]
+        return self.__get_gen_column(ix,iy,'stokes', \
+                                     self.__info[0]==1, \
+                                     minl,maxl,self.__nl, \
+                                     False,[0])[0]
 
-    def _get_stokesq_column(self,ix,iy,minl=None,maxl=None,fractional=False):
+    def _get_stokesq_column(self,ix,iy,minl=None,maxl=None, \
+                            fractional=False):
         ''' Get Stokes Q profile at a given column
         '''
 
         # Mode?
         if self.__info[0] == 0:
-           return np.zeros(self.__nl)
+           return np.zeros((self.__nl))
 
         # Valid?
         if not isinstance(ix, int) and not isinstance(ix, npint):
@@ -5336,15 +6435,19 @@ class _inversion_in():
            _error('The requested column is out of bounds',1)
            return None
 
-        return self.__get_gen_column(ix,iy,self.__c_to_stk,self.__c_from_stk,self.__info[0]==1,minl,maxl,self.__nl,fractional,[1])[1]
+        return self.__get_gen_column(ix,iy,'stokes', \
+                                     self.__info[0]==1, \
+                                     minl,maxl,self.__nl, \
+                                     fractional,[1])[1]
 
-    def _get_stokesu_column(self,ix,iy,minl=None,maxl=None,fractional=False):
+    def _get_stokesu_column(self,ix,iy,minl=None,maxl=None, \
+                            fractional=False):
         ''' Get Stokes U profile at a given column
         '''
 
         # Mode?
         if self.__info[0] == 0:
-           return np.zeros(self.__nl)
+           return np.zeros((self.__nl))
 
         # Valid?
         if not isinstance(ix, int) and not isinstance(ix, npint):
@@ -5357,15 +6460,19 @@ class _inversion_in():
            _error('The requested column is out of bounds',1)
            return None
 
-        return self.__get_gen_column(ix,iy,self.__c_to_stk,self.__c_from_stk,self.__info[0]==1,minl,maxl,self.__nl,fractional,[2])[2]
+        return self.__get_gen_column(ix,iy,'stokes', \
+                                     self.__info[0]==1, \
+                                     minl,maxl,self.__nl, \
+                                     fractional,[2])[2]
 
-    def _get_stokesv_column(self,ix,iy,minl=None,maxl=None,fractional=False):
+    def _get_stokesv_column(self,ix,iy,minl=None,maxl=None, \
+                            fractional=False):
         ''' Get Stokes V profile at a given column
         '''
 
         # Mode?
         if self.__info[0] == 0:
-           return np.zeros(self.__nl)
+           return np.zeros((self.__nl))
 
         # Valid?
         if not isinstance(ix, int) and not isinstance(ix, npint):
@@ -5378,15 +6485,19 @@ class _inversion_in():
            _error('The requested column is out of bounds',1)
            return None
 
-        return self.__get_gen_column(ix,iy,self.__c_to_stk,self.__c_from_stk,self.__info[0]==1,minl,maxl,self.__nl,fractional,[3])[3]
+        return self.__get_gen_column(ix,iy,'stokes', \
+                                     self.__info[0]==1, \
+                                     minl,maxl,self.__nl, \
+                                     fractional,[3])[3]
 
-    def _get_linear_column(self,ix,iy,minl=None,maxl=None,fractional=False):
+    def _get_linear_column(self,ix,iy,minl=None,maxl=None, \
+                           fractional=False):
         ''' Get Stokes linear polarization profile at a given column
         '''
 
         # Mode?
         if self.__info[0] == 0:
-           return np.zeros(self.__nl)
+           return np.zeros((self.__nl))
 
         # Valid?
         if not isinstance(ix, int) and not isinstance(ix, npint):
@@ -5399,17 +6510,17 @@ class _inversion_in():
            _error('The requested column is out of bounds',1)
            return None
 
-        qu = self.__get_gen_column(ix,iy,self.__c_to_stk,self.__c_from_stk,self.__info[0]==1,minl,maxl,self.__nl,fractional,[1,2])
+        qu = self.__get_gen_column(ix,iy,'stokes', \
+                                   self.__info[0]==1, \
+                                   minl,maxl,self.__nl, \
+                                   fractional,[1,2])
         return np.sqrt(qu[1]*qu[1] + qu[2]*qu[2])
 
-    def _get_stokes_column(self,ix,iy,minl=None,maxl=None,fractional=False):
+    def _get_stokes_column(self,ix,iy,minl=None,maxl=None, \
+                           fractional=False):
         ''' Get Stokes parameter at a given column
         '''
 
-        # Mode?
-        if self.__info[0] == 0:
-           _error('The file is only intensity',1)
-           return None
 
         # Valid?
         if not isinstance(ix, int) and not isinstance(ix, npint):
@@ -5422,104 +6533,68 @@ class _inversion_in():
            _error('The requested column is out of bounds',1)
            return None
 
-        iquv = self.__get_gen_column(ix,iy,self.__c_to_stk,self.__c_from_stk,self.__info[0]==1,minl,maxl,self.__nl,fractional,[0,1,2,3])
-        return np.stack((iquv[0],iquv[1],iquv[2],iquv[3]))
+        # Mode?
+        if self.__info[0] == 0:
+            lout = self._get_stokesi_column(ix,iy, \
+                                            minl=minl, \
+                                            maxl=maxl)
+            nl = lout.size
+            out = np.zeros((4,nl))
+            out[0] = lout
+            return out
+        else:
+            iquv = self.__get_gen_column(ix,iy,'stokes', \
+                                         self.__info[0]==1, \
+                                         minl,maxl,self.__nl, \
+                                         fractional,[0,1,2,3])
+            return np.stack((iquv[0],iquv[1],iquv[2],iquv[3]))
 
 
-    def __get_gen_plane(self,il,ilvar,irvar,pol,nl,fractional=False,indx=[0]):
-        ''' Generic read of Stokes parameters plane
+    def __get_gen_plane(self,il,field,pol, \
+                        fractional=False,indx=[0]):
+        ''' Generic read of a plane parameter
         '''
-
-        # Get size to read
-        left = il*8
-        right = (nl - il - 1)*8
-        full = nl*8
-        abort = False
 
         # Output
         out = [None,None,None,None]
 
-        # For each index requested
-        for j in indx:
-            out[j] = np.empty((self.__nx,self.__ny))
+        # Try getting data
+        try:
 
-        # Open file
-        f = open(self.__filename,'rb')
+            # Intensity
+            if 0 in indx or fractional:
 
-        # Seek to data
-        f.seek(self.__to_data,0)
+                # Get intensity
+                arrI = self.__data[field][:,:,0,il].copy()
 
-        # For each column
-        for ix in range(self.__nx):
-            for iy in range(self.__ny):
+                # Out?
+                if 0 in indx:
+                    out[0] = arrI
 
-                # Try geeting data
-                try:
+            # Q, U, and V
+            for j in range(1,4):
 
-                    # Left vars
-                    if ilvar > 0: f.seek(ilvar,1)
+                # There is polarization
+                if pol:
 
-                    # Intensity
-                    if 0 in indx or fractional:
+                    # To output
+                    if j in indx:
 
-                        # Get intensity
-                        if left > 0: f.seek(left,1)
-                        stkI = struct.unpack('d',f.read(8))[0]
-                        if right > 0: f.seek(right,1)
+                        # Get Stokes
+                        out[j] = self.__data[field][:,:,j,il].copy()
 
-                        # Out?
-                        if 0 in indx:
-                            out[0][ix,iy] = stkI
+                # No polarization
+                else:
 
-                    # No intensity
-                    else:
+                    # Zero
+                    if j in indx:
+                        out[j] = np.zeros((self.__nx,self.__ny))
 
-                        # Skip
-                        f.seek(full,1)
-
-                    # Q, U, and V
-                    for j in range(1,4):
-
-                        # There is polarization
-                        if pol:
-
-                            # To output
-                            if j in indx:
-
-                                # Get Stokes
-                                siz = 0
-                                if left > 0: f.seek(left,1)
-                                out[j][ix,iy] = struct.unpack('d',f.read(8))[0]
-                                if right > 0: f.seek(right,1)
-
-                            # No output
-                            else:
-
-                                # Skip
-                                f.seek(full,1)
-
-                        # No polarization
-                        else:
-
-                            # Zero
-                            if j in indx:
-                                out[j][ix,iy] = 0.0
-
-                        # Manage units
-                        if fractional and j in indx:
-                            out[j][ix,iy] /= stkI
-
-                    # Right vars
-                    if irvar > 0: f.seek(irvar,1)
-
-                # Reading error
-                except struct.error:
-                    raise
-                except:
-                    raise
-
-        # Close file
-        f.close()
+                # Manage units
+                if fractional and j in indx:
+                    out[j] /= arrI
+        except:
+            raise
 
         # Return
         return out
@@ -5536,7 +6611,9 @@ class _inversion_in():
            _error('The requested wavelength is out of bounds',1)
            return None
 
-        return self.__get_gen_plane(il,self.__c_to_stk,self.__c_from_stk,self.__info[0]==1,self.__nl,False,[0])[0]
+        return self.__get_gen_plane(il,'stokes', \
+                                    self.__info[0]==1, \
+                                    False,[0])[0]
 
     def _get_stokesq_plane(self,il,fractional=False):
         ''' Get Stokes Q profile at a given wavelength for the FoV
@@ -5550,7 +6627,9 @@ class _inversion_in():
            _error('The requested wavelength is out of bounds',1)
            return None
 
-        return self.__get_gen_plane(il,self.__c_to_stk,self.__c_from_stk,self.__info[0]==1,self.__nl,fractional,[1])[1]
+        return self.__get_gen_plane(il,'stokes', \
+                                    self.__info[0]==1, \
+                                    fractional,[1])[1]
 
     def _get_stokesu_plane(self,il,fractional=False):
         ''' Get Stokes U profile at a given wavelength for the FoV
@@ -5564,7 +6643,9 @@ class _inversion_in():
            _error('The requested wavelength is out of bounds',1)
            return None
 
-        return self.__get_gen_plane(il,self.__c_to_stk,self.__c_from_stk,self.__info[0]==1,self.__nl,fractional,[2])[2]
+        return self.__get_gen_plane(il,'stokes', \
+                                    self.__info[0]==1, \
+                                    fractional,[2])[2]
 
     def _get_stokesv_plane(self,il,fractional=False):
         ''' Get Stokes V profile at a given wavelength for the FoV
@@ -5578,7 +6659,9 @@ class _inversion_in():
            _error('The requested wavelength is out of bounds',1)
            return None
 
-        return self.__get_gen_plane(il,self.__c_to_stk,self.__c_from_stk,self.__info[0]==1,self.__nl,fractional,[3])[3]
+        return self.__get_gen_plane(il,'stokes', \
+                                    self.__info[0]==1, \
+                                    fractional,[3])[3]
 
     def _get_linear_plane(self,il,fractional=False):
         ''' Get Stokes V profile at a given wavelength for the FoV
@@ -5592,7 +6675,9 @@ class _inversion_in():
            _error('The requested wavelength is out of bounds',1)
            return None
 
-        qu = self.__get_gen_plane(il,self.__c_to_stk,self.__c_from_stk,self.__info[0]==1,self.__nl,fractional,[1,2])
+        qu = self.__get_gen_plane(il,'stokes', \
+                                  self.__info[0]==1, \
+                                  fractional,[1,2])
         return np.sqrt(qu[1]*qu[1] + qu[2]*qu[2])
 
     def _get_stokes_plane(self,il,fractional=False):
@@ -5607,7 +6692,9 @@ class _inversion_in():
            _error('The requested wavelength is out of bounds',1)
            return None
 
-        iquv = self.__get_gen_plane(il,self.__c_to_stk,self.__c_from_stk,self.__info[0]==1,self.__nl,fractional,[0,1,2,3])
+        iquv = self.__get_gen_plane(il,'stokes', \
+                                    self.__info[0]==1, \
+                                    fractional,[0,1,2,3])
         return np.stack((iquv[0],iquv[1],iquv[2],iquv[3]))
 
     def __no_sigma(self):
@@ -5620,30 +6707,20 @@ class _inversion_in():
         ''' Get constant sigma
         '''
         try:
-            f = open(self.__filename,'rb')
-            f.seek(self.__to_sigma,0)
             # Full constant
             if self.__info[2] == 1:
                 if self.__info[0] == 0:
-                    sig = [0.,0.,0.,0.]
-                    sig[0] = struct.unpack('d',f.read(8))[0]
+                    sig = np.zeros((4))
+                    sig[0] = self.__sig_ct.copy()[0]
                 else:
-                    sig = struct.unpack('dddd',f.read(32))
+                    sig = self.__sig_ct.copy()
             # Wavelength dependent constant
             elif self.__info[2] == 2:
                 if self.__info[0] == 0:
-                    sig = ['', \
-                           np.zeros((self.__nl)), \
-                           np.zeros((self.__nl)), \
-                           np.zeros((self.__nl))]
-                    sig[0] = np.array(struct.unpack('d'*self.__nl,f.read(8*self.__nl)))
+                    sig = np.zeros((4,self.__nl))
+                    sig[0,:] = self.__sig_ct.copy()
                 else:
-                    sig = []
-                    for i in range(4):
-                        sig.append(np.array(struct.unpack('d'*self.__nl,f.read(8*self.__nl))))
-            f.close()
-        except struct.error:
-            raise
+                    sig = self.__sig_ct.copy()
         except:
             raise
         return sig
@@ -5658,12 +6735,15 @@ class _inversion_in():
             return self.__get_sigma_ct()
         # Constant pixelwise
         elif self.__info[2] == 3:
-            iquv = self.__get_sigma_plane(0,self.__c_to_sigma, \
-                    self.__c_from_sigma,self.__info[0]==1,1,False,[0,1,2,3,4])
+            iquv = self.__get_gen_plane(0,'sigma', \
+                                        self.__info[0]==1, \
+                                        False,[0,1,2,3])
             return np.stack((iquv[0],iquv[1],iquv[2],iquv[3]))
         # Other
         else:
-            _error('Sigma is pixelwise and non-constant, get a column with get_sigma_column() or a plane with get_sigma_plane()',1)
+            _error('Sigma is pixelwise and non-constant, ' + \
+                   'get a column with get_sigma_column() ' + \
+                   'or a plane with get_sigma_plane()',1)
             return None
 
     def _get_sigmai_column(self,ix,iy,minl=None,maxl=None):
@@ -5694,7 +6774,9 @@ class _inversion_in():
            _error('The requested column is out of bounds',1)
            return None
 
-        return self.__get_gen_column(ix,iy,self.__c_to_sigma,self.__c_from_sigma,self.__info[0]==1,iminl,imaxl,nl,False,[0])[0]
+        return self.__get_gen_column(ix,iy,'sigma', \
+                                     self.__info[0]==1, \
+                                     iminl,imaxl,nl,False,[0])[0]
 
     def _get_sigmaq_column(self,ix,iy,minl=None,maxl=None):
         ''' Get sigma for Stokes Q at a given column
@@ -5724,7 +6806,9 @@ class _inversion_in():
            _error('The requested column is out of bounds',1)
            return None
 
-        return self.__get_gen_column(ix,iy,self.__c_to_sigma,self.__c_from_sigma,self.__info[0]==1,iminl,imaxl,nl,False,[1])[1]
+        return self.__get_gen_column(ix,iy,'sigma', \
+                                     self.__info[0]==1, \
+                                     iminl,imaxl,nl,False,[1])[1]
 
     def _get_sigmau_column(self,ix,iy,minl=None,maxl=None):
         ''' Get sigma for Stokes U at a given column
@@ -5754,7 +6838,9 @@ class _inversion_in():
            _error('The requested column is out of bounds',1)
            return None
 
-        return self.__get_gen_column(ix,iy,self.__c_to_sigma,self.__c_from_sigma,self.__info[0]==1,iminl,imaxl,nl,False,[2])[2]
+        return self.__get_gen_column(ix,iy,'sigma', \
+                                     self.__info[0]==1, \
+                                     iminl,imaxl,nl,False,[2])[2]
 
     def _get_sigmav_column(self,ix,iy,minl=None,maxl=None):
         ''' Get sigma for Stokes V at a given column
@@ -5784,7 +6870,9 @@ class _inversion_in():
            _error('The requested column is out of bounds',1)
            return None
 
-        return self.__get_gen_column(ix,iy,self.__c_to_sigma,self.__c_from_sigma,self.__info[0]==1,iminl,imaxl,nl,False,[3])[3]
+        return self.__get_gen_column(ix,iy,'sigma', \
+                                     self.__info[0]==1, \
+                                     iminl,imaxl,nl,False,[3])[3]
 
     def _get_sigma_column(self,ix,iy,minl=None,maxl=None):
         ''' Get sigma for the intensity at a given column
@@ -5814,7 +6902,9 @@ class _inversion_in():
            _error('The requested column is out of bounds',1)
            return None
 
-        iquv = self.__get_gen_column(ix,iy,self.__c_to_sigma,self.__c_from_sigma,self.__info[0]==1,iminl,imaxl,nl,False,[0,1,2,3])
+        iquv = self.__get_gen_column(ix,iy,'sigma', \
+                                     self.__info[0]==1, \
+                                     iminl,imaxl,nl,False,[0,1,2,3])
         return np.stack((iquv[0],iquv[1],iquv[2],iquv[3]))
 
     def _get_sigmai_plane(self,il):
@@ -5844,7 +6934,9 @@ class _inversion_in():
            _error('The requested wavelength is out of bounds',1)
            return None
 
-        return self.__get_gen_plane(il,self.__c_to_sigma,self.__c_from_sigma,self.__info[0]==1,nl,False,[0])[0]
+        return self.__get_gen_plane(il,'sigma', \
+                                    self.__info[0]==1, \
+                                    False,[0])[0]
 
     def _get_sigmaq_plane(self,il):
         ''' Get sigma for Stokes Q at a given wavelength
@@ -5873,7 +6965,9 @@ class _inversion_in():
            _error('The requested wavelength is out of bounds',1)
            return None
 
-        return self.__get_gen_plane(il,self.__c_to_sigma,self.__c_from_sigma,self.__info[0]==1,nl,False,[1])[1]
+        return self.__get_gen_plane(il,'sigma', \
+                                    self.__info[0]==1, \
+                                    False,[1])[1]
 
     def _get_sigmau_plane(self,il):
         ''' Get sigma for Stokes U at a given wavelength
@@ -5902,7 +6996,9 @@ class _inversion_in():
            _error('The requested wavelength is out of bounds',1)
            return None
 
-        return self.__get_gen_plane(il,self.__c_to_sigma,self.__c_from_sigma,self.__info[0]==1,nl,False,[2])[2]
+        return self.__get_gen_plane(il,'sigma', \
+                                    self.__info[0]==1, \
+                                    False,[2])[2]
 
     def _get_sigmav_plane(self,il):
         ''' Get sigma for Stokes V at a given wavelength
@@ -5931,7 +7027,9 @@ class _inversion_in():
            _error('The requested wavelength is out of bounds',1)
            return None
 
-        return self.__get_gen_plane(il,self.__c_to_sigma,self.__c_from_sigma,self.__info[0]==1,nl,False,[3])[3]
+        return self.__get_gen_plane(il,'sigma', \
+                                    self.__info[0]==1, \
+                                    False,[3])[3]
 
     def _get_sigma_plane(self,il):
         ''' Get sigma at a given wavelength
@@ -5964,7 +7062,9 @@ class _inversion_in():
            _error('The requested wavelength is out of bounds',1)
            return None
 
-        iquv = self.__get_gen_plane(il,self.__c_to_sigma,self.__c_from_sigma,self.__info[0]==1,nl,False,[0,1,2,3])
+        iquv = self.__get_gen_plane(il,'sigma', \
+                                    self.__info[0]==1, \
+                                    False,[0,1,2,3])
         return np.stack((iquv[0],iquv[1],iquv[2],iquv[3]))
 
     def __no_diff(self):
@@ -5977,22 +7077,13 @@ class _inversion_in():
         ''' Get constant diffuse light
         '''
         try:
-            f = open(self.__filename,'rb')
-            f.seek(self.__jump_to_diff,0)
             # Intensity
             if self.__info[3] == 1:
-                diff = [np.array(struct.unpack('d'*self.__nl,f.read(8*self.__nl)))]
-                diff.append(np.zeros((self.__nl)))
-                diff.append(np.zeros((self.__nl)))
-                diff.append(np.zeros((self.__nl)))
+                diff = np.zeros((4,self.__nl))
+                diff[0,:] = self.__dif_ct.copy()
             # Polarized
             elif self.__info[3] == 2:
-                diff = []
-                for i in range(4):
-                    diff.append(np.array(struct.unpack('d'*self.__nl,f.read(8*self.__nl))))
-            f.close()
-        except struct.error:
-            raise
+                diff = self.__dif_ct.copy()
         except:
             raise
         return diff
@@ -6003,11 +7094,13 @@ class _inversion_in():
         # No diff
         if self.__info[3] == 0: return self.__no_diff()
         # Constant
-        if self.__info[3] == 0 or self.__info[3] == 1:
+        if self.__info[3] == 1 or self.__info[3] == 2:
             return self.__get_diff_ct()
         # Other
         else:
-            _error('Diffuse light is pixelwise, get a column with get_diff_column() or a plane with get_diff_plane()',1)
+            _error('Diffuse light is pixelwise, get a ' + \
+                   'column with get_diff_column() or ' + \
+                   'a plane with get_diff_plane()',1)
             return None
 
     def _get_diffi_column(self,ix,iy,minl=None,maxl=None):
@@ -6030,7 +7123,10 @@ class _inversion_in():
            _error('The requested column is out of bounds',1)
            return None
 
-        return self.__get_gen_column(ix,iy,self.__c_to_diff,self.__c_from_diff,self.__info[3]==4,minl,maxl,self.__nl,False,[0])[0]
+        return self.__get_gen_column(ix,iy,'diff', \
+                                     self.__info[3]==4, \
+                                     minl,maxl,self.__nl, \
+                                     False,[0])[0]
 
     def _get_diffq_column(self,ix,iy,minl=None,maxl=None):
         ''' Get diff for Stokes Q at a given column
@@ -6052,7 +7148,10 @@ class _inversion_in():
            _error('The requested column is out of bounds',1)
            return None
 
-        return self.__get_gen_column(ix,iy,self.__c_to_diff,self.__c_from_diff,self.__info[3]==4,minl,maxl,self.__nl,False,[1])[1]
+        return self.__get_gen_column(ix,iy,'diff', \
+                                     self.__info[3]==4, \
+                                     minl,maxl,self.__nl, \
+                                     False,[1])[1]
 
     def _get_diffu_column(self,ix,iy,minl=None,maxl=None):
         ''' Get diff for Stokes U at a given column
@@ -6074,7 +7173,10 @@ class _inversion_in():
            _error('The requested column is out of bounds',1)
            return None
 
-        return self.__get_gen_column(ix,iy,self.__c_to_diff,self.__c_from_diff,self.__info[3]==4,minl,maxl,self.__nl,False,[2])[2]
+        return self.__get_gen_column(ix,iy,'diff', \
+                                     self.__info[3]==4, \
+                                     minl,maxl,self.__nl, \
+                                     False,[2])[2]
 
     def _get_diffv_column(self,ix,iy,minl=None,maxl=None):
         ''' Get diff for Stokes V at a given column
@@ -6096,7 +7198,10 @@ class _inversion_in():
            _error('The requested column is out of bounds',1)
            return None
 
-        return self.__get_gen_column(ix,iy,self.__c_to_diff,self.__c_from_diff,self.__info[3]==4,minl,maxl,self.__nl,False,[3])[3]
+        return self.__get_gen_column(ix,iy,'diff', \
+                                     self.__info[3]==4, \
+                                     minl,maxl,self.__nl, \
+                                     False,[3])[3]
 
     def _get_diff_column(self,ix,iy,minl=None,maxl=None):
         ''' Get diff for the intensity at a given column
@@ -6118,7 +7223,10 @@ class _inversion_in():
            _error('The requested column is out of bounds',1)
            return None
 
-        iquv = self.__get_gen_column(ix,iy,self.__c_to_diff,self.__c_from_diff,self.__info[3]==4,minl,maxl,self.__nl,False,[0,1,2,3])
+        iquv = self.__get_gen_column(ix,iy,'diff', \
+                                     self.__info[3]==4, \
+                                     minl,maxl,self.__nl, \
+                                     False,[0,1,2,3])
         return np.stack((iquv[0],iquv[1],iquv[2],iquv[3]))
 
     def _get_diffi_plane(self,il):
@@ -6139,7 +7247,9 @@ class _inversion_in():
            _error('The requested wavelength is out of bounds',1)
            return None
 
-        return self.__get_gen_plane(il,self.__c_to_diff,self.__c_from_diff,self.__info[3]==4,self.__nl,False,[0])[0]
+        return self.__get_gen_plane(il,'diff', \
+                                    self.__info[3]==4, \
+                                    False,[0])[0]
 
     def _get_diffq_plane(self,il):
         ''' Get diffuse light for Stokes Q at a given wavelength
@@ -6159,7 +7269,9 @@ class _inversion_in():
            _error('The requested wavelength is out of bounds',1)
            return None
 
-        return self.__get_gen_plane(il,self.__c_to_diff,self.__c_from_diff,self.__info[3]==4,self.__nl,False,[1])[1]
+        return self.__get_gen_plane(il,'diff', \
+                                    self.__info[3]==4, \
+                                    False,[1])[1]
 
     def _get_diffu_plane(self,il):
         ''' Get diffuse light for Stokes U at a given wavelength
@@ -6179,7 +7291,9 @@ class _inversion_in():
            _error('The requested wavelength is out of bounds',1)
            return None
 
-        return self.__get_gen_plane(il,self.__c_to_diff,self.__c_from_diff,self.__info[3]==4,self.__nl,False,[2])[2]
+        return self.__get_gen_plane(il,'diff', \
+                                    self.__info[3]==4, \
+                                    False,[2])[2]
 
     def _get_diffv_plane(self,il):
         ''' Get diffuse light for Stokes V at a given wavelength
@@ -6199,7 +7313,9 @@ class _inversion_in():
            _error('The requested wavelength is out of bounds',1)
            return None
 
-        return self.__get_gen_plane(il,self.__c_to_diff,self.__c_from_diff,self.__info[3]==4,self.__nl,False,[3])[3]
+        return self.__get_gen_plane(il,'diff', \
+                                    self.__info[3]==4, \
+                                    False,[3])[3]
 
     def _get_diff_plane(self,il):
         ''' Get diffuse light for full Stokes at a given wavelength
@@ -6221,13 +7337,20 @@ class _inversion_in():
            _error('The requested wavelength is out of bounds',1)
            return None
 
-        iquv = self.__get_gen_plane(il,self.__c_to_diff,self.__c_from_diff,self.__info[3]==4,self.__nl,False,[0,1,2,3])
+        iquv = self.__get_gen_plane(il,'diff', \
+                                    self.__info[3]==4, \
+                                    False,[0,1,2,3])
 
         return np.stack((iquv[0],iquv[1],iquv[2],iquv[3]))
 
-################################################################################
-################################################################################
-################################################################################
+    def _get_cube(self):
+        ''' Get the whole data
+        '''
+        return self.__data
+
+######################################################################
+######################################################################
+######################################################################
 
 class _inversion_out():
     ''' Class to manage the Result file from the TIC
@@ -6243,9 +7366,6 @@ class _inversion_out():
         # Get header
         if not self.__head(): return None
 
-        #  Transformation to SI
-        self.__unit_trans = 1e0/299792458e5
-
         # Method
         self.__methods = { \
          'get_filename': \
@@ -6253,10 +7373,11 @@ class _inversion_out():
          'get_polarized': \
           [None,'Get if the inversion included polarization'], \
          'get_vtype': \
-          [None,'Get the type of reference frame for the velocity vector'], \
+          [None,'Get the type of reference frame for the ' + \
+                'velocity vector'], \
          'get_btype': \
-          [None,'Get the type of reference frame for the magnetic ' + \
-           'field vector'], \
+          [None,'Get the type of reference frame for the ' +  \
+                'magnetic field vector'], \
          'get_jkqin': \
           [None,'Get if there are inverted ad-hoc JKQ'], \
          'get_nx': \
@@ -6268,7 +7389,8 @@ class _inversion_out():
          'get_nxy': \
           [None,'Get number of nodes in the x and y dimensions'], \
          'get_nxyz': \
-          [None,'Get number of nodes in the x, y, and height dimensions'], \
+          [None,'Get number of nodes in the x, y, and ' + \
+                'height dimensions'], \
          'get_nl': \
           [None,'Get number of wavelengths'], \
          'get_nvar_atmo': \
@@ -6276,17 +7398,19 @@ class _inversion_out():
          'get_nvar': \
           [None,'Get number of variables in node data'], \
          'get_dims': \
-          [None,'Get number of nodes in the x, y, height, and wavelength dimensions'], \
+          [None,'Get number of nodes in the x, y, height, ' + \
+                'and wavelength dimensions'], \
          'get_vars': \
-          [None,'Get list of variables with available node results'], \
+          [None,'Get list of variables with available ' + \
+                'node results'], \
          'get_vars_units': \
-          [None,'Get list of variables with available node results with their ' + \
-                'corresponding units'], \
+          [None,'Get list of variables with available node ' + \
+                'results with their corresponding units'], \
          'get_vars_atmo': \
           [None,'Get list of variables in the model atmosphere'], \
          'get_vars_atmo_units': \
-          [None,'Get list of variables in the model atmosphere with ' + \
-                'their corresponding units'], \
+          [None,'Get list of variables in the model atmosphere ' + \
+                'with their corresponding units'], \
           'get_lambda': \
           [{'minl': \
              'Lower boundary for output wavelength [nm]', \
@@ -6295,35 +7419,42 @@ class _inversion_out():
            'Get wavelengths in [nm]'], \
           'get_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
              'Upper boundary for output wavelength [nm]', \
             'var': \
-             'List of variables to include in the output (see the ' + \
-             'available ones with get_vars()}'}, \
-           'Extract the result of the inversion at a particular column'], \
+             'List of variables to include in the output ' + \
+             '(see the available ones with get_vars()}'}, \
+           'Extract the result of the inversion at a particular ' + \
+           'column'], \
           'get_column_atmo': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column to ' + \
+             'extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column to ' + \
+             'extract', \
             'minh': \
              'Lower boundary for output optical depth', \
             'maxh': \
              'Upper boundary for output optical depth', \
             'var': \
-             'List of variables to include in the output (see the ' + \
-             'available ones with get_vars_atmo()}'}, \
+             'List of variables to include in the output ' + \
+             '(see the available ones with get_vars_atmo()}'}, \
            'Extract the model atmosphere for a particular column'], \
           'get_column_rf': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -6332,48 +7463,62 @@ class _inversion_out():
              'List of variables to include in the output'}, \
            'Extract the response function at a particular column'], \
          'get_plane_chi': \
-          [None,'Get the value of the initial and final merit function for ' + \
-                'the whole field of view'], \
+          [None,'Get the value of the initial and final merit ' + \
+                'function for the whole field of view'], \
           'get_plane_stk': \
           [{'il': \
-             'Coordinate in the wavelength dimension of the Stokes parameters to extract', \
+             'Coordinate in the wavelength dimension of the ' + \
+             'Stokes parameters to extract', \
             'var': \
              'List of variables to include in the output'}, \
-           'Extract Stokes parameters at a given wavelength position for ' + \
-           'the whole field of view'], \
+           'Extract Stokes parameters at a given wavelength ' + \
+           'position for the whole field of view'], \
           'get_plane_atmo': \
           [{'iz': \
-             'Coordinate in the height dimension of the atmospheric parameters to extract', \
+             'Coordinate in the height dimension of the ' + \
+             'atmospheric parameters to extract', \
             'var': \
-             'List of variables to include in the output (see the ' + \
-             'available ones with get_vars_atmo()}'}, \
-           'Extract the model atmosphere for a particular height index for ' + \
-           'the whole field of view'], \
+             'List of variables to include in the output ' + \
+             '(see the available ones with get_vars_atmo()}'}, \
+           'Extract the model atmosphere for a particular ' + \
+           'height index for the whole field of view'], \
           'get_node': \
           [{'var': \
              'Variables for which to extract the node information'}, \
-           'Extract the node information (full cube) for a given variable']}
+           'Extract the node information (full cube) for a ' + \
+           'given variable'], \
+          'get_cube': \
+          [None,f'Get a memmap to the fit data. The file must ' + \
+           'be complete to use this method.'], \
+          'get_cube_atmo': \
+          [None,f'Get a memmap to the whole inverted model ' + \
+           'atmosphere. The file must be complete to use ' + \
+           'this method.']
+           }
 
     def _get_help(self):
         ''' Return methods dictionary
         '''
         return self.__methods
 
-    def __head(self):
+    def __head(self,debug=False):
         ''' Reads hanlert inversion output file head
         '''
-        debug = False
         try:
-            # Get actual header
+
+            # Get header data
             f = open(self.__filename,'rb')
             f.seek(4,0)
+
             # Read info inversion
             info = struct.unpack('i',f.read(4))[0]
             if debug: print(f'info {info}')
+
             # JKQ
             self.__jkqa = info > 7
             if debug: print(f'JKQ info {self.__jkqa}')
             if info > 7: info -= 8
+
             # v type
             if info > 3:
                 self.__vtype = 1
@@ -6392,6 +7537,7 @@ class _inversion_out():
                 self.__vxu = 'km s^-1'
                 self.__vyu = 'km s^-1'
                 self.__vzu = 'km s^-1'
+
             # B type
             if info > 1:
                 self.__btype = 1
@@ -6410,11 +7556,13 @@ class _inversion_out():
                 self.__bxu = 'G'
                 self.__byu = 'rad'
                 self.__bzu = 'rad'
+
             # Polarization
             self.__polarization = info > 0
             if debug: print(f'Polarization {self.__polarization}')
             if debug: print(f'Btype {self.__btype}')
             if debug: print(f'vtype {self.__vtype}')
+
             # Dimensions
             self.__nx = struct.unpack('i',f.read(4))[0]
             self.__ny = struct.unpack('i',f.read(4))[0]
@@ -6435,7 +7583,7 @@ class _inversion_out():
             # Number of variables in atmospheric model
             if self.__jkqa:
               self.__nvar_atmo = 27
-              self.__vars_atmo = ['tau','ltau','T','Pg', \
+              self.__vars_atmo = ['ltau','T','Pg', \
                                   'Bx','By','Bz','vx', \
                                   'vy','vz','vturb','ne', \
                                   'nHT','nHa','nH(0)','nH(1)', \
@@ -6443,7 +7591,7 @@ class _inversion_out():
                                   'J10','Re{J11}','Im{J11}', \
                                   'J20','Re{J21}','Im{J21}', \
                                   'Re{J22}','Im{J22}','f']
-              self.__vars_atmo_units = ['','','K','dyn cm^-2','G', \
+              self.__vars_atmo_units = ['','K','dyn cm^-2','G', \
                                         'G','G','km s^-1','km s^-1', \
                                         'km s^-1','km s^-1','cm^-3', \
                                         'cm^-3','cm^-3','cm^-3', \
@@ -6459,12 +7607,12 @@ class _inversion_out():
                                         'J m^-2 s^-1 Hz^-1','']
             else:
               self.__nvar_atmo = 19
-              self.__vars_atmo = ['tau','ltau','T','Pg', \
+              self.__vars_atmo = ['ltau','T','Pg', \
                                   'Bx','By','Bz','vx', \
                                   'vy','vz','vturb','ne', \
                                   'nHT','nHa','nH(0)','nH(1)', \
                                   'nH(2)','nH(3)','nH(4)','np','f']
-              self.__vars_atmo_units = ['','','K','dyn cm^-2','G', \
+              self.__vars_atmo_units = ['','K','dyn cm^-2','G', \
                                         'G','G','km s^-1','km s^-1', \
                                         'km s^-1','km s^-1','cm^-3', \
                                         'cm^-3','cm^-3','cm^-3', \
@@ -6514,7 +7662,8 @@ class _inversion_out():
                 self.__vars_add = ['chi2_0','chi2', \
                                    'Io','Qo','Uo','Vo', \
                                    'If','Qf','Uf','Vf']
-                self.__vars_add_units = ['','','J m^-2 s^-1 sr Hz^-1', \
+                self.__vars_add_units = ['','', \
+                                         'J m^-2 s^-1 sr Hz^-1', \
                                          'J m^-2 s^-1 sr Hz^-1',
                                          'J m^-2 s^-1 sr Hz^-1',
                                          'J m^-2 s^-1 sr Hz^-1',
@@ -6527,10 +7676,10 @@ class _inversion_out():
 
             else:
                 self.__vars_add = ['chi2_0','chi2','Io','If']
-                self.__vars_add_units = ['','','J m^-2 s^-1 sr Hz^-1', \
+                self.__vars_add_units = ['','', \
+                                         'J m^-2 s^-1 sr Hz^-1', \
                                          'J m^-2 s^-1 sr Hz^-1']
                 self.__vars_stk = ['Io','If']
-
 
             # Dictionary of var order
             self.__vars_dic = {0: self.__bx, \
@@ -6552,10 +7701,12 @@ class _inversion_out():
             for ivar in range(self.__nvar):
 
                 # Read if inverting
-                self.__inv_flag.append(struct.unpack('i', f.read(4))[0] > 0)
+                self.__inv_flag.append( \
+                        struct.unpack('i', f.read(4))[0] > 0)
 
                 # Number of nodes
-                self.__inv_node.append(struct.unpack('i', f.read(4))[0])
+                self.__inv_node.append( \
+                        struct.unpack('i', f.read(4))[0])
 
                 if (debug):
                   print(f'ivar {ivar} flag {self.__inv_flag[-1]} ' + \
@@ -6612,7 +7763,7 @@ class _inversion_out():
         __s_rf_head = 0
         self.__s_rf_c = 0
 
-
+        # If tryin reading response function
         if try_rf:
 
             # Try reading response function header
@@ -6646,7 +7797,8 @@ class _inversion_out():
                     if debug: print('Get var index',jvar)
 
                     # Read varying nodes
-                    self.__inv_vnode.append(struct.unpack('i',f.read(4))[0])
+                    self.__inv_vnode.append( \
+                            struct.unpack('i',f.read(4))[0])
                     if debug: print('Get nodes',self.__inv_vnode[-1])
 
                     # Add sizes
@@ -6655,12 +7807,15 @@ class _inversion_out():
                     # If varying nodes
                     if self.__inv_vnode[-1] > 0:
                         if self.__polarization:
-                            self.__s_rf_c += (4 + 16*self.__nl)*self.__inv_vnode[-1]
+                            self.__s_rf_c += \
+                               (4 + 16*self.__nl)*self.__inv_vnode[-1]
                         else:
-                            self.__s_rf_c += (4 + 4*self.__nl)*self.__inv_vnode[-1]
+                            self.__s_rf_c += \
+                               (4 + 4*self.__nl)*self.__inv_vnode[-1]
 
                 # Jump to RF
-                self.__jump_to_rf = self.__jump_to_res + __s_res + __s_rf_head
+                self.__jump_to_rf = self.__jump_to_res + \
+                                    __s_res + __s_rf_head
                 self.__is_RF = True
 
             except struct.error:
@@ -6717,6 +7872,129 @@ class _inversion_out():
             print('is RF',self.__is_RF)
 
             print('\n')
+
+        #
+        # Create memmaps
+
+        # Wavelength always available
+        self.__lam = np.memmap(self.__filename, \
+                               mode='r', \
+                               offset=self.__jump_to_lambda, \
+                               dtype=np.float64, \
+                               shape=(self.__nl))
+
+        # Only if the file is complete
+        if self.__complete:
+
+            #
+            # Stokes block
+
+            # Chi is always
+            fields = [('chi',np.float32,(2))]
+
+            # If polarized
+            if self.__polarization:
+                fields.append(('stokeso',np.float32,(4,self.__nl)))
+                fields.append(('stokesf',np.float32,(4,self.__nl)))
+            else:
+                fields.append(('stokeso',np.float32,(1,self.__nl)))
+                fields.append(('stokesf',np.float32,(1,self.__nl)))
+
+            #
+            # Nodes block
+            for ipar,node in enumerate(self.__inv_node):
+
+                # No nodes, skip
+                if node <= 0: continue
+
+                # Variable
+                var = self.__vars_dic[ipar]
+
+                # Add
+                if self.__inv_flag[ipar]:
+                    fields.append((var,np.float32,(3,node)))
+                else:
+                    fields.append((var,np.float32,(2,node)))
+
+            # Data type
+            self.__fit_dtype = np.dtype(fields)
+
+            # Get memmap
+            self.__fit = np.memmap(self.__filename, \
+                                   mode='r', \
+                                   offset=self.__jump_to_res, \
+                                   dtype=self.__fit_dtype, \
+                                   shape=(self.__nx,self.__ny))
+
+            #
+            # Atmosphere block
+
+            # Chi is always
+            fields = [('atmos',np.float32,(self.__nvar_atmo, \
+                                           self.__nz)), \
+                      ('f',np.float32,(1))]
+
+            # Data type
+            self.__atmo_dtype = np.dtype(fields)
+
+            # Get memmap
+            self.__atmo = np.memmap(self.__filename, \
+                                    mode='r', \
+                                    offset=self.__jump_to_atmo, \
+                                    dtype=self.__atmo_dtype, \
+                                    shape=(self.__nx,self.__ny))
+            #
+            # RF block
+            if self.__is_RF:
+
+                # Initialize
+                fields = []
+
+                # For each variable
+                for jvar,flag in enumerate(self.__inv_flag):
+
+                    # Skip not inverting
+                    if not flag: continue
+
+                    # Varying nodes
+                    vnode = self.__inv_vnode[jvar]
+                    if vnode < 1: continue
+
+                    # Read heights
+                    fields.append((f'H_{self.__vars_dic[jvar]}', \
+                                   np.float32,(vnode)))
+
+                # For each variable
+                for jvar,flag in enumerate(self.__inv_flag):
+
+                    # Skip not inverting
+                    if not flag: continue
+
+                    # Varying nodes
+                    vnode = self.__inv_vnode[jvar]
+                    nl = self.__nl
+
+                    # No nodes
+                    if vnode < 1: continue
+
+                    # Read RF
+                    vl = f'RF_{self.__vars_dic[jvar]}'
+                    if self.__polarization:
+                        fields.append((vl,np.float32, \
+                                       (vnode,4,self.__nl)))
+                    else:
+                        fields.append((vl,np.float32, \
+                                       (vnode,1,self.__nl)))
+
+                # Data type
+                self.__rf_dtype = np.dtype(fields)
+
+                # Get memmap
+                self.__rf = np.memmap(self.__filename, \
+                                      mode='r', \
+                                      offset=self.__jump_to_rf, \
+                                      dtype=self.__rf_dtype, \
+                                      shape=(self.__nx,self.__ny))
 
         # Return valid
         return True
@@ -6794,7 +8072,8 @@ class _inversion_out():
         return self.__nvar
 
     def _get_dims(self):
-        ''' Get number of positions in x, y, height, and wavelength axes
+        ''' Get number of positions in x, y, height, and
+            wavelength axes
         '''
         return self.__nx, self.__ny, self.__nz, self.__nl
 
@@ -6832,7 +8111,8 @@ class _inversion_out():
         return self.__vars_atmo
 
     def _get_vars_atmo_units(self):
-        ''' Get variables available in the atmospheric model with units
+        ''' Get variables available in the atmospheric model
+            with units
         '''
         out = []
         for var,uni in zip(self.__vars_atmo,self.__vars_atmo_units):
@@ -6843,20 +8123,14 @@ class _inversion_out():
         ''' Get lambda from file
         '''
         try:
-            f = open(self.__filename,'rb')
-            f.seek(self.__jump_to_lambda,0)
-            lam = np.array(struct.unpack('d'*self.__nl, \
-                                         f.read(8*self.__nl)))
+            lam = self.__lam.copy()
             if minl is not None:
                 i = np.argmin(np.absolute(lam - minl))
                 lam = lam[i:]
             if maxl is not None:
                 i = np.argmin(np.absolute(lam - maxl))
                 lam = lam[:i+1]
-            f.close()
             return lam
-        except struct.error:
-            raise
         except:
             raise
 
@@ -6893,109 +8167,24 @@ class _inversion_out():
                            'check with get_vars',1)
                     return None
 
-        # Get column size
-        bsiz = self.__s_res_c
-        siz = bsiz//4
-
         # Need lambda?
         if minl is not None or maxl is not None:
-            lam = self._get_lambda()
+            lam = self.__lam.copy()
 
-        # Try geeting data
-        try:
+        # If the file is complete
+        if self.__complete:
 
-            # Open file
-            f = open(self.__filename,'rb')
+            # Try getting data
+            try:
 
-            # Seek first data points for this column
-            f.seek(self.__jump_to_res + iy*bsiz + self.__ny*ix*bsiz,0)
+                # Chi_ori
+                chi0 = self.__fit['chi'][ix,iy].copy()
+                chi = chi0[1]
+                chi0 = chi0[0]
 
-            # Chi_ori
-            chi0 = struct.unpack('f',f.read(4))[0]
-            chi = struct.unpack('f',f.read(4))[0]
-
-            # Stokes
-            if self.__polarization:
-                stokes_ob = np.array(struct.unpack('f'*self.__nl*4, \
-                                                   f.read(16*self.__nl))). \
-                                    reshape((4,self.__nl))
-                stokes_fi = np.array(struct.unpack('f'*self.__nl*4, \
-                                                   f.read(16*self.__nl))). \
-                                    reshape((4,self.__nl))
-            else:
-                stokes_ob = np.array(struct.unpack('f'*self.__nl, \
-                                                   f.read(4*self.__nl))). \
-                                    reshape((1,self.__nl))
-                stokes_fi = np.array(struct.unpack('f'*self.__nl, \
-                                                   f.read(4*self.__nl))). \
-                                    reshape((1,self.__nl))
-
-            # Adjust wavelength
-            if minl is not None:
-                i = np.argmin(np.absolute(lam - minl))
-                lam = lam[i:]
-                stokes_ob = stokes_ob[:,i:]
-                stokes_fi = stokes_fi[:,i:]
-            if maxl is not None:
-                i = np.argmin(np.absolute(lam - maxl))
-                lam = lam[:i+1]
-                stokes_ob = stokes_ob[:,:i+1]
-                stokes_fi = stokes_fi[:,:i+1]
-
-            # Nodes
-            nodes = {}
-
-            # For each variable
-            for ipar,node in enumerate(self.__inv_node):
-
-                # No nodes
-                if node <= 0: continue
-
-                # Current variable
-                var = self.__vars_dic[ipar]
-
-                # Prepare space for this variable
-                nodes[var] = np.empty((3,node))
-
-                # Read H and value
-                nodes[var][0:2,:] = np.array(struct.unpack('f'*node*2, \
-                                                           f.read(8*node))). \
-                                            reshape((2,node))
-                # Error?
-                if self.__inv_flag[ipar]:
-                    nodes[var][2,:] = np.array(struct.unpack('f'*node, \
-                                                             f.read(4*node)))
-                else:
-                    nodes[var][2,:] = 0e0
-
-
-            # Close
-            f.close()
-
-        # Failed
-        except struct.error:
-
-            # If the file is complete, the error is more severe, let it crash
-            if self.__complete:
-                raise
-
-            # Incomplete file, may be missing data
-            else:
-
-                # Close and warn
-                f.close()
-                msg = 'Could not read, may be due to the file being not complete'
-                _error(msg,0)
-
-                # Generate zeros
-                chi0 = 0.
-                chi = 0.
-                if self.__polarization:
-                    stokes_ob = np.zeros((4,self.__nl))
-                    stokes_fi = np.zeros((4,self.__nl))
-                else:
-                    stokes_ob = np.zeros((1,self.__nl))
-                    stokes_fi = np.zeros((1,self.__nl))
+                # Stokes
+                stokes_ob = self.__fit['stokeso'][ix,iy].copy()
+                stokes_fi = self.__fit['stokesf'][ix,iy].copy()
 
                 # Nodes
                 nodes = {}
@@ -7009,12 +8198,154 @@ class _inversion_out():
                     # Current variable
                     var = self.__vars_dic[ipar]
 
-                    # Generate zeros for this variable
-                    nodes[var] = np.zeros((3,node))
+                    # Prepare space for this variable
+                    nodes[var] = np.empty((3,node))
 
-        # Others
-        except:
-            raise
+                    # Read
+                    if self.__inv_flag[ipar]:
+                        nodes[var] = self.__fit[var][ix,iy].copy()
+                    else:
+                        nodes[var][:2,:] = \
+                                     self.__fit[var][ix,iy].copy()
+                        nodes[var][2,:] = np.zeros((node))
+
+            # Others
+            except:
+                raise
+
+        # Incomplete file
+        else:
+
+            # Get column size
+            bsiz = self.__s_res_c
+            siz = bsiz//4
+
+            # Need lambda?
+            if minl is not None or maxl is not None:
+                lam = self._get_lambda()
+
+            # Try getting data
+            try:
+
+                # Open file
+                f = open(self.__filename,'rb')
+
+                # Seek first data points for this column
+                f.seek(self.__jump_to_res + iy*bsiz + \
+                       self.__ny*ix*bsiz,0)
+
+                # Chi_ori
+                chi0 = struct.unpack('f',f.read(4))[0]
+                chi = struct.unpack('f',f.read(4))[0]
+
+                # Stokes
+                if self.__polarization:
+                    stokes_ob = np.array( \
+                            struct.unpack('f'*self.__nl*4, \
+                                          f.read(16*self.__nl))). \
+                                        reshape((4,self.__nl))
+                    stokes_fi = np.array( \
+                            struct.unpack('f'*self.__nl*4, \
+                                          f.read(16*self.__nl))). \
+                                        reshape((4,self.__nl))
+                else:
+                    stokes_ob = np.array( \
+                            struct.unpack('f'*self.__nl, \
+                                          f.read(4*self.__nl))). \
+                                        reshape((1,self.__nl))
+                    stokes_fi = np.array( \
+                            struct.unpack('f'*self.__nl, \
+                                          f.read(4*self.__nl))). \
+                                        reshape((1,self.__nl))
+
+                # Nodes
+                nodes = {}
+
+                # For each variable
+                for ipar,node in enumerate(self.__inv_node):
+
+                    # No nodes
+                    if node <= 0: continue
+
+                    # Current variable
+                    var = self.__vars_dic[ipar]
+
+                    # Prepare space for this variable
+                    nodes[var] = np.empty((3,node))
+
+                    # Read H and value
+                    nodes[var][0:2,:] = np.array( \
+                            struct.unpack('f'*node*2, \
+                                          f.read(8*node))). \
+                                                reshape((2,node))
+                    # Error?
+                    if self.__inv_flag[ipar]:
+                        nodes[var][2,:] = np.array( \
+                                struct.unpack('f'*node, \
+                                              f.read(4*node)))
+                    else:
+                        nodes[var][2,:] = 0e0
+
+                # Close
+                f.close()
+
+            # Failed
+            except struct.error:
+
+                # If the file is complete, the error is more
+                # severe, let it crash
+                if self.__complete:
+                    raise
+
+                # Incomplete file, may be missing data
+                else:
+
+                    # Close and warn
+                    f.close()
+                    msg = 'Could not read, may be due to the ' + \
+                          'file being not complete'
+                    _error(msg,0)
+
+                    # Generate zeros
+                    chi0 = 0.
+                    chi = 0.
+                    if self.__polarization:
+                        stokes_ob = np.zeros((4,self.__nl))
+                        stokes_fi = np.zeros((4,self.__nl))
+                    else:
+                        stokes_ob = np.zeros((1,self.__nl))
+                        stokes_fi = np.zeros((1,self.__nl))
+
+                    # Nodes
+                    nodes = {}
+
+                    # For each variable
+                    for ipar,node in enumerate(self.__inv_node):
+
+                        # No nodes
+                        if node <= 0: continue
+
+                        # Current variable
+                        var = self.__vars_dic[ipar]
+
+                        # Generate zeros for this variable
+                        nodes[var] = np.zeros((3,node))
+
+            # Others
+            except:
+                raise
+
+        # Adjust wavelength
+        if minl is not None:
+            i = np.argmin(np.absolute(lam - minl))
+            lam = lam[i:]
+            stokes_ob = stokes_ob[:,i:]
+            stokes_fi = stokes_fi[:,i:]
+        if maxl is not None:
+            i = np.argmin(np.absolute(lam - maxl))
+            lam = lam[:i+1]
+            stokes_ob = stokes_ob[:,:i+1]
+            stokes_fi = stokes_fi[:,:i+1]
 
         # Return column
         out = {}
@@ -7095,77 +8426,113 @@ class _inversion_out():
                 if not isinstance(evar, str):
                     _error('The field var requires strings',1)
                     return None
-                if evar not in self.__vars_atmo+['ltau']:
+                if evar not in self.__vars_atmo:
                     _error('The requested variable ' + evar + \
                            ' is not available, ' + \
                            'check with get_vars_atmo',1)
                     return None
 
-        # Get column size
-        bsiz = self.__s_atmo_c
-        siz = bsiz//4
+        # If file is complete
+        if self.__complete:
 
-        # Try geeting data
-        try:
+            # Try getting data
+            try:
 
-            # Open file
-            f = open(self.__filename,'rb')
+                # Read data
+                col = self.__atmo['atmos'][ix,iy].copy()
 
-            # Seek first data points for this column
-            f.seek(self.__jump_to_atmo + iy*bsiz + self.__ny*ix*bsiz,0)
+                # Read f
+                f_diff = self.__atmo['f'][ix,iy].copy()[0]
 
-            # Remove diffuse light factor from size
-            bsiz -= 4
-            siz -= 1
+                # Check upper tau
+                if col[0,0] <= 0.: col[0,0] = col[0,1]*1e-3
 
-            # Read data
-            col = np.array(struct.unpack('f'*siz, \
-                                         f.read(bsiz))). \
-                           reshape((self.__nvar_atmo,self.__nz))
-            # Read f
-            f_diff = struct.unpack('f',f.read(4))[0]
+                # Logarithm
+                col[0,:] = np.log10(col[0,:])
 
-            # Close
-            f.close()
+                # Adjust height
+                if minh is not None:
+                    i = np.argmin(np.absolute(col[0,:] - minh))
+                    col = col[:,:i+1]
+                if maxh is not None:
+                    i = np.argmin(np.absolute(col[0,:] - maxh))
+                    col = col[:,i:]
 
-            # Check upper tau
-            if col[0,0] <= 0.: col[0,0] = col[0,1]*1e-3
-
-            # Adjust height
-            if minh is not None:
-                i = np.argmin(np.absolute(col[0,:] - minh))
-                col = col[:,:i+1]
-            if maxh is not None:
-                i = np.argmin(np.absolute(col[0,:] - maxh))
-                col = col[:,i:]
-
-        except struct.error:
-
-            # If the file is complete, the error is more severe, let it crash
-            if self.__complete:
+            except:
                 raise
 
-            # Incomplete file, may be missing data
-            else:
+        # If incomplete file
+        else:
 
-                # Close and warn
+            # Get column size
+            bsiz = self.__s_atmo_c
+            siz = bsiz//4
+
+            # Try getting data
+            try:
+
+                # Open file
+                f = open(self.__filename,'rb')
+
+                # Seek first data points for this column
+                f.seek(self.__jump_to_atmo + iy*bsiz + \
+                       self.__ny*ix*bsiz,0)
+
+                # Remove diffuse light factor from size
+                bsiz -= 4
+                siz -= 1
+
+                # Read data
+                col = np.array(struct.unpack('f'*siz, \
+                                             f.read(bsiz))). \
+                               reshape((self.__nvar_atmo,self.__nz))
+                # Read f
+                f_diff = struct.unpack('f',f.read(4))[0]
+
+                # Close
                 f.close()
-                msg = 'Could not read, may be due to the file being not complete'
-                _error(msg,0)
 
-                # Generate zeros
-                col = np.zeros((self.__nvar_atmo,self.__nz))
-                f_diff = 0
+                # Check upper tau
+                if col[0,0] <= 0.: col[0,0] = col[0,1]*1e-3
 
-        except:
-            raise
+                # Logarithm
+                col[0,:] = np.log10(col[0,:])
+
+                # Adjust height
+                if minh is not None:
+                    i = np.argmin(np.absolute(col[0,:] - minh))
+                    col = col[:,:i+1]
+                if maxh is not None:
+                    i = np.argmin(np.absolute(col[0,:] - maxh))
+                    col = col[:,i:]
+
+            except struct.error:
+
+                # If the file is complete, the error is more
+                # severe, let it crash
+                if self.__complete:
+                    raise
+
+                # Incomplete file, may be missing data
+                else:
+
+                    # Close and warn
+                    f.close()
+                    msg = 'Could not read, may be due to the ' + \
+                          'file being not complete'
+                    _error(msg,0)
+
+                    # Generate zeros
+                    col = np.zeros((self.__nvar_atmo,self.__nz))
+                    f_diff = 0
+
+            except:
+                raise
 
         # Return column
         out = {}
-        if 'tau' in ivar:
-            out['tau'] = col[0,:]
         if 'ltau' in ivar:
-            out['ltau'] = np.log10(col[0,:])
+            out['ltau'] = col[0,:]
         if 'T' in ivar:
             out['T'] = col[1,:]
         if 'Pg' in ivar:
@@ -7262,91 +8629,67 @@ class _inversion_out():
                            'check with get_vars',1)
                     return None
 
-        # Get column size
-        bsiz = self.__s_rf_c
-        siz = bsiz//4
-
         # Need lambda?
         if minl is not None or maxl is not None:
-            lam = self._get_lambda()
+            lam = self.__lam.copy()
 
-        # Output
-        out = {}
+        # If complete file
+        if self.__complete:
 
-        # Try geeting data
-        try:
+            # Output
+            out = {}
 
-            # Open file
-            f = open(self.__filename,'rb')
+            # Try getting data
+            try:
 
-            # Seek first data points for this column
-            f.seek(self.__jump_to_rf + iy*bsiz + self.__ny*ix*bsiz,0)
+                # Create dictionary
+                red = {}
 
-            # Create dictionary
-            red = {}
+                # For each variable
+                for jvar,flag in enumerate(self.__inv_flag):
 
-            # For each variable
-            for jvar,flag in enumerate(self.__inv_flag):
+                    # Skip not inverting
+                    if not flag: continue
 
-                # Skip not inverting
-                if not flag: continue
+                    # Varying nodes
+                    vnode = self.__inv_vnode[jvar]
+                    if vnode < 1: continue
 
-                # Varying nodes
-                vnode = self.__inv_vnode[jvar]
-                if vnode < 1: continue
+                    # labels
+                    hl = f'H_{self.__vars_dic[jvar]}'
+                    vl = f'RF_{self.__vars_dic[jvar]}'
 
-                # Read heights
-                red[jvar] = {'H': np.array(struct.unpack('f'*vnode, \
-                                                         f.read(4*vnode)))}
+                    # Read heights
+                    red[jvar] = {'H': self.__rf[hl][ix,iy].copy(), \
+                                 'RF': self.__rf[vl][ix,iy].copy()}
 
-            # For each variable
-            for jvar,flag in enumerate(self.__inv_flag):
-
-                # Skip not inverting
-                if not flag: continue
-
-                # Varying nodes
-                vnode = self.__inv_vnode[jvar]
-                nl = self.__nl
-
-                # No nodes
-                if vnode < 1: continue
-
-                # Read RF
-                if self.__polarization:
-                    red[jvar]['RF'] = \
-                        np.array(struct.unpack('f'*vnode*4*nl, \
-                                               f.read(16*nl*vnode))). \
-                                 reshape((vnode,4,self.__nl))
-                else:
-                    red[jvar]['RF'] = \
-                        np.array(struct.unpack('f'*vnode*nl, \
-                                               f.read(4*nl*vnode))). \
-                                 reshape((vnode,1,self.__nl))
-
-                # Add to output?
-                if self.__vars_dic[jvar] in ivar:
-                    out[self.__vars_dic[jvar]] = red[jvar]
-
-            # Close file
-            f.close()
-
-        # Failed
-        except struct.error:
-
-            # If the file is complete, the error is more severe, let it crash
-            if self.__complete:
+                    # Add to output?
+                    if self.__vars_dic[jvar] in ivar:
+                        out[self.__vars_dic[jvar]] = red[jvar]
+            except:
                 raise
 
-            # Incomplete file, may be missing data
-            else:
+        # Incomplete file
+        else:
 
-                # Close and warn
-                f.close()
-                msg = 'Could not read, may be due to the file being not complete'
-                _error(msg,0)
+            # Get column size
+            bsiz = self.__s_rf_c
+            siz = bsiz//4
 
-                # Initialize
+            # Output
+            out = {}
+
+            # Try getting data
+            try:
+
+                # Open file
+                f = open(self.__filename,'rb')
+
+                # Seek first data points for this column
+                f.seek(self.__jump_to_rf + iy*bsiz + \
+                       self.__ny*ix*bsiz,0)
+
+                # Create dictionary
                 red = {}
 
                 # For each variable
@@ -7360,9 +8703,10 @@ class _inversion_out():
                     if vnode < 1: continue
 
                     # Read heights
-                    red[jvar] = {'H': np.zeros(vnode)}
+                    red[jvar] = {'H': np.array( \
+                                      struct.unpack('f'*vnode, \
+                                                    f.read(4*vnode)))}
 
-                # Generate zeros
                 # For each variable
                 for jvar,flag in enumerate(self.__inv_flag):
 
@@ -7373,18 +8717,88 @@ class _inversion_out():
                     vnode = self.__inv_vnode[jvar]
                     nl = self.__nl
 
+                    # No nodes
+                    if vnode < 1: continue
+
                     # Read RF
                     if self.__polarization:
-                        red[jvar] = {'RF': np.zeros((vnode,4,self.__nl))}
+                        red[jvar]['RF'] = \
+                            np.array( \
+                            struct.unpack('f'*vnode*4*nl, \
+                                          f.read(16*nl*vnode))). \
+                                     reshape((vnode,4,self.__nl))
                     else:
-                        red[jvar] = {'RF': np.zeros((vnode,1,self.__nl))}
+                        red[jvar]['RF'] = \
+                            np.array( \
+                            struct.unpack('f'*vnode*nl, \
+                                          f.read(4*nl*vnode))). \
+                                     reshape((vnode,1,self.__nl))
 
                     # Add to output?
                     if self.__vars_dic[jvar] in ivar:
-                        out[ivar] = red[jvar]
+                        out[self.__vars_dic[jvar]] = red[jvar]
 
-        except:
-            raise
+                # Close file
+                f.close()
+
+            # Failed
+            except struct.error:
+
+                # If the file is complete, the error is more
+                # severe, let it crash
+                if self.__complete:
+                    raise
+
+                # Incomplete file, may be missing data
+                else:
+
+                    # Close and warn
+                    f.close()
+                    msg = 'Could not read, may be due to the ' + \
+                          'file being not complete'
+                    _error(msg,0)
+
+                    # Initialize
+                    red = {}
+
+                    # For each variable
+                    for jvar,flag in enumerate(self.__inv_flag):
+
+                        # Skip not inverting
+                        if not flag: continue
+
+                        # Varying nodes
+                        vnode = self.__inv_vnode[jvar]
+                        if vnode < 1: continue
+
+                        # Read heights
+                        red[jvar] = {'H': np.zeros(vnode)}
+
+                    # Generate zeros
+                    # For each variable
+                    for jvar,flag in enumerate(self.__inv_flag):
+
+                        # Skip not inverting
+                        if not flag: continue
+
+                        # Varying nodes
+                        vnode = self.__inv_vnode[jvar]
+                        nl = self.__nl
+
+                        # Read RF
+                        if self.__polarization:
+                            red[jvar] = \
+                                 {'RF': np.zeros((vnode,4,self.__nl))}
+                        else:
+                            red[jvar] = \
+                                 {'RF': np.zeros((vnode,1,self.__nl))}
+
+                        # Add to output?
+                        if self.__vars_dic[jvar] in ivar:
+                            out[ivar] = red[jvar]
+
+            except:
+                raise
 
         if minl is not None:
             i = np.argmin(np.absolute(lam - minl))
@@ -7403,61 +8817,72 @@ class _inversion_out():
         ''' Get full plane of chi2 and chi0
         '''
 
-        # Get column size
-        bsiz = self.__s_res_c
+        # Complete file
+        if self.__complete:
 
-        # Before and after
-        before = 0
-        after = bsiz - 8
+            # Fetch
+            chi = self.__fit['chi'].copy()
 
-        # Initialize
-        chi = np.empty((self.__nx,self.__ny,2))
-        abort = False
+        # Incomplete file
+        else:
 
-        # Open file
-        f = open(self.__filename,'rb')
+            # Get column size
+            bsiz = self.__s_res_c
 
-        # Seek first data points for this block
-        f.seek(self.__jump_to_res,0)
+            # Before and after
+            before = 0
+            after = bsiz - 8
 
-        # Run over columns
-        for ix in range(self.__nx):
-            for iy in range(self.__ny):
+            # Initialize
+            chi = np.empty((self.__nx,self.__ny,2))
+            abort = False
 
-                # Try to get chi
-                try:
+            # Open file
+            f = open(self.__filename,'rb')
 
-                    chi[ix,iy,:] = np.array(struct.unpack('ff',f.read(8)))
+            # Seek first data points for this block
+            f.seek(self.__jump_to_res,0)
 
-                except struct.error:
-                    if self.__complete:
+            # Run over columns
+            for ix in range(self.__nx):
+                for iy in range(self.__ny):
+
+                    # Try to get chi
+                    try:
+
+                        chi[ix,iy,:] = np.array( \
+                                        struct.unpack('ff',f.read(8)))
+
+                    except struct.error:
+                        if self.__complete:
+                            raise
+                        else:
+                            msg = 'Could not read, may be due to ' + \
+                                  'the file being not complete'
+                            _error(msg,0)
+                            chi[ix,iy:self.__ny,:] = 0.0
+                            abort = True
+                            break
+                    except:
                         raise
-                    else:
-                        msg = 'Could not read, may be due to the file ' + \
-                              'being not complete'
-                        _error(msg,0)
-                        chi[ix,iy:self.__ny,:] = 0.0
-                        abort = True
-                        break
-                except:
-                    raise
 
-                # Jump to next
-                f.seek(after,1)
+                    # Jump to next
+                    f.seek(after,1)
 
-            # We are leaving
-            if abort:
-                chi[ix+1:self.__nx,:,:] = 0.0
-                break
+                # We are leaving
+                if abort:
+                    chi[ix+1:self.__nx,:,:] = 0.0
+                    break
 
-        # Close
-        f.close()
+            # Close
+            f.close()
 
         return chi
 
 
     def _get_plane_stk(self,il,var=None):
-        ''' Get observed or fitted Stokes parameters for a given wavelength
+        ''' Get observed or fitted Stokes parameters for a given
+            wavelength
         '''
 
         # Valid?
@@ -7487,110 +8912,150 @@ class _inversion_out():
                            'check with get_vars',1)
                     return None
 
-        # Get column size
-        bsiz = self.__s_res_c
-
-        # Before and after
-        before = 8
-        left = il*4
-        right = (self.__nl - il - 1)*4
-        full = self.__nl*4
+        # Variable names
         if self.__polarization:
-            after = bsiz - 8 - self.__nl*32
             stko = ['Io','Qo','Uo','Vo']
             stkf = ['If','Qf','Uf','Vf']
         else:
-            after = bsiz - 8 - self.__nl*8
             stko = ['Io']
             stkf = ['If']
 
-        # Prepare output
-        out = {}
-        for jvar in ivar:
-            out[jvar] = np.empty((self.__nx,self.__ny))
+        # Complete file
+        if self.__complete:
 
-        # Initialize
-        abort = False
+            # Prepare output
+            out = {}
 
-        # Open file
-        f = open(self.__filename,'rb')
+            # Try getting data
+            try:
 
-        # Seek first data points for this block
-        f.seek(self.__jump_to_res,0)
+                # For each stokes in observation
+                for istk,stk in enumerate(stko):
 
-        # Run over columns
-        for ix in range(self.__nx):
-            for iy in range(self.__ny):
+                    # Output
+                    if stk in ivar:
 
-                # Try geeting data
-                try:
+                        # Read
+                        out[stk] = \
+                                self.__fit['stokeso'][:,:,0,il].copy()
 
-                    # Skip data before Stokes
-                    f.seek(before,1)
+                # For each stokes in fit
+                for istk,stk in enumerate(stkf):
 
-                    # For each stokes in observation
-                    for istk,stk in enumerate(stko):
+                    # Output
+                    if stk in ivar:
 
-                        # Output
-                        if stk in out:
+                        # Read
+                        out[stk] = \
+                                self.__fit['stokesf'][:,:,0,il].copy()
+            except:
+                raise
 
-                            # Skip left
-                            if left > 0: f.seek(left,1)
+        # Incomplete file
+        else:
 
-                            # Read
-                            out[stk][ix,iy] = struct.unpack('f',f.read(4))[0]
-                            # Skip right
-                            if right > 0: f.seek(right,1)
+            # Get column size
+            bsiz = self.__s_res_c
 
+            # Before and after
+            before = 8
+            left = il*4
+            right = (self.__nl - il - 1)*4
+            full = self.__nl*4
+            if self.__polarization:
+                after = bsiz - 8 - self.__nl*32
+            else:
+                after = bsiz - 8 - self.__nl*8
+
+            # Prepare output
+            out = {}
+            for jvar in ivar:
+                out[jvar] = np.empty((self.__nx,self.__ny))
+
+            # Initialize
+            abort = False
+
+            # Open file
+            f = open(self.__filename,'rb')
+
+            # Seek first data points for this block
+            f.seek(self.__jump_to_res,0)
+
+            # Run over columns
+            for ix in range(self.__nx):
+                for iy in range(self.__ny):
+
+                    # Try getting data
+                    try:
+
+                        # Skip data before Stokes
+                        f.seek(before,1)
+
+                        # For each stokes in observation
+                        for istk,stk in enumerate(stko):
+
+                            # Output
+                            if stk in out:
+
+                                # Skip left
+                                if left > 0: f.seek(left,1)
+
+                                # Read
+                                out[stk][ix,iy] = \
+                                       struct.unpack('f',f.read(4))[0]
+                                # Skip right
+                                if right > 0: f.seek(right,1)
+
+                            else:
+
+                                # Skip
+                                f.seek(full,1)
+
+                        # For each stokes in observation
+                        for istk,stk in enumerate(stkf):
+
+                            # Output
+                            if stk in out:
+
+                                # Skip left
+                                if left > 0: f.seek(left,1)
+
+                                # Read
+                                out[stk][ix,iy] = \
+                                       struct.unpack('f',f.read(4))[0]
+                                # Skip right
+                                if right > 0: f.seek(right,1)
+
+                            else:
+
+                                # Skip
+                                f.seek(full,1)
+
+                    except struct.error:
+                        if self.__complete:
+                            raise
                         else:
-
-                            # Skip
-                            f.seek(full,1)
-
-                    # For each stokes in observation
-                    for istk,stk in enumerate(stkf):
-
-                        # Output
-                        if stk in out:
-
-                            # Skip left
-                            if left > 0: f.seek(left,1)
-
-                            # Read
-                            out[stk][ix,iy] = struct.unpack('f',f.read(4))[0]
-                            # Skip right
-                            if right > 0: f.seek(right,1)
-
-                        else:
-
-                            # Skip
-                            f.seek(full,1)
-
-                except struct.error:
-                    if self.__complete:
+                            msg = 'Could not read, may be due ' + \
+                                  'to the file being not complete'
+                            _error(msg,0)
+                            for stk in out:
+                                out[stk][ix,iy:self.__ny] = 0.0
+                            abort = True
+                            break
+                    except:
                         raise
-                    else:
-                        msg = 'Could not read, may be due to the file ' + \
-                              'being not complete'
-                        _error(msg,0)
-                        for stk in out:
-                            out[stk][ix,iy:self.__ny] = 0.0
-                        abort = True
-                        break
-                except:
-                    raise
 
-                # Jump to next
-                f.seek(after,1)
+                    # Jump to next
+                    f.seek(after,1)
 
-            # We are leaving
-            if abort:
-                for stk in out:
-                    out[stk][ix+1:self.__nx,:] = 0.0
-                break
+                # We are leaving
+                if abort:
+                    for stk in out:
+                        out[stk][ix+1:self.__nx,:] = 0.0
+                    break
 
-        # Close
-        f.close()
+            # Close
+            f.close()
 
         return out
 
@@ -7626,123 +9091,158 @@ class _inversion_out():
                            'check with get_vars_atmo',1)
                     return None
 
-        # Get column size
-        bsiz = self.__s_atmo_c
+        # Complete file
+        if self.__complete:
 
-        # Before and after
-        left = iz*4
-        right = (self.__nz - iz - 1)*4
-        full = self.__nz*4
+            # Prepare output
+            out = {}
 
-        # Prepare output
-        out = {}
-        for jvar in ivar:
-            out[jvar] = np.empty((self.__nx,self.__ny))
+            # Try getting data
+            try:
 
-        # Initialize
-        abort = False
+                # For each variable in the model atmosphere
+                for ibar,bar in enumerate(self.__vars_atmo):
 
-        # Open file
-        f = open(self.__filename,'rb')
+                    # If diffuse factor
+                    if bar == 'f' and bar in ivar:
 
-        # Seek first data points for this block
-        f.seek(self.__jump_to_atmo,0)
+                        # Read
+                        out[bar] = self.__atmo['f'][:,:,0].copy()
 
-        # Run over columns
-        for ix in range(self.__nx):
-            for iy in range(self.__ny):
+                    # Any other
+                    elif bar in ivar:
 
-                # Try geeting data
-                try:
-
-                    # For each variable in the model atmosphere
-                    for ibar,bar in enumerate(self.__vars_atmo):
-
-                        # Skip ltau
-                        if bar == 'ltau': continue
+                        # Copy
+                        out[bar] = \
+                              self.__atmo['atmos'][:,:,ibar,iz].copy()
 
                         # If tau
-                        if bar == 'tau':
+                        if bar == 'ltau':
+                            out[bar] = np.log10(out[bar])
+            except:
+                raise
 
-                            # If either tau or ltau in the list
-                            if bar in out or 'ltau' in out:
+        # Incomplete file
+        else:
 
-                                # Left
-                                if left > 0: f.seek(left,1)
+            # Get column size
+            bsiz = self.__s_atmo_c
 
-                                # Get tau
-                                aux = struct.unpack('f',f.read(4))[0]
+            # Before and after
+            left = iz*4
+            right = (self.__nz - iz - 1)*4
+            full = self.__nz*4
 
-                                # Skip right
-                                if right > 0: f.seek(right,1)
+            # Prepare output
+            out = {}
+            for jvar in ivar:
+                out[jvar] = np.empty((self.__nx,self.__ny))
 
-                                # If output tau
+            # Initialize
+            abort = False
+
+            # Open file
+            f = open(self.__filename,'rb')
+
+            # Seek first data points for this block
+            f.seek(self.__jump_to_atmo,0)
+
+            # Run over columns
+            for ix in range(self.__nx):
+                for iy in range(self.__ny):
+
+                    # Try getting data
+                    try:
+
+                        # For each variable in the model atmosphere
+                        for ibar,bar in enumerate(self.__vars_atmo):
+
+                            # If tau
+                            if bar == 'ltau':
+
+                                # If ltau in the list
                                 if bar in out:
-                                    out[bar] = aux
-                                if 'ltau' in out:
-                                    out['ltau'] = np.log10(aux)
 
-                            # Not to output
+                                    # Left
+                                    if left > 0: f.seek(left,1)
+
+                                    # Get tau
+                                    aux = \
+                                       struct.unpack('f',f.read(4))[0]
+
+                                    # Skip right
+                                    if right > 0: f.seek(right,1)
+
+                                    # If output tau
+                                    if aux <= 0:
+                                        out['ltau'] = -16.
+                                    else:
+                                        out['ltau'] = np.log10(aux)
+
+                                # Not to output
+                                else:
+
+                                    # Skip
+                                    f.seek(full,1)
+
+                            # If diffuse factor
+                            elif bar == 'f':
+
+                                # If in output
+                                if bar in out:
+
+                                    # Read
+                                    out[bar] = \
+                                       struct.unpack('f',f.read(4))[0]
+
+                                else:
+
+                                    # Skip
+                                    f.seek(4,1)
+
+                            # Rest of variables
                             else:
 
-                                # Skip
-                                f.seek(full,1)
+                              # Output
+                              if bar in out:
 
-                        # If diffuse factor
-                        elif bar == 'f':
+                                  # Skip left
+                                  if left > 0: f.seek(left,1)
 
-                            # If in output
-                            if bar in out:
+                                  # Read
+                                  out[bar][ix,iy] = \
+                                       struct.unpack('f',f.read(4))[0]
 
-                                # Read
-                                out[bar] = struct.unpack('f',f.read(4))[0]
+                                  # Skip right
+                                  if right > 0: f.seek(right,1)
 
-                            else:
+                              else:
 
-                                # Skip
-                                f.seek(4,1)
+                                  # Skip
+                                  f.seek(full,1)
 
-                        # Rest of variables
+                    except struct.error:
+                        if self.__complete:
+                            raise
                         else:
-
-                          # Output
-                          if bar in out:
-
-                              # Skip left
-                              if left > 0: f.seek(left,1)
-
-                              # Read
-                              out[bar][ix,iy] = struct.unpack('f',f.read(4))[0]
-                              # Skip right
-                              if right > 0: f.seek(right,1)
-
-                          else:
-
-                              # Skip
-                              f.seek(full,1)
-
-                except struct.error:
-                    if self.__complete:
+                            msg = 'Could not read, may be due ' + \
+                                  'to the file being not complete'
+                            _error(msg,0)
+                            for bar in out:
+                                out[bar][ix,iy:self.__ny] = 0.0
+                            abort = True
+                            break
+                    except:
                         raise
-                    else:
-                        msg = 'Could not read, may be due to the file ' + \
-                              'being not complete'
-                        _error(msg,0)
-                        for bar in out:
-                            out[bar][ix,iy:self.__ny] = 0.0
-                        abort = True
-                        break
-                except:
-                    raise
 
-            # We are leaving
-            if abort:
-                for bar in out:
-                    out[bar][ix+1:self.__nx,:] = 0.0
-                break
+                # We are leaving
+                if abort:
+                    for bar in out:
+                        out[bar][ix+1:self.__nx,:] = 0.0
+                    break
 
-        # Close
-        f.close()
+            # Close
+            f.close()
 
         return out
 
@@ -7760,111 +9260,168 @@ class _inversion_out():
                    'check with get_vars',1)
             return None
 
-        # Index of this variable
-        for key in self.__vars_dic:
-            if var == self.__vars_dic[key]:
-                ipara = key
-                break
+        # If the file is complete
+        if self.__complete:
 
-        # Get column size
-        bsiz = self.__s_res_c
+            # Index of this variable
+            for key in self.__vars_dic:
+                if var == self.__vars_dic[key]:
+                    ipara = key
+                    break
 
-        # Before and after
-        if self.__polarization:
-            before = 8 + self.__nl*32
-        else:
-            before = 8 + self.__nl*8
+            # Check shape
+            shape = self.__fit[var].shape
 
-        # Initialize left and right
-        left = 0.
-        right = 0.
+            # If we have errors
+            if shape[2] == 3:
 
-        # For each variable before
-        for ipar in range(0,ipara):
+                # Just copy
+                out = self.__fit[var].copy()
 
-            # No nodes
-            if self.__inv_node[ipar] <= 0: continue
-
-            # Inverting
-            if self.__inv_flag[ipar]:
-                left += 12*self.__inv_node[ipar]
+            # If not, we need to fake the errors
             else:
-                left += 8*self.__inv_node[ipar]
 
-        # For each variable after
-        for ipar in range(ipara+1,len(self.__inv_node)):
+                # Initialize
+                out = np.empty((self.__nx, \
+                                self.__ny, \
+                                3,shape[-1]))
 
-            # No nodes
-            if self.__inv_node[ipar] <= 0: continue
+                # Get known data
+                out[:,:,:2,:] = self.__fit[var].copy()
 
-            # Inverting
-            if self.__inv_flag[ipar]:
-                right += 12*self.__inv_node[ipar]
-            else:
-                right += 8*self.__inv_node[ipar]
+                # Fill with zeros
+                out[:,:,2,:] = 0e0
 
-        # Initialize output
-        nnode = self.__inv_node[ipara]
-        out = np.empty((self.__nx,self.__ny,3,nnode))
-
-        # Open file
-        f = open(self.__filename,'rb')
-
-        # Seek first data points for this block
-        f.seek(self.__jump_to_res,0)
-
-        # Get size of actual output
-        if self.__inv_flag[ipara]:
-            nsiz = 3
+        # Incomplete file
         else:
-            nsiz = 2
-            out[:,:,-1,:] = 0.
 
-        # Run over columns
-        for ix in range(self.__nx):
-            for iy in range(self.__ny):
+            # Index of this variable
+            for key in self.__vars_dic:
+                if var == self.__vars_dic[key]:
+                    ipara = key
+                    break
 
-                # Try geeting data
-                try:
+            # Get column size
+            bsiz = self.__s_res_c
 
-                    # Skip before and left
-                    f.seek(before + left)
+            # Before and after
+            if self.__polarization:
+                before = 8 + self.__nl*32
+            else:
+                before = 8 + self.__nl*8
 
-                    # Get nodes
-                    for col in range(nsiz):
-                        out[ix,iy,col,:] = \
-                                 np.array(struct.unpack('f'*nnode, \
-                                                        f.read(4*nnode)))
-                except struct.error:
-                    if self.__complete:
+            # Initialize left and right
+            left = 0.
+            right = 0.
+
+            # For each variable before
+            for ipar in range(0,ipara):
+
+                # No nodes
+                if self.__inv_node[ipar] <= 0: continue
+
+                # Inverting
+                if self.__inv_flag[ipar]:
+                    left += 12*self.__inv_node[ipar]
+                else:
+                    left += 8*self.__inv_node[ipar]
+
+            # For each variable after
+            for ipar in range(ipara+1,len(self.__inv_node)):
+
+                # No nodes
+                if self.__inv_node[ipar] <= 0: continue
+
+                # Inverting
+                if self.__inv_flag[ipar]:
+                    right += 12*self.__inv_node[ipar]
+                else:
+                    right += 8*self.__inv_node[ipar]
+
+            # Initialize output
+            nnode = self.__inv_node[ipara]
+            out = np.empty((self.__nx,self.__ny,3,nnode))
+
+            # Open file
+            f = open(self.__filename,'rb')
+
+            # Seek first data points for this block
+            f.seek(self.__jump_to_res,0)
+
+            # Get size of actual output
+            if self.__inv_flag[ipara]:
+                nsiz = 3
+            else:
+                nsiz = 2
+                out[:,:,-1,:] = 0.
+
+            # Run over columns
+            for ix in range(self.__nx):
+                for iy in range(self.__ny):
+
+                    # Try getting data
+                    try:
+
+                        # Skip before and left
+                        f.seek(before + left)
+
+                        # Get nodes
+                        for col in range(nsiz):
+                            out[ix,iy,col,:] = np.array( \
+                                    struct.unpack('f'*nnode, \
+                                                  f.read(4*nnode)))
+                    except struct.error:
+                        if self.__complete:
+                            raise
+                        else:
+                            msg = 'Could not read, may be due ' + \
+                                  'to the file being not complete'
+                            _error(msg,0)
+                            out[ix,iy:self.__ny,:,:] = 0.0
+                            abort = True
+                            break
+                    except:
                         raise
-                    else:
-                        msg = 'Could not read, may be due to the file ' + \
-                              'being not complete'
-                        _error(msg,0)
-                        out[ix,iy:self.__ny,:,:] = 0.0
-                        abort = True
-                        break
-                except:
-                    raise
 
-                # Jump to next
-                if right > 0: f.seek(right,1)
+                    # Jump to next
+                    if right > 0: f.seek(right,1)
 
-            # We are leaving
-            if abort:
-                for stk in out:
-                    out[ix+1:self.__nx,:,:,:] = 0.0
-                break
+                # We are leaving
+                if abort:
+                    for stk in out:
+                        out[ix+1:self.__nx,:,:,:] = 0.0
+                    break
 
-        # Close
-        f.close()
+            # Close
+            f.close()
 
         return out
 
-################################################################################
-################################################################################
-################################################################################
+    def _get_cube(self):
+        ''' Get fit memmap
+        '''
+
+        # If not complete
+        if not self.__complete:
+            _error('The memmap can only be created if the file ' + \
+                   'is complete')
+            return None
+        return self.__fit
+
+    def _get_cube_atmo(self):
+        ''' Get atmosphere memmap
+        '''
+
+        # If not complete
+        if not self.__complete:
+            _error('The memmap can only be created if the file ' + \
+                   'is complete')
+            return None
+        return self.__atmo
+
+######################################################################
+######################################################################
+######################################################################
 
 class _cols_damp_15D():
     ''' Class to manage the 1.5D collisional rate files
@@ -7879,9 +9436,6 @@ class _cols_damp_15D():
 
         # Get header
         if not self.__head(): return None
-
-        #  Transformation to SI
-        self.__unit_trans = 1e0/299792458e5
 
         # Method
         self.__methods = { \
@@ -7898,9 +9452,17 @@ class _cols_damp_15D():
          'get_nxy': \
           [None,'Get number of nodes in the x and y dimensions'], \
          'get_nxyz': \
-          [None,'Get number of nodes in the x, y, and height dimensions'], \
+          [None,'Get number of nodes in the x, y, and height ' + \
+                'dimensions'], \
          'get_dims': \
-          [None,' Get number of positions in x, y, and height axes and entries']}
+          [None,' Get number of positions in x, y, and height ' + \
+                'axes and entries'], \
+          'get_cube': \
+          [None,f'Get a memmap to the whole data. The file must ' + \
+           'be complete to use this method. Note that ' + \
+           'the raw data is not scaled and, if this a file with ' + \
+           'collisions, you must multiply by 10^8 to get the ' + \
+           'rate in s^-1']}
         # Collisions
         if self.__cols:
             self.__methods['get_type'] = \
@@ -7909,56 +9471,67 @@ class _cols_damp_15D():
               [None,'Get number of collisional entries']
             self.__methods['get_column'] = \
               [{'ix': \
-                 'Coordinate in the x dimension of the column to extract', \
+                 'Coordinate in the x dimension of the column ' + \
+                 'to extract', \
                 'iy': \
-                 'Coordinate in the y dimension of the column to extract', \
+                 'Coordinate in the y dimension of the column ' + \
+                 'to extract', \
                 'ie': \
                  'List of entries to include in the output'}, \
-               'Extract the collisional rates for a particular column']
+               'Extract the collisional rates for a particular ' + \
+               'column']
             self.__methods['get_plane'] = \
               [{'iz': \
-                 'Coordinate in the height dimension of the atmospheric parameters to extract', \
+                 'Coordinate in the height dimension of the ' + \
+                 'atmospheric parameters to extract', \
                 'ie': \
                  'List of entries to include in the output'}, \
-               'Extract the collisional rates for a particular height index for ' + \
-               'the whole field of view']
+               'Extract the collisional rates for a particular ' + \
+               'height index for the whole field of view']
         # Damping
         elif self.__damp:
             self.__methods['get_nentry'] = \
               [None,'Get number of damping entries']
             self.__methods['get_column'] = \
               [{'ix': \
-                 'Coordinate in the x dimension of the column to extract', \
+                 'Coordinate in the x dimension of the column ' + \
+                 'to extract', \
                 'iy': \
-                 'Coordinate in the y dimension of the column to extract', \
+                 'Coordinate in the y dimension of the column ' + \
+                 'to extract', \
                 'ie': \
                  'List of entries to include in the output'}, \
                'Extract the dampings for a particular column']
             self.__methods['get_plane'] = \
               [{'iz': \
-                 'Coordinate in the height dimension of the atmospheric parameters to extract', \
+                 'Coordinate in the height dimension of the ' + \
+                 'atmospheric parameters to extract', \
                 'ie': \
                  'List of entries to include in the output'}, \
-               'Extract the dampings for a particular height index for ' + \
-               'the whole field of view']
+               'Extract the dampings for a particular height ' + \
+               'index for the whole field of view']
         # Elastic rates
         else:
             self.__methods['get_nentry'] = \
               [None,'Get number of elastic rates entries']
             self.__methods['get_column'] = \
               [{'ix': \
-                 'Coordinate in the x dimension of the column to extract', \
+                 'Coordinate in the x dimension of the column ' + \
+                 'to extract', \
                 'iy': \
-                 'Coordinate in the y dimension of the column to extract', \
+                 'Coordinate in the y dimension of the column ' + \
+                 'to extract', \
                 'ie': \
                  'List of entries to include in the output'}, \
                'Extract the elastic rates for a particular column']
             self.__methods['get_plane'] = \
               [{'iz': \
-                 'Coordinate in the height dimension of the atmospheric parameters to extract', \
+                 'Coordinate in the height dimension of the ' + \
+                 'atmospheric parameters to extract', \
                 'ie': \
                  'List of entries to include in the output'}, \
-               'Extract the elastic rates for a particular height index for ' + \
+               'Extract the elastic rates for a particular ' + \
+               'height index for ' + \
                'the whole field of view']
 
     def _get_help(self):
@@ -7971,7 +9544,7 @@ class _cols_damp_15D():
         '''
         try:
 
-            # Get actual header
+            # Get header data
             f = open(self.__filename,'rb')
 
             # Skip 3 first letter
@@ -7999,7 +9572,6 @@ class _cols_damp_15D():
             # Size of column
             self.__column = 4*self.__nz*self.__nn
 
-
         except struct.error:
             return False
             raise
@@ -8026,6 +9598,20 @@ class _cols_damp_15D():
                   f'Expected size {expectedsize}, ' + \
                   f'but got {real_size} instead'
             _error(msg,0)
+
+        #
+        # Create memmaps
+
+        # If complete
+        if self.__complete:
+            self.__data = np.memmap(self.__filename, \
+                                    mode='r', \
+                                    offset=self.__head, \
+                                    dtype=np.float32, \
+                                    shape=(self.__nx, \
+                                           self.__ny, \
+                                           self.__nn, \
+                                           self.__nz))
 
         # Return valid
         return True
@@ -8081,7 +9667,8 @@ class _cols_damp_15D():
         return self.__nx, self.__ny, self.__nz
 
     def _get_dims(self):
-        ''' Get number of positions in x, y, and height axes and entries
+        ''' Get number of positions in x, y, and height axes
+            and entries
         '''
         return self.__nx, self.__ny, self.__nz, self.__nn
 
@@ -8119,56 +9706,73 @@ class _cols_damp_15D():
                            'check with get_nentry',1)
                     return None
 
-        # Size column
-        size = self.__column//4
+        # If complete file
+        if self.__complete:
 
-        # Try geeting data
-        try:
+            # Try getting data
+            try:
 
-            # Open file
-            f = open(self.__filename,'rb')
+                # Fetch data
+                col = self.__data[ix,iy,ivar,:].copy()
 
-            # Seek first data points for this column
-            f.seek(self.__head + iy*self.__column + \
-                       self.__ny*ix*self.__column,0)
-
-            # Read data
-            col = np.array(struct.unpack('f'*size, \
-                                         f.read(self.__column))). \
-                           reshape((self.__nn,self.__nz))
-
-            # Close
-            f.close()
-
-        except struct.error:
-
-            # If the file is complete, the error is more severe,
-            # let it crash
-            if self.__complete:
+            except:
                 raise
 
-            # Incomplete file, may be missing data
-            else:
+        # Incomplete file
+        else:
 
-                # Warn
-                msg = 'Could not read, may be due to the file being ' + \
-                      'not complete'
-                _error(msg,0)
+            # Size column
+            size = self.__column//4
 
-                # Generate zeros
-                for j in indx:
-                    col = np.zeros((self.__nn,self.__nz))
+            # Try getting data
+            try:
 
-        except:
-            raise
+                # Open file
+                f = open(self.__filename,'rb')
 
-        # If trimming
-        if trim:
-            todel = []
-            for i in range(self.__nn-1,-1,-1):
-                if i not in ivar:
-                    todel.append(i)
-            col = np.delete(col,np.array(todel,dtype='int32'),axis=0)
+                # Seek first data points for this column
+                f.seek(self.__head + iy*self.__column + \
+                           self.__ny*ix*self.__column,0)
+
+                # Read data
+                col = np.array( \
+                        struct.unpack('f'*size, \
+                                      f.read(self.__column))). \
+                               reshape((self.__nn,self.__nz))
+
+                # Close
+                f.close()
+
+            except struct.error:
+
+                # If the file is complete, the error is more severe,
+                # let it crash
+                if self.__complete:
+                    raise
+
+                # Incomplete file, may be missing data
+                else:
+
+                    # Warn
+                    msg = 'Could not read, may be due to the ' + \
+                          'file being not complete'
+                    _error(msg,0)
+
+                    # Generate zeros
+                    for j in indx:
+                        col = np.zeros((self.__nn,self.__nz))
+
+            except:
+                raise
+
+            # If trimming
+            if trim:
+                todel = []
+                for i in range(self.__nn-1,-1,-1):
+                    if i not in ivar:
+                        todel.append(i)
+                col = np.delete(col,np.array(todel,dtype='int32'), \
+                                axis=0)
 
         # If collisions, units factor
         if self.__cols: col *= 1e8
@@ -8207,89 +9811,119 @@ class _cols_damp_15D():
                            'check with get_nentry',1)
                     return None
 
-        # Before and after
-        left = iz*4
-        right = (self.__nz - iz - 1)*4
-        full = self.__nz*4
-        abort = False
+        # Complete file
+        if self.__complete:
 
-        # Prepare output
-        out = np.empty((self.__nx,self.__ny,self.__nn))
+            # Try getting data
+            try:
 
-        # Open file
-        f = open(self.__filename,'rb')
+                # Fetch
+                out = self.__data[:,:,ivar,iz].copy()
 
-        # Seek first data points for this block
-        f.seek(self.__head,0)
+            except:
+                raise
 
-        # Run over columns
-        for ix in range(self.__nx):
-            for iy in range(self.__ny):
+        # Incomplete file
+        else:
 
-                # Try geeting data
-                try:
+            # Before and after
+            left = iz*4
+            right = (self.__nz - iz - 1)*4
+            full = self.__nz*4
+            abort = False
 
-                    # For each variable
-                    for ibar in range(self.__nn):
+            # Prepare output
+            out = np.empty((self.__nx,self.__ny,self.__nn))
 
-                        # If not in output
-                        if ibar not in ivar:
-                            f.seek(full,1)
-                            continue
+            # Open file
+            f = open(self.__filename,'rb')
 
-                        # Skip left
-                        if left > 0: f.seek(left,1)
+            # Seek first data points for this block
+            f.seek(self.__head,0)
 
-                        # Read
-                        out[ix,iy,ibar] = struct.unpack('f',f.read(4))[0]
+            # Run over columns
+            for ix in range(self.__nx):
+                for iy in range(self.__ny):
 
-                        # Skip right
-                        if right > 0: f.seek(right,1)
+                    # Try getting data
+                    try:
 
-                except struct.error:
+                        # For each variable
+                        for ibar in range(self.__nn):
 
-                    # If the file is complete, the error is more severe, let it crash
-                    if self.__complete:
+                            # If not in output
+                            if ibar not in ivar:
+                                f.seek(full,1)
+                                continue
+
+                            # Skip left
+                            if left > 0: f.seek(left,1)
+
+                            # Read
+                            out[ix,iy,ibar] = \
+                                    struct.unpack('f',f.read(4))[0]
+
+                            # Skip right
+                            if right > 0: f.seek(right,1)
+
+                    except struct.error:
+
+                        # If the file is complete, the error is
+                        # more severe, let it crash
+                        if self.__complete:
+                            raise
+
+                        # Incomplete file, may be missing data
+                        else:
+
+                            # Warn
+                            msg = 'Could not read, may be due ' + \
+                                  'to the file being not complete'
+                            _error(msg,0)
+
+                            # Generate zeros
+                            out[ix,iy:self.__ny,:] = 0.0
+                            abort = True
+                            break
+                    except:
                         raise
 
-                    # Incomplete file, may be missing data
-                    else:
+                # We are leaving
+                if abort:
+                    out[ix+1:self.__nx,:,:] = 0.0
+                    break
 
-                        # Warn
-                        msg = 'Could not read, may be due to the file being not complete'
-                        _error(msg,0)
+            # Close
+            f.close()
 
-                        # Generate zeros
-                        out[ix,iy:self.__ny,:] = 0.0
-                        abort = True
-                        break
-                except:
-                    raise
-
-            # We are leaving
-            if abort:
-                out[ix+1:self.__nx,:,:] = 0.0
-                break
-
-        # Close
-        f.close()
-
-        # If trimming
-        if trim:
-            todel = []
-            for i in range(self.__nn-1,-1,-1):
-                if i not in ivar:
-                    todel.append(i)
-            out = np.delete(out,np.array(todel,dtype='int32'),axis=2)
+            # If trimming
+            if trim:
+                todel = []
+                for i in range(self.__nn-1,-1,-1):
+                    if i not in ivar:
+                        todel.append(i)
+                out = np.delete(out,np.array(todel,dtype='int32'), \
+                                axis=2)
 
         # If collisions, units factor
         if self.__cols: out *= 1e8
 
         return out
 
-################################################################################
-################################################################################
-################################################################################
+    def _get_cube(self):
+        ''' Get data memmap
+        '''
+
+        # If not complete
+        if not self.__complete:
+            _error('The memmap can only be created if the file ' + \
+                   'is complete')
+            return None
+        return self.__data[:,:,:,::-1]
+
+######################################################################
+######################################################################
+######################################################################
 
 class _back_15D():
     ''' Class to manage the 1.5D background files
@@ -8306,9 +9940,9 @@ class _back_15D():
         if not self.__head(): return None
 
         #  Transformation to SI
-       #self.__unit_trans = 1e0/299792458e3
+        self.__unit_trans = 1e0/299792458e3
         #  Transformation to CGS
-        self.__unit_trans = 1e0/299792458e2
+       #self.__unit_trans = 1e0/299792458e2
 
         # Method
         self.__methods = { \
@@ -8323,15 +9957,18 @@ class _back_15D():
          'get_nxy': \
           [None,'Get number of nodes in the x and y dimensions'], \
          'get_nxyz': \
-          [None,'Get number of nodes in the x, y, and height dimensions'], \
+          [None,'Get number of nodes in the x, y, and height ' + \
+                'dimensions'], \
          'get_nl': \
           [None,'Get number of wavelengths'], \
          'get_dims': \
-          [None,'Get number of nodes in the x, y, height, and wavelength dimensions'], \
+          [None,'Get number of nodes in the x, y, height, and ' + \
+                'wavelength dimensions'], \
          'get_vars': \
           [None,'Get list of continuum variables'], \
          'get_vars_alias': \
-          [None,'Get list of continuum variables with their aliases'], \
+          [None,'Get list of continuum variables with ' + \
+                'their aliases'], \
          'get_vars_units': \
           [None,'Get list of continuum variables with their ' + \
                 'corresponding units'], \
@@ -8343,28 +9980,42 @@ class _back_15D():
            'Get wavelengths in [nm]'], \
           'get_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
              'Upper boundary for output wavelength [nm]', \
             'var': \
-             'List of variables to include in the output (see the ' + \
-             'available ones with get_vars_alias()}'}, \
-           'Extract the continuum variables at a particular column'], \
+             'List of variables to include in the output ' + \
+             '(see the available ones with get_vars_alias()}'}, \
+           'Extract the continuum variables at a ' + \
+           'particular column'], \
           'get_plane': \
           [{'iz': \
-             'Coordinate in the z dimension of the plane to extract', \
+             'Coordinate in the z dimension of the plane ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
              'Upper boundary for output wavelength [nm]', \
             'var': \
-             'List of variables to include in the output (see the ' + \
-             'available ones with get_vars_alias()}'}, \
-           'Extract the continuum variables at a particular plane']}
+             'List of variables to include in the output ' + \
+             '(see the available ones with get_vars_alias()}'}, \
+           'Extract the continuum variables at a particular plane'], \
+          'get_cube': \
+          [None,f'Get a memmap to the whole data. The file must ' + \
+           'be complete to use this method. Note that ' + \
+           'the raw data is not scaled to the SI units and ' + \
+          f'you need to multiply by {self.__unit_trans} to get ' + \
+           'the correct emissivity. You can get this number ' + \
+           'with the method get_scale()'], \
+          'get_scale': \
+          [None,f'Get the scale factor between the raw data and ' + \
+           'SI units']}
 
     def _get_help(self):
         ''' Return methods dictionary
@@ -8374,9 +10025,9 @@ class _back_15D():
     def __head(self):
         ''' Reads hanlert background continuum file head
         '''
-        debug = False
         try:
-            # Get actual header
+
+            # Get header data
             f = open(self.__filename,'rb')
             f.seek(4,0)
             # Dimensions
@@ -8398,7 +10049,7 @@ class _back_15D():
                        r'$\epsilon{\rm c}$']
         self.__alias = ['eta','sig','eps']
         self.__vars_units = ['[m$^{-1}$]','[m$^{-1}$]', \
-                             '[J m$^{-3}$ s$^{-1}$ sr$^{-1}$ Hz$^{-1}$]']
+                          '[J m$^{-3}$ s$^{-1}$ sr$^{-1}$ Hz$^{-1}$]']
 
         # Sizes
         self.__jump_to_lambda = 6*4
@@ -8425,6 +10076,23 @@ class _back_15D():
                   f'Expected size {expectedsize}, ' + \
                   f'but got {real_size} instead'
             _error(msg,0)
+
+        # Get memmaps
+        self.__omg = np.memmap(self.__filename, \
+                               mode='r', \
+                               offset=self.__jump_to_lambda, \
+                               dtype=np.float64, \
+                               shape=(self.__nl))
+        if self.__complete:
+            self.__data = np.memmap(self.__filename, \
+                                    mode='r', \
+                                    offset=self.__head, \
+                                    dtype=np.float32, \
+                                    shape=(self.__nx, \
+                                           self.__ny, \
+                                           self.__nz, \
+                                           self.__nvar, \
+                                           self.__nl))
 
         # Return valid
         return True
@@ -8466,7 +10134,8 @@ class _back_15D():
         return self.__nl
 
     def _get_dims(self):
-        ''' Get number of positions in x, y, height, and wavelength axes
+        ''' Get number of positions in x, y, height, and
+            wavelength axes
         '''
         return self.__nx, self.__ny, self.__nz, self.__nl
 
@@ -8491,22 +10160,23 @@ class _back_15D():
             out.append(var+' ['+uni+']')
         return out
 
+    def _get_scale(self):
+        ''' Return the multiplicative factor to get the
+            emissivity in SI units
+        '''
+        return self.__unit_trans
+
     def _get_lambda(self,minl=None,maxl=None):
         ''' Get lambda from file
         '''
         try:
-            f = open(self.__filename,'rb')
-            f.seek(self.__jump_to_lambda,0)
-            omg = np.array(struct.unpack('d'*self.__nl, \
-                                         f.read(8*self.__nl)))
-            lam = 1e2/omg[::-1]
+            lam = 1e2/self.__omg[::-1]
             if minl is not None:
                 i = np.argmin(np.absolute(lam - minl))
                 lam = lam[i:]
             if maxl is not None:
                 i = np.argmin(np.absolute(lam - maxl))
                 lam = lam[:i+1]
-            f.close()
             return lam
         except struct.error:
             raise
@@ -8548,59 +10218,77 @@ class _back_15D():
 
         # Need lambda?
         if minl is not None or maxl is not None:
-            lam = self._get_lambda()
+            lam = 1e2/self.__omg[::-1]
 
-        # Size
-        siz = self.__column//4
+        # Complete file
+        if self.__complete:
 
-        # Try geeting data
-        try:
+            # Try getting data
+            try:
 
-            # Open file
-            f = open(self.__filename,'rb')
+                # Fetch data
+                col = self.__data[ix,iy,:,:,::-1].copy()
 
-            # Seek first data points for this column
-            f.seek(self.__head + iy*self.__column + \
-                       self.__ny*ix*self.__column,0)
-
-            # Read data
-            col = np.array(struct.unpack('f'*siz, \
-                                         f.read(self.__column))). \
-                           reshape((self.__nz,self.__nvar, \
-                                    self.__nl))[:,:,::-1]
-
-            # Close
-            f.close()
-
-            # Adjust wavelength
-            if minl is not None:
-                i = np.argmin(np.absolute(lam - minl))
-                lam = lam[i:]
-                col = col[:,:,i:]
-            if maxl is not None:
-                i = np.argmin(np.absolute(lam - maxl))
-                lam = lam[:i+1]
-                col = col[:,:,:i+1]
-
-        except struct.error:
-
-            # If the file is complete, the error is more severe, let it crash
-            if self.__complete:
+            except:
                 raise
 
-            # Incomplete file, may be missing data
-            else:
+        # Incomplete file
+        else:
 
-                # Close and warn
+            # Size
+            siz = self.__column//4
+
+            # Try getting data
+            try:
+
+                # Open file
+                f = open(self.__filename,'rb')
+
+                # Seek first data points for this column
+                f.seek(self.__head + iy*self.__column + \
+                           self.__ny*ix*self.__column,0)
+
+                # Read data
+                col = np.array( \
+                        struct.unpack('f'*siz, \
+                                      f.read(self.__column))). \
+                               reshape((self.__nz,self.__nvar, \
+                                        self.__nl))[:,:,::-1]
+
+                # Close
                 f.close()
-                msg = 'Could not read, may be due to the file being not complete'
-                _error(msg,0)
 
-                # Generate zeros
-                col = np.zeros((self.__nz,self.__nvar,self.__nl))
+            except struct.error:
 
-        except:
-            raise
+                # If the file is complete, the error is more
+                # severe, let it crash
+                if self.__complete:
+                    raise
+
+                # Incomplete file, may be missing data
+                else:
+
+                    # Close and warn
+                    f.close()
+                    msg = 'Could not read, may be due to the ' + \
+                          'file being not complete'
+                    _error(msg,0)
+
+                    # Generate zeros
+                    col = np.zeros((self.__nz,self.__nvar,self.__nl))
+
+            except:
+                raise
+
+        # Adjust wavelength
+        if minl is not None:
+            i = np.argmin(np.absolute(lam - minl))
+            lam = lam[i:]
+            col = col[:,:,i:]
+        if maxl is not None:
+            i = np.argmin(np.absolute(lam - maxl))
+            lam = lam[:i+1]
+            col = col[:,:,:i+1]
 
         # Return column
         out = {}
@@ -8645,71 +10333,89 @@ class _back_15D():
 
         # Need lambda?
         if minl is not None or maxl is not None:
-            lam = self._get_lambda()
+            lam = 1e2/self.__omg[::-1]
 
-        # Size
-        left = iz*self.__nvar*self.__nl*4
-        right = (self.__nz - iz - 1)*self.__nvar*self.__nl*4
-        siz = self.__nvar*self.__nl
-        bsiz = siz*4
-        abort = False
+        # Complete file
+        if self.__complete:
 
-        # Prepare reading
-        col = np.empty((self.__nx,self.__ny,self.__nvar,self.__nl))
+            # Try getting data
+            try:
 
-        # Open file
-        f = open(self.__filename,'rb')
+                # Fetch
+                col = self.__data[:,:,iz,:,::-1].copy()
 
-        # Seek first data points for this block
-        f.seek(self.__head,0)
+            except:
+                raise
 
-        # Run over columns
-        for ix in range(self.__nx):
-            for iy in range(self.__ny):
+        # Incomplete file
+        else:
 
-                # Try geeting data
-                try:
+            # Size
+            left = iz*self.__nvar*self.__nl*4
+            right = (self.__nz - iz - 1)*self.__nvar*self.__nl*4
+            siz = self.__nvar*self.__nl
+            bsiz = siz*4
+            abort = False
 
-                    # Skip left
-                    if left > 0: f.seek(left,1)
+            # Prepare reading
+            col = np.empty((self.__nx,self.__ny,self.__nvar, \
+                            self.__nl))
 
-                    # Read
-                    col[ix,iy,:,:] = np.array(struct.unpack('f'*siz, \
-                                                            f.read(bsiz))). \
-                                             reshape((self.__nvar, \
-                                                      self.__nl))[:,::-1]
+            # Open file
+            f = open(self.__filename,'rb')
 
-                    # Skip right
-                    if right > 0: f.seek(right,1)
+            # Seek first data points for this block
+            f.seek(self.__head,0)
 
-                except struct.error:
+            # Run over columns
+            for ix in range(self.__nx):
+                for iy in range(self.__ny):
 
-                    # If the file is complete, the error is more severe, let it crash
-                    if self.__complete:
+                    # Try getting data
+                    try:
+
+                        # Skip left
+                        if left > 0: f.seek(left,1)
+
+                        # Read
+                        col[ix,iy,:,:] = np.array( \
+                                struct.unpack('f'*siz, \
+                                              f.read(bsiz))). \
+                                       reshape((self.__nvar, \
+                                                self.__nl))[:,::-1]
+
+                        # Skip right
+                        if right > 0: f.seek(right,1)
+
+                    except struct.error:
+
+                        # If the file is complete, the error is
+                        # more severe, let it crash
+                        if self.__complete:
+                            raise
+
+                        # Incomplete file, may be missing data
+                        else:
+
+                            # Warn
+                            msg = 'Could not read, may be due ' + \
+                                  'to the file being not complete'
+                            _error(msg,0)
+
+                            # Generate zeros
+                            col[ix,iy:self.__ny,:,:] = 0.0
+                            abort = True
+                            break
+                    except:
                         raise
 
-                    # Incomplete file, may be missing data
-                    else:
+                # We are leaving
+                if abort:
+                    col[ix+1:self.__nx,:,:,:] = 0.0
+                    break
 
-                        # Warn
-                        msg = 'Could not read, may be due to the file being not complete'
-                        _error(msg,0)
-
-                        # Generate zeros
-                        col[ix,iy:self.__ny,:,:] = 0.0
-                        abort = True
-                        break
-                except:
-                    raise
-
-            # We are leaving
-            if abort:
-                col[ix+1:self.__nx,:,:,:] = 0.0
-                break
-
-
-        # Close
-        f.close()
+            # Close
+            f.close()
 
         # Adjust wavelength
         if minl is not None:
@@ -8732,9 +10438,20 @@ class _back_15D():
 
         return out
 
-################################################################################
-################################################################################
-################################################################################
+    def _get_cube(self):
+        ''' Get background memmap
+        '''
+
+        # If not complete
+        if not self.__complete:
+            _error('The memmap can only be created if the file ' + \
+                   'is complete')
+            return None
+        return self.__data[:,:,:,:,::-1]
+
+######################################################################
+######################################################################
+######################################################################
 
 class _pop_dep_15D():
     ''' Class to manage the 1.5D population/departure files
@@ -8770,24 +10487,34 @@ class _pop_dep_15D():
          'get_nxy': \
           [None,'Get number of nodes in the x and y dimensions'], \
          'get_nxyz': \
-          [None,'Get number of nodes in the x, y, and height dimensions'], \
+          [None,'Get number of nodes in the x, y, and height ' + \
+                'dimensions'], \
          'get_dims': \
-          [None,' Get number of positions in x, y, and height axes and entries'], \
+          [None,' Get number of positions in x, y, and height ' + \
+                'axes and entries'], \
          'get_column': \
           [{'ix': \
-            'Coordinate in the x dimension of the column to extract', \
+            'Coordinate in the x dimension of the column to ' + \
+            'extract', \
             'iy': \
-            'Coordinate in the y dimension of the column to extract', \
+            'Coordinate in the y dimension of the column to ' + \
+            'extract', \
             'ie': \
             'List of entries to include in the output'}, \
-            'Extract the populations/departures for a particular column'], \
+            'Extract the populations/departures for a ' + \
+            'particular column'], \
           'get_plane': \
           [{'iz': \
-            'Coordinate in the height dimension of the atmospheric parameters to extract', \
+            'Coordinate in the height dimension of the ' + \
+            'atmospheric parameters to extract', \
             'ie': \
             'List of entries to include in the output'}, \
-            'Extract the populations/departures for a particular height index for ' + \
-            'the whole field of view']}
+            'Extract the populations/departures for a ' + \
+            'particular height index for ' + \
+            'the whole field of view'], \
+          'get_cube': \
+          [None,f'Get a memmap to the whole data. The file must ' + \
+           'be complete to use this method.']}
 
     def _get_help(self):
         ''' Return methods dictionary
@@ -8799,7 +10526,7 @@ class _pop_dep_15D():
         '''
         try:
 
-            # Get actual header
+            # Get header data
             f = open(self.__filename,'rb')
 
             # Skip 3 first letter
@@ -8851,6 +10578,17 @@ class _pop_dep_15D():
                   f'but got {real_size} instead'
             _error(msg,0)
 
+        # Create memmaps
+        if self.__complete:
+            self.__data = np.memmap(self.__filename, \
+                                    mode='r', \
+                                    offset=self.__head, \
+                                    dtype=np.float32, \
+                                    shape=(self.__nx, \
+                                           self.__ny, \
+                                           self.__nz, \
+                                           self.__nn))
+
         # Return valid
         return True
 
@@ -8900,7 +10638,8 @@ class _pop_dep_15D():
         return self.__nx, self.__ny, self.__nz
 
     def _get_dims(self):
-        ''' Get number of positions in x, y, and height axes and entries
+        ''' Get number of positions in x, y, and height axes
+            and entries
         '''
         return self.__nx, self.__ny, self.__nz, self.__nn
 
@@ -8938,56 +10677,73 @@ class _pop_dep_15D():
                            'check with get_nentry',1)
                     return None
 
-        # Size column
-        size = self.__column//4
+        # Complete file
+        if self.__complete:
 
-        # Try geeting data
-        try:
+            # Try getting data
+            try:
 
-            # Open file
-            f = open(self.__filename,'rb')
+                # Read data
+                col = self.__data[ix,iy,:,ivar].copy()
 
-            # Seek first data points for this column
-            f.seek(self.__head + iy*self.__column + \
-                       self.__ny*ix*self.__column,0)
-
-            # Read data
-            col = np.array(struct.unpack('f'*size, \
-                                         f.read(self.__column))). \
-                           reshape((self.__nz,self.__nn))
-
-            # Close
-            f.close()
-
-        except struct.error:
-
-            # If the file is complete, the error is more severe,
-            # let it crash
-            if self.__complete:
+            except:
                 raise
 
-            # Incomplete file, may be missing data
-            else:
+        # Incomplete file
+        else:
 
-                # Warn
-                msg = 'Could not read, may be due to the file being ' + \
-                      'not complete'
-                _error(msg,0)
+            # Size column
+            size = self.__column//4
 
-                # Generate zeros
-                for j in indx:
-                    col = np.zeros((self.__nz,self.__nn))
+            # Try getting data
+            try:
 
-        except:
-            raise
+                # Open file
+                f = open(self.__filename,'rb')
 
-        # If trimming
-        if trim:
-            todel = []
-            for i in range(self.__nn-1,-1,-1):
-                if i not in ivar:
-                    todel.append(i)
-            col = np.delete(col,np.array(todel,dtype='int32'),axis=1)
+                # Seek first data points for this column
+                f.seek(self.__head + iy*self.__column + \
+                           self.__ny*ix*self.__column,0)
+
+                # Read data
+                col = np.array( \
+                        struct.unpack('f'*size, \
+                                      f.read(self.__column))). \
+                               reshape((self.__nz,self.__nn))
+
+                # Close
+                f.close()
+
+            except struct.error:
+
+                # If the file is complete, the error is more severe,
+                # let it crash
+                if self.__complete:
+                    raise
+
+                # Incomplete file, may be missing data
+                else:
+
+                    # Warn
+                    msg = 'Could not read, may be due to the ' + \
+                          'file being not complete'
+                    _error(msg,0)
+
+                    # Generate zeros
+                    for j in indx:
+                        col = np.zeros((self.__nz,self.__nn))
+
+            except:
+                raise
+
+            # If trimming
+            if trim:
+                todel = []
+                for i in range(self.__nn-1,-1,-1):
+                    if i not in ivar:
+                        todel.append(i)
+                col = np.delete(col,np.array(todel,dtype='int32'), \
+                                axis=1)
 
         # Units
         if self.__type == 'p':
@@ -9027,71 +10783,90 @@ class _pop_dep_15D():
                            'check with get_nentry',1)
                     return None
 
-        # Before and after
-        left = iz*4*self.__nn
-        right = (self.__nz - iz - 1)*4*self.__nn
-        abort = False
+        # Complete file
+        if self.__complete:
 
-        # Prepare output
-        out = np.empty((self.__nx,self.__ny,self.__nn))
+            # Try getting data
+            try:
 
-        # Open file
-        f = open(self.__filename,'rb')
+                # Read
+                out = self.__data[:,:,iz,ivar].copy()
 
-        # Seek first data points for this block
-        f.seek(self.__head,0)
+            except:
+                raise
 
-        # Run over columns
-        for ix in range(self.__nx):
-            for iy in range(self.__ny):
+        # Incomplete file
+        else:
 
-                # Try geeting data
-                try:
+            # Before and after
+            left = iz*4*self.__nn
+            right = (self.__nz - iz - 1)*4*self.__nn
+            abort = False
 
-                    # Skip left
-                    if left > 0: f.seek(left,1)
+            # Prepare output
+            out = np.empty((self.__nx,self.__ny,self.__nn))
 
-                    # Read
-                    out[ix,iy,:] = np.array(struct.unpack('f'*self.__nn, \
-                                                          f.read(4*self.__nn)))
-                    # Skip right
-                    if right > 0: f.seek(right,1)
+            # Open file
+            f = open(self.__filename,'rb')
 
-                except struct.error:
+            # Seek first data points for this block
+            f.seek(self.__head,0)
 
-                    # If the file is complete, the error is more severe, let it crash
-                    if self.__complete:
+            # Run over columns
+            for ix in range(self.__nx):
+                for iy in range(self.__ny):
+
+                    # Try getting data
+                    try:
+
+                        # Skip left
+                        if left > 0: f.seek(left,1)
+
+                        # Read
+                        out[ix,iy,:] = np.array( \
+                                struct.unpack('f'*self.__nn, \
+                                              f.read(4*self.__nn)))
+                        # Skip right
+                        if right > 0: f.seek(right,1)
+
+                    except struct.error:
+
+                        # If the file is complete, the error is
+                        # more severe, let it crash
+                        if self.__complete:
+                            raise
+
+                        # Incomplete file, may be missing data
+                        else:
+
+                            # Warn
+                            msg = 'Could not read, may be due to ' + \
+                                  'the file being not complete'
+                            _error(msg,0)
+
+                            # Generate zeros
+                            out[ix,iy:self.__ny,:] = 0.0
+                            abort = True
+                            break
+                    except:
                         raise
 
-                    # Incomplete file, may be missing data
-                    else:
+                # We are leaving
+                if abort:
+                    out[ix+1:self.__nx,:,:] = 0.0
+                    break
 
-                        # Warn
-                        msg = 'Could not read, may be due to the file being not complete'
-                        _error(msg,0)
+            # Close
+            f.close()
 
-                        # Generate zeros
-                        out[ix,iy:self.__ny,:] = 0.0
-                        abort = True
-                        break
-                except:
-                    raise
-
-            # We are leaving
-            if abort:
-                out[ix+1:self.__nx,:,:] = 0.0
-                break
-
-        # Close
-        f.close()
-
-        # If trimming
-        if trim:
-            todel = []
-            for i in range(self.__nn-1,-1,-1):
-                if i not in ivar:
-                    todel.append(i)
-            out = np.delete(out,np.array(todel,dtype='int32'),axis=2)
+            # If trimming
+            if trim:
+                todel = []
+                for i in range(self.__nn-1,-1,-1):
+                    if i not in ivar:
+                        todel.append(i)
+                out = np.delete(out,np.array(todel,dtype='int32'), \
+                                axis=2)
 
         # Units
         if self.__type == 'p':
@@ -9099,9 +10874,20 @@ class _pop_dep_15D():
 
         return out
 
-################################################################################
-################################################################################
-################################################################################
+    def _get_cube(self):
+        ''' Get full memmap
+        '''
+
+        # If not complete
+        if not self.__complete:
+            _error('The memmap can only be created if the file ' + \
+                   'is complete')
+            return None
+        return self.__data
+
+######################################################################
+######################################################################
+######################################################################
 
 class _stokes_CLE():
     ''' Class to manage emergent Stokes parameters from CLE synthesis
@@ -9135,7 +10921,8 @@ class _stokes_CLE():
          'get_nl': \
           [None,'Get number of wavelengths'], \
          'get_dims': \
-          [None,'Get number of nodes in the x, y, and wavelength dimensions'], \
+          [None,'Get number of nodes in the x, y, and ' + \
+                'wavelength dimensions'], \
          'get_lambda': \
           [{'minl': \
              'Lower boundary for output wavelength [nm]', \
@@ -9146,9 +10933,11 @@ class _stokes_CLE():
           [None,'Get geometric data'], \
          'get_stokesi_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -9156,9 +10945,11 @@ class _stokes_CLE():
            'Extract Stokes I at a particular column'], \
          'get_stokesq_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the ' + \
+             'column to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the ' + \
+             'column to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -9168,9 +10959,11 @@ class _stokes_CLE():
            'Extract Stokes Q at a particular column'], \
          'get_stokesu_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -9180,9 +10973,11 @@ class _stokes_CLE():
            'Extract Stokes U at a particular column'], \
          'get_stokesv_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -9192,21 +10987,26 @@ class _stokes_CLE():
            'Extract Stokes V at a particular column'], \
          'get_linear_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
              'Upper boundary for output wavelength [nm]', \
             'fractional': \
              'True to normalize to intensity, [SI] otherwise]'}, \
-           'Extract total linear polarization at a particular column'], \
+           'Extract total linear polarization at a ' + \
+           'particular column'], \
          'get_stokes_column': \
           [{'ix': \
-             'Coordinate in the x dimension of the column to extract', \
+             'Coordinate in the x dimension of the column ' + \
+             'to extract', \
             'iy': \
-             'Coordinate in the y dimension of the column to extract', \
+             'Coordinate in the y dimension of the column ' + \
+             'to extract', \
             'minl': \
              'Lower boundary for output wavelength [nm]', \
             'maxl': \
@@ -9216,51 +11016,63 @@ class _stokes_CLE():
            'Extract the full Stokes vector at a particular column'], \
           'get_plane_stk': \
           [{'il': \
-             'Coordinate in the wavelength dimension of the Stokes parameters to extract', \
+             'Coordinate in the wavelength dimension of the ' + \
+             'Stokes parameters to extract', \
             'var': \
              'List of variables to include in the output'}, \
-           'Extract Stokes parameters at a given wavelength position for ' + \
-           'the whole field of view'], \
+           'Extract Stokes parameters at a given wavelength ' + \
+           'position for the whole field of view'], \
          'get_stokesi_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract'}, \
-           'Extract Stokes I at a particular wavelength index for ' + \
-           'the whole field of view'], \
+           'Extract Stokes I at a particular wavelength ' + \
+           'index for the whole field of view'], \
          'get_stokesq_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract', \
             'fractional': \
              'True to normalize to intensity, [SI] otherwise]'}, \
-           'Extract Stokes Q at a particular wavelength index for ' + \
-           'the whole field of view'], \
+           'Extract Stokes Q at a particular wavelength ' + \
+           'index for the whole field of view'], \
          'get_stokesu_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract', \
             'fractional': \
              'True to normalize to intensity, [SI] otherwise]'}, \
-           'Extract Stokes U at a particular wavelength index for ' + \
-           'the whole field of view'], \
+           'Extract Stokes U at a particular wavelength ' + \
+           'index for the whole field of view'], \
          'get_stokesv_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract', \
             'fractional': \
              'True to normalize to intensity, [SI] otherwise]'}, \
-           'Extract Stokes V at a particular wavelength index for ' + \
-           'the whole field of view'], \
+           'Extract Stokes V at a particular wavelength ' + \
+           'index for the whole field of view'], \
          'get_linear_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract', \
             'fractional': \
              'True to normalize to intensity, [SI] otherwise]'}, \
-           'Extract total linear polarization at a particular wavelength ' + \
-           'index for the whole field of view'], \
+           'Extract total linear polarization at a ' + \
+           'particular wavelength index for the whole ' + \
+           'field of view'], \
          'get_stokes_plane': \
           [{'il': \
              'Coordinate in the wavelength dimension to extract', \
             'fractional': \
              'True to normalize to intensity, [SI] otherwise]'}, \
-           'Extract the full Stokes vector at a particular wavelength index for ' + \
-           'the whole field of view']}
+           'Extract the full Stokes vector at a particular ' + \
+           'wavelength index for the whole field of view'], \
+          'get_cube': \
+          [None,f'Get a memmap to the whole data. The file must ' + \
+           'be complete to use this method. Note that ' + \
+           'the raw data is not scaled to the SI units and ' + \
+          f'you need to multiply by {self.__unit_trans}. ' + \
+           'You can get this number with the method get_scale()'], \
+          'get_scale': \
+          [None,f'Get the scale factor between the raw data and ' + \
+           'SI units'] \
+           }
 
     def _get_help(self):
         ''' Return methods dictionary
@@ -9270,23 +11082,28 @@ class _stokes_CLE():
     def __head(self):
         ''' Reads hanlert 1.5D emergence file head
         '''
-        debug = False
         try:
-            # Get actual header
+
+            # Get header data
             f = open(self.__filename,'rb')
             f.seek(4,0)
+
             # Mode
             self.__mode = struct.unpack('i',f.read(4))[0]
+
             # Wavelength
             self.__nl = struct.unpack('i',f.read(4))[0]
+
             # Lambda
             self.__jump_to_lambda = 4*3
             f.seek(self.__nl*8,1)
+
             #
             # Geometry
             #
             self.__jump_to_geometry = self.__jump_to_lambda + \
                                       8*self.__nl
+
             # Cartesian
             if self.__mode == 0:
                 self.__nx = struct.unpack('i',f.read(4))[0]
@@ -9301,15 +11118,17 @@ class _stokes_CLE():
                 self.__ny = 1
                 self.__head = self.__jump_to_geometry + 4 + \
                               self.__nx*8*2
+
+            # Close file
+            f.close()
+
+            # Column size
             self.__column_size = 16*self.__nl
-            # Head
+
         except struct.error:
             raise
         except:
             raise
-
-        # Close file
-        f.close()
 
         # Get real size
         real_size = os.path.getsize(self.__filename)
@@ -9336,6 +11155,43 @@ class _stokes_CLE():
             msg = f'I have guessed that this is ' + \
                   f'an incomplete file'
             _error(msg,0)
+
+        # Create memmaps
+        self.__omg = np.memmap(self.__filename, \
+                               mode='r', \
+                               offset=self.__jump_to_lambda, \
+                               dtype=np.float64, \
+                               shape=(self.__nl))
+        # Cartesian
+        if self.__mode == 0:
+            self.__geom_dtype = np.dtype((  \
+                                      ('nx',np.int32,(1)), \
+                                      ('x',np.float64,(self.__nx)), \
+                                      ('ny',np.int32,(1)), \
+                                      ('y',np.float64,(self.__ny))))
+            self.__geom = np.memmap(self.__filename, \
+                                    mode='r', \
+                                    offset=self.__jump_to_geometry, \
+                                    dtype=self.__geom_dtype, \
+                                    shape=(1))
+        # Slab or non-cartesian
+        else:
+            self.__geom_dtype = np.dtype(( \
+                                      ('n',np.int32,(1)), \
+                                      ('xy',np.float64,(self.__nx,))))
+            self.__geom = np.memmap(self.__filename, \
+                                    mode='r', \
+                                    offset=self.__jump_to_geometry, \
+                                    dtype=self.__geom_dtype, \
+                                    shape=(1))
+        if self.__complete:
+            self.__stk = np.memmap(self.__filename, \
+                                   mode='r', \
+                                   offset=self.__head, \
+                                   dtype=np.float32, \
+                                   shape=(self.__nx, \
+                                          self.__ny, \
+                                          4,self.__nl))
 
         # Return valid
         return True
@@ -9387,25 +11243,23 @@ class _stokes_CLE():
         '''
         return self.__nx, self.__ny, self.__nl
 
+    def _get_scale(self):
+        ''' Return the multiplicative factor to get SI units
+        '''
+        return self.__unit_trans
+
     def _get_lambda(self,minl=None,maxl=None):
         ''' Get lambda from file
         '''
         try:
-            f = open(self.__filename,'rb')
-            f.seek(self.__jump_to_lambda,0)
-            omg = np.array(struct.unpack('d'*self.__nl, \
-                                          f.read(8*self.__nl)))
-            lam = 1e2/omg[::-1]
+            lam = 1e2/self.__omg[::-1]
             if minl is not None:
                 i = np.argmin(np.absolute(lam - minl))
                 lam = lam[i:]
             if maxl is not None:
                 i = np.argmin(np.absolute(lam - maxl))
                 lam = lam[:i+1]
-            f.close()
             return lam
-        except struct.error:
-            raise
         except:
             raise
 
@@ -9413,136 +11267,162 @@ class _stokes_CLE():
         ''' Return data about geometry
         '''
         try:
-            f = open(self.__filename,'rb')
-            f.seek(self.__jump_to_geometry,0)
             # Cartesian
             if self.__mode == 0:
-                f.seek(4,1)
-                x = np.array(struct.unpack('d'*self.__nx, \
-                                           f.read(self.__nx*8)))
-                f.seek(4,1)
-                y = np.array(struct.unpack('d'*self.__ny, \
-                                           f.read(self.__ny*8)))
+                x = self.__geom['x'][0,:].copy()
+                y = self.__geom['y'][0,:].copy()
             # Slab or non-cartesian
             else:
-                f.seek(4,1)
-                x = np.empty((self.__nx))
-                y = np.empty((self.__nx))
-                for ixy in range(self.__nx*self.__ny):
-                    x[ixy] = struct.unpack('d',f.read(8))[0]
-                    y[ixy] = struct.unpack('d',f.read(8))[0]
+                x = self.__geom['xy'][0,:,0].copy()
+                y = self.__geom['xy'][0,:,1].copy()
             return x,y
-        except struct.error:
-            raise
         except:
             raise
 
-    def __get_gen_column(self,ix,iy,minl=None,maxl=None,fractional=False,indx=[0]):
+    def __get_gen_column(self,ix,iy,minl=None,maxl=None, \
+                         fractional=False,indx=[0]):
         ''' Generic read of Stokes parameters column
         '''
-
-        # Get size to read
-        siz = self.__nl
-        bsiz = siz*4
 
         # Output
         out = [None,None,None,None]
 
         # Need lambda?
         if minl is not None or maxl is not None:
-            lam = self._get_lambda()
+            lam = 1e2/self.__omg[::-1]
 
-        # Try geeting data
-        try:
+        # Complete file
+        if self.__complete:
 
-            # Open file
-            f = open(self.__filename,'rb')
+            # Try getting data
+            try:
 
-            # Seek first data points for this column
-            f.seek(self.__head + iy*self.__column_size + \
-                   self.__ny*ix*self.__column_size,0)
+                # Intensity
+                if 0 in indx or fractional:
 
-            # Intensity
-            if 0 in indx or fractional:
+                    # Get intensity
+                    stkI = self.__stk[ix,iy,0,::-1].copy()
 
-                # Get intensity
-                stkI = np.array(struct.unpack('f'*siz, \
-                                              f.read(bsiz)))[::-1]
+                    # Out?
+                    if 0 in indx:
+                        out[0] = stkI
 
-                # Out?
-                if 0 in indx:
-                    out[0] = stkI
+                # Q, U, and V
+                for j in range(1,4):
 
-            # No intensity
-            else:
+                    # To output
+                    if j in indx:
 
-                # Skip
-                f.seek(bsiz,1)
+                        # Read Stokes
+                        out[j] = self.__stk[ix,iy,j,::-1].copy()
 
-            # Q, U, and V
-            for j in range(1,4):
+                    # Manage units
+                    if fractional and j in indx:
+                        out[j] /= stkI
 
-                # To output
-                if j in indx:
+            # Fail
+            except:
+                raise
 
-                    # Read Stokes
-                    out[j] = np.array(struct.unpack('f'*siz, \
-                                                     f.read(bsiz)))[::-1]
+        # Incomplete file
+        else:
+
+            # Get size to read
+            siz = self.__nl
+            bsiz = siz*4
+
+            # Try getting data
+            try:
+
+                # Open file
+                f = open(self.__filename,'rb')
+
+                # Seek first data points for this column
+                f.seek(self.__head + iy*self.__column_size + \
+                       self.__ny*ix*self.__column_size,0)
+
+                # Intensity
+                if 0 in indx or fractional:
+
+                    # Get intensity
+                    stkI = np.array(struct.unpack('f'*siz, \
+                                                  f.read(bsiz)))[::-1]
+
+                    # Out?
+                    if 0 in indx:
+                        out[0] = stkI
+
+                # No intensity
                 else:
 
                     # Skip
                     f.seek(bsiz,1)
 
-                # Manage units
-                if fractional and j in indx:
-                    out[j] /= stkI
+                # Q, U, and V
+                for j in range(1,4):
 
-            # Adjust wavelength
-            if minl is not None:
-                i = np.argmin(np.absolute(lam - minl))
-                lam = lam[i:]
-                for j in indx:
-                    out[j] = out[j][i:]
-            if maxl is not None:
-                i = np.argmin(np.absolute(lam - maxl))
-                lam = lam[:i+1]
-                for j in indx:
-                    out[j] = out[j][:i+1]
+                    # To output
+                    if j in indx:
 
-            # Units
-            if fractional:
-                if 0 in indx:
-                    out[0] *= self.__unit_trans
-            else:
-                for j in indx:
-                    out[j] *= self.__unit_trans
+                        # Read Stokes
+                        out[j] = np.array( \
+                                struct.unpack('f'*siz, \
+                                              f.read(bsiz)))[::-1]
+                    else:
 
-        # Failed
-        except struct.error:
+                        # Skip
+                        f.seek(bsiz,1)
 
-            # If the file is complete, the error is more severe,
-            # let it crash
-            if self.__complete:
+                    # Manage units
+                    if fractional and j in indx:
+                        out[j] /= stkI
+
+            # Failed
+            except struct.error:
+
+                # If the file is complete, the error is more severe,
+                # let it crash
+                if self.__complete:
+                    raise
+
+                # Incomplete file, may be missing data
+                else:
+
+                    # Warn
+                    msg = 'Could not read, may be due to the ' + \
+                          'file being not complete'
+                    _error(msg,0)
+
+                    # Generate zeros
+                    for j in indx:
+                        out[j] = np.zeros((self.__nl))
+
+            # Others
+            except:
                 raise
 
-            # Incomplete file, may be missing data
-            else:
+            # Close file
+            f.close()
 
-                # Warn
-                msg = 'Could not read, may be due to the file being ' + \
-                      'not complete'
-                _error(msg,0)
+        # Adjust wavelength
+        if minl is not None:
+            i = np.argmin(np.absolute(lam - minl))
+            lam = lam[i:]
+            for j in indx:
+                out[j] = out[j][i:]
+        if maxl is not None:
+            i = np.argmin(np.absolute(lam - maxl))
+            lam = lam[:i+1]
+            for j in indx:
+                out[j] = out[j][:i+1]
 
-                # Generate zeros
-                for j in indx:
-                    out[j] = np.zeros((self.__nl))
-
-        # Others
-        except:
-            raise
-
-        # Close file
-        f.close()
+        # Units
+        if fractional:
+            if 0 in indx:
+                out[0] *= self.__unit_trans
+        else:
+            for j in indx:
+                out[j] *= self.__unit_trans
 
         # Return
         return out
@@ -9564,7 +11444,8 @@ class _stokes_CLE():
 
         return self.__get_gen_column(ix,iy,minl,maxl,False,[0])[0]
 
-    def _get_stokesq_column(self,ix,iy,minl=None,maxl=None,fractional=False):
+    def _get_stokesq_column(self,ix,iy,minl=None,maxl=None, \
+                            fractional=False):
         ''' Get Stokes Q profile at a given column
         '''
 
@@ -9583,9 +11464,11 @@ class _stokes_CLE():
            _error('The requested column is out of bounds',1)
            return None
 
-        return self.__get_gen_column(ix,iy,minl,maxl,fractional,[1])[1]
+        return self.__get_gen_column(ix,iy,minl,maxl, \
+                                     fractional,[1])[1]
 
-    def _get_stokesu_column(self,ix,iy,minl=None,maxl=None,fractional=False):
+    def _get_stokesu_column(self,ix,iy,minl=None,maxl=None, \
+                            fractional=False):
         ''' Get Stokes U profile at a given column
         '''
 
@@ -9604,9 +11487,11 @@ class _stokes_CLE():
            _error('The requested column is out of bounds',1)
            return None
 
-        return self.__get_gen_column(ix,iy,minl,maxl,fractional,[2])[2]
+        return self.__get_gen_column(ix,iy,minl,maxl, \
+                                     fractional,[2])[2]
 
-    def _get_stokesv_column(self,ix,iy,minl=None,maxl=None,fractional=False):
+    def _get_stokesv_column(self,ix,iy,minl=None,maxl=None, \
+                            fractional=False):
         ''' Get Stokes V profile at a given column
         '''
 
@@ -9625,9 +11510,11 @@ class _stokes_CLE():
            _error('The requested column is out of bounds',1)
            return None
 
-        return self.__get_gen_column(ix,iy,minl,maxl,fractional,[3])[3]
+        return self.__get_gen_column(ix,iy,minl,maxl, \
+                                     fractional,[3])[3]
 
-    def _get_linear_column(self,ix,iy,minl=None,maxl=None,fractional=False):
+    def _get_linear_column(self,ix,iy,minl=None,maxl=None, \
+                           fractional=False):
         ''' Get Stokes V profile at a given column
         '''
 
@@ -9649,7 +11536,8 @@ class _stokes_CLE():
         qu = self.__get_gen_column(ix,iy,minl,maxl,fractional,[1,2])
         return np.sqrt(qu[1]*qu[1] + qu[2]*qu[2])
 
-    def _get_stokes_column(self,ix,iy,minl=None,maxl=None,fractional=False):
+    def _get_stokes_column(self,ix,iy,minl=None,maxl=None, \
+                           fractional=False):
         ''' Get Stokes parameter at a given column
         '''
 
@@ -9669,7 +11557,8 @@ class _stokes_CLE():
            _error('The requested column is out of bounds',1)
            return None
 
-        iquv = self.__get_gen_column(ix,iy,minl,maxl,fractional,[0,1,2,3])
+        iquv = self.__get_gen_column(ix,iy,minl,maxl, \
+                                     fractional,[0,1,2,3])
         return np.stack((iquv[0],iquv[1],iquv[2],iquv[3]))
 
 
@@ -9677,103 +11566,142 @@ class _stokes_CLE():
         ''' Generic read of Stokes parameters plane
         '''
 
-        # Get size to read
-        left = il*4
-        right = (self.__nl - il - 1)*4
-        full = self.__nl*4
-        abort = False
+        # Complete file
+        if self.__complete:
 
-        # Output
-        out = [None,None,None,None]
+            # Output
+            out = [None,None,None,None]
 
-        # For each index requested
-        for j in indx:
-            out[j] = np.empty((self.__nx,self.__ny))
+            # Try getting data
+            try:
 
-        # Open file
-        f = open(self.__filename,'rb')
+                # Intensity
+                if 0 in indx or fractional:
 
-        # Seek to data
-        f.seek(self.__head,0)
+                    # Get intensity
+                    stkI = self.__stk[:,:,0,il].copy()
 
-        # For each column
-        for ix in range(self.__nx):
-            for iy in range(self.__ny):
+                    # Out?
+                    if 0 in indx:
+                        out[0] = stkI
 
-                # Jump
-                if (self.__geom_size>0):
-                    f.seek(self.__geom_size,1)
+                # Q, U, and V
+                for j in range(1,4):
 
-                # Try geeting data
-                try:
+                    # To output
+                    if j in indx:
 
-                    # Intensity
-                    if 0 in indx or fractional:
+                        # Get Stokes
+                        out[j] = self.__stk[:,:,j,il].copy()
 
-                        # Get intensity
-                        if left > 0: f.seek(left,1)
-                        stkI = struct.unpack('f',f.read(4))[0]
-                        if right > 0: f.seek(right,1)
+                    # Manage units
+                    if fractional and j in indx:
+                        out[j][ix,iy] /= stkI
+            except:
+                raise
 
-                        # Out?
-                        if 0 in indx:
-                            out[0][ix,iy] = stkI
+        # Incomplete file
+        else:
 
-                    # No intensity
-                    else:
+            # Get size to read
+            left = il*4
+            right = (self.__nl - il - 1)*4
+            full = self.__nl*4
+            abort = False
 
-                        # Skip
-                        f.seek(full,1)
+            # Output
+            out = [None,None,None,None]
 
-                    # Q, U, and V
-                    for j in range(1,4):
+            # For each index requested
+            for j in indx:
+                out[j] = np.empty((self.__nx,self.__ny))
 
-                        # To output
-                        if j in indx:
+            # Open file
+            f = open(self.__filename,'rb')
 
-                            # Get Stokes
+            # Seek to data
+            f.seek(self.__head,0)
+
+            # For each column
+            for ix in range(self.__nx):
+                for iy in range(self.__ny):
+
+                    # Try getting data
+                    try:
+
+                        # Intensity
+                        if 0 in indx or fractional:
+
+                            # Get intensity
                             if left > 0: f.seek(left,1)
-                            out[j][ix,iy] = struct.unpack('f',f.read(4))[0]
+                            stkI = struct.unpack('f',f.read(4))[0]
                             if right > 0: f.seek(right,1)
 
-                        # No output
+                            # Out?
+                            if 0 in indx:
+                                out[0][ix,iy] = stkI
+
+                        # No intensity
                         else:
 
                             # Skip
                             f.seek(full,1)
 
-                        # Manage units
-                        if fractional and j in indx:
-                            out[j][ix,iy] /= stkI
+                        # Q, U, and V
+                        for j in range(1,4):
 
-                # Reading error
-                except struct.error:
+                            # To output
+                            if j in indx:
 
-                    # If the file is complete, the error is more severe, let it crash
-                    if self.__complete:
+                                # Get Stokes
+                                if left > 0: f.seek(left,1)
+                                out[j][ix,iy] = \
+                                       struct.unpack('f',f.read(4))[0]
+                                if right > 0: f.seek(right,1)
+
+                            # No output
+                            else:
+
+                                # Skip
+                                f.seek(full,1)
+
+                            # Manage units
+                            if fractional and j in indx:
+                                out[j][ix,iy] /= stkI
+
+                    # Reading error
+                    except struct.error:
+
+                        # If the file is complete, the error
+                        # is more severe, let it crash
+                        if self.__complete:
+                            raise
+
+                        # Incomplete file, may be missing data
+                        else:
+
+                            # Warn
+                            msg = 'Could not read, may be ' + \
+                                  'due to the file being not complete'
+                            _error(msg,0)
+
+                            # Generate zeros
+                            for j in indx:
+                                out[j][ix,iy:self.__ny] = 0.0
+                            abort = True
+                            break
+
+                    except:
                         raise
 
-                    # Incomplete file, may be missing data
-                    else:
+                # We are leaving
+                if abort:
+                    for j in indx:
+                        out[j][ix+1:self.__nx,:] = 0.0
+                    break
 
-                        # Warn
-                        msg = 'Could not read, may be due to the file being not complete'
-                        _error(msg,0)
-
-                        # Generate zeros
-                        for j in indx:
-                            out[j][ix,iy:self.__ny] = 0.0
-                        abort = True
-                        break
-
-                except:
-                    raise
-
-            # We are leaving
-            if abort:
-                for j in indx:
-                    out[j][ix+1:self.__nx,:] = 0.0
-                break
+            # Close file
+            f.close()
 
         # Units
         if fractional:
@@ -9782,9 +11710,6 @@ class _stokes_CLE():
         else:
             for j in indx:
                 out[j] *= self.__unit_trans
-
-        # Close file
-        f.close()
 
         # Return
         return out
@@ -9881,9 +11806,20 @@ class _stokes_CLE():
         iquv = self.__get_gen_plane(jl,fractional,[0,1,2,3])
         return np.stack((iquv[0],iquv[1],iquv[2],iquv[3]))
 
-################################################################################
-################################################################################
-################################################################################
+    def _get_cube(self):
+        ''' Get Stokes profiles memmap
+        '''
+
+        # If not complete
+        if not self.__complete:
+            _error('The memmap can only be created if the file ' + \
+                   'is complete')
+            return None
+        return self.__stk[:,:,:,::-1]
+
+######################################################################
+######################################################################
+######################################################################
 
 class hanlertio_class():
     ''' Class to manage files in the input or output of the HanleRT
@@ -9923,6 +11859,191 @@ class hanlertio_class():
         '''
         if self.__verbosity or force: _verbose(msg)
 
+    def __is_ascii(self):
+        ''' Tries to identify if it is an ASCII file in
+            one of the valid HanleRT formats
+        '''
+
+        # Open file
+        f = open(self.__filename,'rb')
+
+        # Read a bunch of bytes
+        if 4096 < os.path.getsize(self.__filename):
+            chunk = f.read(4096)
+        else:
+            chunk = f.read(os.path.getsize(self.__filename))
+
+        # Close file
+        f.close()
+
+        # Try to interpret
+        try:
+
+            # First we check the first chunk to discard pure
+            # binaries
+            chunk = chunk.decode()
+
+            # Initialize
+            could_be_atmo = False
+            could_be_atmo_b = False
+
+            # At least partly ASCII, could still be a fits
+            # and checked the header. We check line by line
+            # now
+            with open(self.__filename) as f:
+
+                # Number of valid lines counter
+                ival = 0
+
+                # For each line
+                for line in f:
+
+                    # Strip comments
+                    if '!' in line:
+                        il = line.find('!')
+                        cline = line[:il]
+                    elif '*' in line:
+                        il = line.find('*')
+                        cline = line[:il]
+                    else:
+                        cline = line
+
+                    # Strip spaces
+                    cline = cline.strip()
+
+                    # If empty, skip
+                    if len(cline) < 1: continue
+
+                    # There is content
+                    ival += 1
+
+                    # If first valid, check if 24 entries
+                    if ival == 1:
+                        if len(cline.split()) == 24:
+                            could_be_atmo_b = True
+
+                    # If more than one valid and could be
+                    # second atmospheric ASCII format
+                    if ival > 1 and could_be_atmo_b:
+                        if len(cline.split()) != 24:
+                            could_be_atmo_b = False
+
+                    # If it is an atmospheric file, the
+                    # second valid line should contain height
+                    # or tau
+                    if ival == 2:
+                        if 'height' in cline.lower() or \
+                           'tau' in cline.lower():
+                            could_be_atmo = True
+                        else:
+                            could_be_atmo = False
+
+                    # If it is an atmospheric file, the third
+                    # valid line should contain a number
+                    if ival == 3 and could_be_atmo:
+                        try:
+                            num = float(cline)
+                        except:
+                            could_be_atmo = False
+                            raise
+
+                    # If it is an atmospheric file, the fourth
+                    # valid line should contain an integer
+                    if ival == 4 and could_be_atmo:
+                        try:
+                            nz = int(cline)
+                        except:
+                            could_be_atmo = False
+                            raise
+
+                    # If it is an atmospheric file, the fifth
+                    # valid line should contain at least
+                    # five number
+                    if ival >= 5 and ival < 5+nz and could_be_atmo:
+                        try:
+                            cols = cline.split()
+                            if len(cols) >= 5:
+                                for c in cols:
+                                    try:
+                                        num = float(c)
+                                    except:
+                                        could_be_atmo = False
+                                        raise
+                                        break
+                            else:
+                                could_be_atmo = False
+                        except:
+                            raise
+                            could_be_atmo = False
+
+                    # If valid atmospheric file, after the block
+                    # we need to find another block or a correct
+                    # label
+                    if ival > 5 and could_be_atmo:
+                        if ival == 5+nz:
+                            try:
+                                cols = cline.split()
+                                nh = False
+                                if len(cols) == 6:
+                                    nh = True
+                                    for c in cols:
+                                        try:
+                                            num = float(c)
+                                        except:
+                                            nh = False
+                                            break
+                                if not nh:
+                                    if cline.lower() != 'ne' and \
+                                       cline.lower() != 'rhoe' and \
+                                       cline.lower() != 'pg' and \
+                                       cline.lower() != 'pe' and \
+                                       cline.lower() != 'rho':
+                                        could_be_atmo = False
+                            except:
+                                could_be_atmo = False
+
+                    # If it is an atmospheric file, the second
+                    # block should have valid number if it
+                    # exists
+                    if ival > 5 and could_be_atmo:
+                        if ival >= nz+5 and ival < 5+2*nz:
+                            if nh:
+                                try:
+                                    cols = cline.split()
+                                    if len(cols) == 6:
+                                        for c in cols:
+                                            try:
+                                                num = float(c)
+                                            except:
+                                                could_be_atmo = False
+                                                raise
+                                                break
+                                    else:
+                                        could_be_atmo = False
+                                except:
+                                    raise
+                                    could_be_atmo = False
+                                        
+
+            # If could be atmosphere
+            if could_be_atmo:
+
+                # If we read at least nz + 5 lines or 2*nz + 4 lines
+                if ival == nz+5 or ival == 2*nz + 4:
+
+                    # This is an atmosphere
+                    return 0
+
+            # If could be atmosphere second format
+            if could_be_atmo_b:
+
+                # This is an atmosphere in second format
+                return 1
+
+        except:
+            raise
+            return -1
+
     def __get_class(self):
         ''' Identify the type of file and link the suitable class
         '''
@@ -9937,685 +12058,814 @@ class hanlertio_class():
         # TODO TODO
 
         # Possible labels
-        labels = {'invo': 'Inversion Result file', \
-                  'invi': 'Inversion input file', \
-                  '2Dbe': 'Emergent Stokes parameters from 1.5D synthesis', \
-                  '2Dbc': 'Contribution function from 1.5D synthesis', \
-                  '2Dbt': 'Height for optical depth unity from 1.5D synthesis', \
-                  '2Dct': 'Term to term collisional rates from 1.5D synthesis', \
-                  '2Dcl': 'Level to level collisional rates from 1.5D synthesis', \
-                  '2Dda': 'Damping parameters from 1.5D synthesis', \
-                  '2Dqe': 'Elastic rates from 1.5D synthesis', \
-                  '2Dba': 'Background continuum from 1.5D synthesis', \
-                  '2Dbp': 'Atomic populations from 1.5D synthesis', \
-                  '2Dbb': 'Departure coefficients from 1.5D synthesis', \
-                  '2Dat': 'multi-dimensional model atmosphere', \
-                  'CLEe': 'Emergent Stokes parameters from CLE synthesis', \
-                  'CLEt': 'Optical depth from CLE synthesis', \
-                  'MRC': 'Maximum relative change from 1.5D synthesis', \
-                  'sp': 'Solution file with polarization', \
-                  'si': 'Solution file without polarization', \
-                  'bj': 'Radiation field tensors from 1D synthesis', \
-                  'br': 'Density matrices from 1D synthesis', \
-                  'bp': 'Atomic populations from 1D synthesis', \
-                  'bb': 'Departure coefficients from 1D synthesis', \
-                  'bo': 'Stokes parameters in the quadrature in 1D synthesis', \
-                  'ko': 'Frequency dependent radiation field tensors in 1D synthesis', \
-                  'be': 'Emergent Stokes parameters from 1D synthesis', \
-                  'bc': 'Contribution function from 1D synthesis', \
-                  'bt': 'Height for optical depth unity from 1D synthesis', \
-                  'ct': 'Term to term collisional rates from 1D synthesis', \
-                  'cl': 'Level to level collisional rates from 1D synthesis', \
-                  'da': 'Damping parameters from 1D synthesis', \
-                  'qe': 'Elastic rates from 1D synthesis', \
-                  'ba': 'Background continuum from 1D synthesis'}
+        labels = { \
+          'invo': 'Inversion Result file', \
+          'invi': 'Inversion input file', \
+          '2Dbe': 'Emergent Stokes parameters from 1.5D synthesis', \
+          '2Dbc': 'Contribution function from 1.5D synthesis', \
+          '2Dbt': 'Height for optical depth unity from 1.5D ' + \
+                  'synthesis', \
+          '2Dct': 'Term to term collisional rates from 1.5D ' + \
+                  'synthesis', \
+          '2Dcl': 'Level to level collisional rates from 1.5D ' + \
+                  'synthesis', \
+          '2Dda': 'Damping parameters from 1.5D synthesis', \
+          '2Dqe': 'Elastic rates from 1.5D synthesis', \
+          '2Dba': 'Background continuum from 1.5D synthesis', \
+          '2Dbp': 'Atomic populations from 1.5D synthesis', \
+          '2Dbb': 'Departure coefficients from 1.5D synthesis', \
+          '2Dat': 'multi-dimensional model atmosphere', \
+          'CLEe': 'Emergent Stokes parameters from CLE synthesis', \
+          'CLEt': 'Optical depth from CLE synthesis', \
+          'MRC': 'Maximum relative change from 1.5D synthesis', \
+          'sp': 'Solution file with polarization', \
+          'si': 'Solution file without polarization', \
+          'bj': 'Radiation field tensors from 1D synthesis', \
+          'br': 'Density matrices from 1D synthesis', \
+          'bp': 'Atomic populations from 1D synthesis', \
+          'bb': 'Departure coefficients from 1D synthesis', \
+          'bo': 'Stokes parameters in the quadrature in 1D ' + \
+                'synthesis', \
+          'ko': 'Frequency dependent radiation field tensors ' + \
+                'in 1D synthesis', \
+          'be': 'Emergent Stokes parameters from 1D synthesis', \
+          'bc': 'Contribution function from 1D synthesis', \
+          'bt': 'Height for optical depth unity from 1D synthesis', \
+          'ct': 'Term to term collisional rates from 1D synthesis', \
+          'cl': 'Level to level collisional rates from 1D ' + \
+                'synthesis', \
+          'da': 'Damping parameters from 1D synthesis', \
+          'qe': 'Elastic rates from 1D synthesis', \
+          'ba': 'Background continuum from 1D synthesis'}
 
         # Open the file and get two characters
         f = open(self.__filename,'rb')
         try:
-            label = f.read(2).decode('utf-8')
+          label = f.read(2).decode('utf-8')
         except:
-            raise
+          raise
 
         # Check if label within 2 character labels
         if label in labels:
 
-            # Message
-            self.__verbose(labels[label])
-
-            # stokes_1D
-            if label == 'be':
-
-                # Load Stokes 1D class
-                self.__object = _stokes_1D(self.__filename)
-
-                if self.__object is not None:
-
-                    # Methods
-                    self.get_filename = self.__get_filename
-                    self.get_nl = self.__get_nl
-                    self.get_th = self.__get_th
-                    self.get_ph = self.__get_ph
-                    self.get_mu = self.__get_mu
-                    self.get_lambda = self.__get_lambda
-                    self.get_stokesi = self.__get_stokesi1d
-                    self.get_stokesq = self.__get_stokesq1d
-                    self.get_stokesu = self.__get_stokesu1d
-                    self.get_stokesv = self.__get_stokesv1d
-                    self.get_stokes = self.__get_stokes1d
-                    self.get_linear = self.__get_linear1d
-
-                    # Valid class
-                    return True
-
-                # Fail
-                else:
-
-                    # Not valid class
-                    return False
-
-            # stokesquad_1D
-            elif label == 'bo':
-
-                # Load Stokes 1D class
-                self.__object = _stokesquad_1D(self.__filename)
-
-                if self.__object is not None:
-
-                    # Methods
-                    self.get_filename = self.__get_filename
-                    self.get_nl = self.__get_nl
-                    self.get_nd = self.__get_nd
-                    self.get_th = self.__get_th
-                    self.get_ph = self.__get_ph
-                    self.get_mu = self.__get_mu
-                    self.get_lambda = self.__get_lambda
-                    self.get_stokesi = self.__get_stokesi1d
-                    self.get_stokesq = self.__get_stokesq1d
-                    self.get_stokesu = self.__get_stokesu1d
-                    self.get_stokesv = self.__get_stokesv1d
-                    self.get_stokes = self.__get_stokes1d
-                    self.get_linear = self.__get_linear1d
-
-                    # Valid class
-                    return True
-
-                # Fail
-                else:
-
-                    # Not valid class
-                    return False
-
-            # contribution_1D
-            elif label == 'bc':
-
-                # Load contribution 1D class
-                self.__object = _contribution_1D(self.__filename)
-
-                if self.__object is not None:
-
-                    # Methods
-                    self.get_filename = self.__get_filename
-                    self.get_nl = self.__get_nl
-                    self.get_nz = self.__get_nz
-                    self.get_th = self.__get_th
-                    self.get_ph = self.__get_ph
-                    self.get_mu = self.__get_mu
-                    self.get_lambda = self.__get_lambda
-                    self.get_height = self.__get_height
-                    self.get_ctri = self.__get_ctri1d
-                    self.get_ctrq = self.__get_ctrq1d
-                    self.get_ctru = self.__get_ctru1d
-                    self.get_ctrv = self.__get_ctrv1d
-                    self.get_ctr = self.__get_ctr1d
-
-                    # Valid class
-                    return True
-
-                # Fail
-                else:
-
-                    # Not valid class
-                    return False
-
-            # tau1_1D
-            elif label == 'bt':
-
-                # Load tau1 1D class
-                self.__object = _tau_1D(self.__filename)
-
-                if self.__object is not None:
-
-                    # Methods
-                    self.get_filename = self.__get_filename
-                    self.get_nl = self.__get_nl
-                    self.get_th = self.__get_th
-                    self.get_ph = self.__get_ph
-                    self.get_mu = self.__get_mu
-                    self.get_lambda = self.__get_lambda
-                    self.get_height = self.__get_height1d
-
-                    # Valid class
-                    return True
-
-                # Fail
-                else:
-
-                    # Not valid class
-                    return False
-
-            # jkq_1D
-            elif label == 'bj':
-
-                # Load jkq 1D class
-                self.__object = _jkq_1D(self.__filename)
-
-                if self.__object is not None:
-
-                    # Methods
-                    self.get_filename = self.__get_filename
-                    self.get_nz = self.__get_nz
-                    self.get_na = self.__get_na
-                    self.get_nt = self.__get_nt
-                    self.get_height = self.__get_height
-                    self.get_jkq = self.__get_jkq1d
-
-                    # Valid class
-                    return True
-
-                # Fail
-                else:
-
-                    # Not valid class
-                    return False
-
-            # rkq_1D
-            elif label == 'br':
-
-                # Load rkq 1D class
-                self.__object = _rkq_1D(self.__filename)
-
-                if self.__object is not None:
-
-                    # Methods
-                    self.get_filename = self.__get_filename
-                    self.get_nz = self.__get_nz
-                    self.get_na = self.__get_na
-                    self.get_height = self.__get_height
-                    self.get_rkq = self.__get_rkq1d
-
-                    # Valid class
-                    return True
-
-                # Fail
-                else:
-
-                    # Not valid class
-                    return False
-
-            # jkqnu_1D
-            elif label == 'ko':
-
-                # Load jkq 1D class
-                self.__object = _jkqnu_1D(self.__filename)
-
-                if self.__object is not None:
-
-                    # Methods
-                    self.get_filename = self.__get_filename
-                    self.get_nz = self.__get_nz
-                    self.get_nl = self.__get_nl
-                    self.get_lambda = self.__get_lambda
-                    self.get_jkq = self.__get_jkqnu1d
-
-                    # Valid class
-                    return True
-
-                # Fail
-                else:
-
-                    # Not valid class
-                    return False
-
-            # Background
-            elif label == 'ba':
-
-                # Load background 1D class
-                self.__object = _back_1D(self.__filename)
-
-                if self.__object is not None:
-
-                    # Methods
-                    self.get_filename = self.__get_filename
-                    self.get_nl = self.__get_nl
-                    self.get_nd = self.__get_nd
-                    self.get_nz = self.__get_nz
-                    self.get_dims = self.__get_dims
-                    self.get_vars = self.__get_vars
-                    self.get_vars_alias = self.__get_vars_alias
-                    self.get_vars_units = self.__get_vars_units
-                    self.get_lambda = self.__get_lambda
-                    self.get_data = self.__get_column_1dback
-
-                    # Valid class
-                    return True
-
-            # Collisions, damping, and elastic rates
-            elif label == 'ct' or label == 'cl' or \
-                 label == 'da' or label == 'qe':
-
-                # Load populations and departure 1.5D class
-                self.__object = _cols_damp_1D(self.__filename)
-
-                if self.__object is not None:
-
-                    # Methods
-                    self.get_filename = self.__get_filename
-                    self.get_type = self.__get_type
-                    self.get_nl = self.__get_nl
-                    self.get_nt = self.__get_nt
-                    self.get_nz = self.__get_nz
-                    self.get_dims = self.__get_dims
-                    self.get_data = self.__get_column_1dcdq
-
-                    # Valid class
-                    return True
-
-            # Populations and departures
-            elif label == 'bp' or label == 'bb':
-
-                # Load populations and departure 1.5D class
-                self.__object = _pop_dep_1D(self.__filename)
-
-                if self.__object is not None:
-
-                    # Methods
-                    self.get_filename = self.__get_filename
-                    self.get_type = self.__get_type
-                    self.get_nl = self.__get_nl
-                    self.get_nz = self.__get_nz
-                    self.get_dims = self.__get_dims
-                    self.get_data = self.__get_column_1dcapd
-
-                    # Valid class
-                    return True
-
+          # Message
+          self.__verbose(labels[label])
+
+          # stokes_1D
+          if label == 'be':
+
+            # Close
+            f.close()
+
+            # Load Stokes 1D class
+            self.__object = _stokes_1D(self.__filename)
+
+            if self.__object is not None:
+
+              # Methods
+              self.get_filename = self.__get_filename
+              self.get_nl = self.__get_nl
+              self.get_th = self.__get_th
+              self.get_ph = self.__get_ph
+              self.get_mu = self.__get_mu
+              self.get_lambda = self.__get_lambda
+              self.get_stokesi = self.__get_stokesi1d
+              self.get_stokesq = self.__get_stokesq1d
+              self.get_stokesu = self.__get_stokesu1d
+              self.get_stokesv = self.__get_stokesv1d
+              self.get_stokes = self.__get_stokes1d
+              self.get_linear = self.__get_linear1d
+
+              # Valid class
+              return True
+
+            # Fail
             else:
 
-                print(f'{label} found in 2 char')
+              # Not valid class
+              return False
+
+          # stokesquad_1D
+          elif label == 'bo':
+
+            # Close
+            f.close()
+
+            # Load Stokes 1D class
+            self.__object = _stokesquad_1D(self.__filename)
+
+            if self.__object is not None:
+
+              # Methods
+              self.get_filename = self.__get_filename
+              self.get_nl = self.__get_nl
+              self.get_nd = self.__get_nd
+              self.get_th = self.__get_th
+              self.get_ph = self.__get_ph
+              self.get_mu = self.__get_mu
+              self.get_lambda = self.__get_lambda
+              self.get_stokesi = self.__get_stokesi1d
+              self.get_stokesq = self.__get_stokesq1d
+              self.get_stokesu = self.__get_stokesu1d
+              self.get_stokesv = self.__get_stokesv1d
+              self.get_stokes = self.__get_stokes1d
+              self.get_linear = self.__get_linear1d
+
+              # Valid class
+              return True
+
+            # Fail
+            else:
+
+              # Not valid class
+              return False
+
+          # contribution_1D
+          elif label == 'bc':
+
+            # Close
+            f.close()
+
+            # Load contribution 1D class
+            self.__object = _contribution_1D(self.__filename)
+
+            if self.__object is not None:
+
+              # Methods
+              self.get_filename = self.__get_filename
+              self.get_nl = self.__get_nl
+              self.get_nz = self.__get_nz
+              self.get_th = self.__get_th
+              self.get_ph = self.__get_ph
+              self.get_mu = self.__get_mu
+              self.get_lambda = self.__get_lambda
+              self.get_height = self.__get_height
+              self.get_ctri = self.__get_ctri1d
+              self.get_ctrq = self.__get_ctrq1d
+              self.get_ctru = self.__get_ctru1d
+              self.get_ctrv = self.__get_ctrv1d
+              self.get_ctr = self.__get_ctr1d
+
+              # Valid class
+              return True
+
+            # Fail
+            else:
+
+              # Not valid class
+              return False
+
+          # tau1_1D
+          elif label == 'bt':
+
+            # Close
+            f.close()
+
+            # Load tau1 1D class
+            self.__object = _tau_1D(self.__filename)
+
+            if self.__object is not None:
+
+              # Methods
+              self.get_filename = self.__get_filename
+              self.get_nl = self.__get_nl
+              self.get_th = self.__get_th
+              self.get_ph = self.__get_ph
+              self.get_mu = self.__get_mu
+              self.get_lambda = self.__get_lambda
+              self.get_height = self.__get_height1d
+
+              # Valid class
+              return True
+
+            # Fail
+            else:
+
+              # Not valid class
+              return False
+
+          # jkq_1D
+          elif label == 'bj':
+
+            # Close
+            f.close()
+
+            # Load jkq 1D class
+            self.__object = _jkq_1D(self.__filename)
+
+            if self.__object is not None:
+
+              # Methods
+              self.get_filename = self.__get_filename
+              self.get_nz = self.__get_nz
+              self.get_na = self.__get_na
+              self.get_nt = self.__get_nt
+              self.get_height = self.__get_height
+              self.get_jkq = self.__get_jkq1d
+
+              # Valid class
+              return True
+
+            # Fail
+            else:
+
+              # Not valid class
+              return False
+
+          # rkq_1D
+          elif label == 'br':
+
+            # Close
+            f.close()
+
+            # Load rkq 1D class
+            self.__object = _rkq_1D(self.__filename)
+
+            if self.__object is not None:
+
+              # Methods
+              self.get_filename = self.__get_filename
+              self.get_nz = self.__get_nz
+              self.get_na = self.__get_na
+              self.get_height = self.__get_height
+              self.get_rkq = self.__get_rkq1d
+
+              # Valid class
+              return True
+
+            # Fail
+            else:
+
+              # Not valid class
+              return False
+
+          # jkqnu_1D
+          elif label == 'ko':
+
+            # Close
+            f.close()
+
+            # Load jkq 1D class
+            self.__object = _jkqnu_1D(self.__filename)
+
+            if self.__object is not None:
+
+              # Methods
+              self.get_filename = self.__get_filename
+              self.get_nz = self.__get_nz
+              self.get_nl = self.__get_nl
+              self.get_lambda = self.__get_lambda
+              self.get_jkq = self.__get_jkqnu1d
+
+              # Valid class
+              return True
+
+            # Fail
+            else:
+
+              # Not valid class
+              return False
+
+          # Background
+          elif label == 'ba':
+
+            # Close
+            f.close()
+
+            # Load background 1D class
+            self.__object = _back_1D(self.__filename)
+
+            if self.__object is not None:
+
+              # Methods
+              self.get_filename = self.__get_filename
+              self.get_nl = self.__get_nl
+              self.get_nd = self.__get_nd
+              self.get_nz = self.__get_nz
+              self.get_dims = self.__get_dims
+              self.get_vars = self.__get_vars
+              self.get_vars_alias = self.__get_vars_alias
+              self.get_vars_units = self.__get_vars_units
+              self.get_lambda = self.__get_lambda
+              self.get_data = self.__get_column_1dback
+
+              # Valid class
+              return True
+
+          # Collisions, damping, and elastic rates
+          elif label == 'ct' or label == 'cl' or \
+               label == 'da' or label == 'qe':
+
+            # Close
+            f.close()
+
+            # Load populations and departure 1.5D class
+            self.__object = _cols_damp_1D(self.__filename)
+
+            if self.__object is not None:
+
+                # Methods
+                self.get_filename = self.__get_filename
+                self.get_type = self.__get_type
+                self.get_nl = self.__get_nl
+                self.get_nt = self.__get_nt
+                self.get_nz = self.__get_nz
+                self.get_dims = self.__get_dims
+                self.get_data = self.__get_column_1dcdq
+
+                # Valid class
+                return True
+
+          # Populations and departures
+          elif label == 'bp' or label == 'bb':
+
+            # Close
+            f.close()
+
+            # Load populations and departure 1.5D class
+            self.__object = _pop_dep_1D(self.__filename)
+
+            if self.__object is not None:
+
+                # Methods
+                self.get_filename = self.__get_filename
+                self.get_type = self.__get_type
+                self.get_nl = self.__get_nl
+                self.get_nz = self.__get_nz
+                self.get_dims = self.__get_dims
+                self.get_data = self.__get_column_1dcapd
+
+                # Valid class
+                return True
+
+          else:
+
+            print(f' # {label} found in 2 char')
 
         # Not in two character labels
         else:
 
+          # get one more character
+          try:
+            label += f.read(1).decode('utf-8')
+          except:
+            raise
+
+          # Check if label within 3 character labels
+          if label in labels:
+
+            # Message
+            self.__verbose(labels[label])
+
+            print(f' # {label} found in 3 char')
+
+          # Not in three character labels
+          else:
+
             # get one more character
             try:
-                label += f.read(1).decode('utf-8')
+              label += f.read(1).decode('utf-8')
             except:
-                raise
+              raise
 
-            # Check if label within 3 character labels
+            # Check if label within 4 character labels
             if label in labels:
 
-                # Message
-                self.__verbose(labels[label])
+              # Message
+              self.__verbose(labels[label])
 
-                print(f'{label} found in 3 char')
+              # 1.5D Stokes
+              if label == '2Dbe':
 
-            # Not in three character labels
+                # Close
+                f.close()
+
+                # Load Stokes 1.5D class
+                self.__object = _stokes_15D(self.__filename)
+
+                if self.__object is not None:
+
+                  # Methods
+                  self.get_filename = self.__get_filename
+                  self.get_polarized = self.__get_polarized
+                  self.get_nx = self.__get_nx
+                  self.get_ny = self.__get_ny
+                  self.get_nl = self.__get_nl
+                  self.get_nxy = self.__get_nxy
+                  self.get_dims = self.__get_dims
+                  self.get_th = self.__get_th
+                  self.get_ph = self.__get_ph
+                  self.get_mu = self.__get_mu
+                  self.get_lambda = self.__get_lambda
+                  self.get_stokesi_column = self.__get_stokesi15d_c
+                  self.get_stokesq_column = self.__get_stokesq15d_c
+                  self.get_stokesu_column = self.__get_stokesu15d_c
+                  self.get_stokesv_column = self.__get_stokesv15d_c
+                  self.get_stokes_column = self.__get_stokes15d_c
+                  self.get_linear_column = self.__get_linear15d_c
+                  self.get_stokesi_plane = self.__get_stokesi15d_p
+                  self.get_stokesq_plane = self.__get_stokesq15d_p
+                  self.get_stokesu_plane = self.__get_stokesu15d_p
+                  self.get_stokesv_plane = self.__get_stokesv15d_p
+                  self.get_stokes_plane = self.__get_stokes15d_p
+                  self.get_linear_plane = self.__get_linear15d_p
+                  self.get_scale = self.__get_scale
+                  self.get_cube = self.__get_cube
+
+                  # Valid class
+                  return True
+
+              # 1.5D Contribution function
+              elif label == '2Dbc':
+
+                # Close
+                f.close()
+
+                # Load contribution 1.5D class
+                self.__object = _contribution_15D(self.__filename)
+
+                if self.__object is not None:
+
+                  # Methods
+                  self.get_filename = self.__get_filename
+                  self.get_nx = self.__get_nx
+                  self.get_ny = self.__get_ny
+                  self.get_nz = self.__get_nz
+                  self.get_nl = self.__get_nl
+                  self.get_nxy = self.__get_nxy
+                  self.get_nxyz = self.__get_nxyz
+                  self.get_dims = self.__get_dims
+                  self.get_th = self.__get_th
+                  self.get_ph = self.__get_ph
+                  self.get_mu = self.__get_mu
+                  self.get_lambda = self.__get_lambda
+                  self.get_ctri_column = self.__get_ctri15d_c
+                  self.get_ctrq_column = self.__get_ctrq15d_c
+                  self.get_ctru_column = self.__get_ctru15d_c
+                  self.get_ctrv_column = self.__get_ctrv15d_c
+                  self.get_ctr_column = self.__get_ctr15d_c
+                  self.get_scale = self.__get_scale
+                  self.get_cube = self.__get_cube
+
+                  # Valid class
+                  return True
+
+              # 1.5D height tau equal 1
+              elif label == '2Dbt':
+
+                # Close
+                f.close()
+
+                # Load Tau 1.5D class
+                self.__object = _tau_15D(self.__filename)
+
+                if self.__object is not None:
+
+                  # Methods
+                  self.get_filename = self.__get_filename
+                  self.get_nx = self.__get_nx
+                  self.get_ny = self.__get_ny
+                  self.get_nxy = self.__get_nxy
+                  self.get_nl = self.__get_nl
+                  self.get_dims = self.__get_dims
+                  self.get_th = self.__get_th
+                  self.get_ph = self.__get_ph
+                  self.get_mu = self.__get_mu
+                  self.get_lambda = self.__get_lambda
+                  self.get_column = self.__get_height15d_c
+                  self.get_plane = self.__get_height15d_p
+                  self.get_cube = self.__get_cube
+
+                  # Valid class
+                  return True
+
+              # Model atmosphere
+              elif label == '2Dat':
+
+                # Close
+                f.close()
+
+                # Load 3D atmospheric model class
+                self.__object = _atmo_15D(self.__filename)
+
+                if self.__object is not None:
+
+                  # Methods
+                  self.get_filename = self.__get_filename
+                  self.get_precision = self.__get_precision
+                  self.get_nx = self.__get_nx
+                  self.get_ny = self.__get_ny
+                  self.get_nz = self.__get_nz
+                  self.get_nxyz = self.__get_nxyz
+                  self.get_dims = self.__get_dims
+                  self.get_vars = self.__get_vars
+                  self.get_vars_units = self.__get_vars_units
+                  self.get_vars_alias = self.__get_vars_alias
+                  self.get_column = self.__get_column_2dat
+                  self.get_plane = self.__get_plane_2dat
+                  self.get_cube = self.__get_cube
+
+                  # Valid class
+                  return True
+
+              # inversion_in
+              elif label == 'invi':
+
+                # Close
+                f.close()
+
+                # Load inversion output class
+                self.__object = _inversion_in(self.__filename)
+
+                if self.__object is not None:
+
+                  # Methods
+                  self.get_filename = self.__get_filename
+                  self.get_info_verb = self.__get_info_verb
+                  self.get_info = self.__get_info
+                  self.get_nx = self.__get_nx
+                  self.get_ny = self.__get_ny
+                  self.get_nxy = self.__get_nxy
+                  self.get_nl = self.__get_nl
+                  self.get_dims = self.__get_dims
+                  self.get_lambda = self.__get_lambda
+                  self.get_los = self.__get_los
+                  self.get_los_column = self.__get_los_c
+                  self.get_los_plane = self.__get_los_p
+                  self.get_stokesi_column = self.__get_stokesi15d_c
+                  self.get_stokesq_column = self.__get_stokesq15d_c
+                  self.get_stokesu_column = self.__get_stokesu15d_c
+                  self.get_stokesv_column = self.__get_stokesv15d_c
+                  self.get_linear_column = self.__get_linear15d_c
+                  self.get_stokes_column = self.__get_stokes15d_c
+                  self.get_stokesi_plane = self.__get_stokesi15d_p
+                  self.get_stokesq_plane = self.__get_stokesq15d_p
+                  self.get_stokesu_plane = self.__get_stokesu15d_p
+                  self.get_stokesv_plane = self.__get_stokesv15d_p
+                  self.get_linear_plane = self.__get_linear15d_p
+                  self.get_stokes_plane = self.__get_stokes15d_p
+                  self.get_sigma = self.__get_sigma
+                  self.get_sigmai_column = self.__get_sigmai15d_c
+                  self.get_sigmaq_column = self.__get_sigmaq15d_c
+                  self.get_sigmau_column = self.__get_sigmau15d_c
+                  self.get_sigmav_column = self.__get_sigmav15d_c
+                  self.get_sigma_column = self.__get_sigma15d_c
+                  self.get_sigmai_plane = self.__get_sigmai15d_p
+                  self.get_sigmaq_plane = self.__get_sigmaq15d_p
+                  self.get_sigmau_plane = self.__get_sigmau15d_p
+                  self.get_sigmav_plane = self.__get_sigmav15d_p
+                  self.get_sigma_plane = self.__get_sigma15d_p
+                  self.get_diffi_column = self.__get_diffi15d_c
+                  self.get_diffq_column = self.__get_diffq15d_c
+                  self.get_diffu_column = self.__get_diffu15d_c
+                  self.get_diffv_column = self.__get_diffv15d_c
+                  self.get_diff_column = self.__get_diff15d_c
+                  self.get_diffi_plane = self.__get_diffi15d_p
+                  self.get_diffq_plane = self.__get_diffq15d_p
+                  self.get_diffu_plane = self.__get_diffu15d_p
+                  self.get_diffv_plane = self.__get_diffv15d_p
+                  self.get_diff_plane = self.__get_diff15d_p
+                  self.get_cube = self.__get_cube
+
+                  # Valid class
+                  return True
+
+              # inversion_out
+              elif label == 'invo':
+
+                # Close
+                f.close()
+
+                # Load inversion output class
+                self.__object = _inversion_out(self.__filename)
+
+                if self.__object is not None:
+
+                  # Methods
+                  self.get_filename = self.__get_filename
+                  self.get_polarized = self.__get_polarized
+                  self.get_vtype = self.__get_vtype
+                  self.get_btype = self.__get_btype
+                  self.get_jkqin = self.__get_jkqin
+                  self.get_nx = self.__get_nx
+                  self.get_ny = self.__get_ny
+                  self.get_nz = self.__get_nz
+                  self.get_nl = self.__get_nl
+                  self.get_nxy = self.__get_nxy
+                  self.get_nxyz = self.__get_nxyz
+                  self.get_dims = self.__get_dims
+                  self.get_nvar_atmo = self.__get_nvar_atmo
+                  self.get_nvar = self.__get_nvar
+                  self.get_vars = self.__get_vars
+                  self.get_vars_units = self.__get_vars_units
+                  self.get_vars_fix = self.__get_vars_fix
+                  self.get_vars_fix_units = self.__get_vars_fix_units
+                  self.get_vars_atmo = self.__get_vars_atmo
+                  self.get_vars_atmo_units= self.__get_vars_atmo_units
+                  self.get_lambda = self.__get_lambda
+                  self.get_column = self.__get_column_res
+                  self.get_column_atmo = self.__get_column_atmo
+                  self.get_column_rf = self.__get_column_rf
+                  self.get_plane_chi = self.__get_plane_chi
+                  self.get_plane_atmo = self.__get_plane_atmo
+                  self.get_plane_stk = self.__get_plane_stk
+                  self.get_node = self.__get_node
+                  self.get_cube = self.__get_cube
+                  self.get_cube_atmo = self.__get_cube_atmo
+
+                  # Valid class
+                  return True
+
+              # collisional rates, damping, and elastic rates
+              elif label == '2Dct' or label == '2Dcl' or \
+                   label == '2Dda' or label == '2Deq':
+
+                # Close
+                f.close()
+
+                # Load collisions and damping 1.5D class
+                self.__object = _cols_damp_15D(self.__filename)
+
+                if self.__object is not None:
+
+                  # Methods
+                  self.get_filename = self.__get_filename
+                  if label == '2Dct' or label == '2Dcl':
+                      self.get_type = self.__get_type
+                  self.get_nentry = self.__get_nentry
+                  self.get_na = self.__get_na
+                  self.get_nx = self.__get_nx
+                  self.get_ny = self.__get_ny
+                  self.get_nz = self.__get_nz
+                  self.get_nxy = self.__get_nxy
+                  self.get_nxyz = self.__get_nxyz
+                  self.get_dims = self.__get_dims
+                  self.get_column = self.__get_column_15dcapd
+                  self.get_plane = self.__get_plane_15dcapd
+                  self.get_cube = self.__get_cube
+
+                  # Valid class
+                  return True
+
+              # Continuum quantities
+              elif label == '2Dba':
+
+                # Close
+                f.close()
+
+                # Load continuum 1.5D class
+                self.__object = _back_15D(self.__filename)
+
+                if self.__object is not None:
+
+                  # Methods
+                  self.get_filename = self.__get_filename
+                  self.get_nx = self.__get_nx
+                  self.get_ny = self.__get_ny
+                  self.get_nz = self.__get_nz
+                  self.get_nl = self.__get_nl
+                  self.get_nxy = self.__get_nxy
+                  self.get_nxyz = self.__get_nxyz
+                  self.get_dims = self.__get_dims
+                  self.get_vars = self.__get_vars
+                  self.get_vars_units = self.__get_vars_units
+                  self.get_vars_alias= self.__get_vars_alias
+                  self.get_lambda = self.__get_lambda
+                  self.get_column = self.__get_column_res
+                  self.get_plane = self.__get_plane_back
+                  self.get_scale = self.__get_scale
+                  self.get_cube = self.__get_cube
+
+                  # Valid class
+                  return True
+
+              # Populations and departures
+              elif label == '2Dbp' or label == '2Dbb':
+
+                # Close
+                f.close()
+
+                # Load populations and departure 1.5D class
+                self.__object = _pop_dep_15D(self.__filename)
+
+                if self.__object is not None:
+
+                  # Methods
+                  self.get_filename = self.__get_filename
+                  self.get_type = self.__get_type
+                  self.get_nentry = self.__get_nentry
+                  self.get_nx = self.__get_nx
+                  self.get_ny = self.__get_ny
+                  self.get_nz = self.__get_nz
+                  self.get_nxy = self.__get_nxy
+                  self.get_nxyz = self.__get_nxyz
+                  self.get_dims = self.__get_dims
+                  self.get_column = self.__get_column_15dcapd
+                  self.get_plane = self.__get_plane_15dcapd
+                  self.get_cube = self.__get_cube
+
+                  # Valid class
+                  return True
+
+              # CLE Stokes
+              elif label == 'CLEe':
+
+                # Close
+                f.close()
+
+                # Load populations and departure 1.5D class
+                self.__object = _stokes_CLE(self.__filename)
+
+                if self.__object is not None:
+
+                  # Methods
+                  self.get_filename = self.__get_filename
+                  self.get_type = self.__get_type
+                  self.get_nx = self.__get_nx
+                  self.get_ny = self.__get_ny
+                  self.get_nxy = self.__get_nxy
+                  self.get_nl = self.__get_nl
+                  self.get_dims = self.__get_dims
+                  self.get_lambda = self.__get_lambda
+                  self.get_geometry = self.__get_geometry
+                  self.get_stokesi_column = self.__get_stokesi15d_c
+                  self.get_stokesq_column = self.__get_stokesq15d_c
+                  self.get_stokesu_column = self.__get_stokesu15d_c
+                  self.get_stokesv_column = self.__get_stokesv15d_c
+                  self.get_stokes_column = self.__get_stokes15d_c
+                  self.get_linear_column = self.__get_linear15d_c
+                  self.get_stokesi_plane = self.__get_stokesi15d_p
+                  self.get_stokesq_plane = self.__get_stokesq15d_p
+                  self.get_stokesu_plane = self.__get_stokesu15d_p
+                  self.get_stokesv_plane = self.__get_stokesv15d_p
+                  self.get_stokes_plane = self.__get_stokes15d_p
+                  self.get_linear_plane = self.__get_linear15d_p
+                  self.get_scale = self.__get_scale
+                  self.get_cube = self.__get_cube
+
+                  # Valid class
+                  return True
+
+              # Fail
+              else:
+
+                # Not valid class
+                return False
+
+                print(f' # {label} found in 4 char')
+
+            # Not any of the labels
             else:
 
-                # get one more character
-                try:
-                    label += f.read(1).decode('utf-8')
-                except:
-                    raise
+              # Close
+              f.close()
 
-                # Check if label within 4 character labels
-                if label in labels:
+              # Try to identify an ASCII format
+              label = self.__is_ascii()
 
-                    # Message
-                    self.__verbose(labels[label])
+              #
+              # Normal 1D model atmosphere
+              if label == 0:
 
-                    # 1.5D Stokes
-                    if label == '2Dbe':
+                # Load 3D atmospheric model class
+                self.__object = _atmo_1D(self.__filename)
 
-                        # Load Stokes 1.5D class
-                        self.__object = _stokes_15D(self.__filename)
+                if self.__object is not None:
 
-                        if self.__object is not None:
+                  # Methods
+                  self.get_filename = self.__get_filename
+                  self.get_name = self.__get_name
+                  self.get_comment = self.__get_comment
+                  self.get_nz = self.__get_nz
+                  self.get_wavelength = self.__get_wavelength
+                  self.get_vars = self.__get_vars
+                  self.get_vars_units = self.__get_vars_units
+                  self.get_vars_alias = self.__get_vars_alias
+                  self.get_column = self.__get_column_1dat
 
-                            # Methods
-                            self.get_filename = self.__get_filename
-                            self.get_polarized = self.__get_polarized
-                            self.get_nx = self.__get_nx
-                            self.get_ny = self.__get_ny
-                            self.get_nl = self.__get_nl
-                            self.get_nxy = self.__get_nxy
-                            self.get_dims = self.__get_dims
-                            self.get_th = self.__get_th
-                            self.get_ph = self.__get_ph
-                            self.get_mu = self.__get_mu
-                            self.get_lambda = self.__get_lambda
-                            self.get_stokesi_column = self.__get_stokesi15d_c
-                            self.get_stokesq_column = self.__get_stokesq15d_c
-                            self.get_stokesu_column = self.__get_stokesu15d_c
-                            self.get_stokesv_column = self.__get_stokesv15d_c
-                            self.get_stokes_column = self.__get_stokes15d_c
-                            self.get_linear_column = self.__get_linear15d_c
-                            self.get_stokesi_plane = self.__get_stokesi15d_p
-                            self.get_stokesq_plane = self.__get_stokesq15d_p
-                            self.get_stokesu_plane = self.__get_stokesu15d_p
-                            self.get_stokesv_plane = self.__get_stokesv15d_p
-                            self.get_stokes_plane = self.__get_stokes15d_p
-                            self.get_linear_plane = self.__get_linear15d_p
+                  # Valid class
+                  return True
 
-                            # Valid class
-                            return True
+              #
+              # Full 1D model atmosphere
+              elif label == 1:
 
-                    # 1.5D Contribution function
-                    elif label == '2Dbc':
+                # Load 3D atmospheric model class
+                self.__object = _atmo_b_1D(self.__filename)
 
-                        # Load contribution 1.5D class
-                        self.__object = _contribution_15D(self.__filename)
+                if self.__object is not None:
 
-                        if self.__object is not None:
+                  # Methods
+                  self.get_filename = self.__get_filename
+                  self.get_nz = self.__get_nz
+                  self.get_vars = self.__get_vars
+                  self.get_vars_units = self.__get_vars_units
+                  self.get_vars_alias = self.__get_vars_alias
+                  self.get_column = self.__get_column_1dat
 
-                            # Methods
-                            self.get_filename = self.__get_filename
-                            self.get_nx = self.__get_nx
-                            self.get_ny = self.__get_ny
-                            self.get_nz = self.__get_nz
-                            self.get_nl = self.__get_nl
-                            self.get_nxy = self.__get_nxy
-                            self.get_nxyz = self.__get_nxyz
-                            self.get_dims = self.__get_dims
-                            self.get_th = self.__get_th
-                            self.get_ph = self.__get_ph
-                            self.get_mu = self.__get_mu
-                            self.get_lambda = self.__get_lambda
-                            self.get_ctri_column = self.__get_ctri15d_c
-                            self.get_ctrq_column = self.__get_ctrq15d_c
-                            self.get_ctru_column = self.__get_ctru15d_c
-                            self.get_ctrv_column = self.__get_ctrv15d_c
-                            self.get_ctr_column = self.__get_ctr15d_c
+                  # Valid class
+                  return True
 
-                            # Valid class
-                            return True
-
-                    # 1.5D height tau equal 1
-                    elif label == '2Dbt':
-
-                        # Load Tau 1.5D class
-                        self.__object = _tau_15D(self.__filename)
-
-                        if self.__object is not None:
-
-                            # Methods
-                            self.get_filename = self.__get_filename
-                            self.get_nx = self.__get_nx
-                            self.get_ny = self.__get_ny
-                            self.get_nxy = self.__get_nxy
-                            self.get_nl = self.__get_nl
-                            self.get_dims = self.__get_dims
-                            self.get_th = self.__get_th
-                            self.get_ph = self.__get_ph
-                            self.get_mu = self.__get_mu
-                            self.get_lambda = self.__get_lambda
-                            self.get_column = self.__get_height15d_c
-                            self.get_plane = self.__get_height15d_p
-
-                            # Valid class
-                            return True
-
-                    # Model atmosphere
-                    elif label == '2Dat':
-
-                        # Load 3D atmospheric model class
-                        self.__object = _atmo_15D(self.__filename)
-
-                        if self.__object is not None:
-
-                            # Methods
-                            self.get_filename = self.__get_filename
-                            self.get_precision = self.__get_precision
-                            self.get_nx = self.__get_nx
-                            self.get_ny = self.__get_ny
-                            self.get_nz = self.__get_nz
-                            self.get_nxyz = self.__get_nxyz
-                            self.get_dims = self.__get_dims
-                            self.get_vars = self.__get_vars
-                            self.get_vars_units = self.__get_vars_units
-                            self.get_vars_alias = self.__get_vars_alias
-                            self.get_column = self.__get_column_2dat
-                            self.get_plane = self.__get_plane_2dat
-
-                            # Valid class
-                            return True
-
-                    # inversion_in
-                    elif label == 'invi':
-
-                        # Load inversion output class
-                        self.__object = _inversion_in(self.__filename)
-
-                        if self.__object is not None:
-
-                            # Methods
-                            self.get_filename = self.__get_filename
-                            self.get_info_verb = self.__get_info_verb
-                            self.get_info = self.__get_info
-                            self.get_nx = self.__get_nx
-                            self.get_ny = self.__get_ny
-                            self.get_nxy = self.__get_nxy
-                            self.get_nl = self.__get_nl
-                            self.get_dims = self.__get_dims
-                            self.get_lambda = self.__get_lambda
-                            self.get_los = self.__get_los
-                            self.get_los_column = self.__get_los_c
-                            self.get_los_plane = self.__get_los_p
-                            self.get_stokesi_column = self.__get_stokesi15d_c
-                            self.get_stokesq_column = self.__get_stokesq15d_c
-                            self.get_stokesu_column = self.__get_stokesu15d_c
-                            self.get_stokesv_column = self.__get_stokesv15d_c
-                            self.get_linear_column = self.__get_linear15d_c
-                            self.get_stokes_column = self.__get_stokes15d_c
-                            self.get_stokesi_plane = self.__get_stokesi15d_p
-                            self.get_stokesq_plane = self.__get_stokesq15d_p
-                            self.get_stokesu_plane = self.__get_stokesu15d_p
-                            self.get_stokesv_plane = self.__get_stokesv15d_p
-                            self.get_linear_plane = self.__get_linear15d_p
-                            self.get_stokes_plane = self.__get_stokes15d_p
-                            self.get_sigma = self.__get_sigma
-                            self.get_sigmai_column = self.__get_sigmai15d_c
-                            self.get_sigmaq_column = self.__get_sigmaq15d_c
-                            self.get_sigmau_column = self.__get_sigmau15d_c
-                            self.get_sigmav_column = self.__get_sigmav15d_c
-                            self.get_sigma_column = self.__get_sigma15d_c
-                            self.get_sigmai_plane = self.__get_sigmai15d_p
-                            self.get_sigmaq_plane = self.__get_sigmaq15d_p
-                            self.get_sigmau_plane = self.__get_sigmau15d_p
-                            self.get_sigmav_plane = self.__get_sigmav15d_p
-                            self.get_sigma_plane = self.__get_sigma15d_p
-                            self.get_diffi_column = self.__get_diffi15d_c
-                            self.get_diffq_column = self.__get_diffq15d_c
-                            self.get_diffu_column = self.__get_diffu15d_c
-                            self.get_diffv_column = self.__get_diffv15d_c
-                            self.get_diff_column = self.__get_diff15d_c
-                            self.get_diffi_plane = self.__get_diffi15d_p
-                            self.get_diffq_plane = self.__get_diffq15d_p
-                            self.get_diffu_plane = self.__get_diffu15d_p
-                            self.get_diffv_plane = self.__get_diffv15d_p
-                            self.get_diff_plane = self.__get_diff15d_p
-
-                            # Valid class
-                            return True
-
-                    # inversion_out
-                    elif label == 'invo':
-
-                        # Load inversion output class
-                        self.__object = _inversion_out(self.__filename)
-
-                        if self.__object is not None:
-
-                            # Methods
-                            self.get_filename = self.__get_filename
-                            self.get_polarized = self.__get_polarized
-                            self.get_vtype = self.__get_vtype
-                            self.get_btype = self.__get_btype
-                            self.get_jkqin = self.__get_jkqin
-                            self.get_nx = self.__get_nx
-                            self.get_ny = self.__get_ny
-                            self.get_nz = self.__get_nz
-                            self.get_nl = self.__get_nl
-                            self.get_nxy = self.__get_nxy
-                            self.get_nxyz = self.__get_nxyz
-                            self.get_dims = self.__get_dims
-                            self.get_nvar_atmo = self.__get_nvar_atmo
-                            self.get_nvar = self.__get_nvar
-                            self.get_vars = self.__get_vars
-                            self.get_vars_units = self.__get_vars_units
-                            self.get_vars_fix = self.__get_vars_fix
-                            self.get_vars_fix_units = self.__get_vars_fix_units
-                            self.get_vars_atmo = self.__get_vars_atmo
-                            self.get_vars_atmo_units= self.__get_vars_atmo_units
-                            self.get_lambda = self.__get_lambda
-                            self.get_column = self.__get_column_res
-                            self.get_column_atmo = self.__get_column_atmo
-                            self.get_column_rf = self.__get_column_rf
-                            self.get_plane_chi = self.__get_plane_chi
-                            self.get_plane_atmo = self.__get_plane_atmo
-                            self.get_plane_stk = self.__get_plane_stk
-                            self.get_node = self.__get_node
-
-                            # Valid class
-                            return True
-
-                    # collisional rates, damping, and elastic rates
-                    elif label == '2Dct' or label == '2Dcl' or \
-                         label == '2Dda' or label == '2Deq':
-
-                        # Load collisions and damping 1.5D class
-                        self.__object = _cols_damp_15D(self.__filename)
-
-                        if self.__object is not None:
-
-                            # Methods
-                            self.get_filename = self.__get_filename
-                            if label == '2Dct' or label == '2Dcl':
-                                self.get_type = self.__get_type
-                            self.get_nentry = self.__get_nentry
-                            self.get_na = self.__get_na
-                            self.get_nx = self.__get_nx
-                            self.get_ny = self.__get_ny
-                            self.get_nz = self.__get_nz
-                            self.get_nxy = self.__get_nxy
-                            self.get_nxyz = self.__get_nxyz
-                            self.get_dims = self.__get_dims
-                            self.get_column = self.__get_column_15dcapd
-                            self.get_plane = self.__get_plane_15dcapd
-
-                            # Valid class
-                            return True
-
-                    # Continuum quantities
-                    elif label == '2Dba':
-
-                        # Load continuum 1.5D class
-                        self.__object = _back_15D(self.__filename)
-
-                        if self.__object is not None:
-
-                            # Methods
-                            self.get_filename = self.__get_filename
-                            self.get_nx = self.__get_nx
-                            self.get_ny = self.__get_ny
-                            self.get_nz = self.__get_nz
-                            self.get_nl = self.__get_nl
-                            self.get_nxy = self.__get_nxy
-                            self.get_nxyz = self.__get_nxyz
-                            self.get_dims = self.__get_dims
-                            self.get_vars = self.__get_vars
-                            self.get_vars_units = self.__get_vars_units
-                            self.get_vars_alias= self.__get_vars_alias
-                            self.get_lambda = self.__get_lambda
-                            self.get_column = self.__get_column_res
-                            self.get_plane = self.__get_plane_back
-
-                            # Valid class
-                            return True
-
-                    # Populations and departures
-                    elif label == '2Dbp' or label == '2Dbb':
-
-                        # Load populations and departure 1.5D class
-                        self.__object = _pop_dep_15D(self.__filename)
-
-                        if self.__object is not None:
-
-                            # Methods
-                            self.get_filename = self.__get_filename
-                            self.get_type = self.__get_type
-                            self.get_nentry = self.__get_nentry
-                            self.get_nx = self.__get_nx
-                            self.get_ny = self.__get_ny
-                            self.get_nz = self.__get_nz
-                            self.get_nxy = self.__get_nxy
-                            self.get_nxyz = self.__get_nxyz
-                            self.get_dims = self.__get_dims
-                            self.get_column = self.__get_column_15dcapd
-                            self.get_plane = self.__get_plane_15dcapd
-
-                            # Valid class
-                            return True
-
-                    # CLE Stokes
-                    elif label == 'CLEe':
-
-                        # Load populations and departure 1.5D class
-                        self.__object = _stokes_CLE(self.__filename)
-
-                        if self.__object is not None:
-
-                            # Methods
-                            self.get_filename = self.__get_filename
-                            self.get_type = self.__get_type
-                            self.get_nx = self.__get_nx
-                            self.get_ny = self.__get_ny
-                            self.get_nxy = self.__get_nxy
-                            self.get_nl = self.__get_nl
-                            self.get_dims = self.__get_dims
-                            self.get_lambda = self.__get_lambda
-                            self.get_geometry = self.__get_geometry
-                            self.get_stokesi_column = self.__get_stokesi15d_c
-                            self.get_stokesq_column = self.__get_stokesq15d_c
-                            self.get_stokesu_column = self.__get_stokesu15d_c
-                            self.get_stokesv_column = self.__get_stokesv15d_c
-                            self.get_stokes_column = self.__get_stokes15d_c
-                            self.get_linear_column = self.__get_linear15d_c
-                            self.get_stokesi_plane = self.__get_stokesi15d_p
-                            self.get_stokesq_plane = self.__get_stokesq15d_p
-                            self.get_stokesu_plane = self.__get_stokesu15d_p
-                            self.get_stokesv_plane = self.__get_stokesv15d_p
-                            self.get_stokes_plane = self.__get_stokes15d_p
-                            self.get_linear_plane = self.__get_linear15d_p
-
-                            # Valid class
-                            return True
-
-                    # Fail
-                    else:
-
-                        # Not valid class
-                        return False
-
-                        print(f'{label} found in 4 char')
-
-                # Not any of the labels
-                else:
-
-                    print(f'{label} not found')
-                    return False
 
         # Return empty
         return False
@@ -10625,397 +12875,549 @@ class hanlertio_class():
             stablished class
         '''
         if not self.__valid:
-            self.__verbose('No valid file has been provided',True)
+          self.__verbose('No valid file has been provided',True)
         else:
 
-            # Get data about methods
-            methods = self.__object._get_help()
+          # Get data about methods
+          methods = self.__object._get_help()
 
-            # If nothing specified, just dump methods
-            if method is None or method not in methods:
+          # If nothing specified, just dump methods
+          if method is None or method not in methods:
 
-                # Dump method names
-                self.__verbose('Available methods:',True)
-                for m in methods:
-                    self.__verbose(f'  - {m}',True)
-                self.__verbose('You can call help(method=name,input=name) ' + \
-                         'to get information about a method or input',True)
+            # Dump method names
+            self.__verbose('Available methods:',True)
+            for m in methods:
+                self.__verbose(f'  - {m}',True)
+            self.__verbose('You can call ' + \
+                           'help(method=name,input=name) ' + \
+                           'to get information about a ' + \
+                           'method or input',True)
 
-            # If methods specified, provide particular info
+          # If methods specified, provide particular info
+          else:
+
+            # Decide branch
+            noin = input is None or methods[method][0] is None
+            if not noin:
+                noin = input not in methods[method][0]
+
+            # If no input specified, give info
+            if noin:
+
+              # Print help
+              self.__verbose(f'{method}: {methods[method][1]}',True)
+
+              # Has inputs?
+              if methods[method][0] is not None:
+                  self.__verbose(f'Inputs:',True)
+                  for i in methods[method][0]:
+                      self.__verbose(f'  - {i}',True)
+
+            # Specified an input
             else:
 
-                # Decide branch
-                noin = input is None or methods[method][0] is None
-                if not noin:
-                    noin = input not in methods[method][0]
+              # Print help
+              self.__verbose(f'In method {method}, ' + \
+                             f'{input}: ' + \
+                             f'{methods[method][0][input]}',True)
 
-                # If no input specified, give info
-                if noin:
-
-                    # Print help
-                    self.__verbose(f'{method}: {methods[method][1]}',True)
-
-                    # Has inputs?
-                    if methods[method][0] is not None:
-                        self.__verbose(f'Inputs:',True)
-                        for i in methods[method][0]:
-                            self.__verbose(f'  - {i}',True)
-
-                # Specified an input
-                else:
-
-                    # Print help
-                    self.__verbose(f'In method {method}, ' + \
-                                   f'{input}: {methods[method][0][input]}',True)
-
-################################################################################
+######################################################################
 
     # Parsers
 
     # All
     def __get_filename(self):
         return self.__object._get_filename()
+
+    # 1D atmo
+    def __get_name(self):
+        return self.__object._get_name()
+
+    # 1D atmo
+    def __get_comment(self):
+        return self.__object._get_comment()
+
+    # 1D atmo
+    def __get_wavelength(self):
+        return self.__object._get_wavelegnth()
+
     # 15D atmo
     def __get_precision(self):
         return self.__object._get_precision()
+
     # 1D cols, 1D popdep, 15D cols, 15D popdep
     def __get_type(self):
         return self.__object._get_type()
+
     # stokes 15D, inversion out
     def __get_polarized(self):
         return self.__object._get_polarized()
+
     # inversion out
     def __get_vtype(self):
         return self.__object._get_vtype()
+
     # inversion out
     def __get_btype(self):
         return self.__object._get_btype()
+
     # inversion out
     def __get_jkqin(self):
         return self.__object._get_jkqin()
+
     # inversion in
     def __get_info_verb(self):
         return self.__object._get_info_verb()
+
     # inversion in
     def __get_info(self):
         return self.__object._get_info()
+
     # inversion out
     def __get_vars_fix(self):
         return self.__object._get_vars_fix()
+
     # inversion out
     def __get_vars_fix_units(self):
         return self.__object._get_vars_fix_units()
-    # 3D atmos, inversion out, 15D back, 1D back
+
+    # 1D atmos, 3D atmos, inversion out, 15D back, 1D back
     def __get_vars(self):
         return self.__object._get_vars()
-    # 3D atmos, inversion out, 15D back, 1D back
+
+    # 1D atmos, 3D atmos, inversion out, 15D back, 1D back
     def __get_vars_units(self):
         return self.__object._get_vars_units()
-    # 3D atmos, 15D back
+
+    # 1D atmos, 3D atmos, 15D back
     def __get_vars_alias(self):
         return self.__object._get_vars_alias()
+
     # inversion out
     def __get_vars_atmo(self):
         return self.__object._get_vars_atmo()
+
     # inversion out
     def __get_vars_atmo_units(self):
         return self.__object._get_vars_atmo_units()
+
     # stokes 1D, stokesquad 1D, contribution 1D, tau 1D, 1D back,
     # 1D popdep, jkqnu 1D, stokes 15D, contribution 15D, tau15D,
     # inversion in, inversion out, 15D back
     def __get_nl(self):
         return self.__object._get_nl()
+
     # 1D back, stokesquad 1D
     def __get_nd(self):
         return self.__object._get_nd()
+
     # stokes 15D, contribution 15D, tau15D, inversion in,
     # inversion out, 15D cols, 15D back, 15D popdep
     def __get_nx(self):
         return self.__object._get_nx()
+
     # stokes 15D, contribution 15D, tau15D, inversion in,
     # inversion out, 15D cols, 15D back, 15D popdep
     def __get_ny(self):
         return self.__object._get_ny()
+
     # stokes 15D, contribution 15D, tau15D, inversion in,
     # inversion out, 15D cols, 15D back, 15D popdep
     def __get_nxy(self):
         return self.__object._get_nxy()
+
     # contribution 15D, inversion out, 15D cols, 15D back, 15D popdep
     def __get_nxyz(self):
         return self.__object._get_nxyz()
+
     # stokes 15D, contribution 15D, tau15D, 3D atmos, inversion in,
     # inversion out, 15D cols, 15D back, 15D popdep, 1D cols, 1D back,
     # 1D popdep
     def __get_dims(self):
         return self.__object._get_dims()
+
+    # Stokes 15D, contribution 15D, 15D back, CLE
+    def __get_scale(self):
+        return self.__object._get_scale()
+
     # contribution 1D, jkq 1D, rkq 1D, jkqnu 1D, 1D popdep,
-    # contribution 15D, 3D atmos, inversion out, 15D cols, 15D back,
-    # 15D popdep
+    # contribution 15D, 1D atmos, 3D atmos, inversion out, 15D cols,
+    # 15D back, 15D popdep
     def __get_nz(self):
         return self.__object._get_nz()
+
     # 15D cols, 15D popdep
     def __get_nentry(self):
         return self.__object._get_nentry()
+
     # jkq 1D, rkq 1D, 15D cols
     def __get_na(self):
         return self.__object._get_na()
+
     # jkq 1D, 1D damp
     def __get_nt(self,atom=None):
         return self.__object._get_nt(atom)
+
     # inversion out
     def __get_nvar_atmo(self):
         return self.__object._get_nvar_atmo()
+
     # inversion out
     def __get_nvar(self):
         return self.__object._get_nvar()
+
     # inversion in
     def __get_los(self):
         return self.__object._get_los()
+
     # inversion in
     def __get_los_c(self,ix=None,iy=None):
         return self.__object._get_los_column(ix,iy)
+
     # inversion in
     def __get_los_p(self,ix=None,iy=None):
         return self.__object._get_los_plane()
+
     # stokes 1D, stokesquad 1D, contribution 1D, tau 1D, stokes 15D,
     # contribution 15D, tau15D
     def __get_th(self):
         return self.__object._get_th()
+
     # stokes 1D, stokesquad 1D, contribution 1D, tau 1D, stokes 15D,
     # contribution 15D, tau15D
     def __get_ph(self):
         return self.__object._get_ph()
+
     # stokes 1D, stokesquad 1D, contribution 1D, tau 1D, stokes 15D,
     # contribution 15D, tau15D
     def __get_mu(self):
         return self.__object._get_mu()
+
     # stokes 1D, stokesquad 1D, contribution 1D, tau 1D, jkqnu 1D,
     # stokes 15D, contribution 15D, tau15D, inversion in, inversion
     # out 15D back, 1D back
     def __get_lambda(self,minl=None,maxl=None):
         return self.__object._get_lambda(minl,maxl)
+
     # CLEe
     def __get_geometry(self):
         return self.__object._get_geometry()
+
     # contribution 1D, jkq 1D, rkq 1D
     def __get_height(self,minh=None,maxh=None):
         return self.__object._get_height(minh,maxh)
+
     # tau 1D
     def __get_height1d(self,minl=None,maxl=None):
         return self.__object._get_height(minl,maxl)
+
     # stokes 1D, stokesquad 1D
     def __get_stokesi1d(self,minl=None,maxl=None):
         return self.__object._get_stokesi(minl,maxl)
+
     # stokes 1D, stokesquad 1D
     def __get_stokesq1d(self,minl=None,maxl=None,fractional=False):
         return self.__object._get_stokesq(minl,maxl,fractional)
+
     # stokes 1D, stokesquad 1D
     def __get_stokesu1d(self,minl=None,maxl=None,fractional=False):
         return self.__object._get_stokesu(minl,maxl,fractional)
+
     # stokes 1D, stokesquad 1D
     def __get_stokesv1d(self,minl=None,maxl=None,fractional=False):
         return self.__object._get_stokesv(minl,maxl,fractional)
+
     # stokes 1D, stokesquad 1D
     def __get_stokes1d(self,minl=None,maxl=None,fractional=False):
         return self.__object._get_stokes(minl,maxl,fractional)
+
     # stokes 1D, stokesquad 1D
     def __get_linear1d(self,minl=None,maxl=None,fractional=False):
         return self.__object._get_linear(minl,maxl,fractional)
+
     # contribution 1D
     def __get_ctri1d(self,minl=None,maxl=None,minh=None,maxh=None):
         return self.__object._get_ctri(minl,maxl,minh,maxh)
+
     # contribution 1D
     def __get_ctrq1d(self,minl=None,maxl=None,minh=None,maxh=None):
         return self.__object._get_ctrq(minl,maxl,minh,maxh)
+
     # contribution 1D
     def __get_ctru1d(self,minl=None,maxl=None,minh=None,maxh=None):
         return self.__object._get_ctru(minl,maxl,minh,maxh)
+
     # contribution 1D
     def __get_ctrv1d(self,minl=None,maxl=None,minh=None,maxh=None):
         return self.__object._get_ctrv(minl,maxl,minh,maxh)
+
     # contribution 1D
     def __get_ctr1d(self,minl=None,maxl=None,minh=None,maxh=None):
         return self.__object._get_ctr(minl,maxl,minh,maxh)
+
     # jkq 1D
     def __get_jkq1d(self,atom=None,transition=None,k=None,q=None, \
                     minh=None,maxh=None,sti=False):
-        return self.__object._get_jkq(atom,transition,k,q,minh,maxh,sti)
+        return self.__object._get_jkq(atom,transition,k,q, \
+                                      minh,maxh,sti)
+
     # jkqnu 1D
     def __get_jkqnu1d(self,minl=None,maxl=None):
         return self.__object._get_jkq(minl,maxl)
+
     # rkq 1D
     def __get_rkq1d(self,atom=None,minh=None,maxh=None):
         return self.__object._get_rkq(atom,minh,maxh)
+
     # contribution 1D
     def __get_ctr1d(self,minl=None,maxl=None,minh=None,maxh=None):
         return self.__object._get_ctr(minl,maxl,minh,maxh)
+
     # 1D cols, damping, qel
     def __get_column_1dcdq(self,ia=None,i1=None,i2=None,it=None):
         return self.__object._get_data(ia,i1,i2,it)
+
     # 1D back
     def __get_column_1dback(self,minl=None,maxl=None,var=None):
         return self.__object._get_data(minl,maxl,var)
+
     # 1D popdep
     def __get_column_1dcapd(self,ie=None):
         return self.__object._get_data(ie)
+
     # stokes 15D, inversion in
     def __get_stokesi15d_c(self,ix=None,iy=None,minl=None,maxl=None):
         return self.__object._get_stokesi_column(ix,iy,minl,maxl)
+
     # stokes 15D, inversion in
-    def __get_stokesq15d_c(self,ix=None,iy=None,minl=None,maxl=None,fractional=False):
-        return self.__object._get_stokesq_column(ix,iy,minl,maxl,fractional)
+    def __get_stokesq15d_c(self,ix=None,iy=None, \
+                           minl=None,maxl=None,fractional=False):
+        return self.__object._get_stokesq_column(ix,iy,minl,maxl, \
+                                                 fractional)
+
     # stokes 15D, inversion in
-    def __get_stokesu15d_c(self,ix=None,iy=None,minl=None,maxl=None,fractional=False):
-        return self.__object._get_stokesu_column(ix,iy,minl,maxl,fractional)
+    def __get_stokesu15d_c(self,ix=None,iy=None, \
+                           minl=None,maxl=None,fractional=False):
+        return self.__object._get_stokesu_column(ix,iy,minl,maxl, \
+                                                 fractional)
+
     # stokes 15D, inversion in
-    def __get_stokesv15d_c(self,ix=None,iy=None,minl=None,maxl=None,fractional=False):
-        return self.__object._get_stokesv_column(ix,iy,minl,maxl,fractional)
+    def __get_stokesv15d_c(self,ix=None,iy=None, \
+                           minl=None,maxl=None,fractional=False):
+        return self.__object._get_stokesv_column(ix,iy,minl,maxl, \
+                                                 fractional)
+
     # stokes 15D, inversion in
-    def __get_stokes15d_c(self,ix=None,iy=None,minl=None,maxl=None,fractional=False):
-        return self.__object._get_stokes_column(ix,iy,minl,maxl,fractional)
+    def __get_stokes15d_c(self,ix=None,iy=None, \
+                          minl=None,maxl=None,fractional=False):
+        return self.__object._get_stokes_column(ix,iy,minl,maxl, \
+                                                fractional)
+
     # stokes 15D, inversion in
-    def __get_linear15d_c(self,ix=None,iy=None,minl=None,maxl=None,fractional=False):
-        return self.__object._get_linear_column(ix,iy,minl,maxl,fractional)
+    def __get_linear15d_c(self,ix=None,iy=None, \
+                          minl=None,maxl=None,fractional=False):
+        return self.__object._get_linear_column(ix,iy,minl,maxl, \
+                                                fractional)
+
     # stokes 15D, inversion in
     def __get_stokesi15d_p(self,il=None):
         return self.__object._get_stokesi_plane(il)
+
     # stokes 15D, inversion in
     def __get_stokesq15d_p(self,il=None,fractional=False):
         return self.__object._get_stokesq_plane(il,fractional)
+
     # stokes 15D, inversion in
     def __get_stokesu15d_p(self,il=None,fractional=False):
         return self.__object._get_stokesu_plane(il,fractional)
+
     # stokes 15D, inversion in
     def __get_stokesv15d_p(self,il=None,fractional=False):
         return self.__object._get_stokesv_plane(il,fractional)
+
     # stokes 15D, inversion in
     def __get_stokes15d_p(self,il=None,fractional=False):
         return self.__object._get_stokes_plane(il,fractional)
+
     # stokes 15D, inversion in
     def __get_linear15d_p(self,il=None,fractional=False):
         return self.__object._get_linear_plane(il,fractional)
+
     # contribution 15D
     def __get_ctri15d_c(self,ix=None,iy=None,minl=None,maxl=None):
         return self.__object._get_ctri_column(ix,iy,minl,maxl)
+
     # contribution 15D
     def __get_ctrq15d_c(self,ix=None,iy=None,minl=None,maxl=None):
         return self.__object._get_ctrq_column(ix,iy,minl,maxl)
+
     # contribution 15D
     def __get_ctru15d_c(self,ix=None,iy=None,minl=None,maxl=None):
         return self.__object._get_ctru_column(ix,iy,minl,maxl)
+
     # contribution 15D
     def __get_ctrv15d_c(self,ix=None,iy=None,minl=None,maxl=None):
         return self.__object._get_ctrv_column(ix,iy,minl,maxl)
+
     # contribution 15D
     def __get_ctr15d_c(self,ix=None,iy=None,minl=None,maxl=None):
         return self.__object._get_ctr_column(ix,iy,minl,maxl)
+
+    # Stokes 15D, contribution 15D, tau15D, 15D atmo, inversion in,
+    # inversion out, 15D cols, 15D back, 15D popdep, CLE
+    def __get_cube(self):
+        return self.__object._get_cube()
+
+    # inversion out
+    def __get_cube_atmo(self):
+        return self.__object._get_cube_atmo()
+
     # tau 15D
     def __get_height15d_c(self,ix=None,iy=None,minl=None,maxl=None):
         return self.__object._get_column(ix,iy,minl,maxl)
+
     # tau 15D
     def __get_height15d_p(self,il=None):
         return self.__object._get_height_plane(il)
+
+    # 1D atmo
+    def __get_column_1dat(self,minz=None,maxz=None,var=None):
+        return self.__object._get_column(minz,maxz,var)
+
     # 3D atmo
     def __get_column_2dat(self,ix=None,iy=None,minh=None,maxh=None, \
                           mint=None,maxt=None,var=None):
-        return self.__object._get_column(ix,iy,minh,maxh,mint,maxt,var)
+        return self.__object._get_column(ix,iy,minh,maxh, \
+                                         mint,maxt,var)
+
     # 3D atmo
     def __get_plane_2dat(self,iz,var=None):
         return self.__object._get_plane(iz,var)
+
     # inversion out
     def __get_column_atmo(self,ix,iy,minh=None,maxh=None,var=None):
         return self.__object._get_column_atmo(ix,iy,minh,maxh,var)
+
     # inversion out, 15D back
     def __get_column_res(self,ix,iy,minl=None,maxl=None,var=None):
         return self.__object._get_column(ix,iy,minl,maxl,var)
+
     # inversion out
     def __get_column_rf(self,ix,iy,minl=None,maxl=None,var=None):
         return self.__object._get_column_rf(ix,iy,minl,maxl,var)
+
     # inversion out
     def __get_plane_chi(self):
         return self.__object._get_plane_chi()
+
     # inversion out
     def __get_plane_stk(self,il,var=None):
         return self.__object._get_plane_stk(il,var)
+
     # inversion out
     def __get_plane_atmo(self,iz,var=None):
         return self.__object._get_plane_atmo(iz,var)
+
     # inversion out
     def __get_node(self,var):
         return self.__object._get_node(var)
+
     # 15D back
     def __get_plane_back(self,iz,minl=None,maxl=None,var=None):
         return self.__object._get_plane(iz,minl,maxl,var)
+
     # 15D cols, 15D popdeb
     def __get_column_15dcapd(self,ix=None,iy=None,ie=None):
         return self.__object._get_column(ix,iy,ie)
+
     # 15D cols, 15D popbed
     def __get_plane_15dcapd(self,iz,ie=None):
         return self.__object._get_plane(iz,ie)
+
     # inversion in
     def __get_sigma(self):
         return self.__object._get_sigma()
+
     # inversion in
     def __get_sigmai15d_c(self,ix=None,iy=None,minl=None,maxl=None):
         return self.__object._get_sigmai_column(ix,iy,minl,maxl)
+
     # inversion in
     def __get_sigmaq15d_c(self,ix=None,iy=None,minl=None,maxl=None):
         return self.__object._get_sigmaq_column(ix,iy,minl,maxl)
+
     # inversion in
     def __get_sigmau15d_c(self,ix=None,iy=None,minl=None,maxl=None):
         return self.__object._get_sigmau_column(ix,iy,minl,maxl)
+
     # inversion in
     def __get_sigmav15d_c(self,ix=None,iy=None,minl=None,maxl=None):
         return self.__object._get_sigmav_column(ix,iy,minl,maxl)
+
     # inversion in
     def __get_sigma15d_c(self,ix=None,iy=None,minl=None,maxl=None):
         return self.__object._get_sigma_column(ix,iy,minl,maxl)
+
     # inversion in
     def __get_sigmai15d_p(self,il=None):
         return self.__object._get_sigmai_plane(il)
+
     # inversion in
     def __get_sigmaq15d_p(self,il=None):
         return self.__object._get_sigmaq_plane(il)
+
     # inversion in
     def __get_sigmau15d_p(self,il=None):
         return self.__object._get_sigmau_plane(il)
+
     # inversion in
     def __get_sigmav15d_p(self,i=None):
         return self.__object._get_sigmav_plane(il)
+
     # inversion in
     def __get_sigma15d_p(self,il=None):
         return self.__object._get_sigma_plane(il)
+
     # inversion in
     def __get_diffi15d_c(self,ix=None,iy=None,minl=None,maxl=None):
         return self.__object._get_diffi_column(ix,iy,minl,maxl)
+
     # inversion in
     def __get_diffq15d_c(self,ix=None,iy=None,minl=None,maxl=None):
         return self.__object._get_diffq_column(ix,iy,minl,maxl)
+
     # inversion in
     def __get_diffu15d_c(self,ix=None,iy=None,minl=None,maxl=None):
         return self.__object._get_diffu_column(ix,iy,minl,maxl)
+
     # inversion in
     def __get_diffv15d_c(self,ix=None,iy=None,minl=None,maxl=None):
         return self.__object._get_diffv_column(ix,iy,minl,maxl)
+
     # inversion in
     def __get_diff15d_c(self,ix=None,iy=None,minl=None,maxl=None):
         return self.__object._get_diff_column(ix,iy,minl,maxl)
+
     # inversion in
     def __get_diffi15d_p(self,il=None):
         return self.__object._get_diffi_plane(il)
+
     # inversion in
     def __get_diffq15d_p(self,il=None):
         return self.__object._get_diffq_plane(il)
+
     # inversion in
     def __get_diffu15d_p(self,il=None):
         return self.__object._get_diffu_plane(il)
+
     # inversion in
     def __get_diffv15d_p(self,i=None):
         return self.__object._get_diffv_plane(il)
+
     # inversion in
     def __get_diff15d_p(self,il=None):
         return self.__object._get_diff_plane(il)
 
-################################################################################
-################################################################################
-################################################################################
+######################################################################
+######################################################################
+######################################################################

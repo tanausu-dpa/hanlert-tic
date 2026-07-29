@@ -274,6 +274,18 @@ binary format.
 
 .. include:: wavelength_file.rst
 
+.. _inversion_weights_file:
+
+Inversion Weights File
+======================
+
+The inversion weights file contains wavelength dependent weights
+to use as a baseline in the inversion. It must be compatible
+with the size of the :ref:`data_file`. This file has the following
+binary format.
+
+.. include:: inversion_weights_file.rst
+
 
 .. _other_file:
 

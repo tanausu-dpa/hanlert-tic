@@ -1,4 +1,4 @@
-from hanlertmodlib as hrtml
+import hanlertmodlib as hrtml
 import numpy as np
 #from astropy.io import fits
 #from scipy.io import readsav
@@ -54,7 +54,7 @@ def main():
 
     #
     # IMPORTANT! X is the slow axis, and Y is the fast axis. The
-    # memory order is the important distinction, not the actual name
+    # memory order is the important distinction, not the actual name.
     #
     # IMPORTANT! If you only have a single spatial dimensions, you
     # still need to provide your arrays with two spatial dimensions,
@@ -66,21 +66,64 @@ def main():
     # Wavelength axis
     ##################################################################
 
+    #
+    # Here you would load or create a numpy array, dubbed
+    # 'my_wavelength' in the example, in nanometers.
+   #my_wavelength = TODO define wavelengths
+
     # If you wavelengths are in air, use the following to convert to
-    # vacuum (assuming wavelengths in nanometers)
-   #my_wavelength = hrtml.airtocauum(my_wavelength*1e1)*1e-1
+    # vacuum (assuming wavelengths in nanometers).
+   #my_wavelength = hrtml.airtovacuum(my_wavelength*1e1)*1e-1
 
     #
-    # To load the wavelengths. They must be in nanometers
+    # To load the wavelengths. They must be in nanometers.
    #check = helper.load_wavelength(my_wavelength)
 
     # Do not remove this sanity check
     if not check: sys.exit()
 
+    #
+    # Units
+    ##################################################################
+
+    #
+    # The code expects everything to be in the international system
+    # of units, in units of hertz (Hz). This applies to the intensity,
+    # the polarization Stokes parameters, the sigma (errors), and
+    # the diffuse light.
+    #
+    # If your variables are in wavelength units, intead of frequency
+    # units, the transformation corresponds to multiply by:
+    #
+    #    (my_wavelength_u)*(my_wavelenth*1e-7)/2.99792458e10
+    #
+    # where my_wavelength is the wavelength axis in nanometers that
+    # was loaded before, and my_wavelength_u is the same axis, with
+    # the same units that the wavelength band of your units. The
+    # wavelength band is typically in Angstrom, so it would be
+    #     my_wavelength_u = my_wavelength*1e1
+    #
+    # If your variables are in cgs units, in units of frequency, to
+    # transform into SI it is enough to multiply by 1e-3
+    #
+    # If your variables are in units of the continuum, you can
+    # use the included hanlertmodallen.py to get the continuum
+    # intensity tabulated by Allen (or any other method you see fit
+    # to calibrate in intensity). To get the intensity at a certain
+    # wavelength:
+    #    import hanlertmodallen as hrta
+    #    allen = hrta.allen_class()
+    #    Ic = allen.get_radiation(wavelength_in_nm)*1e-3
+    #
+
 
     #
     # Stokes data
     ##################################################################
+
+    #
+    # Here we would define or load the Stokes parameters. In the
+    # example they are stored in the 'my_data' variable
 
     #
     # To load your data cube. They must be in international system of
@@ -103,7 +146,7 @@ def main():
    #                                 il=<index_lambda_dim>)
     #
     #    - 3D: It is assumed that it is an only intensity data cube.
-    #          You need to provide at least of the two of the three
+    #          You need to provide at least two of the three
     #          indexes indicating the position of the dimension in
     #          your array.
     #
@@ -121,7 +164,7 @@ def main():
    #                                 il=<index_lambda_dim>)
     #
     #    - 4D: It is assumed that it is a full Stokes data cube.
-    #          You need to provide at least of the three of the four
+    #          You need to provide at least three of the four
     #          indexes indicating the position of the dimension in
     #          your array.
     #
