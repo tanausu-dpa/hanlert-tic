@@ -11,20 +11,15 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     15/06/2026 V4.0.8
+!     11/08/2026 V4.0.9
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     15/06/2026:    V4.0.8 - Added the definition of freqR and freqB
-!                             variables in Atom_class for hydrogen and
-!                             helium (TdPA)
-!                           - Bugfix: The wrong variable was being
-!                             checked in order to identify the
-!                             limits of the loop over transitions in
-!                             find_integral_limits (TdPA)
+!     11/08/2026:    V4.0.9 - Free the memory of the skip_wave input,
+!                             which is only used here once (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1548,6 +1543,8 @@
       ! Deallocate arrays
       if (allocated(tmp_lim)) deallocate(tmp_lim)
       deallocate(protect)
+      MRAMc = MRAMc - 1d-6*sizeof(Input%skip_wave(ia))
+      deallocate(Input%skip_wave)
 
       ! Check if everything is fine
       call control

@@ -10,16 +10,15 @@
 !  Start:
 !     17/04/2017
 !  Last version:
-!     09/04/2026 V4.0.17
+!     11/08/2026 V4.0.18
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     09/04/2026:   V4.0.17 - Changed the call to python to python3
-!                             as some systems do not have just python
-!                             anymore (TdPA)
+!     11/08/2026:   V4.0.18 - Read and apply the enforcement of
+!                             wavelengths form file (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -451,6 +450,47 @@
         end do
 
       end if ! Wavelength files
+
+      ! Read forcing wavelength files
+      read(100,*,err=1100) cdump
+
+      ! If forcing wavelengths from file
+      if (cdump.eq.'Y') then
+
+        ! If no files, ERROR
+        if (Input%NW.lt.1) then
+          umsg = 'Cannot force predefined wavelength in files '// &
+                 'if no file is specified'
+          call gaborted
+        end if
+
+        ! If active atoms
+        if (nA.gt.0) then
+
+          ! For each atom
+          do ia=1,nA
+
+            ! Do not add wavelengths
+            Input%skip_wave(ia) = .True.
+
+          end do ! Atoms
+
+        end if ! Active atoms
+
+        ! If LTE lines
+        if (Input%nLTE.gt.0) then
+
+          ! For each LTE line
+          do ia=1,Input%nLTE
+
+            ! Do not add wavelengths
+            Input%LTEline(ia)%nowave = .True.
+
+          end do ! LTE lines
+
+        end if ! LTE lines
+      end if ! Forcing wavelength from file
+
 
       !
       ! Sanity check wavelengths

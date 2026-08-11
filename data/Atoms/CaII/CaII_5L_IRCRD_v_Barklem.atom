@@ -31,11 +31,16 @@ ML          ! Type of model
 
 ! Transition Lines
 ! Upper_t Lower_t  Aul            Type  Arg1     Arg2   Arg3    Arg4   Stark    NFT    NFC    DT    DC  PRD
+! H
       4         1  1.40e+08       cross  234.0   0.223     1       0     1e0    301    171  2000    20    1
+! K
       5         1  1.470e+08      cross  234.0   0.223     1       0     1e0    301    171  2000    20    1
-      4         2  1.060e+07      cross  291.0   0.275     1       0     1e0    155    101   200    20    0
-      5         2  1.110e+06      cross  291.0   0.275     1       0     1e0    155    101   200    20    0
-      5         3  9.90e+06       cross  291.0   0.275     1       0     1e0    155    101   200    20    0
+! 8664
+      4         2  1.060e+07      cross  291.0   0.275     1       0     1e0    155    101   600    20    0
+! 8500
+      5         2  1.110e+06      cross  291.0   0.275     1       0     1e0    155    101   600    20    0
+! 8544
+      5         3  9.90e+06       cross  291.0   0.275     1       0     1e0    155    101   600    20    0
 
 
 ! Elastic collisions

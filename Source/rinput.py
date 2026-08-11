@@ -6,8 +6,7 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an (IAC)
 # Hao Li (IAC/NSSCC)
 #
-# 09/04/2026: V4.0.22 - Bugfix: Missing initialization of number
-#                       of LTE lines (TdPA)
+# 11/08/2026: V4.0.23 - Added WAVELENGTHS_FORCE keyword (TdPA)
 #
 #####################
 
@@ -2115,6 +2114,20 @@ def rInput():
       f.write(ou+'\n')
   else:
     f.write('0\n')
+
+  # WAVELENGTHS_FORCE
+  check = 0
+  if 'WAVELENGTHS_FORCE' in Dictionary:
+    val = Dictionary['WAVELENGTHS_FORCE'][0]
+    if val == 'Y' or val == 'YE' or val == 'YES' or \
+       val == 'S' or val =='SI':
+      f.write('Y\n')
+      check = 1
+    if val == 'N' or val == 'NO' or val == 'NON':
+      f.write('N\n')
+      check = 1
+  if check == 0:
+    f.write('N\n')
 
   # ASYMM_INPUT
   if rmode == 0:

@@ -442,6 +442,19 @@ WAVELENGTHS
 
   * Description: Path, absolute or relative to the running directory, to a file with a list of wavelengths to include in the frequency/wavelength axis in the formal solution.
 
+WAVELENGTHS_FORCE
+-----------------
+
+  * OPTIONAL, ADVANCED
+
+  * Modes: 1D, 15D, CLE, INV
+
+  * Formats:
+    
+    - string: Yes/No
+
+  * Description: Neglect the wavelengths allocated by individual spectral lines (active or LTE) and use only those in files specified by wavelengths files chosen with the WAVELENGTHS additive keyword. WARNING: only use this if you know what you are doing; an active atom needs a suitable grid for every radiative transition, both bound-bound and bound-free, or the results can be catastrophically wrong.
+
 ASYMM_INPUT
 -----------
 
