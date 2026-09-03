@@ -8442,7 +8442,7 @@ class _inversion_out():
                 col = self.__atmo['atmos'][ix,iy].copy()
 
                 # Read f
-                f_diff = self.__atmo['f'][ix,iy].copy()[0]
+                f_diff = np.asarray(self.__atmo['f'][ix,iy]).item()
 
                 # Check upper tau
                 if col[0,0] <= 0.: col[0,0] = col[0,1]*1e-3
