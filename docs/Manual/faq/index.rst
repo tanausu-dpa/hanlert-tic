@@ -9,6 +9,21 @@ I updated the code and now it is broken!
 
 Seems like while adding a feature, optimization, or trying to solve some issue, I broke something else. Please, go back to the previous version (you can check the version control with *git tree* or *git log*) and report the bug (by email or using the `issues tracker <https://gitlab.com/TdPA/hanlert-tic/-/issues>`_) so I can try solving it as soon as possible.
 
+I increased the number of CPUs and, intead of going faster, the synthesis seems stuck
+-------------------------------------------------------------------------------------
+
+It seems that the calculation of the partial frequency redistribution emissivity has hit a system limit regarding active MPI communications and something has been lost without causing an error in the MPI library. While the parallelization implementation for the partial frequency redistribution sounds great on paper, it unfortunately can overflow MPI. There are two ways of solving the issue.
+
+The first one is reducing the number of processes per pixel. This one is easy, but probably not ideal if you have the CPUs to spare.
+
+The second one is meddling with the parameters deciding the message flow in the parallelization. The relevant keywords in the :ref:`control file <input_file>` are:
+
+- MPI_CV_W_MINIMAL. It is an integer indicating the minimum number of simultaneous communications to generate per CPU. It is 4 by default.
+- MPI_CV_W_NOMINAL. It is an integer indicating the expected number of simultaneous communications to generate per CPU. It is 8 by default.
+- MPI_CV_W_MEM_LIMIT. It is a float indicating the memory limit to keep in a shared MPI pool. If it 50e6 by default, i.e., 50MB.
+
+What to change depends on the particular case, but a good starting point is reducing MPI_CV_W_NOMINAL. If reducing both MPI_CV_W_NOMINAL and MPI_CW_W_MEM_LIMIT does not solve the issue, then MPI_CV_W_MINIMAL needs to be reduced as well.
+
 What is the reference direction for the polarization?
 -----------------------------------------------------
 
@@ -16,7 +31,7 @@ In synthesis mode the reference direction of the polarization is set to the radi
 
 The reference direction for the inversion file is the opposite, and the linear polarization is expected to be referred to the parallel to the limb direction.
 
-How do you request reveral lines of sight in the same run?
+How do you request several lines of sight in the same run?
 ----------------------------------------------------------
 
 Most of the keywords that admit more than one element per entry expect spaces as separators. Therefore, for several heliocentric angles one would write, e.g., *POLAR_LOS = 0.1 0.5 1.0*.

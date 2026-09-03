@@ -9,17 +9,16 @@
 !  Start:
 !     08/10/2024
 !  Last version:
-!     23/03/2026 V4.2.1
+!     03/09/2026 V4.2.2
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     23/03/2026:    V4.2.1 - The parameters controlling the amount
-!                             of communications are now inputs (TdPA)
-!                           - Introduced a credit system to avoid
-!                             assymetric loads in MPI (TdPA)
+!     03/09/2026:    V4.2.2 - Bugfix: Wrong declaration and use of
+!                             a non-declared variable when compiling
+!                             with old MPI (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -658,7 +657,7 @@
         allocate(disp(0:nproc-1,Rz0:Rz1_PRD))
 #else
         ! Allocate frequency size for output
-        allocate(nsend(1)
+        allocate(nsend(1))
         allocate(nf_s(0:nproc-1,1))
         allocate(disp(0:nproc-1,1))
 #endif
@@ -1018,8 +1017,10 @@
                   end do
                 end do
 
+#ifndef oldmpi
                 ! Add credit
                 ncredit = ncredit + 1
+#endif
 
               end if ! Local calculation
             end if ! Within own height limits
@@ -1656,7 +1657,7 @@
         allocate(disp(0:nproc-1,Rz0:Rz1_PRD))
 #else
         ! Allocate frequency size for output
-        allocate(nsend(1)
+        allocate(nsend(1))
         allocate(nf_s(0:nproc-1,1))
         allocate(disp(0:nproc-1,1))
 #endif
