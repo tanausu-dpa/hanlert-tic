@@ -6,7 +6,11 @@ import sys, math, os, shutil
 # Tanaus\'u del Pino Alem\'an (IAC)
 # Hao Li (IAC/NSSCC)
 #
-# 11/08/2026: V4.0.23 - Added WAVELENGTHS_FORCE keyword (TdPA)
+# 08/09/2026: V4.0.24 - Bugfix: the Kurucz option for Van der Waals
+#                       broadening for LTE lines in native format
+#                       was not accessible, resulting in bad
+#                       processing of the input, due to a typo in
+#                       the checked label (TdPA)
 #
 #####################
 
@@ -732,7 +736,7 @@ def rInput():
       except:
         lerror(msg,ofolder,verbosity)
         return False, []
-    elif cols[i] == 'Kurucz':
+    elif cols[i] == 'kurucz':
       msg = 'Van der Waals coefficient '+cols[i]
       try:
         cols[i+1] = interpret(cols[i+1])

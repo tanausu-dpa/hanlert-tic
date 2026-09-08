@@ -11,15 +11,17 @@
 !  Start:
 !     18/04/2017
 !  Last version:
-!     11/08/2026 V4.0.9
+!     08/09/2026 V4.0.10
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     11/08/2026:    V4.0.9 - Free the memory of the skip_wave input,
-!                             which is only used here once (TdPA)
+!     08/09/2026:   V4.0.10 - Bugfix: Input%skip_wave was being fred
+!                             even when not initialized as of last
+!                             version, crashing runs with only LTE
+!                             lines (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -1543,8 +1545,10 @@
       ! Deallocate arrays
       if (allocated(tmp_lim)) deallocate(tmp_lim)
       deallocate(protect)
-      MRAMc = MRAMc - 1d-6*sizeof(Input%skip_wave(ia))
-      deallocate(Input%skip_wave)
+      if (allocated(Input%skip_wave)) then
+        MRAMc = MRAMc - 1d-6*sizeof(Input%skip_wave(ia))
+        deallocate(Input%skip_wave)
+      end if
 
       ! Check if everything is fine
       call control
