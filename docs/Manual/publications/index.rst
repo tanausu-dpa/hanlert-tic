@@ -33,3 +33,7 @@ List of publications (that we know about) which make use of the HanleRT-TIC code
 * Riva, F., et al. (2025), `A&A, 699A, 233R <https://ui.adsabs.harvard.edu/abs/2025A%26A...699A.233R/abstract>`_
 * Juanikorena Berasategi, I., et al. (2025), `A&A, 704A, 173J <https://ui.adsabs.harvard.edu/abs/2025A%26A...704A.173J/abstract>`_
 * Hofmann, R.A., et al. (2025), `ApJ, 990, 134H <https://ui.adsabs.harvard.edu/abs/2025ApJ...990..134H/abstract>`_
+* Afonso Delgado, D., et al. (2025), `ApJ 991, 164A <https://ui.adsabs.harvard.edu/abs/2025ApJ...991..164A/abstract>`_
+* Li, H., et al. (2026), `RvMPP, 10, 5L <https://ui.adsabs.harvard.edu/abs/2026RvMPP..10....5L/abstract>`_
+* Kriginsky, M., et al. (2026) `A&A, 708A, 282K <https://ui.adsabs.harvard.edu/abs/2026A%26A...708A.282K/abstract>`_
+* Afonso Delgado, D., et al. (2026) `ApJ, 1000, 273A <https://ui.adsabs.harvard.edu/abs/2026ApJ..1000..273A/abstract>`_
