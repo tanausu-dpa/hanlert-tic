@@ -4715,24 +4715,24 @@ class _atmo_1D():
                 self.__vars.append(r'N$_{\rm H_3}$')
                 self.__vars.append(r'N$_{\rm H_4}$')
                 self.__vars.append(r'N$_{\rm p^+}$')
-                self__alias.append('nH0')
-                self__alias.append('nH1')
-                self__alias.append('nH2')
-                self__alias.append('nH3')
-                self__alias.append('nH4')
-                self__alias.append('np')
+                self.__alias.append('nH0')
+                self.__alias.append('nH1')
+                self.__alias.append('nH2')
+                self.__alias.append('nH3')
+                self.__alias.append('nH4')
+                self.__alias.append('np')
                 self.__vars_units.append(r'cm$^{-3}$')
                 self.__vars_units.append(r'cm$^{-3}$')
                 self.__vars_units.append(r'cm$^{-3}$')
                 self.__vars_units.append(r'cm$^{-3}$')
                 self.__vars_units.append(r'cm$^{-3}$')
                 self.__vars_units.append(r'cm$^{-3}$')
-                self__block2.append('nH0')
-                self__block2.append('nH1')
-                self__block2.append('nH2')
-                self__block2.append('nH3')
-                self__block2.append('nH4')
-                self__block2.append('np')
+                self.__block2.append('nH0')
+                self.__block2.append('nH1')
+                self.__block2.append('nH2')
+                self.__block2.append('nH3')
+                self.__block2.append('nH4')
+                self.__block2.append('np')
 
         except:
             raise
@@ -4916,7 +4916,7 @@ class _atmo_1D():
                            iline < self.__i1+self.__nz:
 
                             # Height index
-                            iz = iline - self.__i0
+                            iz = iline - self.__i1
 
                             # Strip
                             if '!' in line:
@@ -4926,11 +4926,12 @@ class _atmo_1D():
                                 idx = line.find('*')
                                 cline = line[:idx].strip()
                             else:
-                                cline.strip()
+                                cline = line.strip()
 
                             # Cols
                             cols = cline.split()
 
+                            # For each variable in the block
                             for i,v in enumerate(self.__block2):
                                 if v in ivar:
                                     out[v][iz] = float(cols[i])
