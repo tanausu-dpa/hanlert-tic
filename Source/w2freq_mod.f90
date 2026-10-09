@@ -10,16 +10,16 @@
 !  Start:
 !     17/02/2023
 !  Last version:
-!     11/06/2026 V4.0.5
+!     09/10/2026 V4.0.6
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     11/06/2026:    V4.0.5 - If a region has no intensity for a given
-!                             pixel, make the scale 1 to avoid zero
-!                             division (TdPA)
+!     09/10/2026:    V4.0.6 - Bugfix: Errores were being handled as
+!                             in subgroup routines, but these are
+!                             global (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -282,8 +282,7 @@
               ! Finish the error
               urou = 'inversion_weights'
               call abortedS(umsg,urou,.True.,.True.)
-              call control
-              return
+              call gcontrol
 
             end if ! Error
 
@@ -325,12 +324,11 @@
           if (Inf_Stokes%Num_wavelength.ne.nl) then
 
             ! Abort
-            umsg = 'number of wavelength in weight file do not '// &
+            umsg = 'number of wavelengths in weight file do not '// &
                    'match the data'
             urou = 'inversion_weights'
             call abortedS(umsg,urou,.True.,.True.)
-            call control
-            return
+            call gcontrol
 
           end if
 
@@ -346,8 +344,7 @@
                    'weight file must be 1 or 4, but it is ',nstk
             urou = 'inversion_weights'
             call abortedS(umsg,urou,.True.,.True.)
-            call control
-            return
+            call gcontrol
 
           end if
 
@@ -359,8 +356,7 @@
                    'for an inversion with polarization'
             urou = 'inversion_weights'
             call abortedS(umsg,urou,.True.,.True.)
-            call control
-            return
+            call gcontrol
 
           end if
 
@@ -375,8 +371,7 @@
         end if ! Master
 
         ! Control
-        call control
-        if (laborted) return
+        call gcontrol
 
         ! Share
         call MPI_BCAST(Inf_Stokes%weight(0,1), &
@@ -549,13 +544,11 @@
 
 1000  write(umsg,'(A,1x,i2)') 'Error opening weight file'
       call abortedS(umsg,urou,.True.,.True.)
-      call control
-      return
+      call gcontrol
 1100  write(umsg,'(A,1x,i2)') 'Error reading weight file'
       close(200)
       call abortedS(umsg,urou,.True.,.True.)
-      call control
-      return
+      call gcontrol
 
       end subroutine inversion_weights
 
@@ -678,8 +671,7 @@
             ! Finish the error
             urou = 'enhance_sigma'
             call abortedS(umsg,urou,.True.,.True.)
-            call control
-            return
+            call gcontrol
 
           end if ! Error
 
