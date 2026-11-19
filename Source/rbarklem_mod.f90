@@ -9,17 +9,19 @@
 !  Start:
 !     12/07/2022
 !  Last version:
-!     24/03/2026 V4.0.3
+!     28/10/2026 V4.0.4
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     24/03/2026:    V4.0.3 - Added checks for physical results when
-!                             interpolating with splines, with the
-!                             possibility to fallback to Cubic Hermite
-!                             and linear interpolation (TdPA)
+!     28/10/2026:    V4.0.4 - The call to bilinear interpolation had
+!                             the arguments in the wrong order.
+!                             Fortunately, it is really unlikely that
+!                             the code reaches such calls because
+!                             they are the fall-back of the fall-back
+!                             for the interpolation (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -987,9 +989,9 @@
 
       ! Check physics
       if (s.lt.0) &
-        call bilinear(n1i,n2i,tab1,n1,n2,s)
+        call bilinear(n2i,n1i,tab1,n2,n1,s)
       if (a.lt.0) &
-        call bilinear(n1i,n2i,tab2,n1,n2,a)
+        call bilinear(n2i,n1i,tab2,n2,n1,a)
 
       ! Flag as success
       ch = .True.
