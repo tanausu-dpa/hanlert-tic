@@ -5,10 +5,20 @@ import sys, math, os
 #
 # Tanaus\'u del Pino Alem\'an (IAC)
 #
-# 11/06/2026:  V4.0.3 - Added the option for charge-transfer
-#                       collisions A + H <-> A^+ + H^- (TdPA)
+# 23/11/2026:  V4.0.4 - New option for Van der Waals broadening
+#                       implementing the structure of Faurobert
+#                       et al. (1995) equations (TdPA)
 #
 #####################
+
+# Transform fortran double "d" to python float "e"
+def interpret(val):
+    ''' Interpret double precision nomenclature
+    '''
+    lst = list(val.lower())
+    while lst.count('d') > 0:
+      lst[lst.index('d')] = 'e'
+    return ''.join(lst)
 
 def rAtom():
   ''' Reads the input atomic file specified as argument.
@@ -304,9 +314,9 @@ def rAtom():
   # Auxiliars for transitions
   bark = ['s','p','d','f']
   bardic = {'s':'0','p':'1','d':'2','f':'3'}
-  broads = ['barklem','unsold','param','cross','kurucz']
+  broads = ['barklem','unsold','param','cross','kurucz','tcross']
   broads_dic = {'barklem':'0','unsold':'1','param':'2', \
-                'cross':'3','kurucz':'4'}
+                'cross':'3','kurucz':'4','tcross': '5'}
   classe = ['e1','m1','e2','m2','un']
   classe_dic = {'e1':1,'m1':2,'e2':3,'m2':4,'un':5}
 
@@ -345,12 +355,12 @@ def rAtom():
       mod = -1
     elif cols[3] not in classe and cols[3] not in broads:
       verbose(' # The fourth element in transition ' + \
-            '{0}'.format(ii+1) + \
-            ', {0}, is not a broadening of the '.format(cols[3]) + \
-            'following: {0}, {1}, or {2},'.format(*broads) + \
-            'nor a transition type of the '.format(cols[3]) + \
-            'following: {0}, {1}, {2}, {3} or {4},'.format(*classe), \
-              verbfile, verbosity)
+       '{0}'.format(ii+1) + \
+       ', {0}, is not a broadening of the '.format(cols[3]) + \
+       'following: {0}, {1}, {2}, {3}, {4}, or {5}'.format(*broads) + \
+       ', nor a transition type of the ' + \
+       'following: {0}, {1}, {2}, {3} or {4},'.format(*classe), \
+       verbfile, verbosity)
       abort(f,filename)
     # Check correct number of inputs
     if len(cols) < 15:
@@ -427,6 +437,11 @@ def rAtom():
       cols[6] = '0e0'
       cols[7] = '0e0'
       cols[8] = '0e0'
+    elif cols[4] == 'tcross':
+      numbers.append(5)
+      numbers.append(6)
+      cols[7] = '0e0'
+      cols[8] = '0e0'
     # Check Stark
     if 'l' in cols[9]:
       # Get value without K
@@ -442,10 +457,7 @@ def rAtom():
       numbers.append(9)
     # Process numbers
     for kk in numbers:
-      lst = list(cols[kk])
-      while lst.count('d') > 0:
-        lst[lst.index('d')] = 'e'
-      cols[kk] = ''.join(lst)
+      cols[kk] = interpret(cols[kk])
       num = float(cols[kk])
     # Add to output
     output.append(' '.join(cols[0:3]))

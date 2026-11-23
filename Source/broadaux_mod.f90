@@ -9,17 +9,16 @@
 !  Start:
 !     19/04/2017
 !  Last version:
-!     03/10/2025 V4.0.4
+!     23/11/2026 V4.0.5
 !
 !#####################################################################
 !#####################################################################
 !
 !  Changelog:
 !
-!     03/10/2025:    V4.0.4 - Barklem Van der Waals broadenings can
-!                             proceed without a continuum level, they
-!                             just neglect the helium contribution
-!                             with Unsold (TdPA)
+!     23/11/2026:    V4.0.5 - New option for Van der Waals broadening
+!                             implementing the structure of Faurobert
+!                             et al. (1995) equations (TdPA)
 !
 !#####################################################################
 !#####################################################################
@@ -380,6 +379,49 @@
         damp(:) = sigc*Atmo%nh(:,1) + damp(:)
 
       end if ! Kurucz inputs
+
+      !
+      ! If the type of broadening is like Faurobert et al. (1995)
+      if (Atom%broad_type(itran).eq.5) then
+
+        ! Barklem for H
+        damp = args(1)*((Atmo%T*2d-4)**args(2))*Atmo%nh(:,1) + damp
+
+        ! For each height
+        do iz=1,nz
+
+          ! Helium population from the atmosphere
+          if (Atmo%nhe(1,1).ge.0d0) then
+
+            ! Get population
+            nhe = Atmo%nhe(iz,1)
+
+          ! Helium population from the abundance
+          else
+
+            ! Get population
+            nhe = Atmo%nh(iz,1)*Ahe
+
+          end if
+
+          ! Unsold for Helium
+          damp(iz) = C6*(v02che**.3d0)*nhe*(Atmo%T(iz)**.3d0) + &
+                     damp(iz)
+
+        end do ! Heights
+
+        ! If storing parametric equivalence
+        if (aparam) then
+          b1 = args(2)
+          a1 = 1d8*sigc/((5d3*(1d0 + mhm/Atom%rmass))**b1)
+          b2 = .3d0
+          a2 = 1d9*C6*(v02che**.3)/((1d0 + mhem/Atom%rmass)**b2)
+          write(600,'(i10,1x,i10,"-->",2x,i10,1x,A,4(1x,es15.8))', &
+                err=1100) itran,itermu,iterml, &
+                          '     tcross',a1,b1,a2,b2
+        end if
+
+      end if ! Faurobert-like inputs
 
       return
 
